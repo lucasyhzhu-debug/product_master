@@ -66,6 +66,7 @@ def list_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
                         retail_price_idr=latest.retail_price_idr,
                         contribution_margin_pct=cogs_data["contribution_margin_pct"],
                         created_at=product.created_at,
+                        tags=product.tags,
                     )
                 )
     return result
