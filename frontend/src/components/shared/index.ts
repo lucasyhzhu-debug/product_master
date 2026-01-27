@@ -4,3 +4,4 @@ export { CostTooltip } from './CostTooltip';
 export { ConfirmDialog } from './ConfirmDialog';
 export { LoadingCards, LoadingPage } from './LoadingState';
 export { IngredientModal } from './IngredientModal';
+export { TagFilterBar } from './TagFilterBar';

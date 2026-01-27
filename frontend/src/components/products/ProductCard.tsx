@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import type { ProductSummary } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,18 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {product.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag.id} variant="secondary" className="text-xs">
+                  {tag.name}
+                </Badge>
+              ))}
+              {product.tags.length > 3 && (
+                <Badge variant="outline" className="text-xs">
+                  +{product.tags.length - 3}
+                </Badge>
+              )}
+            </div>
             <div className="text-xs text-muted-foreground">
               <p>Recipe: {product.recipe_name}</p>
               <p>Packaging: {product.packaging_name}</p>
