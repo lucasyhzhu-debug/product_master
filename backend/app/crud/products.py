@@ -4,6 +4,7 @@ from sqlalchemy import func
 from app.models.product import Product, ProductVersion
 from app.models.recipe import RecipeVersion
 from app.models.packaging import PackagingVersion
+from app.models.tag import Tag
 from app.schemas.product import ProductCreate, ProductVersionCreate, ProductVersionCopyCreate
 
 
@@ -100,6 +101,11 @@ def create_product(db: Session, product: ProductCreate) -> Product:
     db_product = Product(name=product.name)
     db.add(db_product)
     db.flush()
+
+    # Add tags if provided
+    if product.tag_ids:
+        tags = db.query(Tag).filter(Tag.id.in_(product.tag_ids)).all()
+        db_product.tags.extend(tags)
 
     # Create first version
     _create_version(

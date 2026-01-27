@@ -69,7 +69,8 @@ class RecipeVersion(Base):
         "RecipeComponent",
         back_populates="recipe_version",
         cascade="all, delete-orphan",
-        order_by="RecipeComponent.sort_order"
+        order_by="RecipeComponent.sort_order",
+        foreign_keys="[RecipeComponent.recipe_version_id]"
     )
     copied_from: Mapped[Optional["RecipeVersion"]] = relationship(
         "RecipeVersion",
@@ -96,7 +97,7 @@ class RecipeComponent(Base):
     linked_recipe_version_id: Mapped[int | None] = mapped_column(ForeignKey("recipe_version.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
-    # Relationships
+    # Relationships - must explicitly specify which FK to use for the back_populates relationship
     recipe_version: Mapped["RecipeVersion"] = relationship(
         "RecipeVersion",
         back_populates="components",
