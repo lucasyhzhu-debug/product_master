@@ -56,13 +56,15 @@ uvicorn app.main:app --reload --port 8000
 
 The API will be available at http://localhost:8000
 
-### Frontend (Coming in Phase 2)
+### Frontend
 
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
+The app will be available at http://localhost:5173
 
 ## API Endpoints
 
@@ -140,10 +142,43 @@ npm run dev
 - [x] API routers
 - [x] Default tag seeding
 
-### Phase 2: Frontend (Pending)
-- [ ] React + TypeScript setup with Vite
-- [ ] Tailwind CSS + shadcn/ui
-- [ ] Dashboard with carousels
-- [ ] Recipe Editor
-- [ ] Packaging Editor
-- [ ] Product Editor
+### Phase 2: Frontend (Completed)
+- [x] React + TypeScript setup with Vite
+- [x] Tailwind CSS 4.x + shadcn/ui components
+- [x] TanStack Query for API state management
+- [x] Dashboard with carousels (Products, Recipes, Packaging)
+- [x] Recipe Editor with version navigation and component management
+- [x] Packaging Editor with material management
+- [x] Product Editor with COGS breakdown
+
+## Frontend Structure
+
+```
+frontend/src/
+├── components/
+│   ├── ui/                  # shadcn/ui components (Button, Card, Dialog, etc.)
+│   ├── layout/              # Layout components (Header, PageHeader)
+│   ├── shared/              # Shared components (Carousel, VersionNavigator, etc.)
+│   ├── recipes/             # Recipe-specific components
+│   ├── packaging/           # Packaging-specific components
+│   └── products/            # Product-specific components
+├── pages/
+│   ├── Dashboard.tsx        # Main dashboard with carousels
+│   ├── RecipeEditor.tsx     # Recipe create/edit with versions
+│   ├── PackagingEditor.tsx  # Packaging create/edit with versions
+│   └── ProductEditor.tsx    # Product create/edit with COGS
+├── hooks/                   # React Query hooks for each entity
+├── lib/
+│   ├── api.ts              # Axios API client
+│   ├── types.ts            # TypeScript interfaces
+│   └── utils.ts            # Utility functions
+└── App.tsx                 # Router setup
+```
+
+## Environment Variables
+
+### Frontend
+```bash
+# frontend/.env
+VITE_API_URL=http://localhost:8000/api
+```
