@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -70,7 +71,9 @@ export function Carousel({
             "-mx-1 px-1" // Allow box shadow to show
           )}
         >
-          {children}
+          <AnimatePresence mode="popLayout">
+            {children}
+          </AnimatePresence>
         </div>
       )}
     </section>
