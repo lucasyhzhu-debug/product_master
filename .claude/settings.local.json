@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd complete backend implementation with FastAPI\n\n- Database setup with SQLite and SQLAlchemy 2.x\n- Models: Ingredient, PackagingMaterial, Tag, Recipe/Packaging/Product with versioning\n- Pydantic schemas for API request/response validation\n- CRUD operations for all entities with version copy functionality\n- Cost calculator service with unit conversion and margin analysis\n- API routers for ingredients, packaging materials, tags, recipes, packaging, products\n- Dashboard stats endpoint\n- Default tags seeded on startup\n- CORS configured for frontend development\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(gh pr create:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(where:*)",
+      "Bash(cmd /c \"where gh\")",
+      "Bash(npx tailwindcss:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(npm ls:*)"
+    ]
+  }
+}
