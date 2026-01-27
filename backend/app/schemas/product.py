@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from app.schemas.tag import TagResponse
 
 
 # Product Version schemas
@@ -60,6 +61,7 @@ class ProductVersionDetail(ProductVersionResponse):
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     first_version: ProductVersionCreate
+    tag_ids: list[int] = Field(default_factory=list)
 
 
 class ProductResponse(BaseModel):
@@ -68,6 +70,7 @@ class ProductResponse(BaseModel):
     created_at: datetime
     created_by: str
     versions: list[ProductVersionResponse]
+    tags: list[TagResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -84,3 +87,4 @@ class ProductSummary(BaseModel):
     retail_price_idr: float
     contribution_margin_pct: float | None
     created_at: datetime
+    tags: list[TagResponse] = Field(default_factory=list)
