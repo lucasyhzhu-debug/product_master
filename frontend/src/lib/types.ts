@@ -305,11 +305,13 @@ export interface Product {
   created_at: string;
   created_by: string;
   versions: ProductVersion[];
+  tags: Tag[];
 }
 
 export interface ProductCreate {
   name: string;
   first_version: ProductVersionCreate;
+  tag_ids?: number[];
 }
 
 export interface ProductSummary {
@@ -323,6 +325,7 @@ export interface ProductSummary {
   retail_price_idr: number;
   contribution_margin_pct: number | null;
   created_at: string;
+  tags: Tag[];
 }
 
 // Dashboard types
