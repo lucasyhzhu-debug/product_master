@@ -5,14 +5,17 @@ import { Carousel, LoadingCards } from '@/components/shared';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { PackagingCard } from '@/components/packaging/PackagingCard';
 import { ProductCard } from '@/components/products/ProductCard';
+import { IngredientCard } from '@/components/ingredients/IngredientCard';
 import { useRecipes } from '@/hooks/useRecipes';
 import { usePackagingRecipes } from '@/hooks/usePackaging';
 import { useProducts } from '@/hooks/useProducts';
+import { useIngredients } from '@/hooks/useIngredients';
 
 export function Dashboard() {
   const { data: recipes, isLoading: loadingRecipes } = useRecipes();
   const { data: packaging, isLoading: loadingPackaging } = usePackagingRecipes();
   const { data: products, isLoading: loadingProducts } = useProducts();
+  const { data: ingredients, isLoading: loadingIngredients } = useIngredients();
 
   return (
     <div className="space-y-8">
@@ -85,6 +88,28 @@ export function Dashboard() {
         ) : (
           packaging?.map((pkg) => (
             <PackagingCard key={pkg.id} packaging={pkg} />
+          ))
+        )}
+      </Carousel>
+
+      <Carousel
+        title="Ingredients"
+        isEmpty={!loadingIngredients && (!ingredients || ingredients.length === 0)}
+        emptyMessage="No ingredients yet. Create your first ingredient!"
+        action={
+          <Button size="sm" asChild>
+            <Link to="/ingredients/new">
+              <Plus className="h-4 w-4 mr-1" />
+              New Ingredient
+            </Link>
+          </Button>
+        }
+      >
+        {loadingIngredients ? (
+          <LoadingCards count={4} />
+        ) : (
+          ingredients?.map((ingredient) => (
+            <IngredientCard key={ingredient.id} ingredient={ingredient} />
           ))
         )}
       </Carousel>

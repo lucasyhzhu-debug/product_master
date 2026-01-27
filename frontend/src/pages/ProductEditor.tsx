@@ -7,12 +7,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
 import { VersionNavigator, ConfirmDialog } from '@/components/shared';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct, useProductVersion, useCreateProduct, useCreateProductVersion, useCopyProductVersion, useDeleteProduct } from '@/hooks/useProducts';
 import { useRecipes } from '@/hooks/useRecipes';
 import { usePackagingRecipes } from '@/hooks/usePackaging';
+import { useTags } from '@/hooks/useTags';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 
 export function ProductEditor() {
@@ -24,6 +26,7 @@ export function ProductEditor() {
   const { data: product, isLoading: loadingProduct } = useProduct(productId);
   const { data: recipes } = useRecipes();
   const { data: packagingList } = usePackagingRecipes();
+  const { data: tags } = useTags();
 
   const [currentVersionNumber, setCurrentVersionNumber] = useState(1);
   const { data: versionDetail } = useProductVersion(productId, currentVersionNumber);
@@ -37,6 +40,7 @@ export function ProductEditor() {
   const [name, setName] = useState('');
   const [versionName, setVersionName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [recipeVersionId, setRecipeVersionId] = useState<number | null>(null);
   const [packagingVersionId, setPackagingVersionId] = useState<number | null>(null);
   const [retailPrice, setRetailPrice] = useState('');
@@ -57,6 +61,7 @@ export function ProductEditor() {
   useEffect(() => {
     if (product && !isNew) {
       setName(product.name);
+      setSelectedTags(product.tags.map(t => t.id));
       if (product.versions.length > 0) {
         const latestVersion = Math.max(...product.versions.map(v => v.version_number));
         setCurrentVersionNumber(latestVersion);
@@ -81,6 +86,15 @@ export function ProductEditor() {
 
   const selectedRecipe = recipes?.find(r => r.id === selectedRecipeId);
   const selectedPackaging = packagingList?.find(p => p.id === selectedPackagingId);
+
+  // Compute inherited tags from recipe and packaging
+  const inheritedTags = new Set<number>();
+  if (selectedRecipe) {
+    selectedRecipe.tags.forEach(tag => inheritedTags.add(tag.id));
+  }
+  if (selectedPackaging) {
+    selectedPackaging.tags.forEach(tag => inheritedTags.add(tag.id));
+  }
 
   const handleSave = async () => {
     // Validate
@@ -117,6 +131,7 @@ export function ProductEditor() {
       if (isNew) {
         const result = await createProduct.mutateAsync({
           name,
+          tag_ids: Array.from(inheritedTags).concat(selectedTags),
           first_version: {
             version_name: versionName,
             description,
@@ -311,6 +326,46 @@ export function ProductEditor() {
                 onChange={(e) => setGramsPerPiece(e.target.value)}
                 placeholder="e.g., 25"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tags</Label>
+              <div className="space-y-2">
+                {inheritedTags.size > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2">Inherited from recipe & packaging:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from(inheritedTags).map((tagId) => {
+                        const tag = tags?.find(t => t.id === tagId);
+                        return tag ? (
+                          <Badge key={tag.id} variant="secondary">
+                            {tag.name}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Additional tags:</p>
+                <div className="flex flex-wrap gap-1">
+                  {tags?.map((tag) => (
+                    <Badge
+                      key={tag.id}
+                      variant={selectedTags.includes(tag.id) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() =>
+                        setSelectedTags(
+                          selectedTags.includes(tag.id)
+                            ? selectedTags.filter((t) => t !== tag.id)
+                            : [...selectedTags, tag.id]
+                        )
+                      }
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

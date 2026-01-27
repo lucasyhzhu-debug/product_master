@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import String, Float, Integer, DateTime, ForeignKey, Index, UniqueConstraint, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from typing import TYPE_CHECKING, List, Optional
@@ -9,6 +9,15 @@ from app.database import Base
 if TYPE_CHECKING:
     from app.models.recipe import RecipeVersion
     from app.models.packaging import PackagingVersion
+
+
+# Junction table for product tags
+ProductTag = Table(
+    "product_tag",
+    Base.metadata,
+    Column("product_id", Integer, ForeignKey("product.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tag.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Product(Base):
@@ -25,6 +34,11 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
         order_by="ProductVersion.version_number"
+    )
+    tags: Mapped[List["Tag"]] = relationship(
+        "Tag",
+        secondary=ProductTag,
+        lazy="joined"
     )
 
     __table_args__ = (
@@ -76,3 +90,4 @@ class ProductVersion(Base):
 # Import for relationships
 from app.models.recipe import RecipeVersion
 from app.models.packaging import PackagingVersion
+from app.models.tag import Tag
