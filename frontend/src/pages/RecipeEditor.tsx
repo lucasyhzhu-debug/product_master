@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
-import { VersionNavigator, ConfirmDialog, CostTooltip } from '@/components/shared';
+import { VersionNavigator, ConfirmDialog, CostTooltip, IngredientModal } from '@/components/shared';
+import { IngredientSelector } from '@/components/recipes/IngredientSelector';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRecipe, useRecipeVersion, useCreateRecipe, useCreateRecipeVersion, useCopyRecipeVersion, useDeleteRecipe } from '@/hooks/useRecipes';
-import { useIngredients } from '@/hooks/useIngredients';
+import { useIngredients, useCreateIngredient } from '@/hooks/useIngredients';
 import { useTags } from '@/hooks/useTags';
 import { formatCurrency } from '@/lib/utils';
-import type { RecipeComponentCreate, ComponentIngredientCreate } from '@/lib/types';
+import type { RecipeComponentCreate, ComponentIngredientCreate, IngredientCreate } from '@/lib/types';
 
 interface ComponentDraft {
   id: string;
@@ -51,6 +52,7 @@ export function RecipeEditor() {
   const createVersion = useCreateRecipeVersion();
   const copyVersion = useCopyRecipeVersion();
   const deleteRecipe = useDeleteRecipe();
+  const createIngredient = useCreateIngredient();
 
   // Form state
   const [name, setName] = useState('');
@@ -64,6 +66,7 @@ export function RecipeEditor() {
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [showIngredientModal, setShowIngredientModal] = useState(false);
   const [copyVersionName, setCopyVersionName] = useState('');
   const [copyDescription, setCopyDescription] = useState('');
 
@@ -287,6 +290,16 @@ export function RecipeEditor() {
     }
   };
 
+  const handleCreateIngredient = async (ingredient: IngredientCreate) => {
+    try {
+      await createIngredient.mutateAsync(ingredient);
+      setShowIngredientModal(false);
+    } catch (error) {
+      console.error('Failed to create ingredient:', error);
+      alert('Failed to create ingredient');
+    }
+  };
+
   if (!isNew && loadingRecipe) {
     return (
       <div className="space-y-4">
@@ -398,7 +411,7 @@ export function RecipeEditor() {
               <Label htmlFor="reusable">Reusable as component</Label>
             </div>
 
-            {isNew && tags && (
+            {tags && (
               <div className="space-y-2">
                 <Label>Tags</Label>
                 <div className="flex flex-wrap gap-1">
@@ -504,25 +517,16 @@ export function RecipeEditor() {
                     {component.ingredients.map((ing) => (
                       <div key={ing.id} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-5">
-                          <Select
-                            value={ing.ingredient_id?.toString() || ''}
-                            onValueChange={(value) =>
+                          <IngredientSelector
+                            ingredients={ingredients}
+                            selectedId={ing.ingredient_id}
+                            onSelect={(id) =>
                               updateIngredient(component.id, ing.id, {
-                                ingredient_id: parseInt(value, 10),
+                                ingredient_id: id,
                               })
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select ingredient" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ingredients?.map((ingredient) => (
-                                <SelectItem key={ingredient.id} value={ingredient.id.toString()}>
-                                  {ingredient.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onCreateNew={() => setShowIngredientModal(true)}
+                          />
                         </div>
                         <div className="col-span-3">
                           <Input
@@ -643,6 +647,14 @@ export function RecipeEditor() {
           </Card>
         </div>
       )}
+
+      {/* Ingredient Modal */}
+      <IngredientModal
+        open={showIngredientModal}
+        onOpenChange={setShowIngredientModal}
+        onSubmit={handleCreateIngredient}
+        loading={createIngredient.isPending}
+      />
     </div>
   );
 }
