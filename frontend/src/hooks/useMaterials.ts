@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { packagingMaterialApi } from '@/lib/api';
 import type { PackagingMaterialCreate } from '@/lib/types';
 
@@ -32,6 +33,10 @@ export function useCreateMaterial() {
     mutationFn: (data: PackagingMaterialCreate) => packagingMaterialApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: materialKeys.lists() });
+      toast.success('Packaging material created successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to create packaging material');
     },
   });
 }
@@ -45,6 +50,10 @@ export function useUpdateMaterial() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: materialKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: materialKeys.lists() });
+      toast.success('Packaging material updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to update packaging material');
     },
   });
 }
@@ -56,6 +65,10 @@ export function useDeleteMaterial() {
     mutationFn: (id: number) => packagingMaterialApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: materialKeys.lists() });
+      toast.success('Packaging material deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to delete packaging material');
     },
   });
 }
