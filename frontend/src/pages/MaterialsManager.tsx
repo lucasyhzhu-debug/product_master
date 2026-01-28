@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/shared';
-import { useMaterials, useCreateMaterial, useDeleteMaterial } from '@/hooks/useMaterials';
+import { useMaterials, useCreateMaterial, useUpdateMaterial, useDeleteMaterial } from '@/hooks/useMaterials';
 import { formatCurrency } from '@/lib/utils';
 import type { PackagingMaterialCreate } from '@/lib/types';
 
@@ -17,9 +17,11 @@ export function MaterialsManager() {
   const navigate = useNavigate();
   const { data: materials, isLoading } = useMaterials();
   const createMaterial = useCreateMaterial();
+  const updateMaterial = useUpdateMaterial();
   const deleteMaterial = useDeleteMaterial();
 
   // Form state
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [procurementSource, setProcurementSource] = useState('');
@@ -31,6 +33,28 @@ export function MaterialsManager() {
   // Delete dialog
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName('');
+    setBrand('');
+    setProcurementSource('');
+    setUnitType('pcs');
+    setVolumePurchased('');
+    setPriceExclShipping('');
+    setShippingCost('');
+  };
+
+  const handleEdit = (material: any) => {
+    setEditingId(material.id);
+    setName(material.name);
+    setBrand(material.brand || '');
+    setProcurementSource(material.procurement_source || '');
+    setUnitType(material.unit_type);
+    setVolumePurchased(material.volume_purchased.toString());
+    setPriceExclShipping(material.price_excl_shipping.toString());
+    setShippingCost(material.shipping_cost.toString());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,18 +74,21 @@ export function MaterialsManager() {
       shipping_cost: shippingCost ? parseFloat(shippingCost) : 0,
     };
 
-    createMaterial.mutate(data, {
-      onSuccess: () => {
-        // Reset form
-        setName('');
-        setBrand('');
-        setProcurementSource('');
-        setUnitType('pcs');
-        setVolumePurchased('');
-        setPriceExclShipping('');
-        setShippingCost('');
-      },
-    });
+    if (editingId !== null) {
+      // Update existing material
+      updateMaterial.mutate({ id: editingId, data }, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
+    } else {
+      // Create new material
+      createMaterial.mutate(data, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
+    }
   };
 
   const handleDelete = () => {
@@ -89,12 +116,20 @@ export function MaterialsManager() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Create Form */}
+        {/* Create/Edit Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Add New Material
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {editingId ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                {editingId ? 'Edit Material' : 'Add New Material'}
+              </div>
+              {editingId && (
+                <Button variant="ghost" size="sm" onClick={resetForm}>
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -186,8 +221,15 @@ export function MaterialsManager() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={createMaterial.isPending}>
-                {createMaterial.isPending ? 'Adding...' : 'Add Material'}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createMaterial.isPending || updateMaterial.isPending}
+              >
+                {editingId
+                  ? (updateMaterial.isPending ? 'Updating...' : 'Update Material')
+                  : (createMaterial.isPending ? 'Adding...' : 'Add Material')
+                }
               </Button>
             </form>
           </CardContent>
@@ -229,17 +271,27 @@ export function MaterialsManager() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setDeleteId(material.id);
-                            setShowDeleteDialog(true);
-                          }}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(material)}
+                            className="text-primary hover:text-primary"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setDeleteId(material.id);
+                              setShowDeleteDialog(true);
+                            }}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
