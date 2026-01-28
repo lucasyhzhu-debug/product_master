@@ -759,6 +759,45 @@ VITE_API_URL=http://localhost:8000/api
 - PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
 - Product, ProductVersion
 
+## Git Workflow & Version Control Rules
+
+### Core Principles
+
+1. **Protect Main:** NEVER commit directly to the `main` branch. Always create a new feature branch for every task (e.g., `feature/add-login`, `fix/typo-header`).
+
+2. **Sync First:** Before starting ANY new task or creating a branch, you must switch to `main` and run `git pull` to ensure we aren't working on outdated code.
+
+3. **Atomic Commits:** Commit often. Do not wait until the entire feature is done. If you finish one logical step (like "added database schema"), commit it.
+   - Format: `git commit -m "Verb: Context"` (e.g., "Add: User profile schema" or "Fix: Mobile navigation overflow").
+
+4. **Verify Before Push:** Before pushing, run the project's build/test command to ensure the new code didn't break the app.
+
+5. **Self-Correction:** If a git command fails (like a merge conflict), STOP and ask the user for guidance. Do not try to force-solve complex git conflicts on your own.
+
+### Quick Reference
+
+```bash
+# Start new task
+git switch main                    # Always start from main
+git pull                          # Get latest changes
+git switch -c feature/your-name   # Create feature branch
+
+# Work on your branch
+git add <files>                   # Stage specific files
+git commit -m "Type: Description" # Atomic commits
+
+# Before pushing
+npm run build                     # Frontend: verify build
+cd backend && python -m pytest    # Backend: run tests
+git push origin feature/your-name # Push to remote
+
+# Merge to main (after PR approval)
+git switch main
+git pull
+git merge feature/your-name
+git push origin main
+```
+
 ## Implementation & Code Review Workflow
 
 ### Pre-Implementation Checklist
