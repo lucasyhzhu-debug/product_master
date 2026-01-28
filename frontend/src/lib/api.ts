@@ -68,7 +68,7 @@ export const ingredientApi = {
     return data;
   },
   update: async (id: number, ingredient: Partial<IngredientCreate>): Promise<Ingredient> => {
-    const { data } = await api.patch(`/ingredients/${id}`, ingredient);
+    const { data } = await api.put(`/ingredients/${id}`, ingredient);
     return data;
   },
   delete: async (id: number): Promise<void> => {
@@ -91,7 +91,7 @@ export const packagingMaterialApi = {
     return data;
   },
   update: async (id: number, material: Partial<PackagingMaterialCreate>): Promise<PackagingMaterial> => {
-    const { data } = await api.patch(`/packaging-materials/${id}`, material);
+    const { data } = await api.put(`/packaging-materials/${id}`, material);
     return data;
   },
   delete: async (id: number): Promise<void> => {

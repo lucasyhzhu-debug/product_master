@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { ingredientApi } from '@/lib/api';
 import type { IngredientCreate } from '@/lib/types';
 
@@ -32,6 +33,10 @@ export function useCreateIngredient() {
     mutationFn: (data: IngredientCreate) => ingredientApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ingredientKeys.lists() });
+      toast.success('Ingredient created successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to create ingredient');
     },
   });
 }
@@ -45,6 +50,10 @@ export function useUpdateIngredient() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ingredientKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: ingredientKeys.lists() });
+      toast.success('Ingredient updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to update ingredient');
     },
   });
 }
@@ -56,6 +65,10 @@ export function useDeleteIngredient() {
     mutationFn: (id: number) => ingredientApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ingredientKeys.lists() });
+      toast.success('Ingredient deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Failed to delete ingredient');
     },
   });
 }
