@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/shared';
-import { useIngredients, useCreateIngredient, useDeleteIngredient } from '@/hooks/useIngredients';
+import { useIngredients, useCreateIngredient, useUpdateIngredient, useDeleteIngredient } from '@/hooks/useIngredients';
 import { formatCurrency } from '@/lib/utils';
 import type { IngredientCreate } from '@/lib/types';
 
@@ -17,9 +17,11 @@ export function IngredientsManager() {
   const navigate = useNavigate();
   const { data: ingredients, isLoading } = useIngredients();
   const createIngredient = useCreateIngredient();
+  const updateIngredient = useUpdateIngredient();
   const deleteIngredient = useDeleteIngredient();
 
   // Form state
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [procurementSource, setProcurementSource] = useState('');
@@ -31,6 +33,28 @@ export function IngredientsManager() {
   // Delete dialog
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName('');
+    setBrand('');
+    setProcurementSource('');
+    setUnitType('g');
+    setVolumePurchased('');
+    setPriceExclShipping('');
+    setShippingCost('');
+  };
+
+  const handleEdit = (ingredient: any) => {
+    setEditingId(ingredient.id);
+    setName(ingredient.name);
+    setBrand(ingredient.brand || '');
+    setProcurementSource(ingredient.procurement_source || '');
+    setUnitType(ingredient.unit_type);
+    setVolumePurchased(ingredient.volume_purchased.toString());
+    setPriceExclShipping(ingredient.price_excl_shipping.toString());
+    setShippingCost(ingredient.shipping_cost.toString());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,18 +74,21 @@ export function IngredientsManager() {
       shipping_cost: shippingCost ? parseFloat(shippingCost) : 0,
     };
 
-    createIngredient.mutate(data, {
-      onSuccess: () => {
-        // Reset form
-        setName('');
-        setBrand('');
-        setProcurementSource('');
-        setUnitType('g');
-        setVolumePurchased('');
-        setPriceExclShipping('');
-        setShippingCost('');
-      },
-    });
+    if (editingId !== null) {
+      // Update existing ingredient
+      updateIngredient.mutate({ id: editingId, data }, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
+    } else {
+      // Create new ingredient
+      createIngredient.mutate(data, {
+        onSuccess: () => {
+          resetForm();
+        },
+      });
+    }
   };
 
   const handleDelete = () => {
@@ -89,12 +116,20 @@ export function IngredientsManager() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Create Form */}
+        {/* Create/Edit Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Add New Ingredient
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {editingId ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                {editingId ? 'Edit Ingredient' : 'Add New Ingredient'}
+              </div>
+              {editingId && (
+                <Button variant="ghost" size="sm" onClick={resetForm}>
+                  <X className="h-4 w-4 mr-1" />
+                  Cancel
+                </Button>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -186,8 +221,15 @@ export function IngredientsManager() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={createIngredient.isPending}>
-                {createIngredient.isPending ? 'Adding...' : 'Add Ingredient'}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createIngredient.isPending || updateIngredient.isPending}
+              >
+                {editingId
+                  ? (updateIngredient.isPending ? 'Updating...' : 'Update Ingredient')
+                  : (createIngredient.isPending ? 'Adding...' : 'Add Ingredient')
+                }
               </Button>
             </form>
           </CardContent>
@@ -229,17 +271,27 @@ export function IngredientsManager() {
                             </div>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setDeleteId(ingredient.id);
-                            setShowDeleteDialog(true);
-                          }}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(ingredient)}
+                            className="text-primary hover:text-primary"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setDeleteId(ingredient.id);
+                              setShowDeleteDialog(true);
+                            }}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
