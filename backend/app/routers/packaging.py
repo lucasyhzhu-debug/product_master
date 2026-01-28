@@ -1,3 +1,4 @@
+from typing import Union
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,6 +8,7 @@ from app.schemas.packaging import (
     PackagingRecipeResponse,
     PackagingRecipeSummary,
     PackagingVersionDetail,
+    PackagingVersionCreate,
     PackagingVersionCopyCreate,
     PackagingComponentResponse,
     PackagingComponentMaterialResponse,
@@ -143,11 +145,17 @@ def create_packaging_recipe(
 )
 def create_version(
     packaging_id: int,
-    version: PackagingVersionCopyCreate,
+    version: Union[PackagingVersionCreate, PackagingVersionCopyCreate],
     db: Session = Depends(get_db),
 ):
-    """Create a new version by copying from an existing version."""
-    new_version = crud.create_packaging_version(db, packaging_id, version)
+    """Create a new version - either by copying from an existing version or from scratch."""
+    if isinstance(version, PackagingVersionCopyCreate):
+        # Copy from existing version
+        new_version = crud.create_packaging_version(db, packaging_id, version)
+    else:
+        # Create new version with components
+        new_version = crud.create_packaging_version_new(db, packaging_id, version)
+
     if not new_version:
         raise HTTPException(
             status_code=400,
