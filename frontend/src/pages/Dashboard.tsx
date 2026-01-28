@@ -9,10 +9,12 @@ import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { PackagingCard } from '@/components/packaging/PackagingCard';
 import { ProductCard } from '@/components/products/ProductCard';
 import { IngredientCard } from '@/components/ingredients/IngredientCard';
+import { MaterialCard } from '@/components/materials/MaterialCard';
 import { useRecipes } from '@/hooks/useRecipes';
 import { usePackagingRecipes } from '@/hooks/usePackaging';
 import { useProducts } from '@/hooks/useProducts';
 import { useIngredients } from '@/hooks/useIngredients';
+import { useMaterials } from '@/hooks/useMaterials';
 import { useTags } from '@/hooks/useTags';
 import type { RecipeSummary, PackagingRecipeSummary, ProductSummary } from '@/lib/types';
 
@@ -23,6 +25,7 @@ export function Dashboard() {
   const { data: packaging, isLoading: loadingPackaging } = usePackagingRecipes();
   const { data: products, isLoading: loadingProducts } = useProducts();
   const { data: ingredients, isLoading: loadingIngredients } = useIngredients();
+  const { data: materials, isLoading: loadingMaterials } = useMaterials();
   const { data: tags } = useTags();
 
   // Toggle tag selection
@@ -240,6 +243,28 @@ export function Dashboard() {
         ) : (
           ingredients?.map((ingredient) => (
             <IngredientCard key={ingredient.id} ingredient={ingredient} />
+          ))
+        )}
+      </Carousel>
+
+      <Carousel
+        title="Packaging Materials"
+        isEmpty={!loadingMaterials && (!materials || materials.length === 0)}
+        emptyMessage="No packaging materials yet. Create your first material!"
+        action={
+          <Button size="sm" asChild>
+            <Link to="/materials/new">
+              <Plus className="h-4 w-4 mr-1" />
+              New Material
+            </Link>
+          </Button>
+        }
+      >
+        {loadingMaterials ? (
+          <LoadingCards count={4} />
+        ) : (
+          materials?.map((material) => (
+            <MaterialCard key={material.id} material={material} />
           ))
         )}
       </Carousel>
