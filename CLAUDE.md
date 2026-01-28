@@ -4,6 +4,450 @@
 
 **Malo Recipe Master** — A local-first recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, and product concepts with full versioning, cost calculations, and margin analysis.
 
+## 🔍 ARCHITECTURE & SCHEMA REFERENCE
+
+> **⚠️ MANDATORY REFERENCE**: This section MUST be reviewed before starting any planning or implementation work.
+> It provides the complete system architecture and database schema that agents need to understand before making changes.
+
+### System Architecture Overview
+
+**Request Flow:**
+```
+User Browser
+    ↓
+React Router (pages/)
+    ↓
+React Query Hooks (hooks/)
+    ↓
+Axios API Client (lib/api.ts)
+    ↓ HTTP/JSON
+FastAPI Routers (routers/)
+    ↓
+CRUD Operations (crud/)
+    ↓
+SQLAlchemy Models (models/)
+    ↓
+SQLite Database (data/malo_recipes.db)
+```
+
+**Layer Responsibilities:**
+- **Frontend Pages**: Handle routing, data fetching, user interactions
+- **React Query Hooks**: Manage server state, caching, mutations
+- **API Client**: HTTP requests with axios, centralized error handling
+- **FastAPI Routers**: Endpoint definitions, request validation, response formatting
+- **CRUD Layer**: Database queries, relationship loading, business logic
+- **Models Layer**: ORM definitions, relationships, constraints
+- **Services Layer**: Cross-cutting concerns (cost calculations)
+
+### Complete Database Schema (16 Tables)
+
+#### 1. `ingredient` - Food Ingredients
+```sql
+CREATE TABLE ingredient (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- e.g., "Tepung Terigu"
+    brand VARCHAR(255),                        -- e.g., "Cakra Kembar"
+    procurement_source VARCHAR(255),           -- e.g., "Tokopedia"
+    unit_type VARCHAR(10) NOT NULL DEFAULT 'g', -- g, kg, ml, l, pcs
+    volume_purchased FLOAT NOT NULL,           -- e.g., 1 (kg)
+    price_excl_shipping FLOAT NOT NULL,        -- IDR
+    shipping_cost FLOAT NOT NULL DEFAULT 0,    -- IDR
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_ingredient_name ON ingredient(name);
+CREATE INDEX idx_ingredient_brand ON ingredient(brand);
+```
+
+#### 2. `packaging_material` - Packaging Materials
+```sql
+CREATE TABLE packaging_material (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- e.g., "Plastik PP"
+    brand VARCHAR(255),
+    procurement_source VARCHAR(255),
+    unit_type VARCHAR(10) NOT NULL DEFAULT 'pcs', -- pcs, m, cm, sheets
+    volume_purchased FLOAT NOT NULL,
+    price_excl_shipping FLOAT NOT NULL,
+    shipping_cost FLOAT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_packaging_material_name ON packaging_material(name);
+```
+
+#### 3. `tag` - Category Tags
+```sql
+CREATE TABLE tag (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL UNIQUE,         -- e.g., "Dubai-Snack"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+-- Seeded on init: Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box
+```
+
+#### 4. `recipe` - Recipe Parent Entity
+```sql
+CREATE TABLE recipe (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- e.g., "Choco Crunch Base"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_recipe_name ON recipe(name);
+```
+
+#### 5. `recipe_version` - Versioned Recipe Data
+```sql
+CREATE TABLE recipe_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_id INTEGER NOT NULL,                -- FK to recipe
+    version_number INTEGER NOT NULL,           -- 1, 2, 3...
+    version_name VARCHAR(255) NOT NULL,        -- e.g., "Initial Formula"
+    description VARCHAR(1000),
+    estimated_yield_grams FLOAT,               -- Used for cost per gram
+    is_single_component BOOLEAN DEFAULT FALSE, -- True if only 1 component
+    is_reusable_component BOOLEAN DEFAULT FALSE, -- Can be linked by others
+    copied_from_version_id INTEGER,            -- FK to recipe_version (lineage)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin',
+    FOREIGN KEY (recipe_id) REFERENCES recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (copied_from_version_id) REFERENCES recipe_version(id),
+    UNIQUE (recipe_id, version_number)
+);
+CREATE INDEX idx_recipe_version_recipe ON recipe_version(recipe_id);
+```
+
+#### 6. `recipe_component` - Components in a Recipe Version
+```sql
+CREATE TABLE recipe_component (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_version_id INTEGER NOT NULL,        -- FK to recipe_version
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    component_name VARCHAR(255) NOT NULL,      -- e.g., "Dough Base"
+    linked_recipe_version_id INTEGER,          -- FK to recipe_version (for reusable)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (recipe_version_id) REFERENCES recipe_version(id) ON DELETE CASCADE,
+    FOREIGN KEY (linked_recipe_version_id) REFERENCES recipe_version(id)
+);
+CREATE INDEX idx_recipe_component_version ON recipe_component(recipe_version_id);
+CREATE INDEX idx_recipe_component_linked ON recipe_component(linked_recipe_version_id);
+```
+
+#### 7. `component_ingredient` - Ingredients in a Component
+```sql
+CREATE TABLE component_ingredient (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    recipe_component_id INTEGER NOT NULL,      -- FK to recipe_component
+    ingredient_id INTEGER NOT NULL,            -- FK to ingredient
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    unit VARCHAR(10) NOT NULL DEFAULT 'g',     -- g, kg, ml, l, pcs
+    quantity FLOAT NOT NULL,                   -- e.g., 500 (g)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (recipe_component_id) REFERENCES recipe_component(id) ON DELETE CASCADE,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredient(id)
+);
+CREATE INDEX idx_component_ingredient_component ON component_ingredient(recipe_component_id);
+```
+
+#### 8. `recipe_tag` - Junction Table (Recipe ↔ Tag)
+```sql
+CREATE TABLE recipe_tag (
+    recipe_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (recipe_id, tag_id),
+    FOREIGN KEY (recipe_id) REFERENCES recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+);
+```
+
+#### 9. `packaging_recipe` - Packaging Parent Entity
+```sql
+CREATE TABLE packaging_recipe (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- e.g., "Standard Sachet"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_packaging_recipe_name ON packaging_recipe(name);
+```
+
+#### 10. `packaging_version` - Versioned Packaging Data
+```sql
+CREATE TABLE packaging_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    packaging_recipe_id INTEGER NOT NULL,      -- FK to packaging_recipe
+    version_number INTEGER NOT NULL,
+    version_name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    copied_from_version_id INTEGER,            -- FK to packaging_version
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin',
+    FOREIGN KEY (packaging_recipe_id) REFERENCES packaging_recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (copied_from_version_id) REFERENCES packaging_version(id),
+    UNIQUE (packaging_recipe_id, version_number)
+);
+CREATE INDEX idx_packaging_version_recipe ON packaging_version(packaging_recipe_id);
+```
+
+#### 11. `packaging_component` - Components in Packaging Version
+```sql
+CREATE TABLE packaging_component (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    packaging_version_id INTEGER NOT NULL,     -- FK to packaging_version
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    component_name VARCHAR(255) NOT NULL,      -- e.g., "Inner Sachet"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (packaging_version_id) REFERENCES packaging_version(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_packaging_component_version ON packaging_component(packaging_version_id);
+```
+
+#### 12. `packaging_component_material` - Materials in Packaging Component
+```sql
+CREATE TABLE packaging_component_material (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    packaging_component_id INTEGER NOT NULL,   -- FK to packaging_component
+    packaging_material_id INTEGER NOT NULL,    -- FK to packaging_material
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    unit VARCHAR(10) NOT NULL DEFAULT 'pcs',   -- pcs, m, cm, sheets
+    quantity FLOAT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (packaging_component_id) REFERENCES packaging_component(id) ON DELETE CASCADE,
+    FOREIGN KEY (packaging_material_id) REFERENCES packaging_material(id)
+);
+CREATE INDEX idx_pcm_component ON packaging_component_material(packaging_component_id);
+```
+
+#### 13. `packaging_tag` - Junction Table (PackagingRecipe ↔ Tag)
+```sql
+CREATE TABLE packaging_tag (
+    packaging_recipe_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (packaging_recipe_id, tag_id),
+    FOREIGN KEY (packaging_recipe_id) REFERENCES packaging_recipe(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+);
+```
+
+#### 14. `product` - Product Parent Entity
+```sql
+CREATE TABLE product (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- e.g., "Choco Crunch 50g"
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_product_name ON product(name);
+```
+
+#### 15. `product_version` - Product Version with COGS
+```sql
+CREATE TABLE product_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,               -- FK to product
+    version_number INTEGER NOT NULL,
+    version_name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    recipe_version_id INTEGER NOT NULL,        -- FK to recipe_version (pinned)
+    packaging_version_id INTEGER NOT NULL,     -- FK to packaging_version (pinned)
+    retail_price_idr FLOAT NOT NULL,           -- Selling price
+    num_pieces INTEGER NOT NULL DEFAULT 1,     -- Pieces per product
+    grams_per_piece FLOAT NOT NULL,            -- Grams per piece
+    copied_from_version_id INTEGER,            -- FK to product_version
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin',
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+    FOREIGN KEY (recipe_version_id) REFERENCES recipe_version(id),
+    FOREIGN KEY (packaging_version_id) REFERENCES packaging_version(id),
+    FOREIGN KEY (copied_from_version_id) REFERENCES product_version(id),
+    UNIQUE (product_id, version_number)
+);
+CREATE INDEX idx_product_version_product ON product_version(product_id);
+CREATE INDEX idx_product_version_recipe ON product_version(recipe_version_id);
+CREATE INDEX idx_product_version_packaging ON product_version(packaging_version_id);
+```
+
+#### 16. `product_tag` - Junction Table (Product ↔ Tag)
+```sql
+CREATE TABLE product_tag (
+    product_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    PRIMARY KEY (product_id, tag_id),
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+);
+```
+
+### Visual Schema Diagram
+
+```
+┌──────────────┐
+│  Ingredient  │──┐
+└──────────────┘  │
+                  │  ┌──────────────────────┐      ┌──────────────────┐      ┌─────────┐      ┌────────────┐
+                  └─>│ ComponentIngredient  │─────>│ RecipeComponent  │─────>│ RecipeV │─────>│   Recipe   │
+                     └──────────────────────┘      └──────────────────┘      │ -ersion │      └─────────────┘
+                                                             │                └─────────┘             │
+                                                             │                     │                  │
+                                                             │(linked_recipe_      │(1:N)             │
+                                                             │ version_id)         │                  │
+                                                             └─────────────────────┘                  │
+                                                                                                      │
+┌────────────────────┐                                                                               │
+│ PackagingMaterial  │──┐                                                                            │
+└────────────────────┘  │                                                                            │
+                        │  ┌───────────────────────────┐   ┌──────────────────────┐   ┌───────────┐ │
+                        └─>│ PackagingComponentMaterial│──>│ PackagingComponent   │──>│ Packaging │ │
+                           └───────────────────────────┘   └──────────────────────┘   │  Version  │ │
+                                                                                       └───────────┘ │
+                                                                                            │        │
+                                                                                            │        │
+                                                      ┌─────────────────────────────────────┘        │
+                                                      │                                              │
+                                                      │        ┌────────────────┐                    │
+                                                      └───────>│ ProductVersion │<───────────────────┘
+                                                               └────────────────┘
+                                                                       │
+                                                                       │(1:N)
+                                                                       ▼
+                                                               ┌───────────────┐
+                                                               │    Product    │
+                                                               └───────────────┘
+
+┌──────┐     ┌────────────┐     ┌─────────────────┐     ┌─────────┐
+│ Tag  │<────│ recipe_tag │────>│     Recipe      │     │ (M:N)   │
+│      │<────│ packaging_ │────>│ PackagingRecipe │     │         │
+│      │<────│ product_   │────>│     Product     │     │         │
+└──────┘     └────────────┘     └─────────────────┘     └─────────┘
+```
+
+### Data Flow Patterns
+
+#### Cost Calculation Flow
+```
+Step 1: Base Cost (Ingredient/PackagingMaterial)
+    price_excl_shipping + shipping_cost = total_cost
+    normalize(volume_purchased, unit_type) = base_volume
+    → cost_per_base_unit = total_cost / base_volume
+    Example: 25,000 IDR ÷ 1000g = 25 IDR/g
+
+Step 2: Component Line Cost (ComponentIngredient/PackagingComponentMaterial)
+    quantity × ingredient.cost_per_base_unit = line_cost
+    Example: 500g × 25 IDR/g = 12,500 IDR
+
+Step 3: Component Total Cost (RecipeComponent)
+    IF linked_recipe_version_id EXISTS:
+        → get_recipe_version_cost(linked_recipe_version_id)
+    ELSE:
+        → sum(all component_ingredient line costs)
+
+Step 4: Recipe Version Total Cost
+    sum(all recipe_component costs) = total_cost
+    IF estimated_yield_grams:
+        → cost_per_gram = total_cost / estimated_yield_grams
+    Example: 50,000 IDR ÷ 1000g = 50 IDR/g
+
+Step 5: Product COGS Breakdown
+    total_grams = num_pieces × grams_per_piece
+    recipe_cogs = recipe_cost_per_gram × total_grams
+    packaging_cogs = sum(all packaging_component_material costs)
+    total_cogs = recipe_cogs + packaging_cogs
+    contribution_margin = retail_price_idr - total_cogs
+    margin_pct = (contribution_margin / retail_price_idr) × 100
+```
+
+#### Version Copy Flow
+```
+User Action: "Copy Version 3 to new version"
+    ↓
+1. Get source version (RecipeVersion id=3)
+    ↓
+2. Calculate next version_number = max(version_number) + 1
+    ↓
+3. Create new RecipeVersion
+    - version_number = 5
+    - copied_from_version_id = 3
+    - Copy all scalar fields from source
+    ↓
+4. Deep copy all RecipeComponents
+    For each component in source:
+        - Create new RecipeComponent
+        - Copy component_name, sort_order, linked_recipe_version_id
+        ↓
+        5. Deep copy all ComponentIngredients
+            For each ingredient in component:
+                - Create new ComponentIngredient
+                - Copy ingredient_id, quantity, unit, sort_order
+    ↓
+6. Commit transaction
+    ↓
+Result: Fully independent version that can be edited without affecting source
+```
+
+### Quick File Finder
+
+| Task | Backend Files | Frontend Files |
+|------|---------------|----------------|
+| **Add field to Recipe** | `models/recipe.py`<br>`schemas/recipe.py`<br>`crud/recipes.py` | `lib/types.ts`<br>`hooks/useRecipes.ts` |
+| **Modify cost calculation** | `services/cost_calculator.py` | `components/shared/CostTooltip.tsx` |
+| **Add Recipe API endpoint** | `routers/recipes.py` | `lib/api.ts`<br>`hooks/useRecipes.ts` |
+| **Update Recipe UI** | - | `pages/RecipeEditor.tsx`<br>`components/recipes/RecipeCard.tsx` |
+| **Add Packaging field** | `models/packaging.py`<br>`schemas/packaging.py`<br>`crud/packaging.py` | `lib/types.ts`<br>`hooks/usePackaging.ts` |
+| **Update Product COGS** | `services/cost_calculator.py`<br>`routers/products.py` | `pages/ProductEditor.tsx` |
+| **Add new Tag category** | `database.py` (seed data) | - |
+| **Create shared component** | - | `components/shared/` |
+| **Add validation logic** | `schemas/[entity].py` | Form components in `pages/` |
+| **Database schema change** | `database.py`<br>`models/[entity].py` | Update `lib/types.ts` to match |
+| **Fix N+1 query** | `crud/[entity].py` (add joinedload) | - |
+| **Add dashboard stat** | `routers/dashboard.py`<br>`crud/[entity].py` | `pages/Dashboard.tsx` |
+
+### Critical File Paths Reference
+
+**Backend Core:**
+- `backend/app/main.py` - FastAPI app, CORS, router registration (41 endpoints total)
+- `backend/app/database.py` - SQLite engine, session factory, init_db(), seed data
+- `backend/app/services/cost_calculator.py` - All cost calculation logic (212 lines)
+
+**Backend Models (7 files, 13 classes):**
+- `backend/app/models/ingredient.py` - Ingredient
+- `backend/app/models/packaging_material.py` - PackagingMaterial
+- `backend/app/models/tag.py` - Tag
+- `backend/app/models/recipe.py` - Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
+- `backend/app/models/packaging.py` - PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
+- `backend/app/models/product.py` - Product, ProductVersion
+
+**Backend Routers (7 files, 41 endpoint functions):**
+- `backend/app/routers/ingredients.py` - 5 endpoints (list, get, create, update, delete)
+- `backend/app/routers/packaging_materials.py` - 5 endpoints
+- `backend/app/routers/tags.py` - 3 endpoints (list, create, delete)
+- `backend/app/routers/recipes.py` - 8 endpoints (list, reusable, get, get_version, create, create_version, copy_version, update_tags, delete)
+- `backend/app/routers/packaging.py` - 7 endpoints
+- `backend/app/routers/products.py` - 6 endpoints
+- `backend/app/routers/dashboard.py` - 1 endpoint (stats)
+
+**Frontend Core:**
+- `frontend/src/App.tsx` - Router setup (5 routes), React Query provider
+- `frontend/src/lib/api.ts` - Axios client, 40+ API functions
+- `frontend/src/lib/types.ts` - TypeScript interfaces matching backend schemas (336 lines)
+
+**Frontend Pages (4 files):**
+- `frontend/src/pages/Dashboard.tsx` - 3 carousels (Products, Recipes, Packaging), statistics
+- `frontend/src/pages/RecipeEditor.tsx` - Recipe version editor (648 lines)
+- `frontend/src/pages/PackagingEditor.tsx` - Packaging version editor (607 lines)
+- `frontend/src/pages/ProductEditor.tsx` - Product version editor with COGS breakdown (545 lines)
+
+**Frontend Hooks (7 files):**
+- `frontend/src/hooks/useIngredients.ts` - Queries + mutations for ingredients
+- `frontend/src/hooks/useMaterials.ts` - Queries + mutations for packaging materials
+- `frontend/src/hooks/useTags.ts` - Queries + mutations for tags
+- `frontend/src/hooks/useRecipes.ts` - Queries + mutations for recipes
+- `frontend/src/hooks/usePackaging.ts` - Queries + mutations for packaging
+- `frontend/src/hooks/useProducts.ts` - Queries + mutations for products
+- Each hook includes: query key factory, list query, detail query, mutations with cache invalidation
+
 ## Tech Stack
 
 | Layer | Technology | Version |
@@ -721,6 +1165,22 @@ VITE_API_URL=http://localhost:8000/api
 - [ ] Pagination for large lists
 
 ## Changelog
+
+### 2025-01-28 - Ingredient & Material Management Enhancements
+**Added:**
+- Edit functionality for ingredients and packaging materials
+- Navigation links in header for Ingredients and Materials pages
+- Edit buttons on ingredient and material cards
+- Form mode switching (create vs. edit) with dynamic UI
+
+**Updated:**
+- IngredientsManager.tsx: Added edit mode with cancel button
+- MaterialsManager.tsx: Added edit mode with cancel button
+- Header.tsx: Added Ingredients and Materials navigation links
+- Both managers now use PUT endpoints for updates
+
+**Note:**
+- Add Ingredient modal in Recipe Editor was already fully wired up
 
 ### 2025-01-27 - Phase 2 Frontend Complete
 **Added:**
