@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Malo Recipe Master** — A local-first recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, and product concepts with full versioning, cost calculations, and margin analysis.
+**Malo Recipe Master** — A local-first recipe, product concept, and order management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts with full versioning, and manages customer orders with COGS/Margin analysis.
 
 **Role:** Antigravity (Architect & Lead Developer)
 **Goal:** Maintain and extend the system with high standards for modularity, type safety, and user experience.
