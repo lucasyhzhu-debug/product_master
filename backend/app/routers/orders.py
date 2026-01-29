@@ -26,6 +26,9 @@ from app.services.whatsapp_formatter import (
     format_whatsapp_receipt,
     format_whatsapp_shipping,
     format_whatsapp_pickup,
+    format_payment_request,
+    format_production_started,
+    format_delivery_complete,
 )
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -69,7 +72,11 @@ def _build_order_detail(order: Order) -> OrderDetail:
         created_at=order.created_at,
         created_by=order.created_by,
         items=order.items,
+        # WhatsApp templates for different stages
         whatsapp_text=format_whatsapp_receipt(order),
+        payment_request_text=format_payment_request(order),
+        production_started_text=format_production_started(order),
+        delivery_complete_text=format_delivery_complete(order),
         shipping_text=format_whatsapp_shipping(order),
         pickup_text=format_whatsapp_pickup(order),
     )

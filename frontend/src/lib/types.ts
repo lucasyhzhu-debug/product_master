@@ -472,7 +472,11 @@ export interface OrderDetail {
   created_at: string;
   created_by: string;
   items: OrderItem[];
+  // WhatsApp templates for different stages
   whatsapp_text: string;
+  payment_request_text?: string;  // Draft → Confirmed
+  production_started_text?: string;  // Confirmed → ProductionComplete
+  delivery_complete_text?: string;  // WaitingShipment → CompleteShipped
   shipping_text?: string;
   pickup_text?: string;
 }

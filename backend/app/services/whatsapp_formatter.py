@@ -1,6 +1,104 @@
-"""WhatsApp receipt text generator for orders."""
+"""WhatsApp receipt text generator for orders.
+
+Provides contextual WhatsApp templates for different order stages:
+- Payment request (Draft → Confirmed transition)
+- Order receipt (general order summary)
+- Production started notification
+- Delivery complete confirmation
+- Shipping confirmation
+- Pickup ready notification
+"""
 
 from app.models.order import Order
+
+
+def format_payment_request(order: Order) -> str:
+    """
+    Generate WhatsApp payment request for Draft → Confirmed transition.
+
+    Used when order manager sends the initial order confirmation to customer
+    requesting payment before production starts.
+    """
+    # Items summary
+    items_lines = []
+    for item in order.items:
+        price_k = item.unit_price / 1000
+        desc = item.product_name
+        if item.product_variant:
+            desc += f" ({item.product_variant})"
+        line = f"• {item.quantity}x {desc} @ {price_k:.0f}k"
+        items_lines.append(line)
+    items_text = "\n".join(items_lines)
+
+    # Total
+    total_formatted = f"IDR {order.total_amount:,.0f}".replace(",", ".")
+
+    # Due date
+    due_date_str = ""
+    if order.due_date:
+        due_date_str = order.due_date.strftime("%d %b %Y")
+
+    # Delivery info
+    delivery_info = ""
+    if order.delivery_type == "Pickup":
+        location = order.pickup_location or "Goldfinch Legato"
+        delivery_info = f"📍 Pickup at: {location}"
+    elif order.delivery_type == "Delivery" and order.delivery_address:
+        delivery_info = f"📍 Delivery to: {order.delivery_address}"
+
+    return f"""Halo {order.customer.name}! 👋
+
+Terima kasih sudah order di Malo! 🙏
+
+*Order #{order.order_number}*
+{items_text}
+────────────
+*Total: {total_formatted}*
+
+{delivery_info}
+📅 Target: {due_date_str}
+
+Silakan transfer ke:
+*BCA*
+*PT Malo Group Bahagia*
+*6044830994*
+
+Setelah transfer, mohon kirim bukti pembayaran ya.
+
+Terima kasih! 🙏"""
+
+
+def format_production_started(order: Order) -> str:
+    """
+    Generate WhatsApp notification when production starts.
+
+    Used after Confirmed status, when kitchen begins working on the order.
+    """
+    return f"""Halo {order.customer.name}! 👋
+
+Order kamu #{order.order_number} sudah mulai diproses! 🍳
+
+Kami akan kabari lagi kalau sudah siap ya.
+
+Terima kasih sudah sabar menunggu! 🙏"""
+
+
+def format_delivery_complete(order: Order) -> str:
+    """
+    Generate WhatsApp notification when delivery is complete.
+
+    Used when order status changes to CompleteShipped.
+    """
+    return f"""Halo {order.customer.name}! 👋
+
+Order #{order.order_number} sudah sampai ya! 📦✅
+
+Semoga suka dengan pesanannya! 😊
+
+Jangan lupa kasih review atau feedback ya, sangat membantu kami untuk terus berkembang.
+
+Terima kasih sudah order di Malo! 🙏
+Sampai jumpa di order berikutnya! 👋"""
 
 
 def format_whatsapp_receipt(order: Order) -> str:
