@@ -12,6 +12,7 @@ from app.routers import (
     dashboard_router,
     customers_router,
     orders_router,
+    menu_products_router,
 )
 
 # Create FastAPI app
@@ -45,6 +46,7 @@ app.include_router(packaging_router)
 app.include_router(products_router)
 app.include_router(customers_router)
 app.include_router(orders_router)
+app.include_router(menu_products_router)
 
 
 @app.on_event("startup")

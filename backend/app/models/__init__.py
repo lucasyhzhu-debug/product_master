@@ -6,6 +6,7 @@ from app.models.packaging import PackagingRecipe, PackagingVersion, PackagingCom
 from app.models.product import Product, ProductVersion
 from app.models.customer import Customer
 from app.models.order import Order, OrderItem
+from app.models.menu_product import MenuProduct
 
 __all__ = [
     "Ingredient",
@@ -26,4 +27,5 @@ __all__ = [
     "Customer",
     "Order",
     "OrderItem",
+    "MenuProduct",
 ]

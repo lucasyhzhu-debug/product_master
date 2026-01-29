@@ -49,6 +49,47 @@ def init_db():
             ]
             db.add_all(default_tags)
             db.commit()
+
+        # Seed menu products
+        from app.models.menu_product import MenuProduct
+        existing_products = db.query(MenuProduct).count()
+        if existing_products == 0:
+            default_products = [
+                MenuProduct(
+                    code="ORIGINAL_SINGLE",
+                    name="Original Single (80g)",
+                    grams=80,
+                    default_price=50000,
+                    production_type="original",
+                    production_units=1
+                ),
+                MenuProduct(
+                    code="BITE_SINGLE",
+                    name="Bite Sized Single (45g)",
+                    grams=45,
+                    default_price=35000,
+                    production_type="bite_sized",
+                    production_units=1
+                ),
+                MenuProduct(
+                    code="BITE_DOUBLE",
+                    name="Bite Sized Double (90g)",
+                    grams=90,
+                    default_price=70000,
+                    production_type="bite_sized",
+                    production_units=2
+                ),
+                MenuProduct(
+                    code="BITE_TRIPLE",
+                    name="Bite Sized Triple (135g)",
+                    grams=135,
+                    default_price=99000,
+                    production_type="bite_sized",
+                    production_units=3
+                ),
+            ]
+            db.add_all(default_products)
+            db.commit()
     finally:
         db.close()
 
