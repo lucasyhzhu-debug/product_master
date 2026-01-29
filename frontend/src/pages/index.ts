@@ -6,3 +6,4 @@ export { IngredientsManager } from './IngredientsManager';
 export { MaterialsManager } from './MaterialsManager';
 export { OrderManager } from './OrderManager';
 export { OrderDetail } from './OrderDetail';
+export { KitchenView } from './KitchenView';

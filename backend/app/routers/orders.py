@@ -135,6 +135,50 @@ def get_production_report(
     return crud.get_production_report(db, start_date=start_date, end_date=end_date)
 
 
+@router.get("/kitchen", response_model=list[OrderSummary])
+def get_kitchen_orders(
+    target_date: date | None = Query(None, description="Target date (YYYY-MM-DD), defaults to today"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get orders for Kitchen View.
+
+    Shows only production-relevant orders:
+    - Confirmed (to produce)
+    - ProductionComplete (done with production)
+    - Packaging (actively packaging)
+    - WaitingShipment / WaitingPickup (ready)
+
+    If no date provided, shows today + overdue.
+    """
+    if target_date is None:
+        target_date = date.today()
+
+    orders = crud.get_kitchen_orders(db, target_date=target_date)
+
+    return [
+        OrderSummary(
+            id=o.id,
+            order_number=o.order_number,
+            customer_name=o.customer.name,
+            customer_phone=o.customer.phone,
+            status=o.status,
+            payment_status=o.payment_status,
+            channel=o.channel,
+            sold_by=o.sold_by,
+            due_date=o.due_date,
+            total_amount=o.total_amount,
+            total_cost=o.total_cost,
+            total_margin=o.total_margin,
+            item_count=len(o.items),
+            delivery_type=o.delivery_type,
+            shipping_agency=o.shipping_agency,
+            created_at=o.created_at,
+        )
+        for o in orders
+    ]
+
+
 @router.get("/products/suggestions", response_model=list[ProductSuggestion])
 def get_product_suggestions(
     q: str | None = Query(None, description="Search query"),

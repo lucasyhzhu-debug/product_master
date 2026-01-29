@@ -338,6 +338,46 @@ def get_all_order_items_for_export(db: Session) -> list[tuple]:
     )
 
 
+def get_kitchen_orders(
+    db: Session,
+    target_date: date | None = None,
+) -> list[Order]:
+    """
+    Get orders for Kitchen View.
+
+    Only shows orders in production-relevant statuses:
+    - Confirmed (ready to produce)
+    - ProductionComplete (done, ready for packaging)
+    - Packaging (actively being packaged)
+    - WaitingShipment (ready for courier)
+    - WaitingPickup (ready for customer pickup)
+
+    Filters by due_date (includes overdue orders if target_date is today).
+    """
+    kitchen_statuses = [
+        "Confirmed",
+        "ProductionComplete",
+        "Packaging",
+        "WaitingShipment",
+        "WaitingPickup",
+    ]
+
+    query = (
+        db.query(Order)
+        .options(
+            joinedload(Order.customer),
+            joinedload(Order.items),
+        )
+        .filter(Order.status.in_(kitchen_statuses))
+    )
+
+    if target_date:
+        # Include orders due on target_date OR overdue (due before target_date)
+        query = query.filter(Order.due_date <= datetime.combine(target_date, datetime.max.time()))
+
+    return query.order_by(Order.due_date.asc(), Order.created_at.asc()).all()
+
+
 def get_production_report(
     db: Session,
     start_date: date | None = None,

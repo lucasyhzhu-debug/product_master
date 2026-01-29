@@ -326,6 +326,11 @@ export const orderApi = {
     const { data } = await api.get('/orders/sellers/suggestions', { params });
     return data;
   },
+  getKitchenOrders: async (targetDate?: string): Promise<OrderSummary[]> => {
+    const params = targetDate ? { target_date: targetDate } : undefined;
+    const { data } = await api.get('/orders/kitchen', { params });
+    return data;
+  },
 };
 
 // Export
