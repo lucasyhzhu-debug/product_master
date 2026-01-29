@@ -23,6 +23,7 @@ import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
+  AwaitingPayment: 'bg-amber-500',
   Confirmed: 'bg-blue-500',
   ProductionComplete: 'bg-purple-500',
   Packaging: 'bg-indigo-500',
@@ -57,12 +58,45 @@ function formatDate(dateString: string | null): string {
   });
 }
 
+function getWaitingTimeInfo(awaitingSince: string | null): { text: string; color: string } | null {
+  if (!awaitingSince) return null;
+
+  const start = new Date(awaitingSince);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const diffDays = diffHours / 24;
+
+  let text: string;
+  let color: string;
+
+  if (diffHours < 1) {
+    text = `${Math.floor(diffMs / (1000 * 60))}m`;
+    color = 'bg-green-100 text-green-700';
+  } else if (diffHours < 24) {
+    text = `${Math.floor(diffHours)}h`;
+    color = 'bg-green-100 text-green-700';
+  } else if (diffDays < 2) {
+    text = `${Math.floor(diffDays)}d ${Math.floor(diffHours % 24)}h`;
+    color = 'bg-yellow-100 text-yellow-700';
+  } else {
+    text = `${Math.floor(diffDays)}d`;
+    color = 'bg-red-100 text-red-700';
+  }
+
+  return { text: `Waiting ${text}`, color };
+}
+
 interface OrderCardProps {
   order: OrderSummary;
   onClick: () => void;
 }
 
 function OrderCard({ order, onClick }: OrderCardProps) {
+  const waitingInfo = order.status === 'AwaitingPayment'
+    ? getWaitingTimeInfo(order.awaiting_payment_since ?? null)
+    : null;
+
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow"
@@ -74,11 +108,16 @@ function OrderCard({ order, onClick }: OrderCardProps) {
             <p className="font-mono font-semibold">{order.order_number}</p>
             <p className="text-sm text-muted-foreground">{order.customer_name}</p>
           </div>
-          <div className="flex gap-1">
-            <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
-            <Badge className={PAYMENT_COLORS[order.payment_status]}>
-              {order.payment_status}
-            </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex gap-1">
+              <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
+              <Badge className={PAYMENT_COLORS[order.payment_status]}>
+                {order.payment_status}
+              </Badge>
+            </div>
+            {waitingInfo && (
+              <Badge className={waitingInfo.color}>{waitingInfo.text}</Badge>
+            )}
           </div>
         </div>
 
@@ -183,6 +222,7 @@ export function OrderManager() {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="Draft">Draft</SelectItem>
+            <SelectItem value="AwaitingPayment">Awaiting Payment</SelectItem>
             <SelectItem value="Confirmed">Confirmed</SelectItem>
             <SelectItem value="ProductionComplete">Production Complete</SelectItem>
             <SelectItem value="Packaging">Packaging</SelectItem>

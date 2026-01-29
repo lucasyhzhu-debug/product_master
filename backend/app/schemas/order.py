@@ -67,7 +67,7 @@ class OrderCreate(BaseModel):
 class OrderStatusUpdate(BaseModel):
     """Schema for updating order status."""
 
-    status: str = Field(..., pattern="^(Draft|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled)$")
+    status: str = Field(..., pattern="^(Draft|AwaitingPayment|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled)$")
     cancellation_reason: str | None = Field(None, max_length=255)
 
 
@@ -128,6 +128,7 @@ class OrderSummary(BaseModel):
     customer_name: str
     customer_phone: str | None
     status: str
+    awaiting_payment_since: datetime | None = None  # For AwaitingPayment status
     payment_status: str
     channel: str | None
     sold_by: str | None
@@ -136,7 +137,7 @@ class OrderSummary(BaseModel):
     total_cost: float
     total_margin: float
     item_count: int
-    
+
     delivery_type: str | None = None
     shipping_agency: str | None = None
 
@@ -152,6 +153,7 @@ class OrderDetail(BaseModel):
     customer_name: str
     customer_phone: str | None
     status: str
+    awaiting_payment_since: datetime | None = None  # For AwaitingPayment status
     payment_status: str
     payment_method: str | None
     order_date: datetime

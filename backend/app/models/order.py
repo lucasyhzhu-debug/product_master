@@ -24,8 +24,11 @@ class Order(Base):
         ForeignKey("customer.id"), nullable=False
     )
 
-    # Status workflow: Draft -> Confirmed -> Completed -> Cancelled
+    # Status workflow: Draft -> AwaitingPayment -> Confirmed -> ... -> Terminal
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="Draft")
+
+    # Timestamp when order entered AwaitingPayment status
+    awaiting_payment_since: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Payment: Unpaid -> Partial -> Paid
     payment_status: Mapped[str] = mapped_column(

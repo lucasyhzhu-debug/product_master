@@ -33,6 +33,7 @@ import type { OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
+  AwaitingPayment: 'bg-amber-500',
   Confirmed: 'bg-blue-500',
   ProductionComplete: 'bg-purple-500',
   Packaging: 'bg-indigo-500',
@@ -49,7 +50,7 @@ const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   Paid: 'bg-green-500',
 };
 
-const STATUS_OPTIONS: OrderStatus[] = ['Draft', 'Confirmed', 'ProductionComplete', 'Packaging', 'WaitingShipment', 'CompleteShipped', 'WaitingPickup', 'PickedUp', 'Cancelled'];
+const STATUS_OPTIONS: OrderStatus[] = ['Draft', 'AwaitingPayment', 'Confirmed', 'ProductionComplete', 'Packaging', 'WaitingShipment', 'CompleteShipped', 'WaitingPickup', 'PickedUp', 'Cancelled'];
 const PAYMENT_OPTIONS: PaymentStatus[] = ['Unpaid', 'Partial', 'Paid'];
 const PAYMENT_METHODS = ['BCA', 'QRIS', 'Cash', 'Other'];
 
@@ -81,6 +82,32 @@ function formatDateTime(dateString: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function getWaitingTimeInfo(awaitingPaymentSince: string | null): { text: string; colorClass: string } | null {
+  if (!awaitingPaymentSince) return null;
+
+  const since = new Date(awaitingPaymentSince);
+  const now = new Date();
+  const diffMs = now.getTime() - since.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffHours / 24);
+
+  let text: string;
+  let colorClass: string;
+
+  if (diffHours < 24) {
+    text = `Waiting ${diffHours}h`;
+    colorClass = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  } else if (diffDays <= 2) {
+    text = `Waiting ${diffDays}d`;
+    colorClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+  } else {
+    text = `Waiting ${diffDays}d`;
+    colorClass = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+  }
+
+  return { text, colorClass };
 }
 
 export function OrderDetail() {
@@ -145,7 +172,24 @@ export function OrderDetail() {
       return;
     }
 
-    // Confirmation dialog for Draft → Confirmed
+    // Confirmation dialog for Draft → AwaitingPayment (WhatsApp sent required)
+    if (order.status === 'Draft' && newStatus === 'AwaitingPayment') {
+      setConfirmationWhatsappText(order.payment_request_text || order.whatsapp_text);
+      setWhatsappSent(false);
+      setPaymentConfirmed(false);
+      setShowConfirmDialog(true);
+      return;
+    }
+
+    // Confirmation dialog for AwaitingPayment → Confirmed (Payment verified required)
+    if (order.status === 'AwaitingPayment' && newStatus === 'Confirmed') {
+      setWhatsappSent(true);  // Already sent in previous step
+      setPaymentConfirmed(false);
+      setShowConfirmDialog(true);
+      return;
+    }
+
+    // Legacy: Direct Draft → Confirmed (both required)
     if (order.status === 'Draft' && newStatus === 'Confirmed') {
       setConfirmationWhatsappText(order.payment_request_text || order.whatsapp_text);
       setWhatsappSent(false);
@@ -168,8 +212,19 @@ export function OrderDetail() {
 
   const handleConfirmOrder = () => {
     if (!order) return;
+
+    // Determine target status based on current flow
+    let targetStatus: OrderStatus;
+    if (order.status === 'Draft' && !paymentConfirmed) {
+      // Draft → AwaitingPayment (only WhatsApp sent required)
+      targetStatus = 'AwaitingPayment';
+    } else {
+      // AwaitingPayment → Confirmed OR Draft → Confirmed (both required)
+      targetStatus = 'Confirmed';
+    }
+
     updateStatus.mutate(
-      { id: order.id, status: 'Confirmed' },
+      { id: order.id, status: targetStatus },
       {
         onSuccess: () => {
           setShowConfirmDialog(false);
@@ -306,8 +361,18 @@ export function OrderDetail() {
                     Created {formatDateTime(order.created_at)}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
+                  {order.status === 'AwaitingPayment' && order.awaiting_payment_since && (
+                    (() => {
+                      const waitInfo = getWaitingTimeInfo(order.awaiting_payment_since);
+                      return waitInfo ? (
+                        <Badge variant="outline" className={waitInfo.colorClass}>
+                          {waitInfo.text}
+                        </Badge>
+                      ) : null;
+                    })()
+                  )}
                   <Badge className={PAYMENT_COLORS[order.payment_status]}>
                     {order.payment_status}
                   </Badge>
@@ -729,80 +794,91 @@ export function OrderDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog (Draft → Confirmed) */}
+      {/* Confirmation Dialog - Dynamic based on flow */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-blue-500" />
-              Confirm Order
+              {order?.status === 'AwaitingPayment' ? 'Confirm Payment' : 'Send Order to Customer'}
             </DialogTitle>
             <DialogDescription>
-              Before confirming this order, please complete the following steps:
+              {order?.status === 'AwaitingPayment'
+                ? 'Verify payment before starting production.'
+                : 'Send the order details and wait for customer confirmation.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* WhatsApp Message Preview */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">WhatsApp Message to Send</Label>
-              <Textarea
-                value={confirmationWhatsappText}
-                onChange={(e) => setConfirmationWhatsappText(e.target.value)}
-                className="min-h-[180px] text-xs font-mono"
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={handleCopyConfirmationWhatsapp}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Message
-              </Button>
-            </div>
-
-            <Separator />
+            {/* WhatsApp Message Preview - Only show for Draft → AwaitingPayment */}
+            {order?.status === 'Draft' && (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">WhatsApp Message to Send</Label>
+                  <Textarea
+                    value={confirmationWhatsappText}
+                    onChange={(e) => setConfirmationWhatsappText(e.target.value)}
+                    className="min-h-[180px] text-xs font-mono"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleCopyConfirmationWhatsapp}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Message
+                  </Button>
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Checkboxes */}
             <div className="space-y-4">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="whatsapp-sent"
-                  checked={whatsappSent}
-                  onCheckedChange={(checked) => setWhatsappSent(checked === true)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="whatsapp-sent"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    I have sent this message to the customer
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    Make sure the customer receives the order details and payment info
-                  </p>
+              {/* WhatsApp checkbox - Only for Draft status */}
+              {order?.status === 'Draft' && (
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="whatsapp-sent"
+                    checked={whatsappSent}
+                    onCheckedChange={(checked) => setWhatsappSent(checked === true)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="whatsapp-sent"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      I have sent this message to the customer
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Make sure the customer receives the order details and payment info
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="payment-confirmed"
-                  checked={paymentConfirmed}
-                  onCheckedChange={(checked) => setPaymentConfirmed(checked === true)}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="payment-confirmed"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Payment has been confirmed
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    Customer has paid or confirmed payment arrangement
-                  </p>
+              {/* Payment checkbox - For AwaitingPayment → Confirmed or Direct confirmation */}
+              {(order?.status === 'AwaitingPayment' || (order?.status === 'Draft' && whatsappSent)) && (
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="payment-confirmed"
+                    checked={paymentConfirmed}
+                    onCheckedChange={(checked) => setPaymentConfirmed(checked === true)}
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="payment-confirmed"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Payment has been confirmed
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Customer has paid or confirmed payment arrangement
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -812,10 +888,14 @@ export function OrderDetail() {
             </Button>
             <Button
               onClick={handleConfirmOrder}
-              disabled={!whatsappSent || !paymentConfirmed}
+              disabled={
+                order?.status === 'Draft'
+                  ? !whatsappSent  // Draft: just need WhatsApp sent to move to AwaitingPayment
+                  : !paymentConfirmed  // AwaitingPayment: just need payment confirmed
+              }
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Confirm Order
+              {order?.status === 'AwaitingPayment' ? 'Confirm Payment' : 'Send to Customer'}
             </Button>
           </DialogFooter>
         </DialogContent>

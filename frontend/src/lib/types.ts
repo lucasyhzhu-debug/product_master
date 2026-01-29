@@ -380,7 +380,7 @@ export interface CustomerSummary {
 }
 
 // Order types
-export type OrderStatus = 'Draft' | 'Confirmed' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
+export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type SalesChannel = 'IG' | 'WA' | 'Shopee' | 'Tokopedia' | 'Offline' | 'Other';
 
@@ -430,6 +430,7 @@ export interface OrderSummary {
   customer_name: string;
   customer_phone: string | null;
   status: OrderStatus;
+  awaiting_payment_since?: string | null;  // For AwaitingPayment status
   payment_status: PaymentStatus;
   channel: string | null;
   sold_by: string | null;
@@ -450,6 +451,7 @@ export interface OrderDetail {
   customer_name: string;
   customer_phone: string | null;
   status: OrderStatus;
+  awaiting_payment_since?: string | null;  // For AwaitingPayment status
   payment_status: PaymentStatus;
   payment_method: string | null;
   order_date: string;
