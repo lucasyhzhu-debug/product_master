@@ -36,6 +36,7 @@ import type {
   ProductSuggestion,
   SellerSuggestion,
   MenuProduct,
+  ProductionReport,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -271,8 +272,15 @@ export const orderApi = {
     const { data } = await api.post('/orders', order);
     return data;
   },
-  updateStatus: async (id: number, status: string): Promise<OrderSummary> => {
-    const { data } = await api.patch(`/orders/${id}/status`, { status });
+  updateStatus: async (
+    id: number,
+    status: string,
+    cancellation_reason?: string
+  ): Promise<OrderSummary> => {
+    const { data } = await api.patch(`/orders/${id}/status`, {
+      status,
+      cancellation_reason,
+    });
     return data;
   },
   updatePayment: async (
@@ -286,8 +294,27 @@ export const orderApi = {
     });
     return data;
   },
+  updateShipping: async (
+    id: number,
+    shipping_agency: string | null,
+    shipping_number: string | null
+  ): Promise<OrderSummary> => {
+    const { data } = await api.patch(`/orders/${id}/shipping`, {
+      shipping_agency,
+      shipping_number,
+    });
+    return data;
+  },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/orders/${id}`);
+  },
+  getProductionReport: async (startDate: string | null = null, endDate: string | null = null): Promise<ProductionReport> => {
+    const params: any = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    const { data } = await api.get('/orders/production/report', { params });
+    return data;
   },
   getProductSuggestions: async (query?: string): Promise<ProductSuggestion[]> => {
     const params = query ? { q: query } : undefined;
