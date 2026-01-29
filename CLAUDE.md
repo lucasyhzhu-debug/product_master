@@ -1281,11 +1281,11 @@ VITE_API_URL=http://localhost:8000/api
 
 ## Changelog
 
-### 2026-01-29 - Order Management Module (Standalone)
+### 2026-01-29 - Order Management Module (Complete Implementation)
 **Added:**
 - Complete Order Management module (standalone, no ProductVersion dependency)
 - Customer entity with phone, source, notes tracking
-- Order entity with MMDD-NNN format order numbers for bank reference
+- Order entity with MMDD-NNN format order numbers for bank transfer reference
 - Order items with product_name text fields and combobox autocomplete
 - WhatsApp receipt generation with bank details (BCA PT Malo Group Bahagia)
 - CSV export endpoints for orders and order items
@@ -1293,23 +1293,47 @@ VITE_API_URL=http://localhost:8000/api
 - Sales channel tracking (IG, WA, Shopee, Tokopedia, etc.)
 - Sold by field with autocomplete from previous orders
 
-**Backend Files:**
-- `backend/app/models/customer.py` - Customer model
-- `backend/app/models/order.py` - Order and OrderItem models
+**Backend Implementation (9 files):**
+- `backend/app/models/customer.py` (39 lines) - Customer model with relationships
+- `backend/app/models/order.py` (104 lines) - Order and OrderItem models with cascade delete
 - `backend/app/schemas/customer.py` - Customer Pydantic schemas
-- `backend/app/schemas/order.py` - Order Pydantic schemas
-- `backend/app/crud/customers.py` - Customer CRUD operations
-- `backend/app/crud/orders.py` - Order CRUD with totals calculation
-- `backend/app/routers/customers.py` - Customer endpoints
-- `backend/app/routers/orders.py` - Order endpoints with CSV export
+- `backend/app/schemas/order.py` (151 lines) - Order/OrderItem schemas with validation
+- `backend/app/crud/customers.py` - Customer CRUD (list, get, create, update)
+- `backend/app/crud/orders.py` (309 lines) - Order CRUD with totals calculation, suggestions, export
+- `backend/app/routers/customers.py` - 4 customer endpoints
+- `backend/app/routers/orders.py` (200+ lines) - 10 order endpoints + CSV export + suggestions
 - `backend/app/services/whatsapp_formatter.py` - WhatsApp receipt generator
 
-**Frontend Files:**
-- `frontend/src/pages/OrderManager.tsx` - Order list + create form
-- `frontend/src/pages/OrderDetail.tsx` - Order detail with WhatsApp copy
-- `frontend/src/components/orders/OrderForm.tsx` - Order creation form with comboboxes
-- `frontend/src/hooks/useOrders.ts` - Order React Query hooks
+**Frontend Implementation (5 files):**
+- `frontend/src/pages/OrderManager.tsx` - Order list with filters + create form
+- `frontend/src/pages/OrderDetail.tsx` - Order detail page with WhatsApp copy button
+- `frontend/src/components/orders/OrderForm.tsx` (300+ lines) - Complex order form with:
+  - Customer selection/creation with dropdown
+  - Multiple line items with add/remove
+  - Product name autocomplete from history
+  - Seller autocomplete from history
+  - Real-time totals calculation
+- `frontend/src/hooks/useOrders.ts` - Order React Query hooks (7 functions)
 - `frontend/src/hooks/useCustomers.ts` - Customer React Query hooks
+
+**API Endpoints (10 endpoints):**
+```
+GET    /api/orders                      # List with filters (status, channel, due_date)
+GET    /api/orders/{id}                 # Detail with WhatsApp text
+POST   /api/orders                      # Create with line items
+PATCH  /api/orders/{id}/status          # Update status (Draft|Confirmed|Completed|Cancelled)
+PATCH  /api/orders/{id}/payment         # Update payment (Unpaid|Partial|Paid)
+DELETE /api/orders/{id}                 # Delete (Draft only)
+GET    /api/orders/products/suggestions # Product autocomplete from history
+GET    /api/orders/sellers/suggestions  # Seller autocomplete from history
+GET    /api/orders/export/orders        # CSV export all orders
+GET    /api/orders/export/order-items   # CSV export all items
+```
+
+**Database Schema (3 tables, 19 columns total):**
+- `customer` (7 cols) - id, name, phone, source, notes, created_at, updated_at
+- `order` (15 cols) - id, order_number (UNIQUE), customer_id (FK), status, payment_status, payment_method, order_date, due_date, total_amount, total_cost, total_margin, channel, sold_by, notes, created_at, created_by
+- `order_item` (12 cols) - id, order_id (FK), product_name, product_variant, quantity, unit_price, unit_cost, discount_amount, line_total, line_cost, line_margin, created_at
 
 **Key Features:**
 - Order number format: `MMDD-NNN` (e.g., 0129-001) for easy bank transfer reference
@@ -1317,14 +1341,27 @@ VITE_API_URL=http://localhost:8000/api
 - Status workflow: Draft → Confirmed → Completed → Cancelled
 - Payment tracking: Unpaid → Partial → Paid with method (BCA, QRIS, Cash)
 - WhatsApp-ready receipt with bank details for customer communication
+- Combobox autocomplete for products and sellers from order history
+- Validation: min 1 item per order, qty ≥ 1, unit_price > 0
+
+**Bug Fixes:**
+- Fixed circular import issue: Customer and Order models not in `models/__init__.py`
+- Added proper import order to prevent SQLAlchemy mapper initialization errors
+
+**Testing Notes:**
+- Tested with curl: Order creation works end-to-end
+- Validates customer_id or new_customer requirement
+- Validates minimum 1 item per order
+- Calculates line totals and order totals correctly
+- WhatsApp text generation works with proper formatting
 
 **Backlog/Roadmap:**
 - [ ] Orders Dashboard carousel on main Dashboard
 - [ ] Kitchen View page (orders grouped by due date)
 - [ ] Customer management dedicated page
-- [ ] Order editing for Draft status
+- [ ] Order editing for Draft status (currently create-only)
 - [ ] Bulk status updates
-- [ ] **Product Integration** - link OrderItem to ProductVersion when ready
+- [ ] Product Integration - link OrderItem to ProductVersion when ready
 
 ### 2025-01-28 - Ingredient & Material Management Enhancements
 **Added:**
