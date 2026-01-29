@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { Layout } from '@/components/layout';
-import { Dashboard, RecipeEditor, PackagingEditor, ProductEditor, IngredientsManager, MaterialsManager, OrderManager, OrderDetail } from '@/pages';
+import { Dashboard, RecipeEditor, PackagingEditor, ProductEditor, IngredientsManager, MaterialsManager, OrderManager, OrderDetail, KitchenView } from '@/pages';
 import ProductionReport from '@/pages/ProductionReport';
 
 const queryClient = new QueryClient({
@@ -31,6 +31,7 @@ function App() {
               <Route path="orders" element={<OrderManager />} />
               <Route path="orders/production" element={<ProductionReport />} />
               <Route path="orders/:id" element={<OrderDetail />} />
+              <Route path="kitchen" element={<KitchenView />} />
             </Route>
           </Routes>
         </BrowserRouter>

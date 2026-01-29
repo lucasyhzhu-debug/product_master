@@ -1,10 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Package, ChefHat, Box, LayoutDashboard, Apple, PackageOpen, ShoppingCart } from 'lucide-react';
+import { Package, ChefHat, Box, LayoutDashboard, Apple, PackageOpen, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/orders', label: 'Orders', icon: ShoppingCart },
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed },
   { path: '/recipes', label: 'Recipes', icon: ChefHat },
   { path: '/packaging', label: 'Packaging', icon: Box },
   { path: '/orders/production', label: 'Production', icon: PackageOpen },

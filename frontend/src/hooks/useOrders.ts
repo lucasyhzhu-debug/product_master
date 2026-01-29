@@ -11,6 +11,7 @@ export const orderKeys = {
   detail: (id: number) => [...orderKeys.details(), id] as const,
   productSuggestions: () => [...orderKeys.all, 'product-suggestions'] as const,
   sellerSuggestions: () => [...orderKeys.all, 'seller-suggestions'] as const,
+  kitchen: (date?: string) => [...orderKeys.all, 'kitchen', date] as const,
 };
 
 export function useOrders(filters?: {
@@ -153,5 +154,12 @@ export function useProductionReport(startDate: string | null = null, endDate: st
   return useQuery({
     queryKey: [...orderKeys.lists(), 'production-report', startDate, endDate],
     queryFn: () => orderApi.getProductionReport(startDate, endDate),
+  });
+}
+
+export function useKitchenOrders(targetDate?: string) {
+  return useQuery({
+    queryKey: orderKeys.kitchen(targetDate),
+    queryFn: () => orderApi.getKitchenOrders(targetDate),
   });
 }
