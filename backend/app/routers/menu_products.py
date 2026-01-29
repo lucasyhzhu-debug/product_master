@@ -5,7 +5,7 @@ from ..schemas.menu_product import MenuProductResponse
 from ..crud import menu_products as crud
 
 router = APIRouter(
-    prefix="/menu-products",
+    prefix="/api/menu-products",
     tags=["menu-products"],
     responses={404: {"description": "Not found"}},
 )

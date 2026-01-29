@@ -45,6 +45,22 @@ class Order(Base):
     channel: Mapped[str | None] = mapped_column(String(50), nullable=True)
     sold_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Delivery Info
+    delivery_type: Mapped[str] = mapped_column(String(20), default="Pickup")  # Pickup, Delivery
+    pickup_location: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    
+    # Contact Info (Snapshot)
+    contact_wa: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    contact_ig: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Shipping Info
+    shipping_agency: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    shipping_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Cancellation
+    cancellation_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
@@ -96,6 +112,10 @@ class OrderItem(Base):
 
     # Relationships
     order: Mapped["Order"] = relationship("Order", back_populates="items")
+    menu_product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("menu_product.id"), nullable=True
+    )
+    menu_product = relationship("app.models.menu_product.MenuProduct")
 
     __table_args__ = (
         Index("idx_order_item_order", "order_id"),

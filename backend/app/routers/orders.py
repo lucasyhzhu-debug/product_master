@@ -50,6 +50,17 @@ def _build_order_detail(order: Order) -> OrderDetail:
         channel=order.channel,
         sold_by=order.sold_by,
         notes=order.notes,
+        
+        # New fields
+        delivery_type=order.delivery_type,
+        pickup_location=order.pickup_location,
+        delivery_address=order.delivery_address,
+        contact_wa=order.contact_wa,
+        contact_ig=order.contact_ig,
+        shipping_agency=order.shipping_agency,
+        shipping_number=order.shipping_number,
+        cancellation_reason=order.cancellation_reason,
+
         created_at=order.created_at,
         created_by=order.created_by,
         items=order.items,
@@ -92,6 +103,8 @@ def list_orders(
             total_cost=o.total_cost,
             total_margin=o.total_margin,
             item_count=len(o.items),
+            delivery_type=o.delivery_type,
+            shipping_agency=o.shipping_agency,
             created_at=o.created_at,
         )
         for o in orders
@@ -146,7 +159,9 @@ def update_order_status(
     db: Session = Depends(get_db),
 ):
     """Update order status."""
-    order = crud.update_order_status(db, order_id, update.status)
+    order = crud.update_order_status(
+        db, order_id, update.status, update.cancellation_reason
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order

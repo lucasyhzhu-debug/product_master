@@ -16,6 +16,7 @@ class OrderItemCreate(BaseModel):
     unit_price: float = Field(..., gt=0)
     unit_cost: float = Field(0, ge=0)
     discount_amount: float = Field(0, ge=0)
+    menu_product_id: int | None = None
 
 
 class OrderItemResponse(BaseModel):
@@ -31,6 +32,7 @@ class OrderItemResponse(BaseModel):
     line_total: float
     line_cost: float
     line_margin: float
+    menu_product_id: int | None
     created_at: datetime
 
     class Config:
@@ -47,13 +49,26 @@ class OrderCreate(BaseModel):
     sold_by: str | None = Field(None, max_length=100)
     due_date: datetime | None = None
     notes: str | None = Field(None, max_length=1000)
+    
+    # Delivery & Contact
+    delivery_type: str = Field("Pickup", pattern="^(Pickup|Delivery)$")
+    pickup_location: str | None = Field(None, max_length=100)
+    delivery_address: str | None = Field(None, max_length=500)
+    contact_wa: str | None = Field(None, max_length=50)
+    contact_ig: str | None = Field(None, max_length=100)
+    
+    # Shipping
+    shipping_agency: str | None = Field(None, max_length=50)
+    shipping_number: str | None = Field(None, max_length=100)
+
     items: list[OrderItemCreate] = Field(..., min_length=1)
 
 
 class OrderStatusUpdate(BaseModel):
     """Schema for updating order status."""
 
-    status: str = Field(..., pattern="^(Draft|Confirmed|Completed|Cancelled)$")
+    status: str = Field(..., pattern="^(Draft|Confirmed|Processing|Ready for Pickup|Shipped|Completed|Cancelled)$")
+    cancellation_reason: str | None = Field(None, max_length=255)
 
 
 class OrderPaymentUpdate(BaseModel):
@@ -80,6 +95,17 @@ class OrderResponse(BaseModel):
     channel: str | None
     sold_by: str | None
     notes: str | None
+    
+    # New fields
+    delivery_type: str
+    pickup_location: str | None
+    delivery_address: str | None
+    contact_wa: str | None
+    contact_ig: str | None
+    shipping_agency: str | None
+    shipping_number: str | None
+    cancellation_reason: str | None
+
     created_at: datetime
     created_by: str
 
@@ -103,6 +129,10 @@ class OrderSummary(BaseModel):
     total_cost: float
     total_margin: float
     item_count: int
+    
+    delivery_type: str | None = None
+    shipping_agency: str | None = None
+
     created_at: datetime
 
 
@@ -126,6 +156,17 @@ class OrderDetail(BaseModel):
     channel: str | None
     sold_by: str | None
     notes: str | None
+
+    # New fields
+    delivery_type: str
+    pickup_location: str | None
+    delivery_address: str | None
+    contact_wa: str | None
+    contact_ig: str | None
+    shipping_agency: str | None
+    shipping_number: str | None
+    cancellation_reason: str | None
+
     created_at: datetime
     created_by: str
     items: list[OrderItemResponse]
