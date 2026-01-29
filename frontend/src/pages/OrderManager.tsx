@@ -1,0 +1,253 @@
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Download, Search, Filter } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { PageHeader } from '@/components/layout';
+import { LoadingCards } from '@/components/shared';
+import { OrderForm } from '@/components/orders/OrderForm';
+
+import { useOrders } from '@/hooks';
+import { exportApi } from '@/lib/api';
+import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
+
+const STATUS_COLORS: Record<OrderStatus, string> = {
+  Draft: 'bg-gray-500',
+  Confirmed: 'bg-blue-500',
+  Completed: 'bg-green-500',
+  Cancelled: 'bg-red-500',
+};
+
+const PAYMENT_COLORS: Record<PaymentStatus, string> = {
+  Unpaid: 'bg-orange-500',
+  Partial: 'bg-yellow-500',
+  Paid: 'bg-green-500',
+};
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(dateString: string | null): string {
+  if (!dateString) return '-';
+  return new Date(dateString).toLocaleDateString('id-ID', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+interface OrderCardProps {
+  order: OrderSummary;
+  onClick: () => void;
+}
+
+function OrderCard({ order, onClick }: OrderCardProps) {
+  return (
+    <Card
+      className="cursor-pointer hover:shadow-md transition-shadow"
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div>
+            <p className="font-mono font-semibold">{order.order_number}</p>
+            <p className="text-sm text-muted-foreground">{order.customer_name}</p>
+          </div>
+          <div className="flex gap-1">
+            <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
+            <Badge className={PAYMENT_COLORS[order.payment_status]}>
+              {order.payment_status}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-end mt-3">
+          <div className="text-sm text-muted-foreground">
+            <p>{order.item_count} item{order.item_count > 1 ? 's' : ''}</p>
+            {order.due_date && (
+              <p>Due: {formatDate(order.due_date)}</p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="font-semibold">{formatCurrency(order.total_amount)}</p>
+            {order.total_margin > 0 && (
+              <p className="text-xs text-green-600">
+                +{formatCurrency(order.total_margin)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {(order.channel || order.sold_by) && (
+          <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
+            {order.channel && <span>{order.channel}</span>}
+            {order.sold_by && <span>by {order.sold_by}</span>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function OrderManager() {
+  const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const { data: orders, isLoading } = useOrders(
+    statusFilter !== 'all' ? { status: statusFilter } : undefined
+  );
+
+  const filteredOrders = useMemo(() => {
+    if (!orders) return [];
+    if (!searchQuery) return orders;
+
+    const query = searchQuery.toLowerCase();
+    return orders.filter(
+      (order) =>
+        order.order_number.toLowerCase().includes(query) ||
+        order.customer_name.toLowerCase().includes(query) ||
+        order.sold_by?.toLowerCase().includes(query)
+    );
+  }, [orders, searchQuery]);
+
+  const handleOrderClick = (orderId: number) => {
+    navigate(`/orders/${orderId}`);
+  };
+
+  const handleOrderCreated = () => {
+    setShowForm(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Orders"
+        action={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportApi.downloadOrdersCsv()}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button size="sm" onClick={() => setShowForm(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Order
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Filters */}
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search orders..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <Filter className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="Draft">Draft</SelectItem>
+            <SelectItem value="Confirmed">Confirmed</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Order List */}
+        <div className="lg:col-span-2 space-y-4">
+          {isLoading ? (
+            <LoadingCards count={3} />
+          ) : filteredOrders.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                {orders?.length === 0
+                  ? 'No orders yet. Create your first order!'
+                  : 'No orders match your search.'}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onClick={() => handleOrderClick(order.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Create Form */}
+        <div className="lg:col-span-1">
+          {showForm ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">New Order</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowForm(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <OrderForm onSuccess={handleOrderCreated} />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="py-12 text-center">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowForm(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Order
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
