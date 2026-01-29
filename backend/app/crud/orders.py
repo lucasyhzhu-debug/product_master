@@ -51,6 +51,15 @@ def create_order(db: Session, order_data: OrderCreate) -> Order:
         notes=order_data.notes,
         status="Draft",
         payment_status="Unpaid",
+        
+        # New fields
+        delivery_type=order_data.delivery_type,
+        pickup_location=order_data.pickup_location,
+        delivery_address=order_data.delivery_address,
+        contact_wa=order_data.contact_wa,
+        contact_ig=order_data.contact_ig,
+        shipping_agency=order_data.shipping_agency,
+        shipping_number=order_data.shipping_number,
     )
     db.add(order)
     db.flush()
@@ -75,6 +84,7 @@ def create_order(db: Session, order_data: OrderCreate) -> Order:
             line_total=line_total,
             line_cost=line_cost,
             line_margin=line_margin,
+            menu_product_id=item_data.menu_product_id,
         )
         db.add(order_item)
 
@@ -149,13 +159,18 @@ def get_order_by_number(db: Session, order_number: str) -> Order | None:
     )
 
 
-def update_order_status(db: Session, order_id: int, status: str) -> Order | None:
+def update_order_status(
+    db: Session, order_id: int, status: str, cancellation_reason: str | None = None
+) -> Order | None:
     """Update order status."""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return None
 
     order.status = status
+    if status == "Cancelled" and cancellation_reason:
+        order.cancellation_reason = cancellation_reason
+        
     db.commit()
     db.refresh(order)
     return order

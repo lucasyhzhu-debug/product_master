@@ -6,53 +6,98 @@ from app.models.order import Order
 def format_whatsapp_receipt(order: Order) -> str:
     """
     Generate WhatsApp-ready receipt text for an order.
-
+    
     Format includes:
-    - Greeting with customer name
-    - Order items with quantities and prices
-    - Total amount
-    - Bank transfer details with reference
-    - Due date if set
+    - Order Number & Status
+    - Customer Info
+    - Items & Totals
+    - Payment & Delivery Details
     """
-    # Format line items
+    # Header
+    status_emoji = {
+        "Draft": "📝",
+        "Confirmed": "✅",
+        "Processing": "👨‍🍳",
+        "Ready for Pickup": "🥡",
+        "Shipped": "🚚",
+        "Completed": "🎉",
+        "Cancelled": "❌"
+    }.get(order.status, "📋")
+
+    header = f"{status_emoji} *Order {order.order_number}* {status_emoji}"
+    if order.status == "Draft":
+        header += " (Draft)"
+    
+    # Customer Line
+    customer_line = f"Customer: {order.customer.name}"
+    if order.channel:
+        customer_line += f" ({order.channel})"
+
+    # Items
     items_lines = []
     for item in order.items:
-        # Convert price to "k" format (e.g., 35000 -> 35k)
+        # 35000 -> 35k
         price_k = item.unit_price / 1000
-
-        # Build product description
-        product_desc = item.product_name
+        total_k = item.line_total / 1000
+        
+        desc = item.product_name
         if item.product_variant:
-            product_desc += f" ({item.product_variant})"
-
-        items_lines.append(f"* {item.quantity}x {product_desc} @ {price_k:.0f}k")
-
+            desc += f" ({item.product_variant})"
+            
+        # Format: 2x Product Name @ 35k = 70k
+        line = f"▪️ {item.quantity}x {desc}"
+        if item.quantity > 1:
+            line += f" @ {price_k:.0f}k"
+        items_lines.append(line)
+        
     items_text = "\n".join(items_lines)
 
-    # Format total with thousands separator
-    total_formatted = f"{order.total_amount:,.0f}".replace(",", ".")
+    # Financials
+    total_formatted = f"IDR {order.total_amount:,.0f}".replace(",", ".")
+    
+    payment_info = f"Payment: {order.payment_status}"
+    if order.payment_method:
+        payment_info += f" ({order.payment_method})"
 
-    # Format due date
+    # Delivery / Pickup
+    delivery_line = f"Type: {order.delivery_type}"
+    if order.delivery_type == "Pickup" and order.pickup_location:
+         delivery_line += f" @ {order.pickup_location}"
+    elif order.delivery_type == "Delivery" and order.delivery_address:
+        delivery_line += f"\nAddress: {order.delivery_address}"
+        
+    if order.shipping_agency:
+        delivery_line += f"\nShipping: {order.shipping_agency}"
+        if order.shipping_number:
+            delivery_line += f" ({order.shipping_number})"
+
+    # Due Date
     due_date_line = ""
     if order.due_date:
-        due_date_str = order.due_date.strftime("%a, %d %b")
-        due_date_line = f"\nReady by: {due_date_str}"
+        due_date_str = order.due_date.strftime("%d %b %Y, %H:%M")
+        due_date_line = f"\nDue: {due_date_str}"
+        
+    # Notes
+    notes_section = ""
+    if order.notes:
+        notes_section = f"\n\n📝 Notes:\n{order.notes}"
 
-    # Build the complete message
-    message = f"""Halo {order.customer.name}! 👋
-Thank you for ordering with Frollie Labs.
-
-Here is your order summary:
-{items_text}
-
-Total: IDR {total_formatted}
-
+    # Footer
+    footer = """
 Please transfer to:
 BCA
 PT Malo Group Bahagia
-6044830994
+6044830994"""
 
-Reference: {order.order_number} - {order.customer.name}{due_date_line}
+    return f"""{header}
+
+{customer_line}
+{items_text}
+----------------
+*Total: {total_formatted}*
+
+{payment_info}
+{delivery_line}{due_date_line}{notes_section}
+{footer}
+
 Thank you! 🍪"""
-
-    return message
