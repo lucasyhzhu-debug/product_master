@@ -5,6 +5,8 @@ from app.routers.recipes import router as recipes_router
 from app.routers.packaging import router as packaging_router
 from app.routers.products import router as products_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.customers import router as customers_router
+from app.routers.orders import router as orders_router
 
 __all__ = [
     "ingredients_router",
@@ -14,4 +16,6 @@ __all__ = [
     "packaging_router",
     "products_router",
     "dashboard_router",
+    "customers_router",
+    "orders_router",
 ]

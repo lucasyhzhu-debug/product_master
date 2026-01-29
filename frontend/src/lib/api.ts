@@ -27,6 +27,14 @@ import type {
   ProductVersionCreate,
   ProductVersionCopyCreate,
   DashboardStats,
+  Customer,
+  CustomerCreate,
+  CustomerSummary,
+  OrderCreate,
+  OrderSummary,
+  OrderDetail,
+  ProductSuggestion,
+  SellerSuggestion,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -209,6 +217,86 @@ export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     const { data } = await api.get('/dashboard/stats');
     return data;
+  },
+};
+
+// Customers
+export const customerApi = {
+  list: async (query?: string): Promise<CustomerSummary[]> => {
+    const params = query ? { q: query } : undefined;
+    const { data } = await api.get('/customers', { params });
+    return data;
+  },
+  get: async (id: number): Promise<Customer> => {
+    const { data } = await api.get(`/customers/${id}`);
+    return data;
+  },
+  create: async (customer: CustomerCreate): Promise<Customer> => {
+    const { data } = await api.post('/customers', customer);
+    return data;
+  },
+  update: async (id: number, customer: Partial<CustomerCreate>): Promise<Customer> => {
+    const { data } = await api.patch(`/customers/${id}`, customer);
+    return data;
+  },
+};
+
+// Orders
+export const orderApi = {
+  list: async (params?: {
+    status?: string;
+    channel?: string;
+    due_date_from?: string;
+    due_date_to?: string;
+  }): Promise<OrderSummary[]> => {
+    const { data } = await api.get('/orders', { params });
+    return data;
+  },
+  get: async (id: number): Promise<OrderDetail> => {
+    const { data } = await api.get(`/orders/${id}`);
+    return data;
+  },
+  create: async (order: OrderCreate): Promise<OrderDetail> => {
+    const { data } = await api.post('/orders', order);
+    return data;
+  },
+  updateStatus: async (id: number, status: string): Promise<OrderSummary> => {
+    const { data } = await api.patch(`/orders/${id}/status`, { status });
+    return data;
+  },
+  updatePayment: async (
+    id: number,
+    payment_status: string,
+    payment_method?: string
+  ): Promise<OrderSummary> => {
+    const { data } = await api.patch(`/orders/${id}/payment`, {
+      payment_status,
+      payment_method,
+    });
+    return data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/orders/${id}`);
+  },
+  getProductSuggestions: async (query?: string): Promise<ProductSuggestion[]> => {
+    const params = query ? { q: query } : undefined;
+    const { data } = await api.get('/orders/products/suggestions', { params });
+    return data;
+  },
+  getSellerSuggestions: async (query?: string): Promise<SellerSuggestion[]> => {
+    const params = query ? { q: query } : undefined;
+    const { data } = await api.get('/orders/sellers/suggestions', { params });
+    return data;
+  },
+};
+
+// Export
+export const exportApi = {
+  downloadOrdersCsv: () => {
+    window.open(`${API_BASE_URL}/orders/export/orders`, '_blank');
+  },
+  downloadOrderItemsCsv: () => {
+    window.open(`${API_BASE_URL}/orders/export/order-items`, '_blank');
   },
 };
 

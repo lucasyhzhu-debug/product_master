@@ -336,3 +336,122 @@ export interface DashboardStats {
   total_ingredients: number;
   total_materials: number;
 }
+
+// Customer types
+export interface Customer {
+  id: number;
+  name: string;
+  phone: string | null;
+  source: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface CustomerCreate {
+  name: string;
+  phone?: string | null;
+  source?: string | null;
+  notes?: string | null;
+}
+
+export interface CustomerSummary {
+  id: number;
+  name: string;
+  phone: string | null;
+  source: string | null;
+  order_count: number;
+}
+
+// Order types
+export type OrderStatus = 'Draft' | 'Confirmed' | 'Completed' | 'Cancelled';
+export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
+export type SalesChannel = 'IG' | 'WA' | 'Shopee' | 'Tokopedia' | 'Offline' | 'Other';
+
+export interface OrderItemCreate {
+  product_name: string;
+  product_variant?: string | null;
+  quantity: number;
+  unit_price: number;
+  unit_cost?: number;
+  discount_amount?: number;
+}
+
+export interface OrderItem {
+  id: number;
+  product_name: string;
+  product_variant: string | null;
+  quantity: number;
+  unit_price: number;
+  unit_cost: number;
+  discount_amount: number;
+  line_total: number;
+  line_cost: number;
+  line_margin: number;
+  created_at: string;
+}
+
+export interface OrderCreate {
+  customer_id?: number | null;
+  new_customer?: CustomerCreate | null;
+  channel?: string | null;
+  sold_by?: string | null;
+  due_date?: string | null;
+  notes?: string | null;
+  items: OrderItemCreate[];
+}
+
+export interface OrderSummary {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string | null;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  channel: string | null;
+  sold_by: string | null;
+  due_date: string | null;
+  total_amount: number;
+  total_cost: number;
+  total_margin: number;
+  item_count: number;
+  created_at: string;
+}
+
+export interface OrderDetail {
+  id: number;
+  order_number: string;
+  customer_id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  payment_method: string | null;
+  order_date: string;
+  due_date: string | null;
+  total_amount: number;
+  total_cost: number;
+  total_margin: number;
+  margin_pct: number | null;
+  channel: string | null;
+  sold_by: string | null;
+  notes: string | null;
+  created_at: string;
+  created_by: string;
+  items: OrderItem[];
+  whatsapp_text: string;
+}
+
+export interface ProductSuggestion {
+  product_name: string;
+  product_variant: string | null;
+  last_unit_price: number;
+  last_unit_cost: number;
+  usage_count: number;
+}
+
+export interface SellerSuggestion {
+  sold_by: string;
+  order_count: number;
+}
