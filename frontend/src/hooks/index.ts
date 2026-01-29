@@ -4,3 +4,5 @@ export * from './useProducts';
 export * from './useIngredients';
 export * from './useTags';
 export * from './useMaterials';
+export * from './useCustomers';
+export * from './useOrders';

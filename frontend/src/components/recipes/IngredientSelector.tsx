@@ -17,8 +17,6 @@ export function IngredientSelector({
   onSelect,
   onCreateNew,
 }: IngredientSelectorProps) {
-  const selectedIngredient = ingredients?.find((i) => i.id === selectedId);
-
   return (
     <div className="flex gap-2 items-center">
       <Select
