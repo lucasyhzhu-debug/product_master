@@ -169,9 +169,17 @@ def update_order_status(
         return None
 
     order.status = status
+
+    # Set awaiting_payment_since when entering AwaitingPayment status
+    if status == "AwaitingPayment":
+        order.awaiting_payment_since = datetime.now()
+    elif status != "AwaitingPayment":
+        # Clear timestamp when leaving AwaitingPayment
+        order.awaiting_payment_since = None
+
     if status == "Cancelled" and cancellation_reason:
         order.cancellation_reason = cancellation_reason
-        
+
     db.commit()
     db.refresh(order)
     return order
