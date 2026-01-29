@@ -177,9 +177,14 @@ class OrderDetail(BaseModel):
     created_at: datetime
     created_by: str
     items: list[OrderItemResponse]
-    whatsapp_text: str
-    shipping_text: str | None = None
-    pickup_text: str | None = None
+
+    # WhatsApp templates for different stages
+    whatsapp_text: str  # General receipt
+    payment_request_text: str | None = None  # Draft → Confirmed
+    production_started_text: str | None = None  # Confirmed → ProductionComplete
+    delivery_complete_text: str | None = None  # WaitingShipment → CompleteShipped
+    shipping_text: str | None = None  # Shipping confirmation
+    pickup_text: str | None = None  # Pickup ready
 
 
 # Suggestion schemas for combobox autocomplete

@@ -1,29 +1,28 @@
 import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { Check } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 
 const Checkbox = React.forwardRef<
-    HTMLInputElement,
-    React.InputHTMLAttributes<HTMLInputElement>
+  React.ComponentRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
 >(({ className, ...props }, ref) => (
-    <div className="relative inline-flex items-center">
-        <input
-            type="checkbox"
-            className="peer h-4 w-4 shrink-0 opacity-0 absolute inset-0 cursor-pointer"
-            ref={ref}
-            {...props}
-        />
-        <div className={cn(
-            "flex h-4 w-4 items-center justify-center rounded-sm border border-primary ring-offset-background",
-            "peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2",
-            "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
-            "peer-checked:bg-primary peer-checked:text-primary-foreground",
-            className
-        )}>
-            <Check className="h-3 w-3 hidden peer-checked:block" strokeWidth={3} />
-        </div>
-    </div>
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      className
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="h-3 w-3" strokeWidth={3} />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
 ))
-Checkbox.displayName = "Checkbox"
+Checkbox.displayName = CheckboxPrimitive.Root.displayName
 
 export { Checkbox }

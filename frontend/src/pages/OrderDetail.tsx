@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Copy, Check, MessageSquare, CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,6 +106,12 @@ export function OrderDetail() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
 
+  // Confirmation Dialog (Draft → Confirmed)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [whatsappSent, setWhatsappSent] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [confirmationWhatsappText, setConfirmationWhatsappText] = useState('');
+
   // Pending status for shipping dialog flow
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
@@ -138,6 +145,15 @@ export function OrderDetail() {
       return;
     }
 
+    // Confirmation dialog for Draft → Confirmed
+    if (order.status === 'Draft' && newStatus === 'Confirmed') {
+      setConfirmationWhatsappText(order.payment_request_text || order.whatsapp_text);
+      setWhatsappSent(false);
+      setPaymentConfirmed(false);
+      setShowConfirmDialog(true);
+      return;
+    }
+
     // Auto-trigger shipping dialog for WaitingShipment
     if (newStatus === 'WaitingShipment') {
       setPendingStatus(newStatus);
@@ -148,6 +164,30 @@ export function OrderDetail() {
     }
 
     updateStatus.mutate({ id: order.id, status: newStatus });
+  };
+
+  const handleConfirmOrder = () => {
+    if (!order) return;
+    updateStatus.mutate(
+      { id: order.id, status: 'Confirmed' },
+      {
+        onSuccess: () => {
+          setShowConfirmDialog(false);
+          setWhatsappSent(false);
+          setPaymentConfirmed(false);
+        }
+      }
+    );
+  };
+
+  const handleCopyConfirmationWhatsapp = async () => {
+    try {
+      await navigator.clipboard.writeText(confirmationWhatsappText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const confirmCancellation = () => {
@@ -684,6 +724,98 @@ export function OrderDetail() {
             </Button>
             <Button onClick={handleUpdateShipping}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog (Draft → Confirmed) */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-blue-500" />
+              Confirm Order
+            </DialogTitle>
+            <DialogDescription>
+              Before confirming this order, please complete the following steps:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* WhatsApp Message Preview */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">WhatsApp Message to Send</Label>
+              <Textarea
+                value={confirmationWhatsappText}
+                onChange={(e) => setConfirmationWhatsappText(e.target.value)}
+                className="min-h-[180px] text-xs font-mono"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={handleCopyConfirmationWhatsapp}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Message
+              </Button>
+            </div>
+
+            <Separator />
+
+            {/* Checkboxes */}
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="whatsapp-sent"
+                  checked={whatsappSent}
+                  onCheckedChange={(checked) => setWhatsappSent(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="whatsapp-sent"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    I have sent this message to the customer
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Make sure the customer receives the order details and payment info
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3">
+                <Checkbox
+                  id="payment-confirmed"
+                  checked={paymentConfirmed}
+                  onCheckedChange={(checked) => setPaymentConfirmed(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="payment-confirmed"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Payment has been confirmed
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Customer has paid or confirmed payment arrangement
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmOrder}
+              disabled={!whatsappSent || !paymentConfirmed}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Confirm Order
             </Button>
           </DialogFooter>
         </DialogContent>
