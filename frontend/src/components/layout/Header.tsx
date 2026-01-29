@@ -7,6 +7,7 @@ const navItems = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/recipes', label: 'Recipes', icon: ChefHat },
   { path: '/packaging', label: 'Packaging', icon: Box },
+  { path: '/orders/production', label: 'Production', icon: PackageOpen },
   { path: '/products', label: 'Products', icon: Package },
   { path: '/ingredients/list', label: 'Ingredients', icon: Apple },
   { path: '/materials/list', label: 'Materials', icon: PackageOpen },

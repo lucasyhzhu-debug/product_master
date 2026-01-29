@@ -1,145 +1,147 @@
 import { useState } from 'react';
-import { useProductionReport } from '@/hooks';
+import { useProductionReport } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Printer } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2 } from 'lucide-react';
 
-const STATUS_OPTIONS = [
-    'Confirmed',
-    'Processing',
-    'Ready for Pickup',
-];
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+};
 
-export function ProductionReport() {
-    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
-        'Confirmed',
-        'Processing',
-    ]);
+export default function ProductionReport() {
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
 
-    const { data: report, isLoading } = useProductionReport(selectedStatuses);
-
-    const toggleStatus = (status: string) => {
-        setSelectedStatuses((prev) =>
-            prev.includes(status)
-                ? prev.filter((s) => s !== status)
-                : [...prev, status]
-        );
-    };
-
-    const handlePrint = () => {
-        window.print();
-    };
-
-    const totalItems = report?.reduce((sum, item) => sum + item.total_quantity, 0) || 0;
+    const { data: report, isLoading } = useProductionReport(
+        startDate || null,
+        endDate || null
+    );
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between no-print">
+            <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight">Production Report</h1>
-                <Button onClick={handlePrint} variant="outline">
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print Report
-                </Button>
             </div>
 
-            <Card className="no-print">
+            <Card>
                 <CardHeader>
-                    <CardTitle className="text-sm font-medium">Filter by Status</CardTitle>
+                    <CardTitle>Filter (Optional)</CardTitle>
                 </CardHeader>
-                <CardContent className="flex gap-4">
-                    {STATUS_OPTIONS.map((status) => (
-                        <div key={status} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={status}
-                                checked={selectedStatuses.includes(status)}
-                                onCheckedChange={() => toggleStatus(status)}
+                <CardContent>
+                    <div className="flex gap-4 items-end">
+                        <div className="grid gap-2">
+                            <label htmlFor="start_date" className="text-sm font-medium">Start Date</label>
+                            <Input
+                                type="date"
+                                id="start_date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                             />
-                            <Label htmlFor={status}>{status}</Label>
                         </div>
-                    ))}
+                        <div className="grid gap-2">
+                            <label htmlFor="end_date" className="text-sm font-medium">End Date</label>
+                            <Input
+                                type="date"
+                                id="end_date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
-            <div className="print-content">
-                <div className="mb-4 hidden print:block">
-                    <h1 className="text-2xl font-bold">Daily Production Summary</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Statuses: {selectedStatuses.join(', ')}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                        Date: {new Date().toLocaleDateString()}
-                    </p>
+            {isLoading ? (
+                <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
+            ) : report ? (
+                <div className="space-y-6">
+                    {/* Summary Cards */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Total Original</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{report.summary.original} units</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Total Bite Sized</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{report.summary.bite_sized} units</div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                <Card>
-                    <CardContent className="p-0">
-                        <div className="border rounded-md">
-                            <div className="grid grid-cols-12 gap-4 border-b bg-muted p-3 text-sm font-medium">
-                                <div className="col-span-6">Product</div>
-                                <div className="col-span-2 text-center">Variant</div>
-                                <div className="col-span-2 text-right">Orders</div>
-                                <div className="col-span-2 text-right">Total Qty</div>
+                    {/* Detailed List */}
+                    <div className="space-y-4">
+                        {report.dates.length === 0 ? (
+                            <div className="text-center p-8 text-muted-foreground">
+                                No orders found for this period.
                             </div>
-                            <ScrollArea className="h-[calc(100vh-300px)] print:h-auto">
-                                <div className="divide-y">
-                                    {isLoading ? (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                            Loading report...
-                                        </div>
-                                    ) : report?.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">
-                                            No items found for selected statuses.
-                                        </div>
-                                    ) : (
-                                        report?.map((item, index) => (
-                                            <div
-                                                key={`${item.product_name}-${item.product_variant}-${index}`}
-                                                className="grid grid-cols-12 gap-4 p-3 text-sm hover:bg-muted/50"
-                                            >
-                                                <div className="col-span-6 font-medium">
-                                                    {item.product_name}
-                                                </div>
-                                                <div className="col-span-2 text-center text-muted-foreground">
-                                                    {item.product_variant || '-'}
-                                                </div>
-                                                <div className="col-span-2 text-right text-muted-foreground">
-                                                    {item.order_count}
-                                                </div>
-                                                <div className="col-span-2 text-right font-bold">
-                                                    {item.total_quantity}
-                                                </div>
+                        ) : (
+                            report.dates.map((dateGroup) => (
+                                <Card key={dateGroup.date}>
+                                    <CardHeader className="bg-muted/50">
+                                        <div className="flex justify-between items-center">
+                                            <CardTitle className="text-lg">
+                                                {formatDate(dateGroup.date)}
+                                            </CardTitle>
+                                            <div className="text-sm space-x-4">
+                                                <span className="font-medium text-amber-700">
+                                                    Orig: {dateGroup.summary.original}
+                                                </span>
+                                                <span className="font-medium text-blue-700">
+                                                    Bite: {dateGroup.summary.bite_sized}
+                                                </span>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
-                            </ScrollArea>
-                            {report && report.length > 0 && (
-                                <div className="grid grid-cols-12 gap-4 border-t bg-muted/50 p-3 text-sm font-bold">
-                                    <div className="col-span-10 text-right">Total Items:</div>
-                                    <div className="col-span-2 text-right">{totalItems}</div>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <style>{`
-        @media print {
-          .no-print {
-            display: none;
-          }
-          .print-content {
-            display: block;
-          }
-          body {
-            padding: 20px;
-          }
-        }
-      `}</style>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                        <div className="space-y-4">
+                                            {dateGroup.orders.map((order) => (
+                                                <div key={order.order_number} className="border-b last:border-0 pb-4 last:pb-0">
+                                                    <div className="flex justify-between mb-2">
+                                                        <div className="font-semibold">
+                                                            {order.customer_name}
+                                                            <span className="text-muted-foreground font-normal ml-2">
+                                                                ({order.order_number})
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            {order.status}
+                                                        </div>
+                                                    </div>
+                                                    <div className="pl-4 space-y-1">
+                                                        {order.items.map((item, idx) => (
+                                                            <div key={idx} className="text-sm grid grid-cols-12 gap-2">
+                                                                <div className="col-span-6">{item.product_name}</div>
+                                                                <div className="col-span-2 text-right">{item.quantity} x</div>
+                                                                <div className="col-span-4 text-right">
+                                                                    {item.units} units ({item.production_type === 'original' ? 'Orig' : 'Bite'})
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

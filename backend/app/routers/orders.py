@@ -1,6 +1,6 @@
 """Order API endpoints with CSV export."""
 
-from datetime import datetime
+from datetime import datetime, date
 from io import StringIO
 import csv
 
@@ -17,11 +17,16 @@ from app.schemas.order import (
     OrderSummary,
     OrderStatusUpdate,
     OrderPaymentUpdate,
+    OrderShippingUpdate,
     ProductSuggestion,
     SellerSuggestion,
 )
 from app.crud import orders as crud
-from app.services.whatsapp_formatter import format_whatsapp_receipt
+from app.services.whatsapp_formatter import (
+    format_whatsapp_receipt,
+    format_whatsapp_shipping,
+    format_whatsapp_pickup,
+)
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -65,6 +70,8 @@ def _build_order_detail(order: Order) -> OrderDetail:
         created_by=order.created_by,
         items=order.items,
         whatsapp_text=format_whatsapp_receipt(order),
+        shipping_text=format_whatsapp_shipping(order),
+        pickup_text=format_whatsapp_pickup(order),
     )
 
 
@@ -109,6 +116,16 @@ def list_orders(
         )
         for o in orders
     ]
+
+
+@router.get("/production/report")
+def get_production_report(
+    start_date: date | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: date | None = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+):
+    """Get production report grouped by date and product type."""
+    return crud.get_production_report(db, start_date=start_date, end_date=end_date)
 
 
 @router.get("/products/suggestions", response_model=list[ProductSuggestion])
@@ -176,6 +193,21 @@ def update_order_payment(
     """Update payment status and method."""
     order = crud.update_order_payment(
         db, order_id, update.payment_status, update.payment_method
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
+@router.patch("/{order_id}/shipping", response_model=OrderResponse)
+def update_order_shipping(
+    order_id: int,
+    update: OrderShippingUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update shipping info."""
+    order = crud.update_order_shipping(
+        db, order_id, update.shipping_agency, update.shipping_number
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")

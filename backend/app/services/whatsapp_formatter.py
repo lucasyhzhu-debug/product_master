@@ -15,14 +15,16 @@ def format_whatsapp_receipt(order: Order) -> str:
     """
     # Header
     status_emoji = {
-        "Draft": "📝",
-        "Confirmed": "✅",
-        "Processing": "👨‍🍳",
-        "Ready for Pickup": "🥡",
-        "Shipped": "🚚",
-        "Completed": "🎉",
-        "Cancelled": "❌"
-    }.get(order.status, "📋")
+        "Draft": "[Draft]",
+        "Confirmed": "[Confirmed]",
+        "Processing": "[Cooking]",
+        "Ready for Pickup": "[Ready]",
+        "Waiting for Courier": "[Box]",
+        "In Transit": "[Transit]",
+        "Shipped": "[Shipped]",
+        "Completed": "[Done]",
+        "Cancelled": "[Cancelled]"
+    }.get(order.status, "[Order]")
 
     header = f"{status_emoji} *Order {order.order_number}* {status_emoji}"
     if order.status == "Draft":
@@ -45,7 +47,7 @@ def format_whatsapp_receipt(order: Order) -> str:
             desc += f" ({item.product_variant})"
             
         # Format: 2x Product Name @ 35k = 70k
-        line = f"▪️ {item.quantity}x {desc}"
+        line = f"- {item.quantity}x {desc}"
         if item.quantity > 1:
             line += f" @ {price_k:.0f}k"
         items_lines.append(line)
@@ -80,7 +82,7 @@ def format_whatsapp_receipt(order: Order) -> str:
     # Notes
     notes_section = ""
     if order.notes:
-        notes_section = f"\n\n📝 Notes:\n{order.notes}"
+        notes_section = f"\n\nNotes:\n{order.notes}"
 
     # Footer
     footer = """
@@ -98,6 +100,30 @@ PT Malo Group Bahagia
 
 {payment_info}
 {delivery_line}{due_date_line}{notes_section}
-{footer}
+{footer}"""
 
-Thank you! 🍪"""
+
+def format_whatsapp_shipping(order: Order) -> str:
+    """Format shipping confirmation message."""
+    return f"""Halo {order.customer.name}!
+
+Your order {order.order_number} is on the way!
+
+Tracking: {order.shipping_number or "-"}
+Via: {order.shipping_agency or "-"}
+
+{order.delivery_address or ""}
+
+Thank you for ordering!"""
+
+
+def format_whatsapp_pickup(order: Order) -> str:
+    """Format pickup ready message."""
+    location = order.pickup_location or "Goldfinch Legato"
+    return f"""Halo {order.customer.name}!
+
+Your order {order.order_number} is ready for pickup!
+
+Location: {location}
+
+See you soon!"""
