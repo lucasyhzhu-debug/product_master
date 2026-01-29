@@ -24,7 +24,12 @@ import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
 const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
   Confirmed: 'bg-blue-500',
-  Completed: 'bg-green-500',
+  ProductionComplete: 'bg-purple-500',
+  Packaging: 'bg-indigo-500',
+  WaitingShipment: 'bg-yellow-500',
+  CompleteShipped: 'bg-green-500',
+  WaitingPickup: 'bg-orange-500',
+  PickedUp: 'bg-green-500',
   Cancelled: 'bg-red-500',
 };
 
@@ -179,7 +184,12 @@ export function OrderManager() {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="Draft">Draft</SelectItem>
             <SelectItem value="Confirmed">Confirmed</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="ProductionComplete">Production Complete</SelectItem>
+            <SelectItem value="Packaging">Packaging</SelectItem>
+            <SelectItem value="WaitingShipment">Waiting for Shipment</SelectItem>
+            <SelectItem value="CompleteShipped">Shipped</SelectItem>
+            <SelectItem value="WaitingPickup">Waiting for Pickup</SelectItem>
+            <SelectItem value="PickedUp">Picked Up</SelectItem>
             <SelectItem value="Cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>

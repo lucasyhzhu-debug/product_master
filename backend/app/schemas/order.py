@@ -67,7 +67,7 @@ class OrderCreate(BaseModel):
 class OrderStatusUpdate(BaseModel):
     """Schema for updating order status."""
 
-    status: str = Field(..., pattern="^(Draft|Confirmed|Processing|Ready for Pickup|Shipped|Completed|Cancelled)$")
+    status: str = Field(..., pattern="^(Draft|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled)$")
     cancellation_reason: str | None = Field(None, max_length=255)
 
 
@@ -76,6 +76,13 @@ class OrderPaymentUpdate(BaseModel):
 
     payment_status: str = Field(..., pattern="^(Unpaid|Partial|Paid)$")
     payment_method: str | None = Field(None, max_length=50)
+
+
+class OrderShippingUpdate(BaseModel):
+    """Schema for updating shipping info."""
+
+    shipping_agency: str | None = Field(None, max_length=50)
+    shipping_number: str | None = Field(None, max_length=100)
 
 
 class OrderResponse(BaseModel):
@@ -171,6 +178,8 @@ class OrderDetail(BaseModel):
     created_by: str
     items: list[OrderItemResponse]
     whatsapp_text: str
+    shipping_text: str | None = None
+    pickup_text: str | None = None
 
 
 # Suggestion schemas for combobox autocomplete

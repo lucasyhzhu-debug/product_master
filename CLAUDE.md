@@ -304,7 +304,7 @@ CREATE TABLE "order" (
     order_number VARCHAR(20) NOT NULL UNIQUE,  -- Simple format: "0129-001" (MMDD-seq)
     customer_id INTEGER NOT NULL,
 
-    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|Confirmed|Completed|Cancelled
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled
     payment_status VARCHAR(20) NOT NULL DEFAULT 'Unpaid', -- Unpaid|Partial|Paid
     payment_method VARCHAR(50),                -- 'BCA', 'QRIS', 'Cash'
 
@@ -358,6 +358,35 @@ CREATE TABLE order_item (
 CREATE INDEX idx_order_item_order ON order_item(order_id);
 CREATE INDEX idx_order_item_product ON order_item(product_name);  -- For combobox search
 ```
+
+### Order Status Workflow
+
+```
+Draft
+  └─> Confirmed
+        └─> ProductionComplete (kitchen: production done)
+              └─> Packaging (kitchen: actively packaging)
+                    ├─> WaitingShipment ─> CompleteShipped (delivered)
+                    └─> WaitingPickup ─> PickedUp (customer picked up)
+
+Any non-terminal → Cancelled (requires cancellation_reason)
+```
+
+**Status Meanings:**
+| Status | Description | Next States |
+|--------|-------------|-------------|
+| Draft | Order created, not confirmed | Confirmed, Cancelled |
+| Confirmed | Customer confirmed | ProductionComplete, Cancelled |
+| ProductionComplete | Kitchen finished production | Packaging, Cancelled |
+| Packaging | Actively packaging | WaitingShipment, WaitingPickup, Cancelled |
+| WaitingShipment | Ready for courier (requires shipping_number + shipping_agency) | CompleteShipped, Cancelled |
+| CompleteShipped | Delivered to customer (terminal) | - |
+| WaitingPickup | Ready for customer pickup | PickedUp, Cancelled |
+| PickedUp | Customer picked up (terminal) | - |
+| Cancelled | Order cancelled (requires cancellation_reason, terminal) | - |
+
+**Shipping Agencies:**
+Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 
 ### Visual Schema Diagram
 
@@ -1280,6 +1309,31 @@ VITE_API_URL=http://localhost:8000/api
 - [ ] Pagination for large lists
 
 ## Changelog
+
+### 2026-01-30 - Order Status Workflow Migration
+**Changed:**
+- Migrated order statuses from old 9-status workflow to new 9-status workflow
+- Old: Draft, Confirmed, Processing, Ready for Pickup, Waiting for Courier, In Transit, Shipped, Completed, Cancelled
+- New: Draft, Confirmed, ProductionComplete, Packaging, WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
+
+**Backend:**
+- Updated `backend/app/schemas/order.py` - OrderStatusUpdate pattern regex
+- Updated `backend/app/crud/orders.py` - Production report active_statuses list (removed "Processing")
+
+**Frontend:**
+- Updated `frontend/src/lib/types.ts` - OrderStatus type definition
+- Updated `frontend/src/pages/OrderDetail.tsx`:
+  - STATUS_COLORS for all 9 new statuses
+  - STATUS_OPTIONS array
+  - Auto-trigger shipping dialog when selecting WaitingShipment status
+  - Updated WhatsApp section visibility conditions
+  - Fixed shipping agency list: Grab → GrabSend, added AnterAja
+- Updated `frontend/src/pages/OrderManager.tsx`:
+  - STATUS_COLORS for all 9 new statuses
+  - Status filter dropdown with all 9 statuses
+
+**Shipping Agencies:**
+Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 
 ### 2026-01-29 - Order Management Module (Complete Implementation)
 **Added:**

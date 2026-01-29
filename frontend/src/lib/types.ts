@@ -380,7 +380,7 @@ export interface CustomerSummary {
 }
 
 // Order types
-export type OrderStatus = 'Draft' | 'Confirmed' | 'Completed' | 'Cancelled';
+export type OrderStatus = 'Draft' | 'Confirmed' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type SalesChannel = 'IG' | 'WA' | 'Shopee' | 'Tokopedia' | 'Offline' | 'Other';
 
@@ -414,6 +414,13 @@ export interface OrderCreate {
   sold_by?: string | null;
   due_date?: string | null;
   notes?: string | null;
+  delivery_type?: 'Pickup' | 'Delivery';
+  pickup_location?: string | null;
+  delivery_address?: string | null;
+  contact_wa?: string | null;
+  contact_ig?: string | null;
+  shipping_agency?: string | null;
+  shipping_number?: string | null;
   items: OrderItemCreate[];
 }
 
@@ -431,6 +438,8 @@ export interface OrderSummary {
   total_cost: number;
   total_margin: number;
   item_count: number;
+  delivery_type?: string | null;
+  shipping_agency?: string | null;
   created_at: string;
 }
 
@@ -452,10 +461,20 @@ export interface OrderDetail {
   channel: string | null;
   sold_by: string | null;
   notes: string | null;
+  delivery_type: string;
+  pickup_location: string | null;
+  delivery_address: string | null;
+  contact_wa: string | null;
+  contact_ig: string | null;
+  shipping_agency: string | null;
+  shipping_number: string | null;
+  cancellation_reason: string | null;
   created_at: string;
   created_by: string;
   items: OrderItem[];
   whatsapp_text: string;
+  shipping_text?: string;
+  pickup_text?: string;
 }
 
 export interface ProductSuggestion {
@@ -469,4 +488,35 @@ export interface ProductSuggestion {
 export interface SellerSuggestion {
   sold_by: string;
   order_count: number;
+}
+
+export interface ProductionReportItem {
+  product_name: string;
+  quantity: number;
+  production_type: 'original' | 'bite_sized';
+  units: number;
+}
+
+export interface ProductionReportOrder {
+  order_number: string;
+  customer_name: string;
+  status: OrderStatus;
+  items: ProductionReportItem[];
+}
+
+export interface ProductionReportDate {
+  date: string;
+  summary: {
+    original: number;
+    bite_sized: number;
+  };
+  orders: ProductionReportOrder[];
+}
+
+export interface ProductionReport {
+  summary: {
+    original: number;
+    bite_sized: number;
+  };
+  dates: ProductionReportDate[];
 }

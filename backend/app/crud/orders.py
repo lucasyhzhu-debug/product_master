@@ -6,6 +6,7 @@ from sqlalchemy import func, distinct
 
 from app.models.order import Order, OrderItem
 from app.models.customer import Customer
+from app.models.menu_product import MenuProduct
 from app.schemas.order import OrderCreate, OrderItemCreate
 from app.schemas.customer import CustomerCreate
 from app.crud.customers import create_customer
@@ -192,6 +193,21 @@ def update_order_payment(
     return order
 
 
+def update_order_shipping(
+    db: Session, order_id: int, shipping_agency: str | None, shipping_number: str | None
+) -> Order | None:
+    """Update order shipping info."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return None
+
+    order.shipping_agency = shipping_agency
+    order.shipping_number = shipping_number
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 def delete_order(db: Session, order_id: int) -> bool:
     """Delete an order. Only Draft orders can be deleted."""
     order = db.query(Order).filter(Order.id == order_id).first()
@@ -316,8 +332,119 @@ def get_all_order_items_for_export(db: Session) -> list[tuple]:
             OrderItem.line_margin,
             OrderItem.created_at,
         )
-        .join(Order, OrderItem.order_id == Order.id)
         .join(Customer, Order.customer_id == Customer.id)
         .order_by(Order.created_at.desc(), OrderItem.id.asc())
         .all()
     )
+
+
+def get_production_report(
+    db: Session,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict:
+    """
+    Get production report grouped by date and product type.
+    """
+    # Filter active orders (not Draft, Cancelled, CompleteShipped, or PickedUp)
+    # We only want orders that are in production flow
+    active_statuses = [
+        "Confirmed",
+        "ProductionComplete",
+        "Packaging",
+        "WaitingShipment",
+        "WaitingPickup",
+    ]
+
+    query = (
+        db.query(
+            Order,
+            OrderItem,
+            MenuProduct
+        )
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(MenuProduct, OrderItem.menu_product_id == MenuProduct.id)
+        .filter(Order.status.in_(active_statuses))
+    )
+
+    if start_date:
+        query = query.filter(func.date(Order.due_date) >= start_date)
+    if end_date:
+        query = query.filter(func.date(Order.due_date) <= end_date)
+
+    query = query.order_by(Order.due_date.asc())
+    
+    results = query.all()
+    
+    # Process results in python to build the structure
+    # Structure:
+    # {
+    #   "summary": { "original": 10, "bite_sized": 20 },
+    #   "dates": [
+    #     {
+    #       "date": "2024-01-29",
+    #       "summary": { "original": 5, "bite_sized": 10 },
+    #       "orders": [
+    #         {
+    #           "order_number": "0129-001",
+    #           "customer_name": "John",
+    #           "items": [
+    #             { "qty": 2, "product": "Original Single", "type": "original", "units": 2 }
+    #           ]
+    #         }
+    #       ]
+    #     }
+    #   ]
+    # }
+
+    report = {
+        "summary": {"original": 0, "bite_sized": 0},
+        "dates": {}
+    }
+
+    for order, item, menu_product in results:
+        date_key = order.due_date.strftime("%Y-%m-%d") if order.due_date else "No Date"
+        
+        if date_key not in report["dates"]:
+            report["dates"][date_key] = {
+                "date": date_key,
+                "summary": {"original": 0, "bite_sized": 0},
+                "orders": {}
+            }
+            
+        date_group = report["dates"][date_key]
+        
+        # Calculate production units
+        units = item.quantity * menu_product.production_units
+        prod_type = menu_product.production_type # original or bite_sized
+        
+        # Update totals
+        report["summary"][prod_type] = report["summary"].get(prod_type, 0) + units
+        date_group["summary"][prod_type] = date_group["summary"].get(prod_type, 0) + units
+        
+        # Add to order list
+        if order.order_number not in date_group["orders"]:
+            date_group["orders"][order.order_number] = {
+                "order_number": order.order_number,
+                "customer_name": order.customer.name,
+                "status": order.status,
+                "items": []
+            }
+            
+        date_group["orders"][order.order_number]["items"].append({
+            "product_name": item.product_name,
+            "quantity": item.quantity,
+            "production_type": prod_type,
+            "units": units
+        })
+
+    # Convert dicts to lists for frontend
+    final_dates = []
+    for date_key in sorted(report["dates"].keys()):
+        date_obj = report["dates"][date_key]
+        date_obj["orders"] = list(date_obj["orders"].values())
+        final_dates.append(date_obj)
+        
+    report["dates"] = final_dates
+    
+    return report
