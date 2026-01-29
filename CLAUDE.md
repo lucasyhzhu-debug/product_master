@@ -39,7 +39,7 @@ SQLite Database (data/malo_recipes.db)
 - **Models Layer**: ORM definitions, relationships, constraints
 - **Services Layer**: Cross-cutting concerns (cost calculations)
 
-### Complete Database Schema (16 Tables)
+### Complete Database Schema (19 Tables)
 
 #### 1. `ingredient` - Food Ingredients
 ```sql
@@ -281,6 +281,84 @@ CREATE TABLE product_tag (
 );
 ```
 
+#### 17. `customer` - Customer Entity (Order Management)
+```sql
+CREATE TABLE customer (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,                -- Customer name
+    phone VARCHAR(50),                         -- WhatsApp number
+    source VARCHAR(100),                       -- 'WhatsApp', 'Instagram', 'Friend'
+    notes VARCHAR(1000),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin'
+);
+CREATE INDEX idx_customer_name ON customer(name);
+CREATE INDEX idx_customer_phone ON customer(phone);
+```
+
+#### 18. `order` - Order Entity (Standalone - No ProductVersion FK)
+```sql
+CREATE TABLE "order" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number VARCHAR(20) NOT NULL UNIQUE,  -- Simple format: "0129-001" (MMDD-seq)
+    customer_id INTEGER NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|Confirmed|Completed|Cancelled
+    payment_status VARCHAR(20) NOT NULL DEFAULT 'Unpaid', -- Unpaid|Partial|Paid
+    payment_method VARCHAR(50),                -- 'BCA', 'QRIS', 'Cash'
+
+    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    due_date DATETIME,
+
+    total_amount FLOAT DEFAULT 0,              -- Sum of line totals
+    total_cost FLOAT DEFAULT 0,                -- Sum of line costs
+    total_margin FLOAT DEFAULT 0,              -- total_amount - total_cost
+
+    channel VARCHAR(50),                       -- 'IG', 'WA', 'Shopee', 'Tokopedia', etc.
+    sold_by VARCHAR(100),                      -- Free-text: salesperson name
+
+    notes VARCHAR(1000),
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(100) DEFAULT 'admin',
+
+    FOREIGN KEY (customer_id) REFERENCES customer(id)
+);
+CREATE INDEX idx_order_number ON "order"(order_number);
+CREATE INDEX idx_order_customer ON "order"(customer_id);
+CREATE INDEX idx_order_due_date ON "order"(due_date);
+CREATE INDEX idx_order_status ON "order"(status);
+CREATE INDEX idx_order_channel ON "order"(channel);
+```
+
+#### 19. `order_item` - Order Line Items (Standalone - No ProductVersion FK)
+```sql
+CREATE TABLE order_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+
+    -- Product info as text (standalone mode with combobox autocomplete)
+    product_name VARCHAR(255) NOT NULL,        -- Combobox searches previous entries
+    product_variant VARCHAR(255),              -- Optional: "Large", "v2", etc.
+
+    quantity INTEGER NOT NULL DEFAULT 1,
+    unit_price FLOAT NOT NULL,                 -- Selling price per unit
+    unit_cost FLOAT DEFAULT 0,                 -- Cost per unit (manual entry)
+    discount_amount FLOAT DEFAULT 0,
+
+    line_total FLOAT NOT NULL,                 -- (qty * unit_price) - discount
+    line_cost FLOAT NOT NULL,                  -- qty * unit_cost
+    line_margin FLOAT NOT NULL,                -- line_total - line_cost
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (order_id) REFERENCES "order"(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_order_item_order ON order_item(order_id);
+CREATE INDEX idx_order_item_product ON order_item(product_name);  -- For combobox search
+```
+
 ### Visual Schema Diagram
 
 ```
@@ -403,23 +481,30 @@ Result: Fully independent version that can be edited without affecting source
 | **Database schema change** | `database.py`<br>`models/[entity].py` | Update `lib/types.ts` to match |
 | **Fix N+1 query** | `crud/[entity].py` (add joinedload) | - |
 | **Add dashboard stat** | `routers/dashboard.py`<br>`crud/[entity].py` | `pages/Dashboard.tsx` |
+| **Add Order field** | `models/order.py`<br>`schemas/order.py`<br>`crud/orders.py` | `lib/types.ts`<br>`hooks/useOrders.ts` |
+| **Update WhatsApp template** | `services/whatsapp_formatter.py` | - |
+| **Add Order API endpoint** | `routers/orders.py` | `lib/api.ts`<br>`hooks/useOrders.ts` |
+| **Update Order UI** | - | `pages/OrderManager.tsx`<br>`pages/OrderDetail.tsx`<br>`components/orders/OrderForm.tsx` |
 
 ### Critical File Paths Reference
 
 **Backend Core:**
-- `backend/app/main.py` - FastAPI app, CORS, router registration (41 endpoints total)
+- `backend/app/main.py` - FastAPI app, CORS, router registration (55 endpoints total)
 - `backend/app/database.py` - SQLite engine, session factory, init_db(), seed data
 - `backend/app/services/cost_calculator.py` - All cost calculation logic (212 lines)
+- `backend/app/services/whatsapp_formatter.py` - WhatsApp receipt generation
 
-**Backend Models (7 files, 13 classes):**
+**Backend Models (9 files, 16 classes):**
 - `backend/app/models/ingredient.py` - Ingredient
 - `backend/app/models/packaging_material.py` - PackagingMaterial
 - `backend/app/models/tag.py` - Tag
 - `backend/app/models/recipe.py` - Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
 - `backend/app/models/packaging.py` - PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
 - `backend/app/models/product.py` - Product, ProductVersion
+- `backend/app/models/customer.py` - Customer
+- `backend/app/models/order.py` - Order, OrderItem
 
-**Backend Routers (7 files, 41 endpoint functions):**
+**Backend Routers (9 files, 55 endpoint functions):**
 - `backend/app/routers/ingredients.py` - 5 endpoints (list, get, create, update, delete)
 - `backend/app/routers/packaging_materials.py` - 5 endpoints
 - `backend/app/routers/tags.py` - 3 endpoints (list, create, delete)
@@ -427,25 +512,33 @@ Result: Fully independent version that can be edited without affecting source
 - `backend/app/routers/packaging.py` - 7 endpoints
 - `backend/app/routers/products.py` - 6 endpoints
 - `backend/app/routers/dashboard.py` - 1 endpoint (stats)
+- `backend/app/routers/customers.py` - 4 endpoints (list, get, create, update)
+- `backend/app/routers/orders.py` - 10 endpoints (list, get, create, update_status, update_payment, delete, product_suggestions, seller_suggestions, export_orders, export_order_items)
 
 **Frontend Core:**
-- `frontend/src/App.tsx` - Router setup (5 routes), React Query provider
+- `frontend/src/App.tsx` - Router setup (8 routes), React Query provider
 - `frontend/src/lib/api.ts` - Axios client, 40+ API functions
 - `frontend/src/lib/types.ts` - TypeScript interfaces matching backend schemas (336 lines)
 
-**Frontend Pages (4 files):**
+**Frontend Pages (8 files):**
 - `frontend/src/pages/Dashboard.tsx` - 3 carousels (Products, Recipes, Packaging), statistics
 - `frontend/src/pages/RecipeEditor.tsx` - Recipe version editor (648 lines)
 - `frontend/src/pages/PackagingEditor.tsx` - Packaging version editor (607 lines)
 - `frontend/src/pages/ProductEditor.tsx` - Product version editor with COGS breakdown (545 lines)
+- `frontend/src/pages/IngredientsManager.tsx` - Ingredient list + create/edit form
+- `frontend/src/pages/MaterialsManager.tsx` - Packaging material list + create/edit form
+- `frontend/src/pages/OrderManager.tsx` - Order list + filters + create form
+- `frontend/src/pages/OrderDetail.tsx` - Order detail with WhatsApp copy + status updates
 
-**Frontend Hooks (7 files):**
+**Frontend Hooks (9 files):**
 - `frontend/src/hooks/useIngredients.ts` - Queries + mutations for ingredients
 - `frontend/src/hooks/useMaterials.ts` - Queries + mutations for packaging materials
 - `frontend/src/hooks/useTags.ts` - Queries + mutations for tags
 - `frontend/src/hooks/useRecipes.ts` - Queries + mutations for recipes
 - `frontend/src/hooks/usePackaging.ts` - Queries + mutations for packaging
 - `frontend/src/hooks/useProducts.ts` - Queries + mutations for products
+- `frontend/src/hooks/useCustomers.ts` - Queries + mutations for customers
+- `frontend/src/hooks/useOrders.ts` - Queries + mutations for orders (includes product/seller suggestions)
 - Each hook includes: query key factory, list query, detail query, mutations with cache invalidation
 
 ## Tech Stack
@@ -727,7 +820,7 @@ def create_recipe_with_components(db: Session, data: RecipeCreate) -> Recipe:
 
 ## API Design
 
-### Endpoints (41 total functions across 7 routers)
+### Endpoints (55 total functions across 9 routers)
 
 ```
 # Dashboard
@@ -781,6 +874,28 @@ POST   /api/products                     # Create + first version
 POST   /api/products/{id}/versions       # Create new version
 POST   /api/products/{id}/versions/copy  # Copy from existing version
 DELETE /api/products/{id}                # Delete
+
+# Customers (Order Management)
+GET    /api/customers                    # List with ?q= search
+GET    /api/customers/{id}               # Get customer
+POST   /api/customers                    # Create customer
+PATCH  /api/customers/{id}               # Update customer
+
+# Orders (Order Management)
+GET    /api/orders                       # List with filters (status, channel, due_date)
+GET    /api/orders/{id}                  # Get detail with WhatsApp text
+POST   /api/orders                       # Create order with line items
+PATCH  /api/orders/{id}/status           # Update status
+PATCH  /api/orders/{id}/payment          # Update payment status/method
+DELETE /api/orders/{id}                  # Delete (Draft only)
+
+# Order Autocomplete Suggestions
+GET    /api/orders/products/suggestions  # Distinct products from order history
+GET    /api/orders/sellers/suggestions   # Distinct sold_by from order history
+
+# CSV Export (Order Management)
+GET    /api/orders/export/orders         # Export all orders as CSV
+GET    /api/orders/export/order-items    # Export all order items as CSV
 ```
 
 ### Response Format
@@ -1165,6 +1280,88 @@ VITE_API_URL=http://localhost:8000/api
 - [ ] Pagination for large lists
 
 ## Changelog
+
+### 2026-01-29 - Order Management Module (Complete Implementation)
+**Added:**
+- Complete Order Management module (standalone, no ProductVersion dependency)
+- Customer entity with phone, source, notes tracking
+- Order entity with MMDD-NNN format order numbers for bank transfer reference
+- Order items with product_name text fields and combobox autocomplete
+- WhatsApp receipt generation with bank details (BCA PT Malo Group Bahagia)
+- CSV export endpoints for orders and order items
+- Product and seller suggestion endpoints for autocomplete
+- Sales channel tracking (IG, WA, Shopee, Tokopedia, etc.)
+- Sold by field with autocomplete from previous orders
+
+**Backend Implementation (9 files):**
+- `backend/app/models/customer.py` (39 lines) - Customer model with relationships
+- `backend/app/models/order.py` (104 lines) - Order and OrderItem models with cascade delete
+- `backend/app/schemas/customer.py` - Customer Pydantic schemas
+- `backend/app/schemas/order.py` (151 lines) - Order/OrderItem schemas with validation
+- `backend/app/crud/customers.py` - Customer CRUD (list, get, create, update)
+- `backend/app/crud/orders.py` (309 lines) - Order CRUD with totals calculation, suggestions, export
+- `backend/app/routers/customers.py` - 4 customer endpoints
+- `backend/app/routers/orders.py` (200+ lines) - 10 order endpoints + CSV export + suggestions
+- `backend/app/services/whatsapp_formatter.py` - WhatsApp receipt generator
+
+**Frontend Implementation (5 files):**
+- `frontend/src/pages/OrderManager.tsx` - Order list with filters + create form
+- `frontend/src/pages/OrderDetail.tsx` - Order detail page with WhatsApp copy button
+- `frontend/src/components/orders/OrderForm.tsx` (300+ lines) - Complex order form with:
+  - Customer selection/creation with dropdown
+  - Multiple line items with add/remove
+  - Product name autocomplete from history
+  - Seller autocomplete from history
+  - Real-time totals calculation
+- `frontend/src/hooks/useOrders.ts` - Order React Query hooks (7 functions)
+- `frontend/src/hooks/useCustomers.ts` - Customer React Query hooks
+
+**API Endpoints (10 endpoints):**
+```
+GET    /api/orders                      # List with filters (status, channel, due_date)
+GET    /api/orders/{id}                 # Detail with WhatsApp text
+POST   /api/orders                      # Create with line items
+PATCH  /api/orders/{id}/status          # Update status (Draft|Confirmed|Completed|Cancelled)
+PATCH  /api/orders/{id}/payment         # Update payment (Unpaid|Partial|Paid)
+DELETE /api/orders/{id}                 # Delete (Draft only)
+GET    /api/orders/products/suggestions # Product autocomplete from history
+GET    /api/orders/sellers/suggestions  # Seller autocomplete from history
+GET    /api/orders/export/orders        # CSV export all orders
+GET    /api/orders/export/order-items   # CSV export all items
+```
+
+**Database Schema (3 tables, 19 columns total):**
+- `customer` (7 cols) - id, name, phone, source, notes, created_at, updated_at
+- `order` (15 cols) - id, order_number (UNIQUE), customer_id (FK), status, payment_status, payment_method, order_date, due_date, total_amount, total_cost, total_margin, channel, sold_by, notes, created_at, created_by
+- `order_item` (12 cols) - id, order_id (FK), product_name, product_variant, quantity, unit_price, unit_cost, discount_amount, line_total, line_cost, line_margin, created_at
+
+**Key Features:**
+- Order number format: `MMDD-NNN` (e.g., 0129-001) for easy bank transfer reference
+- Real-time totals calculation (amount, cost, margin)
+- Status workflow: Draft → Confirmed → Completed → Cancelled
+- Payment tracking: Unpaid → Partial → Paid with method (BCA, QRIS, Cash)
+- WhatsApp-ready receipt with bank details for customer communication
+- Combobox autocomplete for products and sellers from order history
+- Validation: min 1 item per order, qty ≥ 1, unit_price > 0
+
+**Bug Fixes:**
+- Fixed circular import issue: Customer and Order models not in `models/__init__.py`
+- Added proper import order to prevent SQLAlchemy mapper initialization errors
+
+**Testing Notes:**
+- Tested with curl: Order creation works end-to-end
+- Validates customer_id or new_customer requirement
+- Validates minimum 1 item per order
+- Calculates line totals and order totals correctly
+- WhatsApp text generation works with proper formatting
+
+**Backlog/Roadmap:**
+- [ ] Orders Dashboard carousel on main Dashboard
+- [ ] Kitchen View page (orders grouped by due date)
+- [ ] Customer management dedicated page
+- [ ] Order editing for Draft status (currently create-only)
+- [ ] Bulk status updates
+- [ ] Product Integration - link OrderItem to ProductVersion when ready
 
 ### 2025-01-28 - Ingredient & Material Management Enhancements
 **Added:**

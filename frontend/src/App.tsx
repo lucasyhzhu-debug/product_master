@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { Layout } from '@/components/layout';
-import { Dashboard, RecipeEditor, PackagingEditor, ProductEditor, IngredientsManager, MaterialsManager } from '@/pages';
+import { Dashboard, RecipeEditor, PackagingEditor, ProductEditor, IngredientsManager, MaterialsManager, OrderManager, OrderDetail } from '@/pages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,6 +27,8 @@ function App() {
               <Route path="products/:id" element={<ProductEditor />} />
               <Route path="ingredients/:id" element={<IngredientsManager />} />
               <Route path="materials/:id" element={<MaterialsManager />} />
+              <Route path="orders" element={<OrderManager />} />
+              <Route path="orders/:id" element={<OrderDetail />} />
             </Route>
           </Routes>
         </BrowserRouter>

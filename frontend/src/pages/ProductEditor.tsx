@@ -88,12 +88,19 @@ export function ProductEditor() {
   const selectedPackaging = packagingList?.find(p => p.id === selectedPackagingId);
 
   // Compute inherited tags from recipe and packaging
+  // Note: RecipeSummary and PackagingRecipeSummary have tags as string[], not Tag[]
   const inheritedTags = new Set<number>();
-  if (selectedRecipe) {
-    selectedRecipe.tags.forEach(tag => inheritedTags.add(tag.id));
+  if (selectedRecipe && tags) {
+    selectedRecipe.tags.forEach(tagName => {
+      const tag = tags.find(t => t.name === tagName);
+      if (tag) inheritedTags.add(tag.id);
+    });
   }
-  if (selectedPackaging) {
-    selectedPackaging.tags.forEach(tag => inheritedTags.add(tag.id));
+  if (selectedPackaging && tags) {
+    selectedPackaging.tags.forEach(tagName => {
+      const tag = tags.find(t => t.name === tagName);
+      if (tag) inheritedTags.add(tag.id);
+    });
   }
 
   const handleSave = async () => {
