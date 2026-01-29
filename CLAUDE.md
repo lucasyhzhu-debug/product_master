@@ -304,7 +304,10 @@ CREATE TABLE "order" (
     order_number VARCHAR(20) NOT NULL UNIQUE,  -- Simple format: "0129-001" (MMDD-seq)
     customer_id INTEGER NOT NULL,
 
-    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled
+    -- Status workflow: Draft → AwaitingPayment → Confirmed → ... → Terminal
+    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|AwaitingPayment|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled
+    awaiting_payment_since DATETIME,           -- Timestamp when order entered AwaitingPayment status
+
     payment_status VARCHAR(20) NOT NULL DEFAULT 'Unpaid', -- Unpaid|Partial|Paid
     payment_method VARCHAR(50),                -- 'BCA', 'QRIS', 'Cash'
 
@@ -317,6 +320,16 @@ CREATE TABLE "order" (
 
     channel VARCHAR(50),                       -- 'IG', 'WA', 'Shopee', 'Tokopedia', etc.
     sold_by VARCHAR(100),                      -- Free-text: salesperson name
+
+    -- Delivery Info
+    delivery_type VARCHAR(20) DEFAULT 'Pickup', -- Pickup, Delivery
+    pickup_location VARCHAR(100),
+    delivery_address VARCHAR(500),
+    contact_wa VARCHAR(50),
+    contact_ig VARCHAR(100),
+    shipping_agency VARCHAR(50),
+    shipping_number VARCHAR(100),
+    cancellation_reason VARCHAR(255),
 
     notes VARCHAR(1000),
 
@@ -363,11 +376,12 @@ CREATE INDEX idx_order_item_product ON order_item(product_name);  -- For combobo
 
 ```
 Draft
-  └─> Confirmed
-        └─> ProductionComplete (kitchen: production done)
-              └─> Packaging (kitchen: actively packaging)
-                    ├─> WaitingShipment ─> CompleteShipped (delivered)
-                    └─> WaitingPickup ─> PickedUp (customer picked up)
+  └─> AwaitingPayment (WhatsApp sent, waiting for payment)
+        └─> Confirmed (payment verified)
+              └─> ProductionComplete (kitchen: production done)
+                    └─> Packaging (kitchen: actively packaging)
+                          ├─> WaitingShipment ─> CompleteShipped (delivered)
+                          └─> WaitingPickup ─> PickedUp (customer picked up)
 
 Any non-terminal → Cancelled (requires cancellation_reason)
 ```
@@ -375,8 +389,9 @@ Any non-terminal → Cancelled (requires cancellation_reason)
 **Status Meanings:**
 | Status | Description | Next States |
 |--------|-------------|-------------|
-| Draft | Order created, not confirmed | Confirmed, Cancelled |
-| Confirmed | Customer confirmed | ProductionComplete, Cancelled |
+| Draft | Order created, not confirmed | AwaitingPayment, Cancelled |
+| AwaitingPayment | WhatsApp sent, waiting for payment (tracks `awaiting_payment_since`) | Confirmed, Cancelled |
+| Confirmed | Payment verified, ready for production | ProductionComplete, Cancelled |
 | ProductionComplete | Kitchen finished production | Packaging, Cancelled |
 | Packaging | Actively packaging | WaitingShipment, WaitingPickup, Cancelled |
 | WaitingShipment | Ready for courier (requires shipping_number + shipping_agency) | CompleteShipped, Cancelled |
@@ -384,6 +399,11 @@ Any non-terminal → Cancelled (requires cancellation_reason)
 | WaitingPickup | Ready for customer pickup | PickedUp, Cancelled |
 | PickedUp | Customer picked up (terminal) | - |
 | Cancelled | Order cancelled (requires cancellation_reason, terminal) | - |
+
+**AwaitingPayment Visual Indicator:**
+- Green badge: Waiting < 24 hours
+- Yellow badge: Waiting 1-2 days
+- Red badge: Waiting > 2 days
 
 **Shipping Agencies:**
 Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
@@ -514,6 +534,7 @@ Result: Fully independent version that can be edited without affecting source
 | **Update WhatsApp template** | `services/whatsapp_formatter.py` | - |
 | **Add Order API endpoint** | `routers/orders.py` | `lib/api.ts`<br>`hooks/useOrders.ts` |
 | **Update Order UI** | - | `pages/OrderManager.tsx`<br>`pages/OrderDetail.tsx`<br>`components/orders/OrderForm.tsx` |
+| **Kitchen View (production)** | `routers/orders.py` (kitchen endpoint)<br>`crud/orders.py` | `pages/KitchenView.tsx` |
 
 ### Critical File Paths Reference
 
@@ -549,7 +570,7 @@ Result: Fully independent version that can be edited without affecting source
 - `frontend/src/lib/api.ts` - Axios client, 40+ API functions
 - `frontend/src/lib/types.ts` - TypeScript interfaces matching backend schemas (336 lines)
 
-**Frontend Pages (8 files):**
+**Frontend Pages (9 files):**
 - `frontend/src/pages/Dashboard.tsx` - 3 carousels (Products, Recipes, Packaging), statistics
 - `frontend/src/pages/RecipeEditor.tsx` - Recipe version editor (648 lines)
 - `frontend/src/pages/PackagingEditor.tsx` - Packaging version editor (607 lines)
@@ -558,6 +579,7 @@ Result: Fully independent version that can be edited without affecting source
 - `frontend/src/pages/MaterialsManager.tsx` - Packaging material list + create/edit form
 - `frontend/src/pages/OrderManager.tsx` - Order list + filters + create form
 - `frontend/src/pages/OrderDetail.tsx` - Order detail with WhatsApp copy + status updates
+- `frontend/src/pages/KitchenView.tsx` - Production-focused order view with status groups
 
 **Frontend Hooks (9 files):**
 - `frontend/src/hooks/useIngredients.ts` - Queries + mutations for ingredients
@@ -913,9 +935,12 @@ PATCH  /api/customers/{id}               # Update customer
 # Orders (Order Management)
 GET    /api/orders                       # List with filters (status, channel, due_date)
 GET    /api/orders/{id}                  # Get detail with WhatsApp text
+GET    /api/orders/kitchen               # Kitchen view orders (production statuses only)
+GET    /api/orders/production/report     # Production report grouped by date
 POST   /api/orders                       # Create order with line items
 PATCH  /api/orders/{id}/status           # Update status
 PATCH  /api/orders/{id}/payment          # Update payment status/method
+PATCH  /api/orders/{id}/shipping         # Update shipping info
 DELETE /api/orders/{id}                  # Delete (Draft only)
 
 # Order Autocomplete Suggestions
@@ -1309,6 +1334,42 @@ VITE_API_URL=http://localhost:8000/api
 - [ ] Pagination for large lists
 
 ## Changelog
+
+### 2026-01-30 - Order Workflow Enhancements (3-Phase Implementation)
+
+**Phase 1: WhatsApp Confirmation Prompts**
+- Added confirmation dialog for Draft → AwaitingPayment transition
+- Requires "WhatsApp sent" checkbox before advancing
+- Added contextual WhatsApp templates for each status transition:
+  - `format_payment_request()` - Payment request with bank details
+  - `format_production_started()` - Production notification
+  - `format_delivery_complete()` - Delivery confirmation
+- OrderDetail response now includes all template texts
+
+**Phase 2: Kitchen View**
+- Created `KitchenView.tsx` - Production-focused order management page
+- Status-grouped order cards: To Produce, Production Complete, Packaging, Ready
+- Quick-action buttons to advance orders to next status
+- Date filter with overdue order highlighting (red)
+- Added `GET /api/orders/kitchen` endpoint
+- Added navigation link in Header
+
+**Phase 3: AwaitingPayment Status**
+- Added AwaitingPayment status between Draft and Confirmed (now 10-status workflow)
+- Added `awaiting_payment_since` timestamp column to Order model
+- Split confirmation flow:
+  - Draft → AwaitingPayment: Only requires "WhatsApp sent" checkbox
+  - AwaitingPayment → Confirmed: Only requires "Payment confirmed" checkbox
+- Added waiting time indicator with color-coded badges:
+  - Green: < 24 hours
+  - Yellow: 1-2 days
+  - Red: > 2 days
+- Kitchen View excludes AwaitingPayment orders (only production-relevant)
+- Updated OrderManager.tsx with AwaitingPayment filter and badge
+
+**Files Modified:**
+- Backend: `models/order.py`, `schemas/order.py`, `crud/orders.py`, `routers/orders.py`, `services/whatsapp_formatter.py`
+- Frontend: `lib/types.ts`, `pages/OrderDetail.tsx`, `pages/OrderManager.tsx`, `pages/KitchenView.tsx` (new), `App.tsx`, `components/layout/Header.tsx`
 
 ### 2026-01-30 - Order Status Workflow Migration
 **Changed:**
