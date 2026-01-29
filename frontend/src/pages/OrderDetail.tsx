@@ -4,6 +4,17 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -16,13 +27,18 @@ import { Separator } from '@/components/ui/separator';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards, ConfirmDialog } from '@/components/shared';
 
-import { useOrder, useUpdateOrderStatus, useUpdateOrderPayment, useDeleteOrder } from '@/hooks';
+import { useOrder, useUpdateOrderStatus, useUpdateOrderPayment, useDeleteOrder, useUpdateOrderShipping } from '@/hooks';
 import type { OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
   Confirmed: 'bg-blue-500',
-  Completed: 'bg-green-500',
+  ProductionComplete: 'bg-purple-500',
+  Packaging: 'bg-indigo-500',
+  WaitingShipment: 'bg-yellow-500',
+  CompleteShipped: 'bg-green-500',
+  WaitingPickup: 'bg-orange-500',
+  PickedUp: 'bg-green-500',
   Cancelled: 'bg-red-500',
 };
 
@@ -32,7 +48,7 @@ const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   Paid: 'bg-green-500',
 };
 
-const STATUS_OPTIONS: OrderStatus[] = ['Draft', 'Confirmed', 'Completed', 'Cancelled'];
+const STATUS_OPTIONS: OrderStatus[] = ['Draft', 'Confirmed', 'ProductionComplete', 'Packaging', 'WaitingShipment', 'CompleteShipped', 'WaitingPickup', 'PickedUp', 'Cancelled'];
 const PAYMENT_OPTIONS: PaymentStatus[] = ['Unpaid', 'Partial', 'Paid'];
 const PAYMENT_METHODS = ['BCA', 'QRIS', 'Cash', 'Other'];
 
@@ -74,16 +90,39 @@ export function OrderDetail() {
   const { data: order, isLoading } = useOrder(orderId);
   const updateStatus = useUpdateOrderStatus();
   const updatePayment = useUpdateOrderPayment();
+  const updateShipping = useUpdateOrderShipping();
   const deleteOrder = useDeleteOrder();
 
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const handleCopyWhatsApp = async () => {
-    if (!order?.whatsapp_text) return;
+  // Shipping Dialog
+  const [showShippingDialog, setShowShippingDialog] = useState(false);
+  const [shippingAgency, setShippingAgency] = useState('');
+  const [shippingNumber, setShippingNumber] = useState('');
+
+  // Cancellation Dialog
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+
+  // Pending status for shipping dialog flow
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+
+  // WhatsApp States
+  const [receiptText, setReceiptText] = useState('');
+  const [shippingText, setShippingText] = useState('');
+  const [pickupText, setPickupText] = useState('');
+
+  // Update WA text when order loads
+  if (order && !receiptText && order.whatsapp_text) setReceiptText(order.whatsapp_text);
+  if (order && !shippingText && order.shipping_text) setShippingText(order.shipping_text);
+  if (order && !pickupText && order.pickup_text) setPickupText(order.pickup_text);
+
+  const handleCopyWhatsApp = async (text: string | undefined) => {
+    if (!text) return;
 
     try {
-      await navigator.clipboard.writeText(order.whatsapp_text);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -93,7 +132,39 @@ export function OrderDetail() {
 
   const handleStatusChange = (newStatus: string) => {
     if (!order) return;
+
+    if (newStatus === 'Cancelled') {
+      setShowCancelDialog(true);
+      return;
+    }
+
+    // Auto-trigger shipping dialog for WaitingShipment
+    if (newStatus === 'WaitingShipment') {
+      setPendingStatus(newStatus);
+      setShippingAgency(order.shipping_agency || '');
+      setShippingNumber(order.shipping_number || '');
+      setShowShippingDialog(true);
+      return;
+    }
+
     updateStatus.mutate({ id: order.id, status: newStatus });
+  };
+
+  const confirmCancellation = () => {
+    if (!order) return;
+    updateStatus.mutate(
+      {
+        id: order.id,
+        status: 'Cancelled',
+        cancellation_reason: cancellationReason
+      },
+      {
+        onSuccess: () => {
+          setShowCancelDialog(false);
+          setCancellationReason('');
+        }
+      }
+    );
   };
 
   const handlePaymentChange = (newPaymentStatus: string) => {
@@ -118,6 +189,34 @@ export function OrderDetail() {
     deleteOrder.mutate(orderId, {
       onSuccess: () => navigate('/orders'),
     });
+  };
+
+  const handleUpdateShipping = () => {
+    if (!order) return;
+    updateShipping.mutate(
+      {
+        id: order.id,
+        shipping_agency: shippingAgency || null,
+        shipping_number: shippingNumber || null,
+      },
+      {
+        onSuccess: () => {
+          // If there's a pending status, update status after shipping is saved
+          if (pendingStatus) {
+            updateStatus.mutate({ id: order.id, status: pendingStatus });
+            setPendingStatus(null);
+          }
+          setShowShippingDialog(false);
+        },
+      }
+    );
+  };
+
+  const openShippingDialog = () => {
+    if (!order) return;
+    setShippingAgency(order.shipping_agency || '');
+    setShippingNumber(order.shipping_number || '');
+    setShowShippingDialog(true);
   };
 
   if (isLoading) {
@@ -213,6 +312,61 @@ export function OrderDetail() {
                   <p className="text-sm">{order.notes}</p>
                 </div>
               )}
+
+              <Separator />
+
+              {/* Delivery & Shipping Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Delivery Method</p>
+                  <div className="font-medium flex items-center gap-2">
+                    {order.delivery_type}
+                    {order.delivery_type === 'Delivery' && order.delivery_address && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({order.delivery_address})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {order.shipping_agency && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Shipping</p>
+                    <p className="font-medium">
+                      {order.shipping_agency}
+                      {order.shipping_number && (
+                        <span className="text-muted-foreground ml-1">
+                          #{order.shipping_number}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                {(order.contact_wa || order.contact_ig) && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-muted-foreground mb-1">Contact</p>
+                    <div className="flex gap-4 text-sm">
+                      {order.contact_wa && (
+                        <span className="flex items-center gap-1">
+                          WA: {order.contact_wa}
+                        </span>
+                      )}
+                      {order.contact_ig && (
+                        <span className="flex items-center gap-1">
+                          IG: @{order.contact_ig.replace('@', '')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {order.status === 'Cancelled' && order.cancellation_reason && (
+                  <div className="col-span-2 bg-red-50 p-2 rounded border border-red-100 dark:bg-red-950/20 dark:border-red-900">
+                    <p className="text-xs text-red-600 font-semibold">Cancellation Reason</p>
+                    <p className="text-sm text-red-700 dark:text-red-400">
+                      {order.cancellation_reason}
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -280,25 +434,85 @@ export function OrderDetail() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
-                WhatsApp Receipt
+                WhatsApp Messages
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <pre className="text-xs bg-muted p-3 rounded-md whitespace-pre-wrap mb-4 max-h-64 overflow-auto">
-                {order.whatsapp_text}
-              </pre>
-              <Button className="w-full" onClick={handleCopyWhatsApp}>
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
+            <CardContent className="space-y-4">
+              {/* Receipt */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Order Receipt</Label>
+                <Textarea
+                  value={receiptText}
+                  onChange={(e) => setReceiptText(e.target.value)}
+                  className="min-h-[100px] text-xs font-mono"
+                />
+                <Button
+                  variant="secondary"
+                  className="w-full justify-start"
+                  onClick={() => handleCopyWhatsApp(receiptText)}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Receipt
+                </Button>
+              </div>
+
+              {/* Shipping Info */}
+              {(order.status === 'WaitingShipment' || order.status === 'CompleteShipped') && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Shipping / Courier Info</Label>
+                  <Textarea
+                    value={shippingText}
+                    onChange={(e) => setShippingText(e.target.value)}
+                    className="min-h-[100px] text-xs font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => handleCopyWhatsApp(shippingText)}
+                  >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy for WhatsApp
-                  </>
-                )}
+                    Copy Info
+                  </Button>
+                </div>
+              )}
+
+              {/* Pickup Ready */}
+              {order.status === 'WaitingPickup' && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Pickup Ready</Label>
+                  <Textarea
+                    value={pickupText}
+                    onChange={(e) => setPickupText(e.target.value)}
+                    className="min-h-[100px] text-xs font-mono"
+                  />
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => handleCopyWhatsApp(pickupText)}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Pickup Info
+                  </Button>
+                </div>
+              )}
+
+              {copied && (
+                <div className="flex items-center justify-center text-sm text-green-600 animate-in fade-in slide-in-from-bottom-2">
+                  <Check className="h-4 w-4 mr-1" />
+                  Copied to clipboard!
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Shipping Update */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Shipping Info</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" className="w-full" onClick={openShippingDialog}>
+                Update Shipping
               </Button>
             </CardContent>
           </Card>
@@ -388,6 +602,92 @@ export function OrderDetail() {
         confirmLabel="Delete"
         variant="destructive"
       />
+
+      {/* Cancellation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for cancelling this order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Reason</Label>
+            <Textarea
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="e.g. Customer request, Out of stock..."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              Back
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCancellation}
+              disabled={!cancellationReason.trim()}
+            >
+              Confirm Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipping Dialog */}
+      <Dialog open={showShippingDialog} onOpenChange={setShowShippingDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Shipping Info</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Agency / Courier</Label>
+              <Select onValueChange={(val) => setShippingAgency(val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={shippingAgency || "Select courier"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Gojek">Gojek</SelectItem>
+                  <SelectItem value="GrabSend">GrabSend</SelectItem>
+                  <SelectItem value="JNE">JNE</SelectItem>
+                  <SelectItem value="J&T">J&T</SelectItem>
+                  <SelectItem value="SiCepat">SiCepat</SelectItem>
+                  <SelectItem value="AnterAja">AnterAja</SelectItem>
+                  <SelectItem value="Paxel">Paxel</SelectItem>
+                  <SelectItem value="Lalamove">Lalamove</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {(!['Gojek', 'GrabSend', 'JNE', 'J&T', 'SiCepat', 'AnterAja', 'Paxel', 'Lalamove'].includes(shippingAgency) || shippingAgency === 'Other') && (
+                <Input
+                  className="mt-2"
+                  value={shippingAgency === 'Other' ? '' : shippingAgency}
+                  onChange={(e) => setShippingAgency(e.target.value)}
+                  placeholder="Enter courier name"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Tracking / Reference Number</Label>
+              <Input
+                value={shippingNumber}
+                onChange={(e) => setShippingNumber(e.target.value)}
+                placeholder="Receipt number"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShippingDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateShipping}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

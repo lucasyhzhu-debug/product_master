@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
+
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -12,26 +12,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 import {
   useCreateOrder,
-  useCustomers,
-  useProductSuggestions,
   useSellerSuggestions,
-} from '@/hooks';
-import type { OrderItemCreate, CustomerSummary, ProductSuggestion } from '@/lib/types';
+} from '@/hooks/useOrders';
+import { useCustomers } from '@/hooks/useCustomers';
+import { menuProductApi } from '@/lib/api';
+import type { CustomerSummary, MenuProduct, OrderCreate, OrderItemCreate } from '@/lib/types';
 
 const CHANNELS = ['IG', 'WA', 'Shopee', 'Tokopedia', 'Offline', 'Other'];
-
-interface LineItem extends OrderItemCreate {
-  id: string;
-}
 
 interface OrderFormProps {
   onSuccess?: () => void;
 }
 
 export function OrderForm({ onSuccess }: OrderFormProps) {
+  const createOrder = useCreateOrder();
+
   // Customer state
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -40,35 +39,45 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
-  // Order state
-  const [channel, setChannel] = useState<string>('');
-  const [soldBy, setSoldBy] = useState('');
-  const [soldBySearch, setSoldBySearch] = useState('');
   const [showSoldByDropdown, setShowSoldByDropdown] = useState(false);
-  const [dueDate, setDueDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const [menuProducts, setMenuProducts] = useState<MenuProduct[]>([]);
 
-  // Line items
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    {
-      id: crypto.randomUUID(),
-      product_name: '',
-      quantity: 1,
-      unit_price: 0,
-      unit_cost: 0,
-    },
-  ]);
+  useEffect(() => {
+    menuProductApi.list(true).then(setMenuProducts);
+  }, []);
+
+  const [formData, setFormData] = useState<OrderCreate>({
+    customer_id: null,
+    new_customer: null,
+    channel: '',
+    sold_by: '',
+    due_date: new Date().toISOString().split('T')[0], // Default to today
+    notes: '',
+    delivery_type: 'Pickup',
+    pickup_location: 'Goldfinch Legato',
+    delivery_address: '',
+    contact_wa: '',
+    contact_ig: '',
+    items: [
+      {
+        product_name: '',
+        product_variant: '',
+        quantity: 1,
+        unit_price: 0,
+        discount_amount: 0,
+        unit_cost: 0,
+      },
+    ],
+  });
 
   // Queries
   const { data: customers } = useCustomers(customerSearch || undefined);
-  const { data: productSuggestions } = useProductSuggestions();
   const { data: sellerSuggestions } = useSellerSuggestions();
-  const createOrder = useCreateOrder();
 
   // Calculate totals
-  const totals = lineItems.reduce(
+  const totals = formData.items.reduce(
     (acc, item) => {
-      const lineTotal = item.quantity * item.unit_price;
+      const lineTotal = item.quantity * item.unit_price - (item.discount_amount || 0);
       const lineCost = item.quantity * (item.unit_cost || 0);
       return {
         amount: acc.amount + lineTotal,
@@ -84,6 +93,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     setCustomerSearch(customer.name);
     setIsNewCustomer(false);
     setShowCustomerDropdown(false);
+    setFormData((prev) => ({ ...prev, customer_id: customer.id, new_customer: null }));
   };
 
   const handleCreateNewCustomer = () => {
@@ -91,48 +101,46 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     setCustomerId(null);
     setNewCustomerName(customerSearch);
     setShowCustomerDropdown(false);
+    setFormData((prev) => ({
+      ...prev,
+      customer_id: null,
+      new_customer: { name: customerSearch, phone: null },
+    }));
   };
 
   const handleSoldBySelect = (seller: string) => {
-    setSoldBy(seller);
-    setSoldBySearch(seller);
-    setShowSoldByDropdown(false);
+    setFormData((prev) => ({ ...prev, sold_by: seller }));
   };
 
-  const handleProductSelect = (index: number, suggestion: ProductSuggestion) => {
-    const updated = [...lineItems];
-    updated[index] = {
-      ...updated[index],
-      product_name: suggestion.product_name,
-      product_variant: suggestion.product_variant || undefined,
-      unit_price: suggestion.last_unit_price,
-      unit_cost: suggestion.last_unit_cost,
-    };
-    setLineItems(updated);
+  const updateItem = (index: number, field: keyof OrderItemCreate, value: string | number) => {
+    const updatedItems = [...formData.items];
+    updatedItems[index] = { ...updatedItems[index], [field]: value };
+    setFormData((prev) => ({ ...prev, items: updatedItems }));
   };
 
-  const updateLineItem = (index: number, field: keyof LineItem, value: string | number) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setLineItems(updated);
+  const addItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          product_name: '',
+          product_variant: '',
+          quantity: 1,
+          unit_price: 0,
+          discount_amount: 0,
+          unit_cost: 0,
+        },
+      ],
+    }));
   };
 
-  const addLineItem = () => {
-    setLineItems([
-      ...lineItems,
-      {
-        id: crypto.randomUUID(),
-        product_name: '',
-        quantity: 1,
-        unit_price: 0,
-        unit_cost: 0,
-      },
-    ]);
-  };
-
-  const removeLineItem = (index: number) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((_, i) => i !== index));
+  const removeItem = (index: number) => {
+    if (formData.items.length > 1) {
+      setFormData((prev) => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== index),
+      }));
     }
   };
 
@@ -146,28 +154,24 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       alert('Please enter customer name');
       return;
     }
-    if (lineItems.some((item) => !item.product_name.trim())) {
+    if (formData.items.some((item) => !item.product_name.trim())) {
       alert('Please fill in all product names');
       return;
     }
-    if (lineItems.some((item) => item.unit_price <= 0)) {
+    if (formData.items.some((item) => item.unit_price <= 0)) {
       alert('Please enter valid prices for all items');
       return;
     }
 
-    const orderData = {
+    const orderData: OrderCreate = {
+      ...formData,
       customer_id: isNewCustomer ? null : customerId,
       new_customer: isNewCustomer
         ? { name: newCustomerName, phone: newCustomerPhone || null }
         : null,
-      channel: channel || null,
-      sold_by: soldBy || null,
-      due_date: dueDate || null,
-      notes: notes || null,
-      items: lineItems.map(({ id, ...item }) => ({
+      items: formData.items.map((item) => ({
         ...item,
         unit_cost: item.unit_cost || 0,
-        discount_amount: 0,
       })),
     };
 
@@ -190,7 +194,16 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               <Input
                 placeholder="Customer name"
                 value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setNewCustomerName(e.target.value);
+                  setFormData((prev) => ({
+                    ...prev,
+                    new_customer: {
+                      name: e.target.value,
+                      phone: prev.new_customer?.phone ?? '',
+                    },
+                  }));
+                }}
                 className="flex-1"
               />
               <Button
@@ -200,6 +213,9 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                 onClick={() => {
                   setIsNewCustomer(false);
                   setCustomerSearch('');
+                  setNewCustomerName('');
+                  setNewCustomerPhone('');
+                  setFormData((prev) => ({ ...prev, customer_id: null, new_customer: null }));
                 }}
               >
                 <X className="h-4 w-4" />
@@ -208,18 +224,28 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
             <Input
               placeholder="Phone (optional)"
               value={newCustomerPhone}
-              onChange={(e) => setNewCustomerPhone(e.target.value)}
+              onChange={(e) => {
+                setNewCustomerPhone(e.target.value);
+                setFormData((prev) => ({
+                  ...prev,
+                  new_customer: {
+                    name: prev.new_customer?.name ?? '',
+                    phone: e.target.value
+                  },
+                }));
+              }}
             />
           </div>
         ) : (
           <div className="relative">
             <Input
               placeholder="Search customer..."
-              value={customerSearch}
+              value={customerSearch || ''}
               onChange={(e) => {
                 setCustomerSearch(e.target.value);
                 setShowCustomerDropdown(true);
                 setCustomerId(null);
+                setFormData((prev) => ({ ...prev, customer_id: null, new_customer: null }));
               }}
               onFocus={() => setShowCustomerDropdown(true)}
             />
@@ -254,7 +280,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Channel</Label>
-          <Select value={channel} onValueChange={setChannel}>
+          <Select
+            value={formData.channel || ''}
+            onValueChange={(val) => setFormData((prev) => ({ ...prev, channel: val }))}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select channel" />
             </SelectTrigger>
@@ -273,10 +302,9 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
           <div className="relative">
             <Input
               placeholder="Salesperson"
-              value={soldBySearch}
+              value={formData.sold_by || ''}
               onChange={(e) => {
-                setSoldBySearch(e.target.value);
-                setSoldBy(e.target.value);
+                setFormData((prev) => ({ ...prev, sold_by: e.target.value }));
                 setShowSoldByDropdown(true);
               }}
               onFocus={() => setShowSoldByDropdown(true)}
@@ -286,7 +314,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-32 overflow-auto">
                 {sellerSuggestions
                   .filter((s) =>
-                    s.sold_by.toLowerCase().includes(soldBySearch.toLowerCase())
+                    s.sold_by.toLowerCase().includes((formData.sold_by || '').toLowerCase())
                   )
                   .map((seller) => (
                     <button
@@ -310,48 +338,154 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       <div className="space-y-2">
         <Label>Due Date</Label>
         <Input
-          type="datetime-local"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
+          type="date"
+          value={formData.due_date || ''}
+          onChange={(e) => setFormData((prev) => ({ ...prev, due_date: e.target.value }))}
         />
       </div>
 
       {/* Line Items */}
       <div className="space-y-2">
         <Label>Items *</Label>
-        <div className="space-y-3">
-          {lineItems.map((item, index) => (
-            <LineItemRow
-              key={item.id}
-              item={item}
-              index={index}
-              productSuggestions={productSuggestions}
-              onUpdate={updateLineItem}
-              onRemove={() => removeLineItem(index)}
-              onProductSelect={(suggestion) => handleProductSelect(index, suggestion)}
-              canRemove={lineItems.length > 1}
-            />
-          ))}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full mt-2"
-          onClick={addLineItem}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Item
+        {formData.items.map((item, index) => (
+          <div key={index} className="grid grid-cols-2 md:grid-cols-6 gap-2 border rounded-md p-3">
+            <div className="space-y-2 col-span-2">
+              <Label>Product Name</Label>
+              <Select
+                value={item.product_name}
+                onValueChange={(val) => {
+                  const selectedProduct = menuProducts.find((p) => p.name === val);
+                  updateItem(index, 'product_name', val);
+                  if (selectedProduct) {
+                    updateItem(index, 'unit_price', selectedProduct.default_price);
+                    updateItem(index, 'product_variant', '');
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {menuProducts.map((p) => (
+                    <SelectItem key={p.id} value={p.name}>
+                      {p.name} - Rp {p.default_price.toLocaleString('id-ID')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+
+
+            <div className="space-y-2">
+              <Label>Quantity</Label>
+              <Input
+                type="number"
+                min="1"
+                value={item.quantity}
+                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Unit Price</Label>
+              <Input
+                type="number"
+                value={item.unit_price}
+                onChange={(e) => updateItem(index, 'unit_price', parseInt(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Discount</Label>
+              <Input
+                type="number"
+                value={item.discount_amount || 0}
+                onChange={(e) => updateItem(index, 'discount_amount', parseInt(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="flex items-end pb-0.5">
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                onClick={() => removeItem(index)}
+                disabled={formData.items.length === 1}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        <Button type="button" variant="outline" onClick={addItem} className="w-full">
+          <Plus className="mr-2 h-4 w-4" /> Add Item
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label>Delivery Type</Label>
+          <Select
+            value={formData.delivery_type}
+            onValueChange={(val: 'Pickup' | 'Delivery') =>
+              setFormData({ ...formData, delivery_type: val })
+            }
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Pickup">Pickup</SelectItem>
+              <SelectItem value="Delivery">Delivery</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {formData.delivery_type === 'Pickup' ? (
+          <div className="space-y-2">
+            <Label>Pickup Location</Label>
+            <Input
+              value={formData.pickup_location || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, pickup_location: e.target.value })
+              }
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>Delivery Address</Label>
+            <Textarea
+              value={formData.delivery_address || ''}
+              onChange={(e) => setFormData({ ...formData, delivery_address: e.target.value })}
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Contact WA</Label>
+          <Input
+            value={formData.contact_wa || ''}
+            onChange={(e) => setFormData({ ...formData, contact_wa: e.target.value })}
+            placeholder="0812..."
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Contact IG</Label>
+          <Input
+            value={formData.contact_ig || ''}
+            onChange={(e) => setFormData({ ...formData, contact_ig: e.target.value })}
+            placeholder="@username"
+          />
+        </div>
       </div>
 
       {/* Notes */}
       <div className="space-y-2">
-        <Label>Notes</Label>
+        <Label htmlFor="notes">Notes</Label>
         <Textarea
+          id="notes"
           placeholder="Special instructions..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          value={formData.notes || ''}
+          onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
           rows={2}
         />
       </div>
@@ -380,115 +514,6 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       >
         {createOrder.isPending ? 'Creating...' : 'Create Order'}
       </Button>
-    </div>
-  );
-}
-
-interface LineItemRowProps {
-  item: LineItem;
-  index: number;
-  productSuggestions?: ProductSuggestion[];
-  onUpdate: (index: number, field: keyof LineItem, value: string | number) => void;
-  onRemove: () => void;
-  onProductSelect: (suggestion: ProductSuggestion) => void;
-  canRemove: boolean;
-}
-
-function LineItemRow({
-  item,
-  index,
-  productSuggestions,
-  onUpdate,
-  onRemove,
-  onProductSelect,
-  canRemove,
-}: LineItemRowProps) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const filteredSuggestions = productSuggestions?.filter((s) =>
-    s.product_name.toLowerCase().includes(item.product_name.toLowerCase())
-  );
-
-  return (
-    <div className="border rounded-md p-3 space-y-2">
-      <div className="flex gap-2">
-        {/* Product Name with autocomplete */}
-        <div className="relative flex-1">
-          <Input
-            placeholder="Product name"
-            value={item.product_name}
-            onChange={(e) => {
-              onUpdate(index, 'product_name', e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          />
-          {showSuggestions &&
-            filteredSuggestions &&
-            filteredSuggestions.length > 0 &&
-            item.product_name && (
-              <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-32 overflow-auto">
-                {filteredSuggestions.slice(0, 5).map((suggestion) => (
-                  <button
-                    key={`${suggestion.product_name}-${suggestion.product_variant}`}
-                    className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
-                    onClick={() => onProductSelect(suggestion)}
-                  >
-                    <div>{suggestion.product_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Last: Rp {suggestion.last_unit_price.toLocaleString('id-ID')}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-        </div>
-
-        {canRemove && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onRemove}
-            className="text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <Label className="text-xs">Qty</Label>
-          <Input
-            type="number"
-            min="1"
-            value={item.quantity}
-            onChange={(e) => onUpdate(index, 'quantity', parseInt(e.target.value) || 1)}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Price</Label>
-          <Input
-            type="number"
-            min="0"
-            value={item.unit_price || ''}
-            onChange={(e) => onUpdate(index, 'unit_price', parseFloat(e.target.value) || 0)}
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Cost</Label>
-          <Input
-            type="number"
-            min="0"
-            value={item.unit_cost || ''}
-            onChange={(e) => onUpdate(index, 'unit_cost', parseFloat(e.target.value) || 0)}
-            placeholder="0"
-          />
-        </div>
-      </div>
-    </div>
+    </div >
   );
 }

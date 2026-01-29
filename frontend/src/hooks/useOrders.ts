@@ -52,8 +52,15 @@ export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) =>
-      orderApi.updateStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      cancellation_reason,
+    }: {
+      id: number;
+      status: string;
+      cancellation_reason?: string;
+    }) => orderApi.updateStatus(id, status, cancellation_reason),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
@@ -89,6 +96,30 @@ export function useUpdateOrderPayment() {
   });
 }
 
+export function useUpdateOrderShipping() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      shipping_agency,
+      shipping_number,
+    }: {
+      id: number;
+      shipping_agency: string | null;
+      shipping_number: string | null;
+    }) => orderApi.updateShipping(id, shipping_agency, shipping_number),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      toast.success('Shipping info updated');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update shipping info');
+    },
+  });
+}
+
 export function useDeleteOrder() {
   const queryClient = useQueryClient();
 
@@ -115,5 +146,12 @@ export function useSellerSuggestions(query?: string) {
   return useQuery({
     queryKey: [...orderKeys.sellerSuggestions(), query],
     queryFn: () => orderApi.getSellerSuggestions(query),
+  });
+}
+
+export function useProductionReport(startDate: string | null = null, endDate: string | null = null) {
+  return useQuery({
+    queryKey: [...orderKeys.lists(), 'production-report', startDate, endDate],
+    queryFn: () => orderApi.getProductionReport(startDate, endDate),
   });
 }
