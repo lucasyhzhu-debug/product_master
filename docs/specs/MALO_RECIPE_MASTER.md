@@ -35,15 +35,20 @@ Malo Recipe Master is a local-first recipe and product concept management system
   - `Total COGS` = Recipe COGS + Packaging COGS.
   - `Margin` = Retail Price - Total COGS.
 
-### 2.4 Order Management
+### 2.4 Order Management (New Module)
 
-- **Customer**: CRM-lite (Name, Phone, Source, Notes).
-- **Order**: Standalone orders (not strictly enforcing Product Version FKs to allow flexibility).
+- **Customer CRM**: Lightweight tracking (Name, Phone, Source, Notes).
+- **Order Structure**:
+  - `Order`: Linked to Customer. Tracks status, payment, channel.
+  - `OrderItem`: Standalone line items (product name as text + variant) for flexibility.
+  - Linked to Product Version? *Future roadmap item. Currently decoupled.*
 - **Workflow**: Draft -> Confirmed -> Completed -> Cancelled.
-- **Features**:
-  - WhatsApp receipt generation.
-  - Real-time margin calculation per order.
-  - Auto-complete for products and sellers based on history.
+- **Key Features**:
+  - **WhatsApp Receipts**: specific formatting with bank details.
+  - **Autocomplete**: Suggestions for Products and Sellers from history.
+  - **Sales Channel**: Track IG, WA, Shopee, etc.
+  - **Exports**: CSV export for Orders and Line Items.
+- **Reference**: See schema tables `customer`, `order`, `order_item` in CLAUDE.md.
 
 ## 3. Data Flow & Calculations
 
