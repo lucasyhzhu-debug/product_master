@@ -35,6 +35,7 @@ import type {
   OrderDetail,
   ProductSuggestion,
   SellerSuggestion,
+  MenuProduct,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -178,6 +179,16 @@ export const packagingApi = {
   },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/packaging/${id}`);
+  },
+};
+
+// Menu Products
+export const menuProductApi = {
+  list: async (activeOnly: boolean = true): Promise<MenuProduct[]> => {
+    const { data } = await api.get('/menu-products', {
+      params: { active_only: activeOnly },
+    });
+    return data;
   },
 };
 

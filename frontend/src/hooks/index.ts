@@ -6,3 +6,4 @@ export * from './useTags';
 export * from './useMaterials';
 export * from './useCustomers';
 export * from './useOrders';
+export * from './useMenuProducts';

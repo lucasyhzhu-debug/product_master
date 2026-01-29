@@ -248,6 +248,21 @@ export interface PackagingRecipeSummary {
   created_at: string;
 }
 
+// Menu Product types
+export interface MenuProduct {
+  id: number;
+  code: string;
+  name: string;
+  grams: number;
+  default_price: number;
+  production_type: 'original' | 'bite_sized';
+  production_units: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface MenuProductSummary extends MenuProduct { }
+
 // Product types
 export interface ProductCOGS {
   total_grams: number;
