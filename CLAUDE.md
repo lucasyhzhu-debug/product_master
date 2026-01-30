@@ -1448,13 +1448,42 @@ VITE_API_URL=http://localhost:8000/api
 - [x] TypeScript types matching all backend schemas
 
 ### Not Yet Implemented
+
+**Infrastructure:**
 - [ ] Testing (pytest for backend, Vitest for frontend)
-- [ ] Authentication/Authorization
-- [ ] API rate limiting
 - [ ] Structured logging
-- [ ] Production deployment configuration
+- [x] Production deployment configuration (Vercel + Neon PostgreSQL)
 - [ ] Error boundaries in React
 - [ ] Pagination for large lists
+
+### Future Roadmap (Backlog)
+
+**Priority 1: Authentication & Access Control**
+- [ ] User authentication (consider Clerk or Auth.js)
+- [ ] Role-based visibility:
+  - `admin` - Full access (recipes, costs, margins, orders)
+  - `kitchen` - Kitchen View only (orders, production status)
+  - `sales` - Orders and products (no cost/margin data)
+- [ ] Audit trail - track `created_by` and `updated_by` with real user IDs
+- [ ] API rate limiting (after auth is in place)
+
+**Priority 2: Multi-Location Support**
+- [ ] Location entity (id, name, address)
+- [ ] Assign orders to production location
+- [ ] Location-specific Kitchen View
+- [ ] Location-based inventory tracking (future)
+
+**Priority 3: Offline/PWA Support**
+- [ ] Progressive Web App (PWA) configuration
+- [ ] Service worker for Kitchen View caching
+- [ ] Offline order status updates with sync
+- [ ] Add to home screen prompt on mobile
+
+**Priority 4: Enhanced UX**
+- [ ] Message copy improvements (currently copies to clipboard, user pastes to WA/IG)
+- [ ] Customer contact channel tracking (WA vs IG vs other)
+- [ ] Order templates for repeat customers
+- [ ] Bulk order status updates
 
 ## Changelog
 
