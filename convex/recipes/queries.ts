@@ -2,8 +2,6 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
-  normalizeToBaseUnit,
-  calculateCostPerBaseUnit,
   calculateLineCost,
 } from "../lib/costCalculator";
 
