@@ -13,6 +13,8 @@ interface CarouselProps {
   emptyMessage?: string;
   isEmpty?: boolean;
   itemCount?: number;
+  /** Data attribute for onboarding tour targeting */
+  'data-tour-step'?: string;
 }
 
 export function Carousel({
@@ -24,6 +26,7 @@ export function Carousel({
   emptyMessage = 'No items yet',
   isEmpty = false,
   itemCount,
+  'data-tour-step': dataTourStep,
 }: CarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +40,7 @@ export function Carousel({
   };
 
   return (
-    <section className="mb-8">
+    <section className="mb-8" data-tour-step={dataTourStep}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
           {Icon && (
