@@ -809,6 +809,42 @@ export function OrderDetail() {
             </DialogDescription>
           </DialogHeader>
 
+          {/* Visual Stepper - Only show for Draft status */}
+          {order?.status === 'Draft' && (
+            <div className="flex items-center justify-between mb-6 px-4">
+              {/* Step 1: WhatsApp */}
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                  whatsappSent
+                    ? "bg-green-500 text-white"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {whatsappSent ? <Check className="h-5 w-5" /> : "1"}
+                </div>
+                <span className="text-xs mt-1 text-muted-foreground">Send WA</span>
+              </div>
+
+              {/* Connector Line */}
+              <div className={`flex-1 h-0.5 mx-2 ${
+                whatsappSent ? "bg-green-500" : "bg-muted"
+              }`} />
+
+              {/* Step 2: Payment */}
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                  paymentConfirmed
+                    ? "bg-green-500 text-white"
+                    : whatsappSent
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                }`}>
+                  {paymentConfirmed ? <Check className="h-5 w-5" /> : "2"}
+                </div>
+                <span className="text-xs mt-1 text-muted-foreground">Payment</span>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4 py-2">
             {/* WhatsApp Message Preview - Only show for Draft → AwaitingPayment */}
             {order?.status === 'Draft' && (
