@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, Info } from 'lucide-react';
 
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 import {
   useCreateOrder,
@@ -82,13 +88,15 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     (acc, item) => {
       const lineTotal = item.quantity * item.unit_price - (item.discount_amount || 0);
       const lineCost = item.quantity * (item.unit_cost || 0);
+      const discountAmount = item.discount_amount || 0;
       return {
         amount: acc.amount + lineTotal,
         cost: acc.cost + lineCost,
         margin: acc.margin + (lineTotal - lineCost),
+        totalDiscount: acc.totalDiscount + discountAmount,
       };
     },
-    { amount: 0, cost: 0, margin: 0 }
+    { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
   const handleCustomerSelect = (customer: CustomerSummary) => {
@@ -518,7 +526,19 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
             {/* Discount & Line Total - 2 columns */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Discount</Label>
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs">Discount (per item)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p>Discount applied per line item, not per unit. Subtracted from line total.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Input
                   type="number"
                   value={item.discount_amount || 0}
@@ -528,7 +548,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Total</Label>
+                <Label className="text-xs">Line Total</Label>
                 <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm font-medium">
                   Rp {(item.quantity * item.unit_price - (item.discount_amount || 0)).toLocaleString('id-ID')}
                 </div>
@@ -614,18 +634,20 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       </div>
 
       {/* Totals */}
-      <div className="bg-muted p-3 rounded-md space-y-1">
+      <div className="bg-muted p-3 rounded-md space-y-2 border">
         <div className="flex justify-between text-sm">
-          <span>Subtotal</span>
+          <span className="text-muted-foreground">Subtotal (before discounts)</span>
+          <span className="font-medium">Rp {formData.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toLocaleString('id-ID')}</span>
+        </div>
+        {totals.totalDiscount > 0 && (
+          <div className="flex justify-between text-sm text-destructive">
+            <span>Total Discounts</span>
+            <span>- Rp {totals.totalDiscount.toLocaleString('id-ID')}</span>
+          </div>
+        )}
+        <div className="border-t pt-2 flex justify-between font-semibold text-primary">
+          <span>Order Total</span>
           <span>Rp {totals.amount.toLocaleString('id-ID')}</span>
-        </div>
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Total Discounts</span>
-          <span>Rp {totals.cost.toLocaleString('id-ID')}</span>
-        </div>
-        <div className="flex justify-between font-semibold text-green-600">
-          <span>Net Total</span>
-          <span>Rp {totals.margin.toLocaleString('id-ID')}</span>
         </div>
       </div>
 
