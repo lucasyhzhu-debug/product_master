@@ -15,6 +15,12 @@ import type * as materials_mutations from "../materials/mutations.js";
 import type * as materials_queries from "../materials/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as packaging_mutations from "../packaging/mutations.js";
+import type * as packaging_queries from "../packaging/queries.js";
+import type * as products_mutations from "../products/mutations.js";
+import type * as products_queries from "../products/queries.js";
+import type * as recipes_mutations from "../recipes/mutations.js";
+import type * as recipes_queries from "../recipes/queries.js";
 import type * as tags_mutations from "../tags/mutations.js";
 import type * as tags_queries from "../tags/queries.js";
 
@@ -32,6 +38,12 @@ declare const fullApi: ApiFromModules<{
   "materials/queries": typeof materials_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "packaging/mutations": typeof packaging_mutations;
+  "packaging/queries": typeof packaging_queries;
+  "products/mutations": typeof products_mutations;
+  "products/queries": typeof products_queries;
+  "recipes/mutations": typeof recipes_mutations;
+  "recipes/queries": typeof recipes_queries;
   "tags/mutations": typeof tags_mutations;
   "tags/queries": typeof tags_queries;
 }>;
