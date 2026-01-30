@@ -70,7 +70,9 @@ def create_order(db: Session, order_data: OrderCreate) -> Order:
     total_cost = 0.0
 
     for item_data in order_data.items:
-        line_total = (item_data.quantity * item_data.unit_price) - item_data.discount_amount
+        # Line total = Qty × (Unit Price - Discount per Unit)
+        discounted_unit_price = item_data.unit_price - item_data.discount_amount
+        line_total = item_data.quantity * discounted_unit_price
         line_cost = item_data.quantity * item_data.unit_cost
         line_margin = line_total - line_cost
 
