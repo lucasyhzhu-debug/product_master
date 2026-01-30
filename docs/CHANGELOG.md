@@ -13,6 +13,43 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-01-30 - Production Database Seeding Endpoints
+
+**Admin Endpoints for Vercel/Neon.tech Database Management**
+
+Added three admin endpoints to fix production database seeding issues on Vercel serverless:
+- `GET /api/admin/db-check?secret=<ADMIN_SECRET>` - Diagnose database connection and check seed status
+- `POST /api/admin/seed-only?secret=<ADMIN_SECRET>` - Seed menu products and tags (for when tables exist but are empty)
+- Enhanced `POST /api/admin/init-db?secret=<ADMIN_SECRET>` - Create tables and seed data with detailed error reporting
+
+**Security Improvements:**
+- All admin endpoints secured with `ADMIN_SECRET` environment variable (must be set in Vercel)
+- Proper HTTP status codes: 403 Forbidden, 503 Service Unavailable, 500 Internal Server Error
+- Database credential masking in error responses
+- Audit logging for all admin actions
+
+**Code Quality:**
+- Extracted reusable `seed_default_data()` function in `api/app/database.py`
+- Eliminated code duplication between `init_db()` and admin endpoints
+- Added type hints to all admin endpoints
+- Consistent FastAPI dependency injection patterns
+
+**Files Modified:**
+- `api/app/main.py` - Added 3 admin endpoints (+109 lines)
+- `api/app/database.py` - Refactored seeding logic into reusable function
+- `.env.example` - Documented `ADMIN_SECRET` configuration
+
+**Why This Was Needed:**
+- Vercel serverless uses `lifespan="off"` in `api/index.py`, preventing automatic database seeding on cold starts
+- Manual endpoints allow operators to seed production database after deployment
+
+**Migration Steps:**
+1. Set `ADMIN_SECRET` environment variable in Vercel dashboard (generate a strong random string)
+2. After deployment, call `https://your-app.vercel.app/api/admin/init-db?secret=<your-secret>`
+3. Verify seeding with `https://your-app.vercel.app/api/admin/db-check?secret=<your-secret>`
+
+---
+
 ## 2026-01-30 - Documentation Refactor
 
 **CLAUDE.md Split into Modular Documentation**
