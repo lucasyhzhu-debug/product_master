@@ -1,24 +1,40 @@
+import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 from pathlib import Path
 
-# Database path
-DATABASE_DIR = Path(__file__).parent.parent / "data"
-DATABASE_DIR.mkdir(parents=True, exist_ok=True)
-DATABASE_URL = f"sqlite:///{DATABASE_DIR}/malo_recipes.db"
-
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
+# Get database URL from environment variable
+# Falls back to SQLite for local development
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    f"sqlite:///{Path(__file__).parent.parent / 'data' / 'malo_recipes.db'}"
 )
 
-# Enable foreign keys for SQLite
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+# Create engine with database-specific configuration
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite for local development
+    DATABASE_DIR = Path(__file__).parent.parent / "data"
+    DATABASE_DIR.mkdir(parents=True, exist_ok=True)
+
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+
+    # Enable foreign keys for SQLite only
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+else:
+    # PostgreSQL for production (with NullPool for serverless)
+    # Handles both 'postgresql://' and 'postgres://' URL schemes
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=NullPool
+    )
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
