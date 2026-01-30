@@ -1,10 +1,14 @@
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from typing import Dict, Any
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from app.database import init_db
+from app.database import init_db, get_db, SessionLocal, DATABASE_URL
+from app.models.menu_product import MenuProduct
+from app.models.tag import Tag
 from app.routers import (
     ingredients_router,
     packaging_materials_router,
@@ -21,6 +25,9 @@ from app.routers import (
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Admin secret from environment variable
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 
 @asynccontextmanager
@@ -79,18 +86,102 @@ def health_check():
     return {"status": "healthy", "service": "malo-recipe-master"}
 
 
+def _mask_db_url(url: str) -> str:
+    """Mask database URL to hide credentials."""
+    if url.startswith("sqlite"):
+        return "sqlite://[local]"
+    if "://" in url:
+        scheme = url.split("://")[0]
+        return f"{scheme}://***@***"
+    return "***"
+
+
+@app.get("/api/admin/db-check")
+def check_database(secret: str = "", db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Diagnostic endpoint to check database connection and current state."""
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        # Check connection
+        menu_count = db.query(MenuProduct).count()
+        tag_count = db.query(Tag).count()
+
+        # Get a sample menu product if any
+        sample_product = db.query(MenuProduct).first()
+
+        return {
+            "status": "connected",
+            "database_url": _mask_db_url(DATABASE_URL),
+            "menu_products_count": menu_count,
+            "tags_count": tag_count,
+            "sample_product": {
+                "name": sample_product.name,
+                "price": sample_product.default_price
+            } if sample_product else None,
+            "needs_seeding": menu_count == 0
+        }
+    except Exception as e:
+        logger.error(f"Database check failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {type(e).__name__}"
+        )
+
+
+@app.post("/api/admin/seed-only")
+def admin_seed_only(secret: str = "", db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Seed menu products and tags without creating tables.
+    Use this if tables already exist but are empty.
+    """
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from app.database import seed_default_data
+
+    try:
+        result = seed_default_data(db)
+        logger.info(
+            "Admin seed completed",
+            extra={
+                "tags_added": result["tags_added"],
+                "products_added": result["products_added"],
+            }
+        )
+        return {
+            "status": "success",
+            "message": "Seed completed",
+            **result
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Seeding failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Seeding failed: {type(e).__name__}"
+        )
+
+
 @app.post("/api/admin/init-db")
-def admin_init_db(secret: str = ""):
+def admin_init_db(secret: str = "") -> Dict[str, Any]:
     """
     One-time database initialization endpoint.
-    Call with ?secret=malo-init-2026 to seed the database.
+    Creates tables and seeds default data.
     Safe to call multiple times - only seeds if tables are empty.
     """
-    if secret != "malo-init-2026":
-        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         init_db()
+        logger.info("Admin init-db completed successfully")
         return {
             "status": "success",
             "message": "Database initialized and seeded successfully",
@@ -105,4 +196,8 @@ def admin_init_db(secret: str = ""):
             }
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Database initialization failed: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Initialization failed: {type(e).__name__}"
+        )
