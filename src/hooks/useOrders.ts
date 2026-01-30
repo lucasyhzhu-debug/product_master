@@ -39,12 +39,13 @@ export function useCreateOrder() {
 
   return useMutation({
     mutationFn: (data: OrderCreate) => orderApi.create(data),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      toast.success(`Order ${data.order_number} created`);
+      // Success toast is handled by toast.promise in the component
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create order');
+      // Error toast is handled by toast.promise in the component
+      throw error;
     },
   });
 }

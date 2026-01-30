@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, X, Info } from 'lucide-react';
-
+import { Plus, Trash2, X, Info, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -206,17 +206,29 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Customer validation
     if (!isNewCustomer && !customerId) {
-      newErrors.customer = 'Please select or create a customer';
+      newErrors.customer = 'Please select an existing customer or create a new one';
     }
     if (isNewCustomer && !newCustomerName.trim()) {
-      newErrors.customer = 'Please enter customer name';
+      newErrors.customer = 'Customer name is required';
+    }
+
+    // Items validation
+    if (formData.items.length === 0) {
+      newErrors.items = 'At least one item is required';
     }
     if (formData.items.some((item) => !item.product_name.trim())) {
-      newErrors.items = 'Please fill in all product names';
+      newErrors.items = 'Product name is required for all items';
     }
-    if (formData.items.some((item) => item.unit_price <= 0)) {
-      newErrors.items = 'Please enter valid prices for all items';
+    if (formData.items.some((item) => item.quantity <= 0)) {
+      newErrors.items = 'Quantity must be greater than 0 for all items';
+    }
+    if (formData.items.some((item) => item.unit_price < 0)) {
+      newErrors.items = 'Price cannot be negative';
+    }
+    if (formData.items.some((item) => item.unit_price === 0)) {
+      newErrors.items = 'Please enter a price for all items';
     }
 
     setErrors(newErrors);
@@ -224,7 +236,12 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    // Validate form
+    if (!validateForm()) {
+      const errorList = Object.values(errors);
+      toast.error(errorList[0] || 'Please fix the errors above');
+      return;
+    }
 
     const orderData: OrderCreate = {
       ...formData,
@@ -239,42 +256,57 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     };
 
     try {
-      await createOrder.mutateAsync(orderData);
+      // Use toast.promise for graceful async feedback
+      const orderPromise = createOrder.mutateAsync(orderData);
 
-      // Save any new custom products to the menu for future use
-      for (const item of orderData.items) {
-        const existingProduct = menuProducts.find(
-          (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
-        );
-        if (!existingProduct && item.product_name.trim() && item.unit_price > 0) {
-          try {
-            const newProduct = await menuProductApi.create({
-              name: item.product_name,
-              default_price: item.unit_price,
-            });
-            setMenuProducts((prev) => [...prev, newProduct]);
-          } catch {
-            // Ignore if product already exists or creation fails
-          }
-        }
-      }
+      await toast.promise(orderPromise, {
+        loading: `Creating order for ${isNewCustomer ? newCustomerName : customerSearch}...`,
+        success: (data) => {
+          // Save any new custom products to the menu for future use
+          const saveProductPromises = orderData.items
+            .filter((item) => {
+              const existingProduct = menuProducts.find(
+                (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
+              );
+              return !existingProduct && item.product_name.trim() && item.unit_price > 0;
+            })
+            .map((item) =>
+              menuProductApi
+                .create({
+                  name: item.product_name,
+                  default_price: item.unit_price,
+                })
+                .then((newProduct) => {
+                  setMenuProducts((prev) => [...prev, newProduct]);
+                })
+                .catch(() => {
+                  // Ignore if product already exists or creation fails
+                })
+            );
 
+          // Don't wait for product saves to complete
+          Promise.all(saveProductPromises).catch(() => {
+            // Ignore promise errors
+          });
+
+          return `Order ${data.order_number} created successfully! 🎉`;
+        },
+        error: (error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create order';
+          return `Error: ${errorMessage}`;
+        },
+      });
+
+      // Reset form and notify parent
       onSuccess?.();
-    } catch {
-      // Error handled by mutation
+    } catch (error) {
+      // Error already handled by toast.promise
+      console.error('Order creation error:', error);
     }
   };
 
   return (
     <div className="space-y-4 relative">
-      {createOrder.isPending && (
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
-          <div className="text-center space-y-2">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
-            <p className="text-sm text-muted-foreground">Creating order...</p>
-          </div>
-        </div>
-      )}
 
       {/* Customer */}
       <div className="space-y-2">
@@ -372,7 +404,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
           </div>
         )}
         {errors.customer && (
-          <p className="text-sm text-destructive mt-1">{errors.customer}</p>
+          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+            <Info className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-destructive">{errors.customer}</p>
+          </div>
         )}
       </div>
 
@@ -580,7 +615,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         ))}
 
         {errors.items && (
-          <p className="text-sm text-destructive">{errors.items}</p>
+          <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+            <Info className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-destructive">{errors.items}</p>
+          </div>
         )}
       </div>
 
@@ -674,13 +712,23 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       </div>
 
       {/* Submit */}
-      <Button
-        className="w-full"
-        onClick={handleSubmit}
-        disabled={createOrder.isPending}
-      >
-        {createOrder.isPending ? 'Creating...' : 'Create Order'}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          className="flex-1 gap-2"
+          onClick={handleSubmit}
+          disabled={createOrder.isPending || productsLoading}
+          size="lg"
+        >
+          {createOrder.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating Order...
+            </>
+          ) : (
+            'Create Order'
+          )}
+        </Button>
+      </div>
     </div >
   );
 }
