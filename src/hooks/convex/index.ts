@@ -60,3 +60,41 @@ export {
   type RecipeVersionInput,
   type RecipeCreateInput,
 } from "./useRecipes";
+
+// Packaging
+export {
+  useConvexPackagingList,
+  useConvexPackaging,
+  useConvexPackagingVersion,
+  useConvexPackagingSearch,
+  useConvexCreatePackaging,
+  useConvexCopyPackagingVersion,
+  useConvexCreatePackagingVersion,
+  useConvexUpdatePackagingTags,
+  useConvexUpdatePackagingName,
+  useConvexDeletePackaging,
+  useConvexRecalculatePackagingCosts,
+  type PackagingMaterialInput,
+  type PackagingComponentInput,
+  type PackagingVersionInput,
+  type PackagingCreateInput,
+} from "./usePackaging";
+
+// Products
+export {
+  useConvexProducts,
+  useConvexProduct,
+  useConvexProductVersion,
+  useConvexProductsUsingRecipe,
+  useConvexProductsUsingPackaging,
+  useConvexProductSearch,
+  useConvexCreateProduct,
+  useConvexCopyProductVersion,
+  useConvexCreateProductVersion,
+  useConvexUpdateProductTags,
+  useConvexUpdateProductName,
+  useConvexDeleteProduct,
+  useConvexRecalculateProductCogs,
+  type ProductVersionInput,
+  type ProductCreateInput,
+} from "./useProducts";
