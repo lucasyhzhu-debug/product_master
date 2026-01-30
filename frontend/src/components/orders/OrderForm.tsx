@@ -183,7 +183,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     try {
       await createOrder.mutateAsync(orderData);
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
