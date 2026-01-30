@@ -25,8 +25,8 @@ function App() {
               <Route path="recipes/:id" element={<RecipeEditor />} />
               <Route path="packaging/:id" element={<PackagingEditor />} />
               <Route path="products/:id" element={<ProductEditor />} />
-              <Route path="ingredients/:id" element={<IngredientsManager />} />
-              <Route path="materials/:id" element={<MaterialsManager />} />
+              <Route path="ingredients" element={<IngredientsManager />} />
+              <Route path="materials" element={<MaterialsManager />} />
               <Route path="orders" element={<OrderManager />} />
               <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="kitchen" element={<KitchenView />} />
