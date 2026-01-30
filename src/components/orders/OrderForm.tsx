@@ -42,6 +42,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [showSoldByDropdown, setShowSoldByDropdown] = useState(false);
   const [menuProducts, setMenuProducts] = useState<MenuProduct[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [productDropdownIndex, setProductDropdownIndex] = useState<number | null>(null);
+  const [productSearches, setProductSearches] = useState<string[]>(['']);
 
   useEffect(() => {
     menuProductApi.list(true).then(setMenuProducts);
@@ -134,6 +136,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         },
       ],
     }));
+    setProductSearches((prev) => [...prev, '']);
   };
 
   const removeItem = (index: number) => {
@@ -142,7 +145,44 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         ...prev,
         items: prev.items.filter((_, i) => i !== index),
       }));
+      setProductSearches((prev) => prev.filter((_, i) => i !== index));
     }
+  };
+
+  const handleProductSelect = (index: number, product: MenuProduct) => {
+    updateItem(index, 'product_name', product.name);
+    updateItem(index, 'unit_price', product.default_price);
+    setProductSearches((prev) => {
+      const updated = [...prev];
+      updated[index] = product.name;
+      return updated;
+    });
+    setProductDropdownIndex(null);
+  };
+
+  const handleProductInputChange = (index: number, value: string) => {
+    setProductSearches((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+    updateItem(index, 'product_name', value);
+    setProductDropdownIndex(index);
+  };
+
+  const handleProductBlur = (index: number) => {
+    // Delay to allow click on dropdown item
+    setTimeout(() => {
+      if (productDropdownIndex === index) {
+        setProductDropdownIndex(null);
+      }
+    }, 200);
+  };
+
+  const getFilteredProducts = (searchText: string) => {
+    if (!searchText) return menuProducts;
+    const lower = searchText.toLowerCase();
+    return menuProducts.filter((p) => p.name.toLowerCase().includes(lower));
   };
 
   const validateForm = (): boolean => {
@@ -182,6 +222,25 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
 
     try {
       await createOrder.mutateAsync(orderData);
+
+      // Save any new custom products to the menu for future use
+      for (const item of orderData.items) {
+        const existingProduct = menuProducts.find(
+          (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
+        );
+        if (!existingProduct && item.product_name.trim() && item.unit_price > 0) {
+          try {
+            const newProduct = await menuProductApi.create({
+              name: item.product_name,
+              default_price: item.unit_price,
+            });
+            setMenuProducts((prev) => [...prev, newProduct]);
+          } catch {
+            // Ignore if product already exists or creation fails
+          }
+        }
+      }
+
       onSuccess?.();
     } catch {
       // Error handled by mutation
@@ -395,31 +454,41 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               </Button>
             </div>
 
-            {/* Product Name - Full width */}
-            <div className="space-y-1.5">
+            {/* Product Name - Full width with combobox */}
+            <div className="space-y-1.5 relative">
               <Label className="text-xs">Product Name</Label>
-              <Select
-                value={item.product_name}
-                onValueChange={(val) => {
-                  const selectedProduct = menuProducts.find((p) => p.name === val);
-                  updateItem(index, 'product_name', val);
-                  if (selectedProduct) {
-                    updateItem(index, 'unit_price', selectedProduct.default_price);
-                    updateItem(index, 'product_variant', '');
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {menuProducts.map((p) => (
-                    <SelectItem key={p.id} value={p.name}>
-                      {p.name} - Rp {p.default_price.toLocaleString('id-ID')}
-                    </SelectItem>
+              <Input
+                value={productSearches[index] || item.product_name}
+                onChange={(e) => handleProductInputChange(index, e.target.value)}
+                onFocus={() => setProductDropdownIndex(index)}
+                onBlur={() => handleProductBlur(index)}
+                placeholder="Type or select product..."
+                className="h-9"
+              />
+              {productDropdownIndex === index && (
+                <div className="absolute z-20 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
+                  {getFilteredProducts(productSearches[index] || '').map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleProductSelect(index, p)}
+                    >
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Rp {p.default_price.toLocaleString('id-ID')}
+                      </div>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+                  {productSearches[index] && !menuProducts.some((p) => p.name.toLowerCase() === productSearches[index].toLowerCase()) && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground border-t">
+                      <Plus className="inline h-3 w-3 mr-1" />
+                      Custom: "{productSearches[index]}" (set price below)
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Quantity & Price - 2 columns */}
