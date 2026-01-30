@@ -86,6 +86,19 @@ def health_check():
     return {"status": "healthy", "service": "malo-recipe-master"}
 
 
+@app.get("/api/admin/test")
+def admin_test(secret: str = "") -> Dict[str, Any]:
+    """Test admin endpoint without database access."""
+    import os
+    return {
+        "status": "ok",
+        "admin_secret_configured": bool(ADMIN_SECRET),
+        "database_url_configured": bool(os.getenv("DATABASE_URL")),
+        "secret_valid": secret == ADMIN_SECRET if ADMIN_SECRET else False,
+        "python_version": os.sys.version,
+    }
+
+
 def _mask_db_url(url: str) -> str:
     """Mask database URL to hide credentials."""
     if url.startswith("sqlite"):
