@@ -32,7 +32,9 @@
       "Bash(python:*)",
       "Bash(npm run lint)",
       "Bash(del nul)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git merge:*)",
+      "Bash(npm run type-check:*)"
     ]
   }
 }
