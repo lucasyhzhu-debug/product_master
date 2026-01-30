@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,17 +23,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Configure CORS
+# Configure CORS with environment variable support
+# Read CORS_ORIGINS from environment (comma-separated URLs)
+cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # Alternative dev port
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,11 +57,11 @@ def on_startup():
 
 @app.get("/")
 def root():
-    """Health check endpoint."""
+    """Root health check endpoint."""
     return {"status": "ok", "app": "Malo Recipe Master API"}
 
 
-@app.get("/api/health")
+@app.get("/health")
 def health_check():
     """API health check."""
     return {"status": "healthy"}
