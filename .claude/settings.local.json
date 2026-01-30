@@ -26,7 +26,13 @@
       "Bash(claude-code tasks:*)",
       "Bash(claude sessions:*)",
       "Bash(tasklist:*)",
-      "Bash(cmd //c \"tasklist | findstr node\")"
+      "Bash(cmd //c \"tasklist | findstr node\")",
+      "Bash(git branch:*)",
+      "Bash(git mv:*)",
+      "Bash(python:*)",
+      "Bash(npm run lint)",
+      "Bash(del nul)",
+      "Bash(git rm:*)"
     ]
   }
 }
