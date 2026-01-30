@@ -7,21 +7,31 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/shared';
-import { useIngredients, useCreateIngredient, useUpdateIngredient, useDeleteIngredient } from '@/hooks/useIngredients';
+import {
+  useConvexIngredients,
+  useConvexCreateIngredient,
+  useConvexUpdateIngredient,
+  useConvexDeleteIngredient,
+} from '@/hooks/convex';
 import { formatCurrency } from '@/lib/utils';
-import type { IngredientCreate } from '@/lib/types';
+import type { Id } from '../../convex/_generated/dataModel';
 
 const INGREDIENT_UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
 
 export function IngredientsManager() {
   const navigate = useNavigate();
-  const { data: ingredients, isLoading } = useIngredients();
-  const createIngredient = useCreateIngredient();
-  const updateIngredient = useUpdateIngredient();
-  const deleteIngredient = useDeleteIngredient();
+
+  // Convex hooks - data comes back as camelCase
+  const rawIngredients = useConvexIngredients();
+  const ingredients = rawIngredients ?? [];
+  const isLoading = rawIngredients === undefined;
+
+  const createMutation = useConvexCreateIngredient();
+  const updateMutation = useConvexUpdateIngredient();
+  const deleteMutation = useConvexDeleteIngredient();
 
   // Form state
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [procurementSource, setProcurementSource] = useState('');
@@ -31,8 +41,9 @@ export function IngredientsManager() {
   const [shippingCost, setShippingCost] = useState('');
 
   // Delete dialog
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setEditingId(null);
@@ -45,18 +56,19 @@ export function IngredientsManager() {
     setShippingCost('');
   };
 
-  const handleEdit = (ingredient: any) => {
-    setEditingId(ingredient.id);
+  // Handle edit - Convex returns camelCase
+  const handleEdit = (ingredient: typeof ingredients[0]) => {
+    setEditingId(ingredient._id);
     setName(ingredient.name);
     setBrand(ingredient.brand || '');
-    setProcurementSource(ingredient.procurement_source || '');
-    setUnitType(ingredient.unit_type);
-    setVolumePurchased(ingredient.volume_purchased.toString());
-    setPriceExclShipping(ingredient.price_excl_shipping.toString());
-    setShippingCost(ingredient.shipping_cost.toString());
+    setProcurementSource(ingredient.procurementSource || '');
+    setUnitType(ingredient.unitType);
+    setVolumePurchased(ingredient.volumePurchased.toString());
+    setPriceExclShipping(ingredient.priceExclShipping.toString());
+    setShippingCost(ingredient.shippingCost.toString());
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !volumePurchased || !priceExclShipping) {
@@ -64,41 +76,42 @@ export function IngredientsManager() {
       return;
     }
 
-    const data: IngredientCreate = {
-      name,
-      brand: brand || null,
-      procurement_source: procurementSource || null,
-      unit_type: unitType,
-      volume_purchased: parseFloat(volumePurchased),
-      price_excl_shipping: parseFloat(priceExclShipping),
-      shipping_cost: shippingCost ? parseFloat(shippingCost) : 0,
-    };
+    setIsSubmitting(true);
+    try {
+      // Convex mutations expect camelCase
+      const data = {
+        name,
+        brand: brand || undefined,
+        procurementSource: procurementSource || undefined,
+        unitType,
+        volumePurchased: parseFloat(volumePurchased),
+        priceExclShipping: parseFloat(priceExclShipping),
+        shippingCost: shippingCost ? parseFloat(shippingCost) : 0,
+      };
 
-    if (editingId !== null) {
-      // Update existing ingredient
-      updateIngredient.mutate({ id: editingId, data }, {
-        onSuccess: () => {
-          resetForm();
-        },
-      });
-    } else {
-      // Create new ingredient
-      createIngredient.mutate(data, {
-        onSuccess: () => {
-          resetForm();
-        },
-      });
+      if (editingId !== null) {
+        await updateMutation.mutate({
+          id: editingId as Id<"ingredients">,
+          ...data,
+        });
+      } else {
+        await createMutation.mutate(data);
+      }
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId !== null) {
-      deleteIngredient.mutate(deleteId, {
-        onSuccess: () => {
-          setShowDeleteDialog(false);
-          setDeleteId(null);
-        },
-      });
+      try {
+        await deleteMutation.mutate(deleteId as Id<"ingredients">);
+        setShowDeleteDialog(false);
+        setDeleteId(null);
+      } catch {
+        // Error is handled by the mutation with toast
+      }
     }
   };
 
@@ -224,11 +237,11 @@ export function IngredientsManager() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={createIngredient.isPending || updateIngredient.isPending}
+                disabled={isSubmitting}
               >
                 {editingId
-                  ? (updateIngredient.isPending ? 'Updating...' : 'Update Ingredient')
-                  : (createIngredient.isPending ? 'Adding...' : 'Add Ingredient')
+                  ? (isSubmitting ? 'Updating...' : 'Update Ingredient')
+                  : (isSubmitting ? 'Adding...' : 'Add Ingredient')
                 }
               </Button>
             </form>
@@ -248,7 +261,7 @@ export function IngredientsManager() {
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {ingredients.map((ingredient) => (
-                  <Card key={ingredient.id} className="relative">
+                  <Card key={ingredient._id} className="relative">
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -260,13 +273,13 @@ export function IngredientsManager() {
                             <div>
                               <p className="text-muted-foreground">Volume</p>
                               <p className="font-medium">
-                                {ingredient.volume_purchased} {ingredient.unit_type}
+                                {ingredient.volumePurchased} {ingredient.unitType}
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Cost/{ingredient.base_unit}</p>
+                              <p className="text-muted-foreground">Cost/{ingredient.baseUnit}</p>
                               <p className="font-medium">
-                                {formatCurrency(ingredient.cost_per_base_unit)}
+                                {formatCurrency(ingredient.costPerBaseUnit ?? 0)}
                               </p>
                             </div>
                           </div>
@@ -284,7 +297,7 @@ export function IngredientsManager() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setDeleteId(ingredient.id);
+                              setDeleteId(ingredient._id);
                               setShowDeleteDialog(true);
                             }}
                             className="text-destructive hover:text-destructive"
