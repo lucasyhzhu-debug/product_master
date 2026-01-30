@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trash2, Copy, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,45 +11,63 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
 import { VersionNavigator, ConfirmDialog } from '@/components/shared';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProduct, useProductVersion, useCreateProduct, useCreateProductVersion, useCopyProductVersion, useDeleteProduct } from '@/hooks/useProducts';
-import { useRecipes } from '@/hooks/useRecipes';
-import { usePackagingRecipes } from '@/hooks/usePackaging';
-import { useTags } from '@/hooks/useTags';
+import {
+  useConvexProduct,
+  useConvexProductVersion,
+  useConvexCreateProduct,
+  useConvexCreateProductVersion,
+  useConvexCopyProductVersion,
+  useConvexDeleteProduct,
+} from '@/hooks/convex';
+import { useConvexRecipes, useConvexPackagingList, useConvexTags } from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
+import type { ProductVersionInput } from '@/hooks/convex/useProducts';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 
 export function ProductEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isNew = id === 'new';
-  const productId = isNew ? 0 : parseInt(id || '0', 10);
+  // Convex uses string IDs directly
+  const productId = isNew ? undefined : (id as Id<"products">);
 
-  const { data: product, isLoading: loadingProduct } = useProduct(productId);
-  const { data: recipes } = useRecipes();
-  const { data: packagingList } = usePackagingRecipes();
-  const { data: tags } = useTags();
+  const product = useConvexProduct(productId);
+  const rawRecipes = useConvexRecipes();
+  const rawPackagingList = useConvexPackagingList();
+  const rawTags = useConvexTags();
 
-  const [currentVersionNumber, setCurrentVersionNumber] = useState(1);
-  const { data: versionDetail } = useProductVersion(productId, currentVersionNumber);
+  // Normalize data for loading state
+  const recipes = rawRecipes ?? [];
+  const packagingList = rawPackagingList ?? [];
+  const tags = rawTags ?? [];
+  const loadingProduct = productId !== undefined && product === undefined;
 
-  const createProduct = useCreateProduct();
-  const createVersion = useCreateProductVersion();
-  const copyVersion = useCopyProductVersion();
-  const deleteProduct = useDeleteProduct();
+  // Track current version by its _id (not version number)
+  const [currentVersionId, setCurrentVersionId] = useState<Id<"productVersions"> | undefined>(undefined);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+
+  const versionDetail = useConvexProductVersion(currentVersionId);
+
+  const createProduct = useConvexCreateProduct();
+  const createVersion = useConvexCreateProductVersion();
+  const copyVersion = useConvexCopyProductVersion();
+  const deleteProduct = useConvexDeleteProduct();
 
   // Form state
   const [name, setName] = useState('');
   const [versionName, setVersionName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
-  const [recipeVersionId, setRecipeVersionId] = useState<number | null>(null);
-  const [packagingVersionId, setPackagingVersionId] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [recipeVersionId, setRecipeVersionId] = useState<Id<"recipeVersions"> | null>(null);
+  const [packagingVersionId, setPackagingVersionId] = useState<Id<"packagingVersions"> | null>(null);
   const [retailPrice, setRetailPrice] = useState('');
   const [numPieces, setNumPieces] = useState('1');
   const [gramsPerPiece, setGramsPerPiece] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Selected recipe/packaging for version selection
-  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
-  const [selectedPackagingId, setSelectedPackagingId] = useState<number | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<Id<"recipes"> | null>(null);
+  const [selectedPackagingId, setSelectedPackagingId] = useState<Id<"packagingRecipes"> | null>(null);
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -57,51 +75,75 @@ export function ProductEditor() {
   const [copyVersionName, setCopyVersionName] = useState('');
   const [copyDescription, setCopyDescription] = useState('');
 
+  // Sorted versions for navigation
+  const sortedVersions = useMemo(() => {
+    if (!product?.versions) return [];
+    return [...product.versions].sort((a, b) => a.versionNumber - b.versionNumber);
+  }, [product?.versions]);
+
   // Initialize form when product data loads
   useEffect(() => {
     if (product && !isNew) {
       setName(product.name);
-      setSelectedTags(product.tags.map(t => t.id));
-      if (product.versions.length > 0) {
-        const latestVersion = Math.max(...product.versions.map(v => v.version_number));
-        setCurrentVersionNumber(latestVersion);
+      setSelectedTags(product.tags.map(t => t._id));
+      if (sortedVersions.length > 0) {
+        const latestVersion = sortedVersions[sortedVersions.length - 1];
+        setCurrentVersionId(latestVersion._id);
+        setCurrentVersionIndex(sortedVersions.length - 1);
       }
     }
-  }, [product, isNew]);
+  }, [product, isNew, sortedVersions]);
 
   useEffect(() => {
     if (versionDetail && !isNew) {
-      setVersionName(versionDetail.version_name);
+      setVersionName(versionDetail.versionName);
       setDescription(versionDetail.description || '');
-      setRecipeVersionId(versionDetail.recipe_version_id);
-      setPackagingVersionId(versionDetail.packaging_version_id);
-      setRetailPrice(versionDetail.retail_price_idr.toString());
-      setNumPieces(versionDetail.num_pieces.toString());
-      setGramsPerPiece(versionDetail.grams_per_piece.toString());
-
-      // For existing products, we keep the current selections shown in the UI
-      // User can change recipe/packaging when creating a new version
+      setRecipeVersionId(versionDetail.recipeVersionId);
+      setPackagingVersionId(versionDetail.packagingVersionId);
+      setRetailPrice(versionDetail.retailPriceIdr.toString());
+      setNumPieces(versionDetail.numPieces.toString());
+      setGramsPerPiece(versionDetail.gramsPerPiece.toString());
     }
-  }, [versionDetail, isNew, recipes]);
+  }, [versionDetail, isNew]);
 
-  const selectedRecipe = recipes?.find(r => r.id === selectedRecipeId);
-  const selectedPackaging = packagingList?.find(p => p.id === selectedPackagingId);
+  const handleVersionNavigate = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' ? currentVersionIndex - 1 : currentVersionIndex + 1;
+    if (newIndex >= 0 && newIndex < sortedVersions.length) {
+      setCurrentVersionIndex(newIndex);
+      setCurrentVersionId(sortedVersions[newIndex]._id);
+    }
+  };
+
+  const selectedRecipe = recipes.find(r => r._id === selectedRecipeId);
+  const selectedPackaging = packagingList.find(p => p._id === selectedPackagingId);
 
   // Compute inherited tags from recipe and packaging
-  // Note: RecipeSummary and PackagingRecipeSummary have tags as string[], not Tag[]
-  const inheritedTags = new Set<number>();
-  if (selectedRecipe && tags) {
-    selectedRecipe.tags.forEach(tagName => {
-      const tag = tags.find(t => t.name === tagName);
-      if (tag) inheritedTags.add(tag.id);
-    });
-  }
-  if (selectedPackaging && tags) {
-    selectedPackaging.tags.forEach(tagName => {
-      const tag = tags.find(t => t.name === tagName);
-      if (tag) inheritedTags.add(tag.id);
-    });
-  }
+  // Convex tags come as { _id, name } objects in the recipe/packaging
+  const inheritedTags = useMemo(() => {
+    const inherited = new Set<string>();
+    if (selectedRecipe?.tags) {
+      selectedRecipe.tags.forEach(tag => {
+        if (typeof tag === 'string') {
+          // Tag is a string name, find the matching tag ID
+          const foundTag = tags.find(t => t.name === tag);
+          if (foundTag) inherited.add(foundTag._id);
+        } else if (tag._id) {
+          inherited.add(tag._id);
+        }
+      });
+    }
+    if (selectedPackaging?.tags) {
+      selectedPackaging.tags.forEach(tag => {
+        if (typeof tag === 'string') {
+          const foundTag = tags.find(t => t.name === tag);
+          if (foundTag) inherited.add(foundTag._id);
+        } else if (tag._id) {
+          inherited.add(tag._id);
+        }
+      });
+    }
+    return inherited;
+  }, [selectedRecipe, selectedPackaging, tags]);
 
   const handleSave = async () => {
     // Validate
@@ -134,80 +176,72 @@ export function ProductEditor() {
       return;
     }
 
+    const versionData: ProductVersionInput = {
+      versionName,
+      description,
+      recipeVersionId,
+      packagingVersionId,
+      retailPriceIdr: parseFloat(retailPrice),
+      numPieces: parseInt(numPieces, 10) || 1,
+      gramsPerPiece: parseFloat(gramsPerPiece),
+    };
+
+    setIsSubmitting(true);
     try {
       if (isNew) {
         const result = await createProduct.mutateAsync({
           name,
-          tag_ids: Array.from(inheritedTags).concat(selectedTags),
-          first_version: {
-            version_name: versionName,
-            description,
-            recipe_version_id: recipeVersionId,
-            packaging_version_id: packagingVersionId,
-            retail_price_idr: parseFloat(retailPrice),
-            num_pieces: parseInt(numPieces, 10) || 1,
-            grams_per_piece: parseFloat(gramsPerPiece),
-          },
+          tagIds: Array.from(inheritedTags).concat(selectedTags) as Id<"tags">[],
+          firstVersion: versionData,
         });
-        navigate(`/products/${result.id}`);
-      } else {
+        navigate(`/products/${result}`);
+      } else if (productId) {
         await createVersion.mutateAsync({
           productId,
-          data: {
-            version_name: versionName,
-            description,
-            recipe_version_id: recipeVersionId,
-            packaging_version_id: packagingVersionId,
-            retail_price_idr: parseFloat(retailPrice),
-            num_pieces: parseInt(numPieces, 10) || 1,
-            grams_per_piece: parseFloat(gramsPerPiece),
-          },
+          versionData,
         });
       }
     } catch (error) {
       console.error('Failed to save product:', error);
-      alert('Failed to save product');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCopyVersion = async () => {
-    if (!versionDetail) return;
+    if (!versionDetail || !productId || !currentVersionId) return;
     try {
       await copyVersion.mutateAsync({
         productId,
-        data: {
-          copy_from_version_id: versionDetail.id,
-          version_name: copyVersionName,
-          description: copyDescription,
-        },
+        copyFromVersionId: currentVersionId,
+        versionName: copyVersionName,
+        description: copyDescription,
       });
       setShowCopyDialog(false);
       setCopyVersionName('');
       setCopyDescription('');
     } catch (error) {
       console.error('Failed to copy version:', error);
-      alert('Failed to copy version');
     }
   };
 
   const handleDelete = async () => {
+    if (!productId) return;
     try {
       await deleteProduct.mutateAsync(productId);
-      navigate('/products');
+      navigate('/');
     } catch (error: unknown) {
       console.error('Failed to delete product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete product';
-      alert(errorMessage);
     }
   };
 
   // COGS data
   const cogs = versionDetail?.cogs;
   const marginColor =
-    cogs?.contribution_margin_pct !== null && cogs?.contribution_margin_pct !== undefined
-      ? cogs.contribution_margin_pct >= 30
+    cogs?.contributionMarginPct !== null && cogs?.contributionMarginPct !== undefined
+      ? cogs.contributionMarginPct >= 30
         ? 'text-green-600'
-        : cogs.contribution_margin_pct >= 15
+        : cogs.contributionMarginPct >= 15
         ? 'text-yellow-600'
         : 'text-red-600'
       : '';
@@ -231,17 +265,17 @@ export function ProductEditor() {
           !isNew && (
             <div className="flex items-center gap-2">
               <VersionNavigator
-                currentVersion={currentVersionNumber}
-                totalVersions={product?.versions.length || 1}
-                versionName={versionDetail?.version_name || ''}
-                onPrevious={() => setCurrentVersionNumber((v) => v - 1)}
-                onNext={() => setCurrentVersionNumber((v) => v + 1)}
+                currentVersion={currentVersionIndex + 1}
+                totalVersions={sortedVersions.length}
+                versionName={versionDetail?.versionName || ''}
+                onPrevious={() => handleVersionNavigate('prev')}
+                onNext={() => handleVersionNavigate('next')}
               />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCopyVersionName(`${versionDetail?.version_name} (Copy)`);
+                  setCopyVersionName(`${versionDetail?.versionName} (Copy)`);
                   setCopyDescription(versionDetail?.description || '');
                   setShowCopyDialog(true);
                 }}
@@ -343,9 +377,9 @@ export function ProductEditor() {
                     <p className="text-xs text-muted-foreground mb-2">Inherited from recipe & packaging:</p>
                     <div className="flex flex-wrap gap-1">
                       {Array.from(inheritedTags).map((tagId) => {
-                        const tag = tags?.find(t => t.id === tagId);
+                        const tag = tags.find(t => t._id === tagId);
                         return tag ? (
-                          <Badge key={tag.id} variant="secondary">
+                          <Badge key={tag._id} variant="secondary">
                             {tag.name}
                           </Badge>
                         ) : null;
@@ -355,16 +389,16 @@ export function ProductEditor() {
                 )}
                 <p className="text-xs text-muted-foreground">Additional tags:</p>
                 <div className="flex flex-wrap gap-1">
-                  {tags?.map((tag) => (
+                  {tags.map((tag) => (
                     <Badge
-                      key={tag.id}
-                      variant={selectedTags.includes(tag.id) ? 'default' : 'outline'}
+                      key={tag._id}
+                      variant={selectedTags.includes(tag._id) ? 'default' : 'outline'}
                       className="cursor-pointer"
                       onClick={() =>
                         setSelectedTags(
-                          selectedTags.includes(tag.id)
-                            ? selectedTags.filter((t) => t !== tag.id)
-                            : [...selectedTags, tag.id]
+                          selectedTags.includes(tag._id)
+                            ? selectedTags.filter((t) => t !== tag._id)
+                            : [...selectedTags, tag._id]
                         )
                       }
                     >
@@ -387,9 +421,9 @@ export function ProductEditor() {
             <div className="space-y-2">
               <Label>Recipe</Label>
               <Select
-                value={selectedRecipeId?.toString() || ''}
+                value={selectedRecipeId || ''}
                 onValueChange={(value) => {
-                  setSelectedRecipeId(parseInt(value, 10));
+                  setSelectedRecipeId(value as Id<"recipes">);
                   setRecipeVersionId(null);
                 }}
               >
@@ -397,8 +431,8 @@ export function ProductEditor() {
                   <SelectValue placeholder="Select a recipe" />
                 </SelectTrigger>
                 <SelectContent>
-                  {recipes?.map((recipe) => (
-                    <SelectItem key={recipe.id} value={recipe.id.toString()}>
+                  {recipes.map((recipe) => (
+                    <SelectItem key={recipe._id} value={recipe._id}>
                       {recipe.name}
                     </SelectItem>
                   ))}
@@ -406,31 +440,30 @@ export function ProductEditor() {
               </Select>
             </div>
 
-            {selectedRecipeId && (
+            {selectedRecipeId && selectedRecipe && (
               <div className="space-y-2">
                 <Label>Recipe Version</Label>
                 <Select
-                  value={recipeVersionId?.toString() || ''}
-                  onValueChange={(value) => setRecipeVersionId(parseInt(value, 10))}
+                  value={recipeVersionId || ''}
+                  onValueChange={(value) => setRecipeVersionId(value as Id<"recipeVersions">)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select version" />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* We need to fetch the recipe to get versions */}
-                    <SelectItem value={selectedRecipe?.latest_version?.toString() || '1'}>
-                      Version {selectedRecipe?.latest_version} - {selectedRecipe?.latest_version_name}
-                    </SelectItem>
+                    {selectedRecipe.versions?.map((version) => (
+                      <SelectItem key={version._id} value={version._id}>
+                        Version {version.versionNumber} - {version.versionName}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                {selectedRecipe && (
-                  <p className="text-xs text-muted-foreground">
-                    Cost: {formatCurrency(selectedRecipe.total_cost)}
-                    {selectedRecipe.cost_per_gram !== null && (
-                      <> ({formatCurrency(selectedRecipe.cost_per_gram)}/g)</>
-                    )}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Cost: {formatCurrency(selectedRecipe.latestVersionCost ?? 0)}
+                  {selectedRecipe.latestCostPerGram !== null && (
+                    <> ({formatCurrency(selectedRecipe.latestCostPerGram)}/g)</>
+                  )}
+                </p>
               </div>
             )}
 
@@ -438,9 +471,9 @@ export function ProductEditor() {
             <div className="space-y-2">
               <Label>Packaging</Label>
               <Select
-                value={selectedPackagingId?.toString() || ''}
+                value={selectedPackagingId || ''}
                 onValueChange={(value) => {
-                  setSelectedPackagingId(parseInt(value, 10));
+                  setSelectedPackagingId(value as Id<"packagingRecipes">);
                   setPackagingVersionId(null);
                 }}
               >
@@ -448,8 +481,8 @@ export function ProductEditor() {
                   <SelectValue placeholder="Select packaging" />
                 </SelectTrigger>
                 <SelectContent>
-                  {packagingList?.map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id.toString()}>
+                  {packagingList.map((pkg) => (
+                    <SelectItem key={pkg._id} value={pkg._id}>
                       {pkg.name}
                     </SelectItem>
                   ))}
@@ -457,27 +490,27 @@ export function ProductEditor() {
               </Select>
             </div>
 
-            {selectedPackagingId && (
+            {selectedPackagingId && selectedPackaging && (
               <div className="space-y-2">
                 <Label>Packaging Version</Label>
                 <Select
-                  value={packagingVersionId?.toString() || ''}
-                  onValueChange={(value) => setPackagingVersionId(parseInt(value, 10))}
+                  value={packagingVersionId || ''}
+                  onValueChange={(value) => setPackagingVersionId(value as Id<"packagingVersions">)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select version" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={selectedPackaging?.latest_version?.toString() || '1'}>
-                      Version {selectedPackaging?.latest_version} - {selectedPackaging?.latest_version_name}
-                    </SelectItem>
+                    {selectedPackaging.versions?.map((version) => (
+                      <SelectItem key={version._id} value={version._id}>
+                        Version {version.versionNumber} - {version.versionName}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                {selectedPackaging && (
-                  <p className="text-xs text-muted-foreground">
-                    Cost: {formatCurrency(selectedPackaging.total_cost)}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Cost: {formatCurrency(selectedPackaging.latestVersionCost ?? 0)}
+                </p>
               </div>
             )}
 
@@ -486,10 +519,10 @@ export function ProductEditor() {
               <div className="pt-4 border-t space-y-2">
                 <p className="text-sm text-muted-foreground">Current Selections:</p>
                 <p className="text-sm">
-                  <strong>Recipe:</strong> {versionDetail.recipe_name} (v{versionDetail.recipe_version_name})
+                  <strong>Recipe:</strong> {versionDetail.recipeName} (v{versionDetail.recipeVersionName})
                 </p>
                 <p className="text-sm">
-                  <strong>Packaging:</strong> {versionDetail.packaging_name} (v{versionDetail.packaging_version_name})
+                  <strong>Packaging:</strong> {versionDetail.packagingName} (v{versionDetail.packagingVersionName})
                 </p>
               </div>
             )}
@@ -506,35 +539,35 @@ export function ProductEditor() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Total Grams</p>
-                  <p className="text-2xl font-bold">{cogs.total_grams}g</p>
+                  <p className="text-2xl font-bold">{cogs.totalGrams}g</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Recipe COGS</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.recipe_cogs)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(cogs.recipeCogs)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Packaging COGS</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.packaging_cogs)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(cogs.packagingCogs)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Total COGS</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.total_cogs)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(cogs.totalCogs)}</p>
                 </div>
               </div>
 
               <div className="mt-6 pt-6 border-t grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Retail Price</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.retail_price_idr)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(cogs.retailPriceIdr)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Contribution Margin</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.contribution_margin)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(cogs.contributionMargin)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Margin %</p>
                   <p className={cn('text-2xl font-bold', marginColor)}>
-                    {formatPercent(cogs.contribution_margin_pct)}
+                    {formatPercent(cogs.contributionMarginPct)}
                   </p>
                 </div>
               </div>
@@ -548,7 +581,7 @@ export function ProductEditor() {
         <Button
           size="lg"
           onClick={handleSave}
-          disabled={createProduct.isPending || createVersion.isPending}
+          disabled={isSubmitting}
         >
           <Save className="h-4 w-4 mr-2" />
           {isNew ? 'Create Product' : 'Save New Version'}
@@ -564,7 +597,6 @@ export function ProductEditor() {
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={handleDelete}
-        loading={deleteProduct.isPending}
       />
 
       {/* Copy Version Dialog */}
@@ -594,7 +626,7 @@ export function ProductEditor() {
                 <Button variant="outline" onClick={() => setShowCopyDialog(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCopyVersion} disabled={copyVersion.isPending}>
+                <Button onClick={handleCopyVersion}>
                   Create Copy
                 </Button>
               </div>
