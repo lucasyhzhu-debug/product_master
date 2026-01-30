@@ -50,9 +50,16 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [productDropdownIndex, setProductDropdownIndex] = useState<number | null>(null);
   const [productSearches, setProductSearches] = useState<string[]>(['']);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
-    menuProductApi.list(true).then(setMenuProducts);
+    menuProductApi.list(true)
+      .then(setMenuProducts)
+      .catch((err) => {
+        console.error('Failed to load menu products:', err);
+        setMenuProducts([]);
+      })
+      .finally(() => setProductsLoading(false));
   }, []);
 
   const [formData, setFormData] = useState<OrderCreate>({
@@ -476,20 +483,32 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               />
               {productDropdownIndex === index && (
                 <div className="absolute z-20 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
-                  {getFilteredProducts(productSearches[index] || '').map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleProductSelect(index, p)}
-                    >
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Rp {p.default_price.toLocaleString('id-ID')}
-                      </div>
-                    </button>
-                  ))}
+                  {productsLoading ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      Loading products...
+                    </div>
+                  ) : getFilteredProducts(productSearches[index] || '').length > 0 ? (
+                    getFilteredProducts(productSearches[index] || '').map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleProductSelect(index, p)}
+                      >
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Rp {p.default_price.toLocaleString('id-ID')}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      {menuProducts.length === 0
+                        ? 'No products available. Type to create custom product.'
+                        : 'No products match your search.'}
+                    </div>
+                  )}
                   {productSearches[index] && !menuProducts.some((p) => p.name.toLowerCase() === productSearches[index].toLowerCase()) && (
                     <div className="px-3 py-2 text-xs text-muted-foreground border-t">
                       <Plus className="inline h-3 w-3 mr-1" />
