@@ -15,19 +15,39 @@
 ```
 User Browser
     ↓
-React Router (pages/)
+React Router (src/pages/)
     ↓
-React Query Hooks (hooks/)
+React Query Hooks (src/hooks/)
     ↓
-Axios API Client (lib/api.ts)
+Axios API Client (src/lib/api.ts)
     ↓ HTTP/JSON
-FastAPI Routers (routers/)
+FastAPI Routers (api/app/routers/)
     ↓
-CRUD Operations (crud/)
+CRUD Operations (api/app/crud/)
     ↓
-SQLAlchemy Models (models/)
+SQLAlchemy Models (api/app/models/)
     ↓
-SQLite Database (data/malo_recipes.db)
+Database Layer (SQLite dev / PostgreSQL prod)
+    ↓
+SQLite: api/data/malo_recipes.db (local)
+PostgreSQL: Cloud database (production)
+```
+
+**Deployment Architecture:**
+```
+Vercel Edge Network
+    ↓
+Static Assets (dist/) - Served directly
+    ↓
+SPA Routes (/*) → index.html
+    ↓
+API Routes (/api/*) → Vercel Serverless Functions
+    ↓
+api/index.py (Mangum ASGI Adapter)
+    ↓
+FastAPI Application (api/app/main.py)
+    ↓
+PostgreSQL Database (NullPool for serverless)
 ```
 
 **Layer Responsibilities:**
@@ -37,7 +57,8 @@ SQLite Database (data/malo_recipes.db)
 - **FastAPI Routers**: Endpoint definitions, request validation, response formatting
 - **CRUD Layer**: Database queries, relationship loading, business logic
 - **Models Layer**: ORM definitions, relationships, constraints
-- **Services Layer**: Cross-cutting concerns (cost calculations)
+- **Services Layer**: Cross-cutting concerns (cost calculations, WhatsApp formatting)
+- **Database Layer**: Auto-detects SQLite (dev) or PostgreSQL (prod) via DATABASE_URL
 
 ### Complete Database Schema (19 Tables)
 
@@ -516,163 +537,210 @@ Result: Fully independent version that can be edited without affecting source
 
 ### Quick File Finder
 
+**Note:** Backend files are in `api/app/`, frontend files are in `src/`
+
 | Task | Backend Files | Frontend Files |
 |------|---------------|----------------|
-| **Add field to Recipe** | `models/recipe.py`<br>`schemas/recipe.py`<br>`crud/recipes.py` | `lib/types.ts`<br>`hooks/useRecipes.ts` |
-| **Modify cost calculation** | `services/cost_calculator.py` | `components/shared/CostTooltip.tsx` |
-| **Add Recipe API endpoint** | `routers/recipes.py` | `lib/api.ts`<br>`hooks/useRecipes.ts` |
-| **Update Recipe UI** | - | `pages/RecipeEditor.tsx`<br>`components/recipes/RecipeCard.tsx` |
-| **Add Packaging field** | `models/packaging.py`<br>`schemas/packaging.py`<br>`crud/packaging.py` | `lib/types.ts`<br>`hooks/usePackaging.ts` |
-| **Update Product COGS** | `services/cost_calculator.py`<br>`routers/products.py` | `pages/ProductEditor.tsx` |
-| **Add new Tag category** | `database.py` (seed data) | - |
-| **Create shared component** | - | `components/shared/` |
-| **Add validation logic** | `schemas/[entity].py` | Form components in `pages/` |
-| **Database schema change** | `database.py`<br>`models/[entity].py` | Update `lib/types.ts` to match |
-| **Fix N+1 query** | `crud/[entity].py` (add joinedload) | - |
-| **Add dashboard stat** | `routers/dashboard.py`<br>`crud/[entity].py` | `pages/Dashboard.tsx` |
-| **Add Order field** | `models/order.py`<br>`schemas/order.py`<br>`crud/orders.py` | `lib/types.ts`<br>`hooks/useOrders.ts` |
-| **Update WhatsApp template** | `services/whatsapp_formatter.py` | - |
-| **Add Order API endpoint** | `routers/orders.py` | `lib/api.ts`<br>`hooks/useOrders.ts` |
-| **Update Order UI** | - | `pages/OrderManager.tsx`<br>`pages/OrderDetail.tsx`<br>`components/orders/OrderForm.tsx` |
-| **Kitchen View (production)** | `routers/orders.py` (kitchen endpoint)<br>`crud/orders.py` | `pages/KitchenView.tsx` |
+| **Add field to Recipe** | `api/app/models/recipe.py`<br>`api/app/schemas/recipe.py`<br>`api/app/crud/recipes.py` | `src/lib/types.ts`<br>`src/hooks/useRecipes.ts` |
+| **Modify cost calculation** | `api/app/services/cost_calculator.py` | `src/components/shared/CostTooltip.tsx` |
+| **Add Recipe API endpoint** | `api/app/routers/recipes.py` | `src/lib/api.ts`<br>`src/hooks/useRecipes.ts` |
+| **Update Recipe UI** | - | `src/pages/RecipeEditor.tsx`<br>`src/components/recipes/RecipeCard.tsx` |
+| **Add Packaging field** | `api/app/models/packaging.py`<br>`api/app/schemas/packaging.py`<br>`api/app/crud/packaging.py` | `src/lib/types.ts`<br>`src/hooks/usePackaging.ts` |
+| **Update Product COGS** | `api/app/services/cost_calculator.py`<br>`api/app/routers/products.py` | `src/pages/ProductEditor.tsx` |
+| **Add new Tag category** | `api/app/database.py` (seed data) | - |
+| **Create shared component** | - | `src/components/shared/` |
+| **Add validation logic** | `api/app/schemas/[entity].py` | Form components in `src/pages/` |
+| **Database schema change** | `api/app/database.py`<br>`api/app/models/[entity].py` | Update `src/lib/types.ts` to match |
+| **Fix N+1 query** | `api/app/crud/[entity].py` (add joinedload) | - |
+| **Add dashboard stat** | `api/app/routers/dashboard.py`<br>`api/app/crud/[entity].py` | `src/pages/Dashboard.tsx` |
+| **Add Order field** | `api/app/models/order.py`<br>`api/app/schemas/order.py`<br>`api/app/crud/orders.py` | `src/lib/types.ts`<br>`src/hooks/useOrders.ts` |
+| **Update WhatsApp template** | `api/app/services/whatsapp_formatter.py` | - |
+| **Add Order API endpoint** | `api/app/routers/orders.py` | `src/lib/api.ts`<br>`src/hooks/useOrders.ts` |
+| **Update Order UI** | - | `src/pages/OrderManager.tsx`<br>`src/pages/OrderDetail.tsx`<br>`src/components/orders/` |
+| **Kitchen View (production)** | `api/app/routers/orders.py` (kitchen endpoint)<br>`api/app/crud/orders.py` | `src/pages/KitchenView.tsx` |
+| **Database Migration** | `api/scripts/migrate_sqlite_to_pg.py`<br>`api/scripts/MIGRATION_README.md` | - |
+| **Deployment Config** | `api/index.py` (Vercel entry)<br>`vercel.json` | `vite.config.ts` |
 
 ### Critical File Paths Reference
 
 **Backend Core:**
-- `backend/app/main.py` - FastAPI app, CORS, router registration (55 endpoints total)
-- `backend/app/database.py` - SQLite engine, session factory, init_db(), seed data
-- `backend/app/services/cost_calculator.py` - All cost calculation logic (212 lines)
-- `backend/app/services/whatsapp_formatter.py` - WhatsApp receipt generation
+- `api/app/main.py` - FastAPI app, CORS, router registration (55 endpoints total)
+- `api/app/database.py` - Database engine (SQLite/PostgreSQL), session factory, init_db(), seed data
+- `api/app/services/cost_calculator.py` - All cost calculation logic (212 lines)
+- `api/app/services/whatsapp_formatter.py` - WhatsApp receipt generation
+- `api/index.py` - Vercel serverless entry point (Mangum ASGI adapter)
 
 **Backend Models (9 files, 16 classes):**
-- `backend/app/models/ingredient.py` - Ingredient
-- `backend/app/models/packaging_material.py` - PackagingMaterial
-- `backend/app/models/tag.py` - Tag
-- `backend/app/models/recipe.py` - Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
-- `backend/app/models/packaging.py` - PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
-- `backend/app/models/product.py` - Product, ProductVersion
-- `backend/app/models/customer.py` - Customer
-- `backend/app/models/order.py` - Order, OrderItem
+- `api/app/models/ingredient.py` - Ingredient
+- `api/app/models/packaging_material.py` - PackagingMaterial
+- `api/app/models/tag.py` - Tag
+- `api/app/models/recipe.py` - Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
+- `api/app/models/packaging.py` - PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
+- `api/app/models/product.py` - Product, ProductVersion
+- `api/app/models/customer.py` - Customer
+- `api/app/models/order.py` - Order, OrderItem
+- `api/app/models/menu_product.py` - MenuProduct (future)
 
-**Backend Routers (9 files, 55 endpoint functions):**
-- `backend/app/routers/ingredients.py` - 5 endpoints (list, get, create, update, delete)
-- `backend/app/routers/packaging_materials.py` - 5 endpoints
-- `backend/app/routers/tags.py` - 3 endpoints (list, create, delete)
-- `backend/app/routers/recipes.py` - 8 endpoints (list, reusable, get, get_version, create, create_version, copy_version, update_tags, delete)
-- `backend/app/routers/packaging.py` - 7 endpoints
-- `backend/app/routers/products.py` - 6 endpoints
-- `backend/app/routers/dashboard.py` - 1 endpoint (stats)
-- `backend/app/routers/customers.py` - 4 endpoints (list, get, create, update)
-- `backend/app/routers/orders.py` - 10 endpoints (list, get, create, update_status, update_payment, delete, product_suggestions, seller_suggestions, export_orders, export_order_items)
+**Backend Routers (9 files, 55+ endpoint functions):**
+- `api/app/routers/ingredients.py` - 5 endpoints (list, get, create, update, delete)
+- `api/app/routers/packaging_materials.py` - 5 endpoints
+- `api/app/routers/tags.py` - 3 endpoints (list, create, delete)
+- `api/app/routers/recipes.py` - 8 endpoints (list, reusable, get, get_version, create, create_version, copy_version, update_tags, delete)
+- `api/app/routers/packaging.py` - 7 endpoints
+- `api/app/routers/products.py` - 6 endpoints
+- `api/app/routers/dashboard.py` - 1 endpoint (stats)
+- `api/app/routers/customers.py` - 4 endpoints (list, get, create, update)
+- `api/app/routers/orders.py` - 12 endpoints (list, get, kitchen, create, update_status, update_payment, update_shipping, delete, product_suggestions, seller_suggestions, export_orders, export_order_items)
+- `api/app/routers/menu_products.py` - 5 endpoints (future)
+
+**Migration & Deployment:**
+- `api/scripts/migrate_sqlite_to_pg.py` - SQLite → PostgreSQL migration script
+- `api/scripts/MIGRATION_README.md` - Migration guide
+- `vercel.json` - Vercel deployment configuration
 
 **Frontend Core:**
-- `frontend/src/App.tsx` - Router setup (8 routes), React Query provider
-- `frontend/src/lib/api.ts` - Axios client, 40+ API functions
-- `frontend/src/lib/types.ts` - TypeScript interfaces matching backend schemas (336 lines)
+- `src/App.tsx` - Router setup (9 routes), React Query provider
+- `src/lib/api.ts` - Axios client, 50+ API functions
+- `src/lib/types.ts` - TypeScript interfaces matching backend schemas (400+ lines)
 
 **Frontend Pages (9 files):**
-- `frontend/src/pages/Dashboard.tsx` - 3 carousels (Products, Recipes, Packaging), statistics
-- `frontend/src/pages/RecipeEditor.tsx` - Recipe version editor (648 lines)
-- `frontend/src/pages/PackagingEditor.tsx` - Packaging version editor (607 lines)
-- `frontend/src/pages/ProductEditor.tsx` - Product version editor with COGS breakdown (545 lines)
-- `frontend/src/pages/IngredientsManager.tsx` - Ingredient list + create/edit form
-- `frontend/src/pages/MaterialsManager.tsx` - Packaging material list + create/edit form
-- `frontend/src/pages/OrderManager.tsx` - Order list + filters + create form
-- `frontend/src/pages/OrderDetail.tsx` - Order detail with WhatsApp copy + status updates
-- `frontend/src/pages/KitchenView.tsx` - Production-focused order view with status groups
+- `src/pages/Dashboard.tsx` - 3 carousels (Products, Recipes, Packaging), statistics
+- `src/pages/RecipeEditor.tsx` - Recipe version editor (648 lines)
+- `src/pages/PackagingEditor.tsx` - Packaging version editor (607 lines)
+- `src/pages/ProductEditor.tsx` - Product version editor with COGS breakdown (545 lines)
+- `src/pages/IngredientsManager.tsx` - Ingredient list + create/edit form
+- `src/pages/MaterialsManager.tsx` - Packaging material list + create/edit form
+- `src/pages/OrderManager.tsx` - Order list + filters + create form
+- `src/pages/OrderDetail.tsx` - Order detail with WhatsApp copy + status updates (refactored to 363 lines)
+- `src/pages/KitchenView.tsx` - Production-focused order view with status groups
+
+**Frontend Components:**
+- `src/components/orders/` - 7 order-specific components (OrderHeader, OrderStatusPanel, OrderWhatsAppPanel, OrderItems, ShippingDialog, CancellationDialog, ConfirmationDialog)
+- `src/components/shared/` - 9 shared components (Carousel, ConfirmDialog, CostTooltip, EmptyState, etc.)
+- `src/components/ui/` - 14 shadcn/ui components (accordion, badge, button, card, etc.)
 
 **Frontend Hooks (9 files):**
-- `frontend/src/hooks/useIngredients.ts` - Queries + mutations for ingredients
-- `frontend/src/hooks/useMaterials.ts` - Queries + mutations for packaging materials
-- `frontend/src/hooks/useTags.ts` - Queries + mutations for tags
-- `frontend/src/hooks/useRecipes.ts` - Queries + mutations for recipes
-- `frontend/src/hooks/usePackaging.ts` - Queries + mutations for packaging
-- `frontend/src/hooks/useProducts.ts` - Queries + mutations for products
-- `frontend/src/hooks/useCustomers.ts` - Queries + mutations for customers
-- `frontend/src/hooks/useOrders.ts` - Queries + mutations for orders (includes product/seller suggestions)
+- `src/hooks/useIngredients.ts` - Queries + mutations for ingredients
+- `src/hooks/useMaterials.ts` - Queries + mutations for packaging materials
+- `src/hooks/useTags.ts` - Queries + mutations for tags
+- `src/hooks/useRecipes.ts` - Queries + mutations for recipes
+- `src/hooks/usePackaging.ts` - Queries + mutations for packaging
+- `src/hooks/useProducts.ts` - Queries + mutations for products
+- `src/hooks/useCustomers.ts` - Queries + mutations for customers
+- `src/hooks/useOrders.ts` - Queries + mutations for orders (includes product/seller suggestions)
+- `src/hooks/useMenuProducts.ts` - Queries + mutations for menu products (future)
 - Each hook includes: query key factory, list query, detail query, mutations with cache invalidation
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|-------|------------|---------|
-| Backend | Python + FastAPI | 3.11+ / 0.109.0 |
-| Database | SQLite | 3.x |
-| ORM | SQLAlchemy | 2.0.25 |
-| Validation | Pydantic | 2.5.3 |
-| Frontend | React + TypeScript | 19.2.0 |
-| Styling | Tailwind CSS | 4.1.18 |
-| UI Components | shadcn/ui (Radix) | latest |
-| State | TanStack Query | 5.90.20 |
-| Routing | React Router | 7.13.0 |
-| HTTP Client | Axios | 1.13.3 |
-| Icons | Lucide React | 0.563.0 |
+| Layer | Technology | Version | Notes |
+|-------|------------|---------|-------|
+| **Backend** | Python + FastAPI | 3.11+ / 0.109.0 | ASGI framework |
+| **Database (Dev)** | SQLite | 3.x | Local development |
+| **Database (Prod)** | PostgreSQL | 15+ | Production (NullPool for serverless) |
+| **ORM** | SQLAlchemy | 2.0.25 | Supports both SQLite & PostgreSQL |
+| **Validation** | Pydantic | 2.5.3 | Request/response schemas |
+| **Deployment** | Vercel | - | Serverless functions + static hosting |
+| **ASGI Adapter** | Mangum | 0.18.0 | FastAPI → AWS Lambda/Vercel adapter |
+| **DB Driver (Prod)** | psycopg2-binary | 2.9.9 | PostgreSQL driver |
+| **Frontend** | React + TypeScript | 19.2.0 | UI framework |
+| **Build Tool** | Vite | 6.2.1 | Fast bundler with HMR |
+| **Styling** | Tailwind CSS | 4.1.18 | Utility-first CSS |
+| **UI Components** | shadcn/ui (Radix) | latest | Accessible components |
+| **State** | TanStack Query | 5.90.20 | Server state management |
+| **Routing** | React Router | 7.13.0 | Client-side routing |
+| **HTTP Client** | Axios | 1.13.3 | API requests |
+| **Icons** | Lucide React | 0.563.0 | Icon library |
 
 ## Commands
 
 ```bash
+# Development (Local - SQLite)
 # Backend
-cd backend
+cd api
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 
-# Frontend
-cd frontend
+# Frontend (from project root)
 npm install
 npm run dev
 
-# Frontend build
-cd frontend
-npm run build
+# Production Build
+npm run build                    # Builds frontend to dist/
 
-# Frontend lint
-cd frontend
+# Linting
 npm run lint
 
+# Database Management (SQLite - Local Development)
 # Database reset (deletes all data)
-rm backend/data/malo_recipes.db && cd backend && python -c "from app.database import init_db; init_db()"
+rm api/data/malo_recipes.db && cd api && python -c "from app.database import init_db; init_db()"
 
 # Windows database reset
-del backend\data\malo_recipes.db && cd backend && python -c "from app.database import init_db; init_db()"
+del api\data\malo_recipes.db && cd api && python -c "from app.database import init_db; init_db()"
+
+# Migration (SQLite → PostgreSQL)
+cd api/scripts
+python migrate_sqlite_to_pg.py --sqlite-path ../data/malo_recipes.db --postgres-url "postgresql://user:pass@host:5432/dbname"
+
+# Deployment (Vercel)
+vercel                           # Preview deployment
+vercel --prod                    # Production deployment
+
+# Environment Variables (Production)
+# Set in Vercel dashboard or use vercel env
+DATABASE_URL=postgresql://...    # PostgreSQL connection string
+VITE_API_URL=/api               # API base URL (relative for same domain)
 ```
 
 ## Project Structure
 
+**Monolithic Layout (Optimized for Vercel Deployment)**
+
 ```
 product_master/
-├── backend/
+├── api/                         # Backend (FastAPI) - Vercel Serverless Functions
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py              # FastAPI app, CORS, routers
-│   │   ├── database.py          # SQLite engine, session, init
-│   │   ├── models/              # SQLAlchemy models (7 files)
+│   │   ├── database.py          # DB engine (SQLite/PostgreSQL), session, init
+│   │   ├── models/              # SQLAlchemy models (9 files)
 │   │   │   ├── __init__.py
 │   │   │   ├── ingredient.py
 │   │   │   ├── packaging_material.py
 │   │   │   ├── tag.py
 │   │   │   ├── recipe.py        # Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
 │   │   │   ├── packaging.py     # PackagingRecipe, PackagingVersion, PackagingComponent
-│   │   │   └── product.py       # Product, ProductVersion
-│   │   ├── schemas/             # Pydantic schemas (7 files)
+│   │   │   ├── product.py       # Product, ProductVersion
+│   │   │   ├── customer.py      # Customer
+│   │   │   ├── order.py         # Order, OrderItem
+│   │   │   └── menu_product.py  # MenuProduct (future)
+│   │   ├── schemas/             # Pydantic schemas (9 files)
 │   │   │   ├── __init__.py
 │   │   │   ├── ingredient.py
 │   │   │   ├── packaging_material.py
 │   │   │   ├── tag.py
 │   │   │   ├── recipe.py
 │   │   │   ├── packaging.py
-│   │   │   └── product.py
-│   │   ├── crud/                # Database operations (7 files)
+│   │   │   ├── product.py
+│   │   │   ├── customer.py
+│   │   │   ├── order.py
+│   │   │   └── menu_product.py
+│   │   ├── crud/                # Database operations (9 files)
 │   │   │   ├── __init__.py
 │   │   │   ├── ingredients.py
 │   │   │   ├── packaging_materials.py
 │   │   │   ├── tags.py
 │   │   │   ├── recipes.py
 │   │   │   ├── packaging.py
-│   │   │   └── products.py
+│   │   │   ├── products.py
+│   │   │   ├── customers.py
+│   │   │   ├── orders.py
+│   │   │   └── menu_products.py
 │   │   ├── services/            # Business logic
 │   │   │   ├── __init__.py
-│   │   │   └── cost_calculator.py
-│   │   └── routers/             # API endpoints (7 files)
+│   │   │   ├── cost_calculator.py
+│   │   │   └── whatsapp_formatter.py
+│   │   └── routers/             # API endpoints (9 files, 55 endpoints)
 │   │       ├── __init__.py
 │   │       ├── ingredients.py
 │   │       ├── packaging_materials.py
@@ -680,77 +748,132 @@ product_master/
 │   │       ├── recipes.py
 │   │       ├── packaging.py
 │   │       ├── products.py
-│   │       └── dashboard.py
+│   │       ├── dashboard.py
+│   │       ├── customers.py
+│   │       ├── orders.py
+│   │       └── menu_products.py
 │   ├── data/
-│   │   └── malo_recipes.db      # SQLite database (auto-created)
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── ui/              # shadcn/ui components (13 files)
-│   │   │   │   ├── badge.tsx
-│   │   │   │   ├── button.tsx
-│   │   │   │   ├── card.tsx
-│   │   │   │   ├── dialog.tsx
-│   │   │   │   ├── input.tsx
-│   │   │   │   ├── label.tsx
-│   │   │   │   ├── scroll-area.tsx
-│   │   │   │   ├── select.tsx
-│   │   │   │   ├── separator.tsx
-│   │   │   │   ├── skeleton.tsx
-│   │   │   │   ├── tabs.tsx
-│   │   │   │   ├── textarea.tsx
-│   │   │   │   └── tooltip.tsx
-│   │   │   ├── layout/          # Layout components
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── Header.tsx
-│   │   │   │   ├── Layout.tsx
-│   │   │   │   └── PageHeader.tsx
-│   │   │   ├── shared/          # Shared utility components
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── Carousel.tsx
-│   │   │   │   ├── ConfirmDialog.tsx
-│   │   │   │   ├── CostTooltip.tsx
-│   │   │   │   ├── LoadingState.tsx
-│   │   │   │   └── VersionNavigator.tsx
-│   │   │   ├── recipes/
-│   │   │   │   └── RecipeCard.tsx
-│   │   │   ├── packaging/
-│   │   │   │   └── PackagingCard.tsx
-│   │   │   └── products/
-│   │   │       └── ProductCard.tsx
-│   │   ├── pages/
+│   │   └── malo_recipes.db      # SQLite database (local dev only)
+│   ├── scripts/                 # Migration & deployment scripts
+│   │   ├── migrate_sqlite_to_pg.py
+│   │   └── MIGRATION_README.md
+│   ├── index.py                 # Vercel serverless entry point (Mangum)
+│   └── requirements.txt         # Python dependencies
+├── src/                         # Frontend (React + TypeScript)
+│   ├── components/
+│   │   ├── ui/                  # shadcn/ui components (14 files)
+│   │   │   ├── accordion.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── checkbox.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── label.tsx
+│   │   │   ├── scroll-area.tsx
+│   │   │   ├── select.tsx
+│   │   │   ├── separator.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── sonner.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── textarea.tsx
+│   │   │   └── tooltip.tsx
+│   │   ├── layout/              # Layout components
 │   │   │   ├── index.ts
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── RecipeEditor.tsx
-│   │   │   ├── PackagingEditor.tsx
-│   │   │   └── ProductEditor.tsx
-│   │   ├── hooks/               # React Query hooks (7 files)
+│   │   │   ├── Header.tsx
+│   │   │   ├── Layout.tsx
+│   │   │   └── PageHeader.tsx
+│   │   ├── shared/              # Shared utility components
 │   │   │   ├── index.ts
-│   │   │   ├── useIngredients.ts
-│   │   │   ├── useMaterials.ts
-│   │   │   ├── usePackaging.ts
-│   │   │   ├── useProducts.ts
-│   │   │   ├── useRecipes.ts
-│   │   │   └── useTags.ts
-│   │   ├── lib/
-│   │   │   ├── api.ts           # Axios API client
-│   │   │   ├── types.ts         # TypeScript interfaces (336 lines)
-│   │   │   └── utils.ts         # Utility functions (cn helper)
-│   │   ├── App.tsx              # Router setup with React Query
-│   │   ├── index.css            # Tailwind CSS + custom theme
-│   │   └── main.tsx             # React entry point
-│   ├── .env                     # Environment variables
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── tsconfig.app.json
-│   ├── vite.config.ts
-│   └── eslint.config.js
+│   │   │   ├── Carousel.tsx
+│   │   │   ├── ConfirmDialog.tsx
+│   │   │   ├── CostTooltip.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── IngredientModal.tsx
+│   │   │   ├── LoadingState.tsx
+│   │   │   ├── TagFilterBar.tsx
+│   │   │   └── VersionNavigator.tsx
+│   │   ├── ingredients/
+│   │   │   └── IngredientCard.tsx
+│   │   ├── materials/
+│   │   │   └── MaterialCard.tsx
+│   │   ├── recipes/
+│   │   │   ├── RecipeCard.tsx
+│   │   │   └── IngredientSelector.tsx
+│   │   ├── packaging/
+│   │   │   └── PackagingCard.tsx
+│   │   ├── products/
+│   │   │   └── ProductCard.tsx
+│   │   └── orders/              # Order components (7 files)
+│   │       ├── index.ts
+│   │       ├── OrderForm.tsx
+│   │       ├── OrderHeader.tsx
+│   │       ├── OrderStatusPanel.tsx
+│   │       ├── OrderWhatsAppPanel.tsx
+│   │       ├── OrderItems.tsx
+│   │       ├── ShippingDialog.tsx
+│   │       └── CancellationDialog.tsx
+│   ├── pages/                   # Page components (9 files)
+│   │   ├── index.ts
+│   │   ├── Dashboard.tsx
+│   │   ├── RecipeEditor.tsx
+│   │   ├── PackagingEditor.tsx
+│   │   ├── ProductEditor.tsx
+│   │   ├── IngredientsManager.tsx
+│   │   ├── MaterialsManager.tsx
+│   │   ├── OrderManager.tsx
+│   │   ├── OrderDetail.tsx
+│   │   ├── KitchenView.tsx
+│   │   └── ProductionReport.tsx
+│   ├── hooks/                   # React Query hooks (9 files)
+│   │   ├── index.ts
+│   │   ├── useIngredients.ts
+│   │   ├── useMaterials.ts
+│   │   ├── usePackaging.ts
+│   │   ├── useProducts.ts
+│   │   ├── useRecipes.ts
+│   │   ├── useTags.ts
+│   │   ├── useCustomers.ts
+│   │   ├── useOrders.ts
+│   │   └── useMenuProducts.ts
+│   ├── lib/
+│   │   ├── api.ts               # Axios API client (40+ functions)
+│   │   ├── types.ts             # TypeScript interfaces (400+ lines)
+│   │   └── utils.ts             # Utility functions (cn helper)
+│   ├── App.tsx                  # Router setup with React Query (8 routes)
+│   ├── index.css                # Tailwind CSS + custom theme
+│   └── main.tsx                 # React entry point
+├── public/
+│   └── vite.svg                 # Public assets
+├── .claude/                     # Claude Code configuration
+│   ├── settings.local.json
+│   └── AGENTS_*.md              # Agent documentation
+├── dist/                        # Build output (generated by vite build)
+├── vercel.json                  # Vercel deployment config
+├── vite.config.ts               # Vite bundler config
+├── package.json                 # npm dependencies & scripts
+├── tsconfig.json                # TypeScript config
+├── tsconfig.app.json
+├── tsconfig.node.json
+├── eslint.config.js             # ESLint config
+├── .env                         # Local environment variables (gitignored)
+├── .env.example                 # Environment variable template
+├── .gitignore
 ├── CLAUDE.md                    # This file - development guidelines
 ├── README.md                    # Quick start guide
 ├── malo_recipe_master_prd.md    # Product requirements document
+├── CUSTOM_AGENTS_SETUP.md       # Custom agent setup guide
 └── claude_code_prompt.md        # Build instructions
 ```
+
+**Key Changes from Previous Structure:**
+- `backend/` → `api/` (Vercel serverless functions convention)
+- `frontend/src/` → `src/` (monolithic single build)
+- `frontend/` root files moved to project root
+- Added `api/index.py` - Mangum ASGI adapter for Vercel
+- Added `api/scripts/` - Migration tools
+- Added `vercel.json` - Deployment configuration
+- Added `dist/` - Vite build output directory
 
 ## Code Style
 
@@ -1335,6 +1458,109 @@ VITE_API_URL=http://localhost:8000/api
 
 ## Changelog
 
+### 2026-01-30 - Production Deployment & Migration Infrastructure
+
+**Monolithic Restructure for Vercel Deployment**
+- Restructured project from separate frontend/backend to monolithic layout
+- Moved `backend/` → `api/` for Vercel serverless functions compatibility
+- Moved `frontend/src/` → `src/` and `frontend/` root files to project root
+- All imports and paths updated across the codebase
+- Benefits: Single deployment, simplified CORS, better cold start performance
+
+**Vercel Configuration**
+- Added `vercel.json` with rewrites for SPA routing and API routes
+- Added `api/index.py` with Mangum ASGI adapter for FastAPI on Vercel
+- Build configuration: `vite build` outputs to `dist/`
+- API routes: `/api/*` → serverless functions in `api/`
+- SPA fallback: all other routes → `index.html`
+
+**PostgreSQL Support (Dual Database)**
+- Added PostgreSQL database support alongside SQLite for production
+- Uses `NullPool` for serverless environments (no connection pooling)
+- Environment variables:
+  - `DATABASE_URL` - PostgreSQL connection string (production)
+  - `SQLITE_PATH` - SQLite file path (local dev, default: `api/data/malo_recipes.db`)
+- Auto-detects database type from `DATABASE_URL` prefix (`postgresql://`)
+- SQLite remains default for local development
+
+**Migration Script (SQLite → PostgreSQL)**
+- Created `api/scripts/migrate_sqlite_to_pg.py` - Full data migration tool
+- Features:
+  - Preserves all data, relationships, and constraints
+  - Handles foreign key dependencies with correct insertion order
+  - Validates data integrity after migration
+  - Dry-run mode for testing
+  - Detailed progress logging
+- Usage: `python api/scripts/migrate_sqlite_to_pg.py --sqlite-path <path> --postgres-url <url>`
+- Documentation: `api/scripts/MIGRATION_README.md`
+
+**Environment Configuration Updates**
+- Added `.env.example` with all required variables for production
+- Updated `api/database.py` to support both SQLite and PostgreSQL
+- Updated `api/main.py` CORS configuration for production domains
+- Added production-ready logging configuration
+
+**Files Modified:**
+- Project structure: 144 files moved/renamed
+- Backend: `api/database.py`, `api/main.py`, `api/requirements.txt` (+3 dependencies)
+- Frontend: `vite.config.ts` (proxy configuration), `package.json` (build scripts)
+- New files: `vercel.json`, `api/index.py`, `api/scripts/migrate_sqlite_to_pg.py`, `api/scripts/MIGRATION_README.md`
+
+**Deployment Checklist:**
+1. Set `DATABASE_URL` environment variable in Vercel
+2. Run migration script to populate PostgreSQL
+3. Deploy to Vercel (`vercel --prod`)
+4. Verify API endpoints and frontend routing
+
+### 2026-01-30 - UI/UX Enhancements for Order Management
+
+**OrderDetail Component Refactor (906 → 363 lines)**
+- Split monolithic OrderDetail.tsx into focused, reusable components
+- Created `components/orders/` directory with 7 specialized components:
+  - `OrderHeader.tsx` - Order number, status badge, timestamps (200 lines)
+  - `OrderStatusPanel.tsx` - Status transitions with confirmation dialogs (103 lines)
+  - `OrderWhatsAppPanel.tsx` - WhatsApp templates with copy buttons (107 lines)
+  - `ShippingDialog.tsx` - Shipping info form (agency, tracking) (102 lines)
+  - `CancellationDialog.tsx` - Cancellation reason input (60 lines)
+  - `ConfirmationDialog.tsx` - Status transition confirmations (187 lines)
+  - `OrderItems.tsx` - Order line items table (79 lines)
+  - `index.ts` - Barrel export for clean imports
+
+**Component Architecture Improvements**
+- Separation of concerns: Each component handles one responsibility
+- Reusable confirmation dialogs for all status transitions
+- Dedicated shipping dialog with agency dropdown and tracking input
+- WhatsApp panel with collapsible sections for each template type
+- Empty state component added to `components/shared/EmptyState.tsx`
+
+**UI/UX Enhancements**
+- Added accordion component (`components/ui/accordion.tsx`) for collapsible sections
+- Improved order items table with better spacing and readability
+- Better visual hierarchy with consistent badge colors and spacing
+- Simplified OrderDetail main component for better maintainability
+
+**OrderManager Improvements**
+- Enhanced order list with better status indicators
+- Improved date filters and channel filters
+- Better empty state messaging
+
+**KitchenView Refinements**
+- Cleaner production workflow UI
+- Better order grouping by status
+- Improved quick-action buttons
+
+**Files Modified:**
+- Frontend: `pages/OrderDetail.tsx` (refactored), `pages/OrderManager.tsx` (enhanced), `pages/KitchenView.tsx` (refined)
+- New components: 7 files in `components/orders/`
+- New shared component: `components/shared/EmptyState.tsx`
+- New UI component: `components/ui/accordion.tsx`
+
+**Benefits:**
+- 60% reduction in OrderDetail component size (906 → 363 lines)
+- Improved code maintainability and testability
+- Reusable components for future order-related features
+- Better user experience with focused, intuitive UI elements
+
 ### 2026-01-30 - Order Workflow Enhancements (3-Phase Implementation)
 
 **Phase 1: WhatsApp Confirmation Prompts**
@@ -1845,12 +2071,97 @@ Then proceed with git commit to your current branch.
 - ❌ Inline arrays/objects in deps → ✅ Move to useMemo if dependencies needed
 - ❌ TypeScript errors ignored → ✅ Fix all TypeScript errors before commit
 
-## Deployment (Future)
+## Deployment
 
-For production deployment:
-- Replace SQLite with PostgreSQL
-- Add authentication (consider Clerk or Auth.js)
-- Host backend on Railway/Render
-- Host frontend on Vercel
-- Use environment-based database URLs
-- Add proper logging and monitoring
+### Current Production Setup (Vercel)
+
+**Architecture:**
+- Monolithic deployment on Vercel
+- Frontend: Static files served from `dist/`
+- Backend: Serverless functions in `api/`
+- Database: PostgreSQL with NullPool (serverless-optimized)
+
+**Deployment Steps:**
+
+1. **Prepare PostgreSQL Database**
+   ```bash
+   # Provision PostgreSQL (e.g., Supabase, Neon, Railway)
+   # Note the connection string: postgresql://user:pass@host:5432/dbname
+   ```
+
+2. **Migrate Data (if coming from SQLite)**
+   ```bash
+   cd api/scripts
+   python migrate_sqlite_to_pg.py \
+     --sqlite-path ../data/malo_recipes.db \
+     --postgres-url "postgresql://user:pass@host:5432/dbname"
+   ```
+
+3. **Configure Environment Variables in Vercel**
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `VITE_API_URL` - Set to `/api` (relative path for same domain)
+
+4. **Deploy to Vercel**
+   ```bash
+   # Install Vercel CLI
+   npm i -g vercel
+
+   # Preview deployment
+   vercel
+
+   # Production deployment
+   vercel --prod
+   ```
+
+5. **Verify Deployment**
+   - Check frontend loads: `https://your-app.vercel.app`
+   - Check API health: `https://your-app.vercel.app/api/dashboard/stats`
+   - Test CRUD operations via UI
+
+**vercel.json Configuration:**
+```json
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
+```
+
+**Environment Variables:**
+```bash
+# Production (.env in Vercel dashboard)
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+VITE_API_URL=/api
+
+# Development (local .env)
+SQLITE_PATH=api/data/malo_recipes.db
+VITE_API_URL=http://localhost:8000/api
+```
+
+### Future Enhancements
+
+**Security:**
+- [ ] Add authentication (consider Clerk or Auth.js)
+- [ ] Implement role-based access control (RBAC)
+- [ ] Add rate limiting for API endpoints
+- [ ] Enable HTTPS-only cookies
+
+**Monitoring:**
+- [ ] Add Sentry for error tracking
+- [ ] Implement structured logging
+- [ ] Add performance monitoring (Vercel Analytics)
+- [ ] Database query performance monitoring
+
+**Scalability:**
+- [ ] Consider read replicas for database
+- [ ] Add Redis for caching (e.g., Upstash)
+- [ ] Implement database connection pooling (if moving off serverless)
+- [ ] CDN for static assets (Vercel Edge Network already provides this)
+
+**Backup & Recovery:**
+- [ ] Automated daily PostgreSQL backups
+- [ ] Point-in-time recovery setup
+- [ ] Disaster recovery plan documentation
