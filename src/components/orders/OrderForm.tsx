@@ -86,14 +86,15 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   // Calculate totals
   const totals = formData.items.reduce(
     (acc, item) => {
-      const lineTotal = item.quantity * item.unit_price - (item.discount_amount || 0);
+      const discountedUnitPrice = item.unit_price - (item.discount_amount || 0);
+      const lineTotal = item.quantity * discountedUnitPrice;
       const lineCost = item.quantity * (item.unit_cost || 0);
-      const discountAmount = item.discount_amount || 0;
+      const totalItemDiscount = item.quantity * (item.discount_amount || 0);
       return {
         amount: acc.amount + lineTotal,
         cost: acc.cost + lineCost,
         margin: acc.margin + (lineTotal - lineCost),
-        totalDiscount: acc.totalDiscount + discountAmount,
+        totalDiscount: acc.totalDiscount + totalItemDiscount,
       };
     },
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
@@ -527,14 +528,14 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1">
-                  <Label className="text-xs">Discount (per item)</Label>
+                  <Label className="text-xs">Discount per Unit</Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-xs">
-                        <p>Discount applied per line item, not per unit. Subtracted from line total.</p>
+                        <p>Discount applied per unit. Line total = Qty × (Unit Price - Discount)</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -550,7 +551,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">Line Total</Label>
                 <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm font-medium">
-                  Rp {(item.quantity * item.unit_price - (item.discount_amount || 0)).toLocaleString('id-ID')}
+                  Rp {(item.quantity * (item.unit_price - (item.discount_amount || 0))).toLocaleString('id-ID')}
                 </div>
               </div>
             </div>
