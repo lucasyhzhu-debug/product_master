@@ -368,12 +368,36 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       </div>
 
       {/* Line Items */}
-      <div className="space-y-2">
-        <Label>Items *</Label>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Items <span className="text-destructive">*</span></Label>
+          <Button type="button" variant="outline" size="sm" onClick={addItem}>
+            <Plus className="mr-1 h-3 w-3" /> Add
+          </Button>
+        </div>
+
         {formData.items.map((item, index) => (
-          <div key={index} className="grid grid-cols-2 md:grid-cols-6 gap-2 border rounded-md p-3">
-            <div className="space-y-2 col-span-2">
-              <Label>Product Name</Label>
+          <div key={index} className="border rounded-lg p-3 space-y-3 bg-card">
+            {/* Header with item number and delete */}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <span className="text-sm font-medium text-muted-foreground">
+                Item {index + 1}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => removeItem(index)}
+                disabled={formData.items.length === 1}
+                className="h-7 w-7 p-0"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Product Name - Full width */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Product Name</Label>
               <Select
                 value={item.product_name}
                 onValueChange={(val) => {
@@ -385,8 +409,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                   }
                 }}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Product" />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select product..." />
                 </SelectTrigger>
                 <SelectContent>
                   {menuProducts.map((p) => (
@@ -398,58 +422,59 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               </Select>
             </div>
 
-
-
-            <div className="space-y-2">
-              <Label>Quantity</Label>
-              <Input
-                type="number"
-                min="1"
-                value={item.quantity}
-                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-              />
+            {/* Quantity & Price - 2 columns */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Qty</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Price</Label>
+                <Input
+                  type="number"
+                  value={item.unit_price}
+                  onChange={(e) => updateItem(index, 'unit_price', parseInt(e.target.value) || 0)}
+                  className="h-9"
+                  placeholder="0"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Unit Price</Label>
-              <Input
-                type="number"
-                value={item.unit_price}
-                onChange={(e) => updateItem(index, 'unit_price', parseInt(e.target.value) || 0)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Discount</Label>
-              <Input
-                type="number"
-                value={item.discount_amount || 0}
-                onChange={(e) => updateItem(index, 'discount_amount', parseInt(e.target.value) || 0)}
-              />
-            </div>
-
-            <div className="flex items-end pb-0.5">
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={() => removeItem(index)}
-                disabled={formData.items.length === 1}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            {/* Discount & Line Total - 2 columns */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Discount</Label>
+                <Input
+                  type="number"
+                  value={item.discount_amount || 0}
+                  onChange={(e) => updateItem(index, 'discount_amount', parseInt(e.target.value) || 0)}
+                  className="h-9"
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Total</Label>
+                <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm font-medium">
+                  Rp {(item.quantity * item.unit_price - (item.discount_amount || 0)).toLocaleString('id-ID')}
+                </div>
+              </div>
             </div>
           </div>
         ))}
-        <Button type="button" variant="outline" onClick={addItem} className="w-full">
-          <Plus className="mr-2 h-4 w-4" /> Add Item
-        </Button>
+
         {errors.items && (
-          <p className="text-sm text-destructive mt-1">{errors.items}</p>
+          <p className="text-sm text-destructive">{errors.items}</p>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Delivery */}
+      <div className="space-y-3">
         <div className="space-y-2">
           <Label>Delivery Type</Label>
           <Select
@@ -482,25 +507,28 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
             <Textarea
               value={formData.delivery_address || ''}
               onChange={(e) => setFormData({ ...formData, delivery_address: e.target.value })}
+              rows={2}
             />
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label>Contact WA</Label>
-          <Input
-            value={formData.contact_wa || ''}
-            onChange={(e) => setFormData({ ...formData, contact_wa: e.target.value })}
-            placeholder="0812..."
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Contact IG</Label>
-          <Input
-            value={formData.contact_ig || ''}
-            onChange={(e) => setFormData({ ...formData, contact_ig: e.target.value })}
-            placeholder="@username"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Contact WA</Label>
+            <Input
+              value={formData.contact_wa || ''}
+              onChange={(e) => setFormData({ ...formData, contact_wa: e.target.value })}
+              placeholder="0812..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Contact IG (Optional)</Label>
+            <Input
+              value={formData.contact_ig || ''}
+              onChange={(e) => setFormData({ ...formData, contact_ig: e.target.value })}
+              placeholder="@username"
+            />
+          </div>
         </div>
       </div>
 
@@ -523,11 +551,11 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
           <span>Rp {totals.amount.toLocaleString('id-ID')}</span>
         </div>
         <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Cost</span>
+          <span>Total Discounts</span>
           <span>Rp {totals.cost.toLocaleString('id-ID')}</span>
         </div>
         <div className="flex justify-between font-semibold text-green-600">
-          <span>Margin</span>
+          <span>Net Total</span>
           <span>Rp {totals.margin.toLocaleString('id-ID')}</span>
         </div>
       </div>
