@@ -127,16 +127,6 @@ def list_orders(
     ]
 
 
-@router.get("/production/report")
-def get_production_report(
-    start_date: date | None = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: date | None = Query(None, description="End date (YYYY-MM-DD)"),
-    db: Session = Depends(get_db),
-):
-    """Get production report grouped by date and product type."""
-    return crud.get_production_report(db, start_date=start_date, end_date=end_date)
-
-
 @router.get("/kitchen", response_model=list[OrderSummary])
 def get_kitchen_orders(
     target_date: date | None = Query(None, description="Target date (YYYY-MM-DD), defaults to today"),

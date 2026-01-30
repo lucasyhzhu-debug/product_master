@@ -150,13 +150,6 @@ export function useSellerSuggestions(query?: string) {
   });
 }
 
-export function useProductionReport(startDate: string | null = null, endDate: string | null = null) {
-  return useQuery({
-    queryKey: [...orderKeys.lists(), 'production-report', startDate, endDate],
-    queryFn: () => orderApi.getProductionReport(startDate, endDate),
-  });
-}
-
 export function useKitchenOrders(targetDate?: string) {
   return useQuery({
     queryKey: orderKeys.kitchen(targetDate),
