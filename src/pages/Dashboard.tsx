@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, Info } from 'lucide-react';
+import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, Info, ShoppingCart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,12 +11,19 @@ import { PackagingCard } from '@/components/packaging/PackagingCard';
 import { ProductCard } from '@/components/products/ProductCard';
 import { IngredientCard } from '@/components/ingredients/IngredientCard';
 import { MaterialCard } from '@/components/materials/MaterialCard';
+import {
+  OrderStatsCards,
+  OrderStatsCardsSkeleton,
+  ProductionQueueTable,
+  ProductionQueueTableSkeleton,
+} from '@/components/dashboard';
 import { useRecipes } from '@/hooks/useRecipes';
 import { usePackagingRecipes } from '@/hooks/usePackaging';
 import { useProducts } from '@/hooks/useProducts';
 import { useIngredients } from '@/hooks/useIngredients';
 import { useMaterials } from '@/hooks/useMaterials';
 import { useTags } from '@/hooks/useTags';
+import { useOrderStats } from '@/hooks/useOrderStats';
 import type { RecipeSummary, PackagingRecipeSummary, ProductSummary } from '@/lib/types';
 
 export function Dashboard() {
@@ -28,6 +35,7 @@ export function Dashboard() {
   const { data: ingredients, isLoading: loadingIngredients } = useIngredients();
   const { data: materials, isLoading: loadingMaterials } = useMaterials();
   const { data: tags } = useTags();
+  const { data: orderStats, isLoading: loadingOrderStats } = useOrderStats();
 
   // Toggle tag selection
   const handleToggleTag = (tagId: number) => {
@@ -157,6 +165,32 @@ export function Dashboard() {
           onToggleTag={handleToggleTag}
         />
       )}
+
+      {/* Section Divider - Orders & Production */}
+      <div className="flex items-center gap-4 pt-4">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5 text-emerald-600" />
+          <h2 className="text-lg font-semibold text-emerald-600">Orders & Production</h2>
+        </div>
+        <div className="flex-1 h-px bg-border" />
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/orders">View All Orders</Link>
+        </Button>
+      </div>
+
+      {/* Order Stats Cards */}
+      {loadingOrderStats ? (
+        <OrderStatsCardsSkeleton />
+      ) : orderStats ? (
+        <OrderStatsCards stats={orderStats} />
+      ) : null}
+
+      {/* Production Queue */}
+      {loadingOrderStats ? (
+        <ProductionQueueTableSkeleton />
+      ) : orderStats ? (
+        <ProductionQueueTable orders={orderStats.urgent_orders} />
+      ) : null}
 
       {/* Section Divider - Product Development */}
       <div className="flex items-center gap-4 pt-4">
