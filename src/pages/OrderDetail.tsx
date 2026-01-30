@@ -16,19 +16,29 @@ import {
   ConfirmationDialog,
 } from '@/components/orders';
 
-import { useOrder, useUpdateOrderStatus, useUpdateOrderPayment, useDeleteOrder, useUpdateOrderShipping } from '@/hooks';
+import {
+  useConvexOrder,
+  useConvexUpdateOrderStatus,
+  useConvexUpdateOrderPayment,
+  useConvexDeleteOrder,
+  useConvexUpdateOrderShipping,
+  useConvexCancelOrder,
+} from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus } from '@/lib/types';
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const orderId = parseInt(id || '0', 10);
+  // Convex uses string IDs directly (no parsing needed)
+  const orderId = id as Id<"orders"> | undefined;
 
-  const { data: order, isLoading } = useOrder(orderId);
-  const updateStatus = useUpdateOrderStatus();
-  const updatePayment = useUpdateOrderPayment();
-  const updateShipping = useUpdateOrderShipping();
-  const deleteOrder = useDeleteOrder();
+  const { data: order, isLoading } = useConvexOrder(orderId);
+  const updateStatus = useConvexUpdateOrderStatus();
+  const updatePayment = useConvexUpdateOrderPayment();
+  const updateShipping = useConvexUpdateOrderShipping();
+  const cancelOrder = useConvexCancelOrder();
+  const deleteOrder = useConvexDeleteOrder();
 
   const [copied, setCopied] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -73,8 +83,8 @@ export function OrderDetail() {
     }
   };
 
-  const handleStatusChange = (newStatus: string) => {
-    if (!order) return;
+  const handleStatusChange = async (newStatus: string) => {
+    if (!order || !orderId) return;
 
     if (newStatus === 'Cancelled') {
       setShowCancelDialog(true);
@@ -116,11 +126,11 @@ export function OrderDetail() {
       return;
     }
 
-    updateStatus.mutate({ id: order.id, status: newStatus });
+    await updateStatus.mutate({ orderId, status: newStatus });
   };
 
-  const handleConfirmOrder = () => {
-    if (!order) return;
+  const handleConfirmOrder = async () => {
+    if (!order || !orderId) return;
 
     // Determine target status based on current flow
     let targetStatus: OrderStatus;
@@ -132,16 +142,14 @@ export function OrderDetail() {
       targetStatus = 'Confirmed';
     }
 
-    updateStatus.mutate(
-      { id: order.id, status: targetStatus },
-      {
-        onSuccess: () => {
-          setShowConfirmDialog(false);
-          setWhatsappSent(false);
-          setPaymentConfirmed(false);
-        }
-      }
-    );
+    try {
+      await updateStatus.mutate({ orderId, status: targetStatus });
+      setShowConfirmDialog(false);
+      setWhatsappSent(false);
+      setPaymentConfirmed(false);
+    } catch {
+      // Error handled by toast in hook
+    }
   };
 
   const handleCopyConfirmationWhatsapp = async () => {
@@ -154,66 +162,65 @@ export function OrderDetail() {
     }
   };
 
-  const confirmCancellation = () => {
-    if (!order) return;
-    updateStatus.mutate(
-      {
-        id: order.id,
-        status: 'Cancelled',
-        cancellation_reason: cancellationReason
-      },
-      {
-        onSuccess: () => {
-          setShowCancelDialog(false);
-          setCancellationReason('');
-        }
+  const confirmCancellation = async () => {
+    if (!order || !orderId) return;
+    try {
+      await cancelOrder.mutate({
+        orderId,
+        reason: cancellationReason || undefined,
+      });
+      setShowCancelDialog(false);
+      setCancellationReason('');
+    } catch {
+      // Error handled by toast in hook
+    }
+  };
+
+  const handlePaymentChange = async (newPaymentStatus: string) => {
+    if (!order || !orderId) return;
+    await updatePayment.mutate({
+      orderId,
+      paymentStatus: newPaymentStatus,
+      paymentMethod: order.payment_method || undefined,
+    });
+  };
+
+  const handlePaymentMethodChange = async (method: string) => {
+    if (!order || !orderId) return;
+    await updatePayment.mutate({
+      orderId,
+      paymentStatus: order.payment_status,
+      paymentMethod: method,
+    });
+  };
+
+  const handleDelete = async () => {
+    if (!orderId) return;
+    try {
+      await deleteOrder.mutate(orderId);
+      navigate('/orders');
+    } catch {
+      // Error handled by toast in hook
+    }
+  };
+
+  const handleUpdateShipping = async () => {
+    if (!order || !orderId) return;
+    try {
+      await updateShipping.mutate({
+        orderId,
+        shippingAgency: shippingAgency || undefined,
+        shippingNumber: shippingNumber || undefined,
+      });
+      // If there's a pending status, update status after shipping is saved
+      if (pendingStatus) {
+        await updateStatus.mutate({ orderId, status: pendingStatus });
+        setPendingStatus(null);
       }
-    );
-  };
-
-  const handlePaymentChange = (newPaymentStatus: string) => {
-    if (!order) return;
-    updatePayment.mutate({
-      id: order.id,
-      payment_status: newPaymentStatus,
-      payment_method: order.payment_method || undefined,
-    });
-  };
-
-  const handlePaymentMethodChange = (method: string) => {
-    if (!order) return;
-    updatePayment.mutate({
-      id: order.id,
-      payment_status: order.payment_status,
-      payment_method: method,
-    });
-  };
-
-  const handleDelete = () => {
-    deleteOrder.mutate(orderId, {
-      onSuccess: () => navigate('/orders'),
-    });
-  };
-
-  const handleUpdateShipping = () => {
-    if (!order) return;
-    updateShipping.mutate(
-      {
-        id: order.id,
-        shipping_agency: shippingAgency || null,
-        shipping_number: shippingNumber || null,
-      },
-      {
-        onSuccess: () => {
-          // If there's a pending status, update status after shipping is saved
-          if (pendingStatus) {
-            updateStatus.mutate({ id: order.id, status: pendingStatus });
-            setPendingStatus(null);
-          }
-          setShowShippingDialog(false);
-        },
-      }
-    );
+      setShowShippingDialog(false);
+    } catch {
+      // Error handled by toast in hook
+    }
   };
 
   const openShippingDialog = () => {
