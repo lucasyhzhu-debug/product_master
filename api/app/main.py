@@ -79,6 +79,137 @@ def health_check():
     return {"status": "healthy", "service": "malo-recipe-master"}
 
 
+@app.get("/api/admin/db-check")
+def check_database(secret: str = ""):
+    """Diagnostic endpoint to check database connection and current state."""
+    if secret != "malo-init-2026":
+        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+
+    from app.database import SessionLocal, DATABASE_URL
+    from app.models.menu_product import MenuProduct
+    from app.models.tag import Tag
+
+    try:
+        db = SessionLocal()
+        try:
+            # Check connection
+            menu_count = db.query(MenuProduct).count()
+            tag_count = db.query(Tag).count()
+
+            # Get a sample menu product if any
+            sample_product = db.query(MenuProduct).first()
+
+            return {
+                "status": "connected",
+                "database_url": DATABASE_URL.split('@')[0] + '@***',  # Hide credentials
+                "menu_products_count": menu_count,
+                "tags_count": tag_count,
+                "sample_product": {
+                    "name": sample_product.name,
+                    "price": sample_product.default_price
+                } if sample_product else None,
+                "needs_seeding": menu_count == 0
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Database check failed: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "message": str(e),
+            "type": type(e).__name__,
+            "database_url": DATABASE_URL.split('@')[0] + '@***' if '@' in DATABASE_URL else "sqlite"
+        }
+
+
+@app.post("/api/admin/seed-only")
+def admin_seed_only(secret: str = ""):
+    """
+    Seed menu products and tags without creating tables.
+    Use this if tables already exist but are empty.
+    """
+    if secret != "malo-init-2026":
+        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+
+    from app.database import SessionLocal
+    from app.models.menu_product import MenuProduct
+    from app.models.tag import Tag
+
+    db = SessionLocal()
+    try:
+        # Check and seed tags
+        existing_tags = db.query(Tag).count()
+        tags_added = 0
+        if existing_tags == 0:
+            default_tags = [
+                Tag(name="Dubai-Snack"),
+                Tag(name="Extruded-Snack"),
+                Tag(name="Sachet"),
+                Tag(name="Pouch"),
+                Tag(name="Box"),
+            ]
+            db.add_all(default_tags)
+            tags_added = len(default_tags)
+
+        # Check and seed menu products
+        existing_products = db.query(MenuProduct).count()
+        products_added = 0
+        if existing_products == 0:
+            default_products = [
+                MenuProduct(
+                    code="ORIGINAL_SINGLE",
+                    name="Original Single (80g)",
+                    grams=80,
+                    default_price=50000,
+                    production_type="original",
+                    production_units=1
+                ),
+                MenuProduct(
+                    code="BITE_SINGLE",
+                    name="Bite Sized Single (45g)",
+                    grams=45,
+                    default_price=35000,
+                    production_type="bite_sized",
+                    production_units=1
+                ),
+                MenuProduct(
+                    code="BITE_DOUBLE",
+                    name="Bite Sized Double (90g)",
+                    grams=90,
+                    default_price=70000,
+                    production_type="bite_sized",
+                    production_units=2
+                ),
+                MenuProduct(
+                    code="BITE_TRIPLE",
+                    name="Bite Sized Triple (135g)",
+                    grams=135,
+                    default_price=99000,
+                    production_type="bite_sized",
+                    production_units=3
+                ),
+            ]
+            db.add_all(default_products)
+            products_added = len(default_products)
+
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": "Seed completed",
+            "tags_added": tags_added,
+            "products_added": products_added,
+            "existing_tags": existing_tags,
+            "existing_products": existing_products
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Seeding failed: {str(e)}", exc_info=True)
+        return {"status": "error", "message": str(e), "type": type(e).__name__}
+    finally:
+        db.close()
+
+
 @app.post("/api/admin/init-db")
 def admin_init_db(secret: str = ""):
     """
@@ -105,4 +236,5 @@ def admin_init_db(secret: str = ""):
             }
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Database initialization failed: {str(e)}", exc_info=True)
+        return {"status": "error", "message": str(e), "type": type(e).__name__}
