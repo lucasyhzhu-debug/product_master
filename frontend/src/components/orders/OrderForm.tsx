@@ -41,6 +41,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
 
   const [showSoldByDropdown, setShowSoldByDropdown] = useState(false);
   const [menuProducts, setMenuProducts] = useState<MenuProduct[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     menuProductApi.list(true).then(setMenuProducts);
@@ -144,24 +145,28 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     }
   };
 
-  const handleSubmit = async () => {
-    // Validation
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
     if (!isNewCustomer && !customerId) {
-      alert('Please select or create a customer');
-      return;
+      newErrors.customer = 'Please select or create a customer';
     }
     if (isNewCustomer && !newCustomerName.trim()) {
-      alert('Please enter customer name');
-      return;
+      newErrors.customer = 'Please enter customer name';
     }
     if (formData.items.some((item) => !item.product_name.trim())) {
-      alert('Please fill in all product names');
-      return;
+      newErrors.items = 'Please fill in all product names';
     }
     if (formData.items.some((item) => item.unit_price <= 0)) {
-      alert('Please enter valid prices for all items');
-      return;
+      newErrors.items = 'Please enter valid prices for all items';
     }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
     const orderData: OrderCreate = {
       ...formData,
@@ -178,20 +183,33 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     try {
       await createOrder.mutateAsync(orderData);
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error handled by mutation
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {createOrder.isPending && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+          <div className="text-center space-y-2">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+            <p className="text-sm text-muted-foreground">Creating order...</p>
+          </div>
+        </div>
+      )}
+
       {/* Customer */}
       <div className="space-y-2">
-        <Label>Customer *</Label>
+        <Label htmlFor="customer">
+          Customer <span className="text-destructive">*</span>
+        </Label>
         {isNewCustomer ? (
           <div className="space-y-2">
             <div className="flex gap-2">
               <Input
+                id="customer"
+                aria-required="true"
                 placeholder="Customer name"
                 value={newCustomerName}
                 onChange={(e) => {
@@ -239,6 +257,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         ) : (
           <div className="relative">
             <Input
+              id="customer"
+              aria-required="true"
               placeholder="Search customer..."
               value={customerSearch || ''}
               onChange={(e) => {
@@ -273,6 +293,9 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               </div>
             )}
           </div>
+        )}
+        {errors.customer && (
+          <p className="text-sm text-destructive mt-1">{errors.customer}</p>
         )}
       </div>
 
@@ -421,6 +444,9 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         <Button type="button" variant="outline" onClick={addItem} className="w-full">
           <Plus className="mr-2 h-4 w-4" /> Add Item
         </Button>
+        {errors.items && (
+          <p className="text-sm text-destructive mt-1">{errors.items}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
