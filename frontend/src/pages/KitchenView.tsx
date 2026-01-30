@@ -196,9 +196,21 @@ export function KitchenView() {
     const groups: Record<string, OrderSummary[]> = {};
 
     for (const [groupName, statuses] of Object.entries(STATUS_GROUPS)) {
-      groups[groupName] = orders.filter((o) =>
-        (statuses as readonly string[]).includes(o.status)
-      );
+      groups[groupName] = orders
+        .filter((o) => (statuses as readonly string[]).includes(o.status))
+        .sort((a, b) => {
+          const aOverdue = isOverdue(a.due_date);
+          const bOverdue = isOverdue(b.due_date);
+
+          // Overdue orders first
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+
+          // Then by due date (earliest first)
+          const aDate = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+          const bDate = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+          return aDate - bDate;
+        });
     }
 
     return groups;
@@ -238,6 +250,7 @@ export function KitchenView() {
               <Input
                 id="date-filter"
                 type="date"
+                aria-label="Filter orders by due date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 className="w-auto"

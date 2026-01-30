@@ -5,3 +5,4 @@ export { ConfirmDialog } from './ConfirmDialog';
 export { LoadingCards, LoadingPage } from './LoadingState';
 export { IngredientModal } from './IngredientModal';
 export { TagFilterBar } from './TagFilterBar';
+export { EmptyState } from './EmptyState';
