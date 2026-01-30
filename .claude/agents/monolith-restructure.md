@@ -1,8 +1,8 @@
 ---
 name: monolith-restructure
-description: Project restructuring expert. Handles folder reorganization, import path updates, and configuration consolidation for monolithic deployments. Use when restructuring project layout.
-tools: Read, Edit, Bash, Glob, Grep
+description: "Project restructuring expert. Handles folder reorganization, import path updates, and configuration consolidation for monolithic deployments. Use when restructuring project layout."
 model: sonnet
+color: yellow
 ---
 
 # Monolithic Restructuring Agent
