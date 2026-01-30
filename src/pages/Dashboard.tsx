@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Carousel, LoadingCards } from '@/components/shared';
 import { TagFilterBar } from '@/components/shared/TagFilterBar';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
@@ -104,12 +105,49 @@ export function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage your recipes, packaging, and products
-        </p>
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border p-6">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium text-primary">Product Development Hub</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to Malo Recipe Master</h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Your central hub for managing recipes, packaging designs, and finished products.
+            Click on any card below to view or edit, or use the "New" buttons to create.
+          </p>
+        </div>
+        {/* Decorative element */}
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
       </div>
+
+      {/* Quick Start Guide - Only show when there's little data */}
+      {(!products || products.length === 0) && (!recipes || recipes.length === 0) && (
+        <Card className="border-dashed border-2 bg-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold mb-1">Getting Started</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Follow these steps to create your first product:
+                </p>
+                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Add <strong>Ingredients</strong> (raw materials for your food recipes)</li>
+                  <li>Add <strong>Packaging Materials</strong> (boxes, bags, labels, etc.)</li>
+                  <li>Create a <strong>Recipe</strong> using your ingredients</li>
+                  <li>Create a <strong>Packaging Design</strong> using your materials</li>
+                  <li>Combine recipe + packaging into a <strong>Product</strong> with pricing</li>
+                </ol>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tag Filter Bar */}
       {tags && tags.length > 0 && (
@@ -120,8 +158,20 @@ export function Dashboard() {
         />
       )}
 
+      {/* Section Divider - Product Development */}
+      <div className="flex items-center gap-4 pt-4">
+        <div className="flex items-center gap-2">
+          <Package className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-primary">Product Development</h2>
+        </div>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
       <Carousel
         title="Products"
+        description="Finished goods with COGS and margin calculations"
+        icon={Package}
+        itemCount={filteredProducts.length}
         isEmpty={!loadingProducts && filteredProducts.length === 0}
         emptyMessage={
           selectedTagIds.length > 0
@@ -129,7 +179,7 @@ export function Dashboard() {
             : "No products yet. Create your first product!"
         }
         action={
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link to="/products/new">
               <Plus className="h-4 w-4 mr-1" />
               New Product
@@ -157,6 +207,9 @@ export function Dashboard() {
 
       <Carousel
         title="Recipes"
+        description="Food formulas with ingredient costs and yield tracking"
+        icon={ChefHat}
+        itemCount={filteredRecipes.length}
         isEmpty={!loadingRecipes && filteredRecipes.length === 0}
         emptyMessage={
           selectedTagIds.length > 0
@@ -164,7 +217,7 @@ export function Dashboard() {
             : "No recipes yet. Create your first recipe!"
         }
         action={
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link to="/recipes/new">
               <Plus className="h-4 w-4 mr-1" />
               New Recipe
@@ -191,15 +244,18 @@ export function Dashboard() {
       </Carousel>
 
       <Carousel
-        title="Packaging"
+        title="Packaging Designs"
+        description="Packaging configurations with material costs"
+        icon={Box}
+        itemCount={filteredPackaging.length}
         isEmpty={!loadingPackaging && filteredPackaging.length === 0}
         emptyMessage={
           selectedTagIds.length > 0
-            ? "No packaging recipes match the selected tags."
-            : "No packaging recipes yet. Create your first packaging!"
+            ? "No packaging designs match the selected tags."
+            : "No packaging designs yet. Create your first packaging!"
         }
         action={
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link to="/packaging/new">
               <Plus className="h-4 w-4 mr-1" />
               New Packaging
@@ -225,12 +281,24 @@ export function Dashboard() {
         )}
       </Carousel>
 
+      {/* Section Divider - Raw Materials */}
+      <div className="flex items-center gap-4 pt-4">
+        <div className="flex items-center gap-2">
+          <Apple className="h-5 w-5 text-orange-600" />
+          <h2 className="text-lg font-semibold text-orange-600">Raw Materials</h2>
+        </div>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+
       <Carousel
         title="Ingredients"
+        description="Food ingredients with cost per unit calculations"
+        icon={Apple}
+        itemCount={ingredients?.length || 0}
         isEmpty={!loadingIngredients && (!ingredients || ingredients.length === 0)}
         emptyMessage="No ingredients yet. Create your first ingredient!"
         action={
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link to="/ingredients/new">
               <Plus className="h-4 w-4 mr-1" />
               New Ingredient
@@ -249,10 +317,13 @@ export function Dashboard() {
 
       <Carousel
         title="Packaging Materials"
+        description="Boxes, bags, labels, and other packaging components"
+        icon={PackageOpen}
+        itemCount={materials?.length || 0}
         isEmpty={!loadingMaterials && (!materials || materials.length === 0)}
         emptyMessage="No packaging materials yet. Create your first material!"
         action={
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link to="/materials/new">
               <Plus className="h-4 w-4 mr-1" />
               New Material

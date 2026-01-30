@@ -1,23 +1,29 @@
 import { useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface CarouselProps {
   title: string;
+  description?: string;
+  icon?: LucideIcon;
   action?: React.ReactNode;
   children: React.ReactNode;
   emptyMessage?: string;
   isEmpty?: boolean;
+  itemCount?: number;
 }
 
 export function Carousel({
   title,
+  description,
+  icon: Icon,
   action,
   children,
   emptyMessage = 'No items yet',
   isEmpty = false,
+  itemCount,
 }: CarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -32,8 +38,27 @@ export function Carousel({
 
   return (
     <section className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-3">
+          {Icon && (
+            <div className="mt-0.5 p-2 rounded-lg bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+              {itemCount !== undefined && (
+                <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  {itemCount}
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           {!isEmpty && (
             <>
