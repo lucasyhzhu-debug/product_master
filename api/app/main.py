@@ -1,10 +1,14 @@
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from typing import Dict, Any
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from app.database import init_db
+from app.database import init_db, get_db, SessionLocal, DATABASE_URL
+from app.models.menu_product import MenuProduct
+from app.models.tag import Tag
 from app.routers import (
     ingredients_router,
     packaging_materials_router,
@@ -21,6 +25,9 @@ from app.routers import (
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Admin secret from environment variable
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "")
 
 
 @asynccontextmanager
@@ -79,149 +86,102 @@ def health_check():
     return {"status": "healthy", "service": "malo-recipe-master"}
 
 
-@app.get("/api/admin/db-check")
-def check_database(secret: str = ""):
-    """Diagnostic endpoint to check database connection and current state."""
-    if secret != "malo-init-2026":
-        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+def _mask_db_url(url: str) -> str:
+    """Mask database URL to hide credentials."""
+    if url.startswith("sqlite"):
+        return "sqlite://[local]"
+    if "://" in url:
+        scheme = url.split("://")[0]
+        return f"{scheme}://***@***"
+    return "***"
 
-    from app.database import SessionLocal, DATABASE_URL
-    from app.models.menu_product import MenuProduct
-    from app.models.tag import Tag
+
+@app.get("/api/admin/db-check")
+def check_database(secret: str = "", db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Diagnostic endpoint to check database connection and current state."""
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
-        db = SessionLocal()
-        try:
-            # Check connection
-            menu_count = db.query(MenuProduct).count()
-            tag_count = db.query(Tag).count()
+        # Check connection
+        menu_count = db.query(MenuProduct).count()
+        tag_count = db.query(Tag).count()
 
-            # Get a sample menu product if any
-            sample_product = db.query(MenuProduct).first()
+        # Get a sample menu product if any
+        sample_product = db.query(MenuProduct).first()
 
-            return {
-                "status": "connected",
-                "database_url": DATABASE_URL.split('@')[0] + '@***',  # Hide credentials
-                "menu_products_count": menu_count,
-                "tags_count": tag_count,
-                "sample_product": {
-                    "name": sample_product.name,
-                    "price": sample_product.default_price
-                } if sample_product else None,
-                "needs_seeding": menu_count == 0
-            }
-        finally:
-            db.close()
+        return {
+            "status": "connected",
+            "database_url": _mask_db_url(DATABASE_URL),
+            "menu_products_count": menu_count,
+            "tags_count": tag_count,
+            "sample_product": {
+                "name": sample_product.name,
+                "price": sample_product.default_price
+            } if sample_product else None,
+            "needs_seeding": menu_count == 0
+        }
     except Exception as e:
         logger.error(f"Database check failed: {str(e)}", exc_info=True)
-        return {
-            "status": "error",
-            "message": str(e),
-            "type": type(e).__name__,
-            "database_url": DATABASE_URL.split('@')[0] + '@***' if '@' in DATABASE_URL else "sqlite"
-        }
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {type(e).__name__}"
+        )
 
 
 @app.post("/api/admin/seed-only")
-def admin_seed_only(secret: str = ""):
+def admin_seed_only(secret: str = "", db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Seed menu products and tags without creating tables.
     Use this if tables already exist but are empty.
     """
-    if secret != "malo-init-2026":
-        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
-    from app.database import SessionLocal
-    from app.models.menu_product import MenuProduct
-    from app.models.tag import Tag
+    from app.database import seed_default_data
 
-    db = SessionLocal()
     try:
-        # Check and seed tags
-        existing_tags = db.query(Tag).count()
-        tags_added = 0
-        if existing_tags == 0:
-            default_tags = [
-                Tag(name="Dubai-Snack"),
-                Tag(name="Extruded-Snack"),
-                Tag(name="Sachet"),
-                Tag(name="Pouch"),
-                Tag(name="Box"),
-            ]
-            db.add_all(default_tags)
-            tags_added = len(default_tags)
-
-        # Check and seed menu products
-        existing_products = db.query(MenuProduct).count()
-        products_added = 0
-        if existing_products == 0:
-            default_products = [
-                MenuProduct(
-                    code="ORIGINAL_SINGLE",
-                    name="Original Single (80g)",
-                    grams=80,
-                    default_price=50000,
-                    production_type="original",
-                    production_units=1
-                ),
-                MenuProduct(
-                    code="BITE_SINGLE",
-                    name="Bite Sized Single (45g)",
-                    grams=45,
-                    default_price=35000,
-                    production_type="bite_sized",
-                    production_units=1
-                ),
-                MenuProduct(
-                    code="BITE_DOUBLE",
-                    name="Bite Sized Double (90g)",
-                    grams=90,
-                    default_price=70000,
-                    production_type="bite_sized",
-                    production_units=2
-                ),
-                MenuProduct(
-                    code="BITE_TRIPLE",
-                    name="Bite Sized Triple (135g)",
-                    grams=135,
-                    default_price=99000,
-                    production_type="bite_sized",
-                    production_units=3
-                ),
-            ]
-            db.add_all(default_products)
-            products_added = len(default_products)
-
-        db.commit()
-
+        result = seed_default_data(db)
+        logger.info(
+            "Admin seed completed",
+            extra={
+                "tags_added": result["tags_added"],
+                "products_added": result["products_added"],
+            }
+        )
         return {
             "status": "success",
             "message": "Seed completed",
-            "tags_added": tags_added,
-            "products_added": products_added,
-            "existing_tags": existing_tags,
-            "existing_products": existing_products
+            **result
         }
     except Exception as e:
         db.rollback()
         logger.error(f"Seeding failed: {str(e)}", exc_info=True)
-        return {"status": "error", "message": str(e), "type": type(e).__name__}
-    finally:
-        db.close()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Seeding failed: {type(e).__name__}"
+        )
 
 
 @app.post("/api/admin/init-db")
-def admin_init_db(secret: str = ""):
+def admin_init_db(secret: str = "") -> Dict[str, Any]:
     """
     One-time database initialization endpoint.
-    Call with ?secret=malo-init-2026 to seed the database.
+    Creates tables and seeds default data.
     Safe to call multiple times - only seeds if tables are empty.
     """
-    if secret != "malo-init-2026":
-        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+    if not ADMIN_SECRET:
+        raise HTTPException(status_code=503, detail="Admin endpoints not configured")
+    if secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
         init_db()
+        logger.info("Admin init-db completed successfully")
         return {
             "status": "success",
             "message": "Database initialized and seeded successfully",
@@ -237,4 +197,7 @@ def admin_init_db(secret: str = ""):
         }
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}", exc_info=True)
-        return {"status": "error", "message": str(e), "type": type(e).__name__}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Initialization failed: {type(e).__name__}"
+        )
