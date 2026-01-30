@@ -1,0 +1,284 @@
+# Changelog
+
+> **Purpose:** Version history for Malo Recipe Master.
+> **When to update:** After ANY code change is merged to main.
+
+## Update Instructions
+
+After merging any code change, add a new entry with:
+- Date and descriptive title
+- Summary of what changed
+- Files modified (if significant)
+- Any migration steps or breaking changes
+
+---
+
+## 2026-01-30 - Documentation Refactor
+
+**CLAUDE.md Split into Modular Documentation**
+- Refactored monolithic CLAUDE.md (~2,230 lines) into focused documentation files
+- Created `docs/` directory with 7 specialized documents:
+  - `SCHEMA.md` - Database schema and data flows
+  - `API_REFERENCE.md` - API endpoints and response formats
+  - `CODE_STYLE.md` - Coding conventions and patterns
+  - `WORKFLOW.md` - Git workflow and code review process
+  - `DEPLOYMENT.md` - Production deployment guide
+  - `CHANGELOG.md` - Version history (this file)
+  - `ROADMAP.md` - Future plans and backlog
+- CLAUDE.md now serves as concise entry point (~450 lines)
+
+**Benefits:**
+- Reduced main documentation from ~25,000 to ~5,000 tokens
+- Agents can load only relevant documentation for their task
+- Changelog can grow independently without bloating main file
+- Clearer organization by concern type
+
+---
+
+## 2026-01-30 - Production Deployment & Migration Infrastructure
+
+**Monolithic Restructure for Vercel Deployment**
+- Restructured project from separate frontend/backend to monolithic layout
+- Moved `backend/` → `api/` for Vercel serverless functions compatibility
+- Moved `frontend/src/` → `src/` and `frontend/` root files to project root
+- All imports and paths updated across the codebase
+- Benefits: Single deployment, simplified CORS, better cold start performance
+
+**Vercel Configuration**
+- Added `vercel.json` with rewrites for SPA routing and API routes
+- Added `api/index.py` with Mangum ASGI adapter for FastAPI on Vercel
+- Build configuration: `vite build` outputs to `dist/`
+- API routes: `/api/*` → serverless functions in `api/`
+- SPA fallback: all other routes → `index.html`
+
+**PostgreSQL Support (Dual Database)**
+- Added PostgreSQL database support alongside SQLite for production
+- Uses `NullPool` for serverless environments (no connection pooling)
+- Environment variables:
+  - `DATABASE_URL` - PostgreSQL connection string (production)
+  - `SQLITE_PATH` - SQLite file path (local dev, default: `api/data/malo_recipes.db`)
+- Auto-detects database type from `DATABASE_URL` prefix (`postgresql://`)
+- SQLite remains default for local development
+
+**Migration Script (SQLite → PostgreSQL)**
+- Created `api/scripts/migrate_sqlite_to_pg.py` - Full data migration tool
+- Features:
+  - Preserves all data, relationships, and constraints
+  - Handles foreign key dependencies with correct insertion order
+  - Validates data integrity after migration
+  - Dry-run mode for testing
+  - Detailed progress logging
+- Usage: `python api/scripts/migrate_sqlite_to_pg.py --sqlite-path <path> --postgres-url <url>`
+- Documentation: `api/scripts/MIGRATION_README.md`
+
+**Environment Configuration Updates**
+- Added `.env.example` with all required variables for production
+- Updated `api/database.py` to support both SQLite and PostgreSQL
+- Updated `api/main.py` CORS configuration for production domains
+- Added production-ready logging configuration
+
+**Files Modified:**
+- Project structure: 144 files moved/renamed
+- Backend: `api/database.py`, `api/main.py`, `api/requirements.txt` (+3 dependencies)
+- Frontend: `vite.config.ts` (proxy configuration), `package.json` (build scripts)
+- New files: `vercel.json`, `api/index.py`, `api/scripts/migrate_sqlite_to_pg.py`, `api/scripts/MIGRATION_README.md`
+
+---
+
+## 2026-01-30 - UI/UX Enhancements for Order Management
+
+**OrderDetail Component Refactor (906 → 363 lines)**
+- Split monolithic OrderDetail.tsx into focused, reusable components
+- Created `components/orders/` directory with 7 specialized components:
+  - `OrderHeader.tsx` - Order number, status badge, timestamps (200 lines)
+  - `OrderStatusPanel.tsx` - Status transitions with confirmation dialogs (103 lines)
+  - `OrderWhatsAppPanel.tsx` - WhatsApp templates with copy buttons (107 lines)
+  - `ShippingDialog.tsx` - Shipping info form (agency, tracking) (102 lines)
+  - `CancellationDialog.tsx` - Cancellation reason input (60 lines)
+  - `ConfirmationDialog.tsx` - Status transition confirmations (187 lines)
+  - `OrderItems.tsx` - Order line items table (79 lines)
+  - `index.ts` - Barrel export for clean imports
+
+**Component Architecture Improvements**
+- Separation of concerns: Each component handles one responsibility
+- Reusable confirmation dialogs for all status transitions
+- Dedicated shipping dialog with agency dropdown and tracking input
+- WhatsApp panel with collapsible sections for each template type
+- Empty state component added to `components/shared/EmptyState.tsx`
+
+**UI/UX Enhancements**
+- Added accordion component (`components/ui/accordion.tsx`) for collapsible sections
+- Improved order items table with better spacing and readability
+- Better visual hierarchy with consistent badge colors and spacing
+- Simplified OrderDetail main component for better maintainability
+
+**Files Modified:**
+- Frontend: `pages/OrderDetail.tsx` (refactored), `pages/OrderManager.tsx` (enhanced), `pages/KitchenView.tsx` (refined)
+- New components: 7 files in `components/orders/`
+- New shared component: `components/shared/EmptyState.tsx`
+- New UI component: `components/ui/accordion.tsx`
+
+---
+
+## 2026-01-30 - Order Workflow Enhancements (3-Phase Implementation)
+
+**Phase 1: WhatsApp Confirmation Prompts**
+- Added confirmation dialog for Draft → AwaitingPayment transition
+- Requires "WhatsApp sent" checkbox before advancing
+- Added contextual WhatsApp templates for each status transition:
+  - `format_payment_request()` - Payment request with bank details
+  - `format_production_started()` - Production notification
+  - `format_delivery_complete()` - Delivery confirmation
+- OrderDetail response now includes all template texts
+
+**Phase 2: Kitchen View**
+- Created `KitchenView.tsx` - Production-focused order management page
+- Status-grouped order cards: To Produce, Production Complete, Packaging, Ready
+- Quick-action buttons to advance orders to next status
+- Date filter with overdue order highlighting (red)
+- Added `GET /api/orders/kitchen` endpoint
+- Added navigation link in Header
+
+**Phase 3: AwaitingPayment Status**
+- Added AwaitingPayment status between Draft and Confirmed (now 10-status workflow)
+- Added `awaiting_payment_since` timestamp column to Order model
+- Split confirmation flow:
+  - Draft → AwaitingPayment: Only requires "WhatsApp sent" checkbox
+  - AwaitingPayment → Confirmed: Only requires "Payment confirmed" checkbox
+- Added waiting time indicator with color-coded badges:
+  - Green: < 24 hours
+  - Yellow: 1-2 days
+  - Red: > 2 days
+- Kitchen View excludes AwaitingPayment orders (only production-relevant)
+- Updated OrderManager.tsx with AwaitingPayment filter and badge
+
+**Files Modified:**
+- Backend: `models/order.py`, `schemas/order.py`, `crud/orders.py`, `routers/orders.py`, `services/whatsapp_formatter.py`
+- Frontend: `lib/types.ts`, `pages/OrderDetail.tsx`, `pages/OrderManager.tsx`, `pages/KitchenView.tsx` (new), `App.tsx`, `components/layout/Header.tsx`
+
+---
+
+## 2026-01-30 - Order Status Workflow Migration
+
+**Changed:**
+- Migrated order statuses from old 9-status workflow to new 9-status workflow
+- Old: Draft, Confirmed, Processing, Ready for Pickup, Waiting for Courier, In Transit, Shipped, Completed, Cancelled
+- New: Draft, Confirmed, ProductionComplete, Packaging, WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
+
+**Backend:**
+- Updated `backend/app/schemas/order.py` - OrderStatusUpdate pattern regex
+- Updated `backend/app/crud/orders.py` - Production report active_statuses list (removed "Processing")
+
+**Frontend:**
+- Updated `frontend/src/lib/types.ts` - OrderStatus type definition
+- Updated `frontend/src/pages/OrderDetail.tsx`:
+  - STATUS_COLORS for all 9 new statuses
+  - STATUS_OPTIONS array
+  - Auto-trigger shipping dialog when selecting WaitingShipment status
+  - Updated WhatsApp section visibility conditions
+  - Fixed shipping agency list: Grab → GrabSend, added AnterAja
+- Updated `frontend/src/pages/OrderManager.tsx`:
+  - STATUS_COLORS for all 9 new statuses
+  - Status filter dropdown with all 9 statuses
+
+**Shipping Agencies:**
+Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
+
+---
+
+## 2026-01-29 - Order Management Module (Complete Implementation)
+
+**Added:**
+- Complete Order Management module (standalone, no ProductVersion dependency)
+- Customer entity with phone, source, notes tracking
+- Order entity with MMDD-NNN format order numbers for bank transfer reference
+- Order items with product_name text fields and combobox autocomplete
+- WhatsApp receipt generation with bank details (BCA PT Malo Group Bahagia)
+- CSV export endpoints for orders and order items
+- Product and seller suggestion endpoints for autocomplete
+- Sales channel tracking (IG, WA, Shopee, Tokopedia, etc.)
+- Sold by field with autocomplete from previous orders
+
+**Backend Implementation (9 files):**
+- `backend/app/models/customer.py` (39 lines) - Customer model with relationships
+- `backend/app/models/order.py` (104 lines) - Order and OrderItem models with cascade delete
+- `backend/app/schemas/customer.py` - Customer Pydantic schemas
+- `backend/app/schemas/order.py` (151 lines) - Order/OrderItem schemas with validation
+- `backend/app/crud/customers.py` - Customer CRUD (list, get, create, update)
+- `backend/app/crud/orders.py` (309 lines) - Order CRUD with totals calculation, suggestions, export
+- `backend/app/routers/customers.py` - 4 customer endpoints
+- `backend/app/routers/orders.py` (200+ lines) - 10 order endpoints + CSV export + suggestions
+- `backend/app/services/whatsapp_formatter.py` - WhatsApp receipt generator
+
+**Frontend Implementation (5 files):**
+- `frontend/src/pages/OrderManager.tsx` - Order list with filters + create form
+- `frontend/src/pages/OrderDetail.tsx` - Order detail page with WhatsApp copy button
+- `frontend/src/components/orders/OrderForm.tsx` (300+ lines) - Complex order form
+- `frontend/src/hooks/useOrders.ts` - Order React Query hooks (7 functions)
+- `frontend/src/hooks/useCustomers.ts` - Customer React Query hooks
+
+**Key Features:**
+- Order number format: `MMDD-NNN` (e.g., 0129-001) for easy bank transfer reference
+- Real-time totals calculation (amount, cost, margin)
+- Status workflow: Draft → Confirmed → Completed → Cancelled
+- Payment tracking: Unpaid → Partial → Paid with method (BCA, QRIS, Cash)
+- WhatsApp-ready receipt with bank details for customer communication
+
+---
+
+## 2025-01-28 - Ingredient & Material Management Enhancements
+
+**Added:**
+- Edit functionality for ingredients and packaging materials
+- Navigation links in header for Ingredients and Materials pages
+- Edit buttons on ingredient and material cards
+- Form mode switching (create vs. edit) with dynamic UI
+
+**Updated:**
+- IngredientsManager.tsx: Added edit mode with cancel button
+- MaterialsManager.tsx: Added edit mode with cancel button
+- Header.tsx: Added Ingredients and Materials navigation links
+- Both managers now use PUT endpoints for updates
+
+---
+
+## 2025-01-27 - Phase 2 Frontend Complete
+
+**Added:**
+- Complete React frontend with TypeScript
+- Dashboard with carousel navigation
+- Recipe/Packaging/Product editors
+- Version navigation and copying
+- COGS calculations display
+- shadcn/ui component library
+
+**Components:**
+- 13 UI components (shadcn/ui)
+- 3 layout components
+- 5 shared utility components
+- 3 entity card components
+- 4 page components
+- 7 React Query hooks
+
+**Technical:**
+- React 19.2.0, Tailwind CSS 4.1.18, React Router 7.13.0
+- TanStack Query 5.90.20 for server state
+- Axios for HTTP client
+- Lucide React for icons
+
+---
+
+## 2025-01-27 - Phase 1 Backend Complete
+
+**Added:**
+- FastAPI backend with SQLite database
+- Full CRUD operations for all entities
+- Cost calculator service
+- Versioning system for recipes, packaging, products
+- 41 API endpoints across 7 routers
+
+**Models:**
+- Ingredient, PackagingMaterial, Tag
+- Recipe, RecipeVersion, RecipeComponent, ComponentIngredient
+- PackagingRecipe, PackagingVersion, PackagingComponent, PackagingComponentMaterial
+- Product, ProductVersion
