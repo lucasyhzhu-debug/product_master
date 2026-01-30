@@ -24,7 +24,7 @@ import {
 import { useConvexIngredients, useConvexCreateIngredient } from '@/hooks/convex';
 import { useConvexTags } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
-import type { RecipeVersionInput, ComponentIngredientInput, RecipeComponentInput } from '@/hooks/convex/useRecipes';
+import type { ComponentIngredientInput, RecipeComponentInput } from '@/hooks/convex/useRecipes';
 import { formatCurrency } from '@/lib/utils';
 
 interface ComponentDraft {
@@ -324,22 +324,22 @@ export function RecipeEditor() {
 
   const handleCreateIngredient = async (ingredient: {
     name: string;
-    brand?: string;
-    procurement_source?: string;
+    brand?: string | null;
+    procurement_source?: string | null;
     unit_type: string;
     volume_purchased: number;
     price_excl_shipping: number;
-    shipping_cost: number;
+    shipping_cost?: number;
   }) => {
     try {
       await createIngredient.mutateAsync({
         name: ingredient.name,
-        brand: ingredient.brand,
-        procurementSource: ingredient.procurement_source,
+        brand: ingredient.brand ?? undefined,
+        procurementSource: ingredient.procurement_source ?? undefined,
         unitType: ingredient.unit_type,
         volumePurchased: ingredient.volume_purchased,
         priceExclShipping: ingredient.price_excl_shipping,
-        shippingCost: ingredient.shipping_cost,
+        shippingCost: ingredient.shipping_cost ?? 0,
       });
       setShowIngredientModal(false);
     } catch (error) {
@@ -574,10 +574,10 @@ export function RecipeEditor() {
                         <div className="col-span-5">
                           <IngredientSelector
                             ingredients={ingredientsForSelector}
-                            selectedId={ing.ingredientId as unknown as number | null}
+                            selectedId={ing.ingredientId ?? null}
                             onSelect={(id) =>
                               updateIngredient(component.id, ing.id, {
-                                ingredientId: id as unknown as Id<"ingredients">,
+                                ingredientId: id as Id<"ingredients">,
                               })
                             }
                             onCreateNew={() => setShowIngredientModal(true)}

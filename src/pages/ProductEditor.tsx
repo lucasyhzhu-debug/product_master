@@ -558,7 +558,7 @@ export function ProductEditor() {
               <div className="mt-6 pt-6 border-t grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Retail Price</p>
-                  <p className="text-2xl font-bold">{formatCurrency(cogs.retailPriceIdr)}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(versionDetail.retailPriceIdr)}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Contribution Margin</p>

@@ -23,7 +23,7 @@ import {
 import { useConvexMaterials } from '@/hooks/convex';
 import { useConvexTags } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
-import type { PackagingVersionInput, PackagingComponentInput, PackagingMaterialInput } from '@/hooks/convex/usePackaging';
+import type { PackagingComponentInput, PackagingMaterialInput } from '@/hooks/convex/usePackaging';
 import { formatCurrency } from '@/lib/utils';
 
 interface ComponentDraft {

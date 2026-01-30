@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Download, Search, Filter, ShoppingCart, SearchX } from 'lucide-react';
+import { Plus, Search, Filter, ShoppingCart, SearchX } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -23,8 +23,7 @@ import { PageHeader } from '@/components/layout';
 import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderForm } from '@/components/orders/OrderForm';
 
-import { useOrders } from '@/hooks';
-import { exportApi } from '@/lib/api';
+import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
 import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -175,9 +174,8 @@ export function OrderManager() {
   const isNarrow = windowWidth < 1024; // Show form above on narrow screens (< lg)
   const isMobile = windowWidth < 640;  // Use dialog on mobile (< sm)
 
-  const { data: orders, isLoading } = useOrders(
-    statusFilter !== 'all' ? { status: statusFilter } : undefined
-  );
+  const filters: OrderFilters | undefined = statusFilter !== 'all' ? { status: statusFilter } : undefined;
+  const { data: orders, isLoading } = useConvexOrders(filters);
 
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -206,14 +204,7 @@ export function OrderManager() {
         title="Orders"
         action={
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportApi.downloadOrdersCsv()}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            {/* CSV export removed - would need Convex action implementation */}
             <Button size="sm" onClick={() => setShowForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Order
