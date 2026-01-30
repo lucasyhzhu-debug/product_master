@@ -7,21 +7,31 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/shared';
-import { useMaterials, useCreateMaterial, useUpdateMaterial, useDeleteMaterial } from '@/hooks/useMaterials';
+import {
+  useConvexMaterials,
+  useConvexCreateMaterial,
+  useConvexUpdateMaterial,
+  useConvexDeleteMaterial,
+} from '@/hooks/convex';
 import { formatCurrency } from '@/lib/utils';
-import type { PackagingMaterialCreate } from '@/lib/types';
+import type { Id } from '../../convex/_generated/dataModel';
 
 const MATERIAL_UNITS = ['pcs', 'm', 'cm', 'sheets'];
 
 export function MaterialsManager() {
   const navigate = useNavigate();
-  const { data: materials, isLoading } = useMaterials();
-  const createMaterial = useCreateMaterial();
-  const updateMaterial = useUpdateMaterial();
-  const deleteMaterial = useDeleteMaterial();
+
+  // Convex hooks - data comes back as camelCase
+  const rawMaterials = useConvexMaterials();
+  const materials = rawMaterials ?? [];
+  const isLoading = rawMaterials === undefined;
+
+  const createMutation = useConvexCreateMaterial();
+  const updateMutation = useConvexUpdateMaterial();
+  const deleteMutation = useConvexDeleteMaterial();
 
   // Form state
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [procurementSource, setProcurementSource] = useState('');
@@ -31,8 +41,9 @@ export function MaterialsManager() {
   const [shippingCost, setShippingCost] = useState('');
 
   // Delete dialog
-  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
     setEditingId(null);
@@ -45,18 +56,19 @@ export function MaterialsManager() {
     setShippingCost('');
   };
 
-  const handleEdit = (material: any) => {
-    setEditingId(material.id);
+  // Handle edit - Convex returns camelCase
+  const handleEdit = (material: typeof materials[0]) => {
+    setEditingId(material._id);
     setName(material.name);
     setBrand(material.brand || '');
-    setProcurementSource(material.procurement_source || '');
-    setUnitType(material.unit_type);
-    setVolumePurchased(material.volume_purchased.toString());
-    setPriceExclShipping(material.price_excl_shipping.toString());
-    setShippingCost(material.shipping_cost.toString());
+    setProcurementSource(material.procurementSource || '');
+    setUnitType(material.unitType);
+    setVolumePurchased(material.volumePurchased.toString());
+    setPriceExclShipping(material.priceExclShipping.toString());
+    setShippingCost(material.shippingCost.toString());
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !volumePurchased || !priceExclShipping) {
@@ -64,41 +76,42 @@ export function MaterialsManager() {
       return;
     }
 
-    const data: PackagingMaterialCreate = {
-      name,
-      brand: brand || null,
-      procurement_source: procurementSource || null,
-      unit_type: unitType,
-      volume_purchased: parseFloat(volumePurchased),
-      price_excl_shipping: parseFloat(priceExclShipping),
-      shipping_cost: shippingCost ? parseFloat(shippingCost) : 0,
-    };
+    setIsSubmitting(true);
+    try {
+      // Convex mutations expect camelCase
+      const data = {
+        name,
+        brand: brand || undefined,
+        procurementSource: procurementSource || undefined,
+        unitType,
+        volumePurchased: parseFloat(volumePurchased),
+        priceExclShipping: parseFloat(priceExclShipping),
+        shippingCost: shippingCost ? parseFloat(shippingCost) : 0,
+      };
 
-    if (editingId !== null) {
-      // Update existing material
-      updateMaterial.mutate({ id: editingId, data }, {
-        onSuccess: () => {
-          resetForm();
-        },
-      });
-    } else {
-      // Create new material
-      createMaterial.mutate(data, {
-        onSuccess: () => {
-          resetForm();
-        },
-      });
+      if (editingId !== null) {
+        await updateMutation.mutate({
+          id: editingId as Id<"packagingMaterials">,
+          ...data,
+        });
+      } else {
+        await createMutation.mutate(data);
+      }
+      resetForm();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteId !== null) {
-      deleteMaterial.mutate(deleteId, {
-        onSuccess: () => {
-          setShowDeleteDialog(false);
-          setDeleteId(null);
-        },
-      });
+      try {
+        await deleteMutation.mutate(deleteId as Id<"packagingMaterials">);
+        setShowDeleteDialog(false);
+        setDeleteId(null);
+      } catch {
+        // Error is handled by the mutation with toast
+      }
     }
   };
 
@@ -224,11 +237,11 @@ export function MaterialsManager() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={createMaterial.isPending || updateMaterial.isPending}
+                disabled={isSubmitting}
               >
                 {editingId
-                  ? (updateMaterial.isPending ? 'Updating...' : 'Update Material')
-                  : (createMaterial.isPending ? 'Adding...' : 'Add Material')
+                  ? (isSubmitting ? 'Updating...' : 'Update Material')
+                  : (isSubmitting ? 'Adding...' : 'Add Material')
                 }
               </Button>
             </form>
@@ -248,7 +261,7 @@ export function MaterialsManager() {
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {materials.map((material) => (
-                  <Card key={material.id} className="relative">
+                  <Card key={material._id} className="relative">
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -260,13 +273,13 @@ export function MaterialsManager() {
                             <div>
                               <p className="text-muted-foreground">Volume</p>
                               <p className="font-medium">
-                                {material.volume_purchased} {material.unit_type}
+                                {material.volumePurchased} {material.unitType}
                               </p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Cost/{material.base_unit}</p>
+                              <p className="text-muted-foreground">Cost/{material.baseUnit}</p>
                               <p className="font-medium">
-                                {formatCurrency(material.cost_per_base_unit)}
+                                {formatCurrency(material.costPerBaseUnit ?? 0)}
                               </p>
                             </div>
                           </div>
@@ -284,7 +297,7 @@ export function MaterialsManager() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setDeleteId(material.id);
+                              setDeleteId(material._id);
                               setShowDeleteDialog(true);
                             }}
                             className="text-destructive hover:text-destructive"
