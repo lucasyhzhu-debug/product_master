@@ -77,3 +77,32 @@ def root():
 def health_check():
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "service": "malo-recipe-master"}
+
+
+@app.post("/api/admin/init-db")
+def admin_init_db(secret: str = ""):
+    """
+    One-time database initialization endpoint.
+    Call with ?secret=malo-init-2026 to seed the database.
+    Safe to call multiple times - only seeds if tables are empty.
+    """
+    if secret != "malo-init-2026":
+        return {"error": "Invalid secret. Use ?secret=malo-init-2026"}
+
+    try:
+        init_db()
+        return {
+            "status": "success",
+            "message": "Database initialized and seeded successfully",
+            "seeded": {
+                "tags": ["Dubai-Snack", "Extruded-Snack", "Sachet", "Pouch", "Box"],
+                "menu_products": [
+                    "Original Single (80g) - Rp 50,000",
+                    "Bite Sized Single (45g) - Rp 35,000",
+                    "Bite Sized Double (90g) - Rp 70,000",
+                    "Bite Sized Triple (135g) - Rp 99,000",
+                ]
+            }
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
