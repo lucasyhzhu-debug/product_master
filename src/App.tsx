@@ -4,7 +4,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { Layout } from '@/components/layout';
 import { Dashboard, RecipeEditor, PackagingEditor, ProductEditor, IngredientsManager, MaterialsManager, OrderManager, OrderDetail, KitchenView } from '@/pages';
-import ProductionReport from '@/pages/ProductionReport';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +28,6 @@ function App() {
               <Route path="ingredients/:id" element={<IngredientsManager />} />
               <Route path="materials/:id" element={<MaterialsManager />} />
               <Route path="orders" element={<OrderManager />} />
-              <Route path="orders/production" element={<ProductionReport />} />
               <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="kitchen" element={<KitchenView />} />
             </Route>

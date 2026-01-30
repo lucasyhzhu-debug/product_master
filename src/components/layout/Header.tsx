@@ -1,15 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Package, ChefHat, Box, LayoutDashboard, Apple, PackageOpen, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, UtensilsCrossed, Apple, PackageOpen } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed },
-  { path: '/recipes', label: 'Recipes', icon: ChefHat },
-  { path: '/packaging', label: 'Packaging', icon: Box },
-  { path: '/orders/production', label: 'Production', icon: PackageOpen },
-  { path: '/products', label: 'Products', icon: Package },
   { path: '/ingredients/list', label: 'Ingredients', icon: Apple },
   { path: '/materials/list', label: 'Materials', icon: PackageOpen },
 ];
@@ -21,7 +17,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <div className="mr-8 flex items-center space-x-2">
-          <ChefHat className="h-6 w-6 text-primary" />
+          <UtensilsCrossed className="h-6 w-6 text-primary" />
           <span className="hidden font-bold sm:inline-block">
             Malo Recipe Master
           </span>

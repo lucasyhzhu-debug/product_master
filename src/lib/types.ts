@@ -495,34 +495,3 @@ export interface SellerSuggestion {
   sold_by: string;
   order_count: number;
 }
-
-export interface ProductionReportItem {
-  product_name: string;
-  quantity: number;
-  production_type: 'original' | 'bite_sized';
-  units: number;
-}
-
-export interface ProductionReportOrder {
-  order_number: string;
-  customer_name: string;
-  status: OrderStatus;
-  items: ProductionReportItem[];
-}
-
-export interface ProductionReportDate {
-  date: string;
-  summary: {
-    original: number;
-    bite_sized: number;
-  };
-  orders: ProductionReportOrder[];
-}
-
-export interface ProductionReport {
-  summary: {
-    original: number;
-    bite_sized: number;
-  };
-  dates: ProductionReportDate[];
-}

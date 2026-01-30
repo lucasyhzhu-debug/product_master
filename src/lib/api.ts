@@ -36,7 +36,6 @@ import type {
   ProductSuggestion,
   SellerSuggestion,
   MenuProduct,
-  ProductionReport,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -311,14 +310,6 @@ export const orderApi = {
   },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/orders/${id}`);
-  },
-  getProductionReport: async (startDate: string | null = null, endDate: string | null = null): Promise<ProductionReport> => {
-    const params: any = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-
-    const { data } = await api.get('/orders/production/report', { params });
-    return data;
   },
   getProductSuggestions: async (query?: string): Promise<ProductSuggestion[]> => {
     const params = query ? { q: query } : undefined;
