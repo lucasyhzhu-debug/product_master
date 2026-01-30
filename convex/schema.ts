@@ -1,0 +1,294 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// ============================================
+// Malo Recipe Master - Convex Schema
+// Migrated from FastAPI + SQLAlchemy
+// ============================================
+
+export default defineSchema({
+  // ============================================
+  // BASE TABLES - Simple entities
+  // ============================================
+
+  ingredients: defineTable({
+    name: v.string(),
+    brand: v.optional(v.string()),
+    procurementSource: v.optional(v.string()),
+    unitType: v.string(), // g, kg, ml, l, pcs
+    volumePurchased: v.number(),
+    priceExclShipping: v.number(),
+    shippingCost: v.number(),
+    createdBy: v.string(),
+    // Denormalized for fast queries
+    costPerBaseUnit: v.optional(v.number()),
+    baseUnit: v.optional(v.string()),
+  })
+    .index("by_name", ["name"])
+    .index("by_brand", ["brand"]),
+
+  packagingMaterials: defineTable({
+    name: v.string(),
+    brand: v.optional(v.string()),
+    procurementSource: v.optional(v.string()),
+    unitType: v.string(), // pcs, m, cm, sheets
+    volumePurchased: v.number(),
+    priceExclShipping: v.number(),
+    shippingCost: v.number(),
+    createdBy: v.string(),
+    // Denormalized
+    costPerBaseUnit: v.optional(v.number()),
+    baseUnit: v.optional(v.string()),
+  })
+    .index("by_name", ["name"]),
+
+  tags: defineTable({
+    name: v.string(),
+  })
+    .index("by_name", ["name"]),
+
+  menuProducts: defineTable({
+    code: v.string(),
+    name: v.string(),
+    grams: v.number(),
+    defaultPrice: v.number(),
+    productionType: v.string(), // "original" or "bite_sized"
+    productionUnits: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_code", ["code"])
+    .index("by_active", ["isActive"]),
+
+  // ============================================
+  // RECIPE TABLES
+  // ============================================
+
+  recipes: defineTable({
+    name: v.string(),
+    tagIds: v.array(v.id("tags")), // Denormalized M2M (no junction table)
+    createdBy: v.string(),
+  })
+    .index("by_name", ["name"]),
+
+  recipeVersions: defineTable({
+    recipeId: v.id("recipes"),
+    versionNumber: v.number(),
+    versionName: v.string(),
+    description: v.optional(v.string()),
+    estimatedYieldGrams: v.optional(v.number()),
+    isSingleComponent: v.boolean(),
+    isReusableComponent: v.boolean(),
+    copiedFromVersionId: v.optional(v.id("recipeVersions")),
+    createdBy: v.string(),
+    // CACHED COSTS - Hybrid approach
+    cachedTotalCost: v.optional(v.number()),
+    cachedCostPerGram: v.optional(v.number()),
+    costCacheUpdatedAt: v.optional(v.number()),
+  })
+    .index("by_recipe", ["recipeId"])
+    .index("by_recipe_version", ["recipeId", "versionNumber"])
+    .index("by_reusable", ["isReusableComponent"]),
+
+  recipeComponents: defineTable({
+    recipeVersionId: v.id("recipeVersions"),
+    sortOrder: v.number(),
+    componentName: v.string(),
+    linkedRecipeVersionId: v.optional(v.id("recipeVersions")),
+    // CACHED - for display
+    cachedSubtotalCost: v.optional(v.number()),
+  })
+    .index("by_version", ["recipeVersionId"])
+    .index("by_linked_version", ["linkedRecipeVersionId"]),
+
+  componentIngredients: defineTable({
+    recipeComponentId: v.id("recipeComponents"),
+    ingredientId: v.id("ingredients"),
+    sortOrder: v.number(),
+    unit: v.string(), // g, kg, ml, l, pcs
+    quantity: v.number(),
+    // Denormalized for display
+    ingredientName: v.optional(v.string()),
+    cachedLineCost: v.optional(v.number()),
+  })
+    .index("by_component", ["recipeComponentId"])
+    .index("by_ingredient", ["ingredientId"]),
+
+  // ============================================
+  // PACKAGING TABLES
+  // ============================================
+
+  packagingRecipes: defineTable({
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),
+    createdBy: v.string(),
+  })
+    .index("by_name", ["name"]),
+
+  packagingVersions: defineTable({
+    packagingRecipeId: v.id("packagingRecipes"),
+    versionNumber: v.number(),
+    versionName: v.string(),
+    description: v.optional(v.string()),
+    copiedFromVersionId: v.optional(v.id("packagingVersions")),
+    createdBy: v.string(),
+    // CACHED
+    cachedTotalCost: v.optional(v.number()),
+    costCacheUpdatedAt: v.optional(v.number()),
+  })
+    .index("by_packaging", ["packagingRecipeId"])
+    .index("by_packaging_version", ["packagingRecipeId", "versionNumber"]),
+
+  packagingComponents: defineTable({
+    packagingVersionId: v.id("packagingVersions"),
+    sortOrder: v.number(),
+    componentName: v.string(),
+    cachedSubtotalCost: v.optional(v.number()),
+  })
+    .index("by_version", ["packagingVersionId"]),
+
+  packagingComponentMaterials: defineTable({
+    packagingComponentId: v.id("packagingComponents"),
+    packagingMaterialId: v.id("packagingMaterials"),
+    sortOrder: v.number(),
+    unit: v.string(), // pcs, m, cm, sheets
+    quantity: v.number(),
+    // Denormalized
+    materialName: v.optional(v.string()),
+    cachedLineCost: v.optional(v.number()),
+  })
+    .index("by_component", ["packagingComponentId"])
+    .index("by_material", ["packagingMaterialId"]),
+
+  // ============================================
+  // PRODUCT TABLES
+  // ============================================
+
+  products: defineTable({
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),
+    createdBy: v.string(),
+  })
+    .index("by_name", ["name"]),
+
+  productVersions: defineTable({
+    productId: v.id("products"),
+    versionNumber: v.number(),
+    versionName: v.string(),
+    description: v.optional(v.string()),
+    recipeVersionId: v.id("recipeVersions"),
+    packagingVersionId: v.id("packagingVersions"),
+    retailPriceIdr: v.number(),
+    numPieces: v.number(),
+    gramsPerPiece: v.number(),
+    copiedFromVersionId: v.optional(v.id("productVersions")),
+    createdBy: v.string(),
+    // Denormalized for display
+    recipeName: v.optional(v.string()),
+    recipeVersionName: v.optional(v.string()),
+    packagingName: v.optional(v.string()),
+    packagingVersionName: v.optional(v.string()),
+    // CACHED COGS
+    cachedCogs: v.optional(v.object({
+      totalGrams: v.number(),
+      recipeCogs: v.optional(v.number()),
+      packagingCogs: v.optional(v.number()),
+      totalCogs: v.optional(v.number()),
+      contributionMargin: v.optional(v.number()),
+      contributionMarginPct: v.optional(v.number()),
+    })),
+    cogsCacheUpdatedAt: v.optional(v.number()),
+  })
+    .index("by_product", ["productId"])
+    .index("by_product_version", ["productId", "versionNumber"])
+    .index("by_recipe_version", ["recipeVersionId"])
+    .index("by_packaging_version", ["packagingVersionId"]),
+
+  // ============================================
+  // CUSTOMER & ORDER TABLES
+  // ============================================
+
+  customers: defineTable({
+    name: v.string(),
+    phone: v.optional(v.string()),
+    source: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+  })
+    .index("by_name", ["name"])
+    .index("by_phone", ["phone"]),
+
+  orders: defineTable({
+    orderNumber: v.string(),
+    customerId: v.id("customers"),
+    // Denormalized customer info for list queries
+    customerName: v.string(),
+    customerPhone: v.optional(v.string()),
+
+    // Status workflow: Draft -> AwaitingPayment -> Confirmed -> Production -> Shipped/Pickup -> Delivered/Complete
+    status: v.string(),
+    awaitingPaymentSince: v.optional(v.number()),
+
+    // Payment: Unpaid -> Partial -> Paid
+    paymentStatus: v.string(),
+    paymentMethod: v.optional(v.string()),
+
+    orderDate: v.number(), // timestamp
+    dueDate: v.optional(v.number()),
+
+    // Totals (denormalized)
+    totalAmount: v.number(),
+    totalCost: v.number(),
+    totalMargin: v.number(),
+
+    // Sales tracking
+    channel: v.optional(v.string()),
+    soldBy: v.optional(v.string()),
+
+    // Delivery info
+    deliveryType: v.string(), // Pickup, Delivery
+    pickupLocation: v.optional(v.string()),
+    deliveryAddress: v.optional(v.string()),
+
+    // Contact snapshot
+    contactWa: v.optional(v.string()),
+    contactIg: v.optional(v.string()),
+
+    // Shipping
+    shippingAgency: v.optional(v.string()),
+    shippingNumber: v.optional(v.string()),
+
+    // Cancellation
+    cancellationReason: v.optional(v.string()),
+
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+
+    // Denormalized count
+    itemCount: v.number(),
+  })
+    .index("by_order_number", ["orderNumber"])
+    .index("by_customer", ["customerId"])
+    .index("by_due_date", ["dueDate"])
+    .index("by_status", ["status"])
+    .index("by_channel", ["channel"])
+    .index("by_status_due_date", ["status", "dueDate"]),
+
+  orderItems: defineTable({
+    orderId: v.id("orders"),
+    // Product info (standalone - no FK to product)
+    productName: v.string(),
+    productVariant: v.optional(v.string()),
+    quantity: v.number(),
+    unitPrice: v.number(),
+    unitCost: v.number(),
+    discountAmount: v.number(),
+    // Calculated totals (stored for reporting)
+    lineTotal: v.number(),
+    lineCost: v.number(),
+    lineMargin: v.number(),
+    // Optional link to menu product
+    menuProductId: v.optional(v.id("menuProducts")),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_product_name", ["productName"]),
+});
