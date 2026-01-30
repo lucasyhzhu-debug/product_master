@@ -46,7 +46,7 @@ Base = declarative_base()
 def init_db():
     """Initialize database tables and seed default data."""
     from app.models import ingredient, packaging_material, tag, recipe, packaging, product
-    from app.models import customer, order
+    from app.models import customer, order, menu_product
 
     Base.metadata.create_all(bind=engine)
 
