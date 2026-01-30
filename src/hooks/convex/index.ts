@@ -39,3 +39,24 @@ export {
   type ConvexTag,
   type TagCreateInput,
 } from "./useTags";
+
+// Recipes
+export {
+  useConvexRecipes,
+  useConvexRecipe,
+  useConvexRecipeVersion,
+  useConvexReusableComponents,
+  useConvexRecipesUsingComponent,
+  useConvexRecipeSearch,
+  useConvexCreateRecipe,
+  useConvexCopyRecipeVersion,
+  useConvexCreateRecipeVersion,
+  useConvexUpdateRecipeTags,
+  useConvexUpdateRecipeName,
+  useConvexDeleteRecipe,
+  useConvexRecalculateRecipeCosts,
+  type ComponentIngredientInput,
+  type RecipeComponentInput,
+  type RecipeVersionInput,
+  type RecipeCreateInput,
+} from "./useRecipes";
