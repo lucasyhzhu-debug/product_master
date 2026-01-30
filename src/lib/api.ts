@@ -191,6 +191,10 @@ export const menuProductApi = {
     });
     return data;
   },
+  create: async (product: { name: string; default_price: number }): Promise<MenuProduct> => {
+    const { data } = await api.post('/menu-products', product);
+    return data;
+  },
 };
 
 // Products
