@@ -6,8 +6,8 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/orders', label: 'Orders', icon: ShoppingCart },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed },
-  { path: '/ingredients/list', label: 'Ingredients', icon: Apple },
-  { path: '/materials/list', label: 'Materials', icon: PackageOpen },
+  { path: '/ingredients', label: 'Ingredients', icon: Apple },
+  { path: '/materials', label: 'Materials', icon: PackageOpen },
 ];
 
 export function Header() {
