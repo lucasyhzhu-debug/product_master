@@ -163,13 +163,17 @@ export function OrderManager() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Layout breakpoints
+  const isNarrow = windowWidth < 1024; // Show form above on narrow screens (< lg)
+  const isMobile = windowWidth < 640;  // Use dialog on mobile (< sm)
 
   const { data: orders, isLoading } = useOrders(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
@@ -252,75 +256,100 @@ export function OrderManager() {
         </Select>
       </div>
 
-      {/* Content */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Order List */}
-        <div className="md:col-span-1 lg:col-span-2 space-y-4">
-          {isLoading ? (
-            <LoadingCards count={3} />
-          ) : filteredOrders.length === 0 ? (
-            orders?.length === 0 ? (
-              <EmptyState
-                icon={ShoppingCart}
-                title="No orders yet"
-                description="Create your first order to start tracking sales and production."
-                action={{ label: 'Create Order', onClick: () => setShowForm(true) }}
-              />
-            ) : (
-              <EmptyState
-                icon={SearchX}
-                title="No matching orders"
-                description="Try adjusting your search or filters to find what you're looking for."
-              />
-            )
-          ) : (
-            <div className="grid gap-4">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onClick={() => handleOrderClick(order.id)}
-                />
-              ))}
+      {/* Form Above (Narrow screens, non-mobile) */}
+      {showForm && isNarrow && !isMobile && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg">New Order</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowForm(false)}
+              >
+                Cancel
+              </Button>
             </div>
-          )}
+          </CardHeader>
+          <CardContent>
+            <OrderForm onSuccess={handleOrderCreated} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Content */}
+      <div className={`grid gap-6 ${isNarrow ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'}`}>
+        {/* Order List */}
+        <div className={isNarrow ? '' : 'lg:col-span-2'}>
+          <div className="space-y-4">
+            {isLoading ? (
+              <LoadingCards count={3} />
+            ) : filteredOrders.length === 0 ? (
+              orders?.length === 0 ? (
+                <EmptyState
+                  icon={ShoppingCart}
+                  title="No orders yet"
+                  description="Create your first order to start tracking sales and production."
+                  action={{ label: 'Create Order', onClick: () => setShowForm(true) }}
+                />
+              ) : (
+                <EmptyState
+                  icon={SearchX}
+                  title="No matching orders"
+                  description="Try adjusting your search or filters to find what you're looking for."
+                />
+              )
+            ) : (
+              <div className="grid gap-4">
+                {filteredOrders.map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onClick={() => handleOrderClick(order.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Quick Create Form */}
-        <div className="lg:col-span-1">
-          {showForm && !isMobile ? (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg">New Order</CardTitle>
+        {/* Quick Create Form Sidebar (Wide screens only) */}
+        {!isNarrow && (
+          <div className="lg:col-span-1">
+            {showForm ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">New Order</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <OrderForm onSuccess={handleOrderCreated} />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowForm(false)}
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowForm(true)}
                   >
-                    Cancel
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Order
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <OrderForm onSuccess={handleOrderCreated} />
-              </CardContent>
-            </Card>
-          ) : !showForm ? (
-            <Card className="border-dashed">
-              <CardContent className="py-12 text-center">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setShowForm(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create New Order
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Mobile Form Modal */}
