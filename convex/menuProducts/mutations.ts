@@ -3,35 +3,41 @@ import { v } from "convex/values";
 
 /**
  * Create a new menu product.
+ * Minimal required fields: name and defaultPrice.
+ * Other fields have sensible defaults for quick creation from OrderForm.
  */
 export const create = mutation({
   args: {
-    code: v.string(),
+    code: v.optional(v.string()),
     name: v.string(),
-    grams: v.number(),
+    grams: v.optional(v.number()),
     defaultPrice: v.number(),
-    productionType: v.string(),
-    productionUnits: v.number(),
+    productionType: v.optional(v.string()),
+    productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Generate code from name if not provided
+    const code = args.code ?? `CUSTOM_${args.name.toUpperCase().replace(/\s+/g, '_').slice(0, 20)}`;
+
     // Check for duplicate code
     const existing = await ctx.db
       .query("menuProducts")
-      .withIndex("by_code", (q) => q.eq("code", args.code))
+      .withIndex("by_code", (q) => q.eq("code", code))
       .first();
 
     if (existing) {
-      throw new Error(`Menu product with code "${args.code}" already exists`);
+      // If code already exists, return the existing product's ID
+      return existing._id;
     }
 
     const id = await ctx.db.insert("menuProducts", {
-      code: args.code,
+      code,
       name: args.name,
-      grams: args.grams,
+      grams: args.grams ?? 0,
       defaultPrice: args.defaultPrice,
-      productionType: args.productionType,
-      productionUnits: args.productionUnits,
+      productionType: args.productionType ?? "original",
+      productionUnits: args.productionUnits ?? 1,
       isActive: args.isActive ?? true,
     });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, X, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,24 +21,53 @@ import {
 } from '@/components/ui/tooltip';
 
 import {
-  useCreateOrder,
-  useSellerSuggestions,
-} from '@/hooks/useOrders';
-import { useCustomers } from '@/hooks/useCustomers';
-import { menuProductApi } from '@/lib/api';
-import type { CustomerSummary, MenuProduct, OrderCreate, OrderItemCreate } from '@/lib/types';
+  useConvexCreateOrder,
+  useConvexSellerSuggestions,
+  type OrderCreateInput,
+  type OrderItemInput,
+} from '@/hooks/convex/useOrders';
+import { useConvexCustomerSearch } from '@/hooks/convex/useCustomers';
+import { useConvexMenuProducts, useConvexCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
+import type { Id } from '../../../convex/_generated/dataModel';
+import type { MenuProduct } from '@/lib/types';
 
 const CHANNELS = ['IG', 'WA', 'Shopee', 'Tokopedia', 'Offline', 'Other'];
+
+// Internal form state types (snake_case for form compatibility)
+interface FormOrderItem {
+  product_name: string;
+  product_variant: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  unit_cost: number;
+}
+
+interface FormOrderCreate {
+  customer_id: Id<"customers"> | null;
+  new_customer: { name: string; phone: string | null } | null;
+  channel: string;
+  sold_by: string;
+  due_date: string;
+  notes: string;
+  delivery_type: 'Pickup' | 'Delivery';
+  pickup_location: string;
+  delivery_address: string;
+  contact_wa: string;
+  contact_ig: string;
+  items: FormOrderItem[];
+}
 
 interface OrderFormProps {
   onSuccess?: () => void;
 }
 
 export function OrderForm({ onSuccess }: OrderFormProps) {
-  const createOrder = useCreateOrder();
+  const createOrder = useConvexCreateOrder();
+  const createMenuProduct = useConvexCreateMenuProduct();
 
   // Customer state
-  const [customerId, setCustomerId] = useState<number | null>(null);
+  const [customerId, setCustomerId] = useState<Id<"customers"> | null>(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [newCustomerName, setNewCustomerName] = useState('');
@@ -46,23 +75,15 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
   const [showSoldByDropdown, setShowSoldByDropdown] = useState(false);
-  const [menuProducts, setMenuProducts] = useState<MenuProduct[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [productDropdownIndex, setProductDropdownIndex] = useState<number | null>(null);
   const [productSearches, setProductSearches] = useState<string[]>(['']);
-  const [productsLoading, setProductsLoading] = useState(true);
 
-  useEffect(() => {
-    menuProductApi.list(true)
-      .then(setMenuProducts)
-      .catch((err) => {
-        console.error('Failed to load menu products:', err);
-        setMenuProducts([]);
-      })
-      .finally(() => setProductsLoading(false));
-  }, []);
+  // Convex queries
+  const { data: menuProductsData, isLoading: productsLoading } = useConvexMenuProducts(true);
+  const menuProducts: MenuProduct[] = menuProductsData ?? [];
 
-  const [formData, setFormData] = useState<OrderCreate>({
+  const [formData, setFormData] = useState<FormOrderCreate>({
     customer_id: null,
     new_customer: null,
     channel: '',
@@ -87,8 +108,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   });
 
   // Queries
-  const { data: customers } = useCustomers(customerSearch || undefined);
-  const { data: sellerSuggestions } = useSellerSuggestions();
+  const { data: customers } = useConvexCustomerSearch(customerSearch || '');
+  const { data: sellerSuggestions } = useConvexSellerSuggestions();
 
   // Calculate totals
   const totals = formData.items.reduce(
@@ -107,12 +128,14 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: CustomerSummary) => {
-    setCustomerId(customer.id);
+  const handleCustomerSelect = (customer: { id: number; _id?: string; name: string; phone?: string | null }) => {
+    // Customer from Convex has _id as string, from legacy has id as number
+    const convexId = (customer._id ?? customer.id) as unknown as Id<"customers">;
+    setCustomerId(convexId);
     setCustomerSearch(customer.name);
     setIsNewCustomer(false);
     setShowCustomerDropdown(false);
-    setFormData((prev) => ({ ...prev, customer_id: customer.id, new_customer: null }));
+    setFormData((prev) => ({ ...prev, customer_id: convexId, new_customer: null }));
   };
 
   const handleCreateNewCustomer = () => {
@@ -131,7 +154,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     setFormData((prev) => ({ ...prev, sold_by: seller }));
   };
 
-  const updateItem = (index: number, field: keyof OrderItemCreate, value: string | number) => {
+  const updateItem = (index: number, field: keyof FormOrderItem, value: string | number) => {
     setFormData((prev) => {
       const updatedItems = [...prev.items];
       updatedItems[index] = { ...updatedItems[index], [field]: value };
@@ -235,6 +258,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async () => {
     // Validate form
     if (!validateForm()) {
@@ -243,65 +268,68 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       return;
     }
 
-    const orderData: OrderCreate = {
-      ...formData,
-      customer_id: isNewCustomer ? null : customerId,
-      new_customer: isNewCustomer
-        ? { name: newCustomerName, phone: newCustomerPhone || null }
-        : null,
-      items: formData.items.map((item) => ({
-        ...item,
-        unit_cost: item.unit_cost || 0,
+    // Transform form data to Convex format (camelCase)
+    const orderData: OrderCreateInput = {
+      customerId: isNewCustomer ? undefined : (customerId ?? undefined),
+      newCustomer: isNewCustomer
+        ? { name: newCustomerName, phone: newCustomerPhone || undefined }
+        : undefined,
+      channel: formData.channel || undefined,
+      soldBy: formData.sold_by || undefined,
+      dueDate: formData.due_date ? new Date(formData.due_date).getTime() : undefined,
+      notes: formData.notes || undefined,
+      deliveryType: formData.delivery_type,
+      pickupLocation: formData.pickup_location || undefined,
+      deliveryAddress: formData.delivery_address || undefined,
+      contactWa: formData.contact_wa || undefined,
+      contactIg: formData.contact_ig || undefined,
+      items: formData.items.map((item): OrderItemInput => ({
+        productName: item.product_name,
+        productVariant: item.product_variant || undefined,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        unitCost: item.unit_cost || 0,
+        discountAmount: item.discount_amount || undefined,
       })),
     };
 
+    setIsSubmitting(true);
     try {
-      // Use toast.promise for graceful async feedback
-      const orderPromise = createOrder.mutateAsync(orderData);
+      // Create the order
+      toast.loading(`Creating order for ${isNewCustomer ? newCustomerName : customerSearch}...`, { id: 'create-order' });
 
-      await toast.promise(orderPromise, {
-        loading: `Creating order for ${isNewCustomer ? newCustomerName : customerSearch}...`,
-        success: (data) => {
-          // Save any new custom products to the menu for future use
-          const saveProductPromises = orderData.items
-            .filter((item) => {
-              const existingProduct = menuProducts.find(
-                (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
-              );
-              return !existingProduct && item.product_name.trim() && item.unit_price > 0;
-            })
-            .map((item) =>
-              menuProductApi
-                .create({
-                  name: item.product_name,
-                  default_price: item.unit_price,
-                })
-                .then((newProduct) => {
-                  setMenuProducts((prev) => [...prev, newProduct]);
-                })
-                .catch(() => {
-                  // Ignore if product already exists or creation fails
-                })
-            );
+      await createOrder.mutateAsync(orderData);
 
-          // Don't wait for product saves to complete
-          Promise.all(saveProductPromises).catch(() => {
-            // Ignore promise errors
-          });
-
-          return `Order ${data.order_number} created successfully! 🎉`;
-        },
-        error: (error) => {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to create order';
-          return `Error: ${errorMessage}`;
-        },
+      // Save any new custom products to the menu for future use
+      const newProductItems = formData.items.filter((item) => {
+        const existingProduct = menuProducts.find(
+          (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
+        );
+        return !existingProduct && item.product_name.trim() && item.unit_price > 0;
       });
+
+      // Create menu products in background
+      for (const item of newProductItems) {
+        try {
+          await createMenuProduct.mutateAsync({
+            name: item.product_name,
+            defaultPrice: item.unit_price,
+          });
+        } catch {
+          // Ignore if product already exists or creation fails
+        }
+      }
+
+      toast.success('Order created successfully!', { id: 'create-order' });
 
       // Reset form and notify parent
       onSuccess?.();
     } catch (error) {
-      // Error already handled by toast.promise
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create order';
+      toast.error(`Error: ${errorMessage}`, { id: 'create-order' });
       console.error('Order creation error:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -716,10 +744,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
         <Button
           className="flex-1 gap-2"
           onClick={handleSubmit}
-          disabled={createOrder.isPending || productsLoading}
+          disabled={isSubmitting || productsLoading}
           size="lg"
         >
-          {createOrder.isPending ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Creating Order...

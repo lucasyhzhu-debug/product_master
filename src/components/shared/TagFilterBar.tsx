@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 type TagId = number | string;
 
 interface TagFilterBarProps {
-  tags: { id: TagId; _id?: string; name: string }[];
+  tags: { id?: TagId; _id?: string; name: string }[];
   selectedTagIds: TagId[];
   onToggleTag: (tagId: TagId) => void;
 }
@@ -16,7 +16,7 @@ export function TagFilterBar({ tags, selectedTagIds, onToggleTag }: TagFilterBar
   }
 
   // Normalize tag ID (Convex uses _id, legacy uses id)
-  const getTagId = (tag: { id: TagId; _id?: string }): TagId => tag._id ?? tag.id;
+  const getTagId = (tag: { id?: TagId; _id?: string }): TagId => tag._id ?? tag.id ?? '';
 
   return (
     <div className="mb-8">

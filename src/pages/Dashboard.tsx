@@ -74,38 +74,11 @@ export function Dashboard() {
     );
   };
 
-  // Create a map of tag names to IDs for recipes/packaging (they use string arrays)
-  const tagNameToIdMap = useMemo(() => {
-    if (!tags.length) return new Map<string, string>();
-    return new Map(tags.map((tag) => [tag.name, tag._id]));
-  }, [tags]);
+  // Filter and sort function for items with tags as objects { _id, name }
+  // All Convex entities (recipes, packaging, products) use this format
+  type TaggedItem = { tags: { _id: string; name: string }[] };
 
-  // Filter and sort function for recipes/packaging
-  // Tags from Convex are string arrays (tag names)
-  const filterAndSortByTags = <T extends { tags: string[] }>(
-    items: T[],
-    selectedIds: string[]
-  ): T[] => {
-    if (!items.length) return [];
-    if (selectedIds.length === 0) return items;
-
-    // Convert tag names to IDs for each item and calculate match count
-    const itemsWithMatchCount = items.map((item) => {
-      const itemTagIds = item.tags
-        .map((tagName) => tagNameToIdMap.get(tagName))
-        .filter((id): id is string => id !== undefined);
-      const matchCount = itemTagIds.filter((id) => selectedIds.includes(id)).length;
-      return { item, matchCount };
-    });
-
-    // Sort by match count (descending) - items with more matching tags first
-    return itemsWithMatchCount
-      .sort((a, b) => b.matchCount - a.matchCount)
-      .map(({ item }) => item);
-  };
-
-  // Filter and sort function for products (tags as objects with _id and name)
-  const filterAndSortProducts = <T extends { tags: { _id: string; name: string }[] }>(
+  const filterAndSortByTags = <T extends TaggedItem>(
     items: T[],
     selectedIds: string[]
   ): T[] => {
@@ -118,25 +91,25 @@ export function Dashboard() {
       return { item, matchCount };
     });
 
-    // Sort by match count (descending)
+    // Sort by match count (descending) - items with more matching tags first
     return itemsWithMatchCount
       .sort((a, b) => b.matchCount - a.matchCount)
       .map(({ item }) => item);
   };
 
-  // Apply filtering and sorting
+  // Apply filtering and sorting - cast to the tag format expected
   const filteredRecipes = useMemo(
-    () => filterAndSortByTags(recipes as { tags: string[] }[], selectedTagIds),
-    [recipes, selectedTagIds, tagNameToIdMap]
+    () => filterAndSortByTags(recipes as unknown as TaggedItem[], selectedTagIds) as typeof recipes,
+    [recipes, selectedTagIds]
   );
 
   const filteredPackaging = useMemo(
-    () => filterAndSortByTags(packaging as { tags: string[] }[], selectedTagIds),
-    [packaging, selectedTagIds, tagNameToIdMap]
+    () => filterAndSortByTags(packaging as unknown as TaggedItem[], selectedTagIds) as typeof packaging,
+    [packaging, selectedTagIds]
   );
 
   const filteredProducts = useMemo(
-    () => filterAndSortProducts(products as { tags: { _id: string; name: string }[] }[], selectedTagIds),
+    () => filterAndSortByTags(products as unknown as TaggedItem[], selectedTagIds) as typeof products,
     [products, selectedTagIds]
   );
 

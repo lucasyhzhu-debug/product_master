@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards } from '@/components/shared';
 
-import { useKitchenOrders, useUpdateOrderStatus } from '@/hooks';
+import { useConvexKitchenOrders, useConvexUpdateOrderStatus } from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderSummary, OrderStatus } from '@/lib/types';
 
 // Status groups for Kitchen View
@@ -185,9 +186,20 @@ export function KitchenView() {
     return today.toISOString().split('T')[0];
   });
 
-  const { data: orders, isLoading } = useKitchenOrders(targetDate);
-  const updateStatus = useUpdateOrderStatus();
+  // Convex hooks don't support date filter yet, so we filter client-side
+  const { data: allOrders, isLoading } = useConvexKitchenOrders();
+  const updateStatus = useConvexUpdateOrderStatus();
   const [advancingOrderId, setAdvancingOrderId] = useState<number | null>(null);
+
+  // Filter orders by target date client-side
+  const orders = useMemo(() => {
+    if (!allOrders) return undefined;
+    return allOrders.filter((order: OrderSummary) => {
+      if (!order.due_date) return true; // Show orders without due date
+      const orderDate = new Date(order.due_date).toISOString().split('T')[0];
+      return orderDate === targetDate;
+    });
+  }, [allOrders, targetDate]);
 
   // Group orders by status category
   const groupedOrders = useMemo(() => {
@@ -216,7 +228,7 @@ export function KitchenView() {
     return groups;
   }, [orders]);
 
-  const handleAdvanceOrder = (orderId: number, currentStatus: OrderStatus, deliveryType?: string) => {
+  const handleAdvanceOrder = async (orderId: number, currentStatus: OrderStatus, deliveryType?: string) => {
     let nextStatus = NEXT_STATUS[currentStatus];
 
     // Special handling for Packaging → Ready
@@ -227,12 +239,15 @@ export function KitchenView() {
     if (!nextStatus) return;
 
     setAdvancingOrderId(orderId);
-    updateStatus.mutate(
-      { id: orderId, status: nextStatus },
-      {
-        onSettled: () => setAdvancingOrderId(null),
-      }
-    );
+    try {
+      // orderId is the Convex _id cast to number, cast it back to Id<"orders">
+      await updateStatus.mutateAsync({
+        orderId: orderId as unknown as Id<"orders">,
+        status: nextStatus,
+      });
+    } finally {
+      setAdvancingOrderId(null);
+    }
   };
 
   const totalOrders = orders?.length || 0;
