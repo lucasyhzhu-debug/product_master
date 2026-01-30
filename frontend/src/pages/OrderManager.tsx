@@ -1,8 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Download, Search, Filter } from 'lucide-react';
+import { Plus, Download, Search, Filter, ShoppingCart, SearchX } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout';
-import { LoadingCards } from '@/components/shared';
+import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderForm } from '@/components/orders/OrderForm';
 
 import { useOrders } from '@/hooks';
@@ -105,8 +111,11 @@ function OrderCard({ order, onClick }: OrderCardProps) {
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
           <div>
-            <p className="font-mono font-semibold">{order.order_number}</p>
-            <p className="text-sm text-muted-foreground">{order.customer_name}</p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-lg font-bold">{order.order_number}</span>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-sm font-medium truncate max-w-[120px]">{order.customer_name}</span>
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="flex gap-1">
@@ -129,9 +138,9 @@ function OrderCard({ order, onClick }: OrderCardProps) {
             )}
           </div>
           <div className="text-right">
-            <p className="font-semibold">{formatCurrency(order.total_amount)}</p>
+            <p className="text-xl font-bold">{formatCurrency(order.total_amount)}</p>
             {order.total_margin > 0 && (
-              <p className="text-xs text-green-600">
+              <p className="text-sm text-green-600 font-semibold">
                 +{formatCurrency(order.total_margin)}
               </p>
             )}
@@ -154,6 +163,13 @@ export function OrderManager() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { data: orders, isLoading } = useOrders(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
@@ -207,6 +223,7 @@ export function OrderManager() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label="Search orders by number, customer name, or salesperson"
             placeholder="Search orders..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -214,7 +231,7 @@ export function OrderManager() {
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter} onValueChange={setStatusFilter} aria-label="Filter orders by status">
           <SelectTrigger className="w-40">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Status" />
@@ -236,19 +253,26 @@ export function OrderManager() {
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Order List */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="md:col-span-1 lg:col-span-2 space-y-4">
           {isLoading ? (
             <LoadingCards count={3} />
           ) : filteredOrders.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                {orders?.length === 0
-                  ? 'No orders yet. Create your first order!'
-                  : 'No orders match your search.'}
-              </CardContent>
-            </Card>
+            orders?.length === 0 ? (
+              <EmptyState
+                icon={ShoppingCart}
+                title="No orders yet"
+                description="Create your first order to start tracking sales and production."
+                action={{ label: 'Create Order', onClick: () => setShowForm(true) }}
+              />
+            ) : (
+              <EmptyState
+                icon={SearchX}
+                title="No matching orders"
+                description="Try adjusting your search or filters to find what you're looking for."
+              />
+            )
           ) : (
             <div className="grid gap-4">
               {filteredOrders.map((order) => (
@@ -264,7 +288,7 @@ export function OrderManager() {
 
         {/* Quick Create Form */}
         <div className="lg:col-span-1">
-          {showForm ? (
+          {showForm && !isMobile ? (
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-center">
@@ -282,7 +306,7 @@ export function OrderManager() {
                 <OrderForm onSuccess={handleOrderCreated} />
               </CardContent>
             </Card>
-          ) : (
+          ) : !showForm ? (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center">
                 <Button
@@ -295,9 +319,21 @@ export function OrderManager() {
                 </Button>
               </CardContent>
             </Card>
-          )}
+          ) : null}
         </div>
       </div>
+
+      {/* Mobile Form Modal */}
+      {showForm && isMobile && (
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>New Order</DialogTitle>
+            </DialogHeader>
+            <OrderForm onSuccess={handleOrderCreated} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
