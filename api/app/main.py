@@ -1,4 +1,6 @@
 import os
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,21 +18,37 @@ from app.routers import (
     menu_products_router,
 )
 
-# Create FastAPI app
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup using modern lifespan handler."""
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        # Don't raise - tables may already exist in production
+        logger.warning(f"Database initialization note: {e}")
+    yield
+
+
+# Create FastAPI app with lifespan handler
 app = FastAPI(
     title="Malo Recipe Master API",
     description="Recipe and Product Concept Management for FMCG Snack Company",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Configure CORS with environment variable support
-# Read CORS_ORIGINS from environment (comma-separated URLs)
-cors_origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
-
+# Configure CORS
+# For small team deployment, allow all origins (simplifies Vercel deployment)
+# In future with auth, restrict to specific domains
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,12 +67,6 @@ app.include_router(orders_router)
 app.include_router(menu_products_router)
 
 
-@app.on_event("startup")
-def on_startup():
-    """Initialize database on startup."""
-    init_db()
-
-
 @app.get("/")
 def root():
     """Root health check endpoint."""
@@ -63,5 +75,5 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """API health check."""
-    return {"status": "healthy"}
+    """Health check endpoint for monitoring."""
+    return {"status": "healthy", "service": "malo-recipe-master"}
