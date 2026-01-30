@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Copy, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,22 +13,30 @@ import { PageHeader } from '@/components/layout';
 import { VersionNavigator, ConfirmDialog, CostTooltip, IngredientModal } from '@/components/shared';
 import { IngredientSelector } from '@/components/recipes/IngredientSelector';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRecipe, useRecipeVersion, useCreateRecipe, useCreateRecipeVersion, useCopyRecipeVersion, useDeleteRecipe } from '@/hooks/useRecipes';
-import { useIngredients, useCreateIngredient } from '@/hooks/useIngredients';
-import { useTags } from '@/hooks/useTags';
+import {
+  useConvexRecipe,
+  useConvexRecipeVersion,
+  useConvexCreateRecipe,
+  useConvexCreateRecipeVersion,
+  useConvexCopyRecipeVersion,
+  useConvexDeleteRecipe,
+} from '@/hooks/convex';
+import { useConvexIngredients, useConvexCreateIngredient } from '@/hooks/convex';
+import { useConvexTags } from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
+import type { RecipeVersionInput, ComponentIngredientInput, RecipeComponentInput } from '@/hooks/convex/useRecipes';
 import { formatCurrency } from '@/lib/utils';
-import type { RecipeComponentCreate, ComponentIngredientCreate, IngredientCreate } from '@/lib/types';
 
 interface ComponentDraft {
   id: string;
-  component_name: string;
-  linked_recipe_version_id: number | null;
+  componentName: string;
+  linkedRecipeVersionId: Id<"recipeVersions"> | null;
   ingredients: IngredientDraft[];
 }
 
 interface IngredientDraft {
   id: string;
-  ingredient_id: number | null;
+  ingredientId: Id<"ingredients"> | null;
   unit: string;
   quantity: number;
 }
@@ -39,20 +47,30 @@ export function RecipeEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isNew = id === 'new';
-  const recipeId = isNew ? 0 : parseInt(id || '0', 10);
+  // Convex uses string IDs directly
+  const recipeId = isNew ? undefined : (id as Id<"recipes">);
 
-  const { data: recipe, isLoading: loadingRecipe } = useRecipe(recipeId);
-  const { data: ingredients } = useIngredients();
-  const { data: tags } = useTags();
+  const recipe = useConvexRecipe(recipeId);
+  const rawIngredients = useConvexIngredients();
+  const rawTags = useConvexTags();
 
-  const [currentVersionNumber, setCurrentVersionNumber] = useState(1);
-  const { data: versionDetail, isLoading: loadingVersion } = useRecipeVersion(recipeId, currentVersionNumber);
+  // Normalize data for loading state
+  const ingredients = rawIngredients ?? [];
+  const tags = rawTags ?? [];
+  const loadingRecipe = recipeId !== undefined && recipe === undefined;
 
-  const createRecipe = useCreateRecipe();
-  const createVersion = useCreateRecipeVersion();
-  const copyVersion = useCopyRecipeVersion();
-  const deleteRecipe = useDeleteRecipe();
-  const createIngredient = useCreateIngredient();
+  // Track current version by its _id (not version number)
+  const [currentVersionId, setCurrentVersionId] = useState<Id<"recipeVersions"> | undefined>(undefined);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+
+  const versionDetail = useConvexRecipeVersion(currentVersionId);
+  const loadingVersion = currentVersionId !== undefined && versionDetail === undefined;
+
+  const createRecipe = useConvexCreateRecipe();
+  const createVersion = useConvexCreateRecipeVersion();
+  const copyVersion = useConvexCopyRecipeVersion();
+  const deleteRecipe = useConvexDeleteRecipe();
+  const createIngredient = useConvexCreateIngredient();
 
   // Form state
   const [name, setName] = useState('');
@@ -60,8 +78,9 @@ export function RecipeEditor() {
   const [description, setDescription] = useState('');
   const [estimatedYield, setEstimatedYield] = useState<string>('');
   const [isReusable, setIsReusable] = useState(false);
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [components, setComponents] = useState<ComponentDraft[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -70,32 +89,39 @@ export function RecipeEditor() {
   const [copyVersionName, setCopyVersionName] = useState('');
   const [copyDescription, setCopyDescription] = useState('');
 
-  // Initialize form when version data loads
+  // Sorted versions for navigation
+  const sortedVersions = useMemo(() => {
+    if (!recipe?.versions) return [];
+    return [...recipe.versions].sort((a, b) => a.versionNumber - b.versionNumber);
+  }, [recipe?.versions]);
+
+  // Initialize form when recipe data loads
   useEffect(() => {
     if (recipe && !isNew) {
       setName(recipe.name);
-      setSelectedTags(recipe.tags.map(t => t.id));
-      if (recipe.versions.length > 0) {
-        const latestVersion = Math.max(...recipe.versions.map(v => v.version_number));
-        setCurrentVersionNumber(latestVersion);
+      setSelectedTags(recipe.tags.map(t => t._id));
+      if (sortedVersions.length > 0) {
+        const latestVersion = sortedVersions[sortedVersions.length - 1];
+        setCurrentVersionId(latestVersion._id);
+        setCurrentVersionIndex(sortedVersions.length - 1);
       }
     }
-  }, [recipe, isNew]);
+  }, [recipe, isNew, sortedVersions]);
 
   useEffect(() => {
     if (versionDetail && !isNew) {
-      setVersionName(versionDetail.version_name);
+      setVersionName(versionDetail.versionName);
       setDescription(versionDetail.description || '');
-      setEstimatedYield(versionDetail.estimated_yield_grams?.toString() || '');
-      setIsReusable(versionDetail.is_reusable_component);
+      setEstimatedYield(versionDetail.estimatedYieldGrams?.toString() || '');
+      setIsReusable(versionDetail.isReusableComponent);
       setComponents(
         versionDetail.components.map((c) => ({
-          id: `component-${c.id}`,
-          component_name: c.component_name,
-          linked_recipe_version_id: c.linked_recipe_version_id,
+          id: `component-${c._id}`,
+          componentName: c.componentName,
+          linkedRecipeVersionId: c.linkedRecipeVersionId ?? null,
           ingredients: c.ingredients.map((i) => ({
-            id: `ingredient-${i.id}`,
-            ingredient_id: i.ingredient_id,
+            id: `ingredient-${i._id}`,
+            ingredientId: i.ingredientId,
             unit: i.unit,
             quantity: i.quantity,
           })),
@@ -110,21 +136,29 @@ export function RecipeEditor() {
       setComponents([
         {
           id: `component-${Date.now()}`,
-          component_name: 'Main',
-          linked_recipe_version_id: null,
+          componentName: 'Main',
+          linkedRecipeVersionId: null,
           ingredients: [],
         },
       ]);
     }
   }, [isNew]);
 
+  const handleVersionNavigate = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' ? currentVersionIndex - 1 : currentVersionIndex + 1;
+    if (newIndex >= 0 && newIndex < sortedVersions.length) {
+      setCurrentVersionIndex(newIndex);
+      setCurrentVersionId(sortedVersions[newIndex]._id);
+    }
+  };
+
   const addComponent = () => {
     setComponents([
       ...components,
       {
         id: `component-${Date.now()}`,
-        component_name: `Component ${components.length + 1}`,
-        linked_recipe_version_id: null,
+        componentName: `Component ${components.length + 1}`,
+        linkedRecipeVersionId: null,
         ingredients: [],
       },
     ]);
@@ -150,7 +184,7 @@ export function RecipeEditor() {
                 ...c.ingredients,
                 {
                   id: `ingredient-${Date.now()}`,
-                  ingredient_id: null,
+                  ingredientId: null,
                   unit: 'g',
                   quantity: 0,
                 },
@@ -212,91 +246,104 @@ export function RecipeEditor() {
       return;
     }
 
-    // Build component data
-    const componentData: RecipeComponentCreate[] = components.map((c, idx) => ({
-      sort_order: idx,
-      component_name: c.component_name,
-      linked_recipe_version_id: c.linked_recipe_version_id,
+    // Build component data - using Convex camelCase format
+    const componentData: RecipeComponentInput[] = components.map((c, idx) => ({
+      sortOrder: idx,
+      componentName: c.componentName,
+      linkedRecipeVersionId: c.linkedRecipeVersionId ?? undefined,
       ingredients: c.ingredients
-        .filter((i) => i.ingredient_id !== null)
+        .filter((i) => i.ingredientId !== null)
         .map((i, iIdx) => ({
-          ingredient_id: i.ingredient_id!,
-          sort_order: iIdx,
+          ingredientId: i.ingredientId!,
+          sortOrder: iIdx,
           unit: i.unit,
           quantity: i.quantity,
-        })) as ComponentIngredientCreate[],
+        })) as ComponentIngredientInput[],
     }));
 
+    setIsSubmitting(true);
     try {
       if (isNew) {
         const result = await createRecipe.mutateAsync({
           name,
-          tag_ids: selectedTags,
-          first_version: {
-            version_name: versionName,
+          tagIds: selectedTags as Id<"tags">[],
+          firstVersion: {
+            versionName,
             description,
-            estimated_yield_grams: estimatedYield ? parseFloat(estimatedYield) : null,
-            is_reusable_component: isReusable,
+            estimatedYieldGrams: estimatedYield ? parseFloat(estimatedYield) : undefined,
+            isReusableComponent: isReusable,
             components: componentData,
           },
         });
-        navigate(`/recipes/${result.id}`);
-      } else {
+        navigate(`/recipes/${result}`);
+      } else if (recipeId) {
         await createVersion.mutateAsync({
           recipeId,
-          data: {
-            version_name: versionName,
+          versionData: {
+            versionName,
             description,
-            estimated_yield_grams: estimatedYield ? parseFloat(estimatedYield) : null,
-            is_reusable_component: isReusable,
+            estimatedYieldGrams: estimatedYield ? parseFloat(estimatedYield) : undefined,
+            isReusableComponent: isReusable,
             components: componentData,
           },
         });
       }
     } catch (error) {
       console.error('Failed to save recipe:', error);
-      alert('Failed to save recipe');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCopyVersion = async () => {
-    if (!versionDetail) return;
+    if (!versionDetail || !recipeId || !currentVersionId) return;
     try {
       await copyVersion.mutateAsync({
         recipeId,
-        data: {
-          copy_from_version_id: versionDetail.id,
-          version_name: copyVersionName,
-          description: copyDescription,
-        },
+        copyFromVersionId: currentVersionId,
+        versionName: copyVersionName,
+        description: copyDescription,
       });
       setShowCopyDialog(false);
       setCopyVersionName('');
       setCopyDescription('');
     } catch (error) {
       console.error('Failed to copy version:', error);
-      alert('Failed to copy version');
     }
   };
 
   const handleDelete = async () => {
+    if (!recipeId) return;
     try {
       await deleteRecipe.mutateAsync(recipeId);
-      navigate('/recipes');
+      navigate('/');
     } catch (error: unknown) {
       console.error('Failed to delete recipe:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete recipe';
-      alert(errorMessage);
     }
   };
 
-  const handleCreateIngredient = async (ingredient: IngredientCreate) => {
+  const handleCreateIngredient = async (ingredient: {
+    name: string;
+    brand?: string;
+    procurement_source?: string;
+    unit_type: string;
+    volume_purchased: number;
+    price_excl_shipping: number;
+    shipping_cost: number;
+  }) => {
     try {
-      await createIngredient.mutateAsync(ingredient);
+      await createIngredient.mutateAsync({
+        name: ingredient.name,
+        brand: ingredient.brand,
+        procurementSource: ingredient.procurement_source,
+        unitType: ingredient.unit_type,
+        volumePurchased: ingredient.volume_purchased,
+        priceExclShipping: ingredient.price_excl_shipping,
+        shippingCost: ingredient.shipping_cost,
+      });
       setShowIngredientModal(false);
     } catch (error) {
       console.error('Failed to create ingredient:', error);
-      alert('Failed to create ingredient');
     }
   };
 
@@ -309,6 +356,14 @@ export function RecipeEditor() {
     );
   }
 
+  // Normalize ingredients for IngredientSelector - it expects objects with `id` and `name`
+  const ingredientsForSelector = ingredients.map(ing => ({
+    id: ing._id as unknown as number, // The selector expects number but we pass string
+    _id: ing._id,
+    name: ing.name,
+    brand: ing.brand,
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -319,17 +374,17 @@ export function RecipeEditor() {
           !isNew && (
             <div className="flex items-center gap-2">
               <VersionNavigator
-                currentVersion={currentVersionNumber}
-                totalVersions={recipe?.versions.length || 1}
-                versionName={versionDetail?.version_name || ''}
-                onPrevious={() => setCurrentVersionNumber((v) => v - 1)}
-                onNext={() => setCurrentVersionNumber((v) => v + 1)}
+                currentVersion={currentVersionIndex + 1}
+                totalVersions={sortedVersions.length}
+                versionName={versionDetail?.versionName || ''}
+                onPrevious={() => handleVersionNavigate('prev')}
+                onNext={() => handleVersionNavigate('next')}
               />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCopyVersionName(`${versionDetail?.version_name} (Copy)`);
+                  setCopyVersionName(`${versionDetail?.versionName} (Copy)`);
                   setCopyDescription(versionDetail?.description || '');
                   setShowCopyDialog(true);
                 }}
@@ -411,20 +466,20 @@ export function RecipeEditor() {
               <Label htmlFor="reusable">Reusable as component</Label>
             </div>
 
-            {tags && (
+            {tags.length > 0 && (
               <div className="space-y-2">
                 <Label>Tags</Label>
                 <div className="flex flex-wrap gap-1">
                   {tags.map((tag) => (
                     <Badge
-                      key={tag.id}
-                      variant={selectedTags.includes(tag.id) ? 'default' : 'outline'}
+                      key={tag._id}
+                      variant={selectedTags.includes(tag._id) ? 'default' : 'outline'}
                       className="cursor-pointer"
                       onClick={() =>
                         setSelectedTags(
-                          selectedTags.includes(tag.id)
-                            ? selectedTags.filter((t) => t !== tag.id)
-                            : [...selectedTags, tag.id]
+                          selectedTags.includes(tag._id)
+                            ? selectedTags.filter((t) => t !== tag._id)
+                            : [...selectedTags, tag._id]
                         )
                       }
                     >
@@ -441,22 +496,22 @@ export function RecipeEditor() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Total Cost</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold">{formatCurrency(versionDetail.total_cost)}</span>
+                    <span className="font-bold">{formatCurrency(versionDetail.totalCost ?? 0)}</span>
                     {versionDetail.components.length > 0 && (
                       <CostTooltip
                         items={versionDetail.components.map((c) => ({
-                          label: c.component_name,
-                          cost: c.subtotal_cost,
+                          label: c.componentName,
+                          cost: c.subtotalCost ?? 0,
                         }))}
-                        total={versionDetail.total_cost}
+                        total={versionDetail.totalCost ?? 0}
                       />
                     )}
                   </div>
                 </div>
-                {versionDetail.cost_per_gram !== null && (
+                {versionDetail.costPerGram !== null && (
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-sm text-muted-foreground">Cost per gram</span>
-                    <span className="font-medium">{formatCurrency(versionDetail.cost_per_gram)}</span>
+                    <span className="font-medium">{formatCurrency(versionDetail.costPerGram)}</span>
                   </div>
                 )}
               </div>
@@ -484,9 +539,9 @@ export function RecipeEditor() {
                 <div key={component.id} className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <Input
-                      value={component.component_name}
+                      value={component.componentName}
                       onChange={(e) =>
-                        updateComponent(component.id, { component_name: e.target.value })
+                        updateComponent(component.id, { componentName: e.target.value })
                       }
                       className="max-w-xs font-medium"
                     />
@@ -518,11 +573,11 @@ export function RecipeEditor() {
                       <div key={ing.id} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-5">
                           <IngredientSelector
-                            ingredients={ingredients}
-                            selectedId={ing.ingredient_id}
+                            ingredients={ingredientsForSelector}
+                            selectedId={ing.ingredientId as unknown as number | null}
                             onSelect={(id) =>
                               updateIngredient(component.id, ing.id, {
-                                ingredient_id: id,
+                                ingredientId: id as unknown as Id<"ingredients">,
                               })
                             }
                             onCreateNew={() => setShowIngredientModal(true)}
@@ -593,7 +648,7 @@ export function RecipeEditor() {
         <Button
           size="lg"
           onClick={handleSave}
-          disabled={createRecipe.isPending || createVersion.isPending}
+          disabled={isSubmitting}
         >
           <Save className="h-4 w-4 mr-2" />
           {isNew ? 'Create Recipe' : 'Save New Version'}
@@ -609,7 +664,6 @@ export function RecipeEditor() {
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={handleDelete}
-        loading={deleteRecipe.isPending}
       />
 
       {/* Copy Version Dialog */}
@@ -639,7 +693,7 @@ export function RecipeEditor() {
                 <Button variant="outline" onClick={() => setShowCopyDialog(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCopyVersion} disabled={copyVersion.isPending}>
+                <Button onClick={handleCopyVersion}>
                   Create Copy
                 </Button>
               </div>
@@ -653,7 +707,6 @@ export function RecipeEditor() {
         open={showIngredientModal}
         onOpenChange={setShowIngredientModal}
         onSubmit={handleCreateIngredient}
-        loading={createIngredient.isPending}
       />
     </div>
   );
