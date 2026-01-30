@@ -98,3 +98,57 @@ export {
   type ProductVersionInput,
   type ProductCreateInput,
 } from "./useProducts";
+
+// Orders
+export {
+  // Query hooks
+  useConvexOrders,
+  useConvexOrder,
+  useConvexOrderByNumber,
+  useConvexKitchenOrders,
+  useConvexOrdersByCustomer,
+  useConvexProductSuggestions,
+  useConvexSellerSuggestions,
+  useConvexChannelSuggestions,
+  useConvexWhatsAppMessage,
+  // Mutation hooks
+  useConvexCreateOrder,
+  useConvexUpdateOrderStatus,
+  useConvexUpdateOrderPayment,
+  useConvexUpdateOrderShipping,
+  useConvexUpdateOrderDetails,
+  useConvexCancelOrder,
+  useConvexDeleteOrder,
+  useConvexAddOrderItem,
+  useConvexRemoveOrderItem,
+  useConvexUpdateOrderItemQuantity,
+  // Types
+  type OrderItemInput,
+  type OrderCreateInput,
+  type OrderFilters,
+  type WhatsAppTemplate,
+} from "./useOrders";
+
+// Customers
+export {
+  // Query hooks
+  useConvexCustomers,
+  useConvexCustomer,
+  useConvexCustomerSearch,
+  useConvexCustomerByPhone,
+  // Mutation hooks
+  useConvexCreateCustomer,
+  useConvexUpdateCustomer,
+  useConvexDeleteCustomer,
+  // Types
+  type CustomerCreateInput,
+  type CustomerUpdateInput,
+} from "./useCustomers";
+
+// Dashboard
+export {
+  useConvexDashboardSummary,
+  useConvexRecentOrders,
+  useConvexUpcomingDue,
+  useConvexOrderStats,
+} from "./useDashboard";
