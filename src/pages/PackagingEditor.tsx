@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Copy, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,21 +12,29 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
 import { VersionNavigator, ConfirmDialog, CostTooltip } from '@/components/shared';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePackagingRecipe, usePackagingVersion, useCreatePackagingRecipe, useCreatePackagingVersion, useCopyPackagingVersion, useDeletePackagingRecipe } from '@/hooks/usePackaging';
-import { useMaterials } from '@/hooks/useMaterials';
-import { useTags } from '@/hooks/useTags';
+import {
+  useConvexPackaging,
+  useConvexPackagingVersion,
+  useConvexCreatePackaging,
+  useConvexCreatePackagingVersion,
+  useConvexCopyPackagingVersion,
+  useConvexDeletePackaging,
+} from '@/hooks/convex';
+import { useConvexMaterials } from '@/hooks/convex';
+import { useConvexTags } from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
+import type { PackagingVersionInput, PackagingComponentInput, PackagingMaterialInput } from '@/hooks/convex/usePackaging';
 import { formatCurrency } from '@/lib/utils';
-import type { PackagingComponentCreate, PackagingComponentMaterialCreate } from '@/lib/types';
 
 interface ComponentDraft {
   id: string;
-  component_name: string;
+  componentName: string;
   materials: MaterialDraft[];
 }
 
 interface MaterialDraft {
   id: string;
-  packaging_material_id: number | null;
+  packagingMaterialId: Id<"packagingMaterials"> | null;
   unit: string;
   quantity: number;
 }
@@ -37,26 +45,37 @@ export function PackagingEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isNew = id === 'new';
-  const packagingId = isNew ? 0 : parseInt(id || '0', 10);
+  // Convex uses string IDs directly
+  const packagingId = isNew ? undefined : (id as Id<"packagingRecipes">);
 
-  const { data: packaging, isLoading: loadingPackaging } = usePackagingRecipe(packagingId);
-  const { data: materials } = useMaterials();
-  const { data: tags } = useTags();
+  const packaging = useConvexPackaging(packagingId);
+  const rawMaterials = useConvexMaterials();
+  const rawTags = useConvexTags();
 
-  const [currentVersionNumber, setCurrentVersionNumber] = useState(1);
-  const { data: versionDetail, isLoading: loadingVersion } = usePackagingVersion(packagingId, currentVersionNumber);
+  // Normalize data for loading state
+  const materials = rawMaterials ?? [];
+  const tags = rawTags ?? [];
+  const loadingPackaging = packagingId !== undefined && packaging === undefined;
 
-  const createPackaging = useCreatePackagingRecipe();
-  const createVersion = useCreatePackagingVersion();
-  const copyVersion = useCopyPackagingVersion();
-  const deletePackaging = useDeletePackagingRecipe();
+  // Track current version by its _id (not version number)
+  const [currentVersionId, setCurrentVersionId] = useState<Id<"packagingVersions"> | undefined>(undefined);
+  const [currentVersionIndex, setCurrentVersionIndex] = useState(0);
+
+  const versionDetail = useConvexPackagingVersion(currentVersionId);
+  const loadingVersion = currentVersionId !== undefined && versionDetail === undefined;
+
+  const createPackaging = useConvexCreatePackaging();
+  const createVersion = useConvexCreatePackagingVersion();
+  const copyVersion = useConvexCopyPackagingVersion();
+  const deletePackaging = useConvexDeletePackaging();
 
   // Form state
   const [name, setName] = useState('');
   const [versionName, setVersionName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [components, setComponents] = useState<ComponentDraft[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -64,29 +83,36 @@ export function PackagingEditor() {
   const [copyVersionName, setCopyVersionName] = useState('');
   const [copyDescription, setCopyDescription] = useState('');
 
-  // Initialize form when version data loads
+  // Sorted versions for navigation
+  const sortedVersions = useMemo(() => {
+    if (!packaging?.versions) return [];
+    return [...packaging.versions].sort((a, b) => a.versionNumber - b.versionNumber);
+  }, [packaging?.versions]);
+
+  // Initialize form when packaging data loads
   useEffect(() => {
     if (packaging && !isNew) {
       setName(packaging.name);
-      setSelectedTags(packaging.tags.map(t => t.id));
-      if (packaging.versions.length > 0) {
-        const latestVersion = Math.max(...packaging.versions.map(v => v.version_number));
-        setCurrentVersionNumber(latestVersion);
+      setSelectedTags(packaging.tags.map(t => t._id));
+      if (sortedVersions.length > 0) {
+        const latestVersion = sortedVersions[sortedVersions.length - 1];
+        setCurrentVersionId(latestVersion._id);
+        setCurrentVersionIndex(sortedVersions.length - 1);
       }
     }
-  }, [packaging, isNew]);
+  }, [packaging, isNew, sortedVersions]);
 
   useEffect(() => {
     if (versionDetail && !isNew) {
-      setVersionName(versionDetail.version_name);
+      setVersionName(versionDetail.versionName);
       setDescription(versionDetail.description || '');
       setComponents(
         versionDetail.components.map((c) => ({
-          id: `component-${c.id}`,
-          component_name: c.component_name,
+          id: `component-${c._id}`,
+          componentName: c.componentName,
           materials: c.materials.map((m) => ({
-            id: `material-${m.id}`,
-            packaging_material_id: m.packaging_material_id,
+            id: `material-${m._id}`,
+            packagingMaterialId: m.packagingMaterialId,
             unit: m.unit,
             quantity: m.quantity,
           })),
@@ -101,19 +127,27 @@ export function PackagingEditor() {
       setComponents([
         {
           id: `component-${Date.now()}`,
-          component_name: 'Main',
+          componentName: 'Main',
           materials: [],
         },
       ]);
     }
   }, [isNew]);
 
+  const handleVersionNavigate = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' ? currentVersionIndex - 1 : currentVersionIndex + 1;
+    if (newIndex >= 0 && newIndex < sortedVersions.length) {
+      setCurrentVersionIndex(newIndex);
+      setCurrentVersionId(sortedVersions[newIndex]._id);
+    }
+  };
+
   const addComponent = () => {
     setComponents([
       ...components,
       {
         id: `component-${Date.now()}`,
-        component_name: `Component ${components.length + 1}`,
+        componentName: `Component ${components.length + 1}`,
         materials: [],
       },
     ]);
@@ -139,7 +173,7 @@ export function PackagingEditor() {
                 ...c.materials,
                 {
                   id: `material-${Date.now()}`,
-                  packaging_material_id: null,
+                  packagingMaterialId: null,
                   unit: 'pcs',
                   quantity: 0,
                 },
@@ -201,37 +235,38 @@ export function PackagingEditor() {
       return;
     }
 
-    // Build component data
-    const componentData: PackagingComponentCreate[] = components.map((c, idx) => ({
-      sort_order: idx,
-      component_name: c.component_name,
+    // Build component data - using Convex camelCase format
+    const componentData: PackagingComponentInput[] = components.map((c, idx) => ({
+      sortOrder: idx,
+      componentName: c.componentName,
       materials: c.materials
-        .filter((m) => m.packaging_material_id !== null)
+        .filter((m) => m.packagingMaterialId !== null)
         .map((m, mIdx) => ({
-          packaging_material_id: m.packaging_material_id!,
-          sort_order: mIdx,
+          packagingMaterialId: m.packagingMaterialId!,
+          sortOrder: mIdx,
           unit: m.unit,
           quantity: m.quantity,
-        })) as PackagingComponentMaterialCreate[],
+        })) as PackagingMaterialInput[],
     }));
 
+    setIsSubmitting(true);
     try {
       if (isNew) {
         const result = await createPackaging.mutateAsync({
           name,
-          tag_ids: selectedTags,
-          first_version: {
-            version_name: versionName,
+          tagIds: selectedTags as Id<"tags">[],
+          firstVersion: {
+            versionName,
             description,
             components: componentData,
           },
         });
-        navigate(`/packaging/${result.id}`);
-      } else {
+        navigate(`/packaging/${result}`);
+      } else if (packagingId) {
         await createVersion.mutateAsync({
-          packagingId,
-          data: {
-            version_name: versionName,
+          packagingRecipeId: packagingId,
+          versionData: {
+            versionName,
             description,
             components: componentData,
           },
@@ -239,38 +274,35 @@ export function PackagingEditor() {
       }
     } catch (error) {
       console.error('Failed to save packaging:', error);
-      alert('Failed to save packaging');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCopyVersion = async () => {
-    if (!versionDetail) return;
+    if (!versionDetail || !packagingId || !currentVersionId) return;
     try {
       await copyVersion.mutateAsync({
-        packagingId,
-        data: {
-          copy_from_version_id: versionDetail.id,
-          version_name: copyVersionName,
-          description: copyDescription,
-        },
+        packagingRecipeId: packagingId,
+        copyFromVersionId: currentVersionId,
+        versionName: copyVersionName,
+        description: copyDescription,
       });
       setShowCopyDialog(false);
       setCopyVersionName('');
       setCopyDescription('');
     } catch (error) {
       console.error('Failed to copy version:', error);
-      alert('Failed to copy version');
     }
   };
 
   const handleDelete = async () => {
+    if (!packagingId) return;
     try {
       await deletePackaging.mutateAsync(packagingId);
-      navigate('/packaging');
+      navigate('/');
     } catch (error: unknown) {
       console.error('Failed to delete packaging:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete packaging';
-      alert(errorMessage);
     }
   };
 
@@ -293,17 +325,17 @@ export function PackagingEditor() {
           !isNew && (
             <div className="flex items-center gap-2">
               <VersionNavigator
-                currentVersion={currentVersionNumber}
-                totalVersions={packaging?.versions.length || 1}
-                versionName={versionDetail?.version_name || ''}
-                onPrevious={() => setCurrentVersionNumber((v) => v - 1)}
-                onNext={() => setCurrentVersionNumber((v) => v + 1)}
+                currentVersion={currentVersionIndex + 1}
+                totalVersions={sortedVersions.length}
+                versionName={versionDetail?.versionName || ''}
+                onPrevious={() => handleVersionNavigate('prev')}
+                onNext={() => handleVersionNavigate('next')}
               />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCopyVersionName(`${versionDetail?.version_name} (Copy)`);
+                  setCopyVersionName(`${versionDetail?.versionName} (Copy)`);
                   setCopyDescription(versionDetail?.description || '');
                   setShowCopyDialog(true);
                 }}
@@ -363,20 +395,20 @@ export function PackagingEditor() {
               />
             </div>
 
-            {isNew && tags && (
+            {isNew && tags.length > 0 && (
               <div className="space-y-2">
                 <Label>Tags</Label>
                 <div className="flex flex-wrap gap-1">
                   {tags.map((tag) => (
                     <Badge
-                      key={tag.id}
-                      variant={selectedTags.includes(tag.id) ? 'default' : 'outline'}
+                      key={tag._id}
+                      variant={selectedTags.includes(tag._id) ? 'default' : 'outline'}
                       className="cursor-pointer"
                       onClick={() =>
                         setSelectedTags(
-                          selectedTags.includes(tag.id)
-                            ? selectedTags.filter((t) => t !== tag.id)
-                            : [...selectedTags, tag.id]
+                          selectedTags.includes(tag._id)
+                            ? selectedTags.filter((t) => t !== tag._id)
+                            : [...selectedTags, tag._id]
                         )
                       }
                     >
@@ -393,14 +425,14 @@ export function PackagingEditor() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Total Cost</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold">{formatCurrency(versionDetail.total_cost)}</span>
+                    <span className="font-bold">{formatCurrency(versionDetail.totalCost ?? 0)}</span>
                     {versionDetail.components.length > 0 && (
                       <CostTooltip
                         items={versionDetail.components.map((c) => ({
-                          label: c.component_name,
-                          cost: c.subtotal_cost,
+                          label: c.componentName,
+                          cost: c.subtotalCost ?? 0,
                         }))}
-                        total={versionDetail.total_cost}
+                        total={versionDetail.totalCost ?? 0}
                       />
                     )}
                   </div>
@@ -430,9 +462,9 @@ export function PackagingEditor() {
                 <div key={component.id} className="border rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <Input
-                      value={component.component_name}
+                      value={component.componentName}
                       onChange={(e) =>
-                        updateComponent(component.id, { component_name: e.target.value })
+                        updateComponent(component.id, { componentName: e.target.value })
                       }
                       className="max-w-xs font-medium"
                     />
@@ -464,10 +496,10 @@ export function PackagingEditor() {
                       <div key={mat.id} className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-5">
                           <Select
-                            value={mat.packaging_material_id?.toString() || ''}
+                            value={mat.packagingMaterialId || ''}
                             onValueChange={(value) =>
                               updateMaterial(component.id, mat.id, {
-                                packaging_material_id: parseInt(value, 10),
+                                packagingMaterialId: value as Id<"packagingMaterials">,
                               })
                             }
                           >
@@ -475,8 +507,8 @@ export function PackagingEditor() {
                               <SelectValue placeholder="Select material" />
                             </SelectTrigger>
                             <SelectContent>
-                              {materials?.map((material) => (
-                                <SelectItem key={material.id} value={material.id.toString()}>
+                              {materials.map((material) => (
+                                <SelectItem key={material._id} value={material._id}>
                                   {material.name}
                                 </SelectItem>
                               ))}
@@ -548,7 +580,7 @@ export function PackagingEditor() {
         <Button
           size="lg"
           onClick={handleSave}
-          disabled={createPackaging.isPending || createVersion.isPending}
+          disabled={isSubmitting}
         >
           <Save className="h-4 w-4 mr-2" />
           {isNew ? 'Create Packaging' : 'Save New Version'}
@@ -564,7 +596,6 @@ export function PackagingEditor() {
         confirmLabel="Delete"
         variant="destructive"
         onConfirm={handleDelete}
-        loading={deletePackaging.isPending}
       />
 
       {/* Copy Version Dialog */}
@@ -594,7 +625,7 @@ export function PackagingEditor() {
                 <Button variant="outline" onClick={() => setShowCopyDialog(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleCopyVersion} disabled={copyVersion.isPending}>
+                <Button onClick={handleCopyVersion}>
                   Create Copy
                 </Button>
               </div>
