@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, Info, ShoppingCart, HelpCircle, BookOpen, X } from 'lucide-react';
+import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { useOnboardingTour } from '@/components/onboarding';
 import {
   Tooltip,
   TooltipContent,
@@ -34,7 +34,6 @@ import type { RecipeSummary, PackagingRecipeSummary, ProductSummary } from '@/li
 
 export function Dashboard() {
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
-  const [showGettingStarted, setShowGettingStarted] = useState(false);
 
   const { data: recipes, isLoading: loadingRecipes } = useRecipes();
   const { data: packaging, isLoading: loadingPackaging } = usePackagingRecipes();
@@ -43,6 +42,10 @@ export function Dashboard() {
   const { data: materials, isLoading: loadingMaterials } = useMaterials();
   const { data: tags } = useTags();
   const { data: orderStats, isLoading: loadingOrderStats } = useOrderStats();
+
+  // Onboarding tour - auto-starts for first-time users when database is empty
+  const isNewUser = (!products || products.length === 0) && (!recipes || recipes.length === 0);
+  const { startTour } = useOnboardingTour(isNewUser);
 
   // Toggle tag selection
   const handleToggleTag = (tagId: number) => {
@@ -131,7 +134,7 @@ export function Dashboard() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowGettingStarted(true)}
+              onClick={startTour}
               className="text-muted-foreground hover:text-primary"
             >
               <BookOpen className="h-4 w-4 mr-1" />
@@ -149,45 +152,6 @@ export function Dashboard() {
         <div className="absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
       </div>
 
-      {/* Quick Start Guide - Show for new users OR when manually triggered */}
-      {(showGettingStarted || ((!products || products.length === 0) && (!recipes || recipes.length === 0))) && (
-        <Card className="border-dashed border-2 bg-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-semibold mb-1">Getting Started</h3>
-                  {showGettingStarted && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowGettingStarted(false)}
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground -mt-1 -mr-2"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Follow these steps to create your first product:
-                </p>
-                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                  <li>Add <strong>Ingredients</strong> (raw materials for your food recipes)</li>
-                  <li>Add <strong>Packaging Materials</strong> (boxes, bags, labels, etc.)</li>
-                  <li>Create a <strong>Recipe</strong> using your ingredients</li>
-                  <li>Create a <strong>Packaging Design</strong> using your materials</li>
-                  <li>Combine recipe + packaging into a <strong>Product</strong> with pricing</li>
-                  <li>Create <strong>Orders</strong> to track sales, production, and fulfillment</li>
-                </ol>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Tag Filter Bar */}
       {tags && tags.length > 0 && (
         <TagFilterBar
@@ -198,7 +162,7 @@ export function Dashboard() {
       )}
 
       {/* Section Divider - Orders & Production */}
-      <div className="flex items-center gap-4 pt-4">
+      <div className="flex items-center gap-4 pt-4" data-tour-step="orders">
         <div className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5 text-emerald-600" />
           <h2 className="text-lg font-semibold text-emerald-600">Orders & Production</h2>
@@ -274,6 +238,7 @@ export function Dashboard() {
             ? "No products match the selected tags."
             : "No products yet. Create your first product!"
         }
+        data-tour-step="products"
         action={
           <Button size="sm" asChild className="shadow-sm">
             <Link to="/products/new">
@@ -312,6 +277,7 @@ export function Dashboard() {
             ? "No recipes match the selected tags."
             : "No recipes yet. Create your first recipe!"
         }
+        data-tour-step="recipes"
         action={
           <Button size="sm" asChild className="shadow-sm">
             <Link to="/recipes/new">
@@ -350,6 +316,7 @@ export function Dashboard() {
             ? "No packaging designs match the selected tags."
             : "No packaging designs yet. Create your first packaging!"
         }
+        data-tour-step="packaging"
         action={
           <Button size="sm" asChild className="shadow-sm">
             <Link to="/packaging/new">
@@ -408,6 +375,7 @@ export function Dashboard() {
         itemCount={ingredients?.length || 0}
         isEmpty={!loadingIngredients && (!ingredients || ingredients.length === 0)}
         emptyMessage="No ingredients yet. Create your first ingredient!"
+        data-tour-step="ingredients"
         action={
           <Button size="sm" asChild className="shadow-sm">
             <Link to="/ingredients/new">
@@ -433,6 +401,7 @@ export function Dashboard() {
         itemCount={materials?.length || 0}
         isEmpty={!loadingMaterials && (!materials || materials.length === 0)}
         emptyMessage="No packaging materials yet. Create your first material!"
+        data-tour-step="materials"
         action={
           <Button size="sm" asChild className="shadow-sm">
             <Link to="/materials/new">
