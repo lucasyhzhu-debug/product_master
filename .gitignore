@@ -4,24 +4,24 @@
 .env
 .env.local
 .env.production.local
-backend/.env
-frontend/.env.local
+api/.env
 
 # Keep example/template files
 !.env.example
-!backend/.env.example
 
 # =============================================================================
 # DATABASE
 # =============================================================================
-backend/data/
+api/data/
 *.db
 *.sqlite
 *.sqlite3
 
 # =============================================================================
-# PYTHON
+# PYTHON (API)
 # =============================================================================
+api/__pycache__/
+api/.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -35,21 +35,29 @@ ENV/
 .pytest_cache/
 
 # =============================================================================
-# NODE / FRONTEND
+# NODE / FRONTEND (ROOT)
 # =============================================================================
 node_modules/
-frontend/dist/
-frontend/build/
+dist/
+dist-ssr/
+build/
 .npm
 .pnpm-store/
+*.local
 
 # =============================================================================
 # IDE / EDITOR
 # =============================================================================
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 *~
 .DS_Store
 Thumbs.db
@@ -63,6 +71,9 @@ Thumbs.db
 # LOGS
 # =============================================================================
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
