@@ -23,58 +23,77 @@ import {
   ProductionQueueTable,
   ProductionQueueTableSkeleton,
 } from '@/components/dashboard';
-import { useRecipes } from '@/hooks/useRecipes';
-import { usePackagingRecipes } from '@/hooks/usePackaging';
-import { useProducts } from '@/hooks/useProducts';
-import { useIngredients } from '@/hooks/useIngredients';
-import { useMaterials } from '@/hooks/useMaterials';
-import { useTags } from '@/hooks/useTags';
-import { useOrderStats } from '@/hooks/useOrderStats';
-import type { RecipeSummary, PackagingRecipeSummary, ProductSummary } from '@/lib/types';
+import {
+  useConvexRecipes,
+  useConvexPackagingList,
+  useConvexProducts,
+  useConvexIngredients,
+  useConvexMaterials,
+  useConvexTags,
+  useConvexOrderStats,
+} from '@/hooks/convex';
 
 export function Dashboard() {
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
-  const { data: recipes, isLoading: loadingRecipes } = useRecipes();
-  const { data: packaging, isLoading: loadingPackaging } = usePackagingRecipes();
-  const { data: products, isLoading: loadingProducts } = useProducts();
-  const { data: ingredients, isLoading: loadingIngredients } = useIngredients();
-  const { data: materials, isLoading: loadingMaterials } = useMaterials();
-  const { data: tags } = useTags();
-  const { data: orderStats, isLoading: loadingOrderStats } = useOrderStats();
+  // Convex hooks - data comes back as raw arrays or undefined
+  const rawRecipes = useConvexRecipes();
+  const rawPackaging = useConvexPackagingList();
+  const rawProducts = useConvexProducts();
+  const rawIngredients = useConvexIngredients();
+  const rawMaterials = useConvexMaterials();
+  const rawTags = useConvexTags();
+  const { data: orderStats, isLoading: loadingOrderStats } = useConvexOrderStats();
+
+  // Normalize data - Convex returns undefined while loading, array when ready
+  const recipes = rawRecipes ?? [];
+  const packaging = rawPackaging ?? [];
+  const products = rawProducts ?? [];
+  const ingredients = rawIngredients ?? [];
+  const materials = rawMaterials ?? [];
+  const tags = rawTags ?? [];
+
+  // Loading states
+  const loadingRecipes = rawRecipes === undefined;
+  const loadingPackaging = rawPackaging === undefined;
+  const loadingProducts = rawProducts === undefined;
+  const loadingIngredients = rawIngredients === undefined;
+  const loadingMaterials = rawMaterials === undefined;
 
   // Onboarding tour - auto-starts for first-time users when database is empty
-  const isNewUser = (!products || products.length === 0) && (!recipes || recipes.length === 0);
+  const isNewUser = products.length === 0 && recipes.length === 0;
   const { startTour } = useOnboardingTour(isNewUser);
 
-  // Toggle tag selection
-  const handleToggleTag = (tagId: number) => {
+  // Toggle tag selection (using string IDs for Convex)
+  const handleToggleTag = (tagId: string | number) => {
+    const id = String(tagId);
     setSelectedTagIds((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
+      prev.includes(id)
+        ? prev.filter((existing) => existing !== id)
+        : [...prev, id]
     );
   };
 
   // Create a map of tag names to IDs for recipes/packaging (they use string arrays)
   const tagNameToIdMap = useMemo(() => {
-    if (!tags) return new Map<string, number>();
-    return new Map(tags.map((tag) => [tag.name, tag.id]));
+    if (!tags.length) return new Map<string, string>();
+    return new Map(tags.map((tag) => [tag.name, tag._id]));
   }, [tags]);
 
-  // Filter and sort function for recipes/packaging (tags as string[])
-  const filterAndSortByTags = <T extends RecipeSummary | PackagingRecipeSummary>(
-    items: T[] | undefined,
-    selectedIds: number[]
+  // Filter and sort function for recipes/packaging
+  // Tags from Convex are string arrays (tag names)
+  const filterAndSortByTags = <T extends { tags: string[] }>(
+    items: T[],
+    selectedIds: string[]
   ): T[] => {
-    if (!items) return [];
+    if (!items.length) return [];
     if (selectedIds.length === 0) return items;
 
     // Convert tag names to IDs for each item and calculate match count
     const itemsWithMatchCount = items.map((item) => {
       const itemTagIds = item.tags
         .map((tagName) => tagNameToIdMap.get(tagName))
-        .filter((id): id is number => id !== undefined);
+        .filter((id): id is string => id !== undefined);
       const matchCount = itemTagIds.filter((id) => selectedIds.includes(id)).length;
       return { item, matchCount };
     });
@@ -85,16 +104,16 @@ export function Dashboard() {
       .map(({ item }) => item);
   };
 
-  // Filter and sort function for products (tags as Tag[])
-  const filterAndSortProducts = (
-    items: ProductSummary[] | undefined,
-    selectedIds: number[]
-  ): ProductSummary[] => {
-    if (!items) return [];
+  // Filter and sort function for products (tags as objects with _id and name)
+  const filterAndSortProducts = <T extends { tags: { _id: string; name: string }[] }>(
+    items: T[],
+    selectedIds: string[]
+  ): T[] => {
+    if (!items.length) return [];
     if (selectedIds.length === 0) return items;
 
     const itemsWithMatchCount = items.map((item) => {
-      const itemTagIds = item.tags.map((tag) => tag.id);
+      const itemTagIds = item.tags.map((tag) => tag._id);
       const matchCount = itemTagIds.filter((id) => selectedIds.includes(id)).length;
       return { item, matchCount };
     });
@@ -107,17 +126,17 @@ export function Dashboard() {
 
   // Apply filtering and sorting
   const filteredRecipes = useMemo(
-    () => filterAndSortByTags(recipes, selectedTagIds),
+    () => filterAndSortByTags(recipes as { tags: string[] }[], selectedTagIds),
     [recipes, selectedTagIds, tagNameToIdMap]
   );
 
   const filteredPackaging = useMemo(
-    () => filterAndSortByTags(packaging, selectedTagIds),
+    () => filterAndSortByTags(packaging as { tags: string[] }[], selectedTagIds),
     [packaging, selectedTagIds, tagNameToIdMap]
   );
 
   const filteredProducts = useMemo(
-    () => filterAndSortProducts(products, selectedTagIds),
+    () => filterAndSortProducts(products as { tags: { _id: string; name: string }[] }[], selectedTagIds),
     [products, selectedTagIds]
   );
 
@@ -153,7 +172,7 @@ export function Dashboard() {
       </div>
 
       {/* Tag Filter Bar */}
-      {tags && tags.length > 0 && (
+      {tags.length > 0 && (
         <TagFilterBar
           tags={tags}
           selectedTagIds={selectedTagIds}
@@ -253,14 +272,14 @@ export function Dashboard() {
         ) : (
           filteredProducts.map((product, index) => (
             <motion.div
-              key={product.id}
+              key={product._id}
               layout
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <ProductCard product={product} />
+              <ProductCard product={product as any} />
             </motion.div>
           ))
         )}
@@ -292,14 +311,14 @@ export function Dashboard() {
         ) : (
           filteredRecipes.map((recipe, index) => (
             <motion.div
-              key={recipe.id}
+              key={recipe._id}
               layout
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <RecipeCard recipe={recipe} />
+              <RecipeCard recipe={recipe as any} />
             </motion.div>
           ))
         )}
@@ -331,14 +350,14 @@ export function Dashboard() {
         ) : (
           filteredPackaging.map((pkg, index) => (
             <motion.div
-              key={pkg.id}
+              key={pkg._id}
               layout
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <PackagingCard packaging={pkg} />
+              <PackagingCard packaging={pkg as any} />
             </motion.div>
           ))
         )}
@@ -372,8 +391,8 @@ export function Dashboard() {
         title="Ingredients"
         description="Food ingredients with cost per unit calculations"
         icon={Apple}
-        itemCount={ingredients?.length || 0}
-        isEmpty={!loadingIngredients && (!ingredients || ingredients.length === 0)}
+        itemCount={ingredients.length}
+        isEmpty={!loadingIngredients && ingredients.length === 0}
         emptyMessage="No ingredients yet. Create your first ingredient!"
         data-tour-step="ingredients"
         action={
@@ -388,8 +407,8 @@ export function Dashboard() {
         {loadingIngredients ? (
           <LoadingCards count={4} />
         ) : (
-          ingredients?.map((ingredient) => (
-            <IngredientCard key={ingredient.id} ingredient={ingredient} />
+          ingredients.map((ingredient) => (
+            <IngredientCard key={ingredient._id} ingredient={ingredient as any} />
           ))
         )}
       </Carousel>
@@ -398,8 +417,8 @@ export function Dashboard() {
         title="Packaging Materials"
         description="Boxes, bags, labels, and other packaging components"
         icon={PackageOpen}
-        itemCount={materials?.length || 0}
-        isEmpty={!loadingMaterials && (!materials || materials.length === 0)}
+        itemCount={materials.length}
+        isEmpty={!loadingMaterials && materials.length === 0}
         emptyMessage="No packaging materials yet. Create your first material!"
         data-tour-step="materials"
         action={
@@ -414,8 +433,8 @@ export function Dashboard() {
         {loadingMaterials ? (
           <LoadingCards count={4} />
         ) : (
-          materials?.map((material) => (
-            <MaterialCard key={material.id} material={material} />
+          materials.map((material) => (
+            <MaterialCard key={material._id} material={material as any} />
           ))
         )}
       </Carousel>
