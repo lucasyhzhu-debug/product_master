@@ -132,9 +132,11 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   };
 
   const updateItem = (index: number, field: keyof OrderItemCreate, value: string | number) => {
-    const updatedItems = [...formData.items];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setFormData((prev) => ({ ...prev, items: updatedItems }));
+    setFormData((prev) => {
+      const updatedItems = [...prev.items];
+      updatedItems[index] = { ...updatedItems[index], [field]: value };
+      return { ...prev, items: updatedItems };
+    });
   };
 
   const addItem = () => {
