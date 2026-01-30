@@ -385,3 +385,146 @@ def get_kitchen_orders(
         query = query.filter(Order.due_date <= datetime.combine(target_date, datetime.max.time()))
 
     return query.order_by(Order.due_date.asc(), Order.created_at.asc()).all()
+
+
+def get_order_stats(db: Session) -> dict:
+    """
+    Get order statistics for dashboard.
+
+    Returns metrics for:
+    - Today's revenue, order count, margin
+    - Yesterday's revenue for comparison
+    - Orders needing attention (overdue, awaiting payment >24h, due today)
+    - Production pipeline counts by status
+    - Urgent orders list (top 7 most urgent)
+    """
+    from datetime import timedelta
+
+    today = date.today()
+    today_start = datetime.combine(today, datetime.min.time())
+    today_end = datetime.combine(today, datetime.max.time())
+
+    yesterday = today - timedelta(days=1)
+    yesterday_start = datetime.combine(yesterday, datetime.min.time())
+    yesterday_end = datetime.combine(yesterday, datetime.max.time())
+
+    # Today's stats
+    today_orders = (
+        db.query(Order)
+        .filter(Order.order_date >= today_start)
+        .filter(Order.order_date <= today_end)
+        .all()
+    )
+
+    today_revenue = sum(o.total_amount for o in today_orders)
+    today_margin = sum(o.total_margin for o in today_orders)
+    today_order_count = len(today_orders)
+    today_margin_pct = (today_margin / today_revenue * 100) if today_revenue > 0 else 0
+    today_avg_order = today_revenue / today_order_count if today_order_count > 0 else 0
+
+    # Yesterday's stats for comparison
+    yesterday_orders = (
+        db.query(Order)
+        .filter(Order.order_date >= yesterday_start)
+        .filter(Order.order_date <= yesterday_end)
+        .all()
+    )
+    yesterday_revenue = sum(o.total_amount for o in yesterday_orders)
+    yesterday_order_count = len(yesterday_orders)
+
+    # Terminal statuses (orders that are complete)
+    terminal_statuses = ["CompleteShipped", "PickedUp", "Cancelled"]
+
+    # Overdue orders (due_date < today AND not terminal)
+    overdue_count = (
+        db.query(func.count(Order.id))
+        .filter(Order.due_date < today_start)
+        .filter(Order.status.notin_(terminal_statuses))
+        .scalar() or 0
+    )
+
+    # Awaiting payment > 24h
+    cutoff = datetime.now() - timedelta(hours=24)
+
+    awaiting_payment_long = (
+        db.query(func.count(Order.id))
+        .filter(Order.status == "AwaitingPayment")
+        .filter(Order.awaiting_payment_since < cutoff)
+        .scalar() or 0
+    )
+
+    # Due today (not terminal)
+    due_today_count = (
+        db.query(func.count(Order.id))
+        .filter(Order.due_date >= today_start)
+        .filter(Order.due_date <= today_end)
+        .filter(Order.status.notin_(terminal_statuses))
+        .scalar() or 0
+    )
+
+    # Production pipeline counts
+    pipeline_statuses = ["Confirmed", "ProductionComplete", "Packaging", "WaitingShipment", "WaitingPickup"]
+    pipeline_counts = {}
+    for status in pipeline_statuses:
+        count = (
+            db.query(func.count(Order.id))
+            .filter(Order.status == status)
+            .scalar() or 0
+        )
+        pipeline_counts[status.lower()] = count
+
+    # Urgent orders (overdue first, then due today, limited to 7)
+    urgent_orders_query = (
+        db.query(Order)
+        .options(
+            joinedload(Order.customer),
+            joinedload(Order.items),
+        )
+        .filter(Order.status.notin_(terminal_statuses))
+        .filter(Order.due_date.isnot(None))
+        .filter(Order.due_date <= today_end)
+        .order_by(Order.due_date.asc())
+        .limit(7)
+    )
+
+    urgent_orders = []
+    for order in urgent_orders_query.all():
+        is_overdue = order.due_date and order.due_date.date() < today if hasattr(order.due_date, 'date') else (order.due_date < today_start if order.due_date else False)
+        urgent_orders.append({
+            "id": order.id,
+            "order_number": order.order_number,
+            "customer_name": order.customer.name,
+            "customer_phone": order.customer.phone,
+            "item_count": len(order.items),
+            "status": order.status,
+            "due_date": order.due_date.isoformat() if order.due_date else None,
+            "is_overdue": is_overdue,
+            "total_amount": order.total_amount,
+        })
+
+    return {
+        "today": {
+            "revenue": today_revenue,
+            "order_count": today_order_count,
+            "margin": today_margin,
+            "margin_pct": round(today_margin_pct, 1),
+            "avg_order_value": round(today_avg_order, 0),
+        },
+        "yesterday": {
+            "revenue": yesterday_revenue,
+            "order_count": yesterday_order_count,
+        },
+        "needs_attention": {
+            "overdue": overdue_count,
+            "awaiting_payment_long": awaiting_payment_long,
+            "due_today": due_today_count,
+        },
+        "pipeline": {
+            "confirmed": pipeline_counts.get("confirmed", 0),
+            "production_complete": pipeline_counts.get("productioncomplete", 0),
+            "packaging": pipeline_counts.get("packaging", 0),
+            "waiting_shipment": pipeline_counts.get("waitingshipment", 0),
+            "waiting_pickup": pipeline_counts.get("waitingpickup", 0),
+        },
+        "urgent_orders": urgent_orders,
+    }

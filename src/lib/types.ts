@@ -495,3 +495,51 @@ export interface SellerSuggestion {
   sold_by: string;
   order_count: number;
 }
+
+// Order Dashboard Stats
+export interface OrderStatsToday {
+  revenue: number;
+  order_count: number;
+  margin: number;
+  margin_pct: number;
+  avg_order_value: number;
+}
+
+export interface OrderStatsYesterday {
+  revenue: number;
+  order_count: number;
+}
+
+export interface OrderStatsNeedsAttention {
+  overdue: number;
+  awaiting_payment_long: number;
+  due_today: number;
+}
+
+export interface OrderStatsPipeline {
+  confirmed: number;
+  production_complete: number;
+  packaging: number;
+  waiting_shipment: number;
+  waiting_pickup: number;
+}
+
+export interface UrgentOrder {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string | null;
+  item_count: number;
+  status: OrderStatus;
+  due_date: string | null;
+  is_overdue: boolean;
+  total_amount: number;
+}
+
+export interface OrderStats {
+  today: OrderStatsToday;
+  yesterday: OrderStatsYesterday;
+  needs_attention: OrderStatsNeedsAttention;
+  pipeline: OrderStatsPipeline;
+  urgent_orders: UrgentOrder[];
+}

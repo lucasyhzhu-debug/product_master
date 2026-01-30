@@ -7,6 +7,7 @@ from app.models.recipe import Recipe, RecipeVersion, RecipeComponent
 from app.models.packaging import PackagingRecipe, PackagingVersion
 from app.models.product import Product, ProductVersion
 from app.services.cost_calculator import get_recipe_version_cost
+from app.crud.orders import get_order_stats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -105,3 +106,18 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "most_used_packaging_count": most_used_packaging_count,
         "avg_recipe_cost": avg_recipe_cost,
     }
+
+
+@router.get("/order-stats")
+def get_order_dashboard_stats(db: Session = Depends(get_db)):
+    """
+    Get order and production statistics for dashboard.
+
+    Returns:
+    - today: Today's revenue, order count, margin, avg order value
+    - yesterday: Yesterday's revenue for comparison
+    - needs_attention: Counts for overdue, awaiting payment >24h, due today
+    - pipeline: Production status counts (confirmed, packaging, etc.)
+    - urgent_orders: Top 7 most urgent orders
+    """
+    return get_order_stats(db)

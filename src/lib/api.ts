@@ -36,6 +36,7 @@ import type {
   ProductSuggestion,
   SellerSuggestion,
   MenuProduct,
+  OrderStats,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -231,6 +232,10 @@ export const productApi = {
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
     const { data } = await api.get('/dashboard/stats');
+    return data;
+  },
+  getOrderStats: async (): Promise<OrderStats> => {
+    const { data } = await api.get('/dashboard/order-stats');
     return data;
   },
 };
