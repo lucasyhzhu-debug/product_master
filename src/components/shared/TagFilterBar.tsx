@@ -1,16 +1,22 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+// Support both number (legacy) and string (Convex) IDs
+type TagId = number | string;
+
 interface TagFilterBarProps {
-  tags: { id: number; name: string }[];
-  selectedTagIds: number[];
-  onToggleTag: (tagId: number) => void;
+  tags: { id: TagId; _id?: string; name: string }[];
+  selectedTagIds: TagId[];
+  onToggleTag: (tagId: TagId) => void;
 }
 
 export function TagFilterBar({ tags, selectedTagIds, onToggleTag }: TagFilterBarProps) {
   if (tags.length === 0) {
     return null;
   }
+
+  // Normalize tag ID (Convex uses _id, legacy uses id)
+  const getTagId = (tag: { id: TagId; _id?: string }): TagId => tag._id ?? tag.id;
 
   return (
     <div className="mb-8">
@@ -27,10 +33,11 @@ export function TagFilterBar({ tags, selectedTagIds, onToggleTag }: TagFilterBar
       </div>
       <div className="flex flex-wrap gap-2">
         {tags.map((tag) => {
-          const isSelected = selectedTagIds.includes(tag.id);
+          const tagId = getTagId(tag);
+          const isSelected = selectedTagIds.includes(tagId);
           return (
             <Badge
-              key={tag.id}
+              key={String(tagId)}
               variant={isSelected ? "default" : "outline"}
               className={cn(
                 "cursor-pointer transition-all duration-200 select-none",
@@ -38,7 +45,7 @@ export function TagFilterBar({ tags, selectedTagIds, onToggleTag }: TagFilterBar
                   ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600"
                   : "bg-white hover:bg-gray-100 text-gray-700 border-gray-300"
               )}
-              onClick={() => onToggleTag(tag.id)}
+              onClick={() => onToggleTag(tagId)}
             >
               {tag.name}
             </Badge>
