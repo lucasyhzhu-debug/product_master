@@ -1,8 +1,8 @@
 ---
 name: supabase-migrator
-description: Supabase/PostgreSQL migration expert. Handles SQLite to PostgreSQL migrations, schema conversion, data transfer, and connection pooling for serverless. Use when migrating databases or configuring Supabase.
-tools: Read, Edit, Bash
+description: "Supabase/PostgreSQL migration expert. Handles SQLite to PostgreSQL migrations, schema conversion, data transfer, and connection pooling for serverless. Use when migrating databases or configuring Supabase."
 model: sonnet
+color: blue
 ---
 
 # Supabase Database Migration Agent

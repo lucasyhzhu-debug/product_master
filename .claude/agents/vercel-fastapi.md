@@ -1,8 +1,8 @@
 ---
 name: vercel-fastapi
-description: Vercel deployment expert for FastAPI applications. Handles monolithic structure, Mangum adapter, vercel.json configuration, and Python serverless functions. Use when deploying FastAPI to Vercel.
-tools: Read, Edit, Bash
+description: "Vercel deployment expert for FastAPI applications. Handles monolithic structure, Mangum adapter, vercel.json configuration, and Python serverless functions. Use when deploying FastAPI to Vercel."
 model: sonnet
+color: green
 ---
 
 # Vercel FastAPI Deployment Agent
