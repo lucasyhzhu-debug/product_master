@@ -17,10 +17,22 @@ interface OrderWithItems extends Doc<"orders"> {
 
 /**
  * List orders with optional filters.
+ * PRD-0: Uses type-safe union for status filter.
  */
 export const list = query({
   args: {
-    status: v.optional(v.string()),
+    status: v.optional(v.union(
+      v.literal("Draft"),
+      v.literal("AwaitingPayment"),
+      v.literal("Confirmed"),
+      v.literal("ProductionComplete"),
+      v.literal("Packaging"),
+      v.literal("WaitingShipment"),
+      v.literal("CompleteShipped"),
+      v.literal("WaitingPickup"),
+      v.literal("PickedUp"),
+      v.literal("Cancelled")
+    )),
     channel: v.optional(v.string()),
     dueDateFrom: v.optional(v.number()),
     dueDateTo: v.optional(v.number()),
@@ -134,45 +146,65 @@ export const getByOrderNumber = query({
 
 /**
  * Get orders for kitchen view (production pipeline).
+ * PRD-1: Returns only Confirmed orders with ball calculations.
  */
 export const getKitchenOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Get orders in production-related statuses
-    const productionStatuses = [
-      "Confirmed",
-      "Production",
-      "Ready",
-      "Shipped",
-    ];
+    // PRD-1: Get only Confirmed orders
+    const orders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .collect();
 
-    const allOrders = await ctx.db.query("orders").order("desc").collect();
-
-    const filtered = allOrders.filter((o) =>
-      productionStatuses.includes(o.status)
-    );
-
-    // Fetch items for each order
+    // Fetch items for each order and calculate ball needs
     const result = await Promise.all(
-      filtered.map(async (order) => {
+      orders.map(async (order) => {
         const items = await ctx.db
           .query("orderItems")
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
           .collect();
 
+        // Calculate ball needs
+        let bigBallsNeeded = 0;
+        let midBallsNeeded = 0;
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.productionUnits) {
+            bigBallsNeeded += item.productionUnits;
+          } else if (item.productionType === "bite_sized" && item.productionUnits) {
+            midBallsNeeded += item.productionUnits;
+          }
+        }
+
         return {
           ...order,
           items,
+          bigBallsNeeded,
+          midBallsNeeded,
         };
       })
     );
 
-    // Sort by due date
+    // PRD-1: Sort by due date ASC → total units DESC → order date ASC
     return result.sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return a.dueDate - b.dueDate;
+      // Sort by due date first (earliest first)
+      if (a.dueDate !== b.dueDate) {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate - b.dueDate;
+      }
+
+      // Then by total units (most first)
+      const aTotalUnits = a.bigBallsNeeded + a.midBallsNeeded;
+      const bTotalUnits = b.bigBallsNeeded + b.midBallsNeeded;
+      if (aTotalUnits !== bTotalUnits) {
+        return bTotalUnits - aTotalUnits;
+      }
+
+      // Finally by order date (earliest first)
+      return a.orderDate - b.orderDate;
     });
   },
 });
@@ -274,5 +306,152 @@ export const getChannelSuggestions = query({
     }
 
     return Array.from(channels).sort();
+  },
+});
+
+/**
+ * Get kitchen stats for dashboard.
+ * PRD-1: Ball production tracking.
+ */
+export const getKitchenStats = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all orders
+    const allOrders = await ctx.db.query("orders").collect();
+
+    // Calculate stats
+    let bigBallsNeeded = 0;
+    let bigBallsCompleted = 0;
+    let midBallsNeeded = 0;
+    let midBallsCompleted = 0;
+    let ordersPending = 0;
+    let ordersCompletedToday = 0;
+
+    // Get midnight today
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    for (const order of allOrders) {
+      // Count pending orders (Confirmed status)
+      if (order.status === "Confirmed") {
+        ordersPending++;
+
+        // Get items to calculate ball needs
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.productionUnits) {
+            bigBallsNeeded += item.productionUnits;
+          } else if (item.productionType === "bite_sized" && item.productionUnits) {
+            midBallsNeeded += item.productionUnits;
+          }
+        }
+      }
+
+      // Count completed orders today
+      const completedStatuses = [
+        "ProductionComplete",
+        "Packaging",
+        "WaitingShipment",
+        "WaitingPickup",
+        "CompleteShipped",
+        "PickedUp",
+      ];
+
+      if (completedStatuses.includes(order.status) && order._creationTime >= midnight) {
+        ordersCompletedToday++;
+
+        // Get items to calculate completed balls
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.productionUnits) {
+            bigBallsCompleted += item.productionUnits;
+          } else if (item.productionType === "bite_sized" && item.productionUnits) {
+            midBallsCompleted += item.productionUnits;
+          }
+        }
+      }
+    }
+
+    return {
+      bigBallsNeeded,
+      bigBallsCompleted,
+      midBallsNeeded,
+      midBallsCompleted,
+      ordersPending,
+      ordersCompletedToday,
+    };
+  },
+});
+
+/**
+ * Get orders completed today.
+ * PRD-1: For kitchen view history.
+ */
+export const getCompletedToday = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get midnight today
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    // Get all orders
+    const allOrders = await ctx.db.query("orders").collect();
+
+    // Filter to completed statuses since midnight
+    const completedStatuses = [
+      "ProductionComplete",
+      "Packaging",
+      "WaitingShipment",
+      "WaitingPickup",
+      "CompleteShipped",
+      "PickedUp",
+    ];
+
+    const completedToday = allOrders.filter(
+      (o) => completedStatuses.includes(o.status) && o._creationTime >= midnight
+    );
+
+    // Fetch items and customer for each order
+    const result = await Promise.all(
+      completedToday.map(async (order) => {
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        const customer = await ctx.db.get(order.customerId);
+
+        // Calculate ball counts
+        let bigBalls = 0;
+        let midBalls = 0;
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.productionUnits) {
+            bigBalls += item.productionUnits;
+          } else if (item.productionType === "bite_sized" && item.productionUnits) {
+            midBalls += item.productionUnits;
+          }
+        }
+
+        return {
+          ...order,
+          items,
+          customer,
+          bigBalls,
+          midBalls,
+        };
+      })
+    );
+
+    // Sort by completion time (most recent first)
+    return result.sort((a, b) => b._creationTime - a._creationTime);
   },
 });

@@ -552,3 +552,25 @@ export type WhatsAppTemplateTab =
   | 'thank_you';
 
 export type WhatsAppLanguage = 'id' | 'en';
+
+// Kitchen-specific types (PRD-1: Kitchen Core)
+export interface KitchenStats {
+  big_balls_needed: number;
+  big_balls_completed: number;
+  mid_balls_needed: number;
+  mid_balls_completed: number;
+  orders_pending: number;
+  orders_completed_today: number;
+}
+
+export interface KitchenOrderItem extends OrderItem {
+  production_type?: 'original' | 'bite_sized';
+  production_units?: number;
+  balls_remaining?: number;
+}
+
+export interface KitchenOrder extends OrderSummary {
+  items: KitchenOrderItem[];
+  big_balls_needed: number;
+  mid_balls_needed: number;
+}

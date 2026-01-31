@@ -97,10 +97,21 @@ export const update = mutation({
 
 /**
  * Delete a menu product.
+ * PRD-0: Fixed products cannot be deleted.
  */
 export const remove = mutation({
   args: { id: v.id("menuProducts") },
   handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Menu product not found");
+    }
+
+    // PRD-0: Block deletion of fixed products
+    if (product.isFixed) {
+      throw new Error("Cannot delete fixed product. This is a core menu item.");
+    }
+
     await ctx.db.delete(args.id);
     return true;
   },
@@ -119,5 +130,96 @@ export const toggleActive = mutation({
 
     await ctx.db.patch(args.id, { isActive: !current.isActive });
     return !current.isActive;
+  },
+});
+
+/**
+ * PRD-0: Seed fixed products with COGS values.
+ * Run from Convex dashboard Functions tab: menuProducts:seedFixedProducts
+ *
+ * Fixed Products:
+ * - ORIGINAL: 80g, Rp 50,000, COGS Rp 19,231
+ * - BITE_SINGLE: 45g, Rp 35,000, COGS Rp 12,422
+ * - BITE_DOUBLE: 90g (2x45g), Rp 70,000, COGS Rp 24,843
+ * - BITE_TRIPLE: 135g (3x45g), Rp 99,000, COGS Rp 36,765
+ */
+export const seedFixedProducts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const fixedProducts = [
+      {
+        code: "ORIGINAL",
+        name: "Original",
+        grams: 80,
+        defaultPrice: 50000,
+        productionType: "original",
+        productionUnits: 1,
+        unitCost: 19231,
+        isFixed: true,
+        isActive: true,
+      },
+      {
+        code: "BITE_SINGLE",
+        name: "Bite Sized Single",
+        grams: 45,
+        defaultPrice: 35000,
+        productionType: "bite_sized",
+        productionUnits: 1,
+        unitCost: 12422,
+        isFixed: true,
+        isActive: true,
+      },
+      {
+        code: "BITE_DOUBLE",
+        name: "Bite Sized Double",
+        grams: 90,
+        defaultPrice: 70000,
+        productionType: "bite_sized",
+        productionUnits: 2,
+        unitCost: 24843,
+        isFixed: true,
+        isActive: true,
+      },
+      {
+        code: "BITE_TRIPLE",
+        name: "Bite Sized Triple",
+        grams: 135,
+        defaultPrice: 99000,
+        productionType: "bite_sized",
+        productionUnits: 3,
+        unitCost: 36765,
+        isFixed: true,
+        isActive: true,
+      },
+    ];
+
+    const results = [];
+
+    for (const product of fixedProducts) {
+      // Check if product already exists by code
+      const existing = await ctx.db
+        .query("menuProducts")
+        .withIndex("by_code", (q) => q.eq("code", product.code))
+        .first();
+
+      if (existing) {
+        // Update existing product with new fields
+        await ctx.db.patch(existing._id, {
+          unitCost: product.unitCost,
+          isFixed: product.isFixed,
+          grams: product.grams,
+          defaultPrice: product.defaultPrice,
+          productionType: product.productionType,
+          productionUnits: product.productionUnits,
+        });
+        results.push({ code: product.code, action: "updated", id: existing._id });
+      } else {
+        // Create new product
+        const id = await ctx.db.insert("menuProducts", product);
+        results.push({ code: product.code, action: "created", id });
+      }
+    }
+
+    return results;
   },
 });
