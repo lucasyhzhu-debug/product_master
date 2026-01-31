@@ -13,6 +13,121 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-01 - PRD-2: Kitchen Gamification
+
+**Order System V2 - Ball Completion Buttons, Sounds, Confetti**
+
+Added gamification to Kitchen View: hold-to-activate ball completion buttons, Web Audio synthesized sounds, and confetti celebration on order completion.
+
+**Backend Mutation:**
+- `completeBalls({ ballType, count })` - Batch ball completion with overflow logic
+  - Applies balls to highest-priority order first
+  - Auto-completes orders when all items reach 0
+  - Returns: `{ completedOrderIds, ballsUsed, overflow }`
+
+**Sound Effects (Web Audio API - no external files):**
+- `playDing()` - Ball landing sound (800Hz, 100ms)
+- `playCompletionFanfare()` - Three-tone celebration
+- `getSoundsEnabled()` / `setSoundsEnabled()` - LocalStorage persistence
+
+**Frontend Components:**
+- `BallCompletionButtons.tsx` - 4 hold-buttons (+1/+5 Big, +1/+5 Mid) with progress indicators
+- `SoundToggle.tsx` - Speaker icon mute/unmute toggle
+
+**Celebration Effects:**
+- Confetti animation via canvas-confetti library
+- Staggered ding sounds during ball completion
+- Toast notifications with completion summary
+
+**Dependencies Added:**
+- `canvas-confetti` (production)
+- `@types/canvas-confetti` (dev)
+
+**Files Created:**
+- `src/lib/kitchenSounds.ts`
+- `src/components/orders/BallCompletionButtons.tsx`
+- `src/components/orders/SoundToggle.tsx`
+
+**Files Modified:**
+- `convex/orders/mutations.ts` - completeBalls mutation (+137 lines)
+- `src/hooks/convex/useKitchenStats.ts` - useConvexCompleteBalls hook
+- `src/pages/KitchenView.tsx` - Full gamification integration
+
+---
+
+## 2026-01-31 - PRD-1: Kitchen Core
+
+**Order System V2 - Production Dashboard & Order Cards**
+
+Built the Kitchen View with production dashboard showing ball counts, order cards with urgency indicators, and hold-to-complete functionality.
+
+**Backend Queries:**
+- `getKitchenOrders()` - Confirmed orders with calculated ball needs, sorted by priority
+- `getKitchenStats()` - Aggregated ball counts (big/mid needed/completed), order counts
+- `getCompletedToday()` - Orders completed since midnight
+
+**Backend Mutations:**
+- `completeOrder(orderId)` - Mark order ProductionComplete, zero all ballsRemaining
+- `revertToConfirmed(orderId)` - Undo completion, restore ballsRemaining
+
+**Frontend Components:**
+- `KitchenDashboard.tsx` - 3-column stats (Big Balls, Mid Balls, Orders) with progress bars
+- `KitchenOrderCard.tsx` - Order card with large ball counts, urgency states, hold-to-complete
+
+**Urgency States:**
+- **Overdue** (dueTime < now): Red pulsing border, "OVERDUE" badge
+- **Urgent** (due within 2 hours): Amber pulsing border, "URGENT" badge
+
+**Priority Sorting:** dueDate ASC → totalUnits DESC → orderDate ASC
+
+**Files Created:**
+- `src/components/orders/KitchenDashboard.tsx`
+- `src/components/orders/KitchenOrderCard.tsx`
+- `src/hooks/convex/useKitchenStats.ts`
+
+**Files Modified:**
+- `convex/orders/queries.ts` - 3 new queries
+- `convex/orders/mutations.ts` - 2 new mutations
+- `src/pages/KitchenView.tsx` - Complete refactor
+- `src/lib/types.ts` - KitchenStats, KitchenOrder interfaces
+
+---
+
+## 2026-01-30 - PRD-0: Schema Foundation
+
+**Order System V2 - Database Schema Hardening**
+
+Hardened the database schema with proper type enforcement, added fields for Kitchen View features, and seeded fixed products with COGS values.
+
+**Schema Changes:**
+- Order status union (10 statuses): Draft, AwaitingPayment, Confirmed, ProductionComplete, Packaging, WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
+- Payment status union: Unpaid, Partial, Paid
+- Order-level discount fields: `orderLevelDiscount`, `orderLevelDiscountType`
+- MenuProducts fixed product support: `isFixed`, `unitCost`
+- OrderItems ball tracking: `productionType`, `productionUnits`, `ballsRemaining`
+- New `orderMessages` table for WhatsApp deduplication
+
+**Fixed Products Seeded (menuProducts:seedFixedProducts):**
+
+| Code | Name | Grams | Price | COGS |
+|------|------|-------|-------|------|
+| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 |
+| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 |
+| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 |
+| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 |
+
+**WhatsApp Message Tracking:**
+- `markMessageSent()` - Deduplication with 5-minute window
+- `getMessageHistory()` - Sent message audit trail
+- `getOrderTemplate()` - Clean template with product list + bank info
+
+**Files Modified:**
+- `convex/schema.ts` - Status unions, discount fields, ball tracking, orderMessages table
+- `convex/menuProducts/mutations.ts` - seedFixedProducts mutation
+- `convex/orders/whatsapp.ts` - Message tracking functions
+
+---
+
 ## 2026-01-31 - WhatsApp Template Tabs with Bilingual Support
 
 **Feature: Tabbed WhatsApp Message Templates**
