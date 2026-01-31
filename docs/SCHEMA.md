@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-> **Purpose:** Complete database schema documentation for Malo Recipe Master.
+> **Purpose:** Complete Convex database schema documentation for Malo Recipe Master.
 > **When to read:** Before making database changes, adding fields, or modifying relationships.
 
 ## Table of Contents
@@ -15,388 +15,353 @@
 
 ## System Architecture Overview
 
-**Request Flow:**
+**Convex Architecture:**
 ```
 User Browser
     ↓
-React Router (src/pages/)
+React Components (src/pages/)
     ↓
-React Query Hooks (src/hooks/)
+Convex React Hooks (useQuery, useMutation)
     ↓
-Axios API Client (src/lib/api.ts)
-    ↓ HTTP/JSON
-FastAPI Routers (api/app/routers/)
+Convex Client (auto-generated API)
+    ↓ WebSocket (real-time)
+Convex Backend (convex/)
+    ├── queries.ts (read operations)
+    └── mutations.ts (write operations)
     ↓
-CRUD Operations (api/app/crud/)
-    ↓
-SQLAlchemy Models (api/app/models/)
-    ↓
-Database Layer (SQLite dev / PostgreSQL prod)
-    ↓
-SQLite: api/data/malo_recipes.db (local)
-PostgreSQL: Cloud database (production)
-```
-
-**Deployment Architecture:**
-```
-Vercel Edge Network
-    ↓
-Static Assets (dist/) - Served directly
-    ↓
-SPA Routes (/*) → index.html
-    ↓
-API Routes (/api/*) → Vercel Serverless Functions
-    ↓
-api/index.py (Mangum ASGI Adapter)
-    ↓
-FastAPI Application (api/app/main.py)
-    ↓
-PostgreSQL Database (NullPool for serverless)
+Convex Database (automatic)
 ```
 
 **Layer Responsibilities:**
-- **Frontend Pages**: Handle routing, data fetching, user interactions
-- **React Query Hooks**: Manage server state, caching, mutations
-- **API Client**: HTTP requests with axios, centralized error handling
-- **FastAPI Routers**: Endpoint definitions, request validation, response formatting
-- **CRUD Layer**: Database queries, relationship loading, business logic
-- **Models Layer**: ORM definitions, relationships, constraints
-- **Services Layer**: Cross-cutting concerns (cost calculations, WhatsApp formatting)
-- **Database Layer**: Auto-detects SQLite (dev) or PostgreSQL (prod) via DATABASE_URL
+- **Frontend Pages**: Handle routing, UI rendering, user interactions
+- **Convex Hooks**: `useQuery` for reactive reads, `useMutation` for writes
+- **Convex Queries**: Define read operations, return data reactively
+- **Convex Mutations**: Define write operations, transactional updates
+- **Convex DB**: Automatic indexing, real-time sync, ACID transactions
+
+**Key Benefits:**
+- Real-time updates: Data changes sync instantly to all connected clients
+- Type safety: TypeScript types auto-generated from schema
+- No cache management: Convex handles data consistency automatically
+- Serverless: No servers to manage, auto-scaling
 
 ---
 
 ## Complete Database Schema (19 Tables)
 
-### 1. `ingredient` - Food Ingredients
-```sql
-CREATE TABLE ingredient (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- e.g., "Tepung Terigu"
-    brand VARCHAR(255),                        -- e.g., "Cakra Kembar"
-    procurement_source VARCHAR(255),           -- e.g., "Tokopedia"
-    unit_type VARCHAR(10) NOT NULL DEFAULT 'g', -- g, kg, ml, l, pcs
-    volume_purchased FLOAT NOT NULL,           -- e.g., 1 (kg)
-    price_excl_shipping FLOAT NOT NULL,        -- IDR
-    shipping_cost FLOAT NOT NULL DEFAULT 0,    -- IDR
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_ingredient_name ON ingredient(name);
-CREATE INDEX idx_ingredient_brand ON ingredient(brand);
+Schema defined in `convex/schema.ts` using Convex's type-safe schema definition.
+
+### 1. `ingredients` - Food Ingredients
+```typescript
+ingredients: defineTable({
+  name: v.string(),                           // e.g., "Tepung Terigu"
+  brand: v.optional(v.string()),              // e.g., "Cakra Kembar"
+  procurementSource: v.optional(v.string()),  // e.g., "Tokopedia"
+  unitType: v.string(),                       // g, kg, ml, l, pcs
+  volumePurchased: v.number(),                // e.g., 1 (kg)
+  priceExclShipping: v.number(),              // IDR
+  shippingCost: v.number(),                   // IDR
+  createdBy: v.string(),
+  // Denormalized for fast queries
+  costPerBaseUnit: v.optional(v.number()),
+  baseUnit: v.optional(v.string()),
+})
+  .index("by_name", ["name"])
+  .index("by_brand", ["brand"])
 ```
 
-### 2. `packaging_material` - Packaging Materials
-```sql
-CREATE TABLE packaging_material (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- e.g., "Plastik PP"
-    brand VARCHAR(255),
-    procurement_source VARCHAR(255),
-    unit_type VARCHAR(10) NOT NULL DEFAULT 'pcs', -- pcs, m, cm, sheets
-    volume_purchased FLOAT NOT NULL,
-    price_excl_shipping FLOAT NOT NULL,
-    shipping_cost FLOAT NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_packaging_material_name ON packaging_material(name);
+### 2. `packagingMaterials` - Packaging Materials
+```typescript
+packagingMaterials: defineTable({
+  name: v.string(),
+  brand: v.optional(v.string()),
+  procurementSource: v.optional(v.string()),
+  unitType: v.string(),                       // pcs, m, cm, sheets
+  volumePurchased: v.number(),
+  priceExclShipping: v.number(),
+  shippingCost: v.number(),
+  createdBy: v.string(),
+  // Denormalized
+  costPerBaseUnit: v.optional(v.number()),
+  baseUnit: v.optional(v.string()),
+})
+  .index("by_name", ["name"])
 ```
 
-### 3. `tag` - Category Tags
-```sql
-CREATE TABLE tag (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(100) NOT NULL UNIQUE,         -- e.g., "Dubai-Snack"
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
--- Seeded on init: Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box
+### 3. `tags` - Category Tags
+```typescript
+tags: defineTable({
+  name: v.string(),                           // e.g., "Dubai-Snack"
+})
+  .index("by_name", ["name"])
+// Seeded: Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box
 ```
 
-### 4. `recipe` - Recipe Parent Entity
-```sql
-CREATE TABLE recipe (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- e.g., "Choco Crunch Base"
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_recipe_name ON recipe(name);
+### 4. `menuProducts` - Predefined Menu Products
+```typescript
+menuProducts: defineTable({
+  code: v.string(),                           // e.g., "ORI-50"
+  name: v.string(),                           // e.g., "Original 50g"
+  grams: v.number(),                          // 50
+  defaultPrice: v.number(),                   // IDR
+  productionType: v.string(),                 // "original" or "bite_sized"
+  productionUnits: v.number(),                // Units per production batch
+  isActive: v.boolean(),
+})
+  .index("by_code", ["code"])
+  .index("by_active", ["isActive"])
 ```
 
-### 5. `recipe_version` - Versioned Recipe Data
-```sql
-CREATE TABLE recipe_version (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    recipe_id INTEGER NOT NULL,                -- FK to recipe
-    version_number INTEGER NOT NULL,           -- 1, 2, 3...
-    version_name VARCHAR(255) NOT NULL,        -- e.g., "Initial Formula"
-    description VARCHAR(1000),
-    estimated_yield_grams FLOAT,               -- Used for cost per gram
-    is_single_component BOOLEAN DEFAULT FALSE, -- True if only 1 component
-    is_reusable_component BOOLEAN DEFAULT FALSE, -- Can be linked by others
-    copied_from_version_id INTEGER,            -- FK to recipe_version (lineage)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin',
-    FOREIGN KEY (recipe_id) REFERENCES recipe(id) ON DELETE CASCADE,
-    FOREIGN KEY (copied_from_version_id) REFERENCES recipe_version(id),
-    UNIQUE (recipe_id, version_number)
-);
-CREATE INDEX idx_recipe_version_recipe ON recipe_version(recipe_id);
+### 5. `recipes` - Recipe Parent Entity
+```typescript
+recipes: defineTable({
+  name: v.string(),                           // e.g., "Choco Crunch Base"
+  tagIds: v.array(v.id("tags")),              // M2M via array (no junction table)
+  createdBy: v.string(),
+})
+  .index("by_name", ["name"])
 ```
 
-### 6. `recipe_component` - Components in a Recipe Version
-```sql
-CREATE TABLE recipe_component (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    recipe_version_id INTEGER NOT NULL,        -- FK to recipe_version
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    component_name VARCHAR(255) NOT NULL,      -- e.g., "Dough Base"
-    linked_recipe_version_id INTEGER,          -- FK to recipe_version (for reusable)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (recipe_version_id) REFERENCES recipe_version(id) ON DELETE CASCADE,
-    FOREIGN KEY (linked_recipe_version_id) REFERENCES recipe_version(id)
-);
-CREATE INDEX idx_recipe_component_version ON recipe_component(recipe_version_id);
-CREATE INDEX idx_recipe_component_linked ON recipe_component(linked_recipe_version_id);
+### 6. `recipeVersions` - Versioned Recipe Data
+```typescript
+recipeVersions: defineTable({
+  recipeId: v.id("recipes"),
+  versionNumber: v.number(),                  // 1, 2, 3...
+  versionName: v.string(),                    // e.g., "Initial Formula"
+  description: v.optional(v.string()),
+  estimatedYieldGrams: v.optional(v.number()),
+  isSingleComponent: v.boolean(),
+  isReusableComponent: v.boolean(),
+  copiedFromVersionId: v.optional(v.id("recipeVersions")),
+  createdBy: v.string(),
+  // Cached costs (hybrid approach)
+  cachedTotalCost: v.optional(v.number()),
+  cachedCostPerGram: v.optional(v.number()),
+  costCacheUpdatedAt: v.optional(v.number()),
+})
+  .index("by_recipe", ["recipeId"])
+  .index("by_recipe_version", ["recipeId", "versionNumber"])
+  .index("by_reusable", ["isReusableComponent"])
 ```
 
-### 7. `component_ingredient` - Ingredients in a Component
-```sql
-CREATE TABLE component_ingredient (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    recipe_component_id INTEGER NOT NULL,      -- FK to recipe_component
-    ingredient_id INTEGER NOT NULL,            -- FK to ingredient
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    unit VARCHAR(10) NOT NULL DEFAULT 'g',     -- g, kg, ml, l, pcs
-    quantity FLOAT NOT NULL,                   -- e.g., 500 (g)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (recipe_component_id) REFERENCES recipe_component(id) ON DELETE CASCADE,
-    FOREIGN KEY (ingredient_id) REFERENCES ingredient(id)
-);
-CREATE INDEX idx_component_ingredient_component ON component_ingredient(recipe_component_id);
+### 7. `recipeComponents` - Components in a Recipe Version
+```typescript
+recipeComponents: defineTable({
+  recipeVersionId: v.id("recipeVersions"),
+  sortOrder: v.number(),
+  componentName: v.string(),                  // e.g., "Dough Base"
+  linkedRecipeVersionId: v.optional(v.id("recipeVersions")),
+  // Cached
+  cachedSubtotalCost: v.optional(v.number()),
+})
+  .index("by_version", ["recipeVersionId"])
+  .index("by_linked_version", ["linkedRecipeVersionId"])
 ```
 
-### 8. `recipe_tag` - Junction Table (Recipe ↔ Tag)
-```sql
-CREATE TABLE recipe_tag (
-    recipe_id INTEGER NOT NULL,
-    tag_id INTEGER NOT NULL,
-    PRIMARY KEY (recipe_id, tag_id),
-    FOREIGN KEY (recipe_id) REFERENCES recipe(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
-);
+### 8. `componentIngredients` - Ingredients in a Component
+```typescript
+componentIngredients: defineTable({
+  recipeComponentId: v.id("recipeComponents"),
+  ingredientId: v.id("ingredients"),
+  sortOrder: v.number(),
+  unit: v.string(),                           // g, kg, ml, l, pcs
+  quantity: v.number(),                       // e.g., 500 (g)
+  // Denormalized for display
+  ingredientName: v.optional(v.string()),
+  cachedLineCost: v.optional(v.number()),
+})
+  .index("by_component", ["recipeComponentId"])
+  .index("by_ingredient", ["ingredientId"])
 ```
 
-### 9. `packaging_recipe` - Packaging Parent Entity
-```sql
-CREATE TABLE packaging_recipe (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- e.g., "Standard Sachet"
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_packaging_recipe_name ON packaging_recipe(name);
+### 9. `packagingRecipes` - Packaging Parent Entity
+```typescript
+packagingRecipes: defineTable({
+  name: v.string(),                           // e.g., "Standard Sachet"
+  tagIds: v.array(v.id("tags")),
+  createdBy: v.string(),
+})
+  .index("by_name", ["name"])
 ```
 
-### 10. `packaging_version` - Versioned Packaging Data
-```sql
-CREATE TABLE packaging_version (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    packaging_recipe_id INTEGER NOT NULL,      -- FK to packaging_recipe
-    version_number INTEGER NOT NULL,
-    version_name VARCHAR(255) NOT NULL,
-    description VARCHAR(1000),
-    copied_from_version_id INTEGER,            -- FK to packaging_version
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin',
-    FOREIGN KEY (packaging_recipe_id) REFERENCES packaging_recipe(id) ON DELETE CASCADE,
-    FOREIGN KEY (copied_from_version_id) REFERENCES packaging_version(id),
-    UNIQUE (packaging_recipe_id, version_number)
-);
-CREATE INDEX idx_packaging_version_recipe ON packaging_version(packaging_recipe_id);
+### 10. `packagingVersions` - Versioned Packaging Data
+```typescript
+packagingVersions: defineTable({
+  packagingRecipeId: v.id("packagingRecipes"),
+  versionNumber: v.number(),
+  versionName: v.string(),
+  description: v.optional(v.string()),
+  copiedFromVersionId: v.optional(v.id("packagingVersions")),
+  createdBy: v.string(),
+  // Cached
+  cachedTotalCost: v.optional(v.number()),
+  costCacheUpdatedAt: v.optional(v.number()),
+})
+  .index("by_packaging", ["packagingRecipeId"])
+  .index("by_packaging_version", ["packagingRecipeId", "versionNumber"])
 ```
 
-### 11. `packaging_component` - Components in Packaging Version
-```sql
-CREATE TABLE packaging_component (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    packaging_version_id INTEGER NOT NULL,     -- FK to packaging_version
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    component_name VARCHAR(255) NOT NULL,      -- e.g., "Inner Sachet"
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (packaging_version_id) REFERENCES packaging_version(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_packaging_component_version ON packaging_component(packaging_version_id);
+### 11. `packagingComponents` - Components in Packaging Version
+```typescript
+packagingComponents: defineTable({
+  packagingVersionId: v.id("packagingVersions"),
+  sortOrder: v.number(),
+  componentName: v.string(),                  // e.g., "Inner Sachet"
+  cachedSubtotalCost: v.optional(v.number()),
+})
+  .index("by_version", ["packagingVersionId"])
 ```
 
-### 12. `packaging_component_material` - Materials in Packaging Component
-```sql
-CREATE TABLE packaging_component_material (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    packaging_component_id INTEGER NOT NULL,   -- FK to packaging_component
-    packaging_material_id INTEGER NOT NULL,    -- FK to packaging_material
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    unit VARCHAR(10) NOT NULL DEFAULT 'pcs',   -- pcs, m, cm, sheets
-    quantity FLOAT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (packaging_component_id) REFERENCES packaging_component(id) ON DELETE CASCADE,
-    FOREIGN KEY (packaging_material_id) REFERENCES packaging_material(id)
-);
-CREATE INDEX idx_pcm_component ON packaging_component_material(packaging_component_id);
+### 12. `packagingComponentMaterials` - Materials in Packaging Component
+```typescript
+packagingComponentMaterials: defineTable({
+  packagingComponentId: v.id("packagingComponents"),
+  packagingMaterialId: v.id("packagingMaterials"),
+  sortOrder: v.number(),
+  unit: v.string(),                           // pcs, m, cm, sheets
+  quantity: v.number(),
+  // Denormalized
+  materialName: v.optional(v.string()),
+  cachedLineCost: v.optional(v.number()),
+})
+  .index("by_component", ["packagingComponentId"])
+  .index("by_material", ["packagingMaterialId"])
 ```
 
-### 13. `packaging_tag` - Junction Table (PackagingRecipe ↔ Tag)
-```sql
-CREATE TABLE packaging_tag (
-    packaging_recipe_id INTEGER NOT NULL,
-    tag_id INTEGER NOT NULL,
-    PRIMARY KEY (packaging_recipe_id, tag_id),
-    FOREIGN KEY (packaging_recipe_id) REFERENCES packaging_recipe(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
-);
+### 13. `products` - Product Parent Entity
+```typescript
+products: defineTable({
+  name: v.string(),                           // e.g., "Choco Crunch 50g"
+  tagIds: v.array(v.id("tags")),
+  createdBy: v.string(),
+})
+  .index("by_name", ["name"])
 ```
 
-### 14. `product` - Product Parent Entity
-```sql
-CREATE TABLE product (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- e.g., "Choco Crunch 50g"
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_product_name ON product(name);
+### 14. `productVersions` - Product Version with COGS
+```typescript
+productVersions: defineTable({
+  productId: v.id("products"),
+  versionNumber: v.number(),
+  versionName: v.string(),
+  description: v.optional(v.string()),
+  recipeVersionId: v.id("recipeVersions"),    // Pinned recipe
+  packagingVersionId: v.id("packagingVersions"), // Pinned packaging
+  retailPriceIdr: v.number(),
+  numPieces: v.number(),
+  gramsPerPiece: v.number(),
+  copiedFromVersionId: v.optional(v.id("productVersions")),
+  createdBy: v.string(),
+  // Denormalized for display
+  recipeName: v.optional(v.string()),
+  recipeVersionName: v.optional(v.string()),
+  packagingName: v.optional(v.string()),
+  packagingVersionName: v.optional(v.string()),
+  // Cached COGS
+  cachedCogs: v.optional(v.object({
+    totalGrams: v.number(),
+    recipeCogs: v.optional(v.number()),
+    packagingCogs: v.optional(v.number()),
+    totalCogs: v.optional(v.number()),
+    contributionMargin: v.optional(v.number()),
+    contributionMarginPct: v.optional(v.number()),
+  })),
+  cogsCacheUpdatedAt: v.optional(v.number()),
+})
+  .index("by_product", ["productId"])
+  .index("by_product_version", ["productId", "versionNumber"])
+  .index("by_recipe_version", ["recipeVersionId"])
+  .index("by_packaging_version", ["packagingVersionId"])
 ```
 
-### 15. `product_version` - Product Version with COGS
-```sql
-CREATE TABLE product_version (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    product_id INTEGER NOT NULL,               -- FK to product
-    version_number INTEGER NOT NULL,
-    version_name VARCHAR(255) NOT NULL,
-    description VARCHAR(1000),
-    recipe_version_id INTEGER NOT NULL,        -- FK to recipe_version (pinned)
-    packaging_version_id INTEGER NOT NULL,     -- FK to packaging_version (pinned)
-    retail_price_idr FLOAT NOT NULL,           -- Selling price
-    num_pieces INTEGER NOT NULL DEFAULT 1,     -- Pieces per product
-    grams_per_piece FLOAT NOT NULL,            -- Grams per piece
-    copied_from_version_id INTEGER,            -- FK to product_version
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin',
-    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
-    FOREIGN KEY (recipe_version_id) REFERENCES recipe_version(id),
-    FOREIGN KEY (packaging_version_id) REFERENCES packaging_version(id),
-    FOREIGN KEY (copied_from_version_id) REFERENCES product_version(id),
-    UNIQUE (product_id, version_number)
-);
-CREATE INDEX idx_product_version_product ON product_version(product_id);
-CREATE INDEX idx_product_version_recipe ON product_version(recipe_version_id);
-CREATE INDEX idx_product_version_packaging ON product_version(packaging_version_id);
+### 15. `customers` - Customer Entity
+```typescript
+customers: defineTable({
+  name: v.string(),
+  phone: v.optional(v.string()),              // WhatsApp number
+  source: v.optional(v.string()),             // 'WhatsApp', 'Instagram', 'Friend'
+  notes: v.optional(v.string()),
+  createdBy: v.string(),
+})
+  .index("by_name", ["name"])
+  .index("by_phone", ["phone"])
 ```
 
-### 16. `product_tag` - Junction Table (Product ↔ Tag)
-```sql
-CREATE TABLE product_tag (
-    product_id INTEGER NOT NULL,
-    tag_id INTEGER NOT NULL,
-    PRIMARY KEY (product_id, tag_id),
-    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
-);
+### 16. `orders` - Order Entity
+```typescript
+orders: defineTable({
+  orderNumber: v.string(),                    // Format: "0129-001" (MMDD-seq)
+  customerId: v.id("customers"),
+  // Denormalized customer info
+  customerName: v.string(),
+  customerPhone: v.optional(v.string()),
+
+  // Status workflow
+  status: v.string(),                         // Draft|AwaitingPayment|Confirmed|...
+  awaitingPaymentSince: v.optional(v.number()),
+
+  // Payment
+  paymentStatus: v.string(),                  // Unpaid|Partial|Paid
+  paymentMethod: v.optional(v.string()),      // BCA, QRIS, Cash
+
+  orderDate: v.number(),                      // timestamp
+  dueDate: v.optional(v.number()),
+
+  // Totals (denormalized)
+  totalAmount: v.number(),
+  totalCost: v.number(),
+  totalMargin: v.number(),
+
+  // Sales tracking
+  channel: v.optional(v.string()),            // IG, WA, Shopee, Tokopedia
+  soldBy: v.optional(v.string()),
+
+  // Delivery info
+  deliveryType: v.string(),                   // Pickup, Delivery
+  pickupLocation: v.optional(v.string()),
+  deliveryAddress: v.optional(v.string()),
+  contactWa: v.optional(v.string()),
+  contactIg: v.optional(v.string()),
+
+  // Shipping
+  shippingAgency: v.optional(v.string()),
+  shippingNumber: v.optional(v.string()),
+
+  // Cancellation
+  cancellationReason: v.optional(v.string()),
+
+  notes: v.optional(v.string()),
+  createdBy: v.string(),
+  itemCount: v.number(),
+})
+  .index("by_order_number", ["orderNumber"])
+  .index("by_customer", ["customerId"])
+  .index("by_due_date", ["dueDate"])
+  .index("by_status", ["status"])
+  .index("by_channel", ["channel"])
+  .index("by_status_due_date", ["status", "dueDate"])
 ```
 
-### 17. `customer` - Customer Entity (Order Management)
-```sql
-CREATE TABLE customer (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,                -- Customer name
-    phone VARCHAR(50),                         -- WhatsApp number
-    source VARCHAR(100),                       -- 'WhatsApp', 'Instagram', 'Friend'
-    notes VARCHAR(1000),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin'
-);
-CREATE INDEX idx_customer_name ON customer(name);
-CREATE INDEX idx_customer_phone ON customer(phone);
-```
-
-### 18. `order` - Order Entity (Standalone - No ProductVersion FK)
-```sql
-CREATE TABLE "order" (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_number VARCHAR(20) NOT NULL UNIQUE,  -- Simple format: "0129-001" (MMDD-seq)
-    customer_id INTEGER NOT NULL,
-
-    -- Status workflow: Draft → AwaitingPayment → Confirmed → ... → Terminal
-    status VARCHAR(20) NOT NULL DEFAULT 'Draft',      -- Draft|AwaitingPayment|Confirmed|ProductionComplete|Packaging|WaitingShipment|CompleteShipped|WaitingPickup|PickedUp|Cancelled
-    awaiting_payment_since DATETIME,           -- Timestamp when order entered AwaitingPayment status
-
-    payment_status VARCHAR(20) NOT NULL DEFAULT 'Unpaid', -- Unpaid|Partial|Paid
-    payment_method VARCHAR(50),                -- 'BCA', 'QRIS', 'Cash'
-
-    order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    due_date DATETIME,
-
-    total_amount FLOAT DEFAULT 0,              -- Sum of line totals
-    total_cost FLOAT DEFAULT 0,                -- Sum of line costs
-    total_margin FLOAT DEFAULT 0,              -- total_amount - total_cost
-
-    channel VARCHAR(50),                       -- 'IG', 'WA', 'Shopee', 'Tokopedia', etc.
-    sold_by VARCHAR(100),                      -- Free-text: salesperson name
-
-    -- Delivery Info
-    delivery_type VARCHAR(20) DEFAULT 'Pickup', -- Pickup, Delivery
-    pickup_location VARCHAR(100),
-    delivery_address VARCHAR(500),
-    contact_wa VARCHAR(50),
-    contact_ig VARCHAR(100),
-    shipping_agency VARCHAR(50),
-    shipping_number VARCHAR(100),
-    cancellation_reason VARCHAR(255),
-
-    notes VARCHAR(1000),
-
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(100) DEFAULT 'admin',
-
-    FOREIGN KEY (customer_id) REFERENCES customer(id)
-);
-CREATE INDEX idx_order_number ON "order"(order_number);
-CREATE INDEX idx_order_customer ON "order"(customer_id);
-CREATE INDEX idx_order_due_date ON "order"(due_date);
-CREATE INDEX idx_order_status ON "order"(status);
-CREATE INDEX idx_order_channel ON "order"(channel);
-```
-
-### 19. `order_item` - Order Line Items (Standalone - No ProductVersion FK)
-```sql
-CREATE TABLE order_item (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-
-    -- Product info as text (standalone mode with combobox autocomplete)
-    product_name VARCHAR(255) NOT NULL,        -- Combobox searches previous entries
-    product_variant VARCHAR(255),              -- Optional: "Large", "v2", etc.
-
-    quantity INTEGER NOT NULL DEFAULT 1,
-    unit_price FLOAT NOT NULL,                 -- Selling price per unit
-    unit_cost FLOAT DEFAULT 0,                 -- Cost per unit (manual entry)
-    discount_amount FLOAT DEFAULT 0,
-
-    line_total FLOAT NOT NULL,                 -- (qty * unit_price) - discount
-    line_cost FLOAT NOT NULL,                  -- qty * unit_cost
-    line_margin FLOAT NOT NULL,                -- line_total - line_cost
-
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (order_id) REFERENCES "order"(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_order_item_order ON order_item(order_id);
-CREATE INDEX idx_order_item_product ON order_item(product_name);  -- For combobox search
+### 17. `orderItems` - Order Line Items
+```typescript
+orderItems: defineTable({
+  orderId: v.id("orders"),
+  // Product info (standalone - no FK)
+  productName: v.string(),
+  productVariant: v.optional(v.string()),
+  quantity: v.number(),
+  unitPrice: v.number(),
+  unitCost: v.number(),
+  discountAmount: v.number(),
+  // Calculated totals
+  lineTotal: v.number(),
+  lineCost: v.number(),
+  lineMargin: v.number(),
+  // Optional menu product link
+  menuProductId: v.optional(v.id("menuProducts")),
+})
+  .index("by_order", ["orderId"])
+  .index("by_product_name", ["productName"])
 ```
 
 ---
@@ -412,7 +377,7 @@ Draft
                           ├─> WaitingShipment ─> CompleteShipped (delivered)
                           └─> WaitingPickup ─> PickedUp (customer picked up)
 
-Any non-terminal → Cancelled (requires cancellation_reason)
+Any non-terminal → Cancelled (requires cancellationReason)
 ```
 
 **Status Meanings:**
@@ -420,15 +385,15 @@ Any non-terminal → Cancelled (requires cancellation_reason)
 | Status | Description | Next States |
 |--------|-------------|-------------|
 | Draft | Order created, not confirmed | AwaitingPayment, Cancelled |
-| AwaitingPayment | WhatsApp sent, waiting for payment (tracks `awaiting_payment_since`) | Confirmed, Cancelled |
+| AwaitingPayment | WhatsApp sent, waiting for payment | Confirmed, Cancelled |
 | Confirmed | Payment verified, ready for production | ProductionComplete, Cancelled |
 | ProductionComplete | Kitchen finished production | Packaging, Cancelled |
 | Packaging | Actively packaging | WaitingShipment, WaitingPickup, Cancelled |
-| WaitingShipment | Ready for courier (requires shipping_number + shipping_agency) | CompleteShipped, Cancelled |
+| WaitingShipment | Ready for courier | CompleteShipped, Cancelled |
 | CompleteShipped | Delivered to customer (terminal) | - |
 | WaitingPickup | Ready for customer pickup | PickedUp, Cancelled |
 | PickedUp | Customer picked up (terminal) | - |
-| Cancelled | Order cancelled (requires cancellation_reason, terminal) | - |
+| Cancelled | Order cancelled (terminal) | - |
 
 **AwaitingPayment Visual Indicator:**
 - Green badge: Waiting < 24 hours
@@ -446,28 +411,25 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 ┌──────────────┐
 │  Ingredient  │──┐
 └──────────────┘  │
-                  │  ┌──────────────────────┐      ┌──────────────────┐      ┌─────────┐      ┌────────────┐
-                  └─>│ ComponentIngredient  │─────>│ RecipeComponent  │─────>│ RecipeV │─────>│   Recipe   │
-                     └──────────────────────┘      └──────────────────┘      │ -ersion │      └─────────────┘
-                                                             │                └─────────┘             │
-                                                             │                     │                  │
-                                                             │(linked_recipe_      │(1:N)             │
-                                                             │ version_id)         │                  │
-                                                             └─────────────────────┘                  │
-                                                                                                      │
-┌────────────────────┐                                                                               │
-│ PackagingMaterial  │──┐                                                                            │
-└────────────────────┘  │                                                                            │
-                        │  ┌───────────────────────────┐   ┌──────────────────────┐   ┌───────────┐ │
-                        └─>│ PackagingComponentMaterial│──>│ PackagingComponent   │──>│ Packaging │ │
-                           └───────────────────────────┘   └──────────────────────┘   │  Version  │ │
-                                                                                       └───────────┘ │
-                                                                                            │        │
-                                                                                            │        │
-                                                      ┌─────────────────────────────────────┘        │
-                                                      │                                              │
-                                                      │        ┌────────────────┐                    │
-                                                      └───────>│ ProductVersion │<───────────────────┘
+                  │  ┌──────────────────────┐      ┌──────────────────┐      ┌─────────────┐      ┌────────────┐
+                  └─>│ ComponentIngredient  │─────>│ RecipeComponent  │─────>│RecipeVersion│─────>│   Recipe   │
+                     └──────────────────────┘      └──────────────────┘      └─────────────┘      └────────────┘
+                                                             │                       │
+                                                             │(linkedRecipe          │(1:N)
+                                                             │ VersionId)            │
+                                                             └───────────────────────┘
+
+┌────────────────────┐
+│ PackagingMaterial  │──┐
+└────────────────────┘  │
+                        │  ┌───────────────────────────┐   ┌──────────────────────┐   ┌─────────────────┐
+                        └─>│PackagingComponentMaterial │──>│ PackagingComponent   │──>│PackagingVersion │
+                           └───────────────────────────┘   └──────────────────────┘   └─────────────────┘
+                                                                                              │
+                                                                                              │
+                                                      ┌───────────────────────────────────────┘
+                                                      │        ┌────────────────┐
+                                                      └───────>│ ProductVersion │<─── RecipeVersion
                                                                └────────────────┘
                                                                        │
                                                                        │(1:N)
@@ -476,11 +438,15 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
                                                                │    Product    │
                                                                └───────────────┘
 
-┌──────┐     ┌────────────┐     ┌─────────────────┐     ┌─────────┐
-│ Tag  │<────│ recipe_tag │────>│     Recipe      │     │ (M:N)   │
-│      │<────│ packaging_ │────>│ PackagingRecipe │     │         │
-│      │<────│ product_   │────>│     Product     │     │         │
-└──────┘     └────────────┘     └─────────────────┘     └─────────┘
+┌──────┐
+│ Tag  │<──── recipes.tagIds[], packagingRecipes.tagIds[], products.tagIds[]
+└──────┘      (M:N via array - no junction table)
+
+┌──────────┐      ┌─────────┐      ┌───────────┐
+│ Customer │<─────│  Order  │─────>│ OrderItem │
+└──────────┘      └─────────┘      └───────────┘
+                       │
+                       └─── menuProductId ───> MenuProduct (optional)
 ```
 
 ---
@@ -490,60 +456,60 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 ### Cost Calculation Flow
 ```
 Step 1: Base Cost (Ingredient/PackagingMaterial)
-    price_excl_shipping + shipping_cost = total_cost
-    normalize(volume_purchased, unit_type) = base_volume
-    → cost_per_base_unit = total_cost / base_volume
+    priceExclShipping + shippingCost = totalCost
+    normalize(volumePurchased, unitType) = baseVolume
+    → costPerBaseUnit = totalCost / baseVolume
     Example: 25,000 IDR ÷ 1000g = 25 IDR/g
 
 Step 2: Component Line Cost (ComponentIngredient/PackagingComponentMaterial)
-    quantity × ingredient.cost_per_base_unit = line_cost
+    quantity × ingredient.costPerBaseUnit = lineCost
     Example: 500g × 25 IDR/g = 12,500 IDR
 
 Step 3: Component Total Cost (RecipeComponent)
-    IF linked_recipe_version_id EXISTS:
-        → get_recipe_version_cost(linked_recipe_version_id)
+    IF linkedRecipeVersionId EXISTS:
+        → get linked recipe version cost
     ELSE:
-        → sum(all component_ingredient line costs)
+        → sum(all componentIngredient line costs)
 
 Step 4: Recipe Version Total Cost
-    sum(all recipe_component costs) = total_cost
-    IF estimated_yield_grams:
-        → cost_per_gram = total_cost / estimated_yield_grams
+    sum(all recipeComponent costs) = totalCost
+    IF estimatedYieldGrams:
+        → costPerGram = totalCost / estimatedYieldGrams
     Example: 50,000 IDR ÷ 1000g = 50 IDR/g
 
 Step 5: Product COGS Breakdown
-    total_grams = num_pieces × grams_per_piece
-    recipe_cogs = recipe_cost_per_gram × total_grams
-    packaging_cogs = sum(all packaging_component_material costs)
-    total_cogs = recipe_cogs + packaging_cogs
-    contribution_margin = retail_price_idr - total_cogs
-    margin_pct = (contribution_margin / retail_price_idr) × 100
+    totalGrams = numPieces × gramsPerPiece
+    recipeCogs = recipeCostPerGram × totalGrams
+    packagingCogs = sum(all packagingComponentMaterial costs)
+    totalCogs = recipeCogs + packagingCogs
+    contributionMargin = retailPriceIdr - totalCogs
+    marginPct = (contributionMargin / retailPriceIdr) × 100
 ```
 
 ### Version Copy Flow
 ```
 User Action: "Copy Version 3 to new version"
     ↓
-1. Get source version (RecipeVersion id=3)
+1. Get source version (recipeVersionId)
     ↓
-2. Calculate next version_number = max(version_number) + 1
+2. Calculate next versionNumber = max(versionNumber) + 1
     ↓
 3. Create new RecipeVersion
-    - version_number = 5
-    - copied_from_version_id = 3
+    - versionNumber = new
+    - copiedFromVersionId = source
     - Copy all scalar fields from source
     ↓
 4. Deep copy all RecipeComponents
     For each component in source:
         - Create new RecipeComponent
-        - Copy component_name, sort_order, linked_recipe_version_id
+        - Copy componentName, sortOrder, linkedRecipeVersionId
         ↓
         5. Deep copy all ComponentIngredients
             For each ingredient in component:
                 - Create new ComponentIngredient
-                - Copy ingredient_id, quantity, unit, sort_order
+                - Copy ingredientId, quantity, unit, sortOrder
     ↓
-6. Commit transaction
+6. Return new version ID
     ↓
 Result: Fully independent version that can be edited without affecting source
 ```
@@ -553,43 +519,73 @@ Result: Fully independent version that can be edited without affecting source
 ## Database Conventions
 
 ### Naming
-- Tables: `snake_case`, singular (`recipe`, `recipe_version`)
-- Columns: `snake_case`
-- Foreign keys: `{referenced_table}_id`
-- Junction tables: `{table1}_{table2}` alphabetically (`recipe_tag`)
+- Tables: `camelCase`, plural (`recipes`, `recipeVersions`)
+- Fields: `camelCase` (`recipeId`, `versionNumber`)
+- Foreign keys: `{referenced_table_singular}Id` (`recipeId`, `customerId`)
+- No junction tables: M2M via `tagIds: v.array(v.id("tags"))`
+
+### Convex ID Types
+```typescript
+// All IDs are typed strings
+v.id("recipes")        // Id<"recipes">
+v.id("tags")           // Id<"tags">
+v.array(v.id("tags"))  // Id<"tags">[]
+```
 
 ### Unit Types
 - Ingredients: `g`, `kg`, `ml`, `l`, `pcs`
 - Packaging Materials: `pcs`, `m`, `cm`, `sheets`
 
 ### Patterns
-```python
-# Always use created_at/updated_at
-created_at: Mapped[datetime] = mapped_column(default=func.now())
-updated_at: Mapped[datetime] = mapped_column(default=func.now(), onupdate=func.now())
+```typescript
+// Optional fields
+brand: v.optional(v.string()),
 
-# Soft deletes not used — versions are immutable, recipes can be hard deleted with cascade
+// Timestamps (Convex provides _creationTime automatically)
+// For custom timestamps, use v.number() (Unix ms)
+orderDate: v.number(),
 
-# Indexes on foreign keys and frequently queried columns
-Index("idx_recipe_version_recipe", "recipe_id")
+// Indexes for fast queries
+.index("by_name", ["name"])
+.index("by_recipe_version", ["recipeId", "versionNumber"])
+
+// Denormalized fields for display (avoid joins)
+customerName: v.string(),  // Copied from customer at order creation
 ```
 
 ### Transactions
-```python
-# Wrap multi-step operations
-def create_recipe_with_components(db: Session, data: RecipeCreate) -> Recipe:
-    try:
-        recipe = Recipe(name=data.name)
-        db.add(recipe)
-        db.flush()  # Get ID before adding version
+```typescript
+// Mutations are automatically transactional
+export const createRecipeWithVersion = mutation({
+  args: { ... },
+  handler: async (ctx, args) => {
+    // All operations in one transaction
+    const recipeId = await ctx.db.insert("recipes", { ... });
+    const versionId = await ctx.db.insert("recipeVersions", {
+      recipeId,
+      ...
+    });
+    return { recipeId, versionId };
+    // If any operation fails, entire mutation rolls back
+  },
+});
+```
 
-        version = RecipeVersion(recipe_id=recipe.id, ...)
-        db.add(version)
+### Querying Patterns
+```typescript
+// Get by ID
+const recipe = await ctx.db.get(args.id);
 
-        db.commit()
-        db.refresh(recipe)
-        return recipe
-    except Exception:
-        db.rollback()
-        raise
+// Query with index
+const versions = await ctx.db
+  .query("recipeVersions")
+  .withIndex("by_recipe", (q) => q.eq("recipeId", args.recipeId))
+  .collect();
+
+// Filter and sort
+const activeOrders = await ctx.db
+  .query("orders")
+  .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+  .order("desc")
+  .take(10);
 ```

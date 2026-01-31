@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'convex/_generated']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,13 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+  },
+  // Disable react-refresh for shadcn/ui components that export variants
+  {
+    files: ['src/components/ui/badge.tsx', 'src/components/ui/button.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])
