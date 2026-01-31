@@ -79,6 +79,12 @@ export const create = mutation({
     deliveryAddress: v.optional(v.string()),
     contactWa: v.optional(v.string()),
     contactIg: v.optional(v.string()),
+    // Discount
+    orderLevelDiscount: v.optional(v.number()),
+    orderLevelDiscountType: v.optional(v.union(
+      v.literal("amount"),
+      v.literal("percentage")
+    )),
     // Items
     items: v.array(orderItemInput),
     createdBy: v.optional(v.string()),
@@ -130,6 +136,18 @@ export const create = mutation({
       return { ...item, discountAmount: discount, lineTotal, lineCost, lineMargin };
     });
 
+    // Calculate order-level discount
+    let discountAmount = 0;
+    if (args.orderLevelDiscount !== undefined && args.orderLevelDiscountType !== undefined) {
+      if (args.orderLevelDiscountType === "percentage") {
+        discountAmount = totalAmount * (args.orderLevelDiscount / 100);
+      } else {
+        discountAmount = args.orderLevelDiscount;
+      }
+    }
+
+    const finalTotal = totalAmount - discountAmount;
+
     // Create order
     const orderId = await ctx.db.insert("orders", {
       orderNumber,
@@ -143,6 +161,9 @@ export const create = mutation({
       totalAmount,
       totalCost,
       totalMargin: totalAmount - totalCost,
+      orderLevelDiscount: args.orderLevelDiscount,
+      orderLevelDiscountType: args.orderLevelDiscountType,
+      finalTotal,
       channel: args.channel,
       soldBy: args.soldBy,
       deliveryType: args.deliveryType ?? "Pickup",
@@ -693,5 +714,42 @@ export const completeBalls = mutation({
       ballsUsed,
       overflow,
     };
+  },
+});
+
+/**
+ * Update order-level discount.
+ * PRD-5: Order System V2 - Wave 1.
+ */
+export const updateOrderDiscount = mutation({
+  args: {
+    orderId: v.id("orders"),
+    discount: v.number(),
+    discountType: v.union(v.literal("amount"), v.literal("percentage")),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Check order isn't in terminal state
+    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
+    if (terminalStatuses.includes(order.status)) {
+      throw new Error("Cannot modify discount on completed/cancelled order");
+    }
+
+    // Recalculate total (use original totalAmount, not finalTotal)
+    const discountAmount = args.discountType === "percentage"
+      ? order.totalAmount * (args.discount / 100)
+      : args.discount;
+
+    await ctx.db.patch(args.orderId, {
+      orderLevelDiscount: args.discount,
+      orderLevelDiscountType: args.discountType,
+      finalTotal: order.totalAmount - discountAmount,
+    });
+
+    return args.orderId;
   },
 });

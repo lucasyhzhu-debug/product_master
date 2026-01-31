@@ -97,6 +97,46 @@ export function useConvexMenuProductByCode(code: string | undefined) {
   };
 }
 
+/**
+ * List only fixed menu products (isFixed === true).
+ * PRD-5: For POS order form.
+ * Returns raw Convex data with camelCase fields for POS components.
+ */
+export interface FixedProduct {
+  _id: string;
+  code: string;
+  name: string;
+  grams: number;
+  defaultPrice: number;
+  unitCost?: number;
+  productionType?: string;
+  productionUnits?: number;
+}
+
+export function useConvexFixedProducts() {
+  const allProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
+  if (allProducts === undefined) return { data: undefined, isLoading: true };
+
+  // Filter to only fixed products and transform to POS-compatible format
+  const fixedProducts = allProducts
+    .filter(p => p.isFixed === true)
+    .map((p): FixedProduct => ({
+      _id: p._id as unknown as string,
+      code: p.code,
+      name: p.name,
+      grams: p.grams ?? 0,
+      defaultPrice: p.defaultPrice,
+      unitCost: p.unitCost,
+      productionType: p.productionType,
+      productionUnits: p.productionUnits,
+    }));
+
+  return {
+    data: fixedProducts,
+    isLoading: false,
+  };
+}
+
 // ============================================
 // Mutation Hooks
 // ============================================

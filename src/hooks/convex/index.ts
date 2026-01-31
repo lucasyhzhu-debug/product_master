@@ -99,6 +99,23 @@ export {
   type ProductCreateInput,
 } from "./useProducts";
 
+// Menu Products
+export {
+  // Query hooks
+  useConvexMenuProducts,
+  useConvexMenuProduct,
+  useConvexMenuProductByCode,
+  useConvexFixedProducts,
+  // Mutation hooks
+  useConvexCreateMenuProduct,
+  useConvexUpdateMenuProduct,
+  useConvexDeleteMenuProduct,
+  // Types
+  type MenuProductCreateInput,
+  type MenuProductUpdateInput,
+  type FixedProduct,
+} from "./useMenuProducts";
+
 // Orders
 export {
   // Query hooks
@@ -122,6 +139,7 @@ export {
   useConvexAddOrderItem,
   useConvexRemoveOrderItem,
   useConvexUpdateOrderItemQuantity,
+  useConvexUpdateOrderDiscount,
   // Types
   type OrderItemInput,
   type OrderCreateInput,
