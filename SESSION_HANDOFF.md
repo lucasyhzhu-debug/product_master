@@ -104,6 +104,7 @@ All 4 PRDs have been implemented:
 - None
 
 ## Next Steps
+- [x] Document changes in CHANGELOG.md
 - Merge `feature/order-form-pos` to main
 - Order System V2 complete
 - Consider: Visual Feedback Overlay (separate planning session)
