@@ -261,7 +261,7 @@ export interface MenuProduct {
   created_at: string;
 }
 
-export interface MenuProductSummary extends MenuProduct { }
+export type MenuProductSummary = MenuProduct;
 
 // Product types
 export interface ProductCOGS {

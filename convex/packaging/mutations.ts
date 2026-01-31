@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { calculateLineCost } from "../lib/costCalculator";
@@ -31,12 +31,12 @@ const packagingVersionInput = v.object({
 // ============================================
 
 async function calculateVersionCost(
-  ctx: any,
+  ctx: MutationCtx,
   versionId: Id<"packagingVersions">
 ): Promise<number | null> {
   const components = await ctx.db
     .query("packagingComponents")
-    .withIndex("by_version", (q: any) => q.eq("packagingVersionId", versionId))
+    .withIndex("by_version", (q) => q.eq("packagingVersionId", versionId))
     .collect();
 
   let totalCost = 0;
@@ -45,7 +45,7 @@ async function calculateVersionCost(
   for (const comp of components) {
     const materials = await ctx.db
       .query("packagingComponentMaterials")
-      .withIndex("by_component", (q: any) =>
+      .withIndex("by_component", (q) =>
         q.eq("packagingComponentId", comp._id)
       )
       .collect();

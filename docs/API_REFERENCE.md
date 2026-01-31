@@ -1,212 +1,372 @@
-# API Reference
+# Convex Functions Reference
 
-> **Purpose:** Complete API endpoint documentation for Malo Recipe Master.
-> **When to read:** Before implementing or modifying API endpoints.
+> **Purpose:** Complete Convex queries and mutations documentation for Malo Recipe Master.
+> **When to read:** Before implementing or modifying backend functions.
 
 ## Table of Contents
 - [Overview](#overview)
-- [Endpoints (55 total)](#endpoints-55-total)
-- [Response Format](#response-format)
+- [Queries (Read Operations)](#queries-read-operations)
+- [Mutations (Write Operations)](#mutations-write-operations)
+- [Response Patterns](#response-patterns)
 - [Error Handling](#error-handling)
 
 ---
 
 ## Overview
 
-The API is built with FastAPI and follows RESTful conventions. All endpoints are prefixed with `/api/`.
+The backend is built with Convex, a real-time serverless database. All functions are defined in the `convex/` directory and are automatically available to the frontend via the generated `api` object.
 
-**Base URL:**
-- Development: `http://localhost:8000/api`
-- Production: `https://your-app.vercel.app/api`
+**Function Types:**
+- **Queries** — Read-only, reactive (auto-update when data changes)
+- **Mutations** — Write operations, transactional
+
+**Frontend Usage:**
+```typescript
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+// Query (reactive)
+const recipes = useQuery(api.recipes.list);
+
+// Mutation
+const createRecipe = useMutation(api.recipes.create);
+await createRecipe({ name: "New Recipe", ... });
+```
 
 ---
 
-## Endpoints (55 total)
+## Queries (Read Operations)
 
 ### Dashboard
-```
-GET    /api/dashboard/stats              # Dashboard statistics
+```typescript
+// convex/dashboard/queries.ts
+dashboard.getStats()                    // Dashboard statistics
 ```
 
 ### Ingredients
-```
-GET    /api/ingredients                  # List all with costs
-GET    /api/ingredients/{id}             # Get single
-POST   /api/ingredients                  # Create
-PATCH  /api/ingredients/{id}             # Update
-DELETE /api/ingredients/{id}             # Delete
+```typescript
+// convex/ingredients/queries.ts
+ingredients.list()                      // List all with costs
+ingredients.getById({ id })             // Get single ingredient
 ```
 
 ### Packaging Materials
-```
-GET    /api/packaging-materials          # List all with costs
-GET    /api/packaging-materials/{id}     # Get single
-POST   /api/packaging-materials          # Create
-PATCH  /api/packaging-materials/{id}     # Update
-DELETE /api/packaging-materials/{id}     # Delete
+```typescript
+// convex/materials/queries.ts
+materials.list()                        // List all with costs
+materials.getById({ id })               // Get single material
 ```
 
 ### Tags
+```typescript
+// convex/tags/queries.ts
+tags.list()                             // List all tags
 ```
-GET    /api/tags                         # List all
-POST   /api/tags                         # Create
-DELETE /api/tags/{id}                    # Delete
+
+### Menu Products
+```typescript
+// convex/menuProducts/queries.ts
+menuProducts.list()                     // List all menu products
+menuProducts.listActive()               // List active menu products only
+menuProducts.getByCode({ code })        // Get by product code
 ```
 
 ### Recipes
-```
-GET    /api/recipes                      # List summaries
-GET    /api/recipes/reusable             # List reusable components
-GET    /api/recipes/{id}                 # Get with all versions
-GET    /api/recipes/{id}/versions/{v}    # Get specific version
-POST   /api/recipes                      # Create + first version
-POST   /api/recipes/{id}/versions        # Create new version
-POST   /api/recipes/{id}/versions/copy   # Copy from existing version
-PUT    /api/recipes/{id}/tags            # Update tags
-DELETE /api/recipes/{id}                 # Delete (blocked if used)
+```typescript
+// convex/recipes/queries.ts
+recipes.list()                          // List all with latest version info
+recipes.listReusable()                  // List reusable components only
+recipes.getById({ id })                 // Get recipe with all versions
+recipes.getVersion({ recipeId, versionNumber }) // Get specific version with components
 ```
 
 ### Packaging
-```
-GET    /api/packaging                    # List summaries
-GET    /api/packaging/{id}               # Get with all versions
-GET    /api/packaging/{id}/versions/{v}  # Get specific version
-POST   /api/packaging                    # Create + first version
-POST   /api/packaging/{id}/versions      # Create new version
-POST   /api/packaging/{id}/versions/copy # Copy from existing version
-PUT    /api/packaging/{id}/tags          # Update tags
-DELETE /api/packaging/{id}               # Delete (blocked if used)
+```typescript
+// convex/packaging/queries.ts
+packaging.list()                        // List all with latest version info
+packaging.getById({ id })               // Get packaging with all versions
+packaging.getVersion({ packagingRecipeId, versionNumber }) // Get specific version
 ```
 
 ### Products
-```
-GET    /api/products                     # List with COGS summaries
-GET    /api/products/{id}                # Get with all versions
-GET    /api/products/{id}/versions/{v}   # Get version with COGS breakdown
-POST   /api/products                     # Create + first version
-POST   /api/products/{id}/versions       # Create new version
-POST   /api/products/{id}/versions/copy  # Copy from existing version
-DELETE /api/products/{id}                # Delete
+```typescript
+// convex/products/queries.ts
+products.list()                         // List with COGS summaries
+products.getById({ id })                // Get product with all versions
+products.getVersion({ productId, versionNumber }) // Get version with COGS breakdown
 ```
 
-### Customers (Order Management)
-```
-GET    /api/customers                    # List with ?q= search
-GET    /api/customers/{id}               # Get customer
-POST   /api/customers                    # Create customer
-PATCH  /api/customers/{id}               # Update customer
-```
-
-### Orders (Order Management)
-```
-GET    /api/orders                       # List with filters (status, channel, due_date)
-GET    /api/orders/{id}                  # Get detail with WhatsApp text
-GET    /api/orders/kitchen               # Kitchen view orders (production statuses only)
-GET    /api/orders/production/report     # Production report grouped by date
-POST   /api/orders                       # Create order with line items
-PATCH  /api/orders/{id}/status           # Update status
-PATCH  /api/orders/{id}/payment          # Update payment status/method
-PATCH  /api/orders/{id}/shipping         # Update shipping info
-DELETE /api/orders/{id}                  # Delete (Draft only)
+### Customers
+```typescript
+// convex/customers/queries.ts
+customers.list()                        // List all customers
+customers.search({ query })             // Search by name/phone
+customers.getById({ id })               // Get single customer
 ```
 
-### Order Autocomplete Suggestions
-```
-GET    /api/orders/products/suggestions  # Distinct products from order history
-GET    /api/orders/sellers/suggestions   # Distinct sold_by from order history
-```
-
-### CSV Export (Order Management)
-```
-GET    /api/orders/export/orders         # Export all orders as CSV
-GET    /api/orders/export/order-items    # Export all order items as CSV
+### Orders
+```typescript
+// convex/orders/queries.ts
+orders.list({ status?, channel?, dueDateFrom?, dueDateTo? }) // List with filters
+orders.getById({ id })                  // Get detail with items and WhatsApp text
+orders.getKitchenOrders({ dueDate? })   // Kitchen view (production statuses only)
+orders.getProductionReport({ dateFrom, dateTo }) // Production report grouped by date
+orders.getProductSuggestions()          // Distinct products from history
+orders.getSellerSuggestions()           // Distinct sold_by from history
 ```
 
 ---
 
-## Response Format
+## Mutations (Write Operations)
+
+### Ingredients
+```typescript
+// convex/ingredients/mutations.ts
+ingredients.create({ name, brand?, procurementSource?, unitType, volumePurchased, priceExclShipping, shippingCost, createdBy })
+ingredients.update({ id, name?, brand?, ... })
+ingredients.remove({ id })
+```
+
+### Packaging Materials
+```typescript
+// convex/materials/mutations.ts
+materials.create({ name, brand?, procurementSource?, unitType, volumePurchased, priceExclShipping, shippingCost, createdBy })
+materials.update({ id, name?, brand?, ... })
+materials.remove({ id })
+```
+
+### Tags
+```typescript
+// convex/tags/mutations.ts
+tags.create({ name })
+tags.remove({ id })
+tags.seedDefaults()                     // Seed default tags
+```
+
+### Menu Products
+```typescript
+// convex/menuProducts/mutations.ts
+menuProducts.create({ code, name, grams, defaultPrice, productionType, productionUnits, isActive })
+menuProducts.update({ id, code?, name?, ... })
+menuProducts.remove({ id })
+menuProducts.seedDefaults()             // Seed default menu products
+```
+
+### Recipes
+```typescript
+// convex/recipes/mutations.ts
+recipes.create({ name, tagIds, createdBy, versionName, description?, estimatedYieldGrams?, isSingleComponent, isReusableComponent, components })
+  // components: [{ componentName, sortOrder, linkedRecipeVersionId?, ingredients: [{ ingredientId, quantity, unit, sortOrder }] }]
+
+recipes.createVersion({ recipeId, versionName, description?, estimatedYieldGrams?, isSingleComponent, isReusableComponent, components, createdBy })
+
+recipes.copyVersion({ recipeId, copyFromVersionId, versionName, description?, createdBy })
+
+recipes.updateTags({ id, tagIds })
+
+recipes.remove({ id })                  // Fails if used in products
+```
+
+### Packaging
+```typescript
+// convex/packaging/mutations.ts
+packaging.create({ name, tagIds, createdBy, versionName, description?, components })
+  // components: [{ componentName, sortOrder, materials: [{ packagingMaterialId, quantity, unit, sortOrder }] }]
+
+packaging.createVersion({ packagingRecipeId, versionName, description?, components, createdBy })
+
+packaging.copyVersion({ packagingRecipeId, copyFromVersionId, versionName, description?, createdBy })
+
+packaging.updateTags({ id, tagIds })
+
+packaging.remove({ id })                // Fails if used in products
+```
+
+### Products
+```typescript
+// convex/products/mutations.ts
+products.create({ name, tagIds, createdBy, versionName, description?, recipeVersionId, packagingVersionId, retailPriceIdr, numPieces, gramsPerPiece })
+
+products.createVersion({ productId, versionName, description?, recipeVersionId, packagingVersionId, retailPriceIdr, numPieces, gramsPerPiece, createdBy })
+
+products.copyVersion({ productId, copyFromVersionId, versionName, description?, createdBy })
+
+products.updateTags({ id, tagIds })
+
+products.remove({ id })
+```
+
+### Customers
+```typescript
+// convex/customers/mutations.ts
+customers.create({ name, phone?, source?, notes?, createdBy })
+customers.update({ id, name?, phone?, source?, notes? })
+customers.remove({ id })                // Fails if has orders
+```
+
+### Orders
+```typescript
+// convex/orders/mutations.ts
+orders.create({
+  customerId,
+  dueDate?,
+  channel?,
+  soldBy?,
+  deliveryType,
+  pickupLocation?,
+  deliveryAddress?,
+  contactWa?,
+  contactIg?,
+  notes?,
+  items: [{ productName, productVariant?, quantity, unitPrice, unitCost, discountAmount, menuProductId? }],
+  createdBy
+})
+
+orders.updateStatus({ id, status, awaitingPaymentSince?, cancellationReason? })
+
+orders.updatePayment({ id, paymentStatus, paymentMethod? })
+
+orders.updateShipping({ id, shippingAgency, shippingNumber })
+
+orders.remove({ id })                   // Only Draft status allowed
+```
+
+---
+
+## Response Patterns
 
 ### List Endpoints (Summaries)
-```python
-class RecipeSummary(BaseModel):
-    id: int
-    name: str
-    tags: list[str]
-    latest_version: int
-    latest_version_name: str
-    total_cost: float | None
-    cost_per_gram: float | None
-    created_at: datetime
+```typescript
+// Recipe list item
+interface RecipeSummary {
+  _id: Id<"recipes">;
+  _creationTime: number;
+  name: string;
+  tagIds: Id<"tags">[];
+  tagNames: string[];              // Resolved tag names
+  latestVersion: number;
+  latestVersionName: string;
+  totalCost: number | null;
+  costPerGram: number | null;
+}
 ```
 
-### Detail Endpoints (Full Objects)
-```python
-class RecipeVersionDetail(BaseModel):
-    id: int
-    recipe_id: int
-    version_number: int
-    version_name: str
-    description: str | None
-    estimated_yield_grams: float | None
-    is_single_component: bool
-    is_reusable_component: bool
-    components: list[RecipeComponentDetail]
-    total_cost: float | None
-    cost_per_gram: float | None
+### Detail Endpoints
+```typescript
+// Recipe version detail
+interface RecipeVersionDetail {
+  _id: Id<"recipeVersions">;
+  recipeId: Id<"recipes">;
+  versionNumber: number;
+  versionName: string;
+  description: string | null;
+  estimatedYieldGrams: number | null;
+  isSingleComponent: boolean;
+  isReusableComponent: boolean;
+  components: RecipeComponentDetail[];
+  totalCost: number | null;
+  costPerGram: number | null;
+}
+
+interface RecipeComponentDetail {
+  _id: Id<"recipeComponents">;
+  componentName: string;
+  sortOrder: number;
+  linkedRecipeVersionId: Id<"recipeVersions"> | null;
+  linkedRecipeName: string | null;    // If linked
+  ingredients: ComponentIngredientDetail[];
+  subtotalCost: number | null;
+}
+
+interface ComponentIngredientDetail {
+  _id: Id<"componentIngredients">;
+  ingredientId: Id<"ingredients">;
+  ingredientName: string;
+  quantity: number;
+  unit: string;
+  sortOrder: number;
+  lineCost: number | null;
+}
 ```
 
-### Order Detail Response
-```python
-class OrderDetail(BaseModel):
-    id: int
-    order_number: str
-    customer: CustomerResponse
-    status: str
-    awaiting_payment_since: datetime | None
-    payment_status: str
-    payment_method: str | None
-    order_date: datetime
-    due_date: datetime | None
-    total_amount: float
-    total_cost: float
-    total_margin: float
-    channel: str | None
-    sold_by: str | None
-    delivery_type: str
-    items: list[OrderItemResponse]
-    whatsapp_text: str              # Pre-formatted receipt
-    payment_request_text: str       # Payment reminder template
-    production_started_text: str    # Production notification template
-    delivery_complete_text: str     # Delivery confirmation template
+### Order Detail
+```typescript
+interface OrderDetail {
+  _id: Id<"orders">;
+  orderNumber: string;
+  customer: CustomerDetail;
+  status: string;
+  awaitingPaymentSince: number | null;
+  paymentStatus: string;
+  paymentMethod: string | null;
+  orderDate: number;
+  dueDate: number | null;
+  totalAmount: number;
+  totalCost: number;
+  totalMargin: number;
+  channel: string | null;
+  soldBy: string | null;
+  deliveryType: string;
+  items: OrderItemDetail[];
+  // WhatsApp templates
+  whatsappText: string;
+  paymentRequestText: string;
+  productionStartedText: string;
+  deliveryCompleteText: string;
+}
 ```
 
 ---
 
 ## Error Handling
 
-```python
-from fastapi import HTTPException
+### Error Throwing Pattern
+```typescript
+// In mutations - throw errors for validation failures
+export const remove = mutation({
+  args: { id: v.id("recipes") },
+  handler: async (ctx, args) => {
+    // Check if recipe is used in products
+    const products = await ctx.db
+      .query("productVersions")
+      .withIndex("by_recipe_version")
+      .collect();
 
-# 404 - Not Found
-if not recipe:
-    raise HTTPException(status_code=404, detail="Recipe not found")
+    const blockingProducts = products.filter(
+      p => p.recipeVersionId === args.id
+    );
 
-# 400 - Bad Request (business logic violation)
-if recipe_in_use:
-    raise HTTPException(
-        status_code=400,
-        detail=f"Cannot delete recipe. Used in products: {product_names}"
-    )
+    if (blockingProducts.length > 0) {
+      throw new Error(
+        `Cannot delete recipe. Used in products: ${blockingProducts.map(p => p.productName).join(", ")}`
+      );
+    }
 
-# 422 - Validation Error (automatic from Pydantic)
-# Returned when request body doesn't match schema
+    await ctx.db.delete(args.id);
+  },
+});
 ```
 
-### Common Error Responses
+### Frontend Error Handling
+```typescript
+const removeRecipe = useMutation(api.recipes.remove);
 
-| Status | Meaning | Example |
-|--------|---------|---------|
-| 400 | Bad Request | Business rule violation, invalid state transition |
-| 404 | Not Found | Entity doesn't exist |
-| 422 | Validation Error | Request body fails Pydantic validation |
-| 500 | Server Error | Unexpected exception |
+try {
+  await removeRecipe({ id: recipeId });
+  toast.success("Recipe deleted");
+} catch (error) {
+  // Error message from mutation
+  toast.error(error.message || "Failed to delete recipe");
+}
+```
+
+### Common Error Cases
+
+| Scenario | Error Message |
+|----------|---------------|
+| Recipe used in products | "Cannot delete recipe. Used in products: [names]" |
+| Customer has orders | "Cannot delete customer with existing orders" |
+| Delete non-draft order | "Can only delete orders in Draft status" |
+| Reference not found | "Customer not found" / "Recipe version not found" |
+| Invalid status transition | "Invalid status transition from X to Y" |
+| Missing required field | Convex validator error (automatic) |

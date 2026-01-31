@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 // Types that match the Convex schema
 export interface ConvexPackagingMaterial {
@@ -70,8 +71,8 @@ export function useConvexCreateMaterial() {
         const id = await mutation(data);
         toast.success("Packaging material created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create packaging material"));
         throw error;
       }
     },
@@ -80,8 +81,8 @@ export function useConvexCreateMaterial() {
         const id = await mutation(data);
         toast.success("Packaging material created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create packaging material"));
         throw error;
       }
     },
@@ -100,8 +101,8 @@ export function useConvexUpdateMaterial() {
         const id = await mutation(data);
         toast.success("Packaging material updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update packaging material"));
         throw error;
       }
     },
@@ -110,8 +111,8 @@ export function useConvexUpdateMaterial() {
         const id = await mutation(data);
         toast.success("Packaging material updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update packaging material"));
         throw error;
       }
     },
@@ -130,8 +131,8 @@ export function useConvexDeleteMaterial() {
         await mutation({ id });
         toast.success("Packaging material deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete packaging material"));
         throw error;
       }
     },
@@ -140,8 +141,8 @@ export function useConvexDeleteMaterial() {
         await mutation({ id });
         toast.success("Packaging material deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete packaging material");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete packaging material"));
         throw error;
       }
     },

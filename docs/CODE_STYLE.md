@@ -4,69 +4,239 @@
 > **When to read:** During implementation to ensure consistency.
 
 ## Table of Contents
-- [Python (Backend)](#python-backend)
+- [Convex Backend Patterns](#convex-backend-patterns)
 - [TypeScript (Frontend)](#typescript-frontend)
 - [Frontend Patterns](#frontend-patterns)
 - [Business Logic Examples](#business-logic-examples)
 
 ---
 
-## Python (Backend)
+## Convex Backend Patterns
 
-### Type Hints
-```python
-# Use type hints everywhere
-def get_recipe_cost(recipe_version_id: int, db: Session) -> float:
-    ...
+### Schema Definition
+```typescript
+// convex/schema.ts
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
 
-# Use Optional for nullable types (or | None in Python 3.10+)
-def get_recipe(db: Session, recipe_id: int) -> Recipe | None:
-    return db.query(Recipe).filter(Recipe.id == recipe_id).first()
+export default defineSchema({
+  recipes: defineTable({
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),       // M2M via array
+    createdBy: v.string(),
+  })
+    .index("by_name", ["name"]),          // Index for queries
+});
 ```
 
-### Pydantic Models
-```python
-# Pydantic models for all API I/O
-class RecipeVersionCreate(BaseModel):
-    version_name: str
-    description: str
-    estimated_yield_grams: float | None = None
+### Query Functions
+```typescript
+// convex/recipes/queries.ts
+import { query } from "../_generated/server";
+import { v } from "convex/values";
+
+// List all - no args
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("recipes").collect();
+  },
+});
+
+// Get by ID
+export const getById = query({
+  args: { id: v.id("recipes") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+
+// Query with index
+export const getByRecipe = query({
+  args: { recipeId: v.id("recipes") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("recipeVersions")
+      .withIndex("by_recipe", (q) => q.eq("recipeId", args.recipeId))
+      .collect();
+  },
+});
+
+// Query with filtering and sorting
+export const getActiveOrders = query({
+  args: { status: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    let query = ctx.db.query("orders");
+
+    if (args.status) {
+      query = query.withIndex("by_status", (q) => q.eq("status", args.status));
+    }
+
+    return await query.order("desc").collect();
+  },
+});
 ```
 
-### SQLAlchemy Models
-```python
-class RecipeVersion(Base):
-    __tablename__ = "recipe_version"
+### Mutation Functions
+```typescript
+// convex/recipes/mutations.ts
+import { mutation } from "../_generated/server";
+import { v } from "convex/values";
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id"))
+// Create - returns new ID
+export const create = mutation({
+  args: {
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("recipes", args);
+  },
+});
 
-    # Relationships
-    recipe: Mapped["Recipe"] = relationship(back_populates="versions")
-    components: Mapped[list["RecipeComponent"]] = relationship(back_populates="recipe_version")
+// Update - patch specific fields
+export const update = mutation({
+  args: {
+    id: v.id("recipes"),
+    name: v.optional(v.string()),
+    tagIds: v.optional(v.array(v.id("tags"))),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+
+    // Filter out undefined values
+    const patch = Object.fromEntries(
+      Object.entries(updates).filter(([_, v]) => v !== undefined)
+    );
+
+    await ctx.db.patch(id, patch);
+    return await ctx.db.get(id);
+  },
+});
+
+// Delete - remove by ID
+export const remove = mutation({
+  args: { id: v.id("recipes") },
+  handler: async (ctx, args) => {
+    // Check for dependencies first
+    const versions = await ctx.db
+      .query("recipeVersions")
+      .withIndex("by_recipe", (q) => q.eq("recipeId", args.id))
+      .collect();
+
+    if (versions.length > 0) {
+      throw new Error("Cannot delete recipe with versions");
+    }
+
+    await ctx.db.delete(args.id);
+  },
+});
+
+// Complex mutation with multiple operations (transactional)
+export const createWithVersion = mutation({
+  args: {
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),
+    createdBy: v.string(),
+    versionName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Create recipe
+    const recipeId = await ctx.db.insert("recipes", {
+      name: args.name,
+      tagIds: args.tagIds,
+      createdBy: args.createdBy,
+    });
+
+    // Create first version
+    const versionId = await ctx.db.insert("recipeVersions", {
+      recipeId,
+      versionNumber: 1,
+      versionName: args.versionName,
+      isSingleComponent: false,
+      isReusableComponent: false,
+      createdBy: args.createdBy,
+    });
+
+    return { recipeId, versionId };
+  },
+});
 ```
 
-### CRUD Functions
-```python
-# CRUD functions return models, not dicts
-def get_recipe(db: Session, recipe_id: int) -> Recipe | None:
-    return db.query(Recipe).filter(Recipe.id == recipe_id).first()
+### Validation Patterns
+```typescript
+// Use v.* validators for type safety
+v.string()                    // Required string
+v.optional(v.string())        // Optional string (null not allowed)
+v.union(v.string(), v.null()) // String or null
+v.number()                    // Required number
+v.boolean()                   // Required boolean
+v.id("recipes")               // ID reference to recipes table
+v.array(v.id("tags"))         // Array of tag IDs
+v.object({                    // Nested object
+  name: v.string(),
+  value: v.number(),
+})
 
-# Use joinedload/selectinload to avoid N+1 queries
-def get_recipe_with_components(db: Session, recipe_id: int) -> Recipe | None:
-    return db.query(Recipe)\
-        .options(joinedload(Recipe.versions))\
-        .filter(Recipe.id == recipe_id).first()
+// Custom validation in handler
+export const createOrder = mutation({
+  args: { ... },
+  handler: async (ctx, args) => {
+    // Validate business rules
+    if (args.quantity < 1) {
+      throw new Error("Quantity must be at least 1");
+    }
+
+    // Check references exist
+    const customer = await ctx.db.get(args.customerId);
+    if (!customer) {
+      throw new Error("Customer not found");
+    }
+
+    // Proceed with creation
+    return await ctx.db.insert("orders", args);
+  },
+});
 ```
 
-### Router Dependencies
-```python
-@router.get("/{recipe_id}")
-def read_recipe(recipe_id: int, db: Session = Depends(get_db)):
-    recipe = crud.get_recipe(db, recipe_id)
-    if not recipe:
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    return recipe
+### Helper Functions
+```typescript
+// convex/lib/costCalculator.ts
+// Pure functions for business logic
+
+export function normalizeToBaseUnit(quantity: number, unit: string): number {
+  if (unit === "kg" || unit === "l") return quantity * 1000;
+  if (unit === "m") return quantity * 100;
+  return quantity;
+}
+
+export function getBaseUnit(unit: string): string {
+  if (unit === "kg") return "g";
+  if (unit === "l") return "ml";
+  if (unit === "m") return "cm";
+  return unit;
+}
+
+export function calculateCostPerBaseUnit(
+  priceExclShipping: number,
+  shippingCost: number,
+  volumePurchased: number,
+  unitType: string
+): { costPerBaseUnit: number; baseUnit: string } {
+  const totalCost = priceExclShipping + shippingCost;
+  const baseVolume = normalizeToBaseUnit(volumePurchased, unitType);
+  const baseUnit = getBaseUnit(unitType);
+
+  if (baseVolume <= 0) {
+    return { costPerBaseUnit: 0, baseUnit };
+  }
+
+  return {
+    costPerBaseUnit: totalCost / baseVolume,
+    baseUnit,
+  };
+}
 ```
 
 ---
@@ -75,53 +245,100 @@ def read_recipe(recipe_id: int, db: Session = Depends(get_db)):
 
 ### Interfaces
 ```typescript
-// Interfaces match backend schemas
-interface RecipeVersion {
-  id: number;
-  recipe_id: number;
-  version_number: number;
-  version_name: string;
-  description: string | null;
-  estimated_yield_grams: number | null;
-  created_at: string;
-}
+// Types should match Convex schema
+// Use Doc<"tableName"> from Convex for exact types
 
-// Components have explicit prop types
+import { Doc, Id } from "../convex/_generated/dataModel";
+
+// Convex document type (auto-generated)
+type Recipe = Doc<"recipes">;
+type RecipeVersion = Doc<"recipeVersions">;
+
+// ID types
+type RecipeId = Id<"recipes">;
+type TagId = Id<"tags">;
+
+// Component prop types
 interface RecipeCardProps {
-  recipe: RecipeSummary;
+  recipe: Recipe;
   onClick?: () => void;
 }
 
 export function RecipeCard({ recipe, onClick }: RecipeCardProps) {
-  ...
+  // ...
 }
 ```
 
-### React Query
+### Convex React Hooks
 ```typescript
-// Use React Query for all API calls
-const { data, isLoading } = useQuery({
-  queryKey: ['recipe', recipeId],
-  queryFn: () => api.getRecipe(recipeId),
-});
+// Reading data (reactive - auto-updates)
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
-// Mutations with cache invalidation
-const mutation = useMutation({
-  mutationFn: api.createRecipeVersion,
-  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['recipe', recipeId] }),
-});
-```
+function RecipeList() {
+  const recipes = useQuery(api.recipes.list);
 
-### Components
-```typescript
-// Components are functional with explicit prop types
-interface RecipeCardProps {
-  recipe: RecipeSummary;
-  onClick?: () => void;
+  // Handle loading state
+  if (recipes === undefined) {
+    return <LoadingState />;
+  }
+
+  return recipes.map(r => <RecipeCard key={r._id} recipe={r} />);
 }
 
-export function RecipeCard({ recipe, onClick }: RecipeCardProps) {
-  ...
+// Reading with arguments
+function RecipeDetail({ recipeId }: { recipeId: Id<"recipes"> }) {
+  const recipe = useQuery(api.recipes.getById, { id: recipeId });
+  const versions = useQuery(api.recipes.getVersions, { recipeId });
+
+  if (recipe === undefined || versions === undefined) {
+    return <LoadingState />;
+  }
+
+  // ...
+}
+
+// Conditional queries
+function ConditionalQuery({ id }: { id?: Id<"recipes"> }) {
+  // Pass "skip" to disable query when id is undefined
+  const recipe = useQuery(
+    api.recipes.getById,
+    id ? { id } : "skip"
+  );
+}
+```
+
+### Mutations
+```typescript
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+function CreateRecipeForm() {
+  const createRecipe = useMutation(api.recipes.create);
+  const [name, setName] = useState("");
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const recipeId = await createRecipe({
+        name,
+        tagIds: [],
+        createdBy: "admin",
+      });
+
+      toast.success("Recipe created!");
+      navigate(`/recipes/${recipeId}`);
+    } catch (error) {
+      toast.error("Failed to create recipe");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* ... */}
+    </form>
+  );
 }
 ```
 
@@ -134,17 +351,24 @@ export function RecipeCard({ recipe, onClick }: RecipeCardProps) {
 // Pages handle routing params and data fetching
 export function RecipeEditor() {
   const { id } = useParams<{ id: string }>();
-  const isNew = id === 'new';
+  const isNew = id === "new";
 
-  const { data: recipe, isLoading } = useRecipe(
-    isNew ? undefined : Number(id)
+  // Convex ID from URL param
+  const recipeId = isNew ? undefined : (id as Id<"recipes">);
+
+  const recipe = useQuery(
+    api.recipes.getById,
+    recipeId ? { id: recipeId } : "skip"
   );
 
-  if (!isNew && isLoading) return <LoadingState />;
+  // Loading state
+  if (!isNew && recipe === undefined) {
+    return <LoadingState />;
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader title={isNew ? 'New Recipe' : recipe?.name || 'Recipe'} />
+      <PageHeader title={isNew ? "New Recipe" : recipe?.name || "Recipe"} />
       {/* Editor content */}
     </div>
   );
@@ -156,74 +380,57 @@ export function RecipeEditor() {
 components/
 ├── ui/                    # shadcn primitives (Button, Input, Dialog, etc.)
 ├── layout/
-│   ├── Header.tsx         # Top navigation with title
+│   ├── Header.tsx         # Top navigation
 │   ├── Layout.tsx         # Outlet wrapper
 │   └── PageHeader.tsx     # Page title + back button
 ├── shared/
-│   ├── Carousel.tsx       # Horizontal scrolling with chevrons (300px scroll)
+│   ├── Carousel.tsx       # Horizontal scrolling (300px scroll)
 │   ├── VersionNavigator.tsx    # ← Version X → navigation
 │   ├── CostTooltip.tsx    # (i) icon with cost info
 │   ├── ConfirmDialog.tsx  # Delete warnings
-│   └── LoadingState.tsx   # Skeleton cards
+│   ├── LoadingState.tsx   # Skeleton cards
+│   └── EmptyState.tsx     # Empty list placeholder
 ├── recipes/
 │   └── RecipeCard.tsx     # Recipe summary card
 ├── packaging/
 │   └── PackagingCard.tsx  # Packaging summary card
-└── products/
-    └── ProductCard.tsx    # Product summary with COGS
+├── products/
+│   └── ProductCard.tsx    # Product summary with COGS
+└── orders/
+    ├── OrderHeader.tsx
+    ├── OrderStatusPanel.tsx
+    └── ...
 ```
 
 ### State Management
 ```typescript
-// Server state via React Query
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,  // 30 seconds
-      retry: 1,
-    },
-  },
-});
+// Server state via Convex (real-time, no cache invalidation needed)
+const recipes = useQuery(api.recipes.list);
 
 // Local UI state via useState
 const [currentVersionNumber, setCurrentVersionNumber] = useState<number | null>(null);
 const [components, setComponents] = useState<ComponentDraft[]>([]);
-```
+const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-### React Query Hooks Pattern
-```typescript
-// Query key factory
-const recipeKeys = {
-  all: ['recipes'] as const,
-  lists: () => [...recipeKeys.all, 'list'] as const,
-  list: () => [...recipeKeys.lists()] as const,
-  details: () => [...recipeKeys.all, 'detail'] as const,
-  detail: (id: number) => [...recipeKeys.details(), id] as const,
-  version: (recipeId: number, versionNumber: number) =>
-    [...recipeKeys.detail(recipeId), 'version', versionNumber] as const,
+// Form state pattern
+interface FormState {
+  name: string;
+  description: string;
+  tagIds: Id<"tags">[];
+}
+
+const [form, setForm] = useState<FormState>({
+  name: "",
+  description: "",
+  tagIds: [],
+});
+
+const updateField = <K extends keyof FormState>(
+  field: K,
+  value: FormState[K]
+) => {
+  setForm(prev => ({ ...prev, [field]: value }));
 };
-
-// Query hook with enabled flag
-export function useRecipeVersion(recipeId: number | undefined, versionNumber: number | undefined) {
-  return useQuery({
-    queryKey: recipeKeys.version(recipeId!, versionNumber!),
-    queryFn: () => recipeApi.getVersion(recipeId!, versionNumber!),
-    enabled: recipeId !== undefined && versionNumber !== undefined,
-  });
-}
-
-// Mutation hook with invalidation
-export function useCreateRecipeVersion() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ recipeId, version }: { recipeId: number; version: RecipeVersionCreate }) =>
-      recipeApi.createVersion(recipeId, version),
-    onSuccess: (_, { recipeId }) => {
-      queryClient.invalidateQueries({ queryKey: recipeKeys.detail(recipeId) });
-      queryClient.invalidateQueries({ queryKey: recipeKeys.lists() });
-    },
-  });
-}
 ```
 
 ### Form Handling
@@ -231,27 +438,46 @@ export function useCreateRecipeVersion() {
 // Use controlled components
 const [components, setComponents] = useState<ComponentDraft[]>([]);
 
-// Add component
+// Add item
 const addComponent = () => {
   setComponents([...components, {
     id: crypto.randomUUID(),
-    component_name: `Component ${components.length + 1}`,
-    sort_order: components.length,
+    componentName: `Component ${components.length + 1}`,
+    sortOrder: components.length,
     ingredients: [],
   }]);
 };
 
+// Update item
+const updateComponent = (id: string, updates: Partial<ComponentDraft>) => {
+  setComponents(components.map(c =>
+    c.id === id ? { ...c, ...updates } : c
+  ));
+};
+
+// Remove item
+const removeComponent = (id: string) => {
+  setComponents(components.filter(c => c.id !== id));
+};
+
 // Validate before save
-function handleSave() {
+async function handleSave() {
   if (components.length === 0) {
-    alert("Recipe must have at least one component");
+    toast.error("Recipe must have at least one component");
     return;
   }
+
   if (components.some(c => c.ingredients.length === 0)) {
-    alert("All components must have at least one ingredient");
+    toast.error("All components must have at least one ingredient");
     return;
   }
-  mutation.mutate({ ... });
+
+  try {
+    await createRecipe({ ... });
+    toast.success("Recipe saved!");
+  } catch (error) {
+    toast.error("Failed to save recipe");
+  }
 }
 ```
 
@@ -259,138 +485,194 @@ function handleSave() {
 
 ## Business Logic Examples
 
-### Cost Calculations (services/cost_calculator.py)
+### Cost Calculations (convex/lib/costCalculator.ts)
 
-```python
-def normalize_to_base_unit(quantity: float, unit: str) -> float:
-    """Convert kg→g, l→ml, m→cm. Base units: g, ml, pcs, cm, sheets."""
-    if unit in ("kg", "l"):
-        return quantity * 1000
-    if unit == "m":
-        return quantity * 100
-    return quantity
+```typescript
+export function normalizeToBaseUnit(quantity: number, unit: string): number {
+  // Convert kg→g, l→ml, m→cm. Base units: g, ml, pcs, cm, sheets
+  if (unit === "kg" || unit === "l") return quantity * 1000;
+  if (unit === "m") return quantity * 100;
+  return quantity;
+}
 
-def get_ingredient_cost_per_base_unit(ingredient: Ingredient) -> tuple[float, str]:
-    """Cost per base unit (g, ml, or pcs). Returns (cost, base_unit)."""
-    total_cost = ingredient.price_excl_shipping + ingredient.shipping_cost
-    base_volume = normalize_to_base_unit(ingredient.volume_purchased, ingredient.unit_type)
-    base_unit = get_base_unit(ingredient.unit_type)
+export function getIngredientCostPerBaseUnit(
+  ingredient: Doc<"ingredients">
+): { cost: number; unit: string } {
+  const totalCost = ingredient.priceExclShipping + ingredient.shippingCost;
+  const baseVolume = normalizeToBaseUnit(
+    ingredient.volumePurchased,
+    ingredient.unitType
+  );
+  const baseUnit = getBaseUnit(ingredient.unitType);
 
-    if base_volume <= 0:
-        return 0.0, base_unit
+  if (baseVolume <= 0) {
+    return { cost: 0, unit: baseUnit };
+  }
 
-    return total_cost / base_volume, base_unit
+  return {
+    cost: totalCost / baseVolume,
+    unit: baseUnit,
+  };
+}
 
-def get_component_cost(component: RecipeComponent, db: Session) -> float:
-    """Sum of ingredient costs for a component."""
-    if component.linked_recipe_version_id:
-        # Linked component: get cost from source
-        return get_recipe_version_cost(component.linked_recipe_version_id, db)
+export function calculateLineCost(
+  quantity: number,
+  unit: string,
+  costPerBaseUnit: number
+): number {
+  const normalizedQuantity = normalizeToBaseUnit(quantity, unit);
+  return normalizedQuantity * costPerBaseUnit;
+}
 
-    total = 0.0
-    for ci in component.ingredients:
-        total += get_ingredient_line_cost(ci)
-    return total
+export function calculateProductCogs(
+  recipeCostPerGram: number | null,
+  packagingCost: number,
+  numPieces: number,
+  gramsPerPiece: number,
+  retailPrice: number
+): {
+  totalGrams: number;
+  recipeCogs: number | null;
+  packagingCogs: number;
+  totalCogs: number | null;
+  contributionMargin: number | null;
+  contributionMarginPct: number | null;
+} {
+  const totalGrams = numPieces * gramsPerPiece;
+  const recipeCogs = recipeCostPerGram !== null
+    ? recipeCostPerGram * totalGrams
+    : null;
 
-def get_recipe_version_cost(version_id: int, db: Session) -> float:
-    """Total cost of all components in a recipe version."""
-    version = get_recipe_version(db, version_id)
-    if not version:
-        return 0.0
-    return sum(get_component_cost(c, db) for c in version.components)
+  const totalCogs = recipeCogs !== null
+    ? recipeCogs + packagingCost
+    : null;
 
-def get_recipe_cost_per_gram(version_id: int, db: Session) -> float | None:
-    """Cost per gram based on estimated yield. None if not set."""
-    version = get_recipe_version(db, version_id)
-    if not version or not version.estimated_yield_grams:
-        return None
-    total_cost = get_recipe_version_cost(version_id, db)
-    return total_cost / version.estimated_yield_grams
+  const contributionMargin = totalCogs !== null
+    ? retailPrice - totalCogs
+    : null;
 
-def get_product_cogs(product_version: ProductVersion, db: Session) -> dict:
-    """Full COGS breakdown for a product."""
-    total_grams = product_version.num_pieces * product_version.grams_per_piece
-    cost_per_gram = get_recipe_cost_per_gram(product_version.recipe_version_id, db)
+  const contributionMarginPct = contributionMargin !== null && retailPrice > 0
+    ? (contributionMargin / retailPrice) * 100
+    : null;
 
-    recipe_cogs = (cost_per_gram * total_grams) if cost_per_gram else None
-    packaging_cogs = get_packaging_version_cost(product_version.packaging_version_id, db)
-
-    if recipe_cogs is not None:
-        total_cogs = recipe_cogs + packaging_cogs
-        contribution_margin = product_version.retail_price_idr - total_cogs
-        contribution_margin_pct = (contribution_margin / product_version.retail_price_idr) * 100
-    else:
-        total_cogs = None
-        contribution_margin = None
-        contribution_margin_pct = None
-
-    return {
-        "total_grams": total_grams,
-        "recipe_cogs": recipe_cogs,
-        "packaging_cogs": packaging_cogs,
-        "total_cogs": total_cogs,
-        "retail_price_idr": product_version.retail_price_idr,
-        "contribution_margin": contribution_margin,
-        "contribution_margin_pct": contribution_margin_pct,
-    }
+  return {
+    totalGrams,
+    recipeCogs,
+    packagingCogs: packagingCost,
+    totalCogs,
+    contributionMargin,
+    contributionMarginPct,
+  };
+}
 ```
 
-### Versioning Logic
+### Versioning Logic (convex/recipes/mutations.ts)
 
-```python
-def copy_recipe_version(
-    db: Session,
-    recipe_id: int,
-    copy_from_version_id: int,
-    version_name: str,
-    description: str
-) -> RecipeVersion:
-    """Create new version by deep copying from any existing version."""
+```typescript
+export const copyVersion = mutation({
+  args: {
+    recipeId: v.id("recipes"),
+    copyFromVersionId: v.id("recipeVersions"),
+    versionName: v.string(),
+    description: v.optional(v.string()),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get source version
+    const source = await ctx.db.get(args.copyFromVersionId);
+    if (!source || source.recipeId !== args.recipeId) {
+      throw new Error("Source version not found or belongs to different recipe");
+    }
 
-    # Get source version
-    source = db.query(RecipeVersion).get(copy_from_version_id)
-    if source.recipe_id != recipe_id:
-        raise ValueError("Source version belongs to different recipe")
+    // Get next version number
+    const versions = await ctx.db
+      .query("recipeVersions")
+      .withIndex("by_recipe", (q) => q.eq("recipeId", args.recipeId))
+      .collect();
+    const maxVersion = Math.max(...versions.map(v => v.versionNumber), 0);
 
-    # Get next version number
-    max_version = db.query(func.max(RecipeVersion.version_number))\
-        .filter(RecipeVersion.recipe_id == recipe_id).scalar() or 0
+    // Create new version
+    const newVersionId = await ctx.db.insert("recipeVersions", {
+      recipeId: args.recipeId,
+      versionNumber: maxVersion + 1,
+      versionName: args.versionName,
+      description: args.description,
+      estimatedYieldGrams: source.estimatedYieldGrams,
+      isSingleComponent: source.isSingleComponent,
+      isReusableComponent: source.isReusableComponent,
+      copiedFromVersionId: args.copyFromVersionId,
+      createdBy: args.createdBy,
+    });
 
-    # Create new version
-    new_version = RecipeVersion(
-        recipe_id=recipe_id,
-        version_number=max_version + 1,
-        version_name=version_name,
-        description=description,
-        estimated_yield_grams=source.estimated_yield_grams,
-        is_single_component=source.is_single_component,
-        is_reusable_component=source.is_reusable_component,
-        copied_from_version_id=copy_from_version_id,
-    )
-    db.add(new_version)
-    db.flush()
+    // Deep copy components
+    const sourceComponents = await ctx.db
+      .query("recipeComponents")
+      .withIndex("by_version", (q) => q.eq("recipeVersionId", args.copyFromVersionId))
+      .collect();
 
-    # Deep copy components and ingredients
-    for src_comp in source.components:
-        new_comp = RecipeComponent(
-            recipe_version_id=new_version.id,
-            sort_order=src_comp.sort_order,
-            component_name=src_comp.component_name,
-            linked_recipe_version_id=src_comp.linked_recipe_version_id,
-        )
-        db.add(new_comp)
-        db.flush()
+    for (const srcComp of sourceComponents) {
+      const newCompId = await ctx.db.insert("recipeComponents", {
+        recipeVersionId: newVersionId,
+        sortOrder: srcComp.sortOrder,
+        componentName: srcComp.componentName,
+        linkedRecipeVersionId: srcComp.linkedRecipeVersionId,
+      });
 
-        for src_ing in src_comp.ingredients:
-            new_ing = ComponentIngredient(
-                recipe_component_id=new_comp.id,
-                ingredient_id=src_ing.ingredient_id,
-                sort_order=src_ing.sort_order,
-                unit=src_ing.unit,
-                quantity=src_ing.quantity,
-            )
-            db.add(new_ing)
+      // Deep copy ingredients
+      const srcIngredients = await ctx.db
+        .query("componentIngredients")
+        .withIndex("by_component", (q) => q.eq("recipeComponentId", srcComp._id))
+        .collect();
 
-    db.commit()
-    return new_version
+      for (const srcIng of srcIngredients) {
+        await ctx.db.insert("componentIngredients", {
+          recipeComponentId: newCompId,
+          ingredientId: srcIng.ingredientId,
+          sortOrder: srcIng.sortOrder,
+          unit: srcIng.unit,
+          quantity: srcIng.quantity,
+        });
+      }
+    }
+
+    return newVersionId;
+  },
+});
+```
+
+### WhatsApp Formatting (convex/orders/whatsapp.ts)
+
+```typescript
+export function formatOrderReceipt(
+  order: Doc<"orders">,
+  items: Doc<"orderItems">[],
+  customer: Doc<"customers">
+): string {
+  const lines: string[] = [];
+
+  lines.push(`*MALO GROUP BAHAGIA*`);
+  lines.push(`Order #${order.orderNumber}`);
+  lines.push(`---`);
+  lines.push(`Customer: ${customer.name}`);
+  if (order.dueDate) {
+    lines.push(`Due: ${formatDate(order.dueDate)}`);
+  }
+  lines.push(``);
+
+  // Items
+  lines.push(`*Items:*`);
+  for (const item of items) {
+    const variant = item.productVariant ? ` (${item.productVariant})` : "";
+    lines.push(`• ${item.quantity}x ${item.productName}${variant}`);
+    lines.push(`  @ Rp ${formatNumber(item.unitPrice)} = Rp ${formatNumber(item.lineTotal)}`);
+  }
+
+  lines.push(``);
+  lines.push(`*Total: Rp ${formatNumber(order.totalAmount)}*`);
+  lines.push(``);
+  lines.push(`Payment: BCA 1234567890`);
+  lines.push(`a.n. PT Malo Group Bahagia`);
+
+  return lines.join("\n");
+}
 ```

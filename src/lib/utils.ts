@@ -27,3 +27,9 @@ export function formatPercent(value: number | null | undefined): string {
   if (value == null) return "-"
   return `${value.toFixed(1)}%`
 }
+
+export function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  return fallback
+}

@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-**Malo Recipe Master** — A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, and product concepts with full versioning, cost calculations, and margin analysis. **Now powered by Convex for real-time data sync.**
+**Malo Recipe Master** — A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, and product concepts with full versioning, cost calculations, and margin analysis.
+
+**Architecture:** Convex (serverless backend + real-time database) + React 19 frontend
 
 ---
 
@@ -10,9 +12,11 @@
 
 | File | Purpose | When to Read |
 |------|---------|--------------|
-| [docs/SCHEMA.md](docs/SCHEMA.md) | Database schema, data flows, conventions | Before DB changes |
-| [docs/CODE_STYLE.md](docs/CODE_STYLE.md) | TypeScript coding conventions, patterns | During implementation |
+| [docs/SCHEMA.md](docs/SCHEMA.md) | Convex database schema, data flows | Before DB changes |
+| [docs/CODE_STYLE.md](docs/CODE_STYLE.md) | TypeScript/Convex coding conventions | During implementation |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | Git workflow, code review process | Before any PR |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Convex queries and mutations reference | When modifying backend |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Convex deployment guide | When deploying |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Version history | After merging |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Future plans, backlog | When planning features |
 
@@ -20,7 +24,7 @@
 
 ## Quick File Finder
 
-**Note:** Backend is in `convex/`, frontend is in `src/`
+**Backend:** `convex/` | **Frontend:** `src/`
 
 | Task | Backend Files | Frontend Files |
 |------|---------------|----------------|
@@ -32,29 +36,29 @@
 | **Add new Tag category** | `convex/tags/mutations.ts` (seedDefaults) | - |
 | **Create shared component** | - | `src/components/shared/` |
 | **Add validation logic** | `convex/[entity]/mutations.ts` | Form components in `src/pages/` |
-| **Database schema change** | `convex/schema.ts` | Update `src/lib/types.ts` if needed |
+| **Database schema change** | `convex/schema.ts` | - |
 | **Add dashboard stat** | `convex/dashboard/queries.ts` | `src/pages/Dashboard.tsx` |
 | **Add Order field** | `convex/schema.ts`<br>`convex/orders/mutations.ts` | `src/hooks/convex/useOrders.ts`<br>`src/pages/OrderDetail.tsx` |
-| **Update WhatsApp template** | `convex/lib/whatsappFormatter.ts` | - |
+| **Update WhatsApp template** | `convex/orders/whatsapp.ts` | - |
 | **Update Order UI** | - | `src/pages/OrderManager.tsx`<br>`src/pages/OrderDetail.tsx`<br>`src/components/orders/` |
-| **Kitchen View (production)** | `convex/orders/queries.ts` (kitchen endpoint) | `src/pages/KitchenView.tsx` |
+| **Kitchen View (production)** | `convex/orders/queries.ts` | `src/pages/KitchenView.tsx` |
 
 ---
 
 ## Critical File Paths
 
-**Backend Core (Convex):**
-- `convex/schema.ts` - Database schema definition (all tables)
-- `convex/lib/costCalculator.ts` - Cost calculation logic
-- `convex/lib/whatsappFormatter.ts` - WhatsApp receipt generation
-- `convex/[entity]/queries.ts` - Read operations for each entity
-- `convex/[entity]/mutations.ts` - Write operations for each entity
+**Backend (Convex):**
+- `convex/schema.ts` — Database schema definition (19 tables)
+- `convex/lib/costCalculator.ts` — Cost calculation logic
+- `convex/orders/whatsapp.ts` — WhatsApp receipt generation
+- `convex/[entity]/queries.ts` — Read operations (real-time reactive)
+- `convex/[entity]/mutations.ts` — Write operations (transactional)
 
 **Frontend Core:**
-- `src/App.tsx` - Router setup (9 routes)
-- `src/main.tsx` - React entry point with ConvexProvider
-- `src/hooks/convex/` - Convex query/mutation hooks
-- `src/lib/types.ts` - TypeScript interfaces (400+ lines)
+- `src/App.tsx` — Router setup (9 routes)
+- `src/main.tsx` — React entry point with ConvexProvider
+- `src/hooks/convex/` — Convex query/mutation hooks (11 files)
+- `src/lib/types.ts` — TypeScript interfaces
 
 ---
 
@@ -62,40 +66,42 @@
 
 | Layer | Technology | Version | Notes |
 |-------|------------|---------|-------|
-| **Backend** | Convex | latest | Real-time serverless database |
-| **Database** | Convex DB | - | Integrated with Convex |
+| **Backend** | Convex | ^1.31.7 | Real-time serverless database |
+| **Database** | Convex DB | - | Integrated, auto-scaling |
 | **Frontend** | React + TypeScript | 19.2.0 | UI framework |
-| **Build Tool** | Vite | 6.2.1 | Fast bundler with HMR |
+| **Build Tool** | Vite | 7.2.4 | Fast bundler with HMR |
 | **Styling** | Tailwind CSS | 4.1.18 | Utility-first CSS |
 | **UI Components** | shadcn/ui (Radix) | latest | Accessible components |
 | **Routing** | React Router | 7.13.0 | Client-side routing |
 | **Icons** | Lucide React | 0.563.0 | Icon library |
-| **Notifications** | Sonner | latest | Toast notifications |
+| **Notifications** | Sonner | 2.0.7 | Toast notifications |
+| **Animations** | Framer Motion | 11.15.0 | Animation library |
 
 ---
 
 ## Commands
 
 ```bash
-# Development
-npm install
-npx convex dev               # Start Convex dev server (run in separate terminal)
-npm run dev                  # Start Vite dev server
+# Development (run in separate terminals)
+npm install                  # Install dependencies
+npx convex dev               # Start Convex dev server (Terminal 1)
+npm run dev                  # Start Vite dev server (Terminal 2)
 
 # Production Build
-npm run build               # Builds frontend to dist/
+npm run build               # Build frontend to dist/
 
-# Linting
-npm run lint
+# Linting & Type Check
+npm run lint                # ESLint
+npm run type-check          # TypeScript type checking
 
 # Convex Commands
 npx convex dev              # Start local Convex dev server
 npx convex deploy           # Deploy to production
-npx convex dashboard        # Open Convex dashboard
+npx convex dashboard        # Open Convex dashboard in browser
 
-# Database Seeding (run from Convex dashboard or via code)
-# Call tags.mutations.seedDefaults() to create default tags
-# Call menuProducts.mutations.seedDefaults() to create default menu products
+# Database Seeding (run from Convex dashboard Functions tab)
+# tags:seedDefaults          - Creates default tags
+# menuProducts:seedDefaults  - Creates default menu products
 ```
 
 ---
@@ -105,20 +111,23 @@ npx convex dashboard        # Open Convex dashboard
 ```
 product_master/
 ├── convex/                          # Backend (Convex)
-│   ├── _generated/                  # Auto-generated Convex files
-│   ├── lib/                         # Shared utilities
-│   │   ├── costCalculator.ts        # Cost calculation logic
-│   │   └── whatsappFormatter.ts     # WhatsApp message generation
+│   ├── _generated/                  # Auto-generated Convex types & API
+│   ├── lib/
+│   │   └── costCalculator.ts        # Cost calculation logic
 │   ├── customers/                   # Customer queries/mutations
 │   ├── dashboard/                   # Dashboard aggregation queries
 │   ├── ingredients/                 # Ingredient CRUD
+│   ├── materials/                   # Packaging materials CRUD
 │   ├── menuProducts/                # Menu product definitions
-│   ├── orders/                      # Order management
+│   ├── orders/                      # Order management + WhatsApp
+│   │   ├── queries.ts
+│   │   ├── mutations.ts
+│   │   └── whatsapp.ts              # WhatsApp message templates
 │   ├── packaging/                   # Packaging recipes
 │   ├── products/                    # Product management
 │   ├── recipes/                     # Recipe management
 │   ├── tags/                        # Tag management
-│   └── schema.ts                    # Database schema
+│   └── schema.ts                    # Database schema (19 tables)
 ├── src/                             # Frontend (React + TypeScript)
 │   ├── components/
 │   │   ├── ui/                      # shadcn/ui components
@@ -129,26 +138,46 @@ product_master/
 │   │   ├── recipes/
 │   │   ├── packaging/
 │   │   ├── products/
-│   │   ├── orders/                  # Order components
-│   │   ├── dashboard/               # Dashboard components
+│   │   ├── orders/                  # Order components (7 files)
+│   │   ├── dashboard/
 │   │   └── onboarding/              # Onboarding tour
 │   ├── pages/                       # Page components (9 files)
+│   │   ├── Dashboard.tsx
+│   │   ├── RecipeEditor.tsx
+│   │   ├── PackagingEditor.tsx
+│   │   ├── ProductEditor.tsx
+│   │   ├── IngredientsManager.tsx
+│   │   ├── MaterialsManager.tsx
+│   │   ├── OrderManager.tsx
+│   │   ├── OrderDetail.tsx
+│   │   └── KitchenView.tsx
 │   ├── hooks/
-│   │   ├── convex/                  # Convex hooks (all data fetching)
-│   │   └── useOnboardingTour.ts     # Tour logic
+│   │   ├── convex/                  # Convex hooks (11 files)
+│   │   │   ├── useRecipes.ts
+│   │   │   ├── usePackaging.ts
+│   │   │   ├── useProducts.ts
+│   │   │   ├── useOrders.ts
+│   │   │   ├── useCustomers.ts
+│   │   │   ├── useIngredients.ts
+│   │   │   ├── useMaterials.ts
+│   │   │   ├── useTags.ts
+│   │   │   ├── useMenuProducts.ts
+│   │   │   └── useDashboard.ts
+│   │   └── useOnboardingTour.ts
 │   ├── lib/
 │   │   ├── types.ts                 # TypeScript interfaces
-│   │   └── utils.ts                 # Utility functions
+│   │   └── utils.ts                 # Utility functions (cn, formatCurrency)
 │   ├── App.tsx                      # Router setup
 │   ├── main.tsx                     # Entry point with ConvexProvider
 │   └── index.css                    # Tailwind CSS + custom theme
 ├── docs/                            # Documentation
 ├── public/
 ├── dist/                            # Build output
+├── convex.json                      # Convex configuration
 ├── vite.config.ts                   # Vite bundler config
-├── package.json                     # npm dependencies & scripts
-├── tsconfig.json                    # TypeScript config
-└── CLAUDE.md                        # This file - entry point
+├── package.json
+├── tsconfig.json
+└── CLAUDE.md                        # This file
 ```
 
 ---
@@ -161,7 +190,8 @@ product_master/
 4. **Product pinning**: Products stay on selected recipe/packaging versions. Manual update required.
 5. **Reusable components**: Only single-component recipes marked as reusable appear in component selection.
 6. **Deletion rules**: Recipes/packaging cannot be deleted if used in products. Error shows blocking products.
-7. **Default tags**: System seeds Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box via seedDefaults mutation.
+7. **Default tags**: System seeds Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box via `tags:seedDefaults`.
+8. **Order numbers**: Format `MMDD-NNN` (e.g., 0129-001) for bank transfer reference.
 
 ---
 
@@ -169,9 +199,13 @@ product_master/
 
 1. **Convex IDs are strings** — All IDs from Convex are `Id<"tableName">` types (strings), not numbers.
 
-2. **Convex returns undefined while loading** — Check for `undefined` before rendering: `const items = data ?? []`
+2. **Convex returns undefined while loading** — Check for `undefined` before rendering:
+   ```typescript
+   const items = useQuery(api.recipes.list);
+   if (items === undefined) return <Loading />;
+   ```
 
-3. **camelCase in Convex** — Convex uses camelCase field names (procurementSource), not snake_case.
+3. **camelCase in Convex** — Convex uses camelCase field names (`procurementSource`), not snake_case.
 
 4. **Real-time updates** — Convex queries auto-update. No need to invalidate cache after mutations.
 
@@ -179,14 +213,21 @@ product_master/
 
 6. **Version copy depth** — When copying, deep copy components AND ingredients. Shallow copy creates shared references.
 
-7. **Tag format varies** — Recipes/packaging use string tag names in arrays; Products use tag objects with `_id` and `name`.
+7. **Tag format** — Tags are stored as `tagIds: Id<"tags">[]` array directly on entities (no junction tables).
+
+8. **Mutations are async** — Always `await` mutation calls:
+   ```typescript
+   const createRecipe = useMutation(api.recipes.create);
+   await createRecipe({ name: "New Recipe", ... });
+   ```
 
 ---
 
 ## Environment Variables
 
 ```bash
-# frontend/.env (for Convex)
+# .env.local (for Convex)
+CONVEX_DEPLOYMENT=dev:your-deployment-name
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
@@ -218,4 +259,64 @@ git commit -m "feat: description"
 npm run build  # verify before push
 git push origin feature/your-name
 # After review: merge to main
+```
+
+---
+
+## Convex Quick Reference
+
+**Reading data (reactive):**
+```typescript
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+const recipes = useQuery(api.recipes.list);
+const recipe = useQuery(api.recipes.getById, { id: recipeId });
+```
+
+**Writing data:**
+```typescript
+import { useMutation } from "convex/react";
+
+const createRecipe = useMutation(api.recipes.create);
+await createRecipe({ name: "Recipe Name", tagIds: [], createdBy: "admin" });
+```
+
+**Defining queries (backend):**
+```typescript
+// convex/recipes/queries.ts
+import { query } from "../_generated/server";
+import { v } from "convex/values";
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("recipes").collect();
+  },
+});
+
+export const getById = query({
+  args: { id: v.id("recipes") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
+```
+
+**Defining mutations (backend):**
+```typescript
+// convex/recipes/mutations.ts
+import { mutation } from "../_generated/server";
+import { v } from "convex/values";
+
+export const create = mutation({
+  args: {
+    name: v.string(),
+    tagIds: v.array(v.id("tags")),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("recipes", args);
+  },
+});
 ```
