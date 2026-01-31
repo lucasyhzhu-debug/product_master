@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -115,8 +116,8 @@ export function useConvexCreateRecipe() {
         const id = await mutation(data);
         toast.success("Recipe created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create recipe");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create recipe"));
         throw error;
       }
     },
@@ -125,8 +126,8 @@ export function useConvexCreateRecipe() {
         const id = await mutation(data);
         toast.success("Recipe created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create recipe");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create recipe"));
         throw error;
       }
     },
@@ -150,8 +151,8 @@ export function useConvexCopyRecipeVersion() {
         const id = await mutation(data);
         toast.success("Version copied successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to copy version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to copy version"));
         throw error;
       }
     },
@@ -165,8 +166,8 @@ export function useConvexCopyRecipeVersion() {
         const id = await mutation(data);
         toast.success("Version copied successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to copy version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to copy version"));
         throw error;
       }
     },
@@ -188,8 +189,8 @@ export function useConvexCreateRecipeVersion() {
         const id = await mutation(data);
         toast.success("Version created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create version"));
         throw error;
       }
     },
@@ -201,8 +202,8 @@ export function useConvexCreateRecipeVersion() {
         const id = await mutation(data);
         toast.success("Version created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create version"));
         throw error;
       }
     },
@@ -220,8 +221,8 @@ export function useConvexUpdateRecipeTags() {
       try {
         await mutation(data);
         toast.success("Tags updated successfully");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tags");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tags"));
         throw error;
       }
     },
@@ -232,8 +233,8 @@ export function useConvexUpdateRecipeTags() {
       try {
         await mutation(data);
         toast.success("Tags updated successfully");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tags");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tags"));
         throw error;
       }
     },
@@ -251,8 +252,8 @@ export function useConvexUpdateRecipeName() {
       try {
         await mutation(data);
         toast.success("Recipe name updated");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update name");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update name"));
         throw error;
       }
     },
@@ -260,8 +261,8 @@ export function useConvexUpdateRecipeName() {
       try {
         await mutation(data);
         toast.success("Recipe name updated");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update name");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update name"));
         throw error;
       }
     },
@@ -280,8 +281,8 @@ export function useConvexDeleteRecipe() {
         await mutation({ recipeId });
         toast.success("Recipe deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete recipe");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete recipe"));
         throw error;
       }
     },
@@ -290,8 +291,8 @@ export function useConvexDeleteRecipe() {
         await mutation({ recipeId });
         toast.success("Recipe deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete recipe");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete recipe"));
         throw error;
       }
     },
@@ -310,8 +311,8 @@ export function useConvexRecalculateRecipeCosts() {
         const result = await mutation({ versionId });
         toast.success("Costs recalculated");
         return result;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to recalculate costs");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to recalculate costs"));
         throw error;
       }
     },

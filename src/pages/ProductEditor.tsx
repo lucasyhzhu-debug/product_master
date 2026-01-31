@@ -36,10 +36,10 @@ export function ProductEditor() {
   const rawPackagingList = useConvexPackagingList();
   const rawTags = useConvexTags();
 
-  // Normalize data for loading state
-  const recipes = rawRecipes ?? [];
-  const packagingList = rawPackagingList ?? [];
-  const tags = rawTags ?? [];
+  // Normalize data for loading state - memoize to avoid dependency changes
+  const recipes = useMemo(() => rawRecipes ?? [], [rawRecipes]);
+  const packagingList = useMemo(() => rawPackagingList ?? [], [rawPackagingList]);
+  const tags = useMemo(() => rawTags ?? [], [rawTags]);
   const loadingProduct = productId !== undefined && product === undefined;
 
   // Track current version by its _id (not version number)

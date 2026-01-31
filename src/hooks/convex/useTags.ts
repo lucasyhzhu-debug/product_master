@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 // Types that match the Convex schema
 export interface ConvexTag {
@@ -51,8 +52,8 @@ export function useConvexCreateTag() {
         const id = await mutation(data);
         toast.success("Tag created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create tag"));
         throw error;
       }
     },
@@ -61,8 +62,8 @@ export function useConvexCreateTag() {
         const id = await mutation(data);
         toast.success("Tag created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create tag"));
         throw error;
       }
     },
@@ -81,8 +82,8 @@ export function useConvexUpdateTag() {
         const id = await mutation(data);
         toast.success("Tag updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tag"));
         throw error;
       }
     },
@@ -91,8 +92,8 @@ export function useConvexUpdateTag() {
         const id = await mutation(data);
         toast.success("Tag updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tag"));
         throw error;
       }
     },
@@ -111,8 +112,8 @@ export function useConvexDeleteTag() {
         await mutation({ id });
         toast.success("Tag deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete tag"));
         throw error;
       }
     },
@@ -121,8 +122,8 @@ export function useConvexDeleteTag() {
         await mutation({ id });
         toast.success("Tag deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete tag");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete tag"));
         throw error;
       }
     },
@@ -143,8 +144,8 @@ export function useConvexSeedTags() {
           toast.success(result.message);
         }
         return result;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to seed default tags");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to seed default tags"));
         throw error;
       }
     },

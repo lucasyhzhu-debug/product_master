@@ -33,6 +33,30 @@ import {
   useConvexOrderStats,
 } from '@/hooks/convex';
 
+// Type for items with Convex-style tags
+type TaggedItem = { tags: { _id: string; name: string }[] };
+
+// Filter and sort function for items with tags - moved outside component
+// to satisfy exhaustive-deps rule since it has no component dependencies
+function filterAndSortByTags<T extends TaggedItem>(
+  items: T[],
+  selectedIds: string[]
+): T[] {
+  if (!items.length) return [];
+  if (selectedIds.length === 0) return items;
+
+  const itemsWithMatchCount = items.map((item) => {
+    const itemTagIds = item.tags.map((tag) => tag._id);
+    const matchCount = itemTagIds.filter((id) => selectedIds.includes(id)).length;
+    return { item, matchCount };
+  });
+
+  // Sort by match count (descending) - items with more matching tags first
+  return itemsWithMatchCount
+    .sort((a, b) => b.matchCount - a.matchCount)
+    .map(({ item }) => item);
+}
+
 export function Dashboard() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
@@ -46,12 +70,13 @@ export function Dashboard() {
   const { data: orderStats, isLoading: loadingOrderStats } = useConvexOrderStats();
 
   // Normalize data - Convex returns undefined while loading, array when ready
-  const recipes = rawRecipes ?? [];
-  const packaging = rawPackaging ?? [];
-  const products = rawProducts ?? [];
-  const ingredients = rawIngredients ?? [];
-  const materials = rawMaterials ?? [];
-  const tags = rawTags ?? [];
+  // Memoize to avoid dependency changes in useMemo hooks
+  const recipes = useMemo(() => rawRecipes ?? [], [rawRecipes]);
+  const packaging = useMemo(() => rawPackaging ?? [], [rawPackaging]);
+  const products = useMemo(() => rawProducts ?? [], [rawProducts]);
+  const ingredients = useMemo(() => rawIngredients ?? [], [rawIngredients]);
+  const materials = useMemo(() => rawMaterials ?? [], [rawMaterials]);
+  const tags = useMemo(() => rawTags ?? [], [rawTags]);
 
   // Loading states
   const loadingRecipes = rawRecipes === undefined;
@@ -72,29 +97,6 @@ export function Dashboard() {
         ? prev.filter((existing) => existing !== id)
         : [...prev, id]
     );
-  };
-
-  // Filter and sort function for items with tags as objects { _id, name }
-  // All Convex entities (recipes, packaging, products) use this format
-  type TaggedItem = { tags: { _id: string; name: string }[] };
-
-  const filterAndSortByTags = <T extends TaggedItem>(
-    items: T[],
-    selectedIds: string[]
-  ): T[] => {
-    if (!items.length) return [];
-    if (selectedIds.length === 0) return items;
-
-    const itemsWithMatchCount = items.map((item) => {
-      const itemTagIds = item.tags.map((tag) => tag._id);
-      const matchCount = itemTagIds.filter((id) => selectedIds.includes(id)).length;
-      return { item, matchCount };
-    });
-
-    // Sort by match count (descending) - items with more matching tags first
-    return itemsWithMatchCount
-      .sort((a, b) => b.matchCount - a.matchCount)
-      .map(({ item }) => item);
   };
 
   // Apply filtering and sorting - cast to the tag format expected
@@ -252,7 +254,7 @@ export function Dashboard() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <ProductCard product={product as any} />
+              <ProductCard product={product as Parameters<typeof ProductCard>[0]['product']} />
             </motion.div>
           ))
         )}
@@ -291,7 +293,7 @@ export function Dashboard() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <RecipeCard recipe={recipe as any} />
+              <RecipeCard recipe={recipe as Parameters<typeof RecipeCard>[0]['recipe']} />
             </motion.div>
           ))
         )}
@@ -330,7 +332,7 @@ export function Dashboard() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3, delay: index * 0.05 }}
             >
-              <PackagingCard packaging={pkg as any} />
+              <PackagingCard packaging={pkg as Parameters<typeof PackagingCard>[0]['packaging']} />
             </motion.div>
           ))
         )}
@@ -381,7 +383,7 @@ export function Dashboard() {
           <LoadingCards count={4} />
         ) : (
           ingredients.map((ingredient) => (
-            <IngredientCard key={ingredient._id} ingredient={ingredient as any} />
+            <IngredientCard key={ingredient._id} ingredient={ingredient as Parameters<typeof IngredientCard>[0]['ingredient']} />
           ))
         )}
       </Carousel>
@@ -407,7 +409,7 @@ export function Dashboard() {
           <LoadingCards count={4} />
         ) : (
           materials.map((material) => (
-            <MaterialCard key={material._id} material={material as any} />
+            <MaterialCard key={material._id} material={material as Parameters<typeof MaterialCard>[0]['material']} />
           ))
         )}
       </Carousel>

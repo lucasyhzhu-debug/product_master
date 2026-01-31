@@ -4,10 +4,62 @@ This document describes all custom sub-agents available for autonomous task exec
 
 ## Available Agents
 
-### 1. **agent-creator** 🟣
+### Global Agents (Available in All Projects)
+
+These agents are installed globally at `~/.claude/agents/` and are available across all projects.
+
+#### 1. **convex-expert** 🔵
+**Color**: Cyan
+**Model**: Sonnet
+**Location**: `~/.claude/agents/convex-expert.md` (Global)
+
+Expert Convex backend developer specializing in reactive database design, serverless function architecture, and real-time application patterns.
+
+**Core Expertise:**
+- Schema design with validators (`v.string()`, `v.object()`, `v.id()`, etc.)
+- Query patterns (indexes, pagination, parallel fetches)
+- Mutation patterns (transactions, bulk operations, validation)
+- Actions for external API calls
+- Internal functions for sensitive logic
+- Scheduled functions and cron jobs
+- Error handling with `ConvexError`
+- React integration (`useQuery`, `useMutation`, skip pattern)
+- Production best practices and troubleshooting
+
+**Use for:**
+- Designing Convex database schemas
+- Writing queries, mutations, and actions
+- Optimizing slow queries with indexes
+- Debugging Convex errors
+- Implementing real-time features
+- Setting up authentication
+- Configuring scheduled jobs
+- Building React hooks for Convex
+- Production readiness review
+
+**Example Usage:**
+```
+task: convex-expert
+prompt: "Design a schema for user authentication with session management"
+```
+
+#### 2. **code-reviewer** 🔵
+**Color**: Cyan
+**Model**: Sonnet
+**Location**: `~/.claude/agents/code-reviewer.md` (Global)
+
+Senior code reviewer with deep expertise in full-stack development.
+
+**Use for:**
+- Reviewing new features, bug fixes, refactors
+- Evaluating code quality and conventions
+- Identifying potential bugs and performance issues
+- Maintainability assessment
+
+#### 3. **agent-creator** 🟣
 **Color**: Purple
 **Model**: Sonnet
-**Location**: `.claude/agents/agent-creator.md`
+**Location**: `~/.claude/agents/agent-creator.md` (Global)
 
 Expert sub-agent architect specializing in designing and implementing highly specialized sub-agents.
 
@@ -18,13 +70,24 @@ Expert sub-agent architect specializing in designing and implementing highly spe
 - Improving documentation for existing agents
 - Planning agent architecture for complex projects
 
-**Example Usage:**
-```
-task: agent-creator
-prompt: "Design a new sub-agent for GraphQL API code generation"
-```
+#### 4. **skill-creator**
+**Model**: Sonnet
+**Location**: `~/.claude/agents/skill-creator.md` (Global)
 
-### 2. **supabase-migrator** 🔵
+Expert skill creator for Claude Code slash commands.
+
+**Use for:**
+- Creating new /commands
+- Automating repetitive tasks
+- Building focused, well-documented skills
+
+---
+
+### Project-Specific Agents
+
+These agents are specific to the Malo Recipe Master project and located in `.claude/agents/`.
+
+#### 1. **supabase-migrator** 🔵
 **Color**: Blue
 **Model**: Sonnet
 **Location**: `.claude/agents/supabase-migrator.md`
@@ -50,7 +113,7 @@ task: supabase-migrator
 prompt: "Create a migration script to move our SQLite database to Supabase PostgreSQL"
 ```
 
-### 3. **vercel-fastapi** 🟢
+#### 2. **vercel-fastapi** 🟢
 **Color**: Green
 **Model**: Sonnet
 **Location**: `.claude/agents/vercel-fastapi.md`
@@ -77,7 +140,7 @@ task: vercel-fastapi
 prompt: "Create a vercel.json config for our FastAPI backend deployed to /api"
 ```
 
-### 4. **monolith-restructure** 🟡
+#### 3. **monolith-restructure** 🟡
 **Color**: Yellow
 **Model**: Sonnet
 **Location**: `.claude/agents/monolith-restructure.md`
@@ -104,6 +167,8 @@ task: monolith-restructure
 prompt: "Restructure our separate backend/ and frontend/ folders into monolithic api/ and src/ layout"
 ```
 
+---
+
 ## How to Use Custom Agents
 
 ### Method 1: Using the Task Tool (Autonomous Execution)
@@ -112,9 +177,9 @@ Invoke agents directly with the Task tool for fully autonomous execution:
 
 ```python
 Task(
-    subagent_type: "supabase-migrator",
-    description: "Create database migration script",
-    prompt: "Create a migration script to transfer data from SQLite to PostgreSQL including all relationships"
+    subagent_type: "convex-expert",
+    description: "Design order tracking schema",
+    prompt: "Design a Convex schema for order tracking with status history and real-time updates"
 )
 ```
 
@@ -123,7 +188,7 @@ Task(
 Request Claude to use an agent by mentioning it:
 
 ```
-"Use the agent-creator agent to design a new sub-agent for API testing"
+"Use the convex-expert agent to optimize my slow query"
 ```
 
 ### Method 3: When Task Tool Would Work
@@ -133,6 +198,8 @@ The Task tool invokes agents when:
 - An agent has deep expertise in a specific domain
 - The task benefits from specialized knowledge
 - Work should happen without constant back-and-forth
+
+---
 
 ## Agent Specifications
 
@@ -179,8 +246,10 @@ Each agent includes:
    - Output examples
 
 6. **Clear Scope Definition**
-   - ✅ Use for (specific tasks)
-   - ❌ Don't use for (out-of-scope)
+   - Use for (specific tasks)
+   - Don't use for (out-of-scope)
+
+---
 
 ## Integration Guide
 
@@ -201,6 +270,19 @@ Agents work best when chained for complex migrations:
    Task: "Create vercel.json and Mangum configuration for deployment"
 ```
 
+**Example: Convex Backend Development**
+
+```
+1. Use convex-expert for schema design
+   Task: "Design schema for multi-tenant order system"
+
+2. Use convex-expert for query optimization
+   Task: "Add indexes and optimize slow dashboard queries"
+
+3. Use code-reviewer to review implementation
+   Task: "Review the Convex mutations I just wrote"
+```
+
 ### Agent Communication
 
 Agents communicate through:
@@ -209,19 +291,21 @@ Agents communicate through:
 - Project files (agents modify as needed)
 - Status messages (progress tracking)
 
+---
+
 ## Development Notes
 
 ### Agent Quality Standards
 
 All custom agents meet these standards:
 
-- ✅ **300-800 lines** of comprehensive documentation
-- ✅ **3+ core expertise domains** with deep knowledge
-- ✅ **4-6 step workflows** with clear progression
-- ✅ **8+ troubleshooting issues** and solutions
-- ✅ **3-5 real-world examples** with concrete output
-- ✅ **Clear scope definition** (use/don't use)
-- ✅ **Professional documentation** (active voice, actionable)
+- **300-800 lines** of comprehensive documentation
+- **3+ core expertise domains** with deep knowledge
+- **4-6 step workflows** with clear progression
+- **8+ troubleshooting issues** and solutions
+- **3-5 real-world examples** with concrete output
+- **Clear scope definition** (use/don't use)
+- **Professional documentation** (active voice, actionable)
 
 ### Creating New Agents
 
@@ -239,36 +323,52 @@ The agent-creator will:
 4. Create ready-to-use agent files
 5. Provide integration guidance
 
+---
+
 ## File Structure
 
 ```
-.claude/
-├── agents/
-│   ├── agent-creator.md         (422 lines) - Meta agent for creating agents
-│   ├── supabase-migrator.md     (165 lines) - Database migration specialist
-│   ├── vercel-fastapi.md        (323 lines) - Vercel deployment specialist
-│   └── monolith-restructure.md  (446 lines) - Project restructuring specialist
-└── AGENTS_README.md             (this file)
+~/.claude/agents/                      # Global agents (all projects)
+├── convex-expert.md      (~950 lines) - Convex backend specialist
+├── code-reviewer.md                   - Code review specialist
+├── agent-creator.md                   - Meta agent for creating agents
+└── skill-creator.md                   - Slash command creator
+
+.claude/agents/                        # Project-specific agents
+├── supabase-migrator.md  (165 lines)  - Database migration specialist
+├── vercel-fastapi.md     (323 lines)  - Vercel deployment specialist
+└── monolith-restructure.md (446 lines) - Project restructuring specialist
 ```
+
+---
 
 ## Quick Reference
 
-| Agent | Best For | Time Estimate |
-|-------|----------|---------------|
-| agent-creator | Designing new agents | 30-60 min |
-| supabase-migrator | Database migrations | 45-90 min |
-| vercel-fastapi | Vercel setup | 30-60 min |
-| monolith-restructure | Project restructuring | 60-120 min |
+| Agent | Location | Best For |
+|-------|----------|----------|
+| convex-expert | Global | Convex backend development |
+| code-reviewer | Global | Code quality review |
+| agent-creator | Global | Creating new agents |
+| skill-creator | Global | Creating slash commands |
+| supabase-migrator | Project | Database migrations |
+| vercel-fastapi | Project | Vercel deployment |
+| monolith-restructure | Project | Project restructuring |
+
+---
 
 ## Troubleshooting Agent Discovery
 
 If agents don't appear in `/agents` list:
 
-1. **Check file location**: Verify `.claude/agents/` folder exists
+1. **Check file location**:
+   - Global: `~/.claude/agents/` (e.g., `C:\Users\Irfan\.claude\agents\`)
+   - Project: `.claude/agents/` folder
 2. **Check YAML format**: Ensure valid YAML frontmatter with `name:` and `model:`
 3. **Check file extension**: Must be `.md` (markdown)
 4. **Verify description**: Must have `description:` field (quoted)
 5. **Restart Claude Code**: Close and reopen Claude Code CLI
+
+---
 
 ## Support & Updates
 
@@ -282,6 +382,7 @@ All agents are living documents - they improve with use and feedback.
 
 ---
 
-**Last Updated**: January 30, 2026
-**Total Agent Coverage**: 1,356 lines of specialized expertise
-**Status**: ✅ Ready for autonomous use via Task tool
+**Last Updated**: January 31, 2026
+**Global Agents**: 4 (convex-expert, code-reviewer, agent-creator, skill-creator)
+**Project Agents**: 3 (supabase-migrator, vercel-fastapi, monolith-restructure)
+**Status**: Ready for autonomous use via Task tool

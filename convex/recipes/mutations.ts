@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import {
@@ -36,7 +36,7 @@ const recipeVersionInput = v.object({
 // ============================================
 
 async function calculateVersionCost(
-  ctx: any,
+  ctx: MutationCtx,
   versionId: Id<"recipeVersions">
 ): Promise<{ totalCost: number | null; costPerGram: number | null }> {
   const version = await ctx.db.get(versionId);
@@ -44,7 +44,7 @@ async function calculateVersionCost(
 
   const components = await ctx.db
     .query("recipeComponents")
-    .withIndex("by_version", (q: any) => q.eq("recipeVersionId", versionId))
+    .withIndex("by_version", (q) => q.eq("recipeVersionId", versionId))
     .collect();
 
   let totalCost = 0;
@@ -63,7 +63,7 @@ async function calculateVersionCost(
       // Sum ingredient costs
       const ingredients = await ctx.db
         .query("componentIngredients")
-        .withIndex("by_component", (q: any) =>
+        .withIndex("by_component", (q) =>
           q.eq("recipeComponentId", comp._id)
         )
         .collect();

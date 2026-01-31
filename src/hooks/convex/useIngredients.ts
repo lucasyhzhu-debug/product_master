@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 // Types that match the Convex schema
 export interface ConvexIngredient {
@@ -70,8 +71,8 @@ export function useConvexCreateIngredient() {
         const id = await mutation(data);
         toast.success("Ingredient created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create ingredient"));
         throw error;
       }
     },
@@ -80,8 +81,8 @@ export function useConvexCreateIngredient() {
         const id = await mutation(data);
         toast.success("Ingredient created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create ingredient"));
         throw error;
       }
     },
@@ -100,8 +101,8 @@ export function useConvexUpdateIngredient() {
         const id = await mutation(data);
         toast.success("Ingredient updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update ingredient"));
         throw error;
       }
     },
@@ -110,8 +111,8 @@ export function useConvexUpdateIngredient() {
         const id = await mutation(data);
         toast.success("Ingredient updated successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update ingredient"));
         throw error;
       }
     },
@@ -130,8 +131,8 @@ export function useConvexDeleteIngredient() {
         await mutation({ id });
         toast.success("Ingredient deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete ingredient"));
         throw error;
       }
     },
@@ -140,8 +141,8 @@ export function useConvexDeleteIngredient() {
         await mutation({ id });
         toast.success("Ingredient deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete ingredient");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete ingredient"));
         throw error;
       }
     },
