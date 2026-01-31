@@ -264,6 +264,7 @@ export default defineSchema({
       v.literal("amount"),
       v.literal("percentage")
     )),
+    finalTotal: v.optional(v.number()), // totalAmount - discount
 
     // Sales tracking
     channel: v.optional(v.string()),
