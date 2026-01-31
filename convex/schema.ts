@@ -55,6 +55,9 @@ export default defineSchema({
     productionType: v.string(), // "original" or "bite_sized"
     productionUnits: v.number(),
     isActive: v.boolean(),
+    // PRD-0: Fixed products and COGS tracking
+    isFixed: v.optional(v.boolean()), // Cannot be deleted if true
+    unitCost: v.optional(v.number()), // COGS in IDR
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"]),
@@ -224,12 +227,27 @@ export default defineSchema({
     customerName: v.string(),
     customerPhone: v.optional(v.string()),
 
-    // Status workflow: Draft -> AwaitingPayment -> Confirmed -> Production -> Shipped/Pickup -> Delivered/Complete
-    status: v.string(),
+    // PRD-0: Status workflow with type-safe unions
+    status: v.union(
+      v.literal("Draft"),
+      v.literal("AwaitingPayment"),
+      v.literal("Confirmed"),
+      v.literal("ProductionComplete"),
+      v.literal("Packaging"),
+      v.literal("WaitingShipment"),
+      v.literal("CompleteShipped"),
+      v.literal("WaitingPickup"),
+      v.literal("PickedUp"),
+      v.literal("Cancelled")
+    ),
     awaitingPaymentSince: v.optional(v.number()),
 
-    // Payment: Unpaid -> Partial -> Paid
-    paymentStatus: v.string(),
+    // PRD-0: Payment status with type-safe union
+    paymentStatus: v.union(
+      v.literal("Unpaid"),
+      v.literal("Partial"),
+      v.literal("Paid")
+    ),
     paymentMethod: v.optional(v.string()),
 
     orderDate: v.number(), // timestamp
@@ -239,6 +257,13 @@ export default defineSchema({
     totalAmount: v.number(),
     totalCost: v.number(),
     totalMargin: v.number(),
+
+    // PRD-0: Order-level discount
+    orderLevelDiscount: v.optional(v.number()),
+    orderLevelDiscountType: v.optional(v.union(
+      v.literal("amount"),
+      v.literal("percentage")
+    )),
 
     // Sales tracking
     channel: v.optional(v.string()),
@@ -288,7 +313,26 @@ export default defineSchema({
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
+    // PRD-0: Ball tracking for Kitchen View
+    productionType: v.optional(v.string()), // "original" or "bite_sized"
+    productionUnits: v.optional(v.number()), // balls per unit
+    ballsRemaining: v.optional(v.number()), // for completion tracking
   })
     .index("by_order", ["orderId"])
     .index("by_product_name", ["productName"]),
+
+  // ============================================
+  // PRD-0: WHATSAPP MESSAGE TRACKING
+  // ============================================
+
+  orderMessages: defineTable({
+    orderId: v.id("orders"),
+    template: v.string(), // e.g., "payment_request", "order_confirmation"
+    messageHash: v.string(), // For deduplication
+    sentAt: v.number(), // Timestamp
+    sentBy: v.string(), // User who sent
+    messagePreview: v.optional(v.string()), // First 100 chars
+  })
+    .index("by_order", ["orderId"])
+    .index("by_order_template", ["orderId", "template"]),
 });

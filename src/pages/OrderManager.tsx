@@ -157,9 +157,12 @@ function OrderCard({ order, onClick }: OrderCardProps) {
   );
 }
 
+// PRD-0: Type-safe status filter
+type StatusFilterValue = OrderFilters['status'] | 'all';
+
 export function OrderManager() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -226,7 +229,7 @@ export function OrderManager() {
           />
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter} aria-label="Filter orders by status">
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilterValue)} aria-label="Filter orders by status">
           <SelectTrigger className="w-40">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Status" />
