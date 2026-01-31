@@ -52,11 +52,12 @@ export function useOnboardingTour(autoStart: boolean = false) {
       showProgress: true,
       showButtons: ['next', 'previous', 'close'],
       steps: DASHBOARD_TOUR_STEPS,
-      overlayOpacity: 0.65,
-      stagePadding: 8,
-      stageRadius: 8,
+      overlayOpacity: 0.6,
+      stagePadding: 12,
+      stageRadius: 10,
       allowClose: true,
       smoothScroll: true,
+      popoverOffset: 16, // Distance between popover and highlighted element
       onDestroyStarted: () => {
         // Mark tour as completed when user finishes or closes it
         markTourCompleted();
