@@ -13,6 +13,67 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-01-30 - Complete Convex Migration & Documentation Update
+
+**Full Backend Migration to Convex**
+
+Migrated the entire backend from FastAPI + PostgreSQL to Convex, a real-time serverless database platform.
+
+**Architecture Changes:**
+- Removed FastAPI backend (`api/` directory)
+- Removed PostgreSQL/SQLite database dependencies
+- Removed React Query for data fetching
+- Added Convex as the sole backend (queries, mutations, database)
+- Frontend now uses Convex React hooks (`useQuery`, `useMutation`)
+
+**Backend Implementation (convex/):**
+- `schema.ts` - 19 tables with indexes and validators
+- `lib/costCalculator.ts` - Cost calculation helper functions
+- 10 entity folders with queries and mutations:
+  - `ingredients/`, `materials/`, `tags/`, `menuProducts/`
+  - `recipes/`, `packaging/`, `products/`
+  - `customers/`, `orders/`, `dashboard/`
+- `orders/whatsapp.ts` - WhatsApp message templates
+
+**Frontend Migration:**
+- Replaced all React Query hooks with Convex hooks
+- Updated 11 hook files in `src/hooks/convex/`
+- Updated all page components to use Convex API
+- Removed axios and react-query dependencies
+
+**Documentation Overhaul:**
+- Updated `CLAUDE.md` for Convex architecture
+- Rewrote `docs/SCHEMA.md` with Convex schema definitions
+- Rewrote `docs/CODE_STYLE.md` with Convex patterns (removed Python)
+- Rewrote `docs/API_REFERENCE.md` as Convex Functions Reference
+- Rewrote `docs/DEPLOYMENT.md` for Convex deployment
+- Updated `docs/WORKFLOW.md` for Convex development
+- Updated `docs/ROADMAP.md` with Phase 5 (Convex Migration)
+
+**Benefits:**
+- Real-time data sync across all connected clients
+- Simplified architecture (no separate API server)
+- Type-safe database operations end-to-end
+- Automatic scaling without server management
+- Reduced deployment complexity
+
+**Files Removed:**
+- `api/` directory (FastAPI backend)
+- `api/scripts/migrate_sqlite_to_pg.py`
+- All SQLAlchemy models and Pydantic schemas
+
+**Dependencies Changed:**
+- Added: `convex` (^1.31.7)
+- Removed: `@tanstack/react-query`, `axios`
+
+**Migration Steps (for existing deployments):**
+1. Deploy Convex backend: `npx convex deploy`
+2. Set `VITE_CONVEX_URL` environment variable
+3. Build and deploy frontend
+4. Seed data via Convex dashboard
+
+---
+
 ## 2026-01-30 - Production Database Seeding Endpoints
 
 **Admin Endpoints for Vercel/Neon.tech Database Management**

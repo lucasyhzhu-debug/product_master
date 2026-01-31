@@ -63,8 +63,8 @@ git add <files>                   # Stage specific files
 git commit -m "Type: Description" # Atomic commits
 
 # Before pushing
-npm run build                     # Frontend: verify build
-cd backend && python -m pytest    # Backend: run tests
+npm run build                     # Verify build
+npm run type-check                # Verify TypeScript
 git push origin feature/your-name # Push to remote
 
 # Merge to main (after PR approval)
@@ -83,7 +83,7 @@ git push origin main
 Before starting any implementation task:
 
 1. **Read existing code** — Never propose changes without reading affected files first
-2. **Understand context** — Review related models, schemas, and services
+2. **Understand context** — Review related Convex functions, schema, and hooks
 3. **Check patterns** — Follow established conventions (see [CODE_STYLE.md](CODE_STYLE.md))
 4. **Plan approach** — Outline the implementation strategy before writing code
 5. **Ask clarifying questions** — If requirements are ambiguous, ask the user
@@ -91,14 +91,14 @@ Before starting any implementation task:
 ### Implementation Process
 
 #### 1. Planning Phase
-- Outline the changes required (backend/frontend/database)
+- Outline the changes required (backend/frontend/schema)
 - Identify files that will be modified or created
 - Consider edge cases and error scenarios
 - Review related business logic (cost calculations, versioning, etc.)
 
 #### 2. Development Phase
 - Write code following established patterns and conventions
-- Use type hints (Python) and TypeScript for all code
+- Use TypeScript for all code
 - Keep functions focused and single-responsibility
 - Add inline comments only where logic isn't self-evident
 - Avoid over-engineering — minimum complexity for the task
@@ -107,8 +107,8 @@ Before starting any implementation task:
 
 #### 3. Review Phase
 - Run through the Code Review Checklist below
-- Verify all tests pass (when tests are implemented)
-- No linting errors
+- Verify TypeScript compiles (`npm run type-check`)
+- Verify build succeeds (`npm run build`)
 - Documentation updated
 
 ---
@@ -116,31 +116,29 @@ Before starting any implementation task:
 ## Code Review Checklist
 
 ### Architecture & Design
-- [ ] Does the solution follow the established patterns for this codebase?
-- [ ] Are database transactions used correctly where needed?
-- [ ] Is the data flow clear from frontend → API → database?
-- [ ] Are relationships and foreign keys properly defined?
-- [ ] Does the solution avoid N+1 queries?
+- [ ] Does the solution follow established Convex patterns?
+- [ ] Is the data flow clear from frontend → Convex → database?
+- [ ] Are indexes properly defined for queries?
+- [ ] Does the solution avoid N+1 patterns (use appropriate denormalization)?
 
-### Backend (Python/FastAPI)
-- [ ] All functions have type hints
-- [ ] Pydantic schemas validate input/output correctly
-- [ ] Error handling uses HTTPException with clear messages
-- [ ] Database operations use proper session management
-- [ ] CRUD operations are efficient (joinedload, selectinload for relationships)
-- [ ] No circular imports or TYPE_CHECKING violations
+### Convex Backend
+- [ ] Schema uses correct validators (`v.string()`, `v.optional()`, etc.)
+- [ ] Queries use indexes for filtered/sorted data
+- [ ] Mutations validate business rules before writes
+- [ ] Error handling uses thrown errors with clear messages
+- [ ] Complex operations are in single mutations (transactional)
 - [ ] Cost calculations handle null values correctly
 - [ ] Version copy operations do deep copies, not shallow copies
 
 ### Frontend (TypeScript/React)
 - [ ] All components have explicit prop types via interfaces
-- [ ] React Query hooks use proper query key factories
-- [ ] Mutations invalidate relevant query caches
+- [ ] Convex hooks handle loading state (`=== undefined`)
+- [ ] Mutations are awaited and errors caught
 - [ ] useState/useReducer state is properly initialized
 - [ ] No unnecessary re-renders or missing dependency arrays
-- [ ] Form validation happens before API calls
+- [ ] Form validation happens before mutation calls
 - [ ] Error states are handled (loading, error, success)
-- [ ] TypeScript types match backend schemas
+- [ ] TypeScript types match Convex schema
 - [ ] Components are functional, not class-based
 - [ ] No hardcoded magic strings or numbers
 
@@ -161,7 +159,7 @@ Before starting any implementation task:
 
 ### Documentation
 - [ ] Complex logic has explanatory comments
-- [ ] Database changes are documented in CHANGELOG.md
+- [ ] Schema changes are documented in CHANGELOG.md
 - [ ] API changes are documented in CHANGELOG.md
 - [ ] Business logic changes are explained
 
@@ -215,25 +213,25 @@ git commit -m "feat: add cost per gram calculation to recipe versions
 
 - Calculate cost per gram based on estimated yield
 - Return null if yield not set
-- Update RecipeVersionDetail schema
-- Add cost_calculator function
+- Update recipeVersions schema with cached cost fields
+- Add costCalculator helper function
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
 # Good: Bug fix with explanation
-git commit -m "fix: prevent N+1 queries in recipe list endpoint
+git commit -m "fix: handle null estimatedYieldGrams in cost calculation
 
-- Add joinedload for components relationship
-- Add selectinload for ingredients in components
-- Reduces query count from N*M to 1 for list of N recipes
+- Check for null before division
+- Return null cost instead of NaN
+- Add defensive check in CostTooltip component
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
 # Good: Documentation update
-git commit -m "docs: update CLAUDE.md with cost calculation details
+git commit -m "docs: update CLAUDE.md with Convex patterns
 
-- Add example calculations
-- Document null yield handling
+- Add Convex quick reference section
+- Document query/mutation patterns
 - Add common pitfalls section
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
@@ -244,18 +242,19 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 ```bash
 # 1. Verify all changes
 git status                           # See what changed
-git diff api/app/models/             # Review code changes
+git diff convex/                     # Review backend changes
 git diff src/                        # Review frontend changes
 
 # 2. Stage relevant changes only
-git add api/app/models/recipe.py
-git add api/app/schemas/recipe.py
-git add api/app/crud/recipes.py
+git add convex/schema.ts
+git add convex/recipes/mutations.ts
+git add src/pages/RecipeEditor.tsx
 
 # 3. Don't commit these files
 # - .env files with secrets
-# - __pycache__/ or node_modules/
-# - Auto-generated database files
+# - node_modules/
+# - convex/_generated/ (auto-generated)
+# - dist/ (build output)
 # - IDE config files (.vscode, .idea)
 
 # 4. Review staged changes
@@ -274,20 +273,16 @@ When implementation spans multiple files:
 
 ```bash
 # Stage by logical group
-git add api/app/models/        # All model changes together
-git commit -m "feat: add yield tracking to recipes"
+git add convex/schema.ts            # Schema changes
+git commit -m "feat: add yield tracking to recipe versions"
 
-# Then stage next logical group
-git add api/app/schemas/      # All schema changes
-git commit -m "docs: update schemas for yield tracking"
-
-# Then API changes
-git add api/app/routers/recipes.py
-git commit -m "feat: expose yield in recipe endpoint"
+# Then stage mutations/queries
+git add convex/recipes/
+git commit -m "feat: implement yield calculation in recipe queries"
 
 # Then frontend
-git add src/components/
-git add src/hooks/
+git add src/hooks/convex/
+git add src/pages/
 git commit -m "feat: display yield and cost per gram in UI"
 ```
 
@@ -295,19 +290,18 @@ git commit -m "feat: display yield and cost per gram in UI"
 
 ## Common Code Review Issues to Avoid
 
-### Backend
-- Missing type hints → Add return type and parameter types
-- Returning dicts instead of models → Return ORM models from CRUD
-- Missing error handling → Add HTTPException with 4xx/5xx codes
-- N+1 queries → Use joinedload/selectinload in queries
-- Not flushing before using ID → Call db.flush() after db.add()
-- Shallow copying relationships → Deep copy all related objects
+### Convex Backend
+- Missing index for filtered queries → Add `.index()` in schema
+- Not handling null in calculations → Check before division
+- Shallow copying relationships → Deep copy all related documents
+- Not validating references exist → Check with `ctx.db.get()` before using
+- Mutation not transactional → Keep related operations in single mutation
 
 ### Frontend
 - Props without interface types → Define explicit interface for all props
-- Mutations without cache invalidation → Always invalidateQueries on success
-- Magic strings in queries → Use query key factory pattern
-- No error handling → Show error UI or toast notifications
+- Not handling loading state → Check `=== undefined` before rendering
+- Not awaiting mutations → Always `await` and catch errors
+- Magic strings for IDs → Use proper `Id<"tableName">` types
 - Inline arrays/objects in deps → Move to useMemo if dependencies needed
 - TypeScript errors ignored → Fix all TypeScript errors before commit
 
@@ -317,13 +311,13 @@ git commit -m "feat: display yield and cost per gram in UI"
 
 After implementation, update relevant documentation:
 
-**For Database Changes:**
-- New tables/columns added with timestamps and indexes
-- Migration or init script changes documented
-- Relationship changes clearly noted
+**For Schema Changes:**
+- New tables/fields documented in SCHEMA.md
+- Index definitions noted
+- Relationship changes clearly explained
 
-**For API Changes:**
-- New endpoints documented in API_REFERENCE.md
+**For Convex Function Changes:**
+- New queries/mutations documented in API_REFERENCE.md
 - Response format examples provided
 - Error cases listed
 
@@ -334,5 +328,5 @@ After implementation, update relevant documentation:
 
 **For Frontend Changes:**
 - New components documented with prop types
-- Hook changes and query key updates noted
+- Hook usage patterns noted
 - State management changes explained

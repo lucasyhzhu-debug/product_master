@@ -6,6 +6,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -108,8 +109,8 @@ export function useConvexCreateProduct() {
         const id = await mutation(data);
         toast.success("Product created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create product");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create product"));
         throw error;
       }
     },
@@ -118,8 +119,8 @@ export function useConvexCreateProduct() {
         const id = await mutation(data);
         toast.success("Product created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create product");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create product"));
         throw error;
       }
     },
@@ -143,8 +144,8 @@ export function useConvexCopyProductVersion() {
         const id = await mutation(data);
         toast.success("Version copied successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to copy version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to copy version"));
         throw error;
       }
     },
@@ -158,8 +159,8 @@ export function useConvexCopyProductVersion() {
         const id = await mutation(data);
         toast.success("Version copied successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to copy version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to copy version"));
         throw error;
       }
     },
@@ -181,8 +182,8 @@ export function useConvexCreateProductVersion() {
         const id = await mutation(data);
         toast.success("Version created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create version"));
         throw error;
       }
     },
@@ -194,8 +195,8 @@ export function useConvexCreateProductVersion() {
         const id = await mutation(data);
         toast.success("Version created successfully");
         return id;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to create version");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to create version"));
         throw error;
       }
     },
@@ -213,8 +214,8 @@ export function useConvexUpdateProductTags() {
       try {
         await mutation(data);
         toast.success("Tags updated successfully");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tags");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tags"));
         throw error;
       }
     },
@@ -225,8 +226,8 @@ export function useConvexUpdateProductTags() {
       try {
         await mutation(data);
         toast.success("Tags updated successfully");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update tags");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update tags"));
         throw error;
       }
     },
@@ -244,8 +245,8 @@ export function useConvexUpdateProductName() {
       try {
         await mutation(data);
         toast.success("Product name updated");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update name");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update name"));
         throw error;
       }
     },
@@ -253,8 +254,8 @@ export function useConvexUpdateProductName() {
       try {
         await mutation(data);
         toast.success("Product name updated");
-      } catch (error: any) {
-        toast.error(error.message || "Failed to update name");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to update name"));
         throw error;
       }
     },
@@ -273,8 +274,8 @@ export function useConvexDeleteProduct() {
         await mutation({ productId });
         toast.success("Product deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete product");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete product"));
         throw error;
       }
     },
@@ -283,8 +284,8 @@ export function useConvexDeleteProduct() {
         await mutation({ productId });
         toast.success("Product deleted successfully");
         return true;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to delete product");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to delete product"));
         throw error;
       }
     },
@@ -303,8 +304,8 @@ export function useConvexRecalculateProductCogs() {
         const result = await mutation({ versionId });
         toast.success("COGS recalculated");
         return result;
-      } catch (error: any) {
-        toast.error(error.message || "Failed to recalculate COGS");
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error, "Failed to recalculate COGS"));
         throw error;
       }
     },

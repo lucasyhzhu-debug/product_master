@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 
@@ -20,7 +20,7 @@ const orderItemInput = v.object({
 // Helper Functions
 // ============================================
 
-async function generateOrderNumber(ctx: any): Promise<string> {
+async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
   const now = new Date();
   const datePrefix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(
     now.getDate()
@@ -30,8 +30,8 @@ async function generateOrderNumber(ctx: any): Promise<string> {
   // Count today's orders
   const todayOrders = await ctx.db
     .query("orders")
-    .filter((q: any) => q.gte(q.field("orderNumber"), prefix))
-    .filter((q: any) => q.lt(q.field("orderNumber"), `${datePrefix}.`))
+    .filter((q) => q.gte(q.field("orderNumber"), prefix))
+    .filter((q) => q.lt(q.field("orderNumber"), `${datePrefix}.`))
     .collect();
 
   const count = todayOrders.length;

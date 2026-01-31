@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 
@@ -30,7 +30,7 @@ interface COGSBreakdown {
 }
 
 async function calculateCOGS(
-  ctx: any,
+  ctx: MutationCtx,
   recipeVersionId: Id<"recipeVersions">,
   packagingVersionId: Id<"packagingVersions">,
   numPieces: number,

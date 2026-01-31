@@ -34,7 +34,16 @@
       "Bash(del nul)",
       "Bash(git rm:*)",
       "Bash(git merge:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:docs.convex.dev)",
+      "Bash(echo:*)",
+      "Bash(cmd /c \"echo %USERPROFILE%\")",
+      "Bash(powershell -Command \"Write-Host $env:USERPROFILE\")",
+      "Bash(set:*)",
+      "Bash(dir C:UsersIrfan.claude)",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\Irfan\\\\.claude\")",
+      "Bash(cmd /c \"if exist C:\\\\Users\\\\Irfan\\\\.claude \\(echo EXISTS\\) else \\(echo NOT EXISTS\\)\")"
     ]
   }
 }
