@@ -558,3 +558,140 @@ export const revertToConfirmed = mutation({
     return args.orderId;
   },
 });
+
+/**
+ * Complete balls and auto-complete orders.
+ * PRD-1: Kitchen Core - Wave 2.
+ *
+ * Applies a batch of completed balls (big or mid) to Confirmed orders
+ * in priority order. Orders are automatically marked as ProductionComplete
+ * when all their items reach ballsRemaining = 0.
+ */
+export const completeBalls = mutation({
+  args: {
+    ballType: v.union(v.literal("big"), v.literal("mid")),
+    count: v.number(),
+  },
+  handler: async (ctx, args) => {
+    if (args.count <= 0) {
+      throw new Error("Count must be positive");
+    }
+
+    // Get Confirmed orders sorted by priority (same as getKitchenOrders)
+    const confirmedOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .collect();
+
+    // Fetch items for each order and calculate ball needs (for sorting)
+    const ordersWithItems = await Promise.all(
+      confirmedOrders.map(async (order) => {
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        let bigBallsNeeded = 0;
+        let midBallsNeeded = 0;
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.productionUnits) {
+            bigBallsNeeded += item.productionUnits;
+          } else if (item.productionType === "bite_sized" && item.productionUnits) {
+            midBallsNeeded += item.productionUnits;
+          }
+        }
+
+        return {
+          order,
+          items,
+          bigBallsNeeded,
+          midBallsNeeded,
+        };
+      })
+    );
+
+    // Sort by: dueDate ASC → totalUnits DESC → orderDate ASC
+    const sortedOrders = ordersWithItems.sort((a, b) => {
+      // Sort by due date first (earliest first)
+      if (a.order.dueDate !== b.order.dueDate) {
+        if (!a.order.dueDate && !b.order.dueDate) return 0;
+        if (!a.order.dueDate) return 1;
+        if (!b.order.dueDate) return -1;
+        return a.order.dueDate - b.order.dueDate;
+      }
+
+      // Then by total units (most first)
+      const aTotalUnits = a.bigBallsNeeded + a.midBallsNeeded;
+      const bTotalUnits = b.bigBallsNeeded + b.midBallsNeeded;
+      if (aTotalUnits !== bTotalUnits) {
+        return bTotalUnits - aTotalUnits;
+      }
+
+      // Finally by order date (earliest first)
+      return a.order.orderDate - b.order.orderDate;
+    });
+
+    // Apply balls to orders
+    let remainingBalls = args.count;
+    const completedOrderIds: Id<"orders">[] = [];
+    const productionTypeFilter = args.ballType === "big" ? "original" : "bite_sized";
+
+    for (const { order, items } of sortedOrders) {
+      if (remainingBalls <= 0) break;
+
+      // Filter items by production type matching ball type
+      const matchingItems = items.filter(
+        (item) => item.productionType === productionTypeFilter
+      );
+
+      // Apply balls to matching items
+      for (const item of matchingItems) {
+        if (remainingBalls <= 0) break;
+
+        const currentBallsRemaining = item.ballsRemaining ?? 0;
+        if (currentBallsRemaining <= 0) continue;
+
+        const ballsToApply = Math.min(remainingBalls, currentBallsRemaining);
+        const newBallsRemaining = currentBallsRemaining - ballsToApply;
+
+        await ctx.db.patch(item._id, {
+          ballsRemaining: newBallsRemaining,
+        });
+
+        remainingBalls -= ballsToApply;
+      }
+
+      // Check if ALL items in the order have ballsRemaining = 0
+      const allItems = items; // All items, not just matching type
+      const allComplete = allItems.every((item) => {
+        // Get updated ballsRemaining (either from our update or original value)
+        const matchingItem = matchingItems.find((mi) => mi._id === item._id);
+        if (matchingItem) {
+          // We potentially updated this item
+          const currentBallsRemaining = matchingItem.ballsRemaining ?? 0;
+          const ballsToApply = Math.min(args.count - remainingBalls, currentBallsRemaining);
+          return currentBallsRemaining - ballsToApply <= 0;
+        }
+        // This item wasn't updated, check its original value
+        return (item.ballsRemaining ?? 0) <= 0;
+      });
+
+      if (allComplete) {
+        await ctx.db.patch(order._id, {
+          status: "ProductionComplete",
+        });
+        completedOrderIds.push(order._id);
+      }
+    }
+
+    const ballsUsed = args.count - remainingBalls;
+    const overflow = remainingBalls;
+
+    return {
+      completedOrderIds,
+      ballsUsed,
+      overflow,
+    };
+  },
+});
