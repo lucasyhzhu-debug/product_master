@@ -713,3 +713,42 @@ export function useConvexUpdateOrderItemQuantity() {
     },
   };
 }
+
+/**
+ * Update order-level discount.
+ * PRD-5: Order System V2 - Wave 1.
+ */
+export function useConvexUpdateOrderDiscount() {
+  const mutation = useMutation(api.orders.mutations.updateOrderDiscount);
+
+  return {
+    mutate: async (data: {
+      orderId: Id<"orders">;
+      discount: number;
+      discountType: "amount" | "percentage";
+    }) => {
+      try {
+        await mutation(data);
+        toast.success("Discount updated");
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to update discount";
+        toast.error(message);
+        throw error;
+      }
+    },
+    mutateAsync: async (data: {
+      orderId: Id<"orders">;
+      discount: number;
+      discountType: "amount" | "percentage";
+    }) => {
+      try {
+        await mutation(data);
+        toast.success("Discount updated");
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to update discount";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
