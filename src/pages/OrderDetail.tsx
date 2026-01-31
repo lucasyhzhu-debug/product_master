@@ -61,19 +61,7 @@ export function OrderDetail() {
   // Pending status for shipping dialog flow
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
-  // WhatsApp States
-  const [receiptText, setReceiptText] = useState('');
-  const [shippingText, setShippingText] = useState('');
-  const [pickupText, setPickupText] = useState('');
-
-  // Update WA text when order loads
-  if (order && !receiptText && order.whatsapp_text) setReceiptText(order.whatsapp_text);
-  if (order && !shippingText && order.shipping_text) setShippingText(order.shipping_text);
-  if (order && !pickupText && order.pickup_text) setPickupText(order.pickup_text);
-
-  const handleCopyWhatsApp = async (text: string | undefined) => {
-    if (!text) return;
-
+  const handleCopyWhatsApp = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -280,14 +268,8 @@ export function OrderDetail() {
         {/* Sidebar */}
         <div className="space-y-6">
           <OrderWhatsAppPanel
-            status={order.status}
-            receiptText={receiptText}
-            shippingText={shippingText}
-            pickupText={pickupText}
+            order={order}
             copied={copied}
-            onReceiptChange={setReceiptText}
-            onShippingChange={setShippingText}
-            onPickupChange={setPickupText}
             onCopy={handleCopyWhatsApp}
           />
 
