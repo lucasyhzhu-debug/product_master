@@ -543,3 +543,12 @@ export interface OrderStats {
   pipeline: OrderStatsPipeline;
   urgent_orders: UrgentOrder[];
 }
+
+// WhatsApp Template types
+export type WhatsAppTemplateTab =
+  | 'order_confirmation'
+  | 'payment_received'
+  | 'delivery_confirmation'
+  | 'thank_you';
+
+export type WhatsAppLanguage = 'id' | 'en';
