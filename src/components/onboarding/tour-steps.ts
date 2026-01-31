@@ -5,9 +5,10 @@ import type { DriveStep } from 'driver.js';
  * Each step targets a specific UI section via data-tour-step attributes.
  *
  * Popover positioning:
- * - Elements near bottom of viewport use 'top' to show popover above
- * - Elements near top of viewport use 'bottom' to show popover below
- * - All popovers are styled with a solid background panel for readability
+ * - All popovers positioned to appear as centered as possible on the page
+ * - Using 'over' side places popover directly over element for maximum centering
+ * - Elements on left side use 'right' to push popover toward center
+ * - Elements on right side use 'left' to push popover toward center
  */
 export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
   {
@@ -16,8 +17,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 1: Add Ingredients',
       description:
         'Start by adding raw materials for your food recipes. Click "New Ingredient" to create your first ingredient with pricing information.',
-      side: 'left',
-      align: 'start',
+      side: 'over',
+      align: 'center',
     },
   },
   {
@@ -26,8 +27,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 2: Add Packaging Materials',
       description:
         'Add boxes, bags, labels, and other packaging components. These will be used in your packaging designs.',
-      side: 'left',
-      align: 'start',
+      side: 'over',
+      align: 'center',
     },
   },
   {
@@ -36,8 +37,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 3: Create a Recipe',
       description:
         'Combine your ingredients into food formulas. Recipes automatically track ingredient costs and yield.',
-      side: 'left',
-      align: 'start',
+      side: 'over',
+      align: 'center',
     },
   },
   {
@@ -46,8 +47,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 4: Create a Packaging Design',
       description:
         'Define packaging configurations using your materials. This calculates packaging costs per unit.',
-      side: 'left',
-      align: 'start',
+      side: 'over',
+      align: 'center',
     },
   },
   {
@@ -56,8 +57,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 5: Create a Product',
       description:
         'Combine a recipe with packaging and set your retail price. COGS and margins are calculated automatically.',
-      side: 'left',
-      align: 'start',
+      side: 'over',
+      align: 'center',
     },
   },
   {
@@ -66,7 +67,7 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 6: Track Orders',
       description:
         'Create orders to track sales, monitor production queues, and manage fulfillment. Your dashboard shows real-time stats.',
-      side: 'bottom',
+      side: 'over',
       align: 'center',
     },
   },

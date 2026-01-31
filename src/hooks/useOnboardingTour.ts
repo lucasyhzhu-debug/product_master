@@ -52,20 +52,27 @@ export function useOnboardingTour(autoStart: boolean = false) {
       showProgress: true,
       showButtons: ['next', 'previous', 'close'],
       steps: DASHBOARD_TOUR_STEPS,
-      overlayOpacity: 0.6,
-      stagePadding: 12,
-      stageRadius: 10,
+      overlayOpacity: 0.75, // Darker overlay to make highlight stand out
+      stagePadding: 16,
+      stageRadius: 12,
       allowClose: true,
       smoothScroll: true,
-      popoverOffset: 16, // Distance between popover and highlighted element
+      popoverOffset: 20, // Distance between popover and highlighted element
       onDestroyStarted: () => {
         // Mark tour as completed when user finishes or closes it
         markTourCompleted();
+        // Must call destroy to actually close the tour
+        if (driverRef.current) {
+          driverRef.current.destroy();
+        }
       },
     });
 
     return () => {
-      driverRef.current?.destroy();
+      if (driverRef.current) {
+        driverRef.current.destroy();
+        driverRef.current = null;
+      }
     };
   }, []);
 
