@@ -13,6 +13,37 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-01-31 - WhatsApp Template Tabs with Bilingual Support
+
+**Feature: Tabbed WhatsApp Message Templates**
+
+Refactored WhatsApp Messages panel with a tabbed interface for different workflow stages and added Bahasa/English language toggle.
+
+**New Tabs (mapped to order workflow):**
+1. **Order Confirmation** (Konfirmasi) - Always visible, for Draft -> AwaitingPayment
+2. **Payment Received** (Pembayaran) - Visible after Draft status
+3. **Delivery Confirmation** (Pengiriman) - Visible at delivery/pickup stages
+4. **Thank You** (Terima Kasih) - Visible at completion, includes social media links
+
+**Features:**
+- Language toggle (Bahasa/English) in panel header - Bahasa is default
+- Templates auto-generate with order data (customer name, items, totals, etc.)
+- Editable text before copying with Reset button
+- Conditional tab visibility based on order status
+- Clickable social media links in Thank You template:
+  - Instagram/TikTok: @Frollie.id
+  - Founder journey: @EtengandTJ
+
+**Architecture:** Frontend generation for instant preview and language switching (no API calls)
+
+**Files Modified:**
+- `src/lib/types.ts` - Added WhatsAppTemplateTab, WhatsAppLanguage types
+- `src/lib/whatsappTemplates.ts` - NEW: Template strings and generator functions
+- `src/components/orders/OrderWhatsAppPanel.tsx` - Refactored with tabs and language toggle
+- `src/pages/OrderDetail.tsx` - Simplified props to pass order object
+
+---
+
 ## 2026-01-31 - Comprehensive Test Suite Implementation
 
 **Multi-Agent Test Implementation (184 tests across 11 files)**
