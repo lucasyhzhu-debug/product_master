@@ -152,3 +152,14 @@ export {
   useConvexUpcomingDue,
   useConvexOrderStats,
 } from "./useDashboard";
+
+// Kitchen Stats (PRD-1: Kitchen Core)
+export {
+  // Query hooks
+  useConvexKitchenStats,
+  useConvexKitchenOrdersWithBalls,
+  useConvexCompletedToday,
+  // Mutation hooks
+  useConvexCompleteOrder,
+  useConvexRevertToConfirmed,
+} from "./useKitchenStats";
