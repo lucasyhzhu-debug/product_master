@@ -17,52 +17,43 @@ Order System V2 split into **4 independent mini-PRDs**, each deliverable in 1 se
 
 # Agent Build Requirements
 
-Before implementation begins, the following specialized agents should be created using the `agent-builder` agent:
+> **STATUS: ✅ COMPLETE** - All 3 agents have been built and are ready for use.
 
-## 1. `convex-backend` Agent (RECOMMENDED - HIGH VALUE)
+## Created Agents
 
-**Rationale:** PRD-0, PRD-1, and PRD-2 all require significant Convex backend work (schema, queries, mutations). A specialized agent with deep knowledge of Convex patterns, this project's schema structure, and the real-time database model will be more reliable than generic agents.
+| Agent | Model | Location | Status |
+|-------|-------|----------|--------|
+| `convex-backend` | sonnet | `.claude/agents/convex-backend.md` | ✅ Ready |
+| `react-ui-builder` | sonnet | `.claude/agents/react-ui-builder.md` | ✅ Ready |
+| `code-auditor` | haiku | `.claude/agents/code-auditor.md` | ✅ Ready |
 
-**Specialization:**
-- Convex schema patterns (`v.union`, `v.literal`, `v.optional`, indexes)
-- Query patterns with indexes (`withIndex`, `collect`, `first`)
-- Mutation patterns with transactional guarantees
-- This project's denormalization strategy (e.g., `customerName` on orders)
-- Real-time reactive data patterns
+**Note:** The built-in `convex-expert` agent is now deprecated for this project. Use `convex-backend` instead - it has project-specific knowledge of our 19-table schema, business rules, and coding patterns.
 
-**Tools:** `Read`, `Write`, `Edit`, `Glob`, `Grep`
+## Agent Capabilities
 
-**Description:** "Convex backend expert for Malo Recipe Master. Handles schema changes, queries, and mutations following project patterns. Use for all convex/ directory work."
+### `convex-backend` (HIGH VALUE)
+- Schema modifications (`convex/schema.ts`)
+- Query creation/modification (`convex/{entity}/queries.ts`)
+- Mutation creation/modification (`convex/{entity}/mutations.ts`)
+- Cost calculator updates (`convex/lib/costCalculator.ts`)
+- WhatsApp templates (`convex/orders/whatsapp.ts`)
+- Knows all 19 tables, indexes, status unions, and business rules
 
-## 2. `react-ui-builder` Agent (RECOMMENDED - MEDIUM VALUE)
-
-**Rationale:** PRD-1, PRD-2, and PRD-3 create 9+ new React components. A specialized agent familiar with shadcn/ui, Tailwind CSS 4, Framer Motion, and this project's component patterns will produce more consistent code.
-
-**Specialization:**
-- shadcn/ui component patterns (Button, Card, Badge, Dialog)
-- Tailwind CSS 4 utility classes
+### `react-ui-builder` (HIGH VALUE)
+- Page components (`src/pages/*.tsx`)
+- Shared components (`src/components/shared/`)
+- Entity components (`src/components/{entity}/`)
+- Convex hooks (`src/hooks/convex/`)
 - Framer Motion animations
-- React 19 patterns and hooks
-- This project's layout components (PageHeader, LoadingCards)
+- shadcn/ui + Tailwind CSS 4 patterns
+- Loading states and toast notifications
 
-**Tools:** `Read`, `Write`, `Edit`, `Glob`, `Grep`
-
-**Description:** "React UI builder for Malo Recipe Master. Creates components using shadcn/ui, Tailwind CSS 4, and Framer Motion following project patterns. Use for src/components/ and src/pages/ work."
-
-## 3. `code-auditor` Agent (OPTIONAL - LOW VALUE for now)
-
-**Rationale:** Each PRD ends with verification. A read-only auditor can verify builds pass without accidentally modifying code.
-
-**Specialization:**
-- TypeScript type checking
-- Convex type generation verification
-- Import resolution checking
-- Build success verification
-
-**Tools:** `Read`, `Glob`, `Grep`, `Bash` (read-only commands only)
-**Disallowed:** `Write`, `Edit`
-
-**Note:** Can defer this - built-in `Explore` agent + manual `npm run build` sufficient for now.
+### `code-auditor` (QUALITY GATE)
+- `npm run type-check` - TypeScript verification
+- `npm run build` - Build verification
+- `npm run lint` - Code quality
+- Pattern compliance checks
+- READ-ONLY - cannot modify code
 
 ---
 
