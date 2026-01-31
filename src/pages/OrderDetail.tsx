@@ -166,18 +166,20 @@ export function OrderDetail() {
 
   const handlePaymentChange = async (newPaymentStatus: string) => {
     if (!order || !orderId) return;
+    // PRD-0: Cast to PaymentStatusType (validated by UI dropdown)
     await updatePayment.mutate({
       orderId,
-      paymentStatus: newPaymentStatus,
+      paymentStatus: newPaymentStatus as "Unpaid" | "Partial" | "Paid",
       paymentMethod: order.payment_method || undefined,
     });
   };
 
   const handlePaymentMethodChange = async (method: string) => {
     if (!order || !orderId) return;
+    // PRD-0: Cast to PaymentStatusType (validated by UI dropdown)
     await updatePayment.mutate({
       orderId,
-      paymentStatus: order.payment_status,
+      paymentStatus: order.payment_status as "Unpaid" | "Partial" | "Paid",
       paymentMethod: method,
     });
   };

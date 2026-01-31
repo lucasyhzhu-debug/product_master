@@ -1,4 +1,4 @@
-import { query } from "../_generated/server";
+import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 
@@ -302,5 +302,136 @@ export const getMessage = query({
       default:
         throw new Error("Unknown template");
     }
+  },
+});
+
+// ============================================
+// PRD-0: Order Template for Customer Fill-in
+// ============================================
+
+/**
+ * Get clean order template for customer to fill in quantities.
+ * Includes products + BCA bank info.
+ */
+export const getOrderTemplate = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all active fixed products
+    const products = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    // Filter to fixed products only and sort
+    const fixedProducts = products
+      .filter((p) => p.isFixed === true)
+      .sort((a, b) => {
+        // Sort: original first, then by grams ascending
+        if (a.productionType !== b.productionType) {
+          return a.productionType === "original" ? -1 : 1;
+        }
+        return a.grams - b.grams;
+      });
+
+    // Build template
+    let template = "Halo! Mau makan Frollie snacks?\n\n";
+
+    fixedProducts.forEach((p, i) => {
+      // Format grams description
+      let gramsDesc = `${p.grams}g`;
+      if (p.productionUnits > 1) {
+        const perUnit = p.grams / p.productionUnits;
+        gramsDesc = `${p.grams}g = ${p.productionUnits}x${perUnit}g`;
+      }
+
+      // Format price
+      const priceK = (p.defaultPrice / 1000).toFixed(0);
+
+      template += `${i + 1}. ${p.name} (${gramsDesc}) - Rp ${priceK}.000 [  ]\n`;
+    });
+
+    template += `
+---
+Untuk customer baru:
+No. WA:
+Nama:
+Alamat:
+
+Isi jumlah yang diinginkan di dalam [ ]
+
+---
+Transfer ke: BCA 6044830994 a.n. PT Malo Group Bahagia`;
+
+    return template;
+  },
+});
+
+// ============================================
+// PRD-0: Message Tracking & Deduplication
+// ============================================
+
+/**
+ * Mark a WhatsApp message as sent with deduplication.
+ * Returns { alreadySent: true } if same template sent within 5 minutes.
+ */
+export const markMessageSent = mutation({
+  args: {
+    orderId: v.id("orders"),
+    template: v.string(),
+    sentBy: v.string(),
+    messageContent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check for recent duplicate (within last 5 minutes)
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+    const recentMessages = await ctx.db
+      .query("orderMessages")
+      .withIndex("by_order_template", (q) =>
+        q.eq("orderId", args.orderId).eq("template", args.template)
+      )
+      .collect();
+
+    // Filter to messages within 5 minutes
+    const recentDuplicate = recentMessages.find((m) => m.sentAt >= fiveMinutesAgo);
+
+    if (recentDuplicate) {
+      return {
+        alreadySent: true,
+        lastSentAt: recentDuplicate.sentAt,
+        lastSentBy: recentDuplicate.sentBy,
+      };
+    }
+
+    // Create unique hash for this message
+    const messageHash = `${args.orderId}_${args.template}_${Date.now().toString(36)}`;
+
+    // Insert new message record
+    await ctx.db.insert("orderMessages", {
+      orderId: args.orderId,
+      template: args.template,
+      messageHash,
+      sentAt: Date.now(),
+      sentBy: args.sentBy,
+      messagePreview: args.messageContent?.slice(0, 100),
+    });
+
+    return { alreadySent: false };
+  },
+});
+
+/**
+ * Get message history for an order.
+ */
+export const getMessageHistory = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("orderMessages")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    // Sort by sentAt descending (most recent first)
+    return messages.sort((a, b) => b.sentAt - a.sentAt);
   },
 });

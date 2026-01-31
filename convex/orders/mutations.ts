@@ -204,11 +204,16 @@ export const updateStatus = mutation({
 
 /**
  * Update payment status.
+ * PRD-0: Uses type-safe union for paymentStatus.
  */
 export const updatePayment = mutation({
   args: {
     orderId: v.id("orders"),
-    paymentStatus: v.string(),
+    paymentStatus: v.union(
+      v.literal("Unpaid"),
+      v.literal("Partial"),
+      v.literal("Paid")
+    ),
     paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -477,5 +482,79 @@ export const updateItemQuantity = mutation({
     });
 
     return args.itemId;
+  },
+});
+
+/**
+ * Complete an order (mark all production as done).
+ * PRD-1: Kitchen Core - Wave 1.
+ */
+export const completeOrder = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.status !== "Confirmed") {
+      throw new Error("Only Confirmed orders can be completed");
+    }
+
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: "ProductionComplete",
+    });
+
+    // Set all item ballsRemaining to 0
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        ballsRemaining: 0,
+      });
+    }
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Revert order back to Confirmed status.
+ * PRD-1: Kitchen Core - Wave 1.
+ */
+export const revertToConfirmed = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.status !== "ProductionComplete") {
+      throw new Error("Only ProductionComplete orders can be reverted");
+    }
+
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: "Confirmed",
+    });
+
+    // Reset ballsRemaining to productionUnits
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        ballsRemaining: item.productionUnits ?? 0,
+      });
+    }
+
+    return args.orderId;
   },
 });

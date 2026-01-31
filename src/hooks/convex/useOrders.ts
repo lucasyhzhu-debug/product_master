@@ -50,8 +50,24 @@ export interface OrderCreateInput {
   createdBy?: string;
 }
 
+// PRD-0: Type-safe order status values
+export type OrderStatusType =
+  | "Draft"
+  | "AwaitingPayment"
+  | "Confirmed"
+  | "ProductionComplete"
+  | "Packaging"
+  | "WaitingShipment"
+  | "CompleteShipped"
+  | "WaitingPickup"
+  | "PickedUp"
+  | "Cancelled";
+
+// PRD-0: Type-safe payment status values
+export type PaymentStatusType = "Unpaid" | "Partial" | "Paid";
+
 export interface OrderFilters {
-  status?: string;
+  status?: OrderStatusType;
   channel?: string;
   dueDateFrom?: number;
   dueDateTo?: number;
@@ -415,6 +431,7 @@ export function useConvexUpdateOrderStatus() {
 
 /**
  * Update payment status.
+ * PRD-0: Uses type-safe PaymentStatusType.
  */
 export function useConvexUpdateOrderPayment() {
   const mutation = useMutation(api.orders.mutations.updatePayment);
@@ -422,7 +439,7 @@ export function useConvexUpdateOrderPayment() {
   return {
     mutate: async (data: {
       orderId: Id<"orders">;
-      paymentStatus: string;
+      paymentStatus: PaymentStatusType;
       paymentMethod?: string;
     }) => {
       try {
@@ -436,7 +453,7 @@ export function useConvexUpdateOrderPayment() {
     },
     mutateAsync: async (data: {
       orderId: Id<"orders">;
-      paymentStatus: string;
+      paymentStatus: PaymentStatusType;
       paymentMethod?: string;
     }) => {
       try {
