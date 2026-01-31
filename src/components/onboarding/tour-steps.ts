@@ -3,6 +3,11 @@ import type { DriveStep } from 'driver.js';
 /**
  * Dashboard onboarding tour steps configuration.
  * Each step targets a specific UI section via data-tour-step attributes.
+ *
+ * Popover positioning:
+ * - Elements near bottom of viewport use 'top' to show popover above
+ * - Elements near top of viewport use 'bottom' to show popover below
+ * - All popovers are styled with a solid background panel for readability
  */
 export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
   {
@@ -11,8 +16,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 1: Add Ingredients',
       description:
         'Start by adding raw materials for your food recipes. Click "New Ingredient" to create your first ingredient with pricing information.',
-      side: 'top',
-      align: 'center',
+      side: 'left',
+      align: 'start',
     },
   },
   {
@@ -21,8 +26,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 2: Add Packaging Materials',
       description:
         'Add boxes, bags, labels, and other packaging components. These will be used in your packaging designs.',
-      side: 'top',
-      align: 'center',
+      side: 'left',
+      align: 'start',
     },
   },
   {
@@ -31,8 +36,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 3: Create a Recipe',
       description:
         'Combine your ingredients into food formulas. Recipes automatically track ingredient costs and yield.',
-      side: 'top',
-      align: 'center',
+      side: 'left',
+      align: 'start',
     },
   },
   {
@@ -41,8 +46,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 4: Create a Packaging Design',
       description:
         'Define packaging configurations using your materials. This calculates packaging costs per unit.',
-      side: 'top',
-      align: 'center',
+      side: 'left',
+      align: 'start',
     },
   },
   {
@@ -51,8 +56,8 @@ export const DASHBOARD_TOUR_STEPS: DriveStep[] = [
       title: 'Step 5: Create a Product',
       description:
         'Combine a recipe with packaging and set your retail price. COGS and margins are calculated automatically.',
-      side: 'bottom',
-      align: 'center',
+      side: 'left',
+      align: 'start',
     },
   },
   {
