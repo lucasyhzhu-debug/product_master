@@ -13,6 +13,69 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-01 - PRD-3: Order Form POS (Order System V2 Complete)
+
+**Feature: POS-Style Order Form with Template Parsing**
+
+Final phase of Order System V2. Replaces the old order form with a POS-style interface optimized for the WhatsApp copy/paste workflow used by the Frollie team.
+
+**New Components (6 files):**
+- `src/components/orders/ProductButtons.tsx` - 2x2 grid of fixed products (tap = +1, long-press = qty dialog)
+- `src/components/orders/PasteTemplateBox.tsx` - Textarea with Paste + Parse buttons for WhatsApp templates
+- `src/components/orders/DiscountInput.tsx` - Linked Rp/% inputs with >30% warning
+- `src/components/orders/DeliveryToggle.tsx` - Pickup/Delivery segmented control
+- `src/components/orders/OrderFormPOS.tsx` - 9-section composite form
+- `src/components/ui/alert.tsx` - shadcn/ui Alert component for feedback
+
+**Template Parser:**
+- `src/lib/orderTemplateParser.ts` - WhatsApp template parsing utility
+- Bracket format: `1. Original (80g) - Rp 50.000 [2]`
+- Keyword fallback: `2x Original`, `Original: 2`
+- Extracts customer info (phone, name, address)
+- Returns ParseResult with items, customer, warnings
+
+**Backend Changes:**
+- `convex/schema.ts` - Added `finalTotal` field to orders
+- `convex/orders/mutations.ts` - Added discount support to `create` mutation, added `updateOrderDiscount` mutation with terminal state protection
+
+**Hook Updates:**
+- `src/hooks/convex/useMenuProducts.ts` - Added `FixedProduct` interface and `useConvexFixedProducts` hook
+- `src/hooks/convex/useOrders.ts` - Added `useConvexUpdateOrderDiscount` hook
+- `src/hooks/convex/index.ts` - New exports
+
+**Type Updates:**
+- `src/lib/types.ts` - Added `OrderLineItem`, `OrderFormData` interfaces
+
+**Integration:**
+- `src/pages/OrderManager.tsx` - Replaced old `OrderForm` with `OrderFormPOS` in all three responsive layouts
+
+**Order Form POS Sections:**
+1. Template (copy/paste workflow with feedback alerts)
+2. Products (2x2 buttons + line items with qty controls)
+3. Customer (search/create)
+4. Delivery (toggle + address input)
+5. Dates (order date readonly, due date picker)
+6. Notes (textarea)
+7. Discount (linked Rp/% with warning)
+8. Totals (subtotal, discount, final)
+9. Submit (Cancel + Create Order buttons)
+
+**Multi-Agent Implementation:**
+- `cto-orchestrator` - Strategic coordination
+- `convex-backend` - Backend mutations
+- `general-purpose` - Template parser utility
+- `react-ui-builder` (x5) - UI components
+
+**Order System V2 Complete:**
+- [x] PRD-0: Schema Foundation (unions, fixed products, message tracking)
+- [x] PRD-1: Kitchen Core (dashboard, order cards, basic completion)
+- [x] PRD-2: Kitchen Gamification (ball buttons, sounds, confetti)
+- [x] PRD-3: Order Form POS (product buttons, template parser, discount input)
+
+**Branch:** `feature/order-form-pos`
+
+---
+
 ## 2026-01-31 - WhatsApp Template Tabs with Bilingual Support
 
 **Feature: Tabbed WhatsApp Message Templates**
