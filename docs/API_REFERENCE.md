@@ -109,10 +109,70 @@ customers.getById({ id })               // Get single customer
 // convex/orders/queries.ts
 orders.list({ status?, channel?, dueDateFrom?, dueDateTo? }) // List with filters
 orders.getById({ id })                  // Get detail with items and WhatsApp text
-orders.getKitchenOrders({ dueDate? })   // Kitchen view (production statuses only)
 orders.getProductionReport({ dateFrom, dateTo }) // Production report grouped by date
 orders.getProductSuggestions()          // Distinct products from history
 orders.getSellerSuggestions()           // Distinct sold_by from history
+```
+
+### Kitchen View Queries (PRD-1)
+```typescript
+// convex/orders/queries.ts
+orders.getKitchenOrders()               // Confirmed orders with ball counts, priority sorted
+orders.getKitchenStats()                // Dashboard stats: balls needed/completed, order counts
+orders.getCompletedToday()              // Orders completed since midnight
+```
+
+**getKitchenOrders Response:**
+```typescript
+{
+  _id: Id<"orders">;
+  orderNumber: string;
+  customerName: string;
+  dueDate: number | null;
+  status: "Confirmed";
+  items: Doc<"orderItems">[];
+  bigBallsNeeded: number;    // Sum of productionUnits for original type
+  midBallsNeeded: number;    // Sum of productionUnits for bite_sized type
+}[]
+// Sorted by: dueDate ASC → totalUnits DESC → orderDate ASC
+```
+
+**getKitchenStats Response:**
+```typescript
+{
+  bigBallsNeeded: number;       // Pending orders total
+  bigBallsCompleted: number;    // Since midnight
+  midBallsNeeded: number;
+  midBallsCompleted: number;
+  ordersPending: number;        // Count of Confirmed orders
+  ordersCompletedToday: number; // Count since midnight
+}
+```
+
+### WhatsApp Templates (PRD-0)
+```typescript
+// convex/orders/whatsapp.ts
+orders.whatsapp.getMessage({ orderId, template })    // Get formatted message
+orders.whatsapp.getOrderTemplate()                   // Clean order template for copy/paste
+orders.whatsapp.markMessageSent({ orderId, template, sentBy, messageContent? })
+orders.whatsapp.getMessageHistory({ orderId })       // Sent message audit trail
+```
+
+**Template Types:**
+- `payment_request` - Bank transfer details
+- `production_started` - Production notification
+- `delivery_complete` - Delivery confirmation
+- `receipt` - Order receipt
+- `shipping` - Shipping notification
+- `pickup_ready` - Pickup notification
+
+**markMessageSent Response:**
+```typescript
+{
+  alreadySent: boolean;       // True if sent within 5-minute window
+  lastSentAt?: number;        // Timestamp of last send
+  lastSentBy?: string;        // User who last sent
+}
 ```
 
 ---
@@ -148,9 +208,18 @@ tags.seedDefaults()                     // Seed default tags
 // convex/menuProducts/mutations.ts
 menuProducts.create({ code, name, grams, defaultPrice, productionType, productionUnits, isActive })
 menuProducts.update({ id, code?, name?, ... })
-menuProducts.remove({ id })
-menuProducts.seedDefaults()             // Seed default menu products
+menuProducts.remove({ id })                 // Fails if isFixed === true
+menuProducts.seedDefaults()                 // Seed default menu products
+menuProducts.seedFixedProducts()            // Seed 4 fixed Frollie products with COGS (PRD-0)
 ```
+
+**Fixed Products (seedFixedProducts):**
+| Code | Name | Grams | Price | COGS | Units |
+|------|------|-------|-------|------|-------|
+| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 | 1 |
+| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 | 1 |
+| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 | 2 |
+| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 | 3 |
 
 ### Recipes
 ```typescript
@@ -230,6 +299,38 @@ orders.updateShipping({ id, shippingAgency, shippingNumber })
 
 orders.remove({ id })                   // Only Draft status allowed
 ```
+
+### Kitchen Mutations (PRD-1, PRD-2)
+```typescript
+// convex/orders/mutations.ts
+orders.completeOrder({ id })              // Mark order as ProductionComplete
+orders.revertToConfirmed({ id })          // Undo completion, restore ball counts
+orders.completeBalls({ ballType, count }) // Batch ball completion with overflow
+```
+
+**completeBalls Args:**
+```typescript
+{
+  ballType: "big" | "mid";  // "big" = original, "mid" = bite_sized
+  count: number;            // 1 or 5
+}
+```
+
+**completeBalls Response:**
+```typescript
+{
+  completedOrderIds: Id<"orders">[];  // Orders auto-completed (all balls = 0)
+  ballsUsed: number;                   // Balls actually applied
+  overflow: number;                    // Remaining (no orders to apply to)
+}
+```
+
+**Ball Completion Logic:**
+1. Get Confirmed orders sorted by priority (dueDate ASC → totalUnits DESC → orderDate ASC)
+2. Apply balls to matching items (original → big, bite_sized → mid)
+3. Decrement `ballsRemaining` on each item (min 0)
+4. If order has leftover count, overflow to next order
+5. Auto-complete orders when ALL items have `ballsRemaining === 0`
 
 ---
 

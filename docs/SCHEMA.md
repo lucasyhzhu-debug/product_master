@@ -100,17 +100,28 @@ tags: defineTable({
 ### 4. `menuProducts` - Predefined Menu Products
 ```typescript
 menuProducts: defineTable({
-  code: v.string(),                           // e.g., "ORI-50"
-  name: v.string(),                           // e.g., "Original 50g"
-  grams: v.number(),                          // 50
-  defaultPrice: v.number(),                   // IDR
+  code: v.string(),                           // e.g., "ORIGINAL"
+  name: v.string(),                           // e.g., "Original"
+  grams: v.number(),                          // 80
+  defaultPrice: v.number(),                   // IDR 50000
   productionType: v.string(),                 // "original" or "bite_sized"
-  productionUnits: v.number(),                // Units per production batch
+  productionUnits: v.number(),                // Balls per item (1 for original)
   isActive: v.boolean(),
+  // PRD-0 additions:
+  isFixed: v.optional(v.boolean()),           // Prevents deletion when true
+  unitCost: v.optional(v.number()),           // COGS in IDR
 })
   .index("by_code", ["code"])
   .index("by_active", ["isActive"])
 ```
+
+**Fixed Products (isFixed === true):**
+| Code | Name | Grams | Price | COGS | Units |
+|------|------|-------|-------|------|-------|
+| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 | 1 |
+| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 | 1 |
+| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 | 2 |
+| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 | 3 |
 
 ### 5. `recipes` - Recipe Parent Entity
 ```typescript
@@ -333,6 +344,13 @@ orders: defineTable({
   notes: v.optional(v.string()),
   createdBy: v.string(),
   itemCount: v.number(),
+
+  // PRD-0 additions:
+  orderLevelDiscount: v.optional(v.number()),
+  orderLevelDiscountType: v.optional(v.union(
+    v.literal("amount"),
+    v.literal("percentage")
+  )),
 })
   .index("by_order_number", ["orderNumber"])
   .index("by_customer", ["customerId"])
@@ -359,10 +377,44 @@ orderItems: defineTable({
   lineMargin: v.number(),
   // Optional menu product link
   menuProductId: v.optional(v.id("menuProducts")),
+  // PRD-0 additions for Kitchen View:
+  productionType: v.optional(v.string()),     // "original" or "bite_sized"
+  productionUnits: v.optional(v.number()),    // Balls needed for this item
+  ballsRemaining: v.optional(v.number()),     // Decremented during production
 })
   .index("by_order", ["orderId"])
   .index("by_product_name", ["productName"])
 ```
+
+**Kitchen Ball Tracking (PRD-1):**
+- `productionType === "original"` → counts as "big" balls
+- `productionType === "bite_sized"` → counts as "mid" balls
+- `ballsRemaining` starts at `productionUnits`, decrements to 0 on completion
+- When ALL items in an order have `ballsRemaining === 0`, order auto-completes
+
+### 18. `orderMessages` - WhatsApp Message Tracking (PRD-0)
+```typescript
+orderMessages: defineTable({
+  orderId: v.id("orders"),
+  template: v.string(),                       // e.g., "payment_request"
+  messageHash: v.string(),                    // SHA-256 for deduplication
+  sentAt: v.number(),                         // Timestamp
+  sentBy: v.string(),                         // User who sent
+  messagePreview: v.optional(v.string()),     // First 100 chars
+})
+  .index("by_order", ["orderId"])
+  .index("by_order_template", ["orderId", "template"])
+```
+
+**Purpose:** Track sent WhatsApp messages for deduplication (5-minute window prevents duplicates).
+
+**Template Types:**
+- `payment_request` - Bank transfer details
+- `production_started` - Production notification
+- `delivery_complete` - Delivery confirmation
+- `receipt` - Order receipt
+- `shipping` - Shipping notification
+- `pickup_ready` - Pickup notification
 
 ---
 
@@ -445,8 +497,12 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 ┌──────────┐      ┌─────────┐      ┌───────────┐
 │ Customer │<─────│  Order  │─────>│ OrderItem │
 └──────────┘      └─────────┘      └───────────┘
+                       │                  │
+                       │                  └─── menuProductId ───> MenuProduct (optional)
                        │
-                       └─── menuProductId ───> MenuProduct (optional)
+                       └─────────────────>┌───────────────┐
+                                          │ OrderMessages │ (WhatsApp tracking)
+                                          └───────────────┘
 ```
 
 ---
