@@ -1,4 +1,5 @@
 /* Driver.js Custom Styling - Matches shadcn/ui Design System */
+/* Note: Tailwind CSS v4 @theme uses --color-* prefix with full hsl() values */
 
 /* Overlay - Semi-transparent dark background */
 .driver-overlay {
@@ -7,19 +8,20 @@
 
 /* Popover Container - Matches shadcn Card styling */
 .driver-popover {
-  background-color: hsl(var(--background)) !important;
-  border: 1px solid hsl(var(--border)) !important;
+  background-color: var(--color-background) !important;
+  border: 1px solid var(--color-border) !important;
   border-radius: 0.5rem !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
   padding: 1rem !important;
   max-width: 320px !important;
+  z-index: 1000001 !important;
 }
 
 /* Popover Title */
 .driver-popover-title {
   font-size: 0.875rem !important;
   font-weight: 600 !important;
-  color: hsl(var(--foreground)) !important;
+  color: var(--color-foreground) !important;
   margin: 0 !important;
   padding: 0 !important;
 }
@@ -27,7 +29,7 @@
 /* Popover Description */
 .driver-popover-description {
   font-size: 0.875rem !important;
-  color: hsl(var(--muted-foreground)) !important;
+  color: var(--color-muted-foreground) !important;
   margin-top: 0.5rem !important;
   line-height: 1.5 !important;
 }
@@ -35,7 +37,7 @@
 /* Progress Indicator (Step Counter) */
 .driver-popover-progress-text {
   font-size: 0.75rem !important;
-  color: hsl(var(--muted-foreground)) !important;
+  color: var(--color-muted-foreground) !important;
   margin-top: 0.75rem !important;
 }
 
@@ -57,13 +59,13 @@
   cursor: pointer !important;
   transition: background-color 0.2s, border-color 0.2s !important;
   background: transparent !important;
-  border: 1px solid hsl(var(--border)) !important;
-  color: hsl(var(--foreground)) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-foreground) !important;
 }
 
 .driver-popover-prev-btn:hover {
-  background: hsl(var(--accent)) !important;
-  border-color: hsl(var(--accent)) !important;
+  background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
 }
 
 /* Next Button - Primary style */
@@ -74,9 +76,9 @@
   font-weight: 500 !important;
   cursor: pointer !important;
   transition: background-color 0.2s !important;
-  background: hsl(var(--primary)) !important;
+  background: var(--color-primary) !important;
   border: none !important;
-  color: hsl(var(--primary-foreground)) !important;
+  color: var(--color-primary-foreground) !important;
 }
 
 .driver-popover-next-btn:hover {
@@ -85,22 +87,24 @@
 
 /* Close Button (X) */
 .driver-popover-close-btn {
-  color: hsl(var(--muted-foreground)) !important;
+  color: var(--color-muted-foreground) !important;
   transition: color 0.2s !important;
 }
 
 .driver-popover-close-btn:hover {
-  color: hsl(var(--foreground)) !important;
+  color: var(--color-foreground) !important;
 }
 
-/* Highlighted Element - Rounded corners on spotlight */
+/* Highlighted Element - Ensure proper z-index and visibility */
 .driver-active-element {
   border-radius: 0.5rem !important;
+  position: relative !important;
+  z-index: 1000000 !important;
 }
 
 /* Arrow styling */
 .driver-popover-arrow {
-  border-color: hsl(var(--background)) !important;
+  border-color: var(--color-background) !important;
 }
 
 .driver-popover-arrow-side-left,
@@ -114,6 +118,6 @@
 .driver-popover-arrow-side-right::before,
 .driver-popover-arrow-side-top::before,
 .driver-popover-arrow-side-bottom::before {
-  background-color: hsl(var(--background)) !important;
-  border: 1px solid hsl(var(--border)) !important;
+  background-color: var(--color-background) !important;
+  border: 1px solid var(--color-border) !important;
 }
