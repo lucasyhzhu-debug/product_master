@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards, EmptyState } from '@/components/shared';
-import { OrderForm } from '@/components/orders/OrderForm';
+import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
 
 import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
 import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
@@ -266,7 +266,10 @@ export function OrderManager() {
             </div>
           </CardHeader>
           <CardContent>
-            <OrderForm onSuccess={handleOrderCreated} />
+            <OrderFormPOS
+              onSuccess={() => handleOrderCreated()}
+              onCancel={() => setShowForm(false)}
+            />
           </CardContent>
         </Card>
       )}
@@ -325,7 +328,10 @@ export function OrderManager() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <OrderForm onSuccess={handleOrderCreated} />
+                  <OrderFormPOS
+                    onSuccess={() => handleOrderCreated()}
+                    onCancel={() => setShowForm(false)}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -353,7 +359,10 @@ export function OrderManager() {
             <DialogHeader>
               <DialogTitle>New Order</DialogTitle>
             </DialogHeader>
-            <OrderForm onSuccess={handleOrderCreated} />
+            <OrderFormPOS
+              onSuccess={() => handleOrderCreated()}
+              onCancel={() => setShowForm(false)}
+            />
           </DialogContent>
         </Dialog>
       )}

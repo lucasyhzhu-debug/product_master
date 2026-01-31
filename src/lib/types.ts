@@ -574,3 +574,28 @@ export interface KitchenOrder extends OrderSummary {
   big_balls_needed: number;
   mid_balls_needed: number;
 }
+
+// POS form types (PRD-5: Order System V2 - Wave 1)
+export interface OrderLineItem {
+  productId: string;
+  productCode: string;
+  productName: string;
+  grams: number;
+  quantity: number;
+  unitPrice: number;
+  unitCost?: number;
+  lineTotal: number;
+}
+
+export interface OrderFormData {
+  customerId?: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryType: 'Pickup' | 'Delivery';
+  deliveryAddress?: string;
+  dueDate: Date;
+  notes?: string;
+  items: OrderLineItem[];
+  discount: number;
+  discountType: 'amount' | 'percentage';
+}
