@@ -78,3 +78,4 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 nul
+.claude/settings.local.json
