@@ -1,9 +1,9 @@
 /* Driver.js Custom Styling - Matches shadcn/ui Design System */
 /* Note: Tailwind CSS v4 @theme uses --color-* prefix with full hsl() values */
 
-/* Overlay - Semi-transparent dark background */
+/* Overlay - Darker background to make highlighted element pop */
 .driver-overlay {
-  background-color: rgba(0, 0, 0, 0.6) !important;
+  background-color: rgba(0, 0, 0, 0.8) !important;
 }
 
 /* Highlighted Element Stage - The cutout area around highlighted element */
@@ -11,18 +11,24 @@
   z-index: 10000 !important;
 }
 
-/* Popover Container - Solid background panel for readability */
+/* Stage (the light area around highlighted element) - Make it glow */
+.driver-popover-arrow,
+.driver-highlighted-element-stage {
+  z-index: 10000 !important;
+}
+
+/* Popover Container - Prominent centered panel */
 .driver-popover {
-  background-color: hsl(222 47% 11%) !important; /* Dark slate background */
-  border: 1px solid hsl(217 33% 25%) !important;
-  border-radius: 0.75rem !important;
+  background-color: hsl(222 47% 14%) !important; /* Slightly lighter for contrast */
+  border: 2px solid hsl(221 83% 53% / 0.5) !important; /* Blue accent border */
+  border-radius: 1rem !important;
   box-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.3),
-    0 10px 10px -5px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.05) !important;
-  padding: 1.25rem !important;
-  max-width: 340px !important;
-  min-width: 280px !important;
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 60px 10px hsl(221 83% 53% / 0.15) !important; /* Subtle blue glow */
+  padding: 1.5rem !important;
+  max-width: 380px !important;
+  min-width: 320px !important;
   z-index: 1000001 !important;
 }
 
@@ -112,14 +118,22 @@
   color: hsl(210 40% 98%) !important;
 }
 
-/* Highlighted Element - Ensure element is visible above overlay */
+/* Highlighted Element - Bright glow effect to draw attention */
 .driver-active-element {
-  border-radius: 0.5rem !important;
+  border-radius: 0.75rem !important;
   position: relative !important;
   z-index: 10001 !important;
   box-shadow:
-    0 0 0 4px hsl(221 83% 53% / 0.3),
-    0 0 20px hsl(221 83% 53% / 0.2) !important;
+    0 0 0 4px hsl(221 83% 60% / 0.6),
+    0 0 0 8px hsl(221 83% 53% / 0.3),
+    0 0 40px 10px hsl(221 83% 53% / 0.4),
+    0 0 80px 20px hsl(221 83% 53% / 0.2) !important;
+  filter: brightness(1.1) !important;
+}
+
+/* Extra brightness boost for the highlighted area */
+.driver-highlighted-element {
+  filter: brightness(1.15) contrast(1.05) !important;
 }
 
 /* Arrow styling - match popover background */
