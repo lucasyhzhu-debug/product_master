@@ -20,6 +20,12 @@ export default defineConfig({
       include: ['src/lib/**/*.ts', 'convex/lib/**/*.ts', 'convex/orders/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.test.tsx', '**/node_modules/**'],
     },
+    // Ensure deps are properly transformed (needed for convex-test import.meta.glob)
+    server: {
+      deps: {
+        inline: ['convex-test'],
+      },
+    },
   },
   resolve: {
     alias: {
