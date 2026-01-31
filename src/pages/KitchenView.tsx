@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { ChefHat, ChevronDown } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards } from '@/components/shared';
-import { KitchenDashboard, KitchenOrderCard } from '@/components/orders';
+import { BallCompletionButtons, SoundToggle, KitchenDashboard, KitchenOrderCard } from '@/components/orders';
+import { playCompletionFanfare, playDing } from '@/lib/kitchenSounds';
 
 import {
   useConvexKitchenStats,
@@ -12,6 +15,7 @@ import {
   useConvexCompletedToday,
   useConvexCompleteOrder,
   useConvexRevertToConfirmed,
+  useConvexCompleteBalls,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
@@ -27,6 +31,7 @@ export function KitchenView() {
   // Mutations (toast notifications are handled inside the hooks)
   const completeOrder = useConvexCompleteOrder();
   const revertOrder = useConvexRevertToConfirmed();
+  const { mutateAsync: completeBalls } = useConvexCompleteBalls();
 
   const isLoading = statsLoading || ordersLoading || completedLoading;
 
@@ -38,12 +43,56 @@ export function KitchenView() {
     await revertOrder.mutate(orderId as unknown as Id<"orders">);
   };
 
+  const handleCompleteBalls = async (ballType: 'big' | 'mid', count: number) => {
+    try {
+      const result = await completeBalls({ ballType, count });
+
+      // Play ding sounds staggered for each ball used
+      for (let i = 0; i < Math.min(result.ballsUsed, 5); i++) {
+        setTimeout(() => playDing(), i * 100);
+      }
+
+      // If orders were completed, celebrate!
+      if (result.completedOrderIds.length > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        playCompletionFanfare();
+      }
+
+      // Build toast message
+      let message = `${result.ballsUsed} ${ballType} ball${result.ballsUsed !== 1 ? 's' : ''} applied`;
+      if (result.completedOrderIds.length > 0) {
+        message += ` - ${result.completedOrderIds.length} order${result.completedOrderIds.length !== 1 ? 's' : ''} completed!`;
+      }
+      if (result.overflow > 0) {
+        message += ` (${result.overflow} overflow)`;
+      }
+
+      toast.success(message);
+    } catch (error) {
+      toast.error('Failed to complete balls');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Kitchen View" />
+      <div className="flex items-center justify-between">
+        <PageHeader title="Kitchen View" />
+        <SoundToggle />
+      </div>
 
       {/* Stats Dashboard */}
       <KitchenDashboard stats={stats} />
+
+      {/* Ball Completion Buttons */}
+      <BallCompletionButtons
+        onComplete={handleCompleteBalls}
+        disabled={!pendingOrders?.length}
+      />
 
       {isLoading ? (
         <LoadingCards count={4} />
