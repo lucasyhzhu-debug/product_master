@@ -79,6 +79,8 @@
   background: transparent !important;
   border: 1px solid hsl(217 33% 30%) !important;
   color: hsl(215 20% 75%) !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
 }
 
 .driver-popover-prev-btn:hover {
@@ -98,6 +100,8 @@
   background: hsl(221 83% 53%) !important; /* Blue primary */
   border: none !important;
   color: white !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
 }
 
 .driver-popover-next-btn:hover {
@@ -128,12 +132,6 @@
     0 0 0 8px hsl(221 83% 53% / 0.3),
     0 0 40px 10px hsl(221 83% 53% / 0.4),
     0 0 80px 20px hsl(221 83% 53% / 0.2) !important;
-  filter: brightness(1.1) !important;
-}
-
-/* Extra brightness boost for the highlighted area */
-.driver-highlighted-element {
-  filter: brightness(1.15) contrast(1.05) !important;
 }
 
 /* Arrow styling - match popover background */
