@@ -17,10 +17,22 @@ interface OrderWithItems extends Doc<"orders"> {
 
 /**
  * List orders with optional filters.
+ * PRD-0: Uses type-safe union for status filter.
  */
 export const list = query({
   args: {
-    status: v.optional(v.string()),
+    status: v.optional(v.union(
+      v.literal("Draft"),
+      v.literal("AwaitingPayment"),
+      v.literal("Confirmed"),
+      v.literal("ProductionComplete"),
+      v.literal("Packaging"),
+      v.literal("WaitingShipment"),
+      v.literal("CompleteShipped"),
+      v.literal("WaitingPickup"),
+      v.literal("PickedUp"),
+      v.literal("Cancelled")
+    )),
     channel: v.optional(v.string()),
     dueDateFrom: v.optional(v.number()),
     dueDateTo: v.optional(v.number()),

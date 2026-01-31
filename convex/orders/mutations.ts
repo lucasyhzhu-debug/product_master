@@ -204,11 +204,16 @@ export const updateStatus = mutation({
 
 /**
  * Update payment status.
+ * PRD-0: Uses type-safe union for paymentStatus.
  */
 export const updatePayment = mutation({
   args: {
     orderId: v.id("orders"),
-    paymentStatus: v.string(),
+    paymentStatus: v.union(
+      v.literal("Unpaid"),
+      v.literal("Partial"),
+      v.literal("Paid")
+    ),
     paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
