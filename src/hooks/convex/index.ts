@@ -162,4 +162,5 @@ export {
   // Mutation hooks
   useConvexCompleteOrder,
   useConvexRevertToConfirmed,
+  useConvexCompleteBalls,
 } from "./useKitchenStats";

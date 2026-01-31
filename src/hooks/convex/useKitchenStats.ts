@@ -296,3 +296,15 @@ export function useConvexRevertToConfirmed() {
     },
   };
 }
+
+/**
+ * Complete balls in batches (gamification feature).
+ * PRD-1: Kitchen Core - Wave 2 Gamification.
+ */
+export function useConvexCompleteBalls() {
+  const completeBalls = useMutation(api.orders.mutations.completeBalls);
+  return {
+    mutate: completeBalls,
+    mutateAsync: completeBalls,
+  };
+}

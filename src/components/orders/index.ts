@@ -10,3 +10,5 @@ export { ConfirmationDialog } from './ConfirmationDialog';
 // Kitchen components (PRD-1: Kitchen Core)
 export { default as KitchenDashboard } from './KitchenDashboard';
 export { default as KitchenOrderCard } from './KitchenOrderCard';
+export { default as BallCompletionButtons } from './BallCompletionButtons';
+export { SoundToggle } from './SoundToggle';
