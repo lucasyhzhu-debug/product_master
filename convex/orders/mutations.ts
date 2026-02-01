@@ -178,8 +178,9 @@ export const create = mutation({
     const menuProductsMap = new Map<string, { productionType: string; productionUnits: number }>();
     for (const mpId of menuProductIds) {
       const mp = await ctx.db.get(mpId);
-      if (mp) {
-        menuProductsMap.set(mpId, {
+      if (mp && mp.productionType && mp.productionUnits) {
+        // Use string key for proper Map lookup (Id objects use reference equality)
+        menuProductsMap.set(mpId.toString(), {
           productionType: mp.productionType,
           productionUnits: mp.productionUnits,
         });
@@ -198,8 +199,9 @@ export const create = mutation({
       totalCost += lineCost;
 
       // Get production data from menu product if available
+      // Use string key for proper Map lookup (Id objects use reference equality)
       const menuProductData = item.menuProductId
-        ? menuProductsMap.get(item.menuProductId)
+        ? menuProductsMap.get(item.menuProductId.toString())
         : undefined;
 
       return {
@@ -829,8 +831,17 @@ export const completeBalls = mutation({
       }
 
       // Check if ALL items in the order have ballsRemaining = 0
+      // IMPORTANT: Only consider items that have production data (productionType set)
+      // Items without production data should NOT trigger auto-completion
       const allItems = items; // All items, not just matching type
-      const allComplete = allItems.every((item) => {
+      const itemsWithProductionData = allItems.filter((item) => item.productionType);
+
+      // If no items have production data, don't auto-complete this order
+      if (itemsWithProductionData.length === 0) {
+        continue;
+      }
+
+      const allComplete = itemsWithProductionData.every((item) => {
         // Get updated ballsRemaining (either from our update or original value)
         const matchingItem = matchingItems.find((mi) => mi._id === item._id);
         if (matchingItem) {
