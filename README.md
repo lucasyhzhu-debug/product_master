@@ -1,4 +1,4 @@
-# Malo Recipe Master
+# Frollie Recipe Master
 
 A local-first recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, and product concepts with full versioning, cost calculations, and margin analysis.
 

@@ -135,7 +135,7 @@ export function Dashboard() {
               Getting Started
             </Button>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to Malo Recipe Master</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to Frollie Recipe Master</h1>
           <p className="text-muted-foreground max-w-2xl">
             Your central hub for managing recipes, packaging designs, and finished products.
             Click on any card below to view or edit, or use the "New" buttons to create.

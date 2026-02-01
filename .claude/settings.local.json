@@ -38,8 +38,7 @@
       "Write(*)",
       "Read(*)",
       "WebFetch(*)",
-      "WebSearch(*)",
-      "Bash(git commit:*)"
+      "WebSearch(*)"
     ],
     "deny": [
       "Bash(git push --force*)",

@@ -1,11 +1,11 @@
-# Malo Recipe Master - Module Specification
+# Frollie Recipe Master - Module Specification
 
 **Version:** 1.0
 **Owner:** Product Manager
 
 ## 1. Overview
 
-Malo Recipe Master is a local-first recipe and product concept management system. It enables tracking of food recipes, packaging configurations, and product concepts with full versioning, cost calculations, and margin analysis.
+Frollie Recipe Master is a local-first recipe and product concept management system. It enables tracking of food recipes, packaging configurations, and product concepts with full versioning, cost calculations, and margin analysis.
 
 ## 2. Core Entities & Business Logic
 

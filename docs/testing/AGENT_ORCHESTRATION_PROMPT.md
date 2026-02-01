@@ -49,7 +49,7 @@
 Run this FIRST before spawning parallel agents:
 
 ```
-You are setting up the test infrastructure for Malo Recipe Master.
+You are setting up the test infrastructure for Frollie Recipe Master.
 
 Read the master plan at docs/testing/TESTING_MASTER.md and complete Phase 0:
 
@@ -93,7 +93,7 @@ After infrastructure is ready, spawn these 3 agents IN PARALLEL:
 ### Agent 1: Backend Unit Tests
 
 ```
-You are implementing backend unit tests for Malo Recipe Master.
+You are implementing backend unit tests for Frollie Recipe Master.
 
 Read docs/testing/PLAN_BACKEND_UNIT.md for your complete task specification.
 
@@ -126,7 +126,7 @@ Do NOT modify any non-test files except:
 ### Agent 2: Convex Integration Tests
 
 ```
-You are implementing Convex integration tests for Malo Recipe Master.
+You are implementing Convex integration tests for Frollie Recipe Master.
 
 Read docs/testing/PLAN_CONVEX_INTEGRATION.md for your complete task specification.
 
@@ -166,7 +166,7 @@ Do NOT modify any non-test files. Only create files in tests/convex/.
 ### Agent 3: Frontend Tests
 
 ```
-You are implementing frontend tests for Malo Recipe Master.
+You are implementing frontend tests for Frollie Recipe Master.
 
 Read docs/testing/PLAN_FRONTEND.md for your complete task specification.
 
@@ -206,7 +206,7 @@ Do NOT modify any non-test files. Only create files in __tests__ directories.
 After all 3 agents complete, run this verification:
 
 ```
-You are verifying the complete test implementation for Malo Recipe Master.
+You are verifying the complete test implementation for Frollie Recipe Master.
 
 Steps:
 1. Run the full test suite:

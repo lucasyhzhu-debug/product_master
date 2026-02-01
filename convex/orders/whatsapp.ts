@@ -72,7 +72,7 @@ function generatePaymentRequest(order: OrderWithItems): string {
 
   return `Halo ${customerName}! 👋
 
-Terima kasih sudah order di Malo! 🙏
+Terima kasih sudah order di Frollie! 🙏
 
 *Order #${order.orderNumber}*
 ${itemsText}
@@ -121,7 +121,7 @@ Semoga suka dengan pesanannya! 😊
 
 Jangan lupa kasih review atau feedback ya, sangat membantu kami untuk terus berkembang.
 
-Terima kasih sudah order di Malo! 🙏
+Terima kasih sudah order di Frollie! 🙏
 Sampai jumpa di order berikutnya! 👋`;
 }
 

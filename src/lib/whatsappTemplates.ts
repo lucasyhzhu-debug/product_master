@@ -85,7 +85,7 @@ const TEMPLATES: Record<string, TemplateStrings> = {
   order_confirmation: {
     id: `Halo {customer_name}! 👋
 
-Terima kasih sudah order di Malo! 🙏
+Terima kasih sudah order di Frollie! 🙏
 
 *Order #{order_number}*
 {items_list}
@@ -105,7 +105,7 @@ Setelah transfer, mohon kirim bukti pembayaran ya.
 Terima kasih! 🙏`,
     en: `Hi {customer_name}! 👋
 
-Thank you for ordering from Malo! 🙏
+Thank you for ordering from Frollie! 🙏
 
 *Order #{order_number}*
 {items_list}
@@ -165,7 +165,7 @@ Alamat: {delivery_address}
 
 Silakan pantau status pengiriman ya.
 
-Terima kasih sudah order di Malo! 🙏`,
+Terima kasih sudah order di Frollie! 🙏`,
     en: `Hi {customer_name}! 👋
 
 Your Order #{order_number} is on its way! 📦
@@ -178,7 +178,7 @@ Address: {delivery_address}
 
 Please track your delivery status.
 
-Thank you for ordering from Malo! 🙏`,
+Thank you for ordering from Frollie! 🙏`,
   },
 
   delivery_pickup: {
@@ -217,7 +217,7 @@ Dan ikuti perjalanan founder kami:
 📸 IG: https://instagram.com/EtengandTJ
 🎵 TikTok: https://tiktok.com/@EtengandTJ
 
-Terima kasih sudah order di Malo! 🙏
+Terima kasih sudah order di Frollie! 🙏
 Sampai jumpa di order berikutnya! 👋`,
     en: `Hi {customer_name}! 👋
 
@@ -233,7 +233,7 @@ And follow our founder's journey:
 📸 IG: https://instagram.com/EtengandTJ
 🎵 TikTok: https://tiktok.com/@EtengandTJ
 
-Thank you for ordering from Malo! 🙏
+Thank you for ordering from Frollie! 🙏
 See you on your next order! 👋`,
   },
 };

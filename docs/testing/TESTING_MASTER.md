@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-This plan introduces testing to Malo Recipe Master, covering:
+This plan introduces testing to Frollie Recipe Master, covering:
 - **156 test cases** across 4 domains
 - **8 business rules** from CLAUDE.md with full coverage
 - **Parallel execution** via 4 specialized agents
