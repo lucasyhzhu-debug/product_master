@@ -30,8 +30,9 @@ import { useConvexCustomerSearch } from '@/hooks/convex/useCustomers';
 import { useConvexMenuProducts, useConvexCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
-
-const CHANNELS = ['IG', 'WA', 'Shopee', 'Tokopedia', 'Offline', 'Other'];
+import { getChannelOptions } from '@/lib/channels';
+import { ChannelBadge } from './ChannelBadge';
+import { cn } from '@/lib/utils';
 
 // Internal form state types (snake_case for form compatibility)
 interface FormOrderItem {
@@ -440,24 +441,24 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       </div>
 
       {/* Channel & Sold By */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Channel</Label>
-          <Select
-            value={formData.channel || ''}
-            onValueChange={(val) => setFormData((prev) => ({ ...prev, channel: val }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select channel" />
-            </SelectTrigger>
-            <SelectContent>
-              {CHANNELS.map((ch) => (
-                <SelectItem key={ch} value={ch}>
-                  {ch}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-2">
+            {getChannelOptions().map(({ value }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, channel: value }))}
+                className={cn(
+                  'transition-all rounded-md',
+                  formData.channel === value && 'ring-2 ring-offset-2 ring-primary'
+                )}
+              >
+                <ChannelBadge channel={value} size="sm" />
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">

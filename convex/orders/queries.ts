@@ -581,6 +581,44 @@ export const getPackagingOrders = query({
  * PRD-1: For kitchen view history.
  * OPTIMIZED: Batch fetch items and customers to avoid N+1 queries.
  */
+/**
+ * Get today's kitchen tray inventory.
+ * Returns current ball counts in the trays (survives page refresh).
+ * Visual Inventory System: Phase 1
+ */
+export const getTrayInventory = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split("T")[0];
+
+    // Look up today's inventory record
+    const inventory = await ctx.db
+      .query("kitchenInventory")
+      .withIndex("by_date", (q) => q.eq("date", today))
+      .first();
+
+    if (!inventory) {
+      // No record for today yet - return empty trays
+      return {
+        date: today,
+        originalBallCount: 0,
+        biteSizedBallCount: 0,
+        lastUpdated: null,
+        updatedBy: null,
+      };
+    }
+
+    return {
+      date: inventory.date,
+      originalBallCount: inventory.originalBallCount,
+      biteSizedBallCount: inventory.biteSizedBallCount,
+      lastUpdated: inventory.lastUpdated,
+      updatedBy: inventory.updatedBy ?? null,
+    };
+  },
+});
+
 export const getCompletedToday = query({
   args: {},
   handler: async (ctx) => {

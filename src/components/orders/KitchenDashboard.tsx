@@ -27,12 +27,12 @@ export default function KitchenDashboard({ stats }: KitchenDashboardProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* Big Balls Card */}
+      {/* Original Balls Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Big Balls</CardTitle>
-          <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-            <Circle className="h-4 w-4 text-red-600 fill-red-600" />
+          <CardTitle className="text-sm font-medium">Original</CardTitle>
+          <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#93C57220' }}>
+            <Circle className="h-5 w-5" style={{ fill: '#93C572', color: '#7B3F00' }} />
           </div>
         </CardHeader>
         <CardContent>
@@ -53,18 +53,18 @@ export default function KitchenDashboard({ stats }: KitchenDashboardProps) {
               </span>
             </div>
             {stats.big_balls_needed > 0 && (
-              <ProgressBar progress={bigBallsProgress} color="bg-red-500" />
+              <ProgressBar progress={bigBallsProgress} color="bg-[#93C572]" />
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Mid Balls Card */}
+      {/* Bite-sized Balls Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Mid Balls</CardTitle>
-          <div className="h-8 w-8 rounded-full bg-yellow-100 flex items-center justify-center">
-            <Circle className="h-4 w-4 text-yellow-600 fill-yellow-600" />
+          <CardTitle className="text-sm font-medium">Bite-sized</CardTitle>
+          <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#93C57220' }}>
+            <Circle className="h-4 w-4" style={{ fill: '#93C572', color: '#7B3F00' }} />
           </div>
         </CardHeader>
         <CardContent>
@@ -85,7 +85,7 @@ export default function KitchenDashboard({ stats }: KitchenDashboardProps) {
               </span>
             </div>
             {stats.mid_balls_needed > 0 && (
-              <ProgressBar progress={midBallsProgress} color="bg-yellow-500" />
+              <ProgressBar progress={midBallsProgress} color="bg-[#93C572]" />
             )}
           </div>
         </CardContent>
