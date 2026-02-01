@@ -21,7 +21,9 @@
       "Bash(tasklist *)",
       "Bash(set *)",
       "WebFetch(*)",
-      "WebSearch(*)"
+      "WebSearch(*)",
+      "Bash(npx convex codegen)",
+      "Bash(cd *)"
     ],
     "deny": [
       "Bash(git push --force*)",
