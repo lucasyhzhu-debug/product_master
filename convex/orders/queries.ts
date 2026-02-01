@@ -312,6 +312,7 @@ export const getChannelSuggestions = query({
 /**
  * Get kitchen stats for dashboard.
  * PRD-1: Ball production tracking.
+ * OPTIMIZED: Batch fetch all orderItems to avoid N+1 queries.
  */
 export const getKitchenStats = query({
   args: {},
@@ -319,63 +320,64 @@ export const getKitchenStats = query({
     // Get all orders
     const allOrders = await ctx.db.query("orders").collect();
 
-    // Calculate stats
-    let bigBallsNeeded = 0;
-    let bigBallsCompleted = 0;
-    let midBallsNeeded = 0;
-    let midBallsCompleted = 0;
-    let ordersPending = 0;
-    let ordersCompletedToday = 0;
-
     // Get midnight today
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    for (const order of allOrders) {
-      // Count pending orders (Confirmed status)
-      if (order.status === "Confirmed") {
-        ordersPending++;
+    // Filter orders by status first
+    const confirmedOrders = allOrders.filter((o) => o.status === "Confirmed");
 
-        // Get items to calculate ball needs
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
+    const completedStatuses = [
+      "ProductionComplete",
+      "Packaging",
+      "WaitingShipment",
+      "WaitingPickup",
+      "CompleteShipped",
+      "PickedUp",
+    ];
+    const completedTodayOrders = allOrders.filter(
+      (o) => completedStatuses.includes(o.status) && o._creationTime >= midnight
+    );
 
-        for (const item of items) {
-          if (item.productionType === "original" && item.productionUnits) {
-            bigBallsNeeded += item.productionUnits * item.quantity;
-          } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsNeeded += item.productionUnits * item.quantity;
-          }
+    // BATCH FETCH: Get all orderItems in one query (avoids N+1)
+    const allOrderItems = await ctx.db.query("orderItems").collect();
+
+    // Group items by orderId for O(1) lookup
+    const itemsByOrder = new Map<string, typeof allOrderItems>();
+    for (const item of allOrderItems) {
+      const orderId = item.orderId.toString();
+      if (!itemsByOrder.has(orderId)) {
+        itemsByOrder.set(orderId, []);
+      }
+      itemsByOrder.get(orderId)!.push(item);
+    }
+
+    // Calculate stats for confirmed orders
+    let bigBallsNeeded = 0;
+    let midBallsNeeded = 0;
+
+    for (const order of confirmedOrders) {
+      const items = itemsByOrder.get(order._id.toString()) ?? [];
+      for (const item of items) {
+        if (item.productionType === "original" && item.productionUnits) {
+          bigBallsNeeded += item.productionUnits * item.quantity;
+        } else if (item.productionType === "bite_sized" && item.productionUnits) {
+          midBallsNeeded += item.productionUnits * item.quantity;
         }
       }
+    }
 
-      // Count completed orders today
-      const completedStatuses = [
-        "ProductionComplete",
-        "Packaging",
-        "WaitingShipment",
-        "WaitingPickup",
-        "CompleteShipped",
-        "PickedUp",
-      ];
+    // Calculate stats for completed orders today
+    let bigBallsCompleted = 0;
+    let midBallsCompleted = 0;
 
-      if (completedStatuses.includes(order.status) && order._creationTime >= midnight) {
-        ordersCompletedToday++;
-
-        // Get items to calculate completed balls
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
-
-        for (const item of items) {
-          if (item.productionType === "original" && item.productionUnits) {
-            bigBallsCompleted += item.productionUnits * item.quantity;
-          } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsCompleted += item.productionUnits * item.quantity;
-          }
+    for (const order of completedTodayOrders) {
+      const items = itemsByOrder.get(order._id.toString()) ?? [];
+      for (const item of items) {
+        if (item.productionType === "original" && item.productionUnits) {
+          bigBallsCompleted += item.productionUnits * item.quantity;
+        } else if (item.productionType === "bite_sized" && item.productionUnits) {
+          midBallsCompleted += item.productionUnits * item.quantity;
         }
       }
     }
@@ -385,8 +387,8 @@ export const getKitchenStats = query({
       bigBallsCompleted,
       midBallsNeeded,
       midBallsCompleted,
-      ordersPending,
-      ordersCompletedToday,
+      ordersPending: confirmedOrders.length,
+      ordersCompletedToday: completedTodayOrders.length,
     };
   },
 });
@@ -394,6 +396,7 @@ export const getKitchenStats = query({
 /**
  * Get orders completed today.
  * PRD-1: For kitchen view history.
+ * OPTIMIZED: Batch fetch items and customers to avoid N+1 queries.
  */
 export const getCompletedToday = query({
   args: {},
@@ -419,37 +422,51 @@ export const getCompletedToday = query({
       (o) => completedStatuses.includes(o.status) && o._creationTime >= midnight
     );
 
-    // Fetch items and customer for each order
-    const result = await Promise.all(
-      completedToday.map(async (order) => {
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
+    // BATCH FETCH: Get all orderItems in one query (avoids N+1)
+    const allOrderItems = await ctx.db.query("orderItems").collect();
 
-        const customer = await ctx.db.get(order.customerId);
+    // Group items by orderId for O(1) lookup
+    const itemsByOrder = new Map<string, typeof allOrderItems>();
+    for (const item of allOrderItems) {
+      const orderId = item.orderId.toString();
+      if (!itemsByOrder.has(orderId)) {
+        itemsByOrder.set(orderId, []);
+      }
+      itemsByOrder.get(orderId)!.push(item);
+    }
 
-        // Calculate ball counts
-        let bigBalls = 0;
-        let midBalls = 0;
-
-        for (const item of items) {
-          if (item.productionType === "original" && item.productionUnits) {
-            bigBalls += item.productionUnits * item.quantity;
-          } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBalls += item.productionUnits * item.quantity;
-          }
-        }
-
-        return {
-          ...order,
-          items,
-          customer,
-          bigBalls,
-          midBalls,
-        };
-      })
+    // BATCH FETCH: Get unique customer IDs and fetch customers
+    const customerIds = [...new Set(completedToday.map((o) => o.customerId))];
+    const customers = await Promise.all(customerIds.map((id) => ctx.db.get(id)));
+    const customersById = new Map(
+      customers.filter(Boolean).map((c) => [c!._id.toString(), c])
     );
+
+    // Build result with pre-fetched data
+    const result = completedToday.map((order) => {
+      const items = itemsByOrder.get(order._id.toString()) ?? [];
+      const customer = customersById.get(order.customerId.toString()) ?? null;
+
+      // Calculate ball counts
+      let bigBalls = 0;
+      let midBalls = 0;
+
+      for (const item of items) {
+        if (item.productionType === "original" && item.productionUnits) {
+          bigBalls += item.productionUnits * item.quantity;
+        } else if (item.productionType === "bite_sized" && item.productionUnits) {
+          midBalls += item.productionUnits * item.quantity;
+        }
+      }
+
+      return {
+        ...order,
+        items,
+        customer,
+        bigBalls,
+        midBalls,
+      };
+    });
 
     // Sort by completion time (most recent first)
     return result.sort((a, b) => b._creationTime - a._creationTime);

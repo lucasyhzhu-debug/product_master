@@ -320,7 +320,8 @@ export default defineSchema({
     ballsRemaining: v.optional(v.number()), // for completion tracking
   })
     .index("by_order", ["orderId"])
-    .index("by_product_name", ["productName"]),
+    .index("by_product_name", ["productName"])
+    .index("by_menu_product", ["menuProductId"]),
 
   // ============================================
   // PRD-0: WHATSAPP MESSAGE TRACKING
