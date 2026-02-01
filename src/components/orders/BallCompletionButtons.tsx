@@ -20,6 +20,8 @@ interface BallCompletionButtonsProps {
     biteSizedBallCount: number;
   };
   disabled?: boolean;
+  /** When set, renders only buttons for this ball type */
+  filterBallType?: BallType;
 }
 
 interface BallZoneProps {
@@ -28,6 +30,7 @@ interface BallZoneProps {
   onUndo?: () => void;
   trayCount: number;
   disabled?: boolean;
+  hideLabel?: boolean;
 }
 
 // Ball icon SVG
@@ -60,7 +63,7 @@ function BallIcon({ size = 20, type }: { size?: number; type: BallType }) {
   );
 }
 
-function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProps) {
+function BallZone({ ballType, onAdd, onUndo, trayCount, disabled, hideLabel }: BallZoneProps) {
   const [showUndo, setShowUndo] = useState(false);
 
   const label = ballType === 'original' ? 'Original' : 'Bite-sized';
@@ -68,27 +71,29 @@ function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProp
 
   return (
     <div className="space-y-2">
-      {/* Label */}
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <BallIcon type={ballType} size={16} />
-        <span>{label}</span>
-      </div>
+      {/* Label - hidden when used in filtered single-zone mode */}
+      {!hideLabel && (
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <BallIcon type={ballType} size={16} />
+          <span>{label}</span>
+        </div>
+      )}
 
-      {/* Buttons row */}
-      <div className="flex items-center gap-2">
+      {/* Buttons row - touch-friendly sizing */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* +1 Button */}
         <Button
           variant="outline"
           size="lg"
           className={cn(
-            'flex-1 h-14 text-lg font-bold transition-all active:scale-95',
+            'flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold transition-all active:scale-95',
             'bg-[#93C572]/10 border-[#93C572] hover:bg-[#93C572]/20 hover:border-[#93C572]'
           )}
           onClick={() => onAdd(1)}
           disabled={disabled}
         >
-          <BallIcon type={ballType} size={20} />
-          <span className="ml-2">+1</span>
+          <BallIcon type={ballType} size={18} />
+          <span className="ml-1.5 sm:ml-2">+1</span>
         </Button>
 
         {/* +5 Button */}
@@ -96,14 +101,14 @@ function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProp
           variant="outline"
           size="lg"
           className={cn(
-            'flex-1 h-14 text-lg font-bold transition-all active:scale-95',
+            'flex-1 h-12 sm:h-14 text-base sm:text-lg font-bold transition-all active:scale-95',
             'bg-[#93C572]/10 border-[#93C572] hover:bg-[#93C572]/20 hover:border-[#93C572]'
           )}
           onClick={() => onAdd(5)}
           disabled={disabled}
         >
-          <BallIcon type={ballType} size={20} />
-          <span className="ml-2">+5</span>
+          <BallIcon type={ballType} size={18} />
+          <span className="ml-1.5 sm:ml-2">+5</span>
         </Button>
 
         {/* Toggle/Undo Section */}
@@ -115,20 +120,20 @@ function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProp
               animate={{ width: 'auto', opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex items-center gap-1 overflow-hidden"
+              className="flex items-center gap-0.5 sm:gap-1 overflow-hidden"
             >
               {/* -1 Button */}
               <Button
                 variant="ghost"
                 size="lg"
                 className={cn(
-                  'h-14 px-4 text-lg font-bold',
+                  'h-12 sm:h-14 px-2 sm:px-4 text-base sm:text-lg font-bold',
                   !canUndo && 'opacity-40'
                 )}
                 onClick={() => onUndo?.()}
                 disabled={disabled || !canUndo}
               >
-                <Minus className="h-4 w-4 mr-1" />
+                <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
                 1
               </Button>
 
@@ -136,10 +141,10 @@ function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProp
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-14 w-10 text-muted-foreground"
+                className="h-12 sm:h-14 w-8 sm:w-10 text-muted-foreground"
                 onClick={() => setShowUndo(false)}
               >
-                <Minus className="h-4 w-4" />
+                <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </motion.div>
           ) : (
@@ -154,11 +159,11 @@ function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProp
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-14 w-10 text-muted-foreground hover:text-foreground"
+                className="h-12 sm:h-14 w-8 sm:w-10 text-muted-foreground hover:text-foreground"
                 onClick={() => setShowUndo(true)}
                 disabled={disabled}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </motion.div>
           )}
@@ -173,23 +178,56 @@ export default function BallCompletionButtons({
   onUndo,
   trayInventory,
   disabled = false,
+  filterBallType,
 }: BallCompletionButtonsProps) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  // When filterBallType is set, only render that zone
+  const showOriginal = !filterBallType || filterBallType === 'original';
+  const showBiteSized = !filterBallType || filterBallType === 'bite_sized';
+
+  // Single zone mode: no grid layout, hide label (parent already shows it)
+  if (filterBallType) {
+    return filterBallType === 'original' ? (
       <BallZone
         ballType="original"
         onAdd={(count) => onComplete('original', count)}
         onUndo={onUndo ? () => onUndo('original') : undefined}
         trayCount={trayInventory?.originalBallCount ?? 0}
         disabled={disabled}
+        hideLabel
       />
+    ) : (
       <BallZone
         ballType="bite_sized"
         onAdd={(count) => onComplete('bite_sized', count)}
         onUndo={onUndo ? () => onUndo('bite_sized') : undefined}
         trayCount={trayInventory?.biteSizedBallCount ?? 0}
         disabled={disabled}
+        hideLabel
       />
+    );
+  }
+
+  // Default: show both zones in grid
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {showOriginal && (
+        <BallZone
+          ballType="original"
+          onAdd={(count) => onComplete('original', count)}
+          onUndo={onUndo ? () => onUndo('original') : undefined}
+          trayCount={trayInventory?.originalBallCount ?? 0}
+          disabled={disabled}
+        />
+      )}
+      {showBiteSized && (
+        <BallZone
+          ballType="bite_sized"
+          onAdd={(count) => onComplete('bite_sized', count)}
+          onUndo={onUndo ? () => onUndo('bite_sized') : undefined}
+          trayCount={trayInventory?.biteSizedBallCount ?? 0}
+          disabled={disabled}
+        />
+      )}
     </div>
   );
 }

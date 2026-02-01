@@ -211,29 +211,31 @@ export function OrderBox({
 
   return (
     <Card className={cardClassName}>
-      {/* Header */}
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
+      {/* Header - mobile responsive */}
+      <CardHeader className="pb-2 px-3 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Order info - mobile: stack badge/number above customer */}
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <ChannelBadge channel={order.channel} size="sm" />
-            <span className="font-mono font-semibold text-lg">
+            <span className="font-mono font-semibold text-base sm:text-lg">
               #{order.orderNumber}
             </span>
             {order.customer?.name && (
               <>
-                <span className="text-muted-foreground">-</span>
-                <span className="truncate">{order.customer.name}</span>
+                <span className="text-muted-foreground hidden sm:inline">-</span>
+                <span className="truncate text-sm sm:text-base w-full sm:w-auto">{order.customer.name}</span>
               </>
             )}
           </div>
+          {/* Urgency & due time */}
           <div className="flex items-center gap-2 shrink-0">
             {urgency === 'urgent' && (
-              <Badge className="bg-amber-500 text-white animate-pulse">URGENT</Badge>
+              <Badge className="bg-amber-500 text-white animate-pulse text-xs">URGENT</Badge>
             )}
             {urgency === 'overdue' && (
-              <Badge className="bg-red-500 text-white animate-pulse">OVERDUE</Badge>
+              <Badge className="bg-red-500 text-white animate-pulse text-xs">OVERDUE</Badge>
             )}
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
               DUE: {formatDueTime(order.dueDate)}
             </span>
           </div>
@@ -242,11 +244,11 @@ export function OrderBox({
 
       <Separator />
 
-      {/* Summary + Action */}
-      <div className="px-4 py-3 bg-muted/30">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* Summary + Action - mobile responsive */}
+      <div className="px-3 sm:px-4 py-3 bg-muted/30">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           {/* Totals */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
             {originalNeeded > 0 && (
               <span className={cn(originalFilled >= originalNeeded && 'text-green-600 font-medium')}>
                 Original {originalFilled}/{originalNeeded}
@@ -261,11 +263,11 @@ export function OrderBox({
             )}
           </div>
 
-          {/* Status / Complete button */}
+          {/* Status / Complete button - full width on mobile */}
           {allPackagesPacked ? (
             <div
               className={cn(
-                'relative h-9 min-w-[200px] rounded-md overflow-hidden select-none',
+                'relative h-10 sm:h-9 w-full sm:w-auto sm:min-w-[200px] rounded-md overflow-hidden select-none',
                 canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
               )}
               onMouseDown={startHold}
@@ -280,20 +282,20 @@ export function OrderBox({
                 className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-100"
                 style={{ width: `${holdProgress}%` }}
               />
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-medium">
+              <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-medium">
                 {isHolding ? (
                   <span className="text-white mix-blend-difference">
                     {holdProgress < 100 ? 'Hold...' : 'Completing!'}
                   </span>
                 ) : (
                   <span className="text-green-700 dark:text-green-300">
-                    ✓ ALL PACKED - Hold 1s to confirm
+                    ✓ ALL PACKED - Hold 1s
                   </span>
                 )}
               </div>
             </div>
           ) : (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               Awaiting balls...
             </span>
           )}
@@ -302,9 +304,9 @@ export function OrderBox({
 
       <Separator />
 
-      {/* Package Grid */}
-      <CardContent className="py-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {/* Package Grid - responsive columns */}
+      <CardContent className="py-3 sm:py-4 px-3 sm:px-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
           {packages.map((pkg) => (
             <ProductPackage
               key={`${pkg.itemId}-${pkg.packageIndex}`}

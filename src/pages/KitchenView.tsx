@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChefHat, ChevronDown, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -173,12 +174,9 @@ export function KitchenView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <BallCompletionButtons
-              onComplete={(ballType, count) => {
-                if (ballType === 'original') handleAddBallsToTray('original', count);
-              }}
-              onUndo={(ballType) => {
-                if (ballType === 'original') handleRemoveBall('original');
-              }}
+              filterBallType="original"
+              onComplete={(_, count) => handleAddBallsToTray('original', count)}
+              onUndo={() => handleRemoveBall('original')}
               trayInventory={trayInventory ?? undefined}
               disabled={!canEditKitchen}
             />
@@ -202,12 +200,9 @@ export function KitchenView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <BallCompletionButtons
-              onComplete={(ballType, count) => {
-                if (ballType === 'bite_sized') handleAddBallsToTray('bite_sized', count);
-              }}
-              onUndo={(ballType) => {
-                if (ballType === 'bite_sized') handleRemoveBall('bite_sized');
-              }}
+              filterBallType="bite_sized"
+              onComplete={(_, count) => handleAddBallsToTray('bite_sized', count)}
+              onUndo={() => handleRemoveBall('bite_sized')}
               trayInventory={trayInventory ?? undefined}
               disabled={!canEditKitchen}
             />
@@ -233,44 +228,64 @@ export function KitchenView() {
               </span>
             </h2>
 
-            {pendingOrders && pendingOrders.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4">
-                {pendingOrders.map((order) => (
-                  <OrderBox
-                    key={order.id}
-                    order={{
-                      _id: order.id as unknown as Id<"orders">,
-                      orderNumber: order.order_number,
-                      channel: order.channel ?? undefined,
-                      dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
-                      items: (order.items ?? []).map((item) => ({
-                        _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
-                        productName: item.product_name,
-                        productVariant: item.product_variant ?? undefined,
-                        productionType: item.production_type,
-                        productionUnits: item.production_units,
-                        quantity: item.quantity,
-                        // These fields come from the new system - default to derived values
-                        packageStatus: 'empty' as const,
-                        ballsFilled: 0,
-                      })),
-                      customer: order.customer_name ? { name: order.customer_name } : null,
-                    }}
-                    onPackageStatusChange={handlePackageStatusChange}
-                    onComplete={() => handleCompleteOrder(order.id as unknown as Id<"orders">)}
-                    disabled={!canEditKitchen}
-                  />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No pending orders to process.</p>
-                  <p className="text-sm mt-2">All caught up!</p>
-                </CardContent>
-              </Card>
-            )}
+            <AnimatePresence mode="popLayout">
+              {pendingOrders && pendingOrders.length > 0 ? (
+                <motion.div
+                  key="orders-list"
+                  className="grid grid-cols-1 gap-4"
+                  layout
+                >
+                  {pendingOrders.map((order, index) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
+                      transition={{ delay: index * 0.05 }}
+                      layout
+                    >
+                      <OrderBox
+                        order={{
+                          _id: order.id as unknown as Id<"orders">,
+                          orderNumber: order.order_number,
+                          channel: order.channel ?? undefined,
+                          dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
+                          items: (order.items ?? []).map((item) => ({
+                            _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
+                            productName: item.product_name,
+                            productVariant: item.product_variant ?? undefined,
+                            productionType: item.production_type,
+                            productionUnits: item.production_units,
+                            quantity: item.quantity,
+                            packageStatus: 'empty' as const,
+                            ballsFilled: 0,
+                          })),
+                          customer: order.customer_name ? { name: order.customer_name } : null,
+                        }}
+                        onPackageStatusChange={handlePackageStatusChange}
+                        onComplete={() => handleCompleteOrder(order.id as unknown as Id<"orders">)}
+                        disabled={!canEditKitchen}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty-state"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                >
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No pending orders to process.</p>
+                      <p className="text-sm mt-2">All caught up!</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
 
           {/* Completed Today Section - Collapsible */}
@@ -291,28 +306,48 @@ export function KitchenView() {
               />
             </button>
 
-            {!completedCollapsed && completedToday && completedToday.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {completedToday.map((order) => (
-                  <KitchenOrderCard
-                    key={order.id}
-                    order={order}
-                    onComplete={() => {}}
-                    onRevert={() => handleRevertOrder(order.id as unknown as Id<"orders">)}
-                    isCompleted={true}
-                    disabled={!canEditKitchen}
-                  />
-                ))}
-              </div>
-            )}
+            <AnimatePresence>
+              {!completedCollapsed && completedToday && completedToday.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden"
+                >
+                  {completedToday.map((order, index) => (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.03 }}
+                    >
+                      <KitchenOrderCard
+                        order={order}
+                        onComplete={() => {}}
+                        onRevert={() => handleRevertOrder(order.id as unknown as Id<"orders">)}
+                        isCompleted={true}
+                        disabled={!canEditKitchen}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
 
-            {!completedCollapsed && (!completedToday || completedToday.length === 0) && (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <p>No orders completed today yet.</p>
-                </CardContent>
-              </Card>
-            )}
+              {!completedCollapsed && (!completedToday || completedToday.length === 0) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      <p>No orders completed today yet.</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
         </>
       )}
