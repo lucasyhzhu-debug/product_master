@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { ChefHat, ChevronDown } from 'lucide-react';
+import { ChefHat, ChevronDown, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards } from '@/components/shared';
 import { BallCompletionButtons, SoundToggle, KitchenDashboard, KitchenOrderCard } from '@/components/orders';
 import { playCompletionFanfare, playDing } from '@/lib/kitchenSounds';
+import { useAuth } from '@/contexts/AuthContext';
 
 import {
   useConvexKitchenStats,
@@ -22,6 +24,10 @@ import { cn } from '@/lib/utils';
 
 export function KitchenView() {
   const [completedCollapsed, setCompletedCollapsed] = useState(true);
+
+  // Auth context
+  const { hasPermission } = useAuth();
+  const canEditKitchen = hasPermission('canEditKitchen');
 
   // Fetch kitchen data using new hooks
   const { data: stats, isLoading: statsLoading } = useConvexKitchenStats();
@@ -81,7 +87,15 @@ export function KitchenView() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <PageHeader title="Kitchen View" />
+        <div className="flex items-center gap-3">
+          <PageHeader title="Kitchen View" />
+          {!canEditKitchen && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              View Only
+            </Badge>
+          )}
+        </div>
         <SoundToggle />
       </div>
 
@@ -91,7 +105,7 @@ export function KitchenView() {
       {/* Ball Completion Buttons */}
       <BallCompletionButtons
         onComplete={handleCompleteBalls}
-        disabled={!pendingOrders?.length}
+        disabled={!canEditKitchen || !pendingOrders?.length}
       />
 
       {isLoading ? (
@@ -117,6 +131,7 @@ export function KitchenView() {
                     onComplete={() => handleCompleteOrder(order.id)}
                     onRevert={() => {}}
                     isCompleted={false}
+                    disabled={!canEditKitchen}
                   />
                 ))}
               </div>
@@ -158,6 +173,7 @@ export function KitchenView() {
                     onComplete={() => {}}
                     onRevert={() => handleRevertOrder(order.id)}
                     isCompleted={true}
+                    disabled={!canEditKitchen}
                   />
                 ))}
               </div>
