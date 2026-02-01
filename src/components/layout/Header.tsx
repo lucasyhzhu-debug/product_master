@@ -18,15 +18,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 // Define all navigation items with permission requirements
+// Items with hidden: true are temporarily disabled for all users
 const allNavItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' as const },
-  { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const },
-  { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const },
-  { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const },
-  { path: '/ingredients', label: 'Ingredients', icon: Apple, permission: 'canAccessIngredients' as const },
-  { path: '/materials', label: 'Materials', icon: PackageOpen, permission: 'canAccessMaterials' as const },
+  { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const, hidden: true },
+  { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const, hidden: true },
+  { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const, hidden: true },
+  { path: '/ingredients', label: 'Ingredients', icon: Apple, permission: 'canAccessIngredients' as const, hidden: true },
+  { path: '/materials', label: 'Materials', icon: PackageOpen, permission: 'canAccessMaterials' as const, hidden: true },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' as const },
 ];
 
@@ -34,9 +35,9 @@ export function Header() {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
 
-  // Filter navigation items based on user permissions
+  // Filter navigation items based on user permissions and hidden flag
   const navItems = user
-    ? allNavItems.filter(item => hasPermission(item.permission))
+    ? allNavItems.filter(item => !item.hidden && hasPermission(item.permission))
     : [];
 
   return (
