@@ -171,9 +171,9 @@ export const getKitchenOrders = query({
 
         for (const item of items) {
           if (item.productionType === "original" && item.productionUnits) {
-            bigBallsNeeded += item.productionUnits;
+            bigBallsNeeded += item.productionUnits * item.quantity;
           } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsNeeded += item.productionUnits;
+            midBallsNeeded += item.productionUnits * item.quantity;
           }
         }
 
@@ -344,9 +344,9 @@ export const getKitchenStats = query({
 
         for (const item of items) {
           if (item.productionType === "original" && item.productionUnits) {
-            bigBallsNeeded += item.productionUnits;
+            bigBallsNeeded += item.productionUnits * item.quantity;
           } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsNeeded += item.productionUnits;
+            midBallsNeeded += item.productionUnits * item.quantity;
           }
         }
       }
@@ -372,9 +372,9 @@ export const getKitchenStats = query({
 
         for (const item of items) {
           if (item.productionType === "original" && item.productionUnits) {
-            bigBallsCompleted += item.productionUnits;
+            bigBallsCompleted += item.productionUnits * item.quantity;
           } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsCompleted += item.productionUnits;
+            midBallsCompleted += item.productionUnits * item.quantity;
           }
         }
       }
@@ -435,9 +435,9 @@ export const getCompletedToday = query({
 
         for (const item of items) {
           if (item.productionType === "original" && item.productionUnits) {
-            bigBalls += item.productionUnits;
+            bigBalls += item.productionUnits * item.quantity;
           } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBalls += item.productionUnits;
+            midBalls += item.productionUnits * item.quantity;
           }
         }
 
