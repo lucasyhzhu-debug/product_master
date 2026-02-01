@@ -1,6 +1,6 @@
 # Convex Functions Reference
 
-> **Purpose:** Complete Convex queries and mutations documentation for Malo Recipe Master.
+> **Purpose:** Complete Convex queries and mutations documentation for Frollie Recipe Master.
 > **When to read:** Before implementing or modifying backend functions.
 
 ## Table of Contents

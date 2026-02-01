@@ -1,8 +1,8 @@
-# Malo Recipe Master - Deployment Guide
+# Frollie Recipe Master - Deployment Guide
 
 ## Overview
 
-This guide deploys **Malo Recipe Master** to Vercel for your co-founders and production managers (5 users max, ~50 orders/week).
+This guide deploys **Frollie Recipe Master** to Vercel for your co-founders and production managers (5 users max, ~50 orders/week).
 
 **Optimized for:**
 - Small team (5 concurrent users)
@@ -176,7 +176,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Malo Recipe Master API",
+    title="Frollie Recipe Master API",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -375,7 +375,7 @@ npm-debug.log*
 git add .
 
 # Create initial commit
-git commit -m "feat: initial commit - Malo Recipe Master full stack
+git commit -m "feat: initial commit - Frollie Recipe Master full stack
 
 - FastAPI backend with SQLAlchemy ORM
 - React frontend with TypeScript
@@ -931,4 +931,4 @@ pg_dump "$DATABASE_URL" > backup.sql
 ---
 
 *Last updated: 2026-01-30*
-*For Malo Recipe Master v1.0*
+*For Frollie Recipe Master v1.0*
