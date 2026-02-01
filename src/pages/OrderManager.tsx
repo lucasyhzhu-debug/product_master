@@ -253,9 +253,9 @@ export function OrderManager() {
       {/* Form Above (Narrow screens, non-mobile) */}
       {showForm && isNarrow && !isMobile && (
         <Card className="mb-6">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-4">
             <div className="flex justify-between items-center">
-              <CardTitle className="text-lg">New Order</CardTitle>
+              <CardTitle className="text-xl">New Order</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
@@ -276,8 +276,53 @@ export function OrderManager() {
 
       {/* Content */}
       <div className={`grid gap-6 ${isNarrow ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'}`}>
-        {/* Order List */}
-        <div className={isNarrow ? '' : 'lg:col-span-2'}>
+        {/* Quick Create Form - Main Section (Wide screens only) */}
+        {!isNarrow && (
+          <div className="lg:col-span-2">
+            {showForm ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-xl">New Order</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <OrderFormPOS
+                    onSuccess={() => handleOrderCreated()}
+                    onCancel={() => setShowForm(false)}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="py-16 text-center">
+                  <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Create New Order</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Start a new order with the quick creation form
+                  </p>
+                  <Button
+                    size="lg"
+                    onClick={() => setShowForm(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Order
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Order List Sidebar */}
+        <div className={isNarrow ? '' : 'lg:col-span-1'}>
           <div className="space-y-4">
             {isLoading ? (
               <LoadingCards count={3} />
@@ -309,47 +354,6 @@ export function OrderManager() {
             )}
           </div>
         </div>
-
-        {/* Quick Create Form Sidebar (Wide screens only) */}
-        {!isNarrow && (
-          <div className="lg:col-span-1">
-            {showForm ? (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-lg">New Order</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <OrderFormPOS
-                    onSuccess={() => handleOrderCreated()}
-                    onCancel={() => setShowForm(false)}
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-dashed">
-                <CardContent className="py-12 text-center">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowForm(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Order
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Mobile Form Modal */}

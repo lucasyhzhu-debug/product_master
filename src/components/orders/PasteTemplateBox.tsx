@@ -106,17 +106,18 @@ export function PasteTemplateBox({ onParsed }: PasteTemplateBoxProps) {
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Button
           variant="outline"
           onClick={handlePaste}
+          className="w-full sm:w-auto"
         >
           <Clipboard className="h-4 w-4 mr-2" />
           Paste from Clipboard
         </Button>
-        <Button onClick={handleParse}>
+        <Button onClick={handleParse} className="w-full sm:w-auto">
           <FileText className="h-4 w-4 mr-2" />
-          Parse & Fill
+          Parse & Create
         </Button>
       </div>
 
