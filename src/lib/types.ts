@@ -259,9 +259,47 @@ export interface MenuProduct {
   production_units: number;
   is_active: boolean;
   created_at: string;
+  // PRD-5: Cached production summary
+  cached_production_summary?: string;
 }
 
 export type MenuProductSummary = MenuProduct;
+
+// ============================================================================
+// PRD-5: Production Unit Types (New Production Tracking System)
+// ============================================================================
+
+export interface ProductionUnitType {
+  _id: string;
+  code: string;
+  name: string;
+  grams_per_unit: number;
+  unit_cost_idr: number;
+  color?: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface MenuProductComponent {
+  _id: string;
+  menu_product_id: string;
+  production_unit_type_id: string;
+  quantity: number;
+  sort_order: number;
+  // Enriched with production unit type details
+  production_unit_type?: ProductionUnitType;
+}
+
+export interface OrderItemProduction {
+  _id: string;
+  order_item_id: string;
+  production_unit_type_id: string;
+  production_unit_code: string;
+  production_unit_name: string;
+  units_required: number;
+  units_completed: number;
+  units_remaining: number;
+}
 
 // Product types
 export interface ProductCOGS {
@@ -563,18 +601,38 @@ export interface KitchenStats {
   mid_balls_completed: number;
   orders_pending: number;
   orders_completed_today: number;
+  // PRD-5: Dynamic production type stats
+  production_by_type?: ProductionTypeStats[];
+}
+
+// PRD-5: Dynamic production type stats
+export interface ProductionTypeStats {
+  code: string;
+  name: string;
+  color?: string;
+  units_needed: number;
+  units_completed: number;
 }
 
 export interface KitchenOrderItem extends OrderItem {
   production_type?: 'original' | 'bite_sized';
   production_units?: number;
   balls_remaining?: number;
+  // PRD-5: Production records for each unit type
+  production_records?: OrderItemProduction[];
 }
 
 export interface KitchenOrder extends OrderSummary {
   items: KitchenOrderItem[];
   big_balls_needed: number;
   mid_balls_needed: number;
+  // PRD-5: Dynamic production requirements by type
+  production_by_type?: Array<{
+    code: string;
+    name: string;
+    color?: string;
+    units_needed: number;
+  }>;
 }
 
 // POS form types (PRD-5: Order System V2 - Wave 1)
@@ -642,6 +700,7 @@ export interface LoginResult {
 export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessDashboard: boolean;
   canAccessKitchen: boolean;
+  canAccessPackaging: boolean;  // PRD-5: All roles can access packaging
   canAccessOrders: boolean;
   canAccessRecipes: boolean;
   canAccessProducts: boolean;
@@ -654,6 +713,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   kitchen: {
     canAccessDashboard: false,
     canAccessKitchen: true,
+    canAccessPackaging: true,  // PRD-5: Kitchen staff can access packaging
     canAccessOrders: false,
     canAccessRecipes: false,
     canAccessProducts: false,
@@ -666,6 +726,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   order_staff: {
     canAccessDashboard: false,
     canAccessKitchen: true,
+    canAccessPackaging: true,  // PRD-5: Order staff can access packaging
     canAccessOrders: true,
     canAccessRecipes: false,
     canAccessProducts: false,
@@ -678,6 +739,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   manager: {
     canAccessDashboard: true,
     canAccessKitchen: true,
+    canAccessPackaging: true,  // PRD-5: Manager can access packaging
     canAccessOrders: true,
     canAccessRecipes: true,
     canAccessProducts: true,
@@ -690,6 +752,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   admin: {
     canAccessDashboard: true,
     canAccessKitchen: true,
+    canAccessPackaging: true,  // PRD-5: Admin can access packaging
     canAccessOrders: true,
     canAccessRecipes: true,
     canAccessProducts: true,
