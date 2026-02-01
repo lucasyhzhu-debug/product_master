@@ -12,6 +12,7 @@ interface KitchenOrderCardProps {
   onComplete: () => void;
   onRevert: () => void;
   isCompleted?: boolean;
+  disabled?: boolean;
 }
 
 function formatDueTime(dueDate: string | null): string {
@@ -41,6 +42,7 @@ export default function KitchenOrderCard({
   onComplete,
   onRevert,
   isCompleted = false,
+  disabled = false,
 }: KitchenOrderCardProps) {
   const [isHolding, setIsHolding] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
@@ -63,6 +65,8 @@ export default function KitchenOrderCard({
   }, []);
 
   const startHold = useCallback(() => {
+    if (disabled) return;
+
     setIsHolding(true);
     setHoldProgress(0);
 
@@ -76,7 +80,7 @@ export default function KitchenOrderCard({
       onComplete();
       cancelHold();
     }, 1000);
-  }, [onComplete, cancelHold]);
+  }, [onComplete, cancelHold, disabled]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -173,13 +177,17 @@ export default function KitchenOrderCard({
             variant="outline"
             className="w-full"
             onClick={onRevert}
+            disabled={disabled}
           >
             <Undo2 className="h-4 w-4 mr-2" />
             Undo Complete
           </Button>
         ) : (
           <div
-            className="relative w-full h-10 rounded-md overflow-hidden cursor-pointer select-none"
+            className={cn(
+              'relative w-full h-10 rounded-md overflow-hidden select-none',
+              disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+            )}
             onMouseDown={startHold}
             onMouseUp={cancelHold}
             onMouseLeave={cancelHold}
@@ -204,7 +212,7 @@ export default function KitchenOrderCard({
                 </span>
               ) : (
                 <span className="text-secondary-foreground">
-                  Hold 1 sec to complete this order
+                  {disabled ? 'View Only Mode' : 'Hold 1 sec to complete this order'}
                 </span>
               )}
             </div>

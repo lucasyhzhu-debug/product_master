@@ -1,15 +1,18 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PageHeaderProps {
   title: string;
+  description?: string;
   backTo?: string;
   backLabel?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
 }
 
-export function PageHeader({ title, backTo, backLabel, action }: PageHeaderProps) {
+export function PageHeader({ title, description, backTo, backLabel, action, children }: PageHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
@@ -21,9 +24,14 @@ export function PageHeader({ title, backTo, backLabel, action }: PageHeaderProps
             </Link>
           </Button>
         )}
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          {description && (
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          )}
+        </div>
       </div>
-      {action && <div>{action}</div>}
+      {(action || children) && <div>{action || children}</div>}
     </div>
   );
 }

@@ -1,0 +1,150 @@
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { type AuthSession, type UserRole, ROLE_PERMISSIONS } from "../lib/types";
+import type { Id } from "../../convex/_generated/dataModel";
+
+const AUTH_STORAGE_KEY = "malo_auth_session";
+
+interface AuthContextValue {
+  user: AuthSession | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (userId: Id<"users">, pin: string) => Promise<{ success: boolean; error?: string; remainingAttempts?: number; lockedUntil?: number }>;
+  logout: () => Promise<void>;
+  hasRole: (...roles: UserRole[]) => boolean;
+  hasPermission: (permission: keyof typeof ROLE_PERMISSIONS.admin) => boolean;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loginMutation = useMutation(api.auth.mutations.login);
+  const logoutMutation = useMutation(api.auth.mutations.logout);
+
+  // Validate session on mount
+  const storedToken = session?.token;
+  const validationResult = useQuery(
+    api.auth.queries.validateSession,
+    storedToken ? { token: storedToken } : "skip"
+  );
+
+  // Load session from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as AuthSession;
+        // Check if session hasn't expired
+        if (parsed.expiresAt > Date.now()) {
+          setSession(parsed);
+        } else {
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+        }
+      } catch {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Handle server-side session validation
+  useEffect(() => {
+    if (validationResult === undefined) return; // Still loading
+
+    if (validationResult && !validationResult.valid && session) {
+      // Session is invalid on server, clear local state
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setSession(null);
+    }
+  }, [validationResult, session]);
+
+  const login = useCallback(async (userId: Id<"users">, pin: string) => {
+    try {
+      const result = await loginMutation({ userId, pin });
+
+      if (result.success && result.session) {
+        const authSession: AuthSession = {
+          token: result.session.token,
+          userId: result.session.userId,
+          name: result.session.name,
+          role: result.session.role as UserRole,
+          avatarUrl: result.session.avatarUrl,
+          expiresAt: result.session.expiresAt,
+        };
+
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
+        setSession(authSession);
+
+        return { success: true };
+      }
+
+      return {
+        success: false,
+        error: result.error,
+        remainingAttempts: result.remainingAttempts,
+        lockedUntil: result.lockedUntil,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Login failed",
+      };
+    }
+  }, [loginMutation]);
+
+  const logout = useCallback(async () => {
+    if (session?.token) {
+      try {
+        await logoutMutation({ token: session.token });
+      } catch {
+        // Ignore errors during logout
+      }
+    }
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setSession(null);
+  }, [session, logoutMutation]);
+
+  const hasRole = useCallback((...roles: UserRole[]) => {
+    if (!session) return false;
+    return roles.includes(session.role);
+  }, [session]);
+
+  const hasPermission = useCallback((permission: keyof typeof ROLE_PERMISSIONS.admin) => {
+    if (!session) return false;
+    return ROLE_PERMISSIONS[session.role][permission];
+  }, [session]);
+
+  const value: AuthContextValue = {
+    user: session,
+    isAuthenticated: !!session,
+    isLoading,
+    login,
+    logout,
+    hasRole,
+    hasPermission,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
+
+export { AuthContext };

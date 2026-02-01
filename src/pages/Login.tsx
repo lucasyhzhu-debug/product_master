@@ -1,0 +1,154 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { useAuth } from "../contexts/AuthContext";
+import { getRoleLandingPage } from "../lib/types";
+import { AvatarGrid } from "../components/auth/AvatarGrid";
+import { PinPad } from "../components/auth/PinPad";
+import { ChefHat, ArrowLeft } from "lucide-react";
+import { Button } from "../components/ui/button";
+
+export default function Login() {
+  const navigate = useNavigate();
+  const { login, isAuthenticated, user } = useAuth();
+
+  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const [remainingAttempts, setRemainingAttempts] = useState<number | undefined>();
+  const [lockedUntil, setLockedUntil] = useState<number | undefined>();
+
+  // Get selected user details
+  const activeUsers = useQuery(api.auth.queries.getActiveUsers);
+  const selectedUser = activeUsers?.find(u => u._id === selectedUserId);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const landingPage = getRoleLandingPage(user.role);
+      navigate(landingPage, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  const handleSelectUser = (userId: Id<"users">) => {
+    setSelectedUserId(userId);
+    setError(undefined);
+    setRemainingAttempts(undefined);
+    setLockedUntil(undefined);
+  };
+
+  const handleCancelPinEntry = () => {
+    setSelectedUserId(null);
+    setError(undefined);
+    setRemainingAttempts(undefined);
+    setLockedUntil(undefined);
+  };
+
+  const handlePinSubmit = async (pin: string) => {
+    if (!selectedUserId) return;
+
+    setIsLoading(true);
+    setError(undefined);
+
+    try {
+      const result = await login(selectedUserId, pin);
+
+      if (result.success) {
+        // Navigation happens via the useEffect above
+      } else {
+        setError(result.error);
+        setRemainingAttempts(result.remainingAttempts);
+        setLockedUntil(result.lockedUntil);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted flex flex-col">
+      {/* Header */}
+      <header className="p-6">
+        <div className="flex items-center justify-center space-x-3">
+          <ChefHat className="w-10 h-10 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">Frollie Recipe Master</h1>
+            <p className="text-sm text-muted-foreground">Sign in to continue</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-lg">
+          {!selectedUserId ? (
+            // Step 1: Select User
+            <div className="bg-card rounded-2xl shadow-lg p-6">
+              <h2 className="text-lg font-semibold text-center mb-6">
+                Who's signing in?
+              </h2>
+              <AvatarGrid
+                selectedUserId={selectedUserId}
+                onSelectUser={handleSelectUser}
+              />
+            </div>
+          ) : (
+            // Step 2: Enter PIN
+            <div className="bg-card rounded-2xl shadow-lg p-6">
+              {/* Back button and user info */}
+              <div className="flex items-center mb-6">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancelPinEntry}
+                  className="mr-3"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+
+                <div className="flex items-center flex-1">
+                  {selectedUser?.avatarUrl ? (
+                    <img
+                      src={selectedUser.avatarUrl}
+                      alt={selectedUser.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                      <span className="text-lg font-medium">
+                        {selectedUser?.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="ml-3">
+                    <div className="font-medium">{selectedUser?.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Enter your PIN
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* PIN Pad */}
+              <PinPad
+                onSubmit={handlePinSubmit}
+                onCancel={handleCancelPinEntry}
+                isLoading={isLoading}
+                error={error}
+                remainingAttempts={remainingAttempts}
+                lockedUntil={lockedUntil}
+              />
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="p-6 text-center text-sm text-muted-foreground">
+        Frollie Recipe Master &copy; {new Date().getFullYear()}
+      </footer>
+    </div>
+  );
+}
