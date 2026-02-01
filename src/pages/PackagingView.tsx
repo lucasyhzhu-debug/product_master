@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 
 // ============================================
 // Types
@@ -81,29 +81,6 @@ export function PackagingView() {
     }
   };
 
-  const formatDueDate = (timestamp?: number) => {
-    if (!timestamp) return null;
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-    if (isToday) {
-      return `Today ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    if (isTomorrow) {
-      return `Tomorrow ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    return date.toLocaleDateString('id-ID', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -141,6 +118,33 @@ export function PackagingView() {
       )}
     </div>
   );
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+function formatDueDate(timestamp?: number) {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+  if (isToday) {
+    return `Today ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  if (isTomorrow) {
+    return `Tomorrow ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  return date.toLocaleDateString('id-ID', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 // ============================================
@@ -288,27 +292,4 @@ function PackagingItem({ item }: PackagingItemProps) {
       )}
     </div>
   );
-}
-
-function formatDueDate(timestamp?: number) {
-  if (!timestamp) return null;
-  const date = new Date(timestamp);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const isTomorrow = date.toDateString() === tomorrow.toDateString();
-
-  if (isToday) {
-    return `Today ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
-  }
-  if (isTomorrow) {
-    return `Tomorrow ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
-  }
-  return date.toLocaleDateString('id-ID', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }

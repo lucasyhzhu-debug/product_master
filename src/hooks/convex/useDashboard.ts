@@ -58,6 +58,7 @@ interface ConvexOrder {
   deliveryType?: string;
   shippingAgency?: string;
   awaitingPaymentSince?: number;
+  orderLevelDiscount?: number;
 }
 
 function transformToOrderSummary(order: ConvexOrder): OrderSummary {
@@ -77,6 +78,7 @@ function transformToOrderSummary(order: ConvexOrder): OrderSummary {
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    total_discount: order.orderLevelDiscount ?? 0,
     item_count: order.itemCount,
     delivery_type: order.deliveryType ?? null,
     shipping_agency: order.shippingAgency ?? null,

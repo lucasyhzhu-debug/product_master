@@ -30,6 +30,20 @@ export interface OrderItemInput {
   menuProductId?: Id<"menuProducts">;
 }
 
+// Channel type matching Convex schema
+export type OrderChannel =
+  | "whatsapp"
+  | "instagram"
+  | "shopee"
+  | "tiktok"
+  | "tokopedia"
+  | "grabfood"
+  | "k3mart_gf"
+  | "legato_tamtem"
+  | "legato_goldfinch"
+  | "bazaar"
+  | "other";
+
 export interface OrderCreateInput {
   customerId?: Id<"customers">;
   newCustomer?: {
@@ -37,7 +51,7 @@ export interface OrderCreateInput {
     phone?: string;
     source?: string;
   };
-  channel?: string;
+  channel?: OrderChannel;
   soldBy?: string;
   dueDate?: number;
   notes?: string;
@@ -71,7 +85,7 @@ export type PaymentStatusType = "Unpaid" | "Partial" | "Paid";
 
 export interface OrderFilters {
   status?: OrderStatusType;
-  channel?: string;
+  channel?: OrderChannel;
   dueDateFrom?: number;
   dueDateTo?: number;
   limit?: number;
