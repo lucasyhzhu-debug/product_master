@@ -14,13 +14,14 @@ function formatCurrency(amount: number): string {
 interface OrderItemsProps {
   items: OrderItem[];
   totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
-  marginPct?: number | null;
-  showCosts?: boolean;
 }
 
-export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginPct, showCosts = true }: OrderItemsProps) {
+export function OrderItems({ items, totalAmount }: OrderItemsProps) {
+  // Calculate total discount from all items
+  const totalDiscount = items.reduce((sum, item) => sum + (item.discount_amount || 0) * item.quantity, 0);
+  // Calculate subtotal before discounts
+  const subtotalBeforeDiscount = items.reduce((sum, item) => sum + (item.unit_price + (item.discount_amount || 0)) * item.quantity, 0);
+
   return (
     <Card>
       <CardHeader>
@@ -45,11 +46,6 @@ export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginP
               </div>
               <div className="text-right">
                 <p className="font-medium">{formatCurrency(item.line_total)}</p>
-                {showCosts && (
-                  <p className="text-xs text-green-600">
-                    +{formatCurrency(item.line_margin)} margin
-                  </p>
-                )}
               </div>
             </div>
           ))}
@@ -57,27 +53,22 @@ export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginP
           <Separator />
 
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium">{formatCurrency(totalAmount)}</span>
-            </div>
-            {showCosts && (
+            {totalDiscount > 0 && (
               <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Cost</span>
-                  <span>{formatCurrency(totalCost)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal (before discounts)</span>
+                  <span>{formatCurrency(subtotalBeforeDiscount)}</span>
                 </div>
-                <div className="flex justify-between text-green-600 font-semibold">
-                  <span>Total Margin</span>
-                  <span>
-                    {formatCurrency(totalMargin)}
-                    {marginPct && (
-                      <span className="text-sm ml-1">({marginPct.toFixed(1)}%)</span>
-                    )}
-                  </span>
+                <div className="flex justify-between text-sm text-destructive">
+                  <span>Total Discounts</span>
+                  <span>- {formatCurrency(totalDiscount)}</span>
                 </div>
               </>
             )}
+            <div className="flex justify-between font-semibold text-primary">
+              <span>Order Total</span>
+              <span>{formatCurrency(totalAmount)}</span>
+            </div>
           </div>
         </div>
       </CardContent>
