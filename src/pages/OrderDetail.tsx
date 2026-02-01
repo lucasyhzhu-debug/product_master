@@ -24,6 +24,7 @@ import {
   useConvexUpdateOrderShipping,
   useConvexCancelOrder,
 } from '@/hooks/convex';
+import { generateTemplate } from '@/lib/whatsappTemplates';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus } from '@/lib/types';
 
@@ -81,7 +82,9 @@ export function OrderDetail() {
 
     // Confirmation dialog for Draft → AwaitingPayment (WhatsApp sent required)
     if (order.status === 'Draft' && newStatus === 'AwaitingPayment') {
-      setConfirmationWhatsappText(order.payment_request_text || order.whatsapp_text);
+      // Generate order_confirmation template for payment request
+      const templateText = generateTemplate('order_confirmation', order, 'id');
+      setConfirmationWhatsappText(templateText);
       setWhatsappSent(false);
       setPaymentConfirmed(false);
       setShowConfirmDialog(true);
@@ -90,6 +93,9 @@ export function OrderDetail() {
 
     // Confirmation dialog for AwaitingPayment → Confirmed (Payment verified required)
     if (order.status === 'AwaitingPayment' && newStatus === 'Confirmed') {
+      // Generate payment_received template for confirmation
+      const templateText = generateTemplate('payment_received', order, 'id');
+      setConfirmationWhatsappText(templateText);
       setWhatsappSent(true);  // Already sent in previous step
       setPaymentConfirmed(false);
       setShowConfirmDialog(true);
@@ -98,7 +104,9 @@ export function OrderDetail() {
 
     // Legacy: Direct Draft → Confirmed (both required)
     if (order.status === 'Draft' && newStatus === 'Confirmed') {
-      setConfirmationWhatsappText(order.payment_request_text || order.whatsapp_text);
+      // Generate order_confirmation template
+      const templateText = generateTemplate('order_confirmation', order, 'id');
+      setConfirmationWhatsappText(templateText);
       setWhatsappSent(false);
       setPaymentConfirmed(false);
       setShowConfirmDialog(true);

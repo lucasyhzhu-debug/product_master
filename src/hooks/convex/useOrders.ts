@@ -46,6 +46,9 @@ export interface OrderCreateInput {
   deliveryAddress?: string;
   contactWa?: string;
   contactIg?: string;
+  // Order-level discount
+  orderLevelDiscount?: number;
+  orderLevelDiscountType?: "amount" | "percentage";
   items: OrderItemInput[];
   createdBy?: string;
 }
