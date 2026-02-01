@@ -14,13 +14,12 @@ function formatCurrency(amount: number): string {
 interface OrderItemsProps {
   items: OrderItem[];
   totalAmount: number;
+  totalDiscount?: number;
 }
 
-export function OrderItems({ items, totalAmount }: OrderItemsProps) {
-  // Calculate total discount from all items
-  const totalDiscount = items.reduce((sum, item) => sum + (item.discount_amount || 0) * item.quantity, 0);
-  // Calculate subtotal before discounts
-  const subtotalBeforeDiscount = items.reduce((sum, item) => sum + (item.unit_price + (item.discount_amount || 0)) * item.quantity, 0);
+export function OrderItems({ items, totalAmount, totalDiscount = 0 }: OrderItemsProps) {
+  // Calculate subtotal (sum of line totals, before order-level discount)
+  const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
 
   return (
     <Card>
@@ -56,11 +55,11 @@ export function OrderItems({ items, totalAmount }: OrderItemsProps) {
             {totalDiscount > 0 && (
               <>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal (before discounts)</span>
-                  <span>{formatCurrency(subtotalBeforeDiscount)}</span>
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-destructive">
-                  <span>Total Discounts</span>
+                  <span>Discount</span>
                   <span>- {formatCurrency(totalDiscount)}</span>
                 </div>
               </>

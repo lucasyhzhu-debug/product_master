@@ -281,6 +281,7 @@ export function OrderDetail() {
           <OrderItems
             items={order.items}
             totalAmount={order.total_amount}
+            totalDiscount={order.total_discount}
           />
         </div>
 
