@@ -143,27 +143,27 @@ export default function KitchenOrderCard({
 
       {/* Body: Ball counts */}
       <CardContent className="py-6">
-        <div className="flex justify-center items-center gap-12">
+        <div className="flex justify-center items-center gap-8">
           {/* Big balls (red circle) */}
           <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-red-500" />
-              <span className="text-5xl font-bold tabular-nums">
+            <div className="flex items-center gap-3 bg-red-50 dark:bg-red-950/30 px-6 py-4 rounded-xl border border-red-200 dark:border-red-800">
+              <div className="w-8 h-8 rounded-full bg-red-500 shadow-md shadow-red-200 dark:shadow-red-900/50" />
+              <span className="text-6xl font-bold tabular-nums text-red-700 dark:text-red-300">
                 {order.big_balls_needed}
               </span>
             </div>
-            <span className="text-sm text-muted-foreground">big</span>
+            <span className="text-sm font-medium text-red-600 dark:text-red-400">BIG</span>
           </div>
 
           {/* Mid balls (yellow circle) */}
           <div className="flex flex-col items-center gap-2">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-yellow-500" />
-              <span className="text-5xl font-bold tabular-nums">
+            <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-950/30 px-6 py-4 rounded-xl border border-amber-200 dark:border-amber-800">
+              <div className="w-8 h-8 rounded-full bg-yellow-500 shadow-md shadow-amber-200 dark:shadow-amber-900/50" />
+              <span className="text-6xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
                 {order.mid_balls_needed}
               </span>
             </div>
-            <span className="text-sm text-muted-foreground">mid</span>
+            <span className="text-sm font-medium text-amber-600 dark:text-amber-400">MID</span>
           </div>
         </div>
       </CardContent>
