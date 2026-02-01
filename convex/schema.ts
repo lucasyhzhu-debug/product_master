@@ -294,7 +294,7 @@ export default defineSchema({
   })
     .index("by_order_number", ["orderNumber"])
     .index("by_customer", ["customerId"])
-    .index("by_due_date", ["dueDate"])
+    // REMOVED: .index("by_due_date", ["dueDate"]) - covered by by_status_due_date
     .index("by_status", ["status"])
     .index("by_channel", ["channel"])
     .index("by_status_due_date", ["status", "dueDate"]),
