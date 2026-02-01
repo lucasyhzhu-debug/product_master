@@ -599,3 +599,124 @@ export interface OrderFormData {
   discount: number;
   discountType: 'amount' | 'percentage';
 }
+
+// ============================================================================
+// Authentication Types (PRD-4)
+// ============================================================================
+
+export type UserRole = "kitchen" | "order_staff" | "manager" | "admin";
+
+export interface User {
+  _id: string;
+  name: string;
+  role: UserRole;
+  avatarUrl?: string;
+  isActive: boolean;
+  locationId?: string;
+  failedAttempts: number;
+  lockedUntil?: number;
+  lastLoginAt?: number;
+  createdAt: number;
+}
+
+export interface AuthSession {
+  token: string;
+  userId: string;
+  name: string;
+  role: UserRole;
+  avatarUrl?: string;
+  expiresAt: number;
+}
+
+export interface LoginResult {
+  success: boolean;
+  session?: AuthSession;
+  error?: string;
+  remainingAttempts?: number;
+  lockedUntil?: number;
+}
+
+// Role permission helpers
+export const ROLE_PERMISSIONS: Record<UserRole, {
+  canAccessDashboard: boolean;
+  canAccessKitchen: boolean;
+  canAccessOrders: boolean;
+  canAccessRecipes: boolean;
+  canAccessProducts: boolean;
+  canAccessIngredients: boolean;
+  canAccessMaterials: boolean;
+  canAccessUsers: boolean;
+  canSeeCosts: boolean;
+  canEditKitchen: boolean;
+}> = {
+  kitchen: {
+    canAccessDashboard: false,
+    canAccessKitchen: true,
+    canAccessOrders: false,
+    canAccessRecipes: false,
+    canAccessProducts: false,
+    canAccessIngredients: false,
+    canAccessMaterials: false,
+    canAccessUsers: false,
+    canSeeCosts: false,
+    canEditKitchen: true,
+  },
+  order_staff: {
+    canAccessDashboard: false,
+    canAccessKitchen: true,
+    canAccessOrders: true,
+    canAccessRecipes: false,
+    canAccessProducts: false,
+    canAccessIngredients: false,
+    canAccessMaterials: false,
+    canAccessUsers: false,
+    canSeeCosts: true,
+    canEditKitchen: false,
+  },
+  manager: {
+    canAccessDashboard: true,
+    canAccessKitchen: true,
+    canAccessOrders: true,
+    canAccessRecipes: true,
+    canAccessProducts: true,
+    canAccessIngredients: true,
+    canAccessMaterials: true,
+    canAccessUsers: false,
+    canSeeCosts: true,
+    canEditKitchen: true,
+  },
+  admin: {
+    canAccessDashboard: true,
+    canAccessKitchen: true,
+    canAccessOrders: true,
+    canAccessRecipes: true,
+    canAccessProducts: true,
+    canAccessIngredients: true,
+    canAccessMaterials: true,
+    canAccessUsers: true,
+    canSeeCosts: true,
+    canEditKitchen: true,
+  },
+};
+
+// Helper to get role display name
+export function getRoleDisplayName(role: UserRole): string {
+  const names: Record<UserRole, string> = {
+    kitchen: "Kitchen Staff",
+    order_staff: "Order Staff",
+    manager: "Manager",
+    admin: "Administrator",
+  };
+  return names[role];
+}
+
+// Helper to get role landing page
+export function getRoleLandingPage(role: UserRole): string {
+  const landingPages: Record<UserRole, string> = {
+    kitchen: "/kitchen",
+    order_staff: "/orders",
+    manager: "/",
+    admin: "/",
+  };
+  return landingPages[role];
+}

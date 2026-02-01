@@ -17,9 +17,10 @@ interface OrderItemsProps {
   totalCost: number;
   totalMargin: number;
   marginPct?: number | null;
+  showCosts?: boolean;
 }
 
-export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginPct }: OrderItemsProps) {
+export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginPct, showCosts = true }: OrderItemsProps) {
   return (
     <Card>
       <CardHeader>
@@ -44,9 +45,11 @@ export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginP
               </div>
               <div className="text-right">
                 <p className="font-medium">{formatCurrency(item.line_total)}</p>
-                <p className="text-xs text-green-600">
-                  +{formatCurrency(item.line_margin)} margin
-                </p>
+                {showCosts && (
+                  <p className="text-xs text-green-600">
+                    +{formatCurrency(item.line_margin)} margin
+                  </p>
+                )}
               </div>
             </div>
           ))}
@@ -58,19 +61,23 @@ export function OrderItems({ items, totalAmount, totalCost, totalMargin, marginP
               <span className="text-muted-foreground">Subtotal</span>
               <span className="font-medium">{formatCurrency(totalAmount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Cost</span>
-              <span>{formatCurrency(totalCost)}</span>
-            </div>
-            <div className="flex justify-between text-green-600 font-semibold">
-              <span>Total Margin</span>
-              <span>
-                {formatCurrency(totalMargin)}
-                {marginPct && (
-                  <span className="text-sm ml-1">({marginPct.toFixed(1)}%)</span>
-                )}
-              </span>
-            </div>
+            {showCosts && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Cost</span>
+                  <span>{formatCurrency(totalCost)}</span>
+                </div>
+                <div className="flex justify-between text-green-600 font-semibold">
+                  <span>Total Margin</span>
+                  <span>
+                    {formatCurrency(totalMargin)}
+                    {marginPct && (
+                      <span className="text-sm ml-1">({marginPct.toFixed(1)}%)</span>
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </CardContent>

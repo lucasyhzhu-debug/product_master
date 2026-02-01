@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
+import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -16,7 +17,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {convex ? (
       <ConvexProvider client={convex}>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ConvexProvider>
     ) : (
       // Fallback when Convex is not configured (legacy mode)
