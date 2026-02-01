@@ -239,12 +239,6 @@ export function OrderDetail() {
     }
   };
 
-  const openShippingDialog = () => {
-    if (!order) return;
-    setShippingAgency(order.shipping_agency || '');
-    setShippingNumber(order.shipping_number || '');
-    setShowShippingDialog(true);
-  };
 
   if (isLoading) {
     return (
@@ -299,8 +293,8 @@ export function OrderDetail() {
           />
 
           <ShippingPanel
-            shippingAgency={order.shipping_agency}
-            shippingNumber={order.shipping_number}
+            shippingAgency={order.shipping_agency ?? undefined}
+            shippingNumber={order.shipping_number ?? undefined}
             onSave={handleShippingPanelSave}
           />
 
