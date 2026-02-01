@@ -42,7 +42,9 @@ export const getSummary = query({
     }
 
     // Active orders (not completed/cancelled)
-    const terminalStatuses = ["Complete", "Delivered", "Cancelled"];
+    // Schema statuses: Draft, AwaitingPayment, Confirmed, ProductionComplete, Packaging,
+    // WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
+    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
     const activeOrders = allOrders.filter(
       (o) => !terminalStatuses.includes(o.status)
     );
@@ -130,7 +132,8 @@ export const getUpcomingDue = query({
     const upcoming = allOrders
       .filter((o) => {
         if (!o.dueDate) return false;
-        if (["Complete", "Delivered", "Cancelled"].includes(o.status))
+        // Exclude terminal statuses from upcoming due orders
+        if (["CompleteShipped", "PickedUp", "Cancelled"].includes(o.status))
           return false;
         return o.dueDate >= now && o.dueDate <= threeDaysFromNow;
       })

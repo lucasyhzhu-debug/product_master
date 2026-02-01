@@ -27,15 +27,43 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
   ).padStart(2, "0")}`;
   const prefix = `${datePrefix}-`;
 
-  // Count today's orders
+  // Get today's orders using index for efficient lookup
   const todayOrders = await ctx.db
     .query("orders")
-    .filter((q) => q.gte(q.field("orderNumber"), prefix))
-    .filter((q) => q.lt(q.field("orderNumber"), `${datePrefix}.`))
+    .withIndex("by_order_number", (q) =>
+      q.gte("orderNumber", prefix).lt("orderNumber", `${datePrefix}.`)
+    )
     .collect();
 
-  const count = todayOrders.length;
-  return `${prefix}${String(count + 1).padStart(3, "0")}`;
+  // Find the highest sequence number used today (handles gaps from deletions)
+  let maxSequence = 0;
+  for (const order of todayOrders) {
+    const parts = order.orderNumber.split("-");
+    if (parts.length === 2) {
+      const seq = parseInt(parts[1], 10);
+      if (!isNaN(seq) && seq > maxSequence) {
+        maxSequence = seq;
+      }
+    }
+  }
+
+  // Generate next sequence
+  const nextSequence = maxSequence + 1;
+  const orderNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
+
+  // Verify uniqueness (handles race condition)
+  const existing = await ctx.db
+    .query("orders")
+    .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+    .first();
+
+  if (existing) {
+    // Rare race condition - retry with incremented sequence
+    const retrySequence = nextSequence + 1;
+    return `${prefix}${String(retrySequence).padStart(3, "0")}`;
+  }
+
+  return orderNumber;
 }
 
 function calculateLineTotals(

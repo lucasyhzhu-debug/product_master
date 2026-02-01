@@ -131,15 +131,18 @@ Sampai jumpa di order berikutnya! 👋`;
 function generateReceipt(order: OrderWithItems): string {
   const customerName = order.customer?.name ?? order.customerName;
 
+  // Status labels matching schema: Draft, AwaitingPayment, Confirmed, ProductionComplete,
+  // Packaging, WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
   const statusEmoji: Record<string, string> = {
     Draft: "[Draft]",
     AwaitingPayment: "[Payment]",
     Confirmed: "[Confirmed]",
-    Production: "[Cooking]",
-    Ready: "[Ready]",
-    Shipped: "[Shipped]",
-    Delivered: "[Delivered]",
-    Complete: "[Done]",
+    ProductionComplete: "[Cooking Done]",
+    Packaging: "[Packaging]",
+    WaitingShipment: "[Ready to Ship]",
+    CompleteShipped: "[Shipped]",
+    WaitingPickup: "[Ready for Pickup]",
+    PickedUp: "[Picked Up]",
     Cancelled: "[Cancelled]",
   };
 

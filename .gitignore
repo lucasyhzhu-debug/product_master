@@ -79,3 +79,6 @@ pnpm-debug.log*
 lerna-debug.log*
 nul
 .claude/settings.local.json
+
+.vercel
+.env*.local

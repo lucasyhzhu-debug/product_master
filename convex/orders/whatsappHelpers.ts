@@ -111,15 +111,18 @@ export function formatDeliveryInfo(info: DeliveryInfo): string {
 // Status Emoji Mapping
 // ============================================
 
+// Status labels matching schema: Draft, AwaitingPayment, Confirmed, ProductionComplete,
+// Packaging, WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
 const STATUS_LABELS: Record<string, string> = {
   Draft: "[Draft]",
   AwaitingPayment: "[Payment]",
   Confirmed: "[Confirmed]",
-  Production: "[Cooking]",
-  Ready: "[Ready]",
-  Shipped: "[Shipped]",
-  Delivered: "[Delivered]",
-  Complete: "[Done]",
+  ProductionComplete: "[Cooking Done]",
+  Packaging: "[Packaging]",
+  WaitingShipment: "[Ready to Ship]",
+  CompleteShipped: "[Shipped]",
+  WaitingPickup: "[Ready for Pickup]",
+  PickedUp: "[Picked Up]",
   Cancelled: "[Cancelled]",
 };
 
