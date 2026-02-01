@@ -138,9 +138,9 @@ function OrderCard({ order, onClick }: OrderCardProps) {
           </div>
           <div className="text-right">
             <p className="text-xl font-bold">{formatCurrency(order.total_amount)}</p>
-            {order.total_margin > 0 && (
-              <p className="text-sm text-green-600 font-semibold">
-                +{formatCurrency(order.total_margin)}
+            {order.total_discount > 0 && (
+              <p className="text-sm text-orange-600 font-semibold">
+                -{formatCurrency(order.total_discount)}
               </p>
             )}
           </div>

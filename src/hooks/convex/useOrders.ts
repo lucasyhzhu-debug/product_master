@@ -119,6 +119,10 @@ interface ConvexOrder {
   totalAmount: number;
   totalCost: number;
   totalMargin: number;
+  // Order-level discount
+  orderLevelDiscount?: number;
+  orderLevelDiscountType?: "amount" | "percentage";
+  finalTotal?: number;
   itemCount: number;
   channel?: string;
   soldBy?: string;
@@ -156,6 +160,16 @@ function transformOrderItem(item: ConvexOrderItem): OrderItem {
 }
 
 function transformToOrderSummary(order: ConvexOrder | ConvexOrderWithItems): OrderSummary {
+  // Calculate order-level discount amount
+  let totalDiscount = 0;
+  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    if (order.orderLevelDiscountType === "percentage") {
+      totalDiscount = order.totalAmount * (order.orderLevelDiscount / 100);
+    } else {
+      totalDiscount = order.orderLevelDiscount;
+    }
+  }
+
   return {
     id: order._id as unknown as number,
     order_number: order.orderNumber,
@@ -172,6 +186,7 @@ function transformToOrderSummary(order: ConvexOrder | ConvexOrderWithItems): Ord
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    total_discount: totalDiscount,
     item_count: order.itemCount,
     delivery_type: order.deliveryType ?? null,
     shipping_agency: order.shippingAgency ?? null,
@@ -180,6 +195,16 @@ function transformToOrderSummary(order: ConvexOrder | ConvexOrderWithItems): Ord
 }
 
 function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
+  // Calculate order-level discount amount
+  let totalDiscount = 0;
+  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    if (order.orderLevelDiscountType === "percentage") {
+      totalDiscount = order.totalAmount * (order.orderLevelDiscount / 100);
+    } else {
+      totalDiscount = order.orderLevelDiscount;
+    }
+  }
+
   return {
     id: order._id as unknown as number,
     order_number: order.orderNumber,
@@ -197,6 +222,7 @@ function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    total_discount: totalDiscount,
     margin_pct:
       order.totalAmount > 0
         ? (order.totalMargin / order.totalAmount) * 100

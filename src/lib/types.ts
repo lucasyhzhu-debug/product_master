@@ -438,6 +438,7 @@ export interface OrderSummary {
   total_amount: number;
   total_cost: number;
   total_margin: number;
+  total_discount: number;
   item_count: number;
   delivery_type?: string | null;
   shipping_agency?: string | null;
@@ -459,6 +460,7 @@ export interface OrderDetail {
   total_amount: number;
   total_cost: number;
   total_margin: number;
+  total_discount: number;
   margin_pct: number | null;
   channel: string | null;
   sold_by: string | null;
