@@ -26,6 +26,14 @@ interface ConvexKitchenStats {
   midBallsCompleted: number;
   ordersPending: number;
   ordersCompletedToday: number;
+  // PRD-5: Dynamic production type stats
+  productionByType?: Array<{
+    code: string;
+    name: string;
+    color?: string;
+    unitsNeeded: number;
+    unitsCompleted: number;
+  }>;
 }
 
 interface ConvexKitchenOrderItem {
@@ -68,6 +76,13 @@ interface ConvexKitchenOrder {
   items: ConvexKitchenOrderItem[];
   bigBallsNeeded: number;
   midBallsNeeded: number;
+  // PRD-5: Dynamic production by type
+  productionByType?: Array<{
+    code: string;
+    name: string;
+    color?: string;
+    unitsNeeded: number;
+  }>;
 }
 
 interface ConvexCompletedOrder {
@@ -108,6 +123,14 @@ function transformKitchenStats(stats: ConvexKitchenStats): KitchenStats {
     mid_balls_completed: stats.midBallsCompleted,
     orders_pending: stats.ordersPending,
     orders_completed_today: stats.ordersCompletedToday,
+    // PRD-5: Transform dynamic production type stats
+    production_by_type: stats.productionByType?.map((p) => ({
+      code: p.code,
+      name: p.name,
+      color: p.color,
+      units_needed: p.unitsNeeded,
+      units_completed: p.unitsCompleted,
+    })),
   };
 }
 
@@ -154,6 +177,13 @@ function transformKitchenOrder(order: ConvexKitchenOrder): KitchenOrder {
     items: order.items.map(transformKitchenOrderItem),
     big_balls_needed: order.bigBallsNeeded,
     mid_balls_needed: order.midBallsNeeded,
+    // PRD-5: Transform dynamic production by type
+    production_by_type: order.productionByType?.map((p) => ({
+      code: p.code,
+      name: p.name,
+      color: p.color,
+      units_needed: p.unitsNeeded,
+    })),
   };
 }
 

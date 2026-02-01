@@ -12,6 +12,7 @@ import {
   OrderManager,
   OrderDetail,
   KitchenView,
+  PackagingView,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -53,6 +54,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessKitchen">
                   <KitchenView />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Packaging - All roles can access (PRD-5) */}
+            <Route
+              path="packaging"
+              element={
+                <ProtectedRoute requiredPermission="canAccessPackaging">
+                  <PackagingView />
                 </ProtectedRoute>
               }
             />

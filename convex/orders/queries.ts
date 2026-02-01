@@ -1,6 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 
 // ============================================
 // Types
@@ -147,6 +147,7 @@ export const getByOrderNumber = query({
 /**
  * Get orders for kitchen view (production pipeline).
  * PRD-1: Returns only Confirmed orders with ball calculations.
+ * PRD-5: Enhanced with dynamic production type support via orderItemProduction.
  */
 export const getKitchenOrders = query({
   args: {},
@@ -157,6 +158,12 @@ export const getKitchenOrders = query({
       .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
       .collect();
 
+    // PRD-5: Get all production unit types for dynamic aggregation
+    const productionUnitTypes = await ctx.db
+      .query("productionUnitTypes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
     // Fetch items for each order and calculate ball needs
     const result = await Promise.all(
       orders.map(async (order) => {
@@ -165,7 +172,18 @@ export const getKitchenOrders = query({
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
           .collect();
 
-        // Calculate ball needs
+        // PRD-5: Fetch orderItemProduction for each item
+        const itemsWithProduction = await Promise.all(
+          items.map(async (item) => {
+            const productionRecords = await ctx.db
+              .query("orderItemProduction")
+              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+              .collect();
+            return { ...item, productionRecords };
+          })
+        );
+
+        // Calculate ball needs (OLD system - for backward compatibility)
         let bigBallsNeeded = 0;
         let midBallsNeeded = 0;
 
@@ -177,11 +195,30 @@ export const getKitchenOrders = query({
           }
         }
 
+        // PRD-5: Calculate production by type (NEW system - dynamic)
+        const productionByType = productionUnitTypes.map((unitType) => {
+          let unitsNeeded = 0;
+          for (const item of itemsWithProduction) {
+            for (const record of item.productionRecords) {
+              if (record.productionUnitTypeId === unitType._id) {
+                unitsNeeded += record.unitsRemaining;
+              }
+            }
+          }
+          return {
+            code: unitType.code,
+            name: unitType.name,
+            color: unitType.color,
+            unitsNeeded,
+          };
+        }).filter((p) => p.unitsNeeded > 0);
+
         return {
           ...order,
-          items,
+          items: itemsWithProduction,
           bigBallsNeeded,
           midBallsNeeded,
+          productionByType,
         };
       })
     );
@@ -312,6 +349,7 @@ export const getChannelSuggestions = query({
 /**
  * Get kitchen stats for dashboard.
  * PRD-1: Ball production tracking.
+ * PRD-5: Enhanced with dynamic production type stats.
  * OPTIMIZED: Batch fetch all orderItems to avoid N+1 queries.
  */
 export const getKitchenStats = query({
@@ -352,7 +390,7 @@ export const getKitchenStats = query({
       itemsByOrder.get(orderId)!.push(item);
     }
 
-    // Calculate stats for confirmed orders
+    // Calculate stats for confirmed orders (OLD system)
     let bigBallsNeeded = 0;
     let midBallsNeeded = 0;
 
@@ -367,7 +405,7 @@ export const getKitchenStats = query({
       }
     }
 
-    // Calculate stats for completed orders today
+    // Calculate stats for completed orders today (OLD system)
     let bigBallsCompleted = 0;
     let midBallsCompleted = 0;
 
@@ -382,6 +420,67 @@ export const getKitchenStats = query({
       }
     }
 
+    // PRD-5: Calculate dynamic production type stats (NEW system)
+    const productionUnitTypes = await ctx.db
+      .query("productionUnitTypes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    // BATCH FETCH: Get all orderItemProduction records
+    const allProductionRecords = await ctx.db.query("orderItemProduction").collect();
+
+    // Group production records by orderItemId
+    const productionByItem = new Map<string, typeof allProductionRecords>();
+    for (const record of allProductionRecords) {
+      const itemId = record.orderItemId.toString();
+      if (!productionByItem.has(itemId)) {
+        productionByItem.set(itemId, []);
+      }
+      productionByItem.get(itemId)!.push(record);
+    }
+
+    // Calculate stats per production type
+    const productionByType = productionUnitTypes
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((unitType) => {
+        let unitsNeeded = 0;
+        let unitsCompleted = 0;
+
+        // Confirmed orders -> units needed (remaining)
+        for (const order of confirmedOrders) {
+          const items = itemsByOrder.get(order._id.toString()) ?? [];
+          for (const item of items) {
+            const records = productionByItem.get(item._id.toString()) ?? [];
+            for (const record of records) {
+              if (record.productionUnitTypeId === unitType._id) {
+                unitsNeeded += record.unitsRemaining;
+              }
+            }
+          }
+        }
+
+        // Completed orders today -> units completed
+        for (const order of completedTodayOrders) {
+          const items = itemsByOrder.get(order._id.toString()) ?? [];
+          for (const item of items) {
+            const records = productionByItem.get(item._id.toString()) ?? [];
+            for (const record of records) {
+              if (record.productionUnitTypeId === unitType._id) {
+                unitsCompleted += record.unitsCompleted;
+              }
+            }
+          }
+        }
+
+        return {
+          code: unitType.code,
+          name: unitType.name,
+          color: unitType.color,
+          unitsNeeded,
+          unitsCompleted,
+        };
+      });
+
     return {
       bigBallsNeeded,
       bigBallsCompleted,
@@ -389,7 +488,91 @@ export const getKitchenStats = query({
       midBallsCompleted,
       ordersPending: confirmedOrders.length,
       ordersCompletedToday: completedTodayOrders.length,
+      // PRD-5: Dynamic production type stats
+      productionByType,
     };
+  },
+});
+
+/**
+ * Get orders ready for packaging (ProductionComplete status).
+ * PRD-5: For packaging view - shows orders that need to be packed.
+ */
+export const getPackagingOrders = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get ProductionComplete orders
+    const orders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "ProductionComplete"))
+      .collect();
+
+    // Fetch items and menu products for each order
+    const result = await Promise.all(
+      orders.map(async (order) => {
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        // Enrich items with menu product details (for packaging instructions)
+        const enrichedItems = await Promise.all(
+          items.map(async (item) => {
+            let menuProduct: Awaited<ReturnType<typeof ctx.db.get<"menuProducts">>> = null;
+            let productionComponents: Array<{
+              _id: Id<"menuProductComponents">;
+              menuProductId: Id<"menuProducts">;
+              productionUnitTypeId: Id<"productionUnitTypes">;
+              quantity: number;
+              sortOrder: number;
+              productionUnitType: Awaited<ReturnType<typeof ctx.db.get<"productionUnitTypes">>>;
+            }> = [];
+
+            if (item.menuProductId) {
+              menuProduct = await ctx.db.get(item.menuProductId);
+
+              // Get production components for packaging display
+              const components = await ctx.db
+                .query("menuProductComponents")
+                .withIndex("by_menu_product", (q) => q.eq("menuProductId", item.menuProductId!))
+                .collect();
+
+              productionComponents = await Promise.all(
+                components.map(async (comp) => {
+                  const unitType = await ctx.db.get(comp.productionUnitTypeId);
+                  return {
+                    ...comp,
+                    productionUnitType: unitType,
+                  };
+                })
+              );
+            }
+
+            return {
+              ...item,
+              menuProduct,
+              productionComponents,
+            };
+          })
+        );
+
+        return {
+          ...order,
+          items: enrichedItems,
+        };
+      })
+    );
+
+    // Sort by due date ASC → order date ASC
+    return result.sort((a, b) => {
+      if (a.dueDate !== b.dueDate) {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate - b.dueDate;
+      }
+      return a.orderDate - b.orderDate;
+    });
   },
 });
 

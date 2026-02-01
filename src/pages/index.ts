@@ -7,3 +7,4 @@ export { MaterialsManager } from './MaterialsManager';
 export { OrderManager } from './OrderManager';
 export { OrderDetail } from './OrderDetail';
 export { KitchenView } from './KitchenView';
+export { PackagingView } from './PackagingView';
