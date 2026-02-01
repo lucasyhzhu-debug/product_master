@@ -182,3 +182,31 @@ export {
   useConvexRevertToConfirmed,
   useConvexCompleteBalls,
 } from "./useKitchenStats";
+
+// Visual Feedback Overlay
+export {
+  // Query hooks
+  useConvexFeedbackList,
+  useConvexFeedback,
+  useConvexFeedbackExport,
+  useConvexFeedbackStats,
+  useConvexOngoingFeedbackCount,
+  // Mutation hooks
+  useConvexGenerateUploadUrl,
+  useConvexCreateFeedback,
+  useConvexAddFeedbackComment,
+  useConvexToggleFeedbackStatus,
+  useConvexUpdateFeedbackPriority,
+  useConvexUpdateFeedbackTags,
+  useConvexDeleteFeedback,
+  // Helper
+  uploadScreenshot,
+  // Types
+  type FeedbackStatus,
+  type FeedbackPriority,
+  type FeedbackTag,
+  type FeedbackComment,
+  type FeedbackItem,
+  type FeedbackCreateInput,
+  type FeedbackStats,
+} from "./useFeedback";
