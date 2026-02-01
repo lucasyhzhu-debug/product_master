@@ -13,6 +13,63 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-01 - Schema Review & Critical Bug Fixes
+
+**Comprehensive Convex Schema Audit & Fixes**
+
+Performed full schema review before Monday deployment. Found and fixed 7 issues including 2 critical bugs.
+
+**CRITICAL FIXES:**
+
+1. **Dashboard Status Mismatch** - Dashboard was checking for `"Complete"` and `"Delivered"` statuses that DON'T EXIST in schema. Active order counts were WRONG.
+   - Fixed: Now correctly uses `"CompleteShipped"`, `"PickedUp"`, `"Cancelled"` as terminal statuses
+   - Files: `convex/dashboard/queries.ts` (lines 45, 133)
+
+2. **Order Number Race Condition** - `generateOrderNumber()` could create duplicate order numbers under concurrent load.
+   - Fixed: Now uses max sequence tracking, uniqueness verification, and retry logic
+   - File: `convex/orders/mutations.ts` (lines 23-62)
+
+**HIGH PRIORITY FIXES:**
+
+3. **WhatsApp Status Labels** - Status label maps had wrong values (`"Production"`, `"Ready"`, `"Shipped"`, `"Delivered"` instead of actual schema statuses).
+   - Fixed: Updated both files to use all 10 correct schema statuses
+   - Files: `convex/orders/whatsapp.ts`, `convex/orders/whatsappHelpers.ts`
+
+4. **Missing menuProductId Index** - Kitchen View was doing full table scans for ball tracking.
+   - Fixed: Added `.index("by_menu_product", ["menuProductId"])` to orderItems
+   - File: `convex/schema.ts`
+
+5. **N+1 Query Pattern in Kitchen Stats** - `getKitchenStats()` and `getCompletedToday()` were making 50+ queries for 50 orders.
+   - Fixed: Batch fetch all orderItems first, group by orderId for O(1) lookup
+   - File: `convex/orders/queries.ts` (reduced from N+1 to 2-3 queries)
+
+**MEDIUM PRIORITY FIXES:**
+
+6. **Feedback Hook Exports** - Verified already in place (false positive from exploration).
+
+7. **Redundant Index Removed** - Removed `by_due_date` index (covered by `by_status_due_date`).
+   - File: `convex/schema.ts`
+
+**Files Modified:**
+- `convex/schema.ts` - Added index, removed redundant index
+- `convex/dashboard/queries.ts` - Fixed terminal status array
+- `convex/orders/mutations.ts` - Fixed order number generation
+- `convex/orders/queries.ts` - Optimized N+1 queries
+- `convex/orders/whatsapp.ts` - Fixed status labels
+- `convex/orders/whatsappHelpers.ts` - Fixed status labels
+
+**Verification:**
+- TypeScript type-check: Passed
+- Production build: Passed
+- All changes backwards compatible
+
+**Deployment:**
+```bash
+npx convex deploy  # Apply schema changes including new index
+```
+
+---
+
 ## 2026-02-01 - PRD-3: Order Form POS (Order System V2 Complete)
 
 **Feature: POS-Style Order Form with Template Parsing**
