@@ -85,13 +85,14 @@ export function DiscountInput({
       // Clamp percentage between 0 and 100
       const clampedPercent = Math.max(0, Math.min(numValue, 100));
 
-      // Calculate amount from percentage
+      // Calculate amount from percentage for display
       const calculatedAmount = subtotal * (clampedPercent / 100);
 
       // Update amount display
       setAmountValue(calculatedAmount.toFixed(0));
 
-      onChange(calculatedAmount, 'percentage');
+      // Pass the percentage value (not the calculated amount) when type is 'percentage'
+      onChange(clampedPercent, 'percentage');
     }, 300);
   };
 

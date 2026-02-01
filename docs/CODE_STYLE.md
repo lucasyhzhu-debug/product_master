@@ -640,6 +640,88 @@ export const copyVersion = mutation({
 });
 ```
 
+---
+
+## Responsive Design Testing
+
+### Minimum Width Requirement
+
+**All UI components must be tested at minimum 280px width** (smallest mobile viewport).
+
+### Common Responsive Patterns
+
+```typescript
+// ❌ BAD: Everything on one row - breaks on narrow screens
+<div className="flex items-center justify-between">
+  <span>Product Name (80g)</span>
+  <div className="flex gap-2">
+    <Button>-</Button>
+    <span>4</span>
+    <Button>+</Button>
+    <span>Rp 200.000</span>
+    <Button>🗑</Button>
+  </div>
+</div>
+
+// ✅ GOOD: Stack into rows on narrow screens
+<div className="p-3 space-y-2">
+  {/* Row 1: Name + delete */}
+  <div className="flex items-center justify-between">
+    <span>Product Name (80g)</span>
+    <Button>🗑</Button>
+  </div>
+  {/* Row 2: Quantity controls + price */}
+  <div className="flex items-center justify-between">
+    <div className="flex gap-2">
+      <Button>-</Button>
+      <span>4</span>
+      <Button>+</Button>
+    </div>
+    <span>Rp 200.000</span>
+  </div>
+</div>
+```
+
+### Responsive Button Groups
+
+```typescript
+// ❌ BAD: Buttons overflow and get cut off
+<div className="flex gap-2">
+  <Button>Paste from Clipboard</Button>
+  <Button>Parse & Create</Button>
+</div>
+
+// ✅ GOOD: Stack on mobile, row on desktop
+<div className="flex flex-col sm:flex-row gap-2">
+  <Button className="w-full sm:w-auto">Paste from Clipboard</Button>
+  <Button className="w-full sm:w-auto">Parse & Create</Button>
+</div>
+```
+
+### Testing Checklist
+
+Before merging any UI changes, verify at these breakpoints:
+- [ ] **280px** - Smallest mobile (Galaxy Fold)
+- [ ] **320px** - iPhone SE
+- [ ] **375px** - iPhone standard
+- [ ] **640px** - Tablet portrait (sm breakpoint)
+- [ ] **768px** - Tablet landscape (md breakpoint)
+- [ ] **1024px** - Desktop (lg breakpoint)
+
+### Key Patterns
+
+| Pattern | Use Case |
+|---------|----------|
+| `flex-col sm:flex-row` | Button groups, form sections |
+| `w-full sm:w-auto` | Full-width buttons on mobile |
+| `grid grid-cols-1 sm:grid-cols-2` | Card grids |
+| `hidden sm:block` | Hide non-essential on mobile |
+| `text-sm sm:text-base` | Responsive text sizing |
+| `gap-2 sm:gap-4` | Tighter spacing on mobile |
+| `p-3 sm:p-4` | Reduced padding on mobile |
+
+---
+
 ### WhatsApp Formatting (convex/orders/whatsapp.ts)
 
 ```typescript

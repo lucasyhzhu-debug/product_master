@@ -304,7 +304,7 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
           ============================================ */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
               Template
               <TooltipProvider>
@@ -326,9 +326,9 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
                 </Tooltip>
               </TooltipProvider>
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={handleCopyTemplate}>
+            <Button variant="outline" size="sm" onClick={handleCopyTemplate} className="shrink-0">
               <Clipboard className="h-4 w-4 mr-2" />
-              Copy Clean Template
+              Copy Template
             </Button>
           </div>
         </CardHeader>
@@ -358,44 +358,50 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
                 {items.map((item) => (
                   <div
                     key={item.productId}
-                    className="flex items-center justify-between p-2 bg-muted rounded-md"
+                    className="p-3 bg-muted rounded-md space-y-2"
                   >
-                    <div className="flex-1">
-                      <span className="font-medium">{item.productName}</span>
-                      <span className="text-sm text-muted-foreground ml-2">
-                        ({item.grams}g)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateItemQuantity(item.productId, -1)}
-                        disabled={item.quantity <= 1}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-8 text-center font-medium">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateItemQuantity(item.productId, 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-24 text-right font-medium">
-                        {formatCurrency(item.lineTotal)}
-                      </span>
+                    {/* Row 1: Product name and delete button */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-medium">
+                        {item.productName}
+                        <span className="text-sm text-muted-foreground ml-1">
+                          ({item.grams}g)
+                        </span>
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive"
+                        className="h-7 w-7 text-destructive shrink-0"
                         onClick={() => removeItem(item.productId)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
+                    </div>
+                    {/* Row 2: Quantity controls and price */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateItemQuantity(item.productId, -1)}
+                          disabled={item.quantity <= 1}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-10 text-center font-semibold text-lg">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateItemQuantity(item.productId, 1)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <span className="font-semibold text-lg">
+                        {formatCurrency(item.lineTotal)}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -599,9 +605,9 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
       {/* ============================================
           9. Submit Section
           ============================================ */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         {onCancel && (
-          <Button variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <Button variant="outline" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto">
             Cancel
           </Button>
         )}
