@@ -8,11 +8,17 @@
  * @module
  */
 
+import type * as auth_mutations from "../auth/mutations.js";
+import type * as auth_queries from "../auth/queries.js";
+import type * as auth_seed from "../auth/seed.js";
 import type * as customers_mutations from "../customers/mutations.js";
 import type * as customers_queries from "../customers/queries.js";
 import type * as dashboard_queries from "../dashboard/queries.js";
+import type * as feedback_mutations from "../feedback/mutations.js";
+import type * as feedback_queries from "../feedback/queries.js";
 import type * as ingredients_mutations from "../ingredients/mutations.js";
 import type * as ingredients_queries from "../ingredients/queries.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as lib_costCalculator from "../lib/costCalculator.js";
 import type * as materials_mutations from "../materials/mutations.js";
 import type * as materials_queries from "../materials/queries.js";
@@ -39,11 +45,17 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "auth/mutations": typeof auth_mutations;
+  "auth/queries": typeof auth_queries;
+  "auth/seed": typeof auth_seed;
   "customers/mutations": typeof customers_mutations;
   "customers/queries": typeof customers_queries;
   "dashboard/queries": typeof dashboard_queries;
+  "feedback/mutations": typeof feedback_mutations;
+  "feedback/queries": typeof feedback_queries;
   "ingredients/mutations": typeof ingredients_mutations;
   "ingredients/queries": typeof ingredients_queries;
+  "lib/auth": typeof lib_auth;
   "lib/costCalculator": typeof lib_costCalculator;
   "materials/mutations": typeof materials_mutations;
   "materials/queries": typeof materials_queries;
