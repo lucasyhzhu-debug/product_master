@@ -4,6 +4,7 @@ export { OrderItems } from './OrderItems';
 export { OrderWhatsAppPanel } from './OrderWhatsAppPanel';
 export { OrderStatusPanel } from './OrderStatusPanel';
 export { ShippingDialog } from './ShippingDialog';
+export { ShippingPanel } from './ShippingPanel';
 export { CancellationDialog } from './CancellationDialog';
 export { ConfirmationDialog } from './ConfirmationDialog';
 
