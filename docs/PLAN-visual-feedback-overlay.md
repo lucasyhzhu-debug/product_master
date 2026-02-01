@@ -2,7 +2,7 @@
 
 ## Overview
 
-Add a "Visual Feedback Overlay" feature with screenshot capabilities to Malo Recipe Master. Users can capture screenshots of UI elements, annotate them with feedback, add comments, and export ongoing feedback as a PRD document.
+Add a "Visual Feedback Overlay" feature with screenshot capabilities to Frollie Recipe Master. Users can capture screenshots of UI elements, annotate them with feedback, add comments, and export ongoing feedback as a PRD document.
 
 **Key Innovation:** First usage of Convex Storage (`v.id("_storage")`) in this codebase.
 

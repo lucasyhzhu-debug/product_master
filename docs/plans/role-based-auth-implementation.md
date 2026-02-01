@@ -1,4 +1,4 @@
-# Role-Based Authentication Plan for Malo Recipe Master
+# Role-Based Authentication Plan for Frollie Recipe Master
 
 ## Summary
 
