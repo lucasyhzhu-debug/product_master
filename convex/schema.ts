@@ -300,8 +300,20 @@ export default defineSchema({
     )),
     finalTotal: v.optional(v.number()), // totalAmount - discount
 
-    // Sales tracking
-    channel: v.optional(v.string()),
+    // Sales tracking - Channel with type-safe union
+    channel: v.optional(v.union(
+      v.literal("whatsapp"),
+      v.literal("instagram"),
+      v.literal("shopee"),
+      v.literal("tiktok"),
+      v.literal("tokopedia"),
+      v.literal("grabfood"),
+      v.literal("k3mart_gf"),
+      v.literal("legato_tamtem"),
+      v.literal("legato_goldfinch"),
+      v.literal("bazaar"),
+      v.literal("other")
+    )),
     soldBy: v.optional(v.string()),
 
     // Delivery info
@@ -354,6 +366,16 @@ export default defineSchema({
     ballsRemaining: v.optional(v.number()), // for completion tracking
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
+    // PRD-6: Package status for visual inventory system
+    // Grey (empty) -> Red (filling) -> Yellow (filled) -> Green (packed)
+    packageStatus: v.optional(v.union(
+      v.literal("empty"),
+      v.literal("filling"),
+      v.literal("filled"),
+      v.literal("packed")
+    )),
+    // Track balls filled in this package (for visual display)
+    ballsFilled: v.optional(v.number()),
   })
     .index("by_order", ["orderId"])
     .index("by_product_name", ["productName"])
@@ -460,4 +482,18 @@ export default defineSchema({
     .index("by_token", ["token"])
     .index("by_user", ["userId"])
     .index("by_expiry", ["expiresAt"]),
+
+  // ============================================
+  // KITCHEN INVENTORY TRAY
+  // Visual inventory system - balls in trays
+  // ============================================
+
+  kitchenInventory: defineTable({
+    date: v.string(), // YYYY-MM-DD format
+    originalBallCount: v.number(), // Current Original balls in tray
+    biteSizedBallCount: v.number(), // Current Bite-sized balls in tray
+    lastUpdated: v.number(), // Timestamp
+    updatedBy: v.optional(v.string()),
+  })
+    .index("by_date", ["date"]),
 });

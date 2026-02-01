@@ -73,6 +73,7 @@ interface ConvexKitchenOrder {
   soldBy?: string;
   deliveryType?: string;
   shippingAgency?: string;
+  orderLevelDiscount?: number;
   items: ConvexKitchenOrderItem[];
   bigBallsNeeded: number;
   midBallsNeeded: number;
@@ -105,6 +106,7 @@ interface ConvexCompletedOrder {
   soldBy?: string;
   deliveryType?: string;
   shippingAgency?: string;
+  orderLevelDiscount?: number;
   items: ConvexKitchenOrderItem[];
   customer: Doc<"customers"> | null;
   bigBalls: number;
@@ -170,6 +172,7 @@ function transformKitchenOrder(order: ConvexKitchenOrder): KitchenOrder {
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    total_discount: order.orderLevelDiscount ?? 0,
     item_count: order.itemCount,
     delivery_type: order.deliveryType ?? null,
     shipping_agency: order.shippingAgency ?? null,
@@ -204,6 +207,7 @@ function transformCompletedOrder(order: ConvexCompletedOrder): KitchenOrder {
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    total_discount: order.orderLevelDiscount ?? 0,
     item_count: order.itemCount,
     delivery_type: order.deliveryType ?? null,
     shipping_agency: order.shippingAgency ?? null,

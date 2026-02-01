@@ -117,7 +117,19 @@ export const create = mutation({
       })
     ),
     // Order details
-    channel: v.optional(v.string()),
+    channel: v.optional(v.union(
+      v.literal("whatsapp"),
+      v.literal("instagram"),
+      v.literal("shopee"),
+      v.literal("tiktok"),
+      v.literal("tokopedia"),
+      v.literal("grabfood"),
+      v.literal("k3mart_gf"),
+      v.literal("legato_tamtem"),
+      v.literal("legato_goldfinch"),
+      v.literal("bazaar"),
+      v.literal("other")
+    )),
     soldBy: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),
@@ -1211,5 +1223,338 @@ export const updateOrderDiscount = mutation({
     });
 
     return args.orderId;
+  },
+});
+
+// ============================================
+// PRD-6: VISUAL INVENTORY TRAY SYSTEM
+// ============================================
+
+/**
+ * Get or create today's kitchen inventory tray.
+ */
+async function getOrCreateTodayInventory(ctx: MutationCtx) {
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+  const existing = await ctx.db
+    .query("kitchenInventory")
+    .withIndex("by_date", (q) => q.eq("date", today))
+    .first();
+
+  if (existing) {
+    return existing;
+  }
+
+  // Create new inventory for today
+  const id = await ctx.db.insert("kitchenInventory", {
+    date: today,
+    originalBallCount: 0,
+    biteSizedBallCount: 0,
+    lastUpdated: Date.now(),
+  });
+
+  const newInventory = await ctx.db.get(id);
+  if (!newInventory) throw new Error("Failed to create inventory");
+  return newInventory;
+}
+
+/**
+ * Add balls to tray and auto-drain to waiting orders.
+ * PRD-6: Visual Inventory Tray System
+ *
+ * Flow:
+ * 1. Add balls to tray
+ * 2. Auto-drain to waiting orders (sequential, by priority)
+ * 3. Return overflow count
+ */
+export const addBallsToTray = mutation({
+  args: {
+    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+    count: v.number(),
+  },
+  handler: async (ctx, args) => {
+    if (args.count <= 0) {
+      throw new Error("Count must be positive");
+    }
+
+    // Get or create today's inventory
+    const inventory = await getOrCreateTodayInventory(ctx);
+
+    // Add balls to tray
+    const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
+    const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
+    const newCount = currentCount + args.count;
+
+    await ctx.db.patch(inventory._id, {
+      [fieldName]: newCount,
+      lastUpdated: Date.now(),
+    });
+
+    // Now auto-drain to orders using the existing completeBalls logic
+    const productionTypeFilter = args.ballType === "original" ? "original" : "bite_sized";
+    const productionUnitCode = args.ballType === "original" ? "BIG_BALL" : "MID_BALL";
+
+    // Get Confirmed orders sorted by priority
+    const confirmedOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .collect();
+
+    // Fetch items for each order
+    const ordersWithItems = await Promise.all(
+      confirmedOrders.map(async (order) => {
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        const itemsWithProduction = await Promise.all(
+          items.map(async (item) => {
+            const productionRecords = await ctx.db
+              .query("orderItemProduction")
+              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+              .collect();
+            return { ...item, productionRecords };
+          })
+        );
+
+        let originalBallsNeeded = 0;
+        let biteSizedBallsNeeded = 0;
+
+        for (const item of items) {
+          if (item.productionType === "original" && item.ballsRemaining) {
+            originalBallsNeeded += item.ballsRemaining;
+          } else if (item.productionType === "bite_sized" && item.ballsRemaining) {
+            biteSizedBallsNeeded += item.ballsRemaining;
+          }
+        }
+
+        return {
+          order,
+          items: itemsWithProduction,
+          originalBallsNeeded,
+          biteSizedBallsNeeded,
+        };
+      })
+    );
+
+    // Sort by: dueDate ASC → totalUnits DESC → orderDate ASC
+    const sortedOrders = ordersWithItems.sort((a, b) => {
+      if (a.order.dueDate !== b.order.dueDate) {
+        if (!a.order.dueDate && !b.order.dueDate) return 0;
+        if (!a.order.dueDate) return 1;
+        if (!b.order.dueDate) return -1;
+        return a.order.dueDate - b.order.dueDate;
+      }
+      const aTotalUnits = a.originalBallsNeeded + a.biteSizedBallsNeeded;
+      const bTotalUnits = b.originalBallsNeeded + b.biteSizedBallsNeeded;
+      if (aTotalUnits !== bTotalUnits) {
+        return bTotalUnits - aTotalUnits;
+      }
+      return a.order.orderDate - b.order.orderDate;
+    });
+
+    // Apply balls to orders
+    let remainingBalls = args.count;
+    const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
+    const updatedBallsRemaining = new Map<string, number>();
+
+    for (const { items } of sortedOrders) {
+      if (remainingBalls <= 0) break;
+
+      const matchingItems = items.filter(
+        (item) => item.productionType === productionTypeFilter
+      );
+
+      for (const item of matchingItems) {
+        if (remainingBalls <= 0) break;
+
+        const currentBallsRemaining = item.ballsRemaining ?? 0;
+        if (currentBallsRemaining <= 0) continue;
+
+        const ballsToApply = Math.min(remainingBalls, currentBallsRemaining);
+        const newBallsRemaining = currentBallsRemaining - ballsToApply;
+        const newBallsFilled = (item.ballsFilled ?? 0) + ballsToApply;
+
+        // Determine package status
+        let packageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+        if (newBallsRemaining <= 0) {
+          packageStatus = "filled";
+        }
+
+        await ctx.db.patch(item._id, {
+          ballsRemaining: newBallsRemaining,
+          ballsFilled: newBallsFilled,
+          packageStatus: packageStatus,
+        });
+
+        updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
+        filledPackages.push({ orderItemId: item._id, ballsAdded: ballsToApply });
+        remainingBalls -= ballsToApply;
+      }
+
+      // Update orderItemProduction (NEW system - dual-write)
+      let remainingForNewSystem = args.count;
+      for (const item of items) {
+        if (remainingForNewSystem <= 0) break;
+
+        const matchingRecords = item.productionRecords.filter(
+          (r) => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0
+        );
+
+        for (const record of matchingRecords) {
+          if (remainingForNewSystem <= 0) break;
+
+          const unitsToApply = Math.min(remainingForNewSystem, record.unitsRemaining);
+          const newUnitsRemaining = record.unitsRemaining - unitsToApply;
+          const newUnitsCompleted = record.unitsCompleted + unitsToApply;
+
+          await ctx.db.patch(record._id, {
+            unitsCompleted: newUnitsCompleted,
+            unitsRemaining: newUnitsRemaining,
+          });
+
+          remainingForNewSystem -= unitsToApply;
+        }
+      }
+    }
+
+    // Calculate final tray count
+    const ballsUsed = args.count - remainingBalls;
+    const overflow = remainingBalls;
+
+    // Update inventory with overflow
+    await ctx.db.patch(inventory._id, {
+      [fieldName]: overflow,
+      lastUpdated: Date.now(),
+    });
+
+    return {
+      ballsUsed,
+      overflow,
+      filledPackages,
+      trayCount: overflow,
+    };
+  },
+});
+
+/**
+ * Remove a ball from tray (undo functionality).
+ * PRD-6: Visual Inventory Tray System
+ *
+ * Removes from tray first, then from most recently filled package (LIFO).
+ */
+export const removeBallFromTray = mutation({
+  args: {
+    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+  },
+  handler: async (ctx, args) => {
+    // Get today's inventory
+    const today = new Date().toISOString().split("T")[0];
+    const inventory = await ctx.db
+      .query("kitchenInventory")
+      .withIndex("by_date", (q) => q.eq("date", today))
+      .first();
+
+    if (!inventory) {
+      throw new Error("No inventory for today");
+    }
+
+    const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
+    const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
+
+    if (currentCount <= 0) {
+      throw new Error("No balls in tray to remove");
+    }
+
+    // Remove from tray
+    await ctx.db.patch(inventory._id, {
+      [fieldName]: currentCount - 1,
+      lastUpdated: Date.now(),
+    });
+
+    return {
+      removedFrom: "tray",
+      newTrayCount: currentCount - 1,
+    };
+  },
+});
+
+/**
+ * Mark a package as packed (Yellow -> Green).
+ * PRD-6: Visual Inventory Tray System
+ */
+export const markPackagePacked = mutation({
+  args: {
+    orderItemId: v.id("orderItems"),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.orderItemId);
+    if (!item) {
+      throw new Error("Order item not found");
+    }
+
+    if (item.packageStatus !== "filled") {
+      throw new Error("Can only pack filled packages (yellow status)");
+    }
+
+    await ctx.db.patch(args.orderItemId, {
+      packageStatus: "packed",
+    });
+
+    // Check if all items in the order are now packed
+    const order = await ctx.db.get(item.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    const allItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
+      .collect();
+
+    // Filter to items with production data
+    const productionItems = allItems.filter((i) => i.productionType);
+
+    // Check if all are packed
+    const allPacked = productionItems.every(
+      (i) => i._id.toString() === args.orderItemId.toString()
+        ? true // The one we just packed
+        : i.packageStatus === "packed"
+    );
+
+    return {
+      orderItemId: args.orderItemId,
+      allPackagesPacked: allPacked,
+      orderId: item.orderId,
+    };
+  },
+});
+
+/**
+ * Unmark a package as packed (Green -> Yellow).
+ * PRD-6: Visual Inventory Tray System
+ */
+export const unmarkPackagePacked = mutation({
+  args: {
+    orderItemId: v.id("orderItems"),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.orderItemId);
+    if (!item) {
+      throw new Error("Order item not found");
+    }
+
+    if (item.packageStatus !== "packed") {
+      throw new Error("Can only unpack packed packages (green status)");
+    }
+
+    await ctx.db.patch(args.orderItemId, {
+      packageStatus: "filled",
+    });
+
+    return {
+      orderItemId: args.orderItemId,
+    };
   },
 });
