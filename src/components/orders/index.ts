@@ -14,6 +14,13 @@ export { default as KitchenOrderCard } from './KitchenOrderCard';
 export { default as BallCompletionButtons } from './BallCompletionButtons';
 export { SoundToggle } from './SoundToggle';
 
+// Visual Inventory System (Phase 3)
+export { ChannelBadge } from './ChannelBadge';
+export { KitchenHelpPanel } from './KitchenHelpPanel';
+export { ProductPackage } from './ProductPackage';
+export { InventoryTray } from './InventoryTray';
+export { OrderBox } from './OrderBox';
+
 // POS Form components (PRD-3: Order Form POS)
 export { ProductButtons } from './ProductButtons';
 export { PasteTemplateBox } from './PasteTemplateBox';

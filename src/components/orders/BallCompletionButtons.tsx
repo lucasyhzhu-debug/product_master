@@ -1,168 +1,195 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Minus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { playDing } from '@/lib/kitchenSounds';
+
+// Ball colors from design spec
+const BALL_COLORS = {
+  fill: '#93C572',      // Pistachio green
+  stroke: '#7B3F00',    // Chocolate brown
+} as const;
+
+type BallType = 'original' | 'bite_sized';
 
 interface BallCompletionButtonsProps {
-  onComplete: (ballType: 'big' | 'mid', count: number) => Promise<void>;
+  onComplete: (ballType: BallType, count: number) => void;
+  onUndo?: (ballType: BallType) => void;
+  trayInventory?: {
+    originalBallCount: number;
+    biteSizedBallCount: number;
+  };
   disabled?: boolean;
 }
 
-interface HoldButtonProps {
-  ballType: 'big' | 'mid';
-  count: number;
-  onActivate: () => Promise<void>;
+interface BallZoneProps {
+  ballType: BallType;
+  onAdd: (count: number) => void;
+  onUndo?: () => void;
+  trayCount: number;
   disabled?: boolean;
 }
 
-function HoldButton({ ballType, count, onActivate, disabled }: HoldButtonProps) {
-  const [isHolding, setIsHolding] = useState(false);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+// Ball icon SVG
+function BallIcon({ size = 20, type }: { size?: number; type: BallType }) {
+  const displaySize = type === 'original' ? size : size * 0.7;
+  return (
+    <svg
+      width={displaySize}
+      height={displaySize * 0.94}
+      viewBox={`0 0 ${displaySize} ${displaySize * 0.94}`}
+      className="shrink-0"
+    >
+      <ellipse
+        cx={displaySize / 2}
+        cy={(displaySize * 0.94) / 2}
+        rx={displaySize / 2 - 1.5}
+        ry={(displaySize * 0.94) / 2 - 1.5}
+        fill={BALL_COLORS.fill}
+        stroke={BALL_COLORS.stroke}
+        strokeWidth={2}
+      />
+      <ellipse
+        cx={displaySize * 0.35}
+        cy={displaySize * 0.3}
+        rx={displaySize * 0.12}
+        ry={displaySize * 0.08}
+        fill="rgba(255,255,255,0.35)"
+      />
+    </svg>
+  );
+}
 
-  const cancelHold = useCallback(() => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-      progressRef.current = null;
-    }
-    setIsHolding(false);
-    setHoldProgress(0);
-  }, []);
+function BallZone({ ballType, onAdd, onUndo, trayCount, disabled }: BallZoneProps) {
+  const [showUndo, setShowUndo] = useState(false);
 
-  const startHold = useCallback(() => {
-    if (disabled) return;
-
-    setIsHolding(true);
-    setHoldProgress(0);
-
-    // Progress animation (update every 100ms for smooth progress)
-    progressRef.current = setInterval(() => {
-      setHoldProgress((prev) => Math.min(prev + 10, 100));
-    }, 100);
-
-    // Complete after 1 second
-    holdTimerRef.current = setTimeout(async () => {
-      await onActivate();
-      await playDing();
-      cancelHold();
-    }, 1000);
-  }, [onActivate, cancelHold, disabled]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-      }
-      if (progressRef.current) {
-        clearInterval(progressRef.current);
-      }
-    };
-  }, []);
+  const label = ballType === 'original' ? 'Original' : 'Bite-sized';
+  const canUndo = trayCount > 0 && onUndo;
 
   return (
-    <div
-      className={cn(
-        'relative h-20 rounded-lg overflow-hidden cursor-pointer select-none transition-opacity',
-        disabled && 'opacity-50 cursor-not-allowed'
-      )}
-      onMouseDown={startHold}
-      onMouseUp={cancelHold}
-      onMouseLeave={cancelHold}
-      onTouchStart={startHold}
-      onTouchEnd={cancelHold}
-      onTouchCancel={cancelHold}
-    >
-      {/* Background */}
-      <div className="absolute inset-0 bg-secondary" />
-
-      {/* Progress fill */}
-      <div
-        className={cn(
-          'absolute inset-y-0 left-0 transition-all duration-100',
-          ballType === 'big' ? 'bg-red-500' : 'bg-yellow-500'
-        )}
-        style={{ width: `${holdProgress}%` }}
-      />
-
-      {/* Content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-        {/* Ball circle */}
-        <div
-          className={cn(
-            'w-6 h-6 rounded-full',
-            ballType === 'big' ? 'bg-red-500' : 'bg-yellow-500'
-          )}
-        />
-
-        {/* Text */}
-        <div className="text-center">
-          <div
-            className={cn(
-              'text-sm font-bold transition-colors',
-              isHolding ? 'text-white mix-blend-difference' : 'text-foreground'
-            )}
-          >
-            +{count} {ballType === 'big' ? 'Big' : 'Mid'}
-          </div>
-        </div>
+    <div className="space-y-2">
+      {/* Label */}
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <BallIcon type={ballType} size={16} />
+        <span>{label}</span>
       </div>
 
-      {/* Hold instruction (only show when not holding) */}
-      {!isHolding && (
-        <div className="absolute bottom-1 left-0 right-0 text-center">
-          <span className="text-[10px] text-muted-foreground">
-            Hold 1s
-          </span>
-        </div>
-      )}
+      {/* Buttons row */}
+      <div className="flex items-center gap-2">
+        {/* +1 Button */}
+        <Button
+          variant="outline"
+          size="lg"
+          className={cn(
+            'flex-1 h-14 text-lg font-bold transition-all active:scale-95',
+            'bg-[#93C572]/10 border-[#93C572] hover:bg-[#93C572]/20 hover:border-[#93C572]'
+          )}
+          onClick={() => onAdd(1)}
+          disabled={disabled}
+        >
+          <BallIcon type={ballType} size={20} />
+          <span className="ml-2">+1</span>
+        </Button>
+
+        {/* +5 Button */}
+        <Button
+          variant="outline"
+          size="lg"
+          className={cn(
+            'flex-1 h-14 text-lg font-bold transition-all active:scale-95',
+            'bg-[#93C572]/10 border-[#93C572] hover:bg-[#93C572]/20 hover:border-[#93C572]'
+          )}
+          onClick={() => onAdd(5)}
+          disabled={disabled}
+        >
+          <BallIcon type={ballType} size={20} />
+          <span className="ml-2">+5</span>
+        </Button>
+
+        {/* Toggle/Undo Section */}
+        <AnimatePresence mode="wait">
+          {showUndo ? (
+            <motion.div
+              key="undo"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 'auto', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex items-center gap-1 overflow-hidden"
+            >
+              {/* -1 Button */}
+              <Button
+                variant="ghost"
+                size="lg"
+                className={cn(
+                  'h-14 px-4 text-lg font-bold',
+                  !canUndo && 'opacity-40'
+                )}
+                onClick={() => onUndo?.()}
+                disabled={disabled || !canUndo}
+              >
+                <Minus className="h-4 w-4 mr-1" />
+                1
+              </Button>
+
+              {/* Hide button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-14 w-10 text-muted-foreground"
+                onClick={() => setShowUndo(false)}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="toggle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {/* Show undo button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-14 w-10 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowUndo(true)}
+                disabled={disabled}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
 export default function BallCompletionButtons({
   onComplete,
+  onUndo,
+  trayInventory,
   disabled = false,
 }: BallCompletionButtonsProps) {
-  const handleComplete = async (ballType: 'big' | 'mid', count: number) => {
-    await onComplete(ballType, count);
-  };
-
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <HoldButton
-            ballType="big"
-            count={1}
-            onActivate={() => handleComplete('big', 1)}
-            disabled={disabled}
-          />
-          <HoldButton
-            ballType="big"
-            count={5}
-            onActivate={() => handleComplete('big', 5)}
-            disabled={disabled}
-          />
-          <HoldButton
-            ballType="mid"
-            count={1}
-            onActivate={() => handleComplete('mid', 1)}
-            disabled={disabled}
-          />
-          <HoldButton
-            ballType="mid"
-            count={5}
-            onActivate={() => handleComplete('mid', 5)}
-            disabled={disabled}
-          />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <BallZone
+        ballType="original"
+        onAdd={(count) => onComplete('original', count)}
+        onUndo={onUndo ? () => onUndo('original') : undefined}
+        trayCount={trayInventory?.originalBallCount ?? 0}
+        disabled={disabled}
+      />
+      <BallZone
+        ballType="bite_sized"
+        onAdd={(count) => onComplete('bite_sized', count)}
+        onUndo={onUndo ? () => onUndo('bite_sized') : undefined}
+        trayCount={trayInventory?.biteSizedBallCount ?? 0}
+        disabled={disabled}
+      />
+    </div>
   );
 }

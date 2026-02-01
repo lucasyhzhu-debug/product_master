@@ -155,3 +155,99 @@ export async function playCompletionFanfare(): Promise<void> {
     console.warn("Failed to play completion fanfare:", error);
   }
 }
+
+/**
+ * Play a "clunk" sound when balls land in the tray.
+ * Low frequency thud with quick decay - simulates physical impact.
+ * ~150Hz base with noise burst for texture.
+ */
+export async function playClunk(): Promise<void> {
+  if (!getSoundsEnabled()) return;
+
+  try {
+    const ready = await ensureAudioContextResumed();
+    if (!ready || !audioContext) return;
+
+    const ctx = audioContext;
+    const now = ctx.currentTime;
+
+    // Low frequency thud
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(150, now);
+    // Pitch drops quickly for thud effect
+    oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+
+    // Quick attack, fast decay (thud envelope)
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.4, now + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.12);
+
+    // Add a subtle noise burst for texture
+    const bufferSize = ctx.sampleRate * 0.05; // 50ms of noise
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize); // Decaying noise
+    }
+
+    const noiseSource = ctx.createBufferSource();
+    const noiseGain = ctx.createGain();
+    noiseSource.buffer = buffer;
+    noiseSource.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    noiseGain.gain.setValueAtTime(0.08, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+    noiseSource.start(now);
+  } catch (error) {
+    console.warn("Failed to play clunk sound:", error);
+  }
+}
+
+/**
+ * Play a "soft click" sound when marking a package as packed.
+ * Short, satisfying click at mid-high frequency.
+ * ~1200Hz with very short duration.
+ */
+export async function playSoftClick(): Promise<void> {
+  if (!getSoundsEnabled()) return;
+
+  try {
+    const ready = await ensureAudioContextResumed();
+    if (!ready || !audioContext) return;
+
+    const ctx = audioContext;
+    const now = ctx.currentTime;
+
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(1200, now);
+    // Slight pitch drop for satisfying click feel
+    oscillator.frequency.exponentialRampToValueAtTime(800, now + 0.04);
+
+    // Very quick envelope - snap attack, fast decay
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.2, now + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.06);
+  } catch (error) {
+    console.warn("Failed to play soft click sound:", error);
+  }
+}
