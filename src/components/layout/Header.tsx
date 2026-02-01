@@ -1,48 +1,118 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, ShoppingCart, UtensilsCrossed, Apple, PackageOpen } from 'lucide-react';
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  UtensilsCrossed,
+  Apple,
+  PackageOpen,
+  BookOpen,
+  Package,
+  Users,
+  LogOut,
+  User
+} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { getRoleDisplayName } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/orders', label: 'Orders', icon: ShoppingCart },
-  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed },
-  { path: '/ingredients', label: 'Ingredients', icon: Apple },
-  { path: '/materials', label: 'Materials', icon: PackageOpen },
+// Define all navigation items with permission requirements
+const allNavItems = [
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
+  { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' as const },
+  { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const },
+  { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const },
+  { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const },
+  { path: '/ingredients', label: 'Ingredients', icon: Apple, permission: 'canAccessIngredients' as const },
+  { path: '/materials', label: 'Materials', icon: PackageOpen, permission: 'canAccessMaterials' as const },
+  { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' as const },
 ];
 
 export function Header() {
   const location = useLocation();
+  const { user, logout, hasPermission } = useAuth();
+
+  // Filter navigation items based on user permissions
+  const navItems = user
+    ? allNavItems.filter(item => hasPermission(item.permission))
+    : [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <div className="mr-8 flex items-center space-x-2">
-          <UtensilsCrossed className="h-6 w-6 text-primary" />
-          <span className="hidden font-bold sm:inline-block">
-            Malo Recipe Master
-          </span>
-        </div>
-        <nav className="flex items-center space-x-6 text-sm font-medium">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path ||
-              (item.path !== '/' && location.pathname.startsWith(item.path));
+      <div className="container flex h-14 items-center justify-between">
+        {/* Logo and brand */}
+        <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-2">
+            <UtensilsCrossed className="h-6 w-6 text-primary" />
+            <span className="hidden font-bold sm:inline-block">
+              Frollie Recipe Master
+            </span>
+          </div>
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center space-x-2 transition-colors hover:text-foreground/80",
-                  isActive ? "text-foreground" : "text-foreground/60"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+          {/* Navigation - only show if user is authenticated */}
+          {user && (
+            <nav className="flex items-center space-x-6 text-sm font-medium">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path ||
+                  (item.path !== '/' && location.pathname.startsWith(item.path));
+
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "hidden md:flex items-center space-x-2 transition-colors hover:text-foreground/80",
+                      isActive ? "text-foreground" : "text-foreground/60"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+        </div>
+
+        {/* User info section */}
+        {user && (
+          <div className="flex items-center space-x-4">
+            {/* User avatar */}
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <User className="w-4 h-4" />
+              </div>
+            )}
+
+            {/* User name and role */}
+            <div className="hidden sm:flex sm:flex-col sm:items-start">
+              <div className="text-sm font-medium">{user.name}</div>
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {getRoleDisplayName(user.role)}
+              </Badge>
+            </div>
+
+            {/* Logout button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logout}
+              title="Sign out"
+              className="h-9 w-9"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   );

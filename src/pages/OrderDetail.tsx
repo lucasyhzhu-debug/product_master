@@ -25,12 +25,18 @@ import {
   useConvexCancelOrder,
 } from '@/hooks/convex';
 import { generateTemplate } from '@/lib/whatsappTemplates';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus } from '@/lib/types';
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Hide costs for kitchen role
+  const showCosts = user?.role !== 'kitchen';
+
   // Convex uses string IDs directly (no parsing needed)
   const orderId = id as Id<"orders"> | undefined;
 
@@ -272,6 +278,7 @@ export function OrderDetail() {
             totalCost={order.total_cost}
             totalMargin={order.total_margin}
             marginPct={order.margin_pct}
+            showCosts={showCosts}
           />
         </div>
 

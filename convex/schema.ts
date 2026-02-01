@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 // ============================================
-// Malo Recipe Master - Convex Schema
+// Frollie Recipe Master - Convex Schema
 // Migrated from FastAPI + SQLAlchemy
 // ============================================
 
@@ -336,4 +336,70 @@ export default defineSchema({
   })
     .index("by_order", ["orderId"])
     .index("by_order_template", ["orderId", "template"]),
+
+  // ============================================
+  // VISUAL FEEDBACK OVERLAY
+  // ============================================
+
+  feedback: defineTable({
+    // Screenshot stored in Convex Storage
+    screenshotStorageId: v.id("_storage"),
+    // Element identification
+    elementSelector: v.optional(v.string()),
+    pageUrl: v.string(),
+    pageTitle: v.string(),
+    // Feedback content
+    description: v.string(),
+    // Status workflow
+    status: v.union(v.literal("ongoing"), v.literal("archived")),
+    // Priority levels
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    // Tags (multi-select)
+    tags: v.array(v.string()), // "bug", "enhancement", "question"
+    // Comments stored as array (simplified from separate table)
+    comments: v.optional(v.array(v.object({
+      content: v.string(),
+      createdBy: v.optional(v.string()),
+      createdAt: v.number(),
+    }))),
+    // User identification (optional)
+    createdBy: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_priority", ["priority"]),
+
+  // ============================================
+  // PRD-4: AUTHENTICATION TABLES
+  // ============================================
+
+  users: defineTable({
+    name: v.string(),
+    pinHash: v.string(), // Format: "salt:sha256hash"
+    role: v.union(
+      v.literal("kitchen"),      // Production floor only
+      v.literal("order_staff"),  // Orders + read-only kitchen
+      v.literal("manager"),      // Orders + Recipes (no user mgmt)
+      v.literal("admin")         // Full access
+    ),
+    avatarUrl: v.optional(v.string()),
+    isActive: v.boolean(),
+    locationId: v.optional(v.string()), // Future: multi-location
+    failedAttempts: v.number(),
+    lockedUntil: v.optional(v.number()),
+    lastLoginAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_role", ["role"])
+    .index("by_active", ["isActive"]),
+
+  sessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(), // UUID v4
+    expiresAt: v.number(), // 8 hours from creation
+    createdAt: v.number(),
+    lastActiveAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_user", ["userId"])
+    .index("by_expiry", ["expiresAt"]),
 });
