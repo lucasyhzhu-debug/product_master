@@ -256,11 +256,16 @@ Transfer ke: BCA 1234567890 a.n. Malo`;
         deliveryAddress: deliveryType === 'Delivery' ? deliveryAddress : undefined,
         dueDate: new Date(dueDate).getTime(),
         notes: notes || undefined,
+        // Include order-level discount if set
+        orderLevelDiscount: discountAmount > 0 ? discountAmount : undefined,
+        orderLevelDiscountType: discountAmount > 0 ? discountType : undefined,
         items: items.map((item) => ({
           productName: item.productName,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           unitCost: item.unitCost || 0,
+          // Include menuProductId for Kitchen View ball tracking
+          menuProductId: item.productId as Id<"menuProducts">,
         })),
       };
 

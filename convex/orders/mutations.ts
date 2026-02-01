@@ -51,6 +51,25 @@ function calculateLineTotals(
   return { lineTotal, lineCost, lineMargin };
 }
 
+/**
+ * Recalculate finalTotal when totalAmount changes.
+ * Handles both percentage and amount-based discounts.
+ */
+function recalculateFinalTotal(
+  totalAmount: number,
+  discount?: number,
+  discountType?: "amount" | "percentage"
+): number {
+  if (discount === undefined || discount === 0) {
+    return totalAmount;
+  }
+  const discountAmount =
+    discountType === "percentage"
+      ? totalAmount * (discount / 100)
+      : discount;
+  return totalAmount - discountAmount;
+}
+
 // ============================================
 // Mutations
 // ============================================
@@ -119,9 +138,25 @@ export const create = mutation({
     // Generate order number
     const orderNumber = await generateOrderNumber(ctx);
 
-    // Calculate totals
+    // Calculate totals and fetch menu product data for production fields
     let totalAmount = 0;
     let totalCost = 0;
+
+    // Fetch all menu products needed (batch for efficiency)
+    const menuProductIds = args.items
+      .map((item) => item.menuProductId)
+      .filter((id): id is Id<"menuProducts"> => id !== undefined);
+
+    const menuProductsMap = new Map<string, { productionType: string; productionUnits: number }>();
+    for (const mpId of menuProductIds) {
+      const mp = await ctx.db.get(mpId);
+      if (mp) {
+        menuProductsMap.set(mpId, {
+          productionType: mp.productionType,
+          productionUnits: mp.productionUnits,
+        });
+      }
+    }
 
     const itemsToCreate = args.items.map((item) => {
       const discount = item.discountAmount ?? 0;
@@ -133,7 +168,25 @@ export const create = mutation({
       );
       totalAmount += lineTotal;
       totalCost += lineCost;
-      return { ...item, discountAmount: discount, lineTotal, lineCost, lineMargin };
+
+      // Get production data from menu product if available
+      const menuProductData = item.menuProductId
+        ? menuProductsMap.get(item.menuProductId)
+        : undefined;
+
+      return {
+        ...item,
+        discountAmount: discount,
+        lineTotal,
+        lineCost,
+        lineMargin,
+        productionType: menuProductData?.productionType,
+        productionUnits: menuProductData?.productionUnits,
+        // Initialize ballsRemaining = productionUnits * quantity
+        ballsRemaining: menuProductData
+          ? menuProductData.productionUnits * item.quantity
+          : undefined,
+      };
     });
 
     // Calculate order-level discount
@@ -190,6 +243,10 @@ export const create = mutation({
         lineCost: item.lineCost,
         lineMargin: item.lineMargin,
         menuProductId: item.menuProductId,
+        // Production fields for Kitchen View ball tracking
+        productionType: item.productionType,
+        productionUnits: item.productionUnits,
+        ballsRemaining: item.ballsRemaining,
       });
     }
 
@@ -396,6 +453,20 @@ export const addItem = mutation({
       discount
     );
 
+    // Fetch menu product data for production fields
+    let productionType: string | undefined;
+    let productionUnits: number | undefined;
+    let ballsRemaining: number | undefined;
+
+    if (args.item.menuProductId) {
+      const menuProduct = await ctx.db.get(args.item.menuProductId);
+      if (menuProduct) {
+        productionType = menuProduct.productionType;
+        productionUnits = menuProduct.productionUnits;
+        ballsRemaining = menuProduct.productionUnits * args.item.quantity;
+      }
+    }
+
     // Create item
     const itemId = await ctx.db.insert("orderItems", {
       orderId: args.orderId,
@@ -409,14 +480,30 @@ export const addItem = mutation({
       lineCost,
       lineMargin,
       menuProductId: args.item.menuProductId,
+      // Production fields for Kitchen View ball tracking
+      productionType,
+      productionUnits,
+      ballsRemaining,
     });
+
+    // Calculate new totals
+    const newTotalAmount = order.totalAmount + lineTotal;
+    const newTotalCost = order.totalCost + lineCost;
+
+    // Recalculate finalTotal with order-level discount
+    const newFinalTotal = recalculateFinalTotal(
+      newTotalAmount,
+      order.orderLevelDiscount,
+      order.orderLevelDiscountType
+    );
 
     // Update order totals
     await ctx.db.patch(args.orderId, {
-      totalAmount: order.totalAmount + lineTotal,
-      totalCost: order.totalCost + lineCost,
+      totalAmount: newTotalAmount,
+      totalCost: newTotalCost,
       totalMargin: order.totalMargin + lineMargin,
       itemCount: order.itemCount + 1,
+      finalTotal: newFinalTotal,
     });
 
     return itemId;
@@ -441,12 +528,24 @@ export const removeItem = mutation({
       throw new Error("Order not found");
     }
 
+    // Calculate new totals
+    const newTotalAmount = order.totalAmount - item.lineTotal;
+    const newTotalCost = order.totalCost - item.lineCost;
+
+    // Recalculate finalTotal with order-level discount
+    const newFinalTotal = recalculateFinalTotal(
+      newTotalAmount,
+      order.orderLevelDiscount,
+      order.orderLevelDiscountType
+    );
+
     // Update order totals
     await ctx.db.patch(item.orderId, {
-      totalAmount: order.totalAmount - item.lineTotal,
-      totalCost: order.totalCost - item.lineCost,
+      totalAmount: newTotalAmount,
+      totalCost: newTotalCost,
       totalMargin: order.totalMargin - item.lineMargin,
       itemCount: order.itemCount - 1,
+      finalTotal: newFinalTotal,
     });
 
     // Delete item
@@ -487,19 +586,37 @@ export const updateItemQuantity = mutation({
     const costDiff = lineCost - item.lineCost;
     const marginDiff = lineMargin - item.lineMargin;
 
+    // Recalculate ballsRemaining if productionUnits exists
+    const newBallsRemaining = item.productionUnits
+      ? item.productionUnits * args.quantity
+      : undefined;
+
     // Update item
     await ctx.db.patch(args.itemId, {
       quantity: args.quantity,
       lineTotal,
       lineCost,
       lineMargin,
+      ballsRemaining: newBallsRemaining,
     });
+
+    // Calculate new order totals
+    const newTotalAmount = order.totalAmount + amountDiff;
+    const newTotalCost = order.totalCost + costDiff;
+
+    // Recalculate finalTotal with order-level discount
+    const newFinalTotal = recalculateFinalTotal(
+      newTotalAmount,
+      order.orderLevelDiscount,
+      order.orderLevelDiscountType
+    );
 
     // Update order totals
     await ctx.db.patch(item.orderId, {
-      totalAmount: order.totalAmount + amountDiff,
-      totalCost: order.totalCost + costDiff,
+      totalAmount: newTotalAmount,
+      totalCost: newTotalCost,
       totalMargin: order.totalMargin + marginDiff,
+      finalTotal: newFinalTotal,
     });
 
     return args.itemId;
