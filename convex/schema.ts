@@ -52,15 +52,49 @@ export default defineSchema({
     name: v.string(),
     grams: v.number(),
     defaultPrice: v.number(),
-    productionType: v.string(), // "original" or "bite_sized"
-    productionUnits: v.number(),
+    productionType: v.string(), // "original" or "bite_sized" (DEPRECATED - use productionUnitTypes)
+    productionUnits: v.number(), // (DEPRECATED - use menuProductComponents)
     isActive: v.boolean(),
     // PRD-0: Fixed products and COGS tracking
     isFixed: v.optional(v.boolean()), // Cannot be deleted if true
     unitCost: v.optional(v.number()), // COGS in IDR
+    // PRD-5: Cached production summary for display
+    cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"]),
+
+  // ============================================
+  // PRD-5: PRODUCTION UNIT TYPES
+  // Atomic units that kitchen produces (e.g., Big Ball, Mid Ball)
+  // ============================================
+
+  productionUnitTypes: defineTable({
+    code: v.string(), // "BIG_BALL", "MID_BALL"
+    name: v.string(), // "Big Ball", "Mid Ball"
+    gramsPerUnit: v.number(), // 80 for big, 45 for mid
+    unitCostIdr: v.number(), // COGS per unit
+    color: v.optional(v.string()), // Hex color for kitchen display (e.g., "#EF4444")
+    sortOrder: v.number(), // Display ordering
+    isActive: v.boolean(),
+  })
+    .index("by_code", ["code"])
+    .index("by_active", ["isActive"]),
+
+  // ============================================
+  // PRD-5: MENU PRODUCT COMPONENTS
+  // Links menu products to their production unit requirements
+  // Supports combo packs (e.g., 1 Big + 2 Mid)
+  // ============================================
+
+  menuProductComponents: defineTable({
+    menuProductId: v.id("menuProducts"),
+    productionUnitTypeId: v.id("productionUnitTypes"),
+    quantity: v.number(), // How many of this unit type per product
+    sortOrder: v.number(), // Display ordering
+  })
+    .index("by_menu_product", ["menuProductId"])
+    .index("by_production_type", ["productionUnitTypeId"]),
 
   // ============================================
   // RECIPE TABLES
@@ -314,14 +348,37 @@ export default defineSchema({
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
-    // PRD-0: Ball tracking for Kitchen View
+    // PRD-0: Ball tracking for Kitchen View (DEPRECATED - use orderItemProduction)
     productionType: v.optional(v.string()), // "original" or "bite_sized"
     productionUnits: v.optional(v.number()), // balls per unit
     ballsRemaining: v.optional(v.number()), // for completion tracking
+    // PRD-5: Production completion flag (denormalized for fast queries)
+    isProductionComplete: v.optional(v.boolean()),
   })
     .index("by_order", ["orderId"])
     .index("by_product_name", ["productName"])
     .index("by_menu_product", ["menuProductId"]),
+
+  // ============================================
+  // PRD-5: ORDER ITEM PRODUCTION
+  // Tracks production progress per unit type per order item
+  // Supports multiple production types per item (for combo packs)
+  // ============================================
+
+  orderItemProduction: defineTable({
+    orderItemId: v.id("orderItems"),
+    productionUnitTypeId: v.id("productionUnitTypes"),
+    // Snapshot at order creation (for historical accuracy)
+    productionUnitCode: v.string(), // "BIG_BALL", "MID_BALL"
+    productionUnitName: v.string(), // "Big Ball", "Mid Ball"
+    // Production tracking
+    unitsRequired: v.number(), // Total needed (orderItem.quantity * component.quantity)
+    unitsCompleted: v.number(), // How many have been produced
+    unitsRemaining: v.number(), // unitsRequired - unitsCompleted
+  })
+    .index("by_order_item", ["orderItemId"])
+    .index("by_production_type", ["productionUnitTypeId"])
+    .index("by_remaining", ["unitsRemaining"]),
 
   // ============================================
   // PRD-0: WHATSAPP MESSAGE TRACKING
