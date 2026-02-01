@@ -163,8 +163,9 @@ export function InventoryTray({
   className,
 }: InventoryTrayProps) {
   const ballSize = BALL_SIZES[ballType];
-  const containerWidth = 200;
-  const containerHeight = 120;
+  // Responsive container - smaller on mobile
+  const containerWidth = 180;
+  const containerHeight = 100;
 
   const visibleCount = Math.min(count, maxVisible);
   const overflow = Math.max(0, count - maxVisible);
@@ -189,10 +190,10 @@ export function InventoryTray({
         {label} TRAY
       </div>
 
-      {/* Tray container */}
+      {/* Tray container - responsive with max-width */}
       <div
-        className="relative rounded-xl border-2 border-dashed border-muted-foreground/30 bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-800 dark:to-stone-900 overflow-hidden"
-        style={{ width: containerWidth, height: containerHeight, margin: '0 auto' }}
+        className="relative rounded-xl border-2 border-dashed border-muted-foreground/30 bg-gradient-to-b from-stone-100 to-stone-200 dark:from-stone-800 dark:to-stone-900 overflow-hidden mx-auto"
+        style={{ width: '100%', maxWidth: containerWidth, height: containerHeight }}
       >
         {/* Ghost balls for empty state */}
         {count === 0 && (

@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { playSoftClick } from '@/lib/kitchenSounds';
 import {
@@ -99,9 +100,13 @@ export function ProductPackage({
   };
 
   const packageContent = (
-    <div
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      whileTap={isClickable ? { scale: 0.95 } : undefined}
       className={cn(
-        'rounded-lg border-2 p-2 transition-all',
+        'rounded-lg border-2 p-1.5 sm:p-2 transition-colors',
         statusStyles[status].border,
         statusStyles[status].bg,
         isClickable && 'cursor-pointer hover:shadow-md',
@@ -118,23 +123,38 @@ export function ProductPackage({
       }}
     >
       {/* Product name */}
-      <div className="text-xs font-medium text-center mb-2 truncate">
+      <div className="text-[10px] sm:text-xs font-medium text-center mb-1 sm:mb-2 truncate">
         {productName}
       </div>
 
       {/* Ball slots */}
-      <div className="flex flex-wrap justify-center gap-1 min-h-[24px] p-1 rounded bg-white/50 dark:bg-black/20">
+      <div className="flex flex-wrap justify-center gap-0.5 sm:gap-1 min-h-[20px] sm:min-h-[24px] p-1 rounded bg-white/50 dark:bg-black/20">
         {Array.from({ length: ballsRequired }).map((_, i) => (
-          <BallIcon key={i} filled={i < ballsFilled} type={ballType} />
+          <motion.div
+            key={i}
+            initial={false}
+            animate={i < ballsFilled ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+            transition={{ duration: 0.2, delay: i * 0.05 }}
+          >
+            <BallIcon filled={i < ballsFilled} type={ballType} />
+          </motion.div>
         ))}
       </div>
 
       {/* Progress */}
-      <div className="text-xs text-center mt-2 tabular-nums text-muted-foreground">
+      <div className="text-[10px] sm:text-xs text-center mt-1 sm:mt-2 tabular-nums text-muted-foreground">
         {ballsFilled}/{ballsRequired}
-        {status === 'packed' && <span className="ml-1 text-green-600">✓</span>}
+        {status === 'packed' && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="ml-1 text-green-600"
+          >
+            ✓
+          </motion.span>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 
   if (showTooltip) {
