@@ -50,7 +50,7 @@ prompt: "Design a new sub-agent for GraphQL API development with expertise in sc
 **Invocation**:
 ```
 task: supabase-migrator
-prompt: "Create a detailed migration plan to move our Malo Recipe Master SQLite database (D:\Claude\Product Manager\product_master\backend\data\malo_recipes.db) to Supabase PostgreSQL. Include pre-migration checklist, migration script, and verification steps."
+prompt: "Create a detailed migration plan to move our Frollie Recipe Master SQLite database (D:\Claude\Product Manager\product_master\backend\data\frollie_recipes.db) to Supabase PostgreSQL. Include pre-migration checklist, migration script, and verification steps."
 ```
 
 **Expected Output**:
@@ -76,7 +76,7 @@ prompt: "Create a detailed migration plan to move our Malo Recipe Master SQLite 
 **Invocation**:
 ```
 task: vercel-fastapi
-prompt: "Configure our Malo Recipe Master FastAPI backend for deployment to Vercel. Create the vercel.json config with /api rewrites, Mangum adapter setup, and environment variable requirements for Supabase PostgreSQL."
+prompt: "Configure our Frollie Recipe Master FastAPI backend for deployment to Vercel. Create the vercel.json config with /api rewrites, Mangum adapter setup, and environment variable requirements for Supabase PostgreSQL."
 ```
 
 **Expected Output**:
@@ -102,7 +102,7 @@ prompt: "Configure our Malo Recipe Master FastAPI backend for deployment to Verc
 **Invocation**:
 ```
 task: monolith-restructure
-prompt: "Create a detailed step-by-step plan to restructure our Malo Recipe Master project from separate backend/ and frontend/ folders to a monolithic layout with api/ and src/ at the root. Include git-safe commands that preserve history, import path updates, and verification steps."
+prompt: "Create a detailed step-by-step plan to restructure our Frollie Recipe Master project from separate backend/ and frontend/ folders to a monolithic layout with api/ and src/ at the root. Include git-safe commands that preserve history, import path updates, and verification steps."
 ```
 
 **Expected Output**:
@@ -165,7 +165,7 @@ Execute the steps provided by each agent sequentially.
 
 ### Individual Agent Tests
 - [ ] agent-creator produces valid agent output
-- [ ] supabase-migrator understands the Malo schema
+- [ ] supabase-migrator understands the Frollie schema
 - [ ] vercel-fastapi generates valid vercel.json
 - [ ] monolith-restructure provides safe git commands
 
@@ -342,7 +342,7 @@ test -f ".claude/agents/agent-name.md" && echo "File exists" || echo "File missi
 
 ```
 VAGUE:    "Migrate the database"
-BETTER:   "Create a migration script to move SQLite (at backend/data/malo_recipes.db)
+BETTER:   "Create a migration script to move SQLite (at backend/data/frollie_recipes.db)
            to Supabase PostgreSQL including all 19 tables with relationships intact"
 ```
 

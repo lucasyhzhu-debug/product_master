@@ -321,7 +321,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 app = FastAPI(
-    title="Malo Recipe Master API",
+    title="Frollie Recipe Master API",
     # root_path will be set by Mangum in production
 )
 

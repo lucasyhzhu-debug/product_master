@@ -1,4 +1,4 @@
-# Custom Sub-Agents for Malo Recipe Master
+# Custom Sub-Agents for Frollie Recipe Master
 
 This document describes all custom sub-agents available for autonomous task execution in this project.
 
@@ -85,7 +85,7 @@ Expert skill creator for Claude Code slash commands.
 
 ### Project-Specific Agents
 
-These agents are specific to the Malo Recipe Master project and located in `.claude/agents/`.
+These agents are specific to the Frollie Recipe Master project and located in `.claude/agents/`.
 
 #### 1. **supabase-migrator** 🔵
 **Color**: Blue

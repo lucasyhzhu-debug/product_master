@@ -1,7 +1,7 @@
 # Convex Migration - Final Handoff
 
 ## Project Context
-**Malo Recipe Master** - Indonesian FMCG snack company recipe/product management system.
+**Frollie Recipe Master** - Indonesian FMCG snack company recipe/product management system.
 Migrating from FastAPI + PostgreSQL to Convex to solve serverless connection issues.
 
 ## Current State

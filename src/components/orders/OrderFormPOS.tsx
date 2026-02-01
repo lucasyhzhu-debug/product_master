@@ -122,7 +122,7 @@ Alamat:
 Isi jumlah yang diinginkan di dalam [ ]
 
 ---
-Transfer ke: BCA 1234567890 a.n. Malo`;
+Transfer ke: BCA 1234567890 a.n. Frollie`;
 
     try {
       await navigator.clipboard.writeText(template);

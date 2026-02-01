@@ -1,6 +1,6 @@
 # Changelog
 
-> **Purpose:** Version history for Malo Recipe Master.
+> **Purpose:** Version history for Frollie Recipe Master.
 > **When to update:** After ANY code change is merged to main.
 
 ## Update Instructions
