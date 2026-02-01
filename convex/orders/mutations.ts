@@ -1558,3 +1558,98 @@ export const unmarkPackagePacked = mutation({
     };
   },
 });
+
+// ============================================
+// MIGRATIONS
+// ============================================
+
+// Channel code mapping: old short codes -> new full names
+const CHANNEL_MIGRATION_MAP: Record<string, string> = {
+  "WA": "whatsapp",
+  "IG": "instagram",
+  "SHP": "shopee",
+  "TT": "tiktok",
+  "TKP": "tokopedia",
+  "GRB": "grabfood",
+  "K3M": "k3mart_gf",
+  "LTT": "legato_tamtem",
+  "LGF": "legato_goldfinch",
+  "BZR": "bazaar",
+  "OTH": "other",
+};
+
+/**
+ * Migrate old channel codes to new channel values.
+ * Run from Convex dashboard Functions tab: orders:migrateChannelCodes
+ *
+ * Converts old short codes (WA, IG, etc.) to new full names (whatsapp, instagram, etc.)
+ */
+export const migrateChannelCodes = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+
+    // Get all orders
+    const allOrders = await ctx.db.query("orders").collect();
+
+    const results = {
+      total: allOrders.length,
+      migrated: 0,
+      alreadyValid: 0,
+      nullOrEmpty: 0,
+      updates: [] as { orderId: string; orderNumber: string; from: string; to: string }[],
+    };
+
+    // Valid new channel values
+    const validChannels = new Set([
+      "whatsapp", "instagram", "shopee", "tiktok", "tokopedia",
+      "grabfood", "k3mart_gf", "legato_tamtem", "legato_goldfinch",
+      "bazaar", "other"
+    ]);
+
+    for (const order of allOrders) {
+      const channel = order.channel;
+
+      // Skip null/undefined channels
+      if (!channel) {
+        results.nullOrEmpty++;
+        continue;
+      }
+
+      // Skip already valid channels
+      if (validChannels.has(channel)) {
+        results.alreadyValid++;
+        continue;
+      }
+
+      // Check if it's an old code that needs migration
+      const newChannel = CHANNEL_MIGRATION_MAP[channel];
+      if (newChannel) {
+        results.updates.push({
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          from: channel,
+          to: newChannel,
+        });
+
+        if (!dryRun) {
+          await ctx.db.patch(order._id, {
+            channel: newChannel as "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other",
+          });
+        }
+
+        results.migrated++;
+      }
+    }
+
+    return {
+      ...results,
+      dryRun,
+      message: dryRun
+        ? `Dry run: Would migrate ${results.migrated} orders. Run again with dryRun: false to apply.`
+        : `Migrated ${results.migrated} orders from old channel codes to new values.`,
+    };
+  },
+});
