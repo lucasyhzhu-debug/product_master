@@ -11,6 +11,7 @@ import {
   OrderItems,
   OrderWhatsAppPanel,
   OrderStatusPanel,
+  ShippingPanel,
   ShippingDialog,
   CancellationDialog,
   ConfirmationDialog,
@@ -25,18 +26,12 @@ import {
   useConvexCancelOrder,
 } from '@/hooks/convex';
 import { generateTemplate } from '@/lib/whatsappTemplates';
-import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus } from '@/lib/types';
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-
-  // Hide costs for kitchen role
-  const showCosts = user?.role !== 'kitchen';
-
   // Convex uses string IDs directly (no parsing needed)
   const orderId = id as Id<"orders"> | undefined;
 
@@ -227,6 +222,23 @@ export function OrderDetail() {
     }
   };
 
+  // Direct shipping panel save (no dialog)
+  const handleShippingPanelSave = async (
+    agency: string | undefined,
+    number: string | undefined
+  ) => {
+    if (!orderId) return;
+    try {
+      await updateShipping.mutate({
+        orderId,
+        shippingAgency: agency,
+        shippingNumber: number,
+      });
+    } catch {
+      // Error handled by toast in hook
+    }
+  };
+
   const openShippingDialog = () => {
     if (!order) return;
     setShippingAgency(order.shipping_agency || '');
@@ -275,10 +287,6 @@ export function OrderDetail() {
           <OrderItems
             items={order.items}
             totalAmount={order.total_amount}
-            totalCost={order.total_cost}
-            totalMargin={order.total_margin}
-            marginPct={order.margin_pct}
-            showCosts={showCosts}
           />
         </div>
 
@@ -290,13 +298,11 @@ export function OrderDetail() {
             onCopy={handleCopyWhatsApp}
           />
 
-          <Card>
-            <CardContent className="pt-6">
-              <Button variant="outline" className="w-full" onClick={openShippingDialog}>
-                Update Shipping
-              </Button>
-            </CardContent>
-          </Card>
+          <ShippingPanel
+            shippingAgency={order.shipping_agency}
+            shippingNumber={order.shipping_number}
+            onSave={handleShippingPanelSave}
+          />
 
           <OrderStatusPanel
             currentStatus={order.status}
