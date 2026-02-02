@@ -35,6 +35,7 @@ import type * as orders_helpers_index from "../orders/helpers/index.js";
 import type * as orders_helpers_productionRecords from "../orders/helpers/productionRecords.js";
 import type * as orders_helpers_statusTransitions from "../orders/helpers/statusTransitions.js";
 import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
+import type * as orders_migrations from "../orders/migrations.js";
 import type * as orders_mutations from "../orders/mutations.js";
 import type * as orders_queries from "../orders/queries.js";
 import type * as orders_whatsapp from "../orders/whatsapp.js";
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   "orders/helpers/productionRecords": typeof orders_helpers_productionRecords;
   "orders/helpers/statusTransitions": typeof orders_helpers_statusTransitions;
   "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
+  "orders/migrations": typeof orders_migrations;
   "orders/mutations": typeof orders_mutations;
   "orders/queries": typeof orders_queries;
   "orders/whatsapp": typeof orders_whatsapp;
