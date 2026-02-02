@@ -9,6 +9,7 @@
 
 import type { MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
+import { logAutoTransition } from "./statusTransitions";
 
 // ============================================
 // Types
@@ -43,27 +44,7 @@ interface OrderWithItems {
 // Helper: Log Order Event
 // ============================================
 
-async function logOrderEvent(
-  ctx: MutationCtx,
-  orderId: Id<"orders">,
-  eventType: string,
-  options: {
-    fromStatus?: string;
-    toStatus?: string;
-    reason?: string;
-    triggeredBy?: string;
-  } = {}
-): Promise<void> {
-  await ctx.db.insert("orderEvents", {
-    orderId,
-    eventType,
-    fromStatus: options.fromStatus,
-    toStatus: options.toStatus,
-    reason: options.reason,
-    timestamp: Date.now(),
-    triggeredBy: options.triggeredBy ?? "system",
-  });
-}
+// Now using shared logAutoTransition from statusTransitions.ts
 
 // ============================================
 // Helper: Fetch Eligible Orders
@@ -241,12 +222,14 @@ export async function distributeBallsToOrders(
     // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
     if (order.status === "Confirmed" && orderReceivedBalls) {
       await ctx.db.patch(order._id, { status: "InProduction" });
-      await logOrderEvent(ctx, order._id, "status_auto_transition", {
-        fromStatus: "Confirmed",
-        toStatus: "InProduction",
-        reason: "First ball filled - production started",
-        triggeredBy: "kitchen",
-      });
+      await logAutoTransition(
+        ctx,
+        order._id,
+        "Confirmed",
+        "InProduction",
+        "First ball filled - production started",
+        "kitchen"
+      );
       transitionedToInProduction.push(order._id);
     }
 
@@ -297,12 +280,14 @@ export async function distributeBallsToOrders(
           : order.status;
 
         await ctx.db.patch(order._id, { status: "Packaging" });
-        await logOrderEvent(ctx, order._id, "status_auto_transition", {
-          fromStatus: currentStatus,
-          toStatus: "Packaging",
-          reason: "All balls complete - ready for packaging",
-          triggeredBy: "kitchen",
-        });
+        await logAutoTransition(
+          ctx,
+          order._id,
+          currentStatus,
+          "Packaging",
+          "All balls complete - ready for packaging",
+          "kitchen"
+        );
 
         // Mark all items as production complete
         for (const item of items) {
