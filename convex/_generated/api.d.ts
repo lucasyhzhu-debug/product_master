@@ -28,10 +28,13 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
+import type * as orders_helpers_batchFetching from "../orders/helpers/batchFetching.js";
 import type * as orders_helpers_index from "../orders/helpers/index.js";
 import type * as orders_helpers_productionRecords from "../orders/helpers/productionRecords.js";
+import type * as orders_helpers_statusFetching from "../orders/helpers/statusFetching.js";
 import type * as orders_helpers_statusTransitions from "../orders/helpers/statusTransitions.js";
 import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
 import type * as orders_migrations from "../orders/migrations.js";
@@ -86,10 +89,13 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
+  "orders/helpers/batchFetching": typeof orders_helpers_batchFetching;
   "orders/helpers/index": typeof orders_helpers_index;
   "orders/helpers/productionRecords": typeof orders_helpers_productionRecords;
+  "orders/helpers/statusFetching": typeof orders_helpers_statusFetching;
   "orders/helpers/statusTransitions": typeof orders_helpers_statusTransitions;
   "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
   "orders/migrations": typeof orders_migrations;

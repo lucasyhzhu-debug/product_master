@@ -7,12 +7,14 @@
 import { query } from "../_generated/server";
 
 /**
- * Verify current production tracking state
+ * Verify current production tracking state (NEW system only)
  *
  * Checks:
  * 1. How many orderItems have orderItemProduction records
- * 2. Data consistency between OLD (ballsRemaining) and NEW (unitsRemaining) systems
- * 3. Current coverage of production tracking
+ * 2. Current coverage of production tracking
+ * 3. Data integrity (all items with productionType have records)
+ *
+ * Note: OLD system (ballsRemaining) removed in Phase 4.
  */
 export const verifyProduction = query({
   args: {},
@@ -39,9 +41,7 @@ export const verifyProduction = query({
     let itemsWithProduction = 0;
     let itemsWithoutProduction = 0;
     let itemsWithProductionType = 0;
-    let matched = 0;
-    let mismatched = 0;
-    const mismatchDetails: string[] = [];
+    const itemsMissingRecords: string[] = [];
 
     for (const item of allItems) {
       // Skip cancelled items
@@ -56,25 +56,14 @@ export const verifyProduction = query({
 
       if (productionRecords.length > 0) {
         itemsWithProduction++;
-
-        // Compare OLD vs NEW system
-        const oldRemaining = item.ballsRemaining ?? 0;
-        const newRemaining = productionRecords
-          .filter(r => !r.isCancelled)
-          .reduce((sum, r) => sum + r.unitsRemaining, 0);
-
-        if (oldRemaining === newRemaining) {
-          matched++;
-        } else {
-          mismatched++;
-          if (mismatchDetails.length < 10) {
-            mismatchDetails.push(
-              `Item ${item._id}: OLD=${oldRemaining}, NEW=${newRemaining}, product=${item.productName}`
-            );
-          }
-        }
       } else {
         itemsWithoutProduction++;
+        // Log items with productionType but no records (data integrity issue)
+        if (hasProductionType && itemsMissingRecords.length < 10) {
+          itemsMissingRecords.push(
+            `Item ${item._id}: ${item.productName} (type: ${item.productionType})`
+          );
+        }
       }
     }
 
@@ -83,9 +72,7 @@ export const verifyProduction = query({
       ? ((itemsWithProduction / totalActive) * 100).toFixed(2)
       : "0.00";
 
-    const matchRate = (itemsWithProduction > 0)
-      ? ((matched / itemsWithProduction) * 100).toFixed(2)
-      : "100.00";
+    const integrityCheck = itemsWithProductionType === itemsWithProduction;
 
     return {
       timestamp: Date.now(),
@@ -97,22 +84,21 @@ export const verifyProduction = query({
         itemsWithoutProduction,
         productionCoverage: `${coveragePercent}%`,
       },
-      consistency: {
-        matched,
-        mismatched,
-        matchRate: `${matchRate}%`,
-        mismatchSample: mismatchDetails,
+      integrity: {
+        allItemsHaveRecords: integrityCheck,
+        itemsMissingRecords: itemsWithProductionType - itemsWithProduction,
+        sampleMissing: itemsMissingRecords,
       },
       production: {
         totalProductionRecords: allProduction.length,
         activeRecords: allProduction.filter(r => !r.isCancelled).length,
         cancelledRecords: allProduction.filter(r => r.isCancelled).length,
       },
-      verdict: mismatched === 0
-        ? "✅ PASS - All data consistent"
-        : mismatched <= totalActive * 0.1
-        ? `⚠️ WARNING - ${mismatched} mismatches (${((mismatched/totalActive)*100).toFixed(1)}%)`
-        : `❌ FAIL - ${mismatched} mismatches (${((mismatched/totalActive)*100).toFixed(1)}%)`
+      verdict: integrityCheck
+        ? "✅ PASS - All items with productionType have records"
+        : itemsWithProductionType - itemsWithProduction <= totalActive * 0.1
+        ? `⚠️ WARNING - ${itemsWithProductionType - itemsWithProduction} items missing records`
+        : `❌ FAIL - ${itemsWithProductionType - itemsWithProduction} items missing records`
     };
   },
 });

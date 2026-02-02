@@ -449,7 +449,7 @@ export function useConvexUpdateOrderStatus() {
   const mutation = useMutation(api.orders.mutations.updateStatus);
 
   return {
-    mutate: async (data: { orderId: Id<"orders">; status: string }) => {
+    mutate: async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
       try {
         await mutation(data);
         toast.success("Order status updated");
@@ -459,7 +459,7 @@ export function useConvexUpdateOrderStatus() {
         throw error;
       }
     },
-    mutateAsync: async (data: { orderId: Id<"orders">; status: string }) => {
+    mutateAsync: async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
       try {
         await mutation(data);
         toast.success("Order status updated");
@@ -565,7 +565,7 @@ export function useConvexUpdateOrderDetails() {
       deliveryAddress?: string;
       contactWa?: string;
       contactIg?: string;
-      channel?: string;
+      channel?: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
       soldBy?: string;
     }) => {
       try {
@@ -586,7 +586,7 @@ export function useConvexUpdateOrderDetails() {
       deliveryAddress?: string;
       contactWa?: string;
       contactIg?: string;
-      channel?: string;
+      channel?: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
       soldBy?: string;
     }) => {
       try {

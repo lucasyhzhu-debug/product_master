@@ -99,7 +99,7 @@ export function OrderDetail() {
   // Handlers
   // ============================================
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChange = async (newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled") => {
     if (!order || !orderId) return;
 
     if (newStatus === 'Cancelled') {
@@ -128,7 +128,7 @@ export function OrderDetail() {
     });
   };
 
-  const handleChannelChange = async (channel: string) => {
+  const handleChannelChange = async (channel: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other") => {
     if (!orderId) return;
     await updateDetails.mutate({
       orderId,

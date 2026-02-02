@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals, recalculateFinalTotal } from "../helpers";
+import { calculateLineTotals } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -15,7 +15,6 @@ import {
   logOrderEvent,
   isTerminalStatus,
   incrementChannelUsage,
-  decrementChannelUsage,
   createProductionRecordsForItem,
   cancelOrderProductionRecords,
   markOrderProductionComplete,
@@ -242,10 +241,6 @@ export const create = mutation({
         lineMargin,
         productionType: menuProductData?.productionType,
         productionUnits: menuProductData?.productionUnits,
-        // Initialize ballsRemaining = productionUnits * quantity
-        ballsRemaining: menuProductData
-          ? menuProductData.productionUnits * item.quantity
-          : undefined,
       };
     });
 
@@ -303,10 +298,9 @@ export const create = mutation({
         lineCost: item.lineCost,
         lineMargin: item.lineMargin,
         menuProductId: item.menuProductId,
-        // Production fields for Kitchen View ball tracking (DEPRECATED - kept for dual-write)
+        // Production fields for Kitchen View ball tracking
         productionType: item.productionType,
         productionUnits: item.productionUnits,
-        ballsRemaining: item.ballsRemaining,
       });
 
       // PRD-5: Create orderItemProduction records (new production tracking system)

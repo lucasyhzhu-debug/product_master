@@ -4,7 +4,6 @@
  */
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
 import { calculateLineTotals, recalculateFinalTotal } from "../helpers";
@@ -59,14 +58,12 @@ export const addItem = mutation({
     // Fetch menu product data for production fields
     let productionType: string | undefined;
     let productionUnits: number | undefined;
-    let ballsRemaining: number | undefined;
 
     if (args.item.menuProductId) {
       const menuProduct = await ctx.db.get(args.item.menuProductId);
       if (menuProduct) {
         productionType = menuProduct.productionType;
         productionUnits = menuProduct.productionUnits;
-        ballsRemaining = menuProduct.productionUnits * args.item.quantity;
       }
     }
 
@@ -83,10 +80,9 @@ export const addItem = mutation({
       lineCost,
       lineMargin,
       menuProductId: args.item.menuProductId,
-      // Production fields for Kitchen View ball tracking (DEPRECATED - kept for dual-write)
+      // Production fields for Kitchen View ball tracking
       productionType,
       productionUnits,
-      ballsRemaining,
     });
 
     // PRD-5: Create orderItemProduction records (new production tracking system)
@@ -197,18 +193,12 @@ export const updateItemQuantity = mutation({
     const costDiff = lineCost - item.lineCost;
     const marginDiff = lineMargin - item.lineMargin;
 
-    // Recalculate ballsRemaining if productionUnits exists
-    const newBallsRemaining = item.productionUnits
-      ? item.productionUnits * args.quantity
-      : undefined;
-
     // Update item
     await ctx.db.patch(args.itemId, {
       quantity: args.quantity,
       lineTotal,
       lineCost,
       lineMargin,
-      ballsRemaining: newBallsRemaining,
     });
 
     // PRD-5: Update orderItemProduction records with new quantity (use helper)
