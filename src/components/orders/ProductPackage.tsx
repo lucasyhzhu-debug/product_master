@@ -29,11 +29,12 @@ interface ProductPackageProps {
 
 // Status colors for border and background
 // Distinct backgrounds AND borders for clear visual distinction
+// Dark mode uses 30% opacity for better visibility
 const statusStyles: Record<PackageStatus, { border: string; bg: string }> = {
-  empty: { border: 'border-gray-300 dark:border-gray-600', bg: 'bg-gray-50 dark:bg-gray-800' },
-  filling: { border: 'border-orange-500', bg: 'bg-orange-50 dark:bg-orange-950/30' },
-  filled: { border: 'border-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900/40' },
-  packed: { border: 'border-green-500', bg: 'bg-green-100 dark:bg-green-900/40' },
+  empty: { border: 'border-gray-300 dark:border-gray-500', bg: 'bg-gray-50 dark:bg-gray-700/30' },
+  filling: { border: 'border-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/30' },
+  filled: { border: 'border-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-800/30' },
+  packed: { border: 'border-green-500', bg: 'bg-green-100 dark:bg-green-800/30' },
 };
 
 // Ball sizes for display (smaller than tray for package view)

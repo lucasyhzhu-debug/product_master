@@ -1468,6 +1468,77 @@ export const revertToPackaging = mutation({
 });
 
 /**
+ * Mark multiple packages as packed in a single mutation.
+ * PRD-Kitchen-UI-Flow: "Mark all as packaged" button for product rows.
+ *
+ * @param orderItemId - The order item ID
+ * @param packageIndices - Array of package indices to mark as packed
+ */
+export const markAllItemPackagesPacked = mutation({
+  args: {
+    orderItemId: v.id("orderItems"),
+    packageIndices: v.array(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.orderItemId);
+    if (!item) {
+      throw new Error("Order item not found");
+    }
+
+    const quantity = item.quantity ?? 1;
+    const ballsPerPackage = item.productionUnits ?? 1;
+    const ballsFilled = item.ballsFilled ?? 0;
+    const currentPackedIndices = item.packedPackageIndices ?? [];
+
+    // Validate all indices and filter only filled packages
+    const validIndices: number[] = [];
+    for (const idx of args.packageIndices) {
+      if (idx < 0 || idx >= quantity) continue;
+      if (currentPackedIndices.includes(idx)) continue; // Skip already packed
+
+      // Check if this package is filled
+      const ballsForPackage = Math.min(
+        Math.max(0, ballsFilled - (idx * ballsPerPackage)),
+        ballsPerPackage
+      );
+      if (ballsForPackage >= ballsPerPackage) {
+        validIndices.push(idx);
+      }
+    }
+
+    if (validIndices.length === 0) {
+      return { orderItemId: args.orderItemId, packedCount: 0, allPackagesPacked: false };
+    }
+
+    // Merge indices
+    const newPackedIndices = [...new Set([...currentPackedIndices, ...validIndices])].sort((a, b) => a - b);
+
+    // Determine status
+    const totalBallsRequired = quantity * ballsPerPackage;
+    const allPackagesFilled = ballsFilled >= totalBallsRequired;
+    const allPackagesPacked = newPackedIndices.length >= quantity;
+
+    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+    if (allPackagesPacked) {
+      newPackageStatus = "packed";
+    } else if (allPackagesFilled) {
+      newPackageStatus = "filled";
+    }
+
+    await ctx.db.patch(args.orderItemId, {
+      packedPackageIndices: newPackedIndices,
+      packageStatus: newPackageStatus,
+    });
+
+    return {
+      orderItemId: args.orderItemId,
+      packedCount: validIndices.length,
+      allPackagesPacked,
+    };
+  },
+});
+
+/**
  * Unmark a specific package as packed (Green -> Yellow).
  * PRD-6: Visual Inventory Tray System - Per-package tracking
  *
