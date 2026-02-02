@@ -393,10 +393,7 @@ No. WA:
 Nama:
 Alamat:
 
-Isi jumlah yang diinginkan di dalam [ ]
-
----
-Transfer ke: BCA 6044830994 a.n. PT Malo Group Bahagia`;
+Isi jumlah yang diinginkan di dalam [ ]`;
 
     return template;
   },
