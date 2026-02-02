@@ -169,6 +169,8 @@ export async function distributeBallsToOrders(
   const transitionedToInProduction: Id<"orders">[] = [];
   const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
   const updatedBallsRemaining = new Map<string, number>();
+  // Track updated production record values for NEW system completion check
+  const updatedUnitsRemaining = new Map<string, number>();
 
   // Process each order
   for (const { order, items } of sortedOrders) {
@@ -257,20 +259,36 @@ export async function distributeBallsToOrders(
           unitsRemaining: newUnitsRemaining,
         });
 
+        // Track updated values for completion check
+        updatedUnitsRemaining.set(record._id.toString(), newUnitsRemaining);
         newSystemBallsToApply -= unitsToApply;
       }
     }
 
-    // Check if ALL items in the order have ballsRemaining = 0
+    // Check if ALL items in the order are complete using NEW system (orderItemProduction)
+    // An item is complete when all its production records have unitsRemaining = 0
     const itemsWithProductionData = items.filter((item) => item.productionType);
 
     if (itemsWithProductionData.length > 0) {
       const allComplete = itemsWithProductionData.every((item) => {
-        const updatedValue = updatedBallsRemaining.get(item._id.toString());
-        if (updatedValue !== undefined) {
-          return updatedValue <= 0;
+        // Check NEW system: all production records must have unitsRemaining <= 0
+        const activeRecords = item.productionRecords.filter(r => !r.isCancelled);
+        if (activeRecords.length === 0) {
+          // Fallback to OLD system for items without production records
+          const updatedValue = updatedBallsRemaining.get(item._id.toString());
+          if (updatedValue !== undefined) {
+            return updatedValue <= 0;
+          }
+          return (item.ballsRemaining ?? 0) <= 0;
         }
-        return (item.ballsRemaining ?? 0) <= 0;
+        // NEW system check: all records must be complete (use updated values if available)
+        return activeRecords.every(record => {
+          const updatedValue = updatedUnitsRemaining.get(record._id.toString());
+          if (updatedValue !== undefined) {
+            return updatedValue <= 0;
+          }
+          return record.unitsRemaining <= 0;
+        });
       });
 
       // PRD-7: Transition to Packaging when all balls complete
