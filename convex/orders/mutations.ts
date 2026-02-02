@@ -837,19 +837,7 @@ export const completeOrder = mutation({
       status: "ProductionComplete",
     });
 
-    // Set all item ballsRemaining to 0 (DEPRECATED - kept for dual-write)
-    const items = await ctx.db
-      .query("orderItems")
-      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-      .collect();
-
-    for (const item of items) {
-      await ctx.db.patch(item._id, {
-        ballsRemaining: 0,
-      });
-    }
-
-    // PRD-5: Mark production complete (use helper)
+    // PRD-5: Mark production complete using NEW system (orderItemProduction)
     await markOrderProductionComplete(ctx, args.orderId);
 
     return args.orderId;
@@ -877,19 +865,7 @@ export const revertToConfirmed = mutation({
       status: "Confirmed",
     });
 
-    // Reset ballsRemaining to productionUnits (DEPRECATED - kept for dual-write)
-    const items = await ctx.db
-      .query("orderItems")
-      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-      .collect();
-
-    for (const item of items) {
-      await ctx.db.patch(item._id, {
-        ballsRemaining: item.productionUnits ?? 0,
-      });
-    }
-
-    // PRD-5: Reset orderItemProduction records (use helper)
+    // PRD-5: Reset orderItemProduction records using NEW system
     await resetOrderProductionComplete(ctx, args.orderId);
 
     return args.orderId;
