@@ -146,17 +146,37 @@ export const getByOrderNumber = query({
 
 /**
  * Get orders for kitchen view (production pipeline).
- * PRD-1: Returns only Confirmed orders with ball calculations.
+ * PRD-1: Returns Confirmed, InProduction, and Packaging orders with ball calculations.
  * PRD-5: Enhanced with dynamic production type support via orderItemProduction.
+ * PRD-6: Shows orders until manually completed (after all packages are green/packed).
  */
 export const getKitchenOrders = query({
   args: {},
   handler: async (ctx) => {
-    // PRD-1: Get only Confirmed orders
-    const orders = await ctx.db
+    // Get Draft, Confirmed, InProduction, and Packaging orders
+    // Orders stay in kitchen view until user clicks Complete Order (after all packages packed)
+    // Draft orders are included but de-prioritized (shown at bottom with grey styling)
+    const draftOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Draft"))
+      .collect();
+
+    const confirmedOrders = await ctx.db
       .query("orders")
       .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
       .collect();
+
+    const inProductionOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .collect();
+
+    const packagingOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Packaging"))
+      .collect();
+
+    const orders = [...confirmedOrders, ...inProductionOrders, ...packagingOrders, ...draftOrders];
 
     // PRD-5: Get all production unit types for dynamic aggregation
     const productionUnitTypes = await ctx.db
@@ -223,8 +243,16 @@ export const getKitchenOrders = query({
       })
     );
 
-    // PRD-1: Sort by due date ASC → total units DESC → order date ASC
+    // PRD-1: Sort by status priority → due date ASC → total units DESC → order date ASC
+    // Draft orders always go to the bottom
     return result.sort((a, b) => {
+      // Draft orders always at the bottom
+      const aIsDraft = a.status === "Draft";
+      const bIsDraft = b.status === "Draft";
+      if (aIsDraft !== bIsDraft) {
+        return aIsDraft ? 1 : -1; // Draft goes to bottom
+      }
+
       // Sort by due date first (earliest first)
       if (a.dueDate !== b.dueDate) {
         if (!a.dueDate && !b.dueDate) return 0;
@@ -363,7 +391,13 @@ export const getKitchenStats = query({
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     // Filter orders by status first
+    // Include Draft + Confirmed + InProduction + Packaging for pending ball counts
+    // Draft orders are included in counts (they need balls too, just lower priority)
+    const draftOrders = allOrders.filter((o) => o.status === "Draft");
     const confirmedOrders = allOrders.filter((o) => o.status === "Confirmed");
+    const inProductionOrders = allOrders.filter((o) => o.status === "InProduction");
+    const packagingOrders = allOrders.filter((o) => o.status === "Packaging");
+    const pendingOrders = [...draftOrders, ...confirmedOrders, ...inProductionOrders, ...packagingOrders];
 
     const completedStatuses = [
       "ProductionComplete",
@@ -390,17 +424,23 @@ export const getKitchenStats = query({
       itemsByOrder.get(orderId)!.push(item);
     }
 
-    // Calculate stats for confirmed orders (OLD system)
+    // Calculate stats for pending orders (OLD system - uses balls_filled for accuracy)
+    // Pending = Confirmed + InProduction + Packaging (not yet completed)
     let bigBallsNeeded = 0;
     let midBallsNeeded = 0;
 
-    for (const order of confirmedOrders) {
+    for (const order of pendingOrders) {
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       for (const item of items) {
-        if (item.productionType === "original" && item.productionUnits) {
-          bigBallsNeeded += item.productionUnits * item.quantity;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
-          midBallsNeeded += item.productionUnits * item.quantity;
+        // Calculate remaining balls: (quantity * productionUnits) - ballsFilled
+        const ballsFilled = item.ballsFilled ?? 0;
+        const totalRequired = (item.quantity ?? 0) * (item.productionUnits ?? 0);
+        const remaining = Math.max(0, totalRequired - ballsFilled);
+
+        if (item.productionType === "original") {
+          bigBallsNeeded += remaining;
+        } else if (item.productionType === "bite_sized") {
+          midBallsNeeded += remaining;
         }
       }
     }
@@ -446,8 +486,9 @@ export const getKitchenStats = query({
         let unitsNeeded = 0;
         let unitsCompleted = 0;
 
-        // Confirmed orders -> units needed (remaining)
-        for (const order of confirmedOrders) {
+        // Pending orders -> units needed (remaining)
+        // Pending = Confirmed + InProduction + Packaging
+        for (const order of pendingOrders) {
           const items = itemsByOrder.get(order._id.toString()) ?? [];
           for (const item of items) {
             const records = productionByItem.get(item._id.toString()) ?? [];
@@ -486,7 +527,7 @@ export const getKitchenStats = query({
       bigBallsCompleted,
       midBallsNeeded,
       midBallsCompleted,
-      ordersPending: confirmedOrders.length,
+      ordersPending: pendingOrders.length,
       ordersCompletedToday: completedTodayOrders.length,
       // PRD-5: Dynamic production type stats
       productionByType,
@@ -573,6 +614,81 @@ export const getPackagingOrders = query({
       }
       return a.orderDate - b.orderDate;
     });
+  },
+});
+
+/**
+ * Debug query to inspect production records for pending orders.
+ * Run from Convex dashboard to diagnose ball distribution issues.
+ */
+export const debugProductionRecords = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all orders that might need ball distribution
+    const draftOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Draft"))
+      .collect();
+
+    const confirmedOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .collect();
+
+    const inProductionOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .collect();
+
+    const packagingOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Packaging"))
+      .collect();
+
+    const orders = [...draftOrders, ...confirmedOrders, ...inProductionOrders, ...packagingOrders];
+
+    const result = await Promise.all(
+      orders.map(async (order) => {
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+
+        const itemsWithRecords = await Promise.all(
+          items.map(async (item) => {
+            const productionRecords = await ctx.db
+              .query("orderItemProduction")
+              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+              .collect();
+
+            return {
+              itemId: item._id,
+              productionType: item.productionType,
+              quantity: item.quantity,
+              ballsFilled: item.ballsFilled,
+              packageStatus: item.packageStatus,
+              productionUnits: item.productionUnits,
+              productionRecords: productionRecords.map((r) => ({
+                code: r.productionUnitCode,
+                unitsRequired: r.unitsRequired,
+                unitsCompleted: r.unitsCompleted,
+                unitsRemaining: r.unitsRemaining,
+                isCancelled: r.isCancelled,
+              })),
+            };
+          })
+        );
+
+        return {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          items: itemsWithRecords,
+        };
+      })
+    );
+
+    return result;
   },
 });
 

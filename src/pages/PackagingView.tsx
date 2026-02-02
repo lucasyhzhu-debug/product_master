@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Package2, ChevronDown, ChevronRight, Clock, User, Phone } from 'lucide-react';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -61,6 +62,7 @@ interface PackagingOrder {
 // ============================================
 
 export function PackagingView() {
+  useDocumentTitle('Packaging');
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');

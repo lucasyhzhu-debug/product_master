@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { ArrowLeft, Plus, Trash2, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 const MATERIAL_UNITS = ['pcs', 'm', 'cm', 'sheets'];
 
 export function MaterialsManager() {
+  useDocumentTitle('Materials');
   const navigate = useNavigate();
 
   // Convex hooks - data comes back as camelCase

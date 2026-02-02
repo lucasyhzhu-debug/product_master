@@ -130,6 +130,12 @@ function sortOrdersByPriority(orders: OrderWithItems[]): OrderWithItems[] {
 // Helper: Calculate item balls needed from production records
 // ============================================
 
+/**
+ * Get balls needed for an item from NEW system (orderItemProduction).
+ *
+ * IMPORTANT: This requires production records to exist.
+ * Use backfillProductionRecords mutation for orders missing them.
+ */
 function getItemBallsNeeded(
   item: ItemWithProduction,
   productionUnitCode: string
