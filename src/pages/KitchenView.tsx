@@ -28,6 +28,7 @@ import {
   useConvexKitchenOrdersWithBalls,
   useConvexCompletePackaging,
   useConvexRevertToPackaging,
+  usePendingBallStats,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 
@@ -80,44 +81,12 @@ export function KitchenView() {
 
   const isLoading = statsLoading || ordersLoading;
 
-  // Calculate pending order count AND total balls needed for each ball type
-  const { pendingOriginalCount, pendingOriginalBalls } = useMemo(() => {
-    if (!pendingOrders) return { pendingOriginalCount: 0, pendingOriginalBalls: 0 };
-    let orderCount = 0;
-    let totalBalls = 0;
-    for (const order of pendingOrders) {
-      const originalItems = order.items?.filter(item => item.production_type === "original") ?? [];
-      if (originalItems.length > 0) {
-        orderCount++;
-        // Sum up balls still needed: (quantity * production_units) - balls_filled
-        for (const item of originalItems) {
-          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
-          const needed = totalRequired - (item.balls_filled ?? 0);
-          if (needed > 0) totalBalls += needed;
-        }
-      }
-    }
-    return { pendingOriginalCount: orderCount, pendingOriginalBalls: totalBalls };
-  }, [pendingOrders]);
-
-  const { pendingBiteSizedCount, pendingBiteSizedBalls } = useMemo(() => {
-    if (!pendingOrders) return { pendingBiteSizedCount: 0, pendingBiteSizedBalls: 0 };
-    let orderCount = 0;
-    let totalBalls = 0;
-    for (const order of pendingOrders) {
-      const biteSizedItems = order.items?.filter(item => item.production_type === "bite_sized") ?? [];
-      if (biteSizedItems.length > 0) {
-        orderCount++;
-        // Sum up balls still needed: (quantity * production_units) - balls_filled
-        for (const item of biteSizedItems) {
-          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
-          const needed = totalRequired - (item.balls_filled ?? 0);
-          if (needed > 0) totalBalls += needed;
-        }
-      }
-    }
-    return { pendingBiteSizedCount: orderCount, pendingBiteSizedBalls: totalBalls };
-  }, [pendingOrders]);
+  // Calculate pending ball statistics using extracted hook (Phase 3 refactor)
+  const ballStats = usePendingBallStats(pendingOrders);
+  const pendingOriginalCount = ballStats.originalCount;
+  const pendingOriginalBalls = ballStats.originalBalls;
+  const pendingBiteSizedCount = ballStats.biteSizedCount;
+  const pendingBiteSizedBalls = ballStats.biteSizedBalls;
 
   // Trigger flying ball animation
   const triggerFlyingBalls = useCallback(

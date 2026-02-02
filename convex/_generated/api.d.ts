@@ -28,7 +28,6 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
-import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
 import type * as orders_helpers_index from "../orders/helpers/index.js";
@@ -37,6 +36,13 @@ import type * as orders_helpers_statusTransitions from "../orders/helpers/status
 import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
 import type * as orders_migrations from "../orders/migrations.js";
 import type * as orders_mutations from "../orders/mutations.js";
+import type * as orders_mutations_index from "../orders/mutations/index.js";
+import type * as orders_mutations_itemCrud from "../orders/mutations/itemCrud.js";
+import type * as orders_mutations_kitchen from "../orders/mutations/kitchen.js";
+import type * as orders_mutations_migrations from "../orders/mutations/migrations.js";
+import type * as orders_mutations_orderCrud from "../orders/mutations/orderCrud.js";
+import type * as orders_mutations_packaging from "../orders/mutations/packaging.js";
+import type * as orders_mutations_statusUpdates from "../orders/mutations/statusUpdates.js";
 import type * as orders_queries from "../orders/queries.js";
 import type * as orders_whatsapp from "../orders/whatsapp.js";
 import type * as orders_whatsappHelpers from "../orders/whatsappHelpers.js";
@@ -80,7 +86,6 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
-  "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
   "orders/helpers/index": typeof orders_helpers_index;
@@ -89,6 +94,13 @@ declare const fullApi: ApiFromModules<{
   "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
   "orders/migrations": typeof orders_migrations;
   "orders/mutations": typeof orders_mutations;
+  "orders/mutations/index": typeof orders_mutations_index;
+  "orders/mutations/itemCrud": typeof orders_mutations_itemCrud;
+  "orders/mutations/kitchen": typeof orders_mutations_kitchen;
+  "orders/mutations/migrations": typeof orders_mutations_migrations;
+  "orders/mutations/orderCrud": typeof orders_mutations_orderCrud;
+  "orders/mutations/packaging": typeof orders_mutations_packaging;
+  "orders/mutations/statusUpdates": typeof orders_mutations_statusUpdates;
   "orders/queries": typeof orders_queries;
   "orders/whatsapp": typeof orders_whatsapp;
   "orders/whatsappHelpers": typeof orders_whatsappHelpers;

@@ -1,0 +1,589 @@
+/**
+ * Order CRUD mutations
+ * Core order lifecycle: create, cancel, remove, complete
+ */
+import { mutation, type MutationCtx } from "../../_generated/server";
+import { v } from "convex/values";
+import type { Id } from "../../_generated/dataModel";
+
+// Pure calculation helpers (no ctx dependency)
+import { calculateLineTotals, recalculateFinalTotal } from "../helpers";
+
+// Ctx-dependent helpers from helpers/ directory
+import {
+  distributeBallsToOrders,
+  logOrderEvent,
+  isTerminalStatus,
+  incrementChannelUsage,
+  decrementChannelUsage,
+  createProductionRecordsForItem,
+  cancelOrderProductionRecords,
+  markOrderProductionComplete,
+  resetOrderProductionComplete,
+} from "../helpers/index";
+
+// ============================================
+// Input Types
+// ============================================
+
+const orderItemInput = v.object({
+  productName: v.string(),
+  productVariant: v.optional(v.string()),
+  quantity: v.number(),
+  unitPrice: v.number(),
+  unitCost: v.number(),
+  discountAmount: v.optional(v.number()),
+  menuProductId: v.optional(v.id("menuProducts")),
+});
+
+// ============================================
+// Helper Functions
+// ============================================
+
+async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
+  const now = new Date();
+  const datePrefix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const prefix = `${datePrefix}-`;
+
+  // Get today's orders using index for efficient lookup
+  const todayOrders = await ctx.db
+    .query("orders")
+    .withIndex("by_order_number", (q) =>
+      q.gte("orderNumber", prefix).lt("orderNumber", `${datePrefix}.`)
+    )
+    .collect();
+
+  // Find the highest sequence number used today (handles gaps from deletions)
+  let maxSequence = 0;
+  for (const order of todayOrders) {
+    const parts = order.orderNumber.split("-");
+    if (parts.length === 2) {
+      const seq = parseInt(parts[1], 10);
+      if (!isNaN(seq) && seq > maxSequence) {
+        maxSequence = seq;
+      }
+    }
+  }
+
+  // Generate next sequence
+  const nextSequence = maxSequence + 1;
+  const orderNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
+
+  // Verify uniqueness (handles race condition)
+  const existing = await ctx.db
+    .query("orders")
+    .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+    .first();
+
+  if (existing) {
+    // Rare race condition - retry with incremented sequence
+    const retrySequence = nextSequence + 1;
+    return `${prefix}${String(retrySequence).padStart(3, "0")}`;
+  }
+
+  return orderNumber;
+}
+
+// ============================================
+// Mutations
+// ============================================
+
+/**
+ * Create a new order with items.
+ */
+export const create = mutation({
+  args: {
+    // Customer - either existing ID or new customer data
+    customerId: v.optional(v.id("customers")),
+    newCustomer: v.optional(
+      v.object({
+        name: v.string(),
+        phone: v.optional(v.string()),
+        source: v.optional(v.string()),
+      })
+    ),
+    // Order details
+    channel: v.optional(v.union(
+      v.literal("whatsapp"),
+      v.literal("instagram"),
+      v.literal("shopee"),
+      v.literal("tiktok"),
+      v.literal("tokopedia"),
+      v.literal("grabfood"),
+      v.literal("k3mart_gf"),
+      v.literal("legato_tamtem"),
+      v.literal("legato_goldfinch"),
+      v.literal("bazaar"),
+      v.literal("other")
+    )),
+    soldBy: v.optional(v.string()),
+    dueDate: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    deliveryType: v.optional(v.string()),
+    pickupLocation: v.optional(v.string()),
+    deliveryAddress: v.optional(v.string()),
+    contactWa: v.optional(v.string()),
+    contactIg: v.optional(v.string()),
+    // Discount
+    orderLevelDiscount: v.optional(v.number()),
+    orderLevelDiscountType: v.optional(v.union(
+      v.literal("amount"),
+      v.literal("percentage")
+    )),
+    // Items
+    items: v.array(orderItemInput),
+    createdBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Handle customer
+    let customerId: Id<"customers">;
+    let customerName: string;
+    let customerPhone: string | undefined;
+
+    if (args.customerId) {
+      const customer = await ctx.db.get(args.customerId);
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      customerId = args.customerId;
+      customerName = customer.name;
+      customerPhone = customer.phone;
+    } else if (args.newCustomer) {
+      customerId = await ctx.db.insert("customers", {
+        name: args.newCustomer.name,
+        phone: args.newCustomer.phone,
+        source: args.newCustomer.source,
+        createdBy: args.createdBy ?? "admin",
+      });
+      customerName = args.newCustomer.name;
+      customerPhone = args.newCustomer.phone;
+    } else {
+      throw new Error("Either customerId or newCustomer is required");
+    }
+
+    // Generate order number
+    const orderNumber = await generateOrderNumber(ctx);
+
+    // Calculate totals and fetch menu product data for production fields
+    let totalAmount = 0;
+    let totalCost = 0;
+
+    // Fetch all menu products needed (batch for efficiency)
+    const menuProductIds = args.items
+      .map((item) => item.menuProductId)
+      .filter((id): id is Id<"menuProducts"> => id !== undefined);
+
+    const menuProductsMap = new Map<string, { productionType: string; productionUnits: number }>();
+    for (const mpId of menuProductIds) {
+      const mp = await ctx.db.get(mpId);
+      if (mp && mp.productionType && mp.productionUnits) {
+        // Use string key for proper Map lookup (Id objects use reference equality)
+        menuProductsMap.set(mpId.toString(), {
+          productionType: mp.productionType,
+          productionUnits: mp.productionUnits,
+        });
+      }
+    }
+
+    // PRD-5: Fetch menu product components for new production tracking (dual-write)
+    const menuProductComponentsMap = new Map<string, Array<{
+      productionUnitTypeId: Id<"productionUnitTypes">;
+      productionUnitCode: string;
+      productionUnitName: string;
+      quantity: number;
+    }>>();
+
+    for (const mpId of menuProductIds) {
+      const components = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", mpId))
+        .collect();
+
+      if (components.length > 0) {
+        const enrichedComponents = await Promise.all(
+          components.map(async (comp) => {
+            const unitType = await ctx.db.get(comp.productionUnitTypeId);
+            return {
+              productionUnitTypeId: comp.productionUnitTypeId,
+              productionUnitCode: unitType?.code ?? "UNKNOWN",
+              productionUnitName: unitType?.name ?? "Unknown",
+              quantity: comp.quantity,
+            };
+          })
+        );
+        menuProductComponentsMap.set(mpId.toString(), enrichedComponents);
+      }
+    }
+
+    const itemsToCreate = args.items.map((item) => {
+      const discount = item.discountAmount ?? 0;
+      const { lineTotal, lineCost, lineMargin } = calculateLineTotals(
+        item.quantity,
+        item.unitPrice,
+        item.unitCost,
+        discount
+      );
+      totalAmount += lineTotal;
+      totalCost += lineCost;
+
+      // Get production data from menu product if available
+      // Use string key for proper Map lookup (Id objects use reference equality)
+      const menuProductData = item.menuProductId
+        ? menuProductsMap.get(item.menuProductId.toString())
+        : undefined;
+
+      return {
+        ...item,
+        discountAmount: discount,
+        lineTotal,
+        lineCost,
+        lineMargin,
+        productionType: menuProductData?.productionType,
+        productionUnits: menuProductData?.productionUnits,
+        // Initialize ballsRemaining = productionUnits * quantity
+        ballsRemaining: menuProductData
+          ? menuProductData.productionUnits * item.quantity
+          : undefined,
+      };
+    });
+
+    // Calculate order-level discount
+    let discountAmount = 0;
+    if (args.orderLevelDiscount !== undefined && args.orderLevelDiscountType !== undefined) {
+      if (args.orderLevelDiscountType === "percentage") {
+        discountAmount = totalAmount * (args.orderLevelDiscount / 100);
+      } else {
+        discountAmount = args.orderLevelDiscount;
+      }
+    }
+
+    const finalTotal = totalAmount - discountAmount;
+
+    // Create order
+    const orderId = await ctx.db.insert("orders", {
+      orderNumber,
+      customerId,
+      customerName,
+      customerPhone,
+      status: "Draft",
+      paymentStatus: "Unpaid",
+      orderDate: Date.now(),
+      dueDate: args.dueDate,
+      totalAmount,
+      totalCost,
+      totalMargin: totalAmount - totalCost,
+      orderLevelDiscount: args.orderLevelDiscount,
+      orderLevelDiscountType: args.orderLevelDiscountType,
+      finalTotal,
+      channel: args.channel,
+      soldBy: args.soldBy,
+      deliveryType: args.deliveryType ?? "Pickup",
+      pickupLocation: args.pickupLocation,
+      deliveryAddress: args.deliveryAddress,
+      contactWa: args.contactWa,
+      contactIg: args.contactIg,
+      notes: args.notes,
+      createdBy: args.createdBy ?? "admin",
+      itemCount: args.items.length,
+    });
+
+    // Create order items and production tracking records
+    for (const item of itemsToCreate) {
+      const orderItemId = await ctx.db.insert("orderItems", {
+        orderId,
+        productName: item.productName,
+        productVariant: item.productVariant,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unitCost: item.unitCost,
+        discountAmount: item.discountAmount,
+        lineTotal: item.lineTotal,
+        lineCost: item.lineCost,
+        lineMargin: item.lineMargin,
+        menuProductId: item.menuProductId,
+        // Production fields for Kitchen View ball tracking (DEPRECATED - kept for dual-write)
+        productionType: item.productionType,
+        productionUnits: item.productionUnits,
+        ballsRemaining: item.ballsRemaining,
+      });
+
+      // PRD-5: Create orderItemProduction records (new production tracking system)
+      if (item.menuProductId) {
+        await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
+      }
+    }
+
+    // PRD-7: Track channel usage for "Top 4" button selectors
+    if (args.channel) {
+      await incrementChannelUsage(ctx, args.channel);
+    }
+
+    return orderId;
+  },
+});
+
+/**
+ * Cancel an order.
+ * PRD-7: Enhanced with detailed cleanup and audit logging.
+ *
+ * This mutation:
+ * 1. Validates order can be cancelled (not already completed/cancelled)
+ * 2. Updates order status with cancellation details
+ * 3. Marks all order items as cancelled (soft delete)
+ * 4. Marks all production records as cancelled (soft delete)
+ * 5. Logs cancellation event for audit trail
+ */
+export const cancel = mutation({
+  args: {
+    orderId: v.id("orders"),
+    reason: v.optional(v.string()),
+    reasonCategory: v.optional(v.union(
+      v.literal("customer_request"),
+      v.literal("out_of_stock"),
+      v.literal("payment_issue"),
+      v.literal("duplicate"),
+      v.literal("other")
+    )),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // PRD-7: Check if order can be cancelled
+    if (isTerminalStatus(order.status)) {
+      throw new Error("Cannot cancel a completed or already cancelled order");
+    }
+
+    const previousStatus = order.status;
+
+    // PRD-7: Update order with cancellation details
+    await ctx.db.patch(args.orderId, {
+      status: "Cancelled",
+      cancellationReason: args.reason,
+      cancellationCategory: args.reasonCategory,
+      cancelledAt: Date.now(),
+    });
+
+    // PRD-7: Mark all order items as cancelled (soft delete)
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    let itemsCancelled = 0;
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        isCancelled: true,
+      });
+      itemsCancelled++;
+    }
+
+    // PRD-7: Mark production records as cancelled (use helper)
+    await cancelOrderProductionRecords(ctx, args.orderId);
+
+    // Count how many production records were cancelled (for audit log)
+    let productionRecordsCancelled = 0;
+    for (const item of items) {
+      const productionRecords = await ctx.db
+        .query("orderItemProduction")
+        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+        .collect();
+      productionRecordsCancelled += productionRecords.length;
+    }
+
+    // PRD-7: Log cancellation event for audit trail
+    await logOrderEvent(ctx, args.orderId, "cancelled", {
+      fromStatus: previousStatus,
+      toStatus: "Cancelled",
+      reason: args.reason,
+      category: args.reasonCategory,
+      metadata: {
+        itemsCancelled,
+        productionRecordsCancelled,
+      },
+      triggeredBy: "user",
+    });
+
+    return {
+      orderId: args.orderId,
+      previousStatus,
+      itemsCancelled,
+      productionRecordsCancelled,
+    };
+  },
+});
+
+/**
+ * Delete an order and its items.
+ */
+export const remove = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Only allow deleting Draft orders
+    if (order.status !== "Draft") {
+      throw new Error("Only draft orders can be deleted");
+    }
+
+    // Delete items and their production records
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    for (const item of items) {
+      // PRD-5: Delete orderItemProduction records
+      const productionRecords = await ctx.db
+        .query("orderItemProduction")
+        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+        .collect();
+
+      for (const record of productionRecords) {
+        await ctx.db.delete(record._id);
+      }
+
+      await ctx.db.delete(item._id);
+    }
+
+    // Delete order
+    await ctx.db.delete(args.orderId);
+    return true;
+  },
+});
+
+/**
+ * Complete an order (mark all production as done).
+ * PRD-1: Kitchen Core - Wave 1.
+ */
+export const completeOrder = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.status !== "Confirmed") {
+      throw new Error("Only Confirmed orders can be completed");
+    }
+
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: "ProductionComplete",
+    });
+
+    // PRD-5: Mark production complete using NEW system (orderItemProduction)
+    await markOrderProductionComplete(ctx, args.orderId);
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Revert order back to Confirmed status.
+ * PRD-1: Kitchen Core - Wave 1.
+ */
+export const revertToConfirmed = mutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (order.status !== "ProductionComplete") {
+      throw new Error("Only ProductionComplete orders can be reverted");
+    }
+
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: "Confirmed",
+    });
+
+    // PRD-5: Reset orderItemProduction records using NEW system
+    await resetOrderProductionComplete(ctx, args.orderId);
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Update order-level discount.
+ * PRD-5: Order System V2 - Wave 1.
+ */
+export const updateOrderDiscount = mutation({
+  args: {
+    orderId: v.id("orders"),
+    discount: v.number(),
+    discountType: v.union(v.literal("amount"), v.literal("percentage")),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Check order isn't in terminal state
+    if (isTerminalStatus(order.status)) {
+      throw new Error("Cannot modify discount on completed/cancelled order");
+    }
+
+    // Recalculate total (use original totalAmount, not finalTotal)
+    const discountAmount = args.discountType === "percentage"
+      ? order.totalAmount * (args.discount / 100)
+      : args.discount;
+
+    await ctx.db.patch(args.orderId, {
+      orderLevelDiscount: args.discount,
+      orderLevelDiscountType: args.discountType,
+      finalTotal: order.totalAmount - discountAmount,
+    });
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Complete balls and auto-complete orders.
+ * PRD-1: Kitchen Core - Wave 2.
+ * PRD-5: Enhanced with dual-write to orderItemProduction.
+ * PRD-7: Enhanced with automatic status transitions:
+ *   - Confirmed -> InProduction (first ball filled)
+ *   - InProduction -> Packaging (all balls complete)
+ *
+ * Applies a batch of completed balls (big or mid) to Confirmed/InProduction orders
+ * in priority order.
+ */
+export const completeBalls = mutation({
+  args: {
+    ballType: v.union(v.literal("big"), v.literal("mid")),
+    count: v.number(),
+  },
+  handler: async (ctx, args) => {
+    if (args.count <= 0) {
+      throw new Error("Count must be positive");
+    }
+
+    const result = await distributeBallsToOrders(ctx, {
+      ballType: args.ballType,
+      count: args.count,
+      trackFilledPackages: false,
+    });
+
+    return {
+      completedOrderIds: result.completedOrderIds,
+      transitionedToInProduction: result.transitionedToInProduction,
+      ballsUsed: result.ballsUsed,
+      overflow: result.overflow,
+    };
+  },
+});
