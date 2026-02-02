@@ -181,6 +181,8 @@ export {
   useConvexCompleteOrder,
   useConvexRevertToConfirmed,
   useConvexCompleteBalls,
+  useConvexCompletePackaging,
+  useConvexRevertToPackaging,
 } from "./useKitchenStats";
 
 // Visual Feedback Overlay
