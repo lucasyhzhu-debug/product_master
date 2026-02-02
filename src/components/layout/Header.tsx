@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
@@ -10,12 +11,14 @@ import {
   Package,
   Users,
   LogOut,
-  User
+  User,
+  Menu
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRoleDisplayName } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 // Define all navigation items with permission requirements
 // Items with hidden: true are temporarily disabled for all users
@@ -34,6 +37,7 @@ const allNavItems = [
 export function Header() {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Filter navigation items based on user permissions and hidden flag
   const navItems = user
@@ -44,7 +48,48 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         {/* Logo and brand */}
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-4">
+          {/* Mobile menu button - only show if user is authenticated */}
+          {user && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <UtensilsCrossed className="h-5 w-5 text-primary" />
+                    Menu
+                  </SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-3 mt-6">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path ||
+                      (item.path !== '/' && location.pathname.startsWith(item.path));
+
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+                          isActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </SheetContent>
+            </Sheet>
+          )}
+
           <div className="flex items-center space-x-2">
             <UtensilsCrossed className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block">
@@ -52,9 +97,9 @@ export function Header() {
             </span>
           </div>
 
-          {/* Navigation - only show if user is authenticated */}
+          {/* Desktop Navigation - only show if user is authenticated */}
           {user && (
-            <nav className="flex items-center space-x-6 text-sm font-medium">
+            <nav className="hidden md:flex items-center space-x-6 text-sm font-medium ml-4">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path ||
@@ -65,7 +110,7 @@ export function Header() {
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      "hidden md:flex items-center space-x-2 transition-colors hover:text-foreground/80",
+                      "flex items-center space-x-2 transition-colors hover:text-foreground/80",
                       isActive ? "text-foreground" : "text-foreground/60"
                     )}
                   >
@@ -80,7 +125,7 @@ export function Header() {
 
         {/* User info section */}
         {user && (
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {/* User avatar */}
             {user.avatarUrl ? (
               <img

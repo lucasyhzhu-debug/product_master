@@ -34,7 +34,7 @@ interface OrderFormPOSProps {
   onCancel?: () => void;
 }
 
-export function OrderFormPOS({ onSuccess, onCancel }: OrderFormPOSProps) {
+export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // ============================================
   // State Management
   // ============================================
@@ -605,14 +605,9 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
       {/* ============================================
           9. Submit Section
           ============================================ */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        {onCancel && (
-          <Button variant="outline" onClick={onCancel} disabled={isSubmitting} className="w-full sm:w-auto">
-            Cancel
-          </Button>
-        )}
+      <div className="flex pt-2">
         <Button
-          className="flex-1 gap-2"
+          className="w-full gap-2"
           onClick={handleSubmit}
           disabled={isSubmitting}
           size="lg"
