@@ -370,10 +370,12 @@ export default defineSchema({
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
-    // PRD-0: Ball tracking for Kitchen View (DEPRECATED - use orderItemProduction)
+    // PRD-0: Ball tracking for Kitchen View
     productionType: v.optional(v.string()), // "original" or "bite_sized"
     productionUnits: v.optional(v.number()), // balls per unit
-    ballsRemaining: v.optional(v.number()), // for completion tracking
+    // @deprecated ballsRemaining is no longer updated - use orderItemProduction.unitsRemaining
+    // Kept for backward compatibility with existing data
+    ballsRemaining: v.optional(v.number()),
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
     // PRD-7: Cancellation flag for soft delete

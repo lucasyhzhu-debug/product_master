@@ -13,6 +13,45 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-02 - Dual-Write System Removal: NEW Production Tracking
+
+**Migrated Kitchen View production tracking from OLD system (`ballsRemaining`) to NEW system (`orderItemProduction`).**
+
+The ball distribution algorithm now uses `orderItemProduction.unitsRemaining` as the source of truth instead of `orderItems.ballsRemaining`. This eliminates the dual-write overhead and simplifies the codebase.
+
+**Summary:**
+- **Database writes reduced**: ~50% fewer writes during ball operations
+- **Source of truth**: `orderItemProduction` table
+- **Deprecated**: `ballsRemaining` field (kept for backward compatibility)
+
+**Key Changes:**
+
+1. **Phase A - Verification**: Audited all `ballsRemaining` references (42 across 8 files)
+2. **Phase B - Completion Logic**: Switched order completion check to use NEW system
+3. **Phase C - Write Migration**:
+   - Rewrote `distributeBallsToOrders()` to use NEW system as source of truth
+   - Removed deprecated writes from `completeOrder` and `revertToConfirmed`
+   - Updated frontend types to use `productionUnits` and `ballsFilled`
+4. **Phase D - Documentation**: Updated schema, SCHEMA.md, marked deprecations
+
+**Files Modified:**
+- `convex/orders/helpers/ballDistribution.ts` - Complete rewrite using NEW system
+- `convex/orders/mutations.ts` - Removed deprecated ballsRemaining writes
+- `convex/schema.ts` - Marked ballsRemaining as deprecated
+- `src/components/orders/PackageStatusDisplay.tsx` - Use productionUnits for total
+- `src/hooks/convex/useKitchenStats.ts` - Added ballsFilled transform
+- `src/lib/types.ts` - Added balls_filled, marked balls_remaining deprecated
+
+**Migration Notes:**
+- Existing orders with `ballsRemaining` data will continue to display correctly
+- New orders use only `orderItemProduction` for tracking
+- No data migration required - both systems coexist
+- `backfillOrderItemProduction` mutation available if needed
+
+**Branch:** `refactor/remove-dual-write`
+
+---
+
 ## 2026-02-02 - Orders Mutations Refactoring: Helper Extraction
 
 **Major refactoring of `convex/orders/mutations.ts` to improve maintainability and reduce duplication.**
