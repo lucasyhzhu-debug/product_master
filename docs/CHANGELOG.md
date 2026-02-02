@@ -13,6 +13,51 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-02 - Orders Mutations Refactoring: Helper Extraction
+
+**Major refactoring of `convex/orders/mutations.ts` to improve maintainability and reduce duplication.**
+
+The 2,010-line mutations file was refactored by extracting repeated patterns into a new `convex/orders/helpers/` directory. This creates a two-tier helper system: pure functions (no ctx) in `helpers.ts` and ctx-dependent database operations in `helpers/*.ts`.
+
+**Summary:**
+- **mutations.ts**: 2,010 → 1,405 lines (30% reduction)
+- **New helper modules**: 820 lines across 5 files
+- **Net change**: +243 lines of well-organized, documented code
+
+**New Helper Modules Created:**
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `helpers/ballDistribution.ts` | 309 | Core ball distribution algorithm (dual-write) |
+| `helpers/statusTransitions.ts` | 164 | Status constants, audit logging, transitions |
+| `helpers/usageTracking.ts` | 105 | Channel/agency usage tracking |
+| `helpers/productionRecords.ts` | 237 | Production record CRUD operations |
+| `helpers/index.ts` | 5 | Barrel export |
+
+**Key Changes:**
+
+1. **Phase 1**: Consolidated `calculateLineTotals` and `recalculateFinalTotal` into existing `helpers.ts`
+2. **Phase 2**: Extracted `distributeBallsToOrders()` consolidating `completeBalls` and `addBallsToTray` (~430 lines of duplication eliminated)
+3. **Phase 3**: Created `statusTransitions.ts` with `TERMINAL_STATUSES`, `isTerminalStatus()`, `logOrderEvent()`, and transition helpers
+4. **Phase 4**: Consolidated 4 usage tracking functions into generic `updateUsageCount()` pattern
+5. **Phase 5**: Extracted production record helpers for CRUD operations
+
+**Files Modified:**
+- `convex/orders/mutations.ts` - Imports from helpers, thin mutation wrappers
+- `convex/orders/helpers.ts` - Added `recalculateFinalTotal()`
+- `convex/orders/helpers/` - New directory with 5 helper modules
+
+**Benefits:**
+- Single source of truth for ball distribution logic
+- Type-safe status checks with `isTerminalStatus()`
+- Reusable production record operations
+- Easier testing of isolated helper functions
+- Clearer separation of concerns
+
+**Branch:** `refactor/orders-mutations-helpers`
+
+---
+
 ## 2026-02-02 - Kitchen View UI Fixes & Flying Ball Animation
 
 **Bug Fixes & UI Improvements for Kitchen View**
