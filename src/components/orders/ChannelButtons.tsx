@@ -17,9 +17,11 @@ import { cn } from '@/lib/utils';
 // Types
 // ============================================
 
+type Channel = "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
+
 interface ChannelButtonsProps {
   value?: string | null;
-  onChange: (channel: string) => void;
+  onChange: (channel: Channel) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -94,7 +96,7 @@ export function ChannelButtons({
   // Handle custom channel submission
   const handleAddCustom = React.useCallback(() => {
     if (customChannel.trim()) {
-      onChange(customChannel.trim().toLowerCase());
+      onChange(customChannel.trim().toLowerCase() as Channel);
       setCustomChannel('');
       setDropdownOpen(false);
     }
@@ -111,7 +113,7 @@ export function ChannelButtons({
             type="button"
             variant={value === channel ? 'default' : 'outline'}
             disabled={disabled}
-            onClick={() => onChange(channel)}
+            onClick={() => onChange(channel as Channel)}
             className={cn(
               'min-h-[44px] px-4 sm:min-h-[36px] sm:px-3 font-medium text-base sm:text-sm',
               value === channel && 'ring-2 ring-primary ring-offset-1',
@@ -154,7 +156,7 @@ export function ChannelButtons({
               <DropdownMenuItem
                 key={channel}
                 onClick={() => {
-                  onChange(channel);
+                  onChange(channel as Channel);
                   setDropdownOpen(false);
                 }}
                 className={cn(

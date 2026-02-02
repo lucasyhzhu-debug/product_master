@@ -97,9 +97,9 @@ export const backfillOrderItemProduction = mutation({
         // Calculate units based on productionUnits * quantity
         const unitsRequired = (item.productionUnits ?? 0) * item.quantity;
 
-        // If ballsRemaining is 0, the item is complete
-        const ballsRemaining = item.ballsRemaining ?? unitsRequired;
-        const unitsCompleted = unitsRequired - ballsRemaining;
+        // Preserve existing progress from NEW system (ballsFilled)
+        const unitsCompleted = item.ballsFilled ?? 0;
+        const unitsRemaining = Math.max(0, unitsRequired - unitsCompleted);
 
         await ctx.db.insert("orderItemProduction", {
           orderItemId: item._id,
@@ -107,8 +107,8 @@ export const backfillOrderItemProduction = mutation({
           productionUnitCode: unitCode,
           productionUnitName: unitName,
           unitsRequired,
-          unitsCompleted: Math.max(0, unitsCompleted),
-          unitsRemaining: Math.max(0, ballsRemaining),
+          unitsCompleted,
+          unitsRemaining,
         });
 
         results.processed++;
