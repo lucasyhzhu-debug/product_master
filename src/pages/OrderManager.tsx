@@ -30,7 +30,8 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
   AwaitingPayment: 'bg-amber-500',
   Confirmed: 'bg-blue-500',
-  ProductionComplete: 'bg-purple-500',
+  InProduction: 'bg-purple-500',      // PRD-7: Kitchen actively producing
+  ProductionComplete: 'bg-purple-500', // DEPRECATED
   Packaging: 'bg-indigo-500',
   WaitingShipment: 'bg-yellow-500',
   CompleteShipped: 'bg-green-500',
