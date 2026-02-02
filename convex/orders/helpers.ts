@@ -126,3 +126,54 @@ export function recalculateFinalTotal(
       : discount;
   return totalAmount - discountAmount;
 }
+
+// ============================================
+// Production Unit Calculations
+// ============================================
+
+export interface ProductionUnitsNeeded {
+  unitsRequired: number;
+}
+
+/**
+ * Calculate total production units needed for an order item.
+ *
+ * This is the single source of truth for production unit calculations.
+ * Used across:
+ * - Order creation (mutations.ts)
+ * - Production record creation (productionRecords.ts)
+ * - Backfill operations (migrations.ts)
+ *
+ * @param unitsPerProduct - How many units are needed per product (e.g., 1 for Original, 3 for Bite Triple)
+ * @param quantity - Number of products ordered
+ * @returns Total units required for production
+ *
+ * @example
+ * // Original (1 big ball per unit, 5 units ordered)
+ * calculateProductionUnitsNeeded(1, 5) // => { unitsRequired: 5 }
+ *
+ * @example
+ * // Bite Sized Triple (3 mid balls per unit, 2 units ordered)
+ * calculateProductionUnitsNeeded(3, 2) // => { unitsRequired: 6 }
+ *
+ * @example
+ * // Combo pack with multiple unit types (handled by calling this per component)
+ * // For a pack with 1 big ball and 2 mid balls, ordered 3 times:
+ * calculateProductionUnitsNeeded(1, 3) // => { unitsRequired: 3 } for big balls
+ * calculateProductionUnitsNeeded(2, 3) // => { unitsRequired: 6 } for mid balls
+ */
+export function calculateProductionUnitsNeeded(
+  unitsPerProduct: number,
+  quantity: number
+): ProductionUnitsNeeded {
+  if (unitsPerProduct < 0) {
+    throw new Error(`unitsPerProduct must be non-negative, got ${unitsPerProduct}`);
+  }
+  if (quantity < 0) {
+    throw new Error(`quantity must be non-negative, got ${quantity}`);
+  }
+
+  return {
+    unitsRequired: unitsPerProduct * quantity,
+  };
+}
