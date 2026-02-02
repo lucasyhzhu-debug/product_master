@@ -58,8 +58,24 @@ function generatePaymentRequest(order: OrderWithItems): string {
   });
 
   const itemsText = itemsLines.join("\n");
-  const totalFormatted = formatCurrency(order.totalAmount);
   const dueDateStr = order.dueDate ? formatDate(order.dueDate) : "";
+
+  // Calculate discount note if present
+  let discountNote = "";
+  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    const discountAmount = order.orderLevelDiscountType === "percentage"
+      ? order.totalAmount * (order.orderLevelDiscount / 100)
+      : order.orderLevelDiscount;
+
+    const discountDisplay = order.orderLevelDiscountType === "percentage"
+      ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
+      : formatCurrency(discountAmount);
+
+    discountNote = `(Includes ${discountDisplay} discount!)`;
+  }
+
+  const finalTotal = order.finalTotal ?? order.totalAmount;
+  const finalTotalFormatted = formatCurrency(finalTotal);
 
   // Delivery info
   let deliveryInfo = "";
@@ -77,7 +93,7 @@ Terima kasih sudah order di Frollie! 🙏
 *Order #${order.orderNumber}*
 ${itemsText}
 ────────────
-*Total: ${totalFormatted}*
+*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
 
 ${deliveryInfo}
 📅 Target: ${dueDateStr}
@@ -86,6 +102,7 @@ Silakan transfer ke:
 *BCA*
 *PT Malo Group Bahagia*
 *6044830994*
+*Nominal: ${finalTotalFormatted}*
 
 Setelah transfer, mohon kirim bukti pembayaran ya.
 
@@ -170,7 +187,23 @@ function generateReceipt(order: OrderWithItems): string {
   });
 
   const itemsText = itemsLines.join("\n");
-  const totalFormatted = formatCurrency(order.totalAmount);
+
+  // Calculate discount note if present
+  let discountNote = "";
+  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    const discountAmount = order.orderLevelDiscountType === "percentage"
+      ? order.totalAmount * (order.orderLevelDiscount / 100)
+      : order.orderLevelDiscount;
+
+    const discountDisplay = order.orderLevelDiscountType === "percentage"
+      ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
+      : formatCurrency(discountAmount);
+
+    discountNote = `(Includes ${discountDisplay} discount)`;
+  }
+
+  const finalTotal = order.finalTotal ?? order.totalAmount;
+  const finalTotalFormatted = formatCurrency(finalTotal);
 
   // Payment info
   let paymentInfo = `Payment: ${order.paymentStatus}`;
@@ -210,7 +243,7 @@ PT Malo Group Bahagia
 ${customerLine}
 ${itemsText}
 ----------------
-*Total: ${totalFormatted}*
+*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
 
 ${paymentInfo}
 ${deliveryLine}${dueDateLine}${notesSection}
