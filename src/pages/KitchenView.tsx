@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ChefHat, ChevronDown, Eye } from 'lucide-react';
+import { ChefHat, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { useQuery, useMutation } from 'convex/react';
@@ -26,12 +26,10 @@ import { api } from '../../convex/_generated/api';
 import {
   useConvexKitchenStats,
   useConvexKitchenOrdersWithBalls,
-  useConvexCompletedToday,
-  useConvexCompleteOrder,
-  useConvexRevertToConfirmed,
+  useConvexCompletePackaging,
+  useConvexRevertToPackaging,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
-import { cn } from '@/lib/utils';
 
 // Flying ball animation state type
 interface FlyingBallState {
@@ -44,7 +42,6 @@ interface FlyingBallState {
 
 export function KitchenView() {
   useDocumentTitle('Kitchen');
-  const [completedCollapsed, setCompletedCollapsed] = useState(true);
   const [flyingBalls, setFlyingBalls] = useState<FlyingBallState[]>([]);
 
   // Loading states for Fill Orders buttons
@@ -63,14 +60,13 @@ export function KitchenView() {
   // Fetch kitchen data
   const { data: stats, isLoading: statsLoading } = useConvexKitchenStats();
   const { data: pendingOrders, isLoading: ordersLoading } = useConvexKitchenOrdersWithBalls();
-  const { data: completedToday, isLoading: completedLoading } = useConvexCompletedToday();
 
   // Tray inventory query
   const trayInventory = useQuery(api.orders.queries.getTrayInventory, {});
 
-  // Mutations
-  const completeOrder = useConvexCompleteOrder();
-  const revertOrder = useConvexRevertToConfirmed();
+  // Mutations - use new packaging-specific mutations
+  const completePackaging = useConvexCompletePackaging();
+  const revertToPackaging = useConvexRevertToPackaging();
 
   // New tray mutations
   const addBallsToTray = useMutation(api.orders.mutations.addBallsToTray);
@@ -81,7 +77,7 @@ export function KitchenView() {
   const markPackagePacked = useMutation(api.orders.mutations.markPackagePacked);
   const unmarkPackagePacked = useMutation(api.orders.mutations.unmarkPackagePacked);
 
-  const isLoading = statsLoading || ordersLoading || completedLoading;
+  const isLoading = statsLoading || ordersLoading;
 
   // Calculate pending order count AND total balls needed for each ball type
   const { pendingOriginalCount, pendingOriginalBalls } = useMemo(() => {
@@ -170,11 +166,29 @@ export function KitchenView() {
   );
 
   const handleCompleteOrder = async (orderId: Id<"orders">) => {
-    await completeOrder.mutate(orderId);
+    try {
+      await completePackaging.mutate(orderId);
+
+      // Celebration effects
+      playCompletionFanfare();
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch (error) {
+      console.error('Failed to complete order:', error);
+      // Error toast already shown by mutation hook
+    }
   };
 
   const handleRevertOrder = async (orderId: Id<"orders">) => {
-    await revertOrder.mutate(orderId);
+    try {
+      await revertToPackaging.mutate(orderId);
+    } catch (error) {
+      console.error('Failed to revert order:', error);
+      // Error toast already shown by mutation hook
+    }
   };
 
   // Add balls to tray (NO auto-distribution)
@@ -267,12 +281,8 @@ export function KitchenView() {
     try {
       if (newStatus === 'packed') {
         playSoftClick();
-        const result = await markPackagePacked({ orderItemId: itemId, packageIndex });
-        // Show toast if order auto-transitioned
-        if (result?.statusTransition) {
-          const nextStatus = result.statusTransition.to === 'WaitingShipment' ? 'Ready for Shipment' : 'Ready for Pickup';
-          toast.success(`Order ${nextStatus}!`, { duration: 3000 });
-        }
+        await markPackagePacked({ orderItemId: itemId, packageIndex });
+        // Note: Auto-transition removed - manual complete button now required
       } else {
         await unmarkPackagePacked({ orderItemId: itemId, packageIndex });
       }
@@ -373,11 +383,11 @@ export function KitchenView() {
         <LoadingCards count={4} />
       ) : (
         <>
-          {/* Pending Orders Section */}
+          {/* All Orders Section - unified list (pending + completed, sorted by backend priority) */}
           <section className="space-y-4" ref={ordersContainerRef}>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <ChefHat className="h-5 w-5" />
-              Pending Orders
+              Orders
               <span className="text-muted-foreground font-normal">
                 ({pendingOrders?.length || 0})
               </span>
@@ -390,48 +400,55 @@ export function KitchenView() {
                   className="grid grid-cols-1 gap-4"
                   layout
                 >
-                  {pendingOrders.map((order, index) => (
-                    <motion.div
-                      key={order.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
-                      transition={{ delay: index * 0.05 }}
-                      layout
-                    >
-                      <OrderBox
-                        order={{
-                          _id: order.id as unknown as Id<"orders">,
-                          orderNumber: order.order_number,
-                          status: order.status,
-                          channel: order.channel ?? undefined,
-                          dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
-                          items: (order.items ?? []).map((item) => ({
-                            _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
-                            productName: item.product_name,
-                            productVariant: item.product_variant ?? undefined,
-                            productionType: item.production_type,
-                            productionUnits: item.production_units,
-                            quantity: item.quantity,
-                            // Use DB packageStatus, fallback to calculated if not set
-                            packageStatus: item.package_status ?? (
-                              item.balls_filled && item.production_units && item.balls_filled >= (item.quantity * item.production_units)
-                                ? 'filled'
-                                : item.balls_filled && item.balls_filled > 0
-                                  ? 'filling'
-                                  : 'empty'
-                            ),
-                            ballsFilled: item.balls_filled ?? 0,
-                            packedPackageIndices: item.packed_package_indices,
-                          })),
-                          customer: order.customer_name ? { name: order.customer_name } : null,
-                        }}
-                        onPackageStatusChange={handlePackageStatusChange}
-                        onComplete={() => handleCompleteOrder(order.id as unknown as Id<"orders">)}
-                        disabled={!canEditKitchen}
-                      />
-                    </motion.div>
-                  ))}
+                  {pendingOrders.map((order, index) => {
+                    // Determine if order is completed based on status
+                    const isCompleted = ['WaitingShipment', 'WaitingPickup', 'CompleteShipped', 'PickedUp'].includes(order.status);
+
+                    return (
+                      <motion.div
+                        key={order.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
+                        transition={{ delay: index * 0.05 }}
+                        layout
+                      >
+                        <OrderBox
+                          order={{
+                            _id: order.id as unknown as Id<"orders">,
+                            orderNumber: order.order_number,
+                            status: order.status,
+                            channel: order.channel ?? undefined,
+                            dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
+                            items: (order.items ?? []).map((item) => ({
+                              _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
+                              productName: item.product_name,
+                              productVariant: item.product_variant ?? undefined,
+                              productionType: item.production_type,
+                              productionUnits: item.production_units,
+                              quantity: item.quantity,
+                              // Use DB packageStatus, fallback to calculated if not set
+                              packageStatus: item.package_status ?? (
+                                item.balls_filled && item.production_units && item.balls_filled >= (item.quantity * item.production_units)
+                                  ? 'filled'
+                                  : item.balls_filled && item.balls_filled > 0
+                                    ? 'filling'
+                                    : 'empty'
+                              ),
+                              ballsFilled: item.balls_filled ?? 0,
+                              packedPackageIndices: item.packed_package_indices,
+                            })),
+                            customer: order.customer_name ? { name: order.customer_name } : null,
+                          }}
+                          onPackageStatusChange={handlePackageStatusChange}
+                          onComplete={() => handleCompleteOrder(order.id as unknown as Id<"orders">)}
+                          onRevert={isCompleted ? () => handleRevertOrder(order.id as unknown as Id<"orders">) : undefined}
+                          isCompleted={isCompleted}
+                          disabled={!canEditKitchen}
+                        />
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
               ) : (
                 <motion.div
@@ -443,87 +460,8 @@ export function KitchenView() {
                   <Card>
                     <CardContent className="py-12 text-center text-muted-foreground">
                       <ChefHat className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No pending orders to process.</p>
+                      <p>No orders to display.</p>
                       <p className="text-sm mt-2">All caught up!</p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </section>
-
-          {/* Completed Today Section - Collapsible */}
-          <section className="space-y-4">
-            <button
-              onClick={() => setCompletedCollapsed(!completedCollapsed)}
-              className="flex items-center gap-2 text-lg font-semibold hover:text-primary transition-colors"
-            >
-              <span>Completed Today</span>
-              <span className="text-muted-foreground font-normal">
-                ({completedToday?.length || 0})
-              </span>
-              <ChevronDown
-                className={cn(
-                  'h-5 w-5 transition-transform duration-200',
-                  !completedCollapsed && 'rotate-180'
-                )}
-              />
-            </button>
-
-            <AnimatePresence>
-              {!completedCollapsed && completedToday && completedToday.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 gap-4 overflow-hidden"
-                >
-                  {completedToday.map((order, index) => (
-                    <motion.div
-                      key={order.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.03 }}
-                    >
-                      <OrderBox
-                        order={{
-                          _id: order.id as unknown as Id<"orders">,
-                          orderNumber: order.order_number,
-                          status: order.status,
-                          channel: order.channel ?? undefined,
-                          dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
-                          items: (order.items ?? []).map((item) => ({
-                            _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
-                            productName: item.product_name,
-                            productVariant: item.product_variant ?? undefined,
-                            productionType: item.production_type,
-                            productionUnits: item.production_units,
-                            quantity: item.quantity,
-                            // Use DB packageStatus, fallback to packed for completed orders
-                            packageStatus: item.package_status ?? 'packed',
-                            ballsFilled: item.balls_filled ?? 0,
-                            packedPackageIndices: item.packed_package_indices,
-                          })),
-                          customer: order.customer_name ? { name: order.customer_name } : null,
-                        }}
-                        onRevert={() => handleRevertOrder(order.id as unknown as Id<"orders">)}
-                        disabled={!canEditKitchen}
-                      />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
-
-              {!completedCollapsed && (!completedToday || completedToday.length === 0) && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <Card>
-                    <CardContent className="py-8 text-center text-muted-foreground">
-                      <p>No orders completed today yet.</p>
                     </CardContent>
                   </Card>
                 </motion.div>

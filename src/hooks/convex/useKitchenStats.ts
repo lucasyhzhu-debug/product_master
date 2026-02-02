@@ -349,3 +349,75 @@ export function useConvexCompleteBalls() {
     mutateAsync: completeBalls,
   };
 }
+
+/**
+ * Complete packaging for an order (move to WaitingShipment or WaitingPickup).
+ * Kitchen UI Flow Fix - Phase 2: Replaces completeOrder for kitchen workflow.
+ */
+export function useConvexCompletePackaging() {
+  const mutation = useMutation(api.orders.mutations.completePackaging);
+
+  return {
+    mutate: async (orderId: Id<"orders">) => {
+      try {
+        const result = await mutation({ orderId });
+        const statusText = result.newStatus === 'WaitingShipment'
+          ? 'Ready for shipment!'
+          : 'Ready for pickup!';
+        toast.success(statusText);
+        return result;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to complete packaging";
+        toast.error(message);
+        throw error;
+      }
+    },
+    mutateAsync: async (orderId: Id<"orders">) => {
+      try {
+        const result = await mutation({ orderId });
+        const statusText = result.newStatus === 'WaitingShipment'
+          ? 'Ready for shipment!'
+          : 'Ready for pickup!';
+        toast.success(statusText);
+        return result;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to complete packaging";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * Revert order back to Packaging status.
+ * Kitchen UI Flow Fix - Phase 2: Undo completion for kitchen workflow.
+ */
+export function useConvexRevertToPackaging() {
+  const mutation = useMutation(api.orders.mutations.revertToPackaging);
+
+  return {
+    mutate: async (orderId: Id<"orders">) => {
+      try {
+        await mutation({ orderId });
+        toast.info("Order moved back to Packaging");
+        return orderId;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to revert order";
+        toast.error(message);
+        throw error;
+      }
+    },
+    mutateAsync: async (orderId: Id<"orders">) => {
+      try {
+        await mutation({ orderId });
+        toast.info("Order moved back to Packaging");
+        return orderId;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to revert order";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
