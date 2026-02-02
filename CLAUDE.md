@@ -42,6 +42,10 @@
 | **Update WhatsApp template** | `convex/orders/whatsapp.ts` | - |
 | **Update Order UI** | - | `src/pages/OrderManager.tsx`<br>`src/pages/OrderDetail.tsx`<br>`src/components/orders/` |
 | **Kitchen View (production)** | `convex/orders/queries.ts`<br>`convex/orders/mutations.ts` | `src/pages/KitchenView.tsx`<br>`src/components/orders/InventoryTray.tsx`<br>`src/components/orders/OrderBox.tsx`<br>`src/components/orders/ProductPackage.tsx`<br>`src/components/orders/FlyingBall.tsx` |
+| **Ball distribution logic** | `convex/orders/helpers/ballDistribution.ts` | - |
+| **Order status transitions** | `convex/orders/helpers/statusTransitions.ts` | - |
+| **Channel/agency usage** | `convex/orders/helpers/usageTracking.ts` | - |
+| **Production records CRUD** | `convex/orders/helpers/productionRecords.ts` | - |
 
 ---
 
@@ -51,6 +55,8 @@
 - `convex/schema.ts` — Database schema definition (19 tables)
 - `convex/lib/costCalculator.ts` — Cost calculation logic
 - `convex/orders/whatsapp.ts` — WhatsApp receipt generation
+- `convex/orders/helpers.ts` — Pure order calculation helpers (no ctx)
+- `convex/orders/helpers/` — Ctx-dependent order helpers (see CODE_STYLE.md for architecture)
 - `convex/[entity]/queries.ts` — Read operations (real-time reactive)
 - `convex/[entity]/mutations.ts` — Write operations (transactional)
 

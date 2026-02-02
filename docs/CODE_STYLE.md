@@ -201,6 +201,77 @@ export const createOrder = mutation({
 ```
 
 ### Helper Functions
+
+#### Two-Tier Helper Architecture (Orders Module)
+
+**Decision Date:** 2026-02-02 | **Branch:** `refactor/orders-mutations-helpers`
+
+The orders module uses a **two-tier helper system** to separate pure functions from database operations:
+
+| Tier | Location | Has `ctx` | Testable | Purpose |
+|------|----------|-----------|----------|---------|
+| **Pure** | `convex/orders/helpers.ts` | No | Unit tests | Calculations, formatting |
+| **Ctx-Dependent** | `convex/orders/helpers/*.ts` | Yes | Integration tests | DB operations |
+
+**Why Two Tiers?**
+1. **Pure helpers** (`helpers.ts`) can be unit tested without mocking Convex
+2. **Ctx helpers** (`helpers/`) need database access and run in mutation context
+3. Avoids import conflicts between the flat file and the directory
+
+**Structure:**
+```
+convex/orders/
+├── mutations.ts              # Thin mutation wrappers
+├── queries.ts                # Query functions
+├── helpers.ts                # PURE functions (no ctx)
+│   ├── generateOrderNumber()
+│   ├── calculateLineTotals()
+│   ├── calculateOrderTotals()
+│   └── recalculateFinalTotal()
+│
+└── helpers/                  # CTX-DEPENDENT functions
+    ├── index.ts              # Barrel export
+    ├── ballDistribution.ts   # distributeBallsToOrders() - dual-write logic
+    ├── statusTransitions.ts  # logOrderEvent(), isTerminalStatus(), etc.
+    ├── usageTracking.ts      # increment/decrementChannelUsage(), etc.
+    └── productionRecords.ts  # createProductionRecordsForItem(), etc.
+```
+
+**Import Pattern:**
+```typescript
+// mutations.ts
+// Pure calculation helpers (no ctx)
+import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
+
+// Ctx-dependent helpers (require MutationCtx)
+import {
+  distributeBallsToOrders,
+  logOrderEvent,
+  isTerminalStatus,
+  incrementChannelUsage,
+  // ...
+} from "./helpers/index";
+```
+
+**When Adding New Helpers:**
+- **No database access needed?** → Add to `helpers.ts`
+- **Needs `ctx.db` access?** → Add to `helpers/*.ts`
+- **New concern area?** → Create new file in `helpers/` and export from `index.ts`
+
+**Dual-Write System (Ball Distribution):**
+
+The `distributeBallsToOrders()` function maintains two tracking systems:
+- **OLD system:** `orderItems.ballsRemaining` (deprecated, for backward compatibility)
+- **NEW system:** `orderItemProduction.unitsRemaining` + `orderItems.ballsFilled/packageStatus`
+
+Both are updated atomically to ensure consistency. See `helpers/ballDistribution.ts` for implementation.
+
+**Future Migration:** The dual-write will be removed once all clients read from the NEW system.
+
+---
+
+#### Global Helpers (convex/lib/)
+
 ```typescript
 // convex/lib/costCalculator.ts
 // Pure functions for business logic
