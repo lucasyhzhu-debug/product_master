@@ -44,32 +44,33 @@ export interface AccordionStepItemProps {
 // ============================================
 
 function StateIcon({ state }: { state: StepState }) {
-  const baseClasses = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full';
+  // Mobile: 40px (h-10 w-10), Desktop: 32px (h-8 w-8) for touch-friendly targets
+  const baseClasses = 'flex h-10 w-10 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full';
 
   switch (state) {
     case 'completed':
       return (
         <div className={cn(baseClasses, 'bg-green-500 text-white')}>
-          <Check className="h-4 w-4" />
+          <Check className="h-5 w-5 sm:h-4 sm:w-4" />
         </div>
       );
     case 'active':
       return (
         <div className={cn(baseClasses, 'bg-blue-500 text-white ring-4 ring-blue-500/20')}>
-          <Clock className="h-4 w-4" />
+          <Clock className="h-5 w-5 sm:h-4 sm:w-4" />
         </div>
       );
     case 'error':
       return (
         <div className={cn(baseClasses, 'bg-red-500 text-white')}>
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-5 w-5 sm:h-4 sm:w-4" />
         </div>
       );
     case 'pending':
     default:
       return (
         <div className={cn(baseClasses, 'border-2 border-muted-foreground/30 text-muted-foreground/50')}>
-          <Circle className="h-3 w-3" />
+          <Circle className="h-4 w-4 sm:h-3 sm:w-3" />
         </div>
       );
   }
@@ -85,7 +86,8 @@ function ConnectorLine({ state, isLast }: { state: StepState; isLast: boolean })
   return (
     <div
       className={cn(
-        'absolute left-4 top-12 h-[calc(100%-3rem)] w-0.5 -translate-x-1/2',
+        // Mobile: left-5 (matches h-10 icon center), Desktop: left-4
+        'absolute left-5 sm:left-4 top-14 sm:top-12 h-[calc(100%-3.5rem)] sm:h-[calc(100%-3rem)] w-0.5 -translate-x-1/2',
         state === 'completed' ? 'bg-green-500' : 'bg-muted-foreground/20'
       )}
       aria-hidden="true"
@@ -125,7 +127,8 @@ export function AccordionStepItem({
         <AccordionTrigger
           onClick={handleClick}
           className={cn(
-            'py-3 px-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors',
+            // Mobile: larger padding for touch targets (min 44px effective height)
+            'py-4 px-4 sm:py-3 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors min-h-[56px] sm:min-h-[48px]',
             state === 'pending' && 'opacity-60 cursor-not-allowed'
           )}
           disabled={state === 'pending'}
@@ -137,7 +140,7 @@ export function AccordionStepItem({
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
-                    'font-medium truncate',
+                    'font-medium truncate text-base sm:text-sm',
                     state === 'completed' && 'text-green-600',
                     state === 'active' && 'text-blue-600',
                     state === 'error' && 'text-red-600'
@@ -153,7 +156,7 @@ export function AccordionStepItem({
               </div>
 
               {subtitle && (
-                <p className="text-sm text-muted-foreground truncate">{subtitle}</p>
+                <p className="text-sm sm:text-xs text-muted-foreground truncate">{subtitle}</p>
               )}
 
               {completedAt && (
@@ -171,7 +174,7 @@ export function AccordionStepItem({
         </AccordionTrigger>
 
         {children && (
-          <AccordionContent className="px-4 pl-14 pb-4">
+          <AccordionContent className="px-4 pl-16 sm:pl-14 pb-4">
             <div className="rounded-lg bg-muted/30 p-4">{children}</div>
           </AccordionContent>
         )}

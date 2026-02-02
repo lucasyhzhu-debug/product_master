@@ -110,11 +110,10 @@ export function ChannelButtons({
             key={channel}
             type="button"
             variant={value === channel ? 'default' : 'outline'}
-            size="sm"
             disabled={disabled}
             onClick={() => onChange(channel)}
             className={cn(
-              'min-w-[60px] font-medium',
+              'min-h-[44px] px-4 sm:min-h-[36px] sm:px-3 font-medium text-base sm:text-sm',
               value === channel && 'ring-2 ring-primary ring-offset-1',
               value !== channel && display.color
             )}
@@ -131,10 +130,9 @@ export function ChannelButtons({
           <Button
             type="button"
             variant={isDropdownSelected ? 'default' : 'outline'}
-            size="sm"
             disabled={disabled}
             className={cn(
-              'gap-1 min-w-[60px]',
+              'gap-1 min-h-[44px] px-4 sm:min-h-[36px] sm:px-3 text-base sm:text-sm',
               isDropdownSelected && 'ring-2 ring-primary ring-offset-1'
             )}
           >
@@ -142,13 +140,13 @@ export function ChannelButtons({
               getDisplay(value).short
             ) : (
               <>
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4" />
                 {remainingCount > 0 ? `+${remainingCount}` : '...'}
               </>
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[160px]">
+        <DropdownMenuContent align="end" className="min-w-[180px]">
           {/* Known channels not in buttons */}
           {dropdownChannels.map((channel) => {
             const display = getDisplay(channel);
@@ -160,7 +158,7 @@ export function ChannelButtons({
                   setDropdownOpen(false);
                 }}
                 className={cn(
-                  'cursor-pointer',
+                  'cursor-pointer min-h-[44px] sm:min-h-[36px] text-base sm:text-sm',
                   value === channel && 'bg-accent font-medium'
                 )}
               >
@@ -187,17 +185,16 @@ export function ChannelButtons({
                     handleAddCustom();
                   }
                 }}
-                className="h-8 text-sm"
+                className="h-10 sm:h-8 text-base sm:text-sm"
               />
               <Button
                 type="button"
-                size="sm"
                 variant="ghost"
                 onClick={handleAddCustom}
                 disabled={!customChannel.trim()}
-                className="h-8 px-2"
+                className="h-10 w-10 sm:h-8 sm:w-8 p-0"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>
