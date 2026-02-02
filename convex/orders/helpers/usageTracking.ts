@@ -8,57 +8,31 @@
 import type { MutationCtx } from "../../_generated/server";
 
 // ============================================
-// Types
-// ============================================
-
-type UsageTable = "channelUsage" | "shippingAgencyUsage";
-
-interface TableConfig {
-  index: "by_channel" | "by_agency";
-  key: "channel" | "agency";
-}
-
-const TABLE_CONFIG: Record<UsageTable, TableConfig> = {
-  channelUsage: { index: "by_channel", key: "channel" },
-  shippingAgencyUsage: { index: "by_agency", key: "agency" },
-};
-
-// ============================================
-// Generic Usage Tracker
+// Channel Usage Tracking
 // ============================================
 
 /**
- * Update usage count for a channel or shipping agency.
+ * Update channel usage count.
  * Creates record if it doesn't exist (for increment).
  * Does nothing if record doesn't exist (for decrement).
  */
-export async function updateUsageCount(
+async function updateChannelUsageCount(
   ctx: MutationCtx,
-  table: UsageTable,
-  value: string,
+  channel: string,
   delta: 1 | -1
 ): Promise<void> {
-  const config = TABLE_CONFIG[table];
-
-  // Query using the appropriate index
   const existing = await ctx.db
-    .query(table)
-    .withIndex(config.index, (q) => q.eq(config.key as any, value))
+    .query("channelUsage")
+    .withIndex("by_channel", (q) => q.eq("channel", channel))
     .first();
 
   if (existing) {
     const newCount = Math.max(0, existing.usageCount + delta);
     await ctx.db.patch(existing._id, { usageCount: newCount });
   } else if (delta > 0) {
-    // Only create record for increment
-    await ctx.db.insert(table, { [config.key]: value, usageCount: 1 } as any);
+    await ctx.db.insert("channelUsage", { channel, usageCount: 1 });
   }
-  // For decrement with no existing record, do nothing
 }
-
-// ============================================
-// Convenience Wrappers
-// ============================================
 
 /**
  * Increment channel usage count.
@@ -68,7 +42,7 @@ export async function incrementChannelUsage(
   ctx: MutationCtx,
   channel: string
 ): Promise<void> {
-  await updateUsageCount(ctx, "channelUsage", channel, 1);
+  await updateChannelUsageCount(ctx, channel, 1);
 }
 
 /**
@@ -79,7 +53,34 @@ export async function decrementChannelUsage(
   ctx: MutationCtx,
   channel: string
 ): Promise<void> {
-  await updateUsageCount(ctx, "channelUsage", channel, -1);
+  await updateChannelUsageCount(ctx, channel, -1);
+}
+
+// ============================================
+// Shipping Agency Usage Tracking
+// ============================================
+
+/**
+ * Update shipping agency usage count.
+ * Creates record if it doesn't exist (for increment).
+ * Does nothing if record doesn't exist (for decrement).
+ */
+async function updateShippingAgencyUsageCount(
+  ctx: MutationCtx,
+  agency: string,
+  delta: 1 | -1
+): Promise<void> {
+  const existing = await ctx.db
+    .query("shippingAgencyUsage")
+    .withIndex("by_agency", (q) => q.eq("agency", agency))
+    .first();
+
+  if (existing) {
+    const newCount = Math.max(0, existing.usageCount + delta);
+    await ctx.db.patch(existing._id, { usageCount: newCount });
+  } else if (delta > 0) {
+    await ctx.db.insert("shippingAgencyUsage", { agency, usageCount: 1 });
+  }
 }
 
 /**
@@ -90,7 +91,7 @@ export async function incrementShippingAgencyUsage(
   ctx: MutationCtx,
   agency: string
 ): Promise<void> {
-  await updateUsageCount(ctx, "shippingAgencyUsage", agency, 1);
+  await updateShippingAgencyUsageCount(ctx, agency, 1);
 }
 
 /**
@@ -101,5 +102,5 @@ export async function decrementShippingAgencyUsage(
   ctx: MutationCtx,
   agency: string
 ): Promise<void> {
-  await updateUsageCount(ctx, "shippingAgencyUsage", agency, -1);
+  await updateShippingAgencyUsageCount(ctx, agency, -1);
 }
