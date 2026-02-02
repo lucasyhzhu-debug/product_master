@@ -3,6 +3,7 @@ import {
   generateOrderNumber,
   calculateLineTotals,
   calculateOrderTotals,
+  calculateProductionUnitsNeeded,
 } from "../helpers";
 
 // ============================================
@@ -114,5 +115,75 @@ describe("calculateOrderTotals", () => {
     expect(result.totalAmount).toBe(0);
     expect(result.totalCost).toBe(0);
     expect(result.totalMargin).toBe(0);
+  });
+});
+
+// ============================================
+// calculateProductionUnitsNeeded() Tests - 11 tests
+// ============================================
+describe("calculateProductionUnitsNeeded", () => {
+  // Basic functionality
+  it("should calculate units for Original (1 ball per unit)", () => {
+    const result = calculateProductionUnitsNeeded(1, 5);
+    expect(result.unitsRequired).toBe(5);
+  });
+
+  it("should calculate units for Bite Sized Single (1 ball per unit)", () => {
+    const result = calculateProductionUnitsNeeded(1, 3);
+    expect(result.unitsRequired).toBe(3);
+  });
+
+  it("should calculate units for Bite Sized Double (2 balls per unit)", () => {
+    const result = calculateProductionUnitsNeeded(2, 4);
+    expect(result.unitsRequired).toBe(8);
+  });
+
+  it("should calculate units for Bite Sized Triple (3 balls per unit)", () => {
+    const result = calculateProductionUnitsNeeded(3, 2);
+    expect(result.unitsRequired).toBe(6);
+  });
+
+  // Edge cases
+  it("should handle zero quantity", () => {
+    const result = calculateProductionUnitsNeeded(3, 0);
+    expect(result.unitsRequired).toBe(0);
+  });
+
+  it("should handle zero units per product", () => {
+    const result = calculateProductionUnitsNeeded(0, 5);
+    expect(result.unitsRequired).toBe(0);
+  });
+
+  it("should handle both zero", () => {
+    const result = calculateProductionUnitsNeeded(0, 0);
+    expect(result.unitsRequired).toBe(0);
+  });
+
+  // Large quantities
+  it("should handle large quantity (100 units)", () => {
+    const result = calculateProductionUnitsNeeded(1, 100);
+    expect(result.unitsRequired).toBe(100);
+  });
+
+  it("should handle combo pack with multiple unit types (simulated)", () => {
+    // Combo pack: 1 big ball + 2 mid balls
+    // For 3 units ordered:
+    const bigBalls = calculateProductionUnitsNeeded(1, 3);
+    const midBalls = calculateProductionUnitsNeeded(2, 3);
+    expect(bigBalls.unitsRequired).toBe(3);
+    expect(midBalls.unitsRequired).toBe(6);
+  });
+
+  // Input validation
+  it("should throw error for negative unitsPerProduct", () => {
+    expect(() => {
+      calculateProductionUnitsNeeded(-1, 5);
+    }).toThrow("unitsPerProduct must be non-negative");
+  });
+
+  it("should throw error for negative quantity", () => {
+    expect(() => {
+      calculateProductionUnitsNeeded(3, -2);
+    }).toThrow("quantity must be non-negative");
   });
 });
