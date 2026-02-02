@@ -28,6 +28,7 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
 import type * as orders_helpers_index from "../orders/helpers/index.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
   "orders/helpers/index": typeof orders_helpers_index;

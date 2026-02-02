@@ -76,6 +76,7 @@ export function KitchenView() {
   // Package status mutations
   const markPackagePacked = useMutation(api.orders.mutations.markPackagePacked);
   const unmarkPackagePacked = useMutation(api.orders.mutations.unmarkPackagePacked);
+  const markAllItemPackagesPacked = useMutation(api.orders.mutations.markAllItemPackagesPacked);
 
   const isLoading = statsLoading || ordersLoading;
 
@@ -292,6 +293,22 @@ export function KitchenView() {
     }
   };
 
+  const handleMarkAllPacked = async (itemId: Id<"orderItems">, packageIndices: number[]) => {
+    try {
+      playSoftClick();
+      const result = await markAllItemPackagesPacked({
+        orderItemId: itemId,
+        packageIndices
+      });
+      if (result.packedCount > 0) {
+        toast.success(`Marked ${result.packedCount} package${result.packedCount > 1 ? 's' : ''} as packed`);
+      }
+    } catch (error) {
+      toast.error('Failed to mark packages');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -400,17 +417,12 @@ export function KitchenView() {
                   className="grid grid-cols-1 gap-4"
                   layout
                 >
-                  {pendingOrders.map((order, index) => {
-                    // Determine if order is completed based on status
-                    const isCompleted = ['WaitingShipment', 'WaitingPickup', 'CompleteShipped', 'PickedUp'].includes(order.status);
-
-                    return (
+                  {pendingOrders.map((order, index) => (
                       <motion.div
                         key={order.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -100, transition: { duration: 0.3 } }}
-                        transition={{ delay: index * 0.05 }}
+                        transition={{ delay: index * 0.02, layout: { duration: 0.3 } }}
                         layout
                       >
                         <OrderBox
@@ -442,13 +454,12 @@ export function KitchenView() {
                           }}
                           onPackageStatusChange={handlePackageStatusChange}
                           onComplete={() => handleCompleteOrder(order.id as unknown as Id<"orders">)}
-                          onRevert={isCompleted ? () => handleRevertOrder(order.id as unknown as Id<"orders">) : undefined}
-                          isCompleted={isCompleted}
+                          onRevert={() => handleRevertOrder(order.id as unknown as Id<"orders">)}
+                          onMarkAllPacked={handleMarkAllPacked}
                           disabled={!canEditKitchen}
                         />
                       </motion.div>
-                    );
-                  })}
+                    ))}
                 </motion.div>
               ) : (
                 <motion.div

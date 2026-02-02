@@ -197,7 +197,7 @@ export function OrderDetail() {
             onClick={() => handleStatusChange('AwaitingPayment')}
             className="w-full"
           >
-            Send Payment Request
+            Confirmation invoice sent to customer for payment
           </Button>
         </div>
       ) : null,

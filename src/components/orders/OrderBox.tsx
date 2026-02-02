@@ -37,17 +37,48 @@ interface OrderBoxProps {
   onPackageStatusChange?: (itemId: Id<"orderItems">, newStatus: 'filled' | 'packed', packageIndex: number) => void;
   onComplete?: () => void;
   onRevert?: () => void;
-  isCompleted?: boolean;
+  onMarkAllPacked?: (itemId: Id<"orderItems">, packageIndices: number[]) => void;
   disabled?: boolean;
 }
 
 function formatDueTime(dueDate: number | undefined): string {
   if (!dueDate) return '-';
+
+  const now = new Date();
   const date = new Date(dueDate);
-  return date.toLocaleTimeString('id-ID', {
+  const diffMs = dueDate - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  // Format time portion
+  const timeStr = date.toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Check if same day
+  const isToday = date.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+  if (diffMs < 0) {
+    // Overdue
+    const overdueDays = Math.abs(diffDays);
+    if (overdueDays === 0) return `Overdue (${timeStr})`;
+    return `Overdue by ${overdueDays} day${overdueDays > 1 ? 's' : ''}`;
+  } else if (isToday) {
+    return `Today ${timeStr}`;
+  } else if (isTomorrow) {
+    return `Tomorrow ${timeStr}`;
+  } else if (diffDays <= 7) {
+    // Within a week - show day name and time
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${dayName} ${timeStr} (${diffDays}d)`;
+  } else {
+    // More than a week - show date
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${dateStr} ${timeStr}`;
+  }
 }
 
 function getUrgencyState(dueDate: number | undefined): 'overdue' | 'urgent' | 'normal' {
@@ -132,17 +163,35 @@ function expandItemsToPackages(items: OrderItem[]): Array<{
 
 // Group packages by product name for display with row headers
 function groupPackagesByProduct(packages: ReturnType<typeof expandItemsToPackages>) {
-  const groups = new Map<string, typeof packages>();
+  const groups = new Map<string, {
+    packages: typeof packages;
+    filledByItem: Map<string, number[]>; // itemId -> filled package indices
+  }>();
 
   for (const pkg of packages) {
     const key = pkg.productName;
     if (!groups.has(key)) {
-      groups.set(key, []);
+      groups.set(key, { packages: [], filledByItem: new Map() });
     }
-    groups.get(key)!.push(pkg);
+    const group = groups.get(key)!;
+    group.packages.push(pkg);
+
+    // Track filled (not yet packed) packages by item
+    if (pkg.status === 'filled') {
+      const itemKey = pkg.itemId.toString();
+      if (!group.filledByItem.has(itemKey)) {
+        group.filledByItem.set(itemKey, []);
+      }
+      group.filledByItem.get(itemKey)!.push(pkg.packageIndex);
+    }
   }
 
-  return Array.from(groups.entries());
+  return Array.from(groups.entries()).map(([name, data]) => ({
+    productName: name,
+    packages: data.packages,
+    filledCount: data.packages.filter(p => p.status === 'filled').length,
+    filledByItem: data.filledByItem,
+  }));
 }
 
 // Statuses that mean the order has left the kitchen (completed in kitchen context)
@@ -153,11 +202,11 @@ export function OrderBox({
   onPackageStatusChange,
   onComplete,
   onRevert,
-  isCompleted: isCompletedProp,
+  onMarkAllPacked,
   disabled = false,
 }: OrderBoxProps) {
-  // Determine if order is "completed" (left the kitchen) from status, or use prop as override
-  const isCompleted = isCompletedProp ?? COMPLETED_STATUSES.includes(order.status ?? '');
+  // Determine if order is "completed" (left the kitchen) from status
+  const isCompleted = COMPLETED_STATUSES.includes(order.status ?? '');
 
   const urgency = getUrgencyState(order.dueDate);
 
@@ -231,8 +280,8 @@ export function OrderBox({
       // Completed orders get green styling
       'bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-800':
         isCompleted,
-      // Draft orders get grey styling
-      'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 opacity-75':
+      // Draft orders get grey styling (30% opacity in dark mode)
+      'bg-gray-100 dark:bg-gray-700/30 border-gray-300 dark:border-gray-500 opacity-75':
         isDraft && !isCompleted,
       // Urgency styling (only for non-draft, non-completed)
       'border-red-500 animate-pulse shadow-red-200 dark:shadow-red-900/30 shadow-lg':
@@ -323,16 +372,31 @@ export function OrderBox({
 
       {/* Package Grid - grouped by product with row headers */}
       <CardContent className="py-3 sm:py-4 px-3 sm:px-6 space-y-4">
-        {groupPackagesByProduct(packages).map(([productName, productPackages]) => (
-          <div key={productName}>
-            {/* Product row header */}
-            <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-              <span>{productName}</span>
-              <span className="text-xs">({productPackages.length})</span>
+        {groupPackagesByProduct(packages).map((group) => (
+          <div key={group.productName}>
+            {/* Product row header with Mark All button */}
+            <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>{group.productName}</span>
+                <span className="text-xs">({group.packages.length})</span>
+              </div>
+              {/* Mark all as packaged button */}
+              {!disabled && group.filledCount > 0 && onMarkAllPacked && (
+                <button
+                  onClick={() => {
+                    for (const [itemId, indices] of group.filledByItem) {
+                      onMarkAllPacked(itemId as Id<"orderItems">, indices);
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded bg-yellow-500 hover:bg-yellow-600 text-white font-medium transition-colors"
+                >
+                  Mark all ({group.filledCount}) as packaged
+                </button>
+              )}
             </div>
             {/* Packages grid for this product */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-              {productPackages.map((pkg) => (
+              {group.packages.map((pkg) => (
                 <ProductPackage
                   key={`${pkg.itemId}-${pkg.packageIndex}`}
                   productName=""
@@ -355,7 +419,7 @@ export function OrderBox({
           </div>
         )}
 
-        {/* Undo Complete Button - shows for completed orders */}
+        {/* Return to Packaging Button - shows for completed orders */}
         {isCompleted && onRevert && (
           <div className="pt-4 border-t mt-4">
             <div
@@ -378,7 +442,7 @@ export function OrderBox({
                 ) : (
                   <span className="text-amber-700 dark:text-amber-300 flex items-center gap-2">
                     <Undo2 className="h-5 w-5" />
-                    Undo Complete
+                    Return to Packaging
                   </span>
                 )}
               </div>
