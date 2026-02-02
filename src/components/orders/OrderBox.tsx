@@ -124,6 +124,21 @@ function expandItemsToPackages(items: OrderItem[]): Array<{
   return packages;
 }
 
+// Group packages by product name for display with row headers
+function groupPackagesByProduct(packages: ReturnType<typeof expandItemsToPackages>) {
+  const groups = new Map<string, typeof packages>();
+
+  for (const pkg of packages) {
+    const key = pkg.productName;
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key)!.push(pkg);
+  }
+
+  return Array.from(groups.entries());
+}
+
 export function OrderBox({
   order,
   onPackageStatusChange,
@@ -304,23 +319,33 @@ export function OrderBox({
 
       <Separator />
 
-      {/* Package Grid - responsive columns */}
-      <CardContent className="py-3 sm:py-4 px-3 sm:px-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-          {packages.map((pkg) => (
-            <ProductPackage
-              key={`${pkg.itemId}-${pkg.packageIndex}`}
-              productName={pkg.productName}
-              ballType={pkg.ballType}
-              ballsRequired={pkg.ballsRequired}
-              ballsFilled={pkg.ballsFilled}
-              status={pkg.status}
-              onPack={() => handlePackageClick({ ...pkg, status: 'filled' })}
-              onUnpack={() => handlePackageClick({ ...pkg, status: 'packed' })}
-              disabled={disabled}
-            />
-          ))}
-        </div>
+      {/* Package Grid - grouped by product with row headers */}
+      <CardContent className="py-3 sm:py-4 px-3 sm:px-6 space-y-4">
+        {groupPackagesByProduct(packages).map(([productName, productPackages]) => (
+          <div key={productName}>
+            {/* Product row header */}
+            <div className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+              <span>{productName}</span>
+              <span className="text-xs">({productPackages.length})</span>
+            </div>
+            {/* Packages grid for this product */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+              {productPackages.map((pkg) => (
+                <ProductPackage
+                  key={`${pkg.itemId}-${pkg.packageIndex}`}
+                  productName=""
+                  ballType={pkg.ballType}
+                  ballsRequired={pkg.ballsRequired}
+                  ballsFilled={pkg.ballsFilled}
+                  status={pkg.status}
+                  onPack={() => handlePackageClick({ ...pkg, status: 'filled' })}
+                  onUnpack={() => handlePackageClick({ ...pkg, status: 'packed' })}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
 
         {packages.length === 0 && (
           <div className="text-center text-muted-foreground py-4">
