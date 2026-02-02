@@ -1256,7 +1256,8 @@ export const completeBalls = mutation({
       }
 
       // PRD-5: Apply balls to orderItemProduction records (NEW system - dual-write)
-      let remainingForNewSystem = args.count;
+      // Use remainingBalls (already decremented by OLD system) to stay in sync
+      let remainingForNewSystem = remainingBalls;
       for (const item of items) {
         if (remainingForNewSystem <= 0) break;
 
@@ -1619,7 +1620,8 @@ export const addBallsToTray = mutation({
     });
 
     // Apply balls to orders
-    let remainingBalls = args.count;
+    // Use newCount (currentCount + args.count) so that existing tray balls are preserved
+    let remainingBalls = newCount;
     const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
     const updatedBallsRemaining = new Map<string, number>();
     const completedOrderIds: Id<"orders">[] = [];
@@ -1678,7 +1680,8 @@ export const addBallsToTray = mutation({
       }
 
       // Update orderItemProduction (NEW system - dual-write)
-      let remainingForNewSystem = args.count;
+      // Use remainingBalls (already decremented by OLD system) to stay in sync
+      let remainingForNewSystem = remainingBalls;
       for (const item of items) {
         if (remainingForNewSystem <= 0) break;
 
@@ -1742,7 +1745,8 @@ export const addBallsToTray = mutation({
     }
 
     // Calculate final tray count
-    const ballsUsed = args.count - remainingBalls;
+    // ballsUsed = total in tray before draining (newCount) minus what's left (remainingBalls)
+    const ballsUsed = newCount - remainingBalls;
     const overflow = remainingBalls;
 
     // Update inventory with overflow
