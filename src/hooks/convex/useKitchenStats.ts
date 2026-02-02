@@ -51,6 +51,9 @@ interface ConvexKitchenOrderItem {
   productionType?: "original" | "bite_sized";
   productionUnits?: number;
   ballsRemaining?: number;
+  // PRD-6: Package status and ball tracking
+  ballsFilled?: number;
+  packageStatus?: "empty" | "filling" | "filled" | "packed";
 }
 
 interface ConvexKitchenOrder {
@@ -152,6 +155,9 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
     production_type: item.productionType,
     production_units: item.productionUnits,
     balls_remaining: item.ballsRemaining,
+    // PRD-6: Package status and ball tracking
+    balls_filled: item.ballsFilled ?? 0,
+    package_status: item.packageStatus ?? 'empty',
   };
 }
 

@@ -27,12 +27,12 @@ interface ProductPackageProps {
   disabled?: boolean;
 }
 
-// Status colors for border and background
+// Status colors for border and background - white bg with thick status-based outlines
 const statusStyles: Record<PackageStatus, { border: string; bg: string }> = {
-  empty: { border: 'border-gray-300 dark:border-gray-600', bg: 'bg-gray-50 dark:bg-gray-900' },
-  filling: { border: 'border-red-500', bg: 'bg-red-50 dark:bg-red-950/30' },
-  filled: { border: 'border-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-950/30' },
-  packed: { border: 'border-green-500', bg: 'bg-green-50 dark:bg-green-950/30' },
+  empty: { border: 'border-gray-400 dark:border-gray-400', bg: 'bg-white dark:bg-slate-100' },
+  filling: { border: 'border-orange-500', bg: 'bg-white dark:bg-slate-100' },
+  filled: { border: 'border-yellow-500', bg: 'bg-white dark:bg-slate-100' },
+  packed: { border: 'border-green-500', bg: 'bg-white dark:bg-slate-100' },
 };
 
 // Ball sizes for display (smaller than tray for package view)
@@ -106,7 +106,7 @@ export function ProductPackage({
       transition={{ duration: 0.2 }}
       whileTap={isClickable ? { scale: 0.95 } : undefined}
       className={cn(
-        'rounded-lg border-2 p-1.5 sm:p-2 transition-colors',
+        'rounded-lg border-[3px] p-1.5 sm:p-2 transition-colors shadow-sm',
         statusStyles[status].border,
         statusStyles[status].bg,
         isClickable && 'cursor-pointer hover:shadow-md',

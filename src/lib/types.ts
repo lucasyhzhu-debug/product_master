@@ -618,6 +618,9 @@ export interface KitchenOrderItem extends OrderItem {
   production_type?: 'original' | 'bite_sized';
   production_units?: number;
   balls_remaining?: number;
+  // PRD-6: Package status and ball tracking for visual inventory
+  balls_filled?: number;
+  package_status?: 'empty' | 'filling' | 'filled' | 'packed';
   // PRD-5: Production records for each unit type
   production_records?: OrderItemProduction[];
 }

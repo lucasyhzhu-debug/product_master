@@ -257,8 +257,9 @@ export function KitchenView() {
                             productionType: item.production_type,
                             productionUnits: item.production_units,
                             quantity: item.quantity,
-                            packageStatus: 'empty' as const,
-                            ballsFilled: 0,
+                            // Use actual values from backend instead of hardcoded empty
+                            packageStatus: item.package_status ?? 'empty',
+                            ballsFilled: item.balls_filled ?? 0,
                           })),
                           customer: order.customer_name ? { name: order.customer_name } : null,
                         }}
