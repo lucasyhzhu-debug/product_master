@@ -311,6 +311,26 @@ When the user types `/techdebt`, execute the techdebt skill to scan for code dup
 - Before creating a PR
 - Planning refactoring work
 
+### /staffreview
+
+When the user types `/staffreview`, execute the staffreview skill to review implementation plans from the perspective of senior engineers.
+
+**Instructions:** Read and follow `.agent/skills/staffreview/SKILL.md`
+
+**Quick summary:**
+1. Accept optional path argument or prompt for plan selection from `docs/plans/`
+2. Read project context (CLAUDE.md, CODE_STYLE.md, SCHEMA.md)
+3. Perform Staff Developer review (implementation, patterns, duplication)
+4. Perform Principal Developer review (architecture, schema flows, logic)
+5. Generate consolidated report with Critical/Improvement/Refinement items
+6. Recommend specialist agents for each implementation phase
+7. Optionally save review to `docs/reviews/staffreview-{plan-name}-{date}.md`
+
+**Use when:**
+- Before starting implementation of any plan
+- After writing a new implementation plan (self-review)
+- When inheriting a plan from another developer
+
 ---
 
 ## Convex Quick Reference
