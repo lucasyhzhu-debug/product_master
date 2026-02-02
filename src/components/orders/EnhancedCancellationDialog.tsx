@@ -120,17 +120,18 @@ function CategoryStep({
           <div
             key={cat.value}
             className={cn(
-              'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
+              // Mobile: larger padding for touch targets (min 44px height)
+              'flex items-start gap-3 rounded-lg border p-4 sm:p-3 cursor-pointer transition-colors min-h-[56px] sm:min-h-[48px]',
               category === cat.value && 'border-primary bg-primary/5'
             )}
             onClick={() => onCategoryChange(cat.value)}
           >
-            <RadioGroupItem value={cat.value} id={cat.value} className="mt-0.5" />
+            <RadioGroupItem value={cat.value} id={cat.value} className="mt-0.5 h-5 w-5 sm:h-4 sm:w-4" />
             <div className="flex-1">
-              <Label htmlFor={cat.value} className="font-medium cursor-pointer">
+              <Label htmlFor={cat.value} className="font-medium cursor-pointer text-base sm:text-sm">
                 {cat.label}
               </Label>
-              <p className="text-xs text-muted-foreground">{cat.description}</p>
+              <p className="text-sm sm:text-xs text-muted-foreground">{cat.description}</p>
             </div>
           </div>
         ))}
@@ -241,7 +242,8 @@ function ConfirmationStep({
 
       <div
         className={cn(
-          'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
+          // Mobile: larger padding for touch targets
+          'flex items-start gap-3 rounded-lg border p-4 sm:p-3 cursor-pointer transition-colors min-h-[56px] sm:min-h-[48px]',
           confirmed && 'border-red-500 bg-red-50'
         )}
         onClick={() => onConfirmedChange(!confirmed)}
@@ -250,8 +252,9 @@ function ConfirmationStep({
           id="confirm"
           checked={confirmed}
           onCheckedChange={(checked) => onConfirmedChange(checked === true)}
+          className="h-5 w-5 sm:h-4 sm:w-4"
         />
-        <Label htmlFor="confirm" className="text-sm cursor-pointer leading-relaxed">
+        <Label htmlFor="confirm" className="text-base sm:text-sm cursor-pointer leading-relaxed">
           I understand this action is permanent and will cancel order{' '}
           <span className="font-medium">{orderNumber}</span> along with all associated
           production records.
@@ -361,28 +364,29 @@ export function EnhancedCancellationDialog({
           )}
         </div>
 
-        <DialogFooter className="flex-row gap-2">
+        <DialogFooter className="flex-row gap-2 sm:gap-2">
           {step > 1 ? (
-            <Button variant="outline" onClick={handleBack} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="outline" onClick={handleBack} className="gap-2 min-h-[44px] sm:min-h-[36px] text-base sm:text-sm">
+              <ArrowLeft className="h-5 w-5 sm:h-4 sm:w-4" />
               Back
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px] sm:min-h-[36px] text-base sm:text-sm">
               Cancel
             </Button>
           )}
 
           {step < totalSteps ? (
-            <Button onClick={handleNext} disabled={!canProceed} className="gap-2">
+            <Button onClick={handleNext} disabled={!canProceed} className="gap-2 min-h-[44px] sm:min-h-[36px] text-base sm:text-sm">
               Next
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-5 w-5 sm:h-4 sm:w-4" />
             </Button>
           ) : (
             <Button
               variant="destructive"
               onClick={handleConfirm}
               disabled={!canProceed}
+              className="min-h-[44px] sm:min-h-[36px] text-base sm:text-sm"
             >
               Confirm Cancellation
             </Button>

@@ -61,11 +61,10 @@ export function PaymentMethodButtons({
           key={method}
           type="button"
           variant={value === method ? 'default' : 'outline'}
-          size="sm"
           disabled={disabled}
           onClick={() => onChange(method)}
           className={cn(
-            'gap-2 min-w-[80px]',
+            'gap-2 min-h-[44px] px-4 sm:min-h-[36px] sm:px-3 text-base sm:text-sm',
             value === method && 'ring-2 ring-primary ring-offset-1'
           )}
         >
@@ -80,10 +79,9 @@ export function PaymentMethodButtons({
           <Button
             type="button"
             variant={isSecondarySelected ? 'default' : 'outline'}
-            size="sm"
             disabled={disabled}
             className={cn(
-              'gap-1 min-w-[80px]',
+              'gap-1 min-h-[44px] px-4 sm:min-h-[36px] sm:px-3 text-base sm:text-sm',
               isSecondarySelected && 'ring-2 ring-primary ring-offset-1'
             )}
           >
@@ -98,7 +96,7 @@ export function PaymentMethodButtons({
             <ChevronDown className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[120px]">
+        <DropdownMenuContent align="end" className="min-w-[140px]">
           {SECONDARY_METHODS.map((method) => (
             <DropdownMenuItem
               key={method}
@@ -107,7 +105,7 @@ export function PaymentMethodButtons({
                 setDropdownOpen(false);
               }}
               className={cn(
-                'cursor-pointer',
+                'cursor-pointer min-h-[44px] sm:min-h-[36px] text-base sm:text-sm',
                 value === method && 'bg-accent font-medium'
               )}
             >
@@ -120,7 +118,7 @@ export function PaymentMethodButtons({
               setDropdownOpen(false);
             }}
             className={cn(
-              'cursor-pointer',
+              'cursor-pointer min-h-[44px] sm:min-h-[36px] text-base sm:text-sm',
               value === 'Other' && 'bg-accent font-medium'
             )}
           >
