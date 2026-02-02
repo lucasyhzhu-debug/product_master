@@ -1079,17 +1079,15 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
 }
 
 /**
- * Add balls to tray and auto-drain to waiting orders.
+ * Add balls to tray (NO auto-distribution).
  * PRD-6: Visual Inventory Tray System
- * PRD-7: Enhanced with automatic status transitions:
- *   - Confirmed -> InProduction (first ball filled)
- *   - InProduction -> Packaging (all balls complete)
  *
  * Flow:
- * 1. Add balls to tray
- * 2. Auto-drain to waiting orders (sequential, by priority)
- * 3. Auto-transition order statuses as appropriate
- * 4. Return overflow count and transition info
+ * 1. Add balls to tray ONLY (no distribution)
+ * 2. User clicks "Fill Orders" button separately to distribute
+ *
+ * This separates accumulation (adding balls) from distribution (filling orders)
+ * for better UX control.
  */
 export const addBallsToTray = mutation({
   args: {
@@ -1104,7 +1102,7 @@ export const addBallsToTray = mutation({
     // Get or create today's inventory
     const inventory = await getOrCreateTodayInventory(ctx);
 
-    // Add balls to tray
+    // Add balls to tray (NO auto-distribution)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
     const newCount = currentCount + args.count;
@@ -1114,24 +1112,96 @@ export const addBallsToTray = mutation({
       lastUpdated: Date.now(),
     });
 
-    // Distribute balls to orders
+    // Return new count only - NO distribution
+    return {
+      trayCount: newCount,
+      ballsAdded: args.count,
+      ballType: args.ballType,
+    };
+  },
+});
+
+/**
+ * Fill pending orders with balls from tray.
+ * PRD-6: Visual Inventory Tray System - Manual Fill
+ *
+ * Flow:
+ * 1. Get current tray inventory
+ * 2. Call existing distribution helper (handles status transitions)
+ * 3. Update tray with remaining balls (overflow)
+ * 4. Return results for UI (animations, sounds, toasts)
+ */
+export const fillPendingOrders = mutation({
+  args: {
+    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+  },
+  handler: async (ctx, args) => {
+    const today = new Date().toISOString().split("T")[0];
+
+    // 1. Get current tray inventory
+    const tray = await ctx.db
+      .query("kitchenInventory")
+      .withIndex("by_date", (q) => q.eq("date", today))
+      .unique();
+
+    if (!tray) {
+      return {
+        success: false,
+        error: "No tray inventory found",
+        ballsUsed: 0,
+        overflow: 0,
+        filledItems: [] as Array<{ orderItemId: Id<"orderItems">; ballsAdded: number; isPackageComplete: boolean }>,
+        packagesCompleted: 0,
+        ordersUpdated: 0,
+      };
+    }
+
+    const countField = args.ballType === "original"
+      ? "originalBallCount"
+      : "biteSizedBallCount";
+    const availableBalls = tray[countField] ?? 0;
+
+    if (availableBalls === 0) {
+      return {
+        success: false,
+        error: "No balls in tray",
+        ballsUsed: 0,
+        overflow: 0,
+        filledItems: [] as Array<{ orderItemId: Id<"orderItems">; ballsAdded: number; isPackageComplete: boolean }>,
+        packagesCompleted: 0,
+        ordersUpdated: 0,
+      };
+    }
+
+    // 2. Call existing distribution helper (handles status transitions)
     const result = await distributeBallsToOrders(ctx, {
       ballType: args.ballType,
-      count: newCount,
+      count: availableBalls,
       trackFilledPackages: true,
     });
 
-    // Update inventory with overflow
-    await ctx.db.patch(inventory._id, {
-      [fieldName]: result.overflow,
+    // 3. Update tray with remaining balls (overflow)
+    await ctx.db.patch(tray._id, {
+      [countField]: result.overflow,
       lastUpdated: Date.now(),
     });
 
+    // 4. Derive additional metrics from result
+    // Count unique orders updated (from filledPackages)
+    const uniqueOrderItemIds = new Set(result.filledPackages.map(p => p.orderItemId.toString()));
+    const ordersUpdated = uniqueOrderItemIds.size;
+
+    // Count packages completed (orders that transitioned to Packaging status)
+    const packagesCompleted = result.completedOrderIds.length;
+
+    // 5. Return results for UI (animations, sounds, toasts)
     return {
+      success: true,
       ballsUsed: result.ballsUsed,
       overflow: result.overflow,
-      filledPackages: result.filledPackages,
-      trayCount: result.overflow,
+      filledItems: result.filledPackages,
+      packagesCompleted,
+      ordersUpdated,
       completedOrderIds: result.completedOrderIds,
       transitionedToInProduction: result.transitionedToInProduction,
     };
@@ -1181,15 +1251,19 @@ export const removeBallFromTray = mutation({
 });
 
 /**
- * Mark a package as packed (Yellow -> Green).
- * PRD-6: Visual Inventory Tray System
+ * Mark a specific package as packed (Yellow -> Green).
+ * PRD-6: Visual Inventory Tray System - Per-package tracking
  * PRD-7: Enhanced with automatic status transitions:
  *   - Packaging -> WaitingShipment (for Delivery orders) when all items packed
  *   - Packaging -> WaitingPickup (for Pickup orders) when all items packed
+ *
+ * @param orderItemId - The order item ID
+ * @param packageIndex - The specific package index (0 to quantity-1)
  */
 export const markPackagePacked = mutation({
   args: {
     orderItemId: v.id("orderItems"),
+    packageIndex: v.optional(v.number()), // Optional for backward compatibility
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.orderItemId);
@@ -1197,15 +1271,55 @@ export const markPackagePacked = mutation({
       throw new Error("Order item not found");
     }
 
-    if (item.packageStatus !== "filled") {
+    const packageIndex = args.packageIndex ?? 0;
+    const quantity = item.quantity ?? 1;
+
+    // Validate package index
+    if (packageIndex < 0 || packageIndex >= quantity) {
+      throw new Error(`Invalid package index ${packageIndex}. Must be 0 to ${quantity - 1}`);
+    }
+
+    // Check if balls are filled for this package
+    const ballsPerPackage = item.productionUnits ?? 1;
+    const ballsFilled = item.ballsFilled ?? 0;
+    const ballsForThisPackage = Math.min(
+      Math.max(0, ballsFilled - (packageIndex * ballsPerPackage)),
+      ballsPerPackage
+    );
+
+    if (ballsForThisPackage < ballsPerPackage) {
       throw new Error("Can only pack filled packages (yellow status)");
     }
 
+    // Get current packed indices or initialize empty array
+    const packedIndices = item.packedPackageIndices ?? [];
+
+    // Check if already packed
+    if (packedIndices.includes(packageIndex)) {
+      throw new Error(`Package ${packageIndex} is already packed`);
+    }
+
+    // Add this package to packed list
+    const newPackedIndices = [...packedIndices, packageIndex].sort((a, b) => a - b);
+
+    // Determine overall packageStatus
+    const totalBallsRequired = quantity * ballsPerPackage;
+    const allPackagesFilled = ballsFilled >= totalBallsRequired;
+    const allPackagesPacked = newPackedIndices.length >= quantity;
+
+    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+    if (allPackagesPacked) {
+      newPackageStatus = "packed";
+    } else if (allPackagesFilled) {
+      newPackageStatus = "filled";
+    }
+
     await ctx.db.patch(args.orderItemId, {
-      packageStatus: "packed",
+      packedPackageIndices: newPackedIndices,
+      packageStatus: newPackageStatus,
     });
 
-    // Check if all items in the order are now packed
+    // Check if all items in the order are now fully packed
     const order = await ctx.db.get(item.orderId);
     if (!order) {
       throw new Error("Order not found");
@@ -1219,17 +1333,22 @@ export const markPackagePacked = mutation({
     // Filter to items with production data
     const productionItems = allItems.filter((i) => i.productionType);
 
-    // Check if all are packed
-    const allPacked = productionItems.every(
-      (i) => i._id.toString() === args.orderItemId.toString()
-        ? true // The one we just packed
-        : i.packageStatus === "packed"
-    );
+    // Check if all items are fully packed (all packages in each item)
+    const allItemsPacked = productionItems.every((i) => {
+      if (i._id.toString() === args.orderItemId.toString()) {
+        // Use the updated state for this item
+        return allPackagesPacked;
+      }
+      // Check existing packedPackageIndices
+      const packed = i.packedPackageIndices ?? [];
+      const itemQuantity = i.quantity ?? 1;
+      return packed.length >= itemQuantity;
+    });
 
     // PRD-7: Auto-transition when all packages are packed
     let statusTransition: { from: string; to: string } | null = null;
 
-    if (allPacked && order.status === "Packaging") {
+    if (allItemsPacked && order.status === "Packaging") {
       // Determine next status based on delivery type
       const nextStatus = order.deliveryType === "Delivery" ? "WaitingShipment" : "WaitingPickup";
 
@@ -1250,7 +1369,8 @@ export const markPackagePacked = mutation({
 
     return {
       orderItemId: args.orderItemId,
-      allPackagesPacked: allPacked,
+      packageIndex,
+      allPackagesPacked: allItemsPacked,
       orderId: item.orderId,
       statusTransition, // PRD-7: Include transition info for frontend toast
     };
@@ -1258,12 +1378,16 @@ export const markPackagePacked = mutation({
 });
 
 /**
- * Unmark a package as packed (Green -> Yellow).
- * PRD-6: Visual Inventory Tray System
+ * Unmark a specific package as packed (Green -> Yellow).
+ * PRD-6: Visual Inventory Tray System - Per-package tracking
+ *
+ * @param orderItemId - The order item ID
+ * @param packageIndex - The specific package index to unpack
  */
 export const unmarkPackagePacked = mutation({
   args: {
     orderItemId: v.id("orderItems"),
+    packageIndex: v.optional(v.number()), // Optional for backward compatibility
   },
   handler: async (ctx, args) => {
     const item = await ctx.db.get(args.orderItemId);
@@ -1271,16 +1395,39 @@ export const unmarkPackagePacked = mutation({
       throw new Error("Order item not found");
     }
 
-    if (item.packageStatus !== "packed") {
-      throw new Error("Can only unpack packed packages (green status)");
+    const packageIndex = args.packageIndex ?? 0;
+    const packedIndices = item.packedPackageIndices ?? [];
+
+    // Check if this package is packed
+    if (!packedIndices.includes(packageIndex)) {
+      throw new Error(`Package ${packageIndex} is not packed`);
+    }
+
+    // Remove this package from packed list
+    const newPackedIndices = packedIndices.filter((i) => i !== packageIndex);
+
+    // Determine new packageStatus
+    const quantity = item.quantity ?? 1;
+    const ballsPerPackage = item.productionUnits ?? 1;
+    const ballsFilled = item.ballsFilled ?? 0;
+    const totalBallsRequired = quantity * ballsPerPackage;
+    const allPackagesFilled = ballsFilled >= totalBallsRequired;
+
+    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+    if (newPackedIndices.length >= quantity) {
+      newPackageStatus = "packed";
+    } else if (allPackagesFilled) {
+      newPackageStatus = "filled";
     }
 
     await ctx.db.patch(args.orderItemId, {
-      packageStatus: "filled",
+      packedPackageIndices: newPackedIndices,
+      packageStatus: newPackageStatus,
     });
 
     return {
       orderItemId: args.orderItemId,
+      packageIndex,
     };
   },
 });
@@ -1376,6 +1523,100 @@ export const migrateChannelCodes = mutation({
       message: dryRun
         ? `Dry run: Would migrate ${results.migrated} orders. Run again with dryRun: false to apply.`
         : `Migrated ${results.migrated} orders from old channel codes to new values.`,
+    };
+  },
+});
+
+/**
+ * Backfill production records for order items missing them.
+ * Run from Convex dashboard Functions tab: orders:backfillProductionRecords
+ *
+ * Creates orderItemProduction records for items that have productionType but no production records.
+ * Uses the item's productionType to determine the ball type (original -> BIG_BALL, bite_sized -> MID_BALL).
+ */
+export const backfillProductionRecords = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+
+    // Get all order items with production type
+    const allItems = await ctx.db.query("orderItems").collect();
+    const itemsWithProductionType = allItems.filter(item => item.productionType);
+
+    // Get production unit types
+    const productionUnitTypes = await ctx.db
+      .query("productionUnitTypes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    const bigBallType = productionUnitTypes.find(t => t.code === "BIG_BALL");
+    const midBallType = productionUnitTypes.find(t => t.code === "MID_BALL");
+
+    if (!bigBallType || !midBallType) {
+      return {
+        success: false,
+        error: "Missing production unit types (BIG_BALL or MID_BALL). Please seed them first.",
+      };
+    }
+
+    const results = {
+      total: itemsWithProductionType.length,
+      created: 0,
+      skipped: 0,
+      details: [] as { itemId: string; productionType: string; quantity: number; action: string }[],
+    };
+
+    for (const item of itemsWithProductionType) {
+      // Check if production records already exist
+      const existingRecords = await ctx.db
+        .query("orderItemProduction")
+        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+        .collect();
+
+      if (existingRecords.length > 0) {
+        results.skipped++;
+        results.details.push({
+          itemId: item._id,
+          productionType: item.productionType!,
+          quantity: item.quantity,
+          action: "skipped (already has records)",
+        });
+        continue;
+      }
+
+      // Determine ball type from productionType
+      const unitType = item.productionType === "original" ? bigBallType : midBallType;
+      const unitsRequired = item.quantity;
+
+      if (!dryRun) {
+        await ctx.db.insert("orderItemProduction", {
+          orderItemId: item._id,
+          productionUnitTypeId: unitType._id,
+          productionUnitCode: unitType.code,
+          productionUnitName: unitType.name,
+          unitsRequired,
+          unitsCompleted: item.ballsFilled ?? 0, // Preserve existing progress
+          unitsRemaining: Math.max(0, unitsRequired - (item.ballsFilled ?? 0)),
+        });
+      }
+
+      results.created++;
+      results.details.push({
+        itemId: item._id,
+        productionType: item.productionType!,
+        quantity: item.quantity,
+        action: dryRun ? "would create" : "created",
+      });
+    }
+
+    return {
+      ...results,
+      dryRun,
+      message: dryRun
+        ? `Dry run: Would create ${results.created} production records. Run again with dryRun: false to apply.`
+        : `Created ${results.created} production records (${results.skipped} already had records).`,
     };
   },
 });
