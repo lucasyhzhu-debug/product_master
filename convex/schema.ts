@@ -262,11 +262,13 @@ export default defineSchema({
     customerPhone: v.optional(v.string()),
 
     // PRD-0: Status workflow with type-safe unions
+    // PRD-7: Added InProduction between Confirmed and Packaging
     status: v.union(
       v.literal("Draft"),
       v.literal("AwaitingPayment"),
       v.literal("Confirmed"),
-      v.literal("ProductionComplete"),
+      v.literal("InProduction"),        // NEW: Kitchen actively producing
+      v.literal("ProductionComplete"),  // DEPRECATED: Use Packaging instead
       v.literal("Packaging"),
       v.literal("WaitingShipment"),
       v.literal("CompleteShipped"),
@@ -329,8 +331,16 @@ export default defineSchema({
     shippingAgency: v.optional(v.string()),
     shippingNumber: v.optional(v.string()),
 
-    // Cancellation
+    // Cancellation - PRD-7: Enhanced with category and timestamp
     cancellationReason: v.optional(v.string()),
+    cancellationCategory: v.optional(v.union(
+      v.literal("customer_request"),
+      v.literal("out_of_stock"),
+      v.literal("payment_issue"),
+      v.literal("duplicate"),
+      v.literal("other")
+    )),
+    cancelledAt: v.optional(v.number()),
 
     notes: v.optional(v.string()),
     createdBy: v.string(),
@@ -366,6 +376,8 @@ export default defineSchema({
     ballsRemaining: v.optional(v.number()), // for completion tracking
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
+    // PRD-7: Cancellation flag for soft delete
+    isCancelled: v.optional(v.boolean()),
     // PRD-6: Package status for visual inventory system
     // Grey (empty) -> Red (filling) -> Yellow (filled) -> Green (packed)
     packageStatus: v.optional(v.union(
@@ -397,6 +409,8 @@ export default defineSchema({
     unitsRequired: v.number(), // Total needed (orderItem.quantity * component.quantity)
     unitsCompleted: v.number(), // How many have been produced
     unitsRemaining: v.number(), // unitsRequired - unitsCompleted
+    // PRD-7: Cancellation flag for soft delete
+    isCancelled: v.optional(v.boolean()),
   })
     .index("by_order_item", ["orderItemId"])
     .index("by_production_type", ["productionUnitTypeId"])
@@ -496,4 +510,45 @@ export default defineSchema({
     updatedBy: v.optional(v.string()),
   })
     .index("by_date", ["date"]),
+
+  // ============================================
+  // PRD-7: USAGE TRACKING TABLES
+  // Track frequently used channels and shipping agencies
+  // for "top N" button selectors in OrderDetail
+  // ============================================
+
+  channelUsage: defineTable({
+    channel: v.string(), // Channel code (e.g., "whatsapp", "instagram")
+    usageCount: v.number(), // Number of times this channel was selected
+  })
+    .index("by_channel", ["channel"])
+    .index("by_usage", ["usageCount"]),
+
+  shippingAgencyUsage: defineTable({
+    agency: v.string(), // Agency name (e.g., "Gojek", "GrabSend", "JNE")
+    usageCount: v.number(), // Number of times this agency was selected
+  })
+    .index("by_agency", ["agency"])
+    .index("by_usage", ["usageCount"]),
+
+  // ============================================
+  // PRD-7: ORDER EVENTS AUDIT TABLE
+  // Tracks all status changes and significant events
+  // for audit trail and debugging
+  // ============================================
+
+  orderEvents: defineTable({
+    orderId: v.id("orders"),
+    eventType: v.string(), // "status_change", "status_auto_transition", "cancelled", etc.
+    fromStatus: v.optional(v.string()), // Previous status (for transitions)
+    toStatus: v.optional(v.string()), // New status (for transitions)
+    reason: v.optional(v.string()), // Human-readable reason
+    category: v.optional(v.string()), // Cancellation category, etc.
+    metadata: v.optional(v.string()), // JSON string for additional data
+    timestamp: v.number(),
+    triggeredBy: v.optional(v.string()), // "system", "kitchen", user name, etc.
+  })
+    .index("by_order", ["orderId"])
+    .index("by_type", ["eventType"])
+    .index("by_timestamp", ["timestamp"]),
 });

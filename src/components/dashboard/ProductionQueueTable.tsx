@@ -17,6 +17,7 @@ const STATUS_CONFIG: Record<
   Draft: { label: 'Draft', variant: 'secondary', color: 'text-gray-600' },
   AwaitingPayment: { label: 'Awaiting Payment', variant: 'outline', color: 'text-amber-600' },
   Confirmed: { label: 'Confirmed', variant: 'default', color: 'text-blue-600' },
+  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600' }, // PRD-7
   ProductionComplete: { label: 'Production Done', variant: 'secondary', color: 'text-purple-600' },
   Packaging: { label: 'Packaging', variant: 'default', color: 'text-indigo-600' },
   WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600' },
