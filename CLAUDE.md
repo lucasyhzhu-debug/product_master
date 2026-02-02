@@ -12,6 +12,7 @@
 
 | File | Purpose | When to Read |
 |------|---------|--------------|
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Developer onboarding guide | For new developers |
 | [docs/SCHEMA.md](docs/SCHEMA.md) | Convex database schema, data flows | Before DB changes |
 | [docs/CODE_STYLE.md](docs/CODE_STYLE.md) | TypeScript/Convex coding conventions | During implementation |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | Git workflow, code review process | Before any PR |
@@ -212,7 +213,7 @@ product_master/
 6. **Deletion rules**: Recipes/packaging cannot be deleted if used in products. Error shows blocking products.
 7. **Default tags**: System seeds Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box via `tags:seedDefaults`.
 8. **Order numbers**: Format `MMDD-NNN` (e.g., 0129-001) for bank transfer reference.
-9. **Kitchen tray system**: Balls accumulate in trays and auto-allocate to pending orders. Dual-write to OLD (orderItems.ballsRemaining) and NEW (orderItems.ballsFilled/packageStatus) systems.
+9. **Kitchen tray system**: Balls accumulate in trays and auto-allocate to pending orders. Production tracking uses orderItemProduction.unitsRemaining and orderItems.ballsFilled/packageStatus systems.
 10. **Ball colors**: Pistachio green (#93C572) fill, chocolate brown (#7B3F00) stroke. Consistent across InventoryTray, ProductPackage, and FlyingBall.
 
 ---

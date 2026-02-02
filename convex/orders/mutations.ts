@@ -9,7 +9,7 @@
  * - Status Updates: ./mutations/statusUpdates.ts
  * - Kitchen Operations: ./mutations/kitchen.ts
  * - Packaging: ./mutations/packaging.ts
- * - Migrations: ./migrations.ts
+ * - Migrations: ./mutations/migrations.ts
  *
  * All exports are re-exported below for backward compatibility.
  *
