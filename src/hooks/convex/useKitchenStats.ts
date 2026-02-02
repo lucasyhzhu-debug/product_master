@@ -50,8 +50,6 @@ interface ConvexKitchenOrderItem {
   lineMargin: number;
   productionType?: "original" | "bite_sized";
   productionUnits?: number;
-  /** @deprecated Use productionUnits for total, ballsFilled for progress */
-  ballsRemaining?: number;
   ballsFilled?: number;
   packageStatus?: "empty" | "filling" | "filled" | "packed";
   packedPackageIndices?: number[];
@@ -155,7 +153,6 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
     created_at: new Date(item._creationTime).toISOString(),
     production_type: item.productionType,
     production_units: item.productionUnits,
-    balls_remaining: item.ballsRemaining, // @deprecated
     balls_filled: item.ballsFilled,
     package_status: item.packageStatus,
     packed_package_indices: item.packedPackageIndices,
