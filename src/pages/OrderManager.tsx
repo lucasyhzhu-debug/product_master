@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Plus, Search, Filter, ShoppingCart, SearchX } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -162,6 +163,7 @@ function OrderCard({ order, onClick }: OrderCardProps) {
 type StatusFilterValue = OrderFilters['status'] | 'all';
 
 export function OrderManager() {
+  useDocumentTitle('Orders');
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
   const [searchQuery, setSearchQuery] = useState('');

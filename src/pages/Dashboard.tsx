@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ function filterAndSortByTags<T extends TaggedItem>(
 }
 
 export function Dashboard() {
+  useDocumentTitle('Dashboard');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // Convex hooks - data comes back as raw arrays or undefined

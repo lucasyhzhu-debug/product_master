@@ -3,6 +3,7 @@
  * PRD-4: User management with full CRUD operations
  */
 import { useState } from "react";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -60,6 +61,7 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 export default function UsersManager() {
+  useDocumentTitle('Users');
   const users = useQuery(api.auth.queries.listUsers);
   const createUser = useMutation(api.auth.mutations.createUser);
   const updateUser = useMutation(api.auth.mutations.updateUser);
