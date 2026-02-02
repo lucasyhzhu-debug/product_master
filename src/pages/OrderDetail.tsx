@@ -1,5 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, Package, CheckCircle2, XCircle } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
@@ -247,9 +247,17 @@ export function OrderDetail() {
             units={getProductionUnits(order)}
             compact
           />
-          <p className="text-sm text-muted-foreground">
-            Production status is updated automatically from Kitchen View.
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Production status is updated automatically from Kitchen View.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/kitchen">
+                <ChefHat className="h-4 w-4 mr-2" />
+                Go to Kitchen
+              </Link>
+            </Button>
+          </div>
         </div>
       ) : null,
     });
@@ -632,34 +640,46 @@ export function OrderDetail() {
 // Helper Functions
 // ============================================
 
-function getProductionUnits(order: { items: Array<{ quantity: number }> }): ProductionUnit[] {
-  // This would ideally come from order item production records
-  // For now, return mock data based on order items
-  let bigBalls = 0;
-  let midBalls = 0;
+function getProductionUnits(order: {
+  items: Array<{
+    productName: string;
+    quantity: number;
+    productionUnits?: number;
+    ballsFilled?: number;
+    isCancelled?: boolean;
+  }>
+}): ProductionUnit[] {
+  // Group by product name and calculate balls remaining
+  const productMap = new Map<string, { required: number; completed: number }>();
 
-  order.items.forEach(() => {
-    // Estimate based on typical product mix
-    bigBalls += 2;
-    midBalls += 1;
-  });
+  order.items
+    .filter(item => !item.isCancelled)
+    .forEach((item) => {
+      const productName = item.productName;
+      const ballsPerUnit = item.productionUnits || 1;
+      const totalBalls = item.quantity * ballsPerUnit;
+      const filledBalls = item.ballsFilled || 0;
 
-  return [
-    {
-      code: 'BIG_BALL',
-      name: 'Big Ball',
-      unitsRequired: bigBalls,
-      unitsCompleted: 0,
-      unitsRemaining: bigBalls,
-    },
-    {
-      code: 'MID_BALL',
-      name: 'Mid Ball',
-      unitsRequired: midBalls,
-      unitsCompleted: 0,
-      unitsRemaining: midBalls,
-    },
-  ];
+      const existing = productMap.get(productName);
+      if (existing) {
+        existing.required += totalBalls;
+        existing.completed += filledBalls;
+      } else {
+        productMap.set(productName, {
+          required: totalBalls,
+          completed: filledBalls,
+        });
+      }
+    });
+
+  // Convert to ProductionUnit array
+  return Array.from(productMap.entries()).map(([name, data]) => ({
+    code: name.toUpperCase().replace(/\s+/g, '_'),
+    name: name,
+    unitsRequired: data.required,
+    unitsCompleted: data.completed,
+    unitsRemaining: data.required - data.completed,
+  }));
 }
 
 function getPackageItems(order: { items: Array<{ id: number; product_name: string; product_variant: string | null; quantity: number }> }): PackageItem[] {
