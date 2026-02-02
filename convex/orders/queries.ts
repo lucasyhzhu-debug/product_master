@@ -150,52 +150,28 @@ export const getByOrderNumber = query({
  * PRD-5: Enhanced with dynamic production type support via orderItemProduction.
  * PRD-6: Shows orders until manually completed (after all packages are green/packed).
  * PRD-Kitchen-UI-Flow: Phase 1 - Include WaitingShipment/WaitingPickup with priority sorting.
+ *
+ * REFACTORED (Phase 2): Optimized to reduce queries from 6 + N + N*M to 3 total.
  */
 export const getKitchenOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Get orders in different statuses
+    // Import helpers (dynamic to avoid circular dependency issues)
+    const { fetchOrdersByStatuses } = await import("./helpers/statusFetching");
+    const { fetchOrdersWithItemsAndProduction } = await import("./helpers/batchFetching");
+
+    // Fetch orders by status (consolidated from 6 duplicate queries to 1 helper call)
     // Priority 0: Confirmed, InProduction, Packaging (active orders)
     // Priority 1: Draft (de-prioritized)
     // Priority 2: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
-    const draftOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Draft"))
-      .collect();
-
-    const confirmedOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
-      .collect();
-
-    const inProductionOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
-      .collect();
-
-    const packagingOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Packaging"))
-      .collect();
-
-    const waitingShipmentOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "WaitingShipment"))
-      .collect();
-
-    const waitingPickupOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "WaitingPickup"))
-      .collect();
-
-    const orders = [
-      ...confirmedOrders,
-      ...inProductionOrders,
-      ...packagingOrders,
-      ...draftOrders,
-      ...waitingShipmentOrders,
-      ...waitingPickupOrders,
-    ];
+    const orders = await fetchOrdersByStatuses(ctx, [
+      "Draft",
+      "Confirmed",
+      "InProduction",
+      "Packaging",
+      "WaitingShipment",
+      "WaitingPickup",
+    ]);
 
     // PRD-5: Get all production unit types for dynamic aggregation
     const productionUnitTypes = await ctx.db
@@ -203,103 +179,150 @@ export const getKitchenOrders = query({
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
 
-    // Fetch items for each order and calculate ball needs
-    const result = await Promise.all(
-      orders.map(async (order) => {
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
+    // OPTIMIZED: Batch fetch all items and production records (2 queries instead of N + N*M)
+    const orderIds = orders.map((o) => o._id);
+    const orderDataMap = await fetchOrdersWithItemsAndProduction(ctx, orderIds);
 
-        // PRD-5: Fetch orderItemProduction for each item
-        const itemsWithProduction = await Promise.all(
-          items.map(async (item) => {
-            const productionRecords = await ctx.db
-              .query("orderItemProduction")
-              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-              .collect();
-            return { ...item, productionRecords };
-          })
-        );
-
-        // Calculate ball needs (OLD system - for backward compatibility)
-        let bigBallsNeeded = 0;
-        let midBallsNeeded = 0;
-
-        for (const item of items) {
-          if (item.productionType === "original" && item.productionUnits) {
-            bigBallsNeeded += item.productionUnits * item.quantity;
-          } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsNeeded += item.productionUnits * item.quantity;
-          }
-        }
-
-        // PRD-5: Calculate production by type (NEW system - dynamic)
-        const productionByType = productionUnitTypes.map((unitType) => {
-          let unitsNeeded = 0;
-          for (const item of itemsWithProduction) {
-            for (const record of item.productionRecords) {
-              if (record.productionUnitTypeId === unitType._id) {
-                unitsNeeded += record.unitsRemaining;
-              }
-            }
-          }
-          return {
-            code: unitType.code,
-            name: unitType.name,
-            color: unitType.color,
-            unitsNeeded,
-          };
-        }).filter((p) => p.unitsNeeded > 0);
-
+    // Map orders with enriched data and calculations
+    const result = orders.map((order) => {
+      const orderData = orderDataMap.get(order._id);
+      if (!orderData) {
+        // Fallback for orders without items
         return {
           ...order,
-          items: itemsWithProduction,
-          bigBallsNeeded,
-          midBallsNeeded,
-          productionByType,
+          items: [],
+          bigBallsNeeded: 0,
+          midBallsNeeded: 0,
+          productionByType: [],
         };
-      })
-    );
+      }
+
+      // Enrich items with production records
+      const itemsWithProduction = orderData.items.map((item) => ({
+        ...item,
+        productionRecords: orderData.production.get(item._id) ?? [],
+      }));
+
+      // Calculate OLD system ball stats (for backward compatibility)
+      const { bigBallsNeeded, midBallsNeeded } = calculateOldSystemBallStats(orderData.items);
+
+      // Calculate NEW system production stats (dynamic by type)
+      const productionByType = calculateProductionStatsByType(
+        itemsWithProduction,
+        productionUnitTypes
+      );
+
+      return {
+        ...order,
+        items: itemsWithProduction,
+        bigBallsNeeded,
+        midBallsNeeded,
+        productionByType,
+      };
+    });
 
     // PRD-Kitchen-UI-Flow: Priority-based sorting
-    // Priority 0: Confirmed, InProduction, Packaging (sorted by dueDate, then _creationTime)
-    // Priority 1: Draft
-    // Priority 2: WaitingShipment, WaitingPickup
-    return result.sort((a, b) => {
-      // Assign priority based on status
-      const getPriority = (status: string): number => {
-        if (status === "Confirmed" || status === "InProduction" || status === "Packaging") {
-          return 0;
-        } else if (status === "Draft") {
-          return 1;
-        } else if (status === "WaitingShipment" || status === "WaitingPickup") {
-          return 2;
-        }
-        return 3; // Fallback
-      };
-
-      const aPriority = getPriority(a.status);
-      const bPriority = getPriority(b.status);
-
-      // Sort by priority first
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
-
-      // Within same priority group, sort by due date (earliest first)
-      if (a.dueDate !== b.dueDate) {
-        if (!a.dueDate && !b.dueDate) return 0;
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate - b.dueDate;
-      }
-
-      // Finally by creation time (earliest first)
-      return a._creationTime - b._creationTime;
-    });
+    return sortOrdersByPriority(result);
   },
 });
+
+/**
+ * Calculate OLD system ball statistics (big/mid balls needed).
+ * Used for backward compatibility during migration period.
+ */
+function calculateOldSystemBallStats(items: Doc<"orderItems">[]): {
+  bigBallsNeeded: number;
+  midBallsNeeded: number;
+} {
+  let bigBallsNeeded = 0;
+  let midBallsNeeded = 0;
+
+  for (const item of items) {
+    if (item.productionType === "original" && item.productionUnits) {
+      bigBallsNeeded += item.productionUnits * item.quantity;
+    } else if (item.productionType === "bite_sized" && item.productionUnits) {
+      midBallsNeeded += item.productionUnits * item.quantity;
+    }
+  }
+
+  return { bigBallsNeeded, midBallsNeeded };
+}
+
+/**
+ * Calculate NEW system production statistics by production unit type.
+ * Aggregates unitsRemaining from orderItemProduction records.
+ */
+function calculateProductionStatsByType(
+  itemsWithProduction: Array<Doc<"orderItems"> & { productionRecords: Doc<"orderItemProduction">[] }>,
+  productionUnitTypes: Doc<"productionUnitTypes">[]
+): Array<{
+  code: string;
+  name: string;
+  color: string;
+  unitsNeeded: number;
+}> {
+  return productionUnitTypes
+    .map((unitType) => {
+      let unitsNeeded = 0;
+
+      for (const item of itemsWithProduction) {
+        for (const record of item.productionRecords) {
+          if (record.productionUnitTypeId === unitType._id) {
+            unitsNeeded += record.unitsRemaining;
+          }
+        }
+      }
+
+      return {
+        code: unitType.code,
+        name: unitType.name,
+        color: unitType.color ?? "#93C572", // Default to pistachio green if not set
+        unitsNeeded,
+      };
+    })
+    .filter((p) => p.unitsNeeded > 0);
+}
+
+/**
+ * Sort orders by priority level, then by due date, then by creation time.
+ * Priority 0: Confirmed, InProduction, Packaging (active orders)
+ * Priority 1: Draft (de-prioritized)
+ * Priority 2: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
+ */
+function sortOrdersByPriority<T extends Doc<"orders">>(orders: T[]): T[] {
+  return orders.sort((a, b) => {
+    // Assign priority based on status
+    const getPriority = (status: string): number => {
+      if (status === "Confirmed" || status === "InProduction" || status === "Packaging") {
+        return 0;
+      } else if (status === "Draft") {
+        return 1;
+      } else if (status === "WaitingShipment" || status === "WaitingPickup") {
+        return 2;
+      }
+      return 3; // Fallback
+    };
+
+    const aPriority = getPriority(a.status);
+    const bPriority = getPriority(b.status);
+
+    // Sort by priority first
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // Within same priority group, sort by due date (earliest first)
+    if (a.dueDate !== b.dueDate) {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate - b.dueDate;
+    }
+
+    // Finally by creation time (earliest first)
+    return a._creationTime - b._creationTime;
+  });
+}
 
 /**
  * Get orders by customer.
