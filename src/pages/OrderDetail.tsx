@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
-import { LoadingCards, ConfirmDialog } from '@/components/shared';
+import { LoadingCards, ConfirmDialog, HoldButton } from '@/components/shared';
 import {
   OrderItems,
   OrderStatusAccordion,
@@ -464,22 +464,6 @@ export function OrderDetail() {
             steps={accordionSteps}
             currentStatus={order.status as OrderStatus}
           />
-
-          {/* Cancel button at bottom of accordion */}
-          {!['Cancelled', 'CompleteShipped', 'PickedUp'].includes(order.status) && (
-            <Card className="border-destructive/50">
-              <CardContent className="py-4">
-                <Button
-                  variant="ghost"
-                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => setShowCancelDialog(true)}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Order
-                </Button>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Right: Order Info (1/3) */}
@@ -599,6 +583,23 @@ export function OrderDetail() {
                 </Button>
               </CardContent>
             </Card>
+          )}
+
+          {/* Cancel Order - small button with hold-to-activate */}
+          {!['Cancelled', 'CompleteShipped', 'PickedUp'].includes(order.status) && (
+            <div className="pt-4">
+              <HoldButton
+                variant="ghost"
+                size="sm"
+                holdDuration={1000}
+                onHoldComplete={() => setShowCancelDialog(true)}
+                holdingText="Hold..."
+                className="text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                Cancel Order
+              </HoldButton>
+            </div>
           )}
         </div>
       </div>
