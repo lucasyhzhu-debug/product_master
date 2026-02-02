@@ -2,7 +2,7 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
-import { distributeBallsToOrders } from "./helpers";
+import { distributeBallsToOrders, logOrderEvent, isTerminalStatus, TERMINAL_STATUSES } from "./helpers";
 
 // ============================================
 // Input Types
@@ -68,35 +68,7 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
   return orderNumber;
 }
 
-/**
- * PRD-7: Log an order event to the audit trail.
- * Used for tracking status changes, auto-transitions, and other significant events.
- */
-async function logOrderEvent(
-  ctx: MutationCtx,
-  orderId: Id<"orders">,
-  eventType: string,
-  options: {
-    fromStatus?: string;
-    toStatus?: string;
-    reason?: string;
-    category?: string;
-    metadata?: Record<string, unknown>;
-    triggeredBy?: string;
-  } = {}
-): Promise<Id<"orderEvents">> {
-  return await ctx.db.insert("orderEvents", {
-    orderId,
-    eventType,
-    fromStatus: options.fromStatus,
-    toStatus: options.toStatus,
-    reason: options.reason,
-    category: options.category,
-    metadata: options.metadata ? JSON.stringify(options.metadata) : undefined,
-    timestamp: Date.now(),
-    triggeredBy: options.triggeredBy ?? "system",
-  });
-}
+// logOrderEvent moved to helpers/statusTransitions.ts
 
 /**
  * PRD-7: Increment channel usage count.
@@ -605,8 +577,7 @@ export const cancel = mutation({
     }
 
     // PRD-7: Check if order can be cancelled
-    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
-    if (terminalStatuses.includes(order.status)) {
+    if (isTerminalStatus(order.status)) {
       throw new Error("Cannot cancel a completed or already cancelled order");
     }
 
@@ -1227,8 +1198,7 @@ export const updateOrderDiscount = mutation({
     }
 
     // Check order isn't in terminal state
-    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
-    if (terminalStatuses.includes(order.status)) {
+    if (isTerminalStatus(order.status)) {
       throw new Error("Cannot modify discount on completed/cancelled order");
     }
 
