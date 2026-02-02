@@ -9,6 +9,14 @@ import {
   incrementShippingAgencyUsage,
   decrementShippingAgencyUsage,
 } from "./helpers";
+import {
+  createProductionRecordsForItem,
+  updateProductionRecordsForQuantityChange,
+  deleteProductionRecordsForItem,
+  cancelOrderProductionRecords,
+  markOrderProductionComplete,
+  resetOrderProductionComplete,
+} from "./helpers";
 
 // ============================================
 // Input Types
@@ -306,21 +314,7 @@ export const create = mutation({
 
       // PRD-5: Create orderItemProduction records (new production tracking system)
       if (item.menuProductId) {
-        const components = menuProductComponentsMap.get(item.menuProductId.toString());
-        if (components && components.length > 0) {
-          for (const comp of components) {
-            const unitsRequired = comp.quantity * item.quantity;
-            await ctx.db.insert("orderItemProduction", {
-              orderItemId,
-              productionUnitTypeId: comp.productionUnitTypeId,
-              productionUnitCode: comp.productionUnitCode,
-              productionUnitName: comp.productionUnitName,
-              unitsRequired,
-              unitsCompleted: 0,
-              unitsRemaining: unitsRequired,
-            });
-          }
-        }
+        await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
       }
     }
 
@@ -531,26 +525,25 @@ export const cancel = mutation({
       .collect();
 
     let itemsCancelled = 0;
-    let productionRecordsCancelled = 0;
 
     for (const item of items) {
       await ctx.db.patch(item._id, {
         isCancelled: true,
       });
       itemsCancelled++;
+    }
 
-      // PRD-7: Mark production records as cancelled
+    // PRD-7: Mark production records as cancelled (use helper)
+    await cancelOrderProductionRecords(ctx, args.orderId);
+
+    // Count how many production records were cancelled (for audit log)
+    let productionRecordsCancelled = 0;
+    for (const item of items) {
       const productionRecords = await ctx.db
         .query("orderItemProduction")
         .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
         .collect();
-
-      for (const record of productionRecords) {
-        await ctx.db.patch(record._id, {
-          isCancelled: true,
-        });
-        productionRecordsCancelled++;
-      }
+      productionRecordsCancelled += productionRecords.length;
     }
 
     // PRD-7: Log cancellation event for audit trail
@@ -598,15 +591,8 @@ export const remove = mutation({
       .collect();
 
     for (const item of items) {
-      // PRD-5: Delete orderItemProduction records
-      const productionRecords = await ctx.db
-        .query("orderItemProduction")
-        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-        .collect();
-
-      for (const record of productionRecords) {
-        await ctx.db.delete(record._id);
-      }
+      // PRD-5: Delete orderItemProduction records (use helper)
+      await deleteProductionRecordsForItem(ctx, item._id);
 
       await ctx.db.delete(item._id);
     }
@@ -674,24 +660,7 @@ export const addItem = mutation({
 
     // PRD-5: Create orderItemProduction records (new production tracking system)
     if (args.item.menuProductId) {
-      const components = await ctx.db
-        .query("menuProductComponents")
-        .withIndex("by_menu_product", (q) => q.eq("menuProductId", args.item.menuProductId!))
-        .collect();
-
-      for (const comp of components) {
-        const unitType = await ctx.db.get(comp.productionUnitTypeId);
-        const unitsRequired = comp.quantity * args.item.quantity;
-        await ctx.db.insert("orderItemProduction", {
-          orderItemId: itemId,
-          productionUnitTypeId: comp.productionUnitTypeId,
-          productionUnitCode: unitType?.code ?? "UNKNOWN",
-          productionUnitName: unitType?.name ?? "Unknown",
-          unitsRequired,
-          unitsCompleted: 0,
-          unitsRemaining: unitsRequired,
-        });
-      }
+      await createProductionRecordsForItem(ctx, itemId, args.item.menuProductId, args.item.quantity);
     }
 
     // Calculate new totals
@@ -756,15 +725,8 @@ export const removeItem = mutation({
       finalTotal: newFinalTotal,
     });
 
-    // PRD-5: Delete orderItemProduction records
-    const productionRecords = await ctx.db
-      .query("orderItemProduction")
-      .withIndex("by_order_item", (q) => q.eq("orderItemId", args.itemId))
-      .collect();
-
-    for (const record of productionRecords) {
-      await ctx.db.delete(record._id);
-    }
+    // PRD-5: Delete orderItemProduction records (use helper)
+    await deleteProductionRecordsForItem(ctx, args.itemId);
 
     // Delete item
     await ctx.db.delete(args.itemId);
@@ -818,37 +780,9 @@ export const updateItemQuantity = mutation({
       ballsRemaining: newBallsRemaining,
     });
 
-    // PRD-5: Update orderItemProduction records with new quantity
-    const productionRecords = await ctx.db
-      .query("orderItemProduction")
-      .withIndex("by_order_item", (q) => q.eq("orderItemId", args.itemId))
-      .collect();
-
-    // Get menu product components to recalculate
+    // PRD-5: Update orderItemProduction records with new quantity (use helper)
     if (item.menuProductId) {
-      const components = await ctx.db
-        .query("menuProductComponents")
-        .withIndex("by_menu_product", (q) => q.eq("menuProductId", item.menuProductId!))
-        .collect();
-
-      // Create a map of component productionUnitTypeId to quantity
-      const componentMap = new Map<string, number>();
-      for (const comp of components) {
-        componentMap.set(comp.productionUnitTypeId.toString(), comp.quantity);
-      }
-
-      // Update each production record
-      for (const record of productionRecords) {
-        const componentQty = componentMap.get(record.productionUnitTypeId.toString()) ?? 0;
-        const newUnitsRequired = componentQty * args.quantity;
-        // Recalculate remaining (keep completed the same, adjust remaining)
-        const newUnitsRemaining = Math.max(0, newUnitsRequired - record.unitsCompleted);
-
-        await ctx.db.patch(record._id, {
-          unitsRequired: newUnitsRequired,
-          unitsRemaining: newUnitsRemaining,
-        });
-      }
+      await updateProductionRecordsForQuantityChange(ctx, args.itemId, item.menuProductId, args.quantity);
     }
 
     // Calculate new order totals
@@ -904,22 +838,11 @@ export const completeOrder = mutation({
     for (const item of items) {
       await ctx.db.patch(item._id, {
         ballsRemaining: 0,
-        isProductionComplete: true,
       });
-
-      // PRD-5: Update orderItemProduction records
-      const productionRecords = await ctx.db
-        .query("orderItemProduction")
-        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-        .collect();
-
-      for (const record of productionRecords) {
-        await ctx.db.patch(record._id, {
-          unitsCompleted: record.unitsRequired,
-          unitsRemaining: 0,
-        });
-      }
     }
+
+    // PRD-5: Mark production complete (use helper)
+    await markOrderProductionComplete(ctx, args.orderId);
 
     return args.orderId;
   },
@@ -955,22 +878,11 @@ export const revertToConfirmed = mutation({
     for (const item of items) {
       await ctx.db.patch(item._id, {
         ballsRemaining: item.productionUnits ?? 0,
-        isProductionComplete: false,
       });
-
-      // PRD-5: Reset orderItemProduction records
-      const productionRecords = await ctx.db
-        .query("orderItemProduction")
-        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-        .collect();
-
-      for (const record of productionRecords) {
-        await ctx.db.patch(record._id, {
-          unitsCompleted: 0,
-          unitsRemaining: record.unitsRequired,
-        });
-      }
     }
+
+    // PRD-5: Reset orderItemProduction records (use helper)
+    await resetOrderProductionComplete(ctx, args.orderId);
 
     return args.orderId;
   },
