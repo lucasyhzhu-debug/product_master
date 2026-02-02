@@ -41,7 +41,7 @@
 | **Add Order field** | `convex/schema.ts`<br>`convex/orders/mutations.ts` | `src/hooks/convex/useOrders.ts`<br>`src/pages/OrderDetail.tsx` |
 | **Update WhatsApp template** | `convex/orders/whatsapp.ts` | - |
 | **Update Order UI** | - | `src/pages/OrderManager.tsx`<br>`src/pages/OrderDetail.tsx`<br>`src/components/orders/` |
-| **Kitchen View (production)** | `convex/orders/queries.ts` | `src/pages/KitchenView.tsx` |
+| **Kitchen View (production)** | `convex/orders/queries.ts`<br>`convex/orders/mutations.ts` | `src/pages/KitchenView.tsx`<br>`src/components/orders/InventoryTray.tsx`<br>`src/components/orders/OrderBox.tsx`<br>`src/components/orders/ProductPackage.tsx`<br>`src/components/orders/FlyingBall.tsx` |
 
 ---
 
@@ -138,7 +138,7 @@ product_master/
 │   │   ├── recipes/
 │   │   ├── packaging/
 │   │   ├── products/
-│   │   ├── orders/                  # Order components (7 files)
+│   │   ├── orders/                  # Order components (17 files)
 │   │   ├── dashboard/
 │   │   └── onboarding/              # Onboarding tour
 │   ├── pages/                       # Page components (9 files)
@@ -192,6 +192,8 @@ product_master/
 6. **Deletion rules**: Recipes/packaging cannot be deleted if used in products. Error shows blocking products.
 7. **Default tags**: System seeds Dubai-Snack, Extruded-Snack, Sachet, Pouch, Box via `tags:seedDefaults`.
 8. **Order numbers**: Format `MMDD-NNN` (e.g., 0129-001) for bank transfer reference.
+9. **Kitchen tray system**: Balls accumulate in trays and auto-allocate to pending orders. Dual-write to OLD (orderItems.ballsRemaining) and NEW (orderItems.ballsFilled/packageStatus) systems.
+10. **Ball colors**: Pistachio green (#93C572) fill, chocolate brown (#7B3F00) stroke. Consistent across InventoryTray, ProductPackage, and FlyingBall.
 
 ---
 
@@ -260,6 +262,48 @@ npm run build  # verify before push
 git push origin feature/your-name
 # After review: merge to main
 ```
+
+---
+
+## Custom Commands
+
+### /handover
+
+When the user types `/handover`, execute the handover skill to create a session continuity document.
+
+**Instructions:** Read and follow `.agent/skills/handover/SKILL.md`
+
+**Quick summary:**
+1. Get current branch: `git branch --show-current`
+2. Find master plan in `docs/plans/` or `docs/`
+3. Get recent commits: `git log --oneline -10`
+4. Check modified files: `git diff --name-only main...HEAD`
+5. Create handover document at `docs/handover/handover-{branch-name}.md`
+6. Report to user with next steps for new session
+
+**Use when:**
+- Context window is getting full
+- Completing a major implementation phase
+- Before switching to a different area of work
+- User explicitly requests a handover
+
+### /techdebt
+
+When the user types `/techdebt`, execute the techdebt skill to scan for code duplication and consolidation opportunities.
+
+**Instructions:** Read and follow `.agent/skills/techdebt/SKILL.md`
+
+**Quick summary:**
+1. Scan card/button/dialog components for duplication
+2. Check mutations for CRUD boilerplate
+3. Identify hook wrapper patterns
+4. Flag naming convention inconsistencies
+5. Generate report at `docs/reports/techdebt-{date}.md`
+
+**Use when:**
+- End of coding session (routine cleanup)
+- Before creating a PR
+- Planning refactoring work
 
 ---
 
