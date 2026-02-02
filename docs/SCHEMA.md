@@ -380,17 +380,31 @@ orderItems: defineTable({
   // PRD-0 additions for Kitchen View:
   productionType: v.optional(v.string()),     // "original" or "bite_sized"
   productionUnits: v.optional(v.number()),    // Balls needed for this item
-  ballsRemaining: v.optional(v.number()),     // Decremented during production
+  // @deprecated ballsRemaining - use orderItemProduction.unitsRemaining instead
+  ballsRemaining: v.optional(v.number()),     // DEPRECATED - no longer updated
+  // PRD-6: Visual package status tracking
+  packageStatus: v.optional(v.union("empty", "filling", "filled", "packed")),
+  ballsFilled: v.optional(v.number()),        // Current balls in package
+  isProductionComplete: v.optional(v.boolean()),
 })
   .index("by_order", ["orderId"])
   .index("by_product_name", ["productName"])
 ```
 
-**Kitchen Ball Tracking (PRD-1):**
-- `productionType === "original"` → counts as "big" balls
-- `productionType === "bite_sized"` → counts as "mid" balls
-- `ballsRemaining` starts at `productionUnits`, decrements to 0 on completion
-- When ALL items in an order have `ballsRemaining === 0`, order auto-completes
+**Kitchen Ball Tracking (PRD-1 → PRD-5 Migration):**
+
+> **Note:** As of 2026-02-02, production tracking has migrated from `ballsRemaining` to `orderItemProduction`.
+
+**NEW System (Recommended):**
+- Production progress tracked in `orderItemProduction` table
+- `unitsRemaining` = units still needed, `unitsCompleted` = units done
+- Supports multiple production types per item (combo packs)
+- Order completion determined by all production records having `unitsRemaining === 0`
+
+**OLD System (Deprecated):**
+- `ballsRemaining` field is no longer updated during production
+- Kept for backward compatibility with existing data
+- `productionType === "original"` → "big" balls, `productionType === "bite_sized"` → "mid" balls
 
 ### 18. `orderMessages` - WhatsApp Message Tracking (PRD-0)
 ```typescript
