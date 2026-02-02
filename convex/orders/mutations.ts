@@ -1345,34 +1345,124 @@ export const markPackagePacked = mutation({
       return packed.length >= itemQuantity;
     });
 
-    // PRD-7: Auto-transition when all packages are packed
+    // Check if all packages are packed (for frontend to show Complete Packaging button)
     let statusTransition: { from: string; to: string } | null = null;
-
-    if (allItemsPacked && order.status === "Packaging") {
-      // Determine next status based on delivery type
-      const nextStatus = order.deliveryType === "Delivery" ? "WaitingShipment" : "WaitingPickup";
-
-      await ctx.db.patch(order._id, {
-        status: nextStatus,
-      });
-
-      // Log the auto-transition event
-      await logOrderEvent(ctx, order._id, "status_auto_transition", {
-        fromStatus: "Packaging",
-        toStatus: nextStatus,
-        reason: "All packages packed - ready for " + (order.deliveryType === "Delivery" ? "shipment" : "pickup"),
-        triggeredBy: "kitchen",
-      });
-
-      statusTransition = { from: "Packaging", to: nextStatus };
-    }
 
     return {
       orderItemId: args.orderItemId,
       packageIndex,
       allPackagesPacked: allItemsPacked,
       orderId: item.orderId,
-      statusTransition, // PRD-7: Include transition info for frontend toast
+      statusTransition,
+    };
+  },
+});
+
+/**
+ * Complete packaging for an order (manual transition after all packages packed).
+ * PRD-Kitchen-UI-Flow: Phase 1 - Manual packaging completion.
+ *
+ * Validates that all packages are packed, then transitions to:
+ * - WaitingShipment (for Delivery orders)
+ * - WaitingPickup (for Pickup orders)
+ */
+export const completePackaging = mutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Validate order is in Packaging status
+    if (order.status !== "Packaging") {
+      throw new Error("Only Packaging orders can be completed. Current status: " + order.status);
+    }
+
+    // Verify all packages are packed
+    const allItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    // Filter to items with production data
+    const productionItems = allItems.filter((i) => i.productionType);
+
+    // Check if all items are fully packed (all packages in each item)
+    const allItemsPacked = productionItems.every((i) => {
+      const packed = i.packedPackageIndices ?? [];
+      const itemQuantity = i.quantity ?? 1;
+      return packed.length >= itemQuantity;
+    });
+
+    if (!allItemsPacked) {
+      throw new Error("Cannot complete packaging: some packages are not yet packed");
+    }
+
+    // Determine next status based on delivery type
+    const nextStatus = order.deliveryType === "Delivery" ? "WaitingShipment" : "WaitingPickup";
+
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: nextStatus,
+    });
+
+    // Log the transition event
+    await logOrderEvent(ctx, args.orderId, "status_change", {
+      fromStatus: "Packaging",
+      toStatus: nextStatus,
+      reason: "Packaging completed - ready for " + (order.deliveryType === "Delivery" ? "shipment" : "pickup"),
+      triggeredBy: "kitchen",
+    });
+
+    return {
+      orderId: args.orderId,
+      newStatus: nextStatus,
+    };
+  },
+});
+
+/**
+ * Revert order from WaitingShipment/WaitingPickup back to Packaging.
+ * PRD-Kitchen-UI-Flow: Phase 1 - Allow reverting packaging completion.
+ *
+ * Does NOT reset packedPackageIndices - preserves packaging progress.
+ */
+export const revertToPackaging = mutation({
+  args: {
+    orderId: v.id("orders"),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Validate order is in WaitingShipment or WaitingPickup status
+    if (order.status !== "WaitingShipment" && order.status !== "WaitingPickup") {
+      throw new Error("Can only revert from WaitingShipment or WaitingPickup. Current status: " + order.status);
+    }
+
+    const previousStatus = order.status;
+
+    // Update order status back to Packaging
+    await ctx.db.patch(args.orderId, {
+      status: "Packaging",
+    });
+
+    // Log the revert event
+    await logOrderEvent(ctx, args.orderId, "status_change", {
+      fromStatus: previousStatus,
+      toStatus: "Packaging",
+      reason: "Reverted to packaging for corrections",
+      triggeredBy: "kitchen",
+    });
+
+    return {
+      orderId: args.orderId,
+      previousStatus,
     };
   },
 });

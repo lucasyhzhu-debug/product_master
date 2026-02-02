@@ -149,13 +149,15 @@ export const getByOrderNumber = query({
  * PRD-1: Returns Confirmed, InProduction, and Packaging orders with ball calculations.
  * PRD-5: Enhanced with dynamic production type support via orderItemProduction.
  * PRD-6: Shows orders until manually completed (after all packages are green/packed).
+ * PRD-Kitchen-UI-Flow: Phase 1 - Include WaitingShipment/WaitingPickup with priority sorting.
  */
 export const getKitchenOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Get Draft, Confirmed, InProduction, and Packaging orders
-    // Orders stay in kitchen view until user clicks Complete Order (after all packages packed)
-    // Draft orders are included but de-prioritized (shown at bottom with grey styling)
+    // Get orders in different statuses
+    // Priority 0: Confirmed, InProduction, Packaging (active orders)
+    // Priority 1: Draft (de-prioritized)
+    // Priority 2: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
     const draftOrders = await ctx.db
       .query("orders")
       .withIndex("by_status", (q) => q.eq("status", "Draft"))
@@ -176,7 +178,24 @@ export const getKitchenOrders = query({
       .withIndex("by_status", (q) => q.eq("status", "Packaging"))
       .collect();
 
-    const orders = [...confirmedOrders, ...inProductionOrders, ...packagingOrders, ...draftOrders];
+    const waitingShipmentOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "WaitingShipment"))
+      .collect();
+
+    const waitingPickupOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "WaitingPickup"))
+      .collect();
+
+    const orders = [
+      ...confirmedOrders,
+      ...inProductionOrders,
+      ...packagingOrders,
+      ...draftOrders,
+      ...waitingShipmentOrders,
+      ...waitingPickupOrders,
+    ];
 
     // PRD-5: Get all production unit types for dynamic aggregation
     const productionUnitTypes = await ctx.db
@@ -243,17 +262,32 @@ export const getKitchenOrders = query({
       })
     );
 
-    // PRD-1: Sort by status priority → due date ASC → total units DESC → order date ASC
-    // Draft orders always go to the bottom
+    // PRD-Kitchen-UI-Flow: Priority-based sorting
+    // Priority 0: Confirmed, InProduction, Packaging (sorted by dueDate, then _creationTime)
+    // Priority 1: Draft
+    // Priority 2: WaitingShipment, WaitingPickup
     return result.sort((a, b) => {
-      // Draft orders always at the bottom
-      const aIsDraft = a.status === "Draft";
-      const bIsDraft = b.status === "Draft";
-      if (aIsDraft !== bIsDraft) {
-        return aIsDraft ? 1 : -1; // Draft goes to bottom
+      // Assign priority based on status
+      const getPriority = (status: string): number => {
+        if (status === "Confirmed" || status === "InProduction" || status === "Packaging") {
+          return 0;
+        } else if (status === "Draft") {
+          return 1;
+        } else if (status === "WaitingShipment" || status === "WaitingPickup") {
+          return 2;
+        }
+        return 3; // Fallback
+      };
+
+      const aPriority = getPriority(a.status);
+      const bPriority = getPriority(b.status);
+
+      // Sort by priority first
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
       }
 
-      // Sort by due date first (earliest first)
+      // Within same priority group, sort by due date (earliest first)
       if (a.dueDate !== b.dueDate) {
         if (!a.dueDate && !b.dueDate) return 0;
         if (!a.dueDate) return 1;
@@ -261,15 +295,8 @@ export const getKitchenOrders = query({
         return a.dueDate - b.dueDate;
       }
 
-      // Then by total units (most first)
-      const aTotalUnits = a.bigBallsNeeded + a.midBallsNeeded;
-      const bTotalUnits = b.bigBallsNeeded + b.midBallsNeeded;
-      if (aTotalUnits !== bTotalUnits) {
-        return bTotalUnits - aTotalUnits;
-      }
-
-      // Finally by order date (earliest first)
-      return a.orderDate - b.orderDate;
+      // Finally by creation time (earliest first)
+      return a._creationTime - b._creationTime;
     });
   },
 });
