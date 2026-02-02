@@ -128,6 +128,84 @@ async function logOrderEvent(
   });
 }
 
+/**
+ * PRD-7: Increment channel usage count.
+ * Creates the record if it doesn't exist.
+ */
+async function incrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
+  const existing = await ctx.db
+    .query("channelUsage")
+    .withIndex("by_channel", (q) => q.eq("channel", channel))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount + 1,
+    });
+  } else {
+    await ctx.db.insert("channelUsage", {
+      channel,
+      usageCount: 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Decrement channel usage count.
+ * Does nothing if record doesn't exist or count is already 0.
+ */
+async function decrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
+  const existing = await ctx.db
+    .query("channelUsage")
+    .withIndex("by_channel", (q) => q.eq("channel", channel))
+    .first();
+
+  if (existing && existing.usageCount > 0) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount - 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Increment shipping agency usage count.
+ * Creates the record if it doesn't exist.
+ */
+async function incrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
+  const existing = await ctx.db
+    .query("shippingAgencyUsage")
+    .withIndex("by_agency", (q) => q.eq("agency", agency))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount + 1,
+    });
+  } else {
+    await ctx.db.insert("shippingAgencyUsage", {
+      agency,
+      usageCount: 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Decrement shipping agency usage count.
+ * Does nothing if record doesn't exist or count is already 0.
+ */
+async function decrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
+  const existing = await ctx.db
+    .query("shippingAgencyUsage")
+    .withIndex("by_agency", (q) => q.eq("agency", agency))
+    .first();
+
+  if (existing && existing.usageCount > 0) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount - 1,
+    });
+  }
+}
+
 // ============================================
 // Mutations
 // ============================================
@@ -371,6 +449,11 @@ export const create = mutation({
       }
     }
 
+    // PRD-7: Track channel usage for "Top 4" button selectors
+    if (args.channel) {
+      await incrementChannelUsage(ctx, args.channel);
+    }
+
     return orderId;
   },
 });
@@ -432,6 +515,7 @@ export const updatePayment = mutation({
 
 /**
  * Update shipping info.
+ * PRD-7: Enhanced with shipping agency usage tracking.
  */
 export const updateShipping = mutation({
   args: {
@@ -443,6 +527,18 @@ export const updateShipping = mutation({
     const order = await ctx.db.get(args.orderId);
     if (!order) {
       throw new Error("Order not found");
+    }
+
+    // PRD-7: Track shipping agency usage changes for "Top 4" button selectors
+    if (args.shippingAgency !== undefined && args.shippingAgency !== order.shippingAgency) {
+      // Decrement old agency usage
+      if (order.shippingAgency) {
+        await decrementShippingAgencyUsage(ctx, order.shippingAgency);
+      }
+      // Increment new agency usage
+      if (args.shippingAgency) {
+        await incrementShippingAgencyUsage(ctx, args.shippingAgency);
+      }
     }
 
     await ctx.db.patch(args.orderId, {
@@ -491,6 +587,18 @@ export const updateDetails = mutation({
     if (updates.contactIg !== undefined) patchData.contactIg = updates.contactIg;
     if (updates.channel !== undefined) patchData.channel = updates.channel;
     if (updates.soldBy !== undefined) patchData.soldBy = updates.soldBy;
+
+    // PRD-7: Track channel usage changes for "Top 4" button selectors
+    if (updates.channel !== undefined && updates.channel !== order.channel) {
+      // Decrement old channel usage
+      if (order.channel) {
+        await decrementChannelUsage(ctx, order.channel);
+      }
+      // Increment new channel usage
+      if (updates.channel) {
+        await incrementChannelUsage(ctx, updates.channel);
+      }
+    }
 
     await ctx.db.patch(orderId, patchData);
     return orderId;

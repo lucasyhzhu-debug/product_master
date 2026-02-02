@@ -11,6 +11,8 @@
 import type * as auth_mutations from "../auth/mutations.js";
 import type * as auth_queries from "../auth/queries.js";
 import type * as auth_seed from "../auth/seed.js";
+import type * as channels_mutations from "../channels/mutations.js";
+import type * as channels_queries from "../channels/queries.js";
 import type * as customers_mutations from "../customers/mutations.js";
 import type * as customers_queries from "../customers/queries.js";
 import type * as dashboard_queries from "../dashboard/queries.js";
@@ -39,6 +41,8 @@ import type * as products_mutations from "../products/mutations.js";
 import type * as products_queries from "../products/queries.js";
 import type * as recipes_mutations from "../recipes/mutations.js";
 import type * as recipes_queries from "../recipes/queries.js";
+import type * as shipping_mutations from "../shipping/mutations.js";
+import type * as shipping_queries from "../shipping/queries.js";
 import type * as tags_mutations from "../tags/mutations.js";
 import type * as tags_queries from "../tags/queries.js";
 
@@ -52,6 +56,8 @@ declare const fullApi: ApiFromModules<{
   "auth/mutations": typeof auth_mutations;
   "auth/queries": typeof auth_queries;
   "auth/seed": typeof auth_seed;
+  "channels/mutations": typeof channels_mutations;
+  "channels/queries": typeof channels_queries;
   "customers/mutations": typeof customers_mutations;
   "customers/queries": typeof customers_queries;
   "dashboard/queries": typeof dashboard_queries;
@@ -80,6 +86,8 @@ declare const fullApi: ApiFromModules<{
   "products/queries": typeof products_queries;
   "recipes/mutations": typeof recipes_mutations;
   "recipes/queries": typeof recipes_queries;
+  "shipping/mutations": typeof shipping_mutations;
+  "shipping/queries": typeof shipping_queries;
   "tags/mutations": typeof tags_mutations;
   "tags/queries": typeof tags_queries;
 }>;
