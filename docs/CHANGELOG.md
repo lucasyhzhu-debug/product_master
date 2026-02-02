@@ -13,6 +13,191 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-02 - Kitchen View UI Fixes & Flying Ball Animation
+
+**Bug Fixes & UI Improvements for Kitchen View**
+
+Fixed critical ball accumulation bug and improved visual feedback with flying ball animations and UI polish.
+
+**CRITICAL FIX - Ball Accumulation Bug:**
+
+The `addBallsToTray` mutation had a bug where balls would reset instead of accumulating. Root cause: the NEW system dual-write loop used `args.count` instead of the already-decremented `remainingBalls` from the OLD system.
+
+```typescript
+// BUG (3 locations in mutations.ts):
+let remainingForNewSystem = args.count;  // Wrong - ignores OLD system decrements
+
+// FIX:
+let remainingForNewSystem = remainingBalls;  // Correct - uses what remains after OLD system
+```
+
+**UI Improvements:**
+
+1. **ProductPackage Styling** - White backgrounds with thick (3px) colored status borders:
+   - Empty: gray border
+   - Filling: orange border (was red)
+   - Filled: yellow border
+   - Packed: green border
+
+2. **Package Grouping** - Packages now grouped by product name with row headers in OrderBox
+
+3. **KitchenHelpPanel Contrast** - Improved background from `bg-blue-50` to `bg-blue-100`
+
+4. **InventoryTray Layout** - Refactored to 5x5 egg tray grid layout (25 max visible balls)
+
+**New Feature - Flying Ball Animation:**
+
+When balls are added to the tray and allocated to orders, animated balls fly from the tray to the orders section with:
+- Arc trajectory using Framer Motion keyframes
+- Staggered delays for multiple balls
+- 3D ball rendering matching design spec (pistachio green #93C572, chocolate brown #7B3F00 stroke)
+
+**New Component:**
+
+| File | Purpose |
+|------|---------|
+| `src/components/orders/FlyingBall.tsx` | Flying ball animation from tray to orders |
+
+**Files Modified:**
+
+- `convex/orders/mutations.ts` - Fixed ball accumulation bug (lines 1260, 1623, 1683, 1747)
+- `src/components/orders/ProductPackage.tsx` - White backgrounds, 3px borders, optional product name
+- `src/components/orders/OrderBox.tsx` - Added `groupPackagesByProduct()`, row headers
+- `src/components/orders/KitchenHelpPanel.tsx` - Better contrast
+- `src/components/orders/InventoryTray.tsx` - 5x5 grid layout, forwardRef
+- `src/components/orders/index.ts` - Added FlyingBall export
+- `src/pages/KitchenView.tsx` - Flying ball animation integration
+
+**Branch:** `fix/kitchen-view-ui-issues`
+
+---
+
+## 2026-02-02 - PRD-7: OrderDetail Accordion Stepper Redesign
+
+**Feature: Accordion-Style Vertical Stepper for Order Management**
+
+Complete redesign of the OrderDetail page with an accordion-style vertical stepper UI, replacing the previous dropdown-based status management.
+
+**Key Changes:**
+
+1. **New Accordion Stepper UI** - Left 2/3 shows order progress as expandable steps, right 1/3 shows order info
+2. **Automatic Status Transitions** - Kitchen View triggers status changes automatically:
+   - Confirmed → InProduction (first ball filled)
+   - InProduction → Packaging (all balls complete)
+   - Packaging → WaitingShipment/WaitingPickup (all items packed)
+3. **New `InProduction` Status** - Tracks when kitchen actively starts production (now 11 statuses total)
+4. **Usage-Based Button Selectors** - Channel and shipping agency buttons show top 4 most-used options
+5. **Enhanced Cancellation Dialog** - 3-step flow with reason selection, impact review, and safety confirmation
+6. **9 New Order Components** - Modular accordion step components with Framer Motion animations
+
+**New Backend Tables (3 tables):**
+
+- `channelUsage` - Tracks channel usage count per user for smart button ordering
+- `shippingAgencyUsage` - Tracks shipping agency usage count per user
+- `orderEvents` - Audit log for order status changes with timestamps
+
+**Schema Changes:**
+
+```typescript
+// New status added to union
+status: v.union(
+  ...,
+  v.literal("InProduction"),  // NEW - between Confirmed and Packaging
+)
+
+// New cancellation fields on orders
+cancellationReason: v.optional(v.string()),
+cancellationCategory: v.optional(v.string()),  // CustomerRequest, OutOfStock, etc.
+cancelledAt: v.optional(v.number()),
+cancelledBy: v.optional(v.string()),
+
+// New tables
+channelUsage: defineTable({
+  channel: v.string(),
+  userId: v.string(),
+  usageCount: v.number(),
+}).index("by_user_channel", ["userId", "channel"])
+  .index("by_user_count", ["userId", "usageCount"])
+
+shippingAgencyUsage: defineTable({
+  agency: v.string(),
+  userId: v.string(),
+  usageCount: v.number(),
+}).index("by_user_agency", ["userId", "agency"])
+  .index("by_user_count", ["userId", "usageCount"])
+
+orderEvents: defineTable({
+  orderId: v.id("orders"),
+  eventType: v.string(),
+  fromStatus: v.optional(v.string()),
+  toStatus: v.optional(v.string()),
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+  createdBy: v.string(),
+}).index("by_order", ["orderId"])
+  .index("by_type", ["eventType"])
+```
+
+**New Backend Functions:**
+
+```typescript
+// Channel usage tracking
+channels.getTopChannels({ userId, limit })    // Returns top N channels by usage
+channels.incrementUsage({ channel, userId })  // Increment usage count
+
+// Shipping agency usage tracking
+shipping.getTopAgencies({ userId, limit })    // Returns top N agencies by usage
+shipping.incrementUsage({ agency, userId })   // Increment usage count
+
+// Order mutations (updated)
+orders.updateStatus()     // Now logs to orderEvents, triggers auto-transitions
+orders.cancelOrder()      // Enhanced with category, notes, impact calculation
+```
+
+**New Frontend Components (9 files in `src/components/orders/`):**
+
+| Component | Purpose | Lines |
+|-----------|---------|-------|
+| `OrderStatusAccordion.tsx` | Main accordion with step rendering | 261 |
+| `AccordionStepItem.tsx` | Individual step with expand/collapse | 186 |
+| `StepWhatsAppTemplate.tsx` | WhatsApp template in step content | 179 |
+| `ChannelButtons.tsx` | Usage-based channel selector | 208 |
+| `ShippingAgencyButtons.tsx` | Usage-based agency selector | 174 |
+| `PaymentMethodButtons.tsx` | Payment method buttons | 133 |
+| `ProductionProgress.tsx` | Ball completion progress display | 162 |
+| `PackageStatusDisplay.tsx` | Package status checklist | 240 |
+| `EnhancedCancellationDialog.tsx` | 3-step cancellation flow | 400 |
+
+**New UI Components (3 shadcn/ui components):**
+
+- `src/components/ui/dropdown-menu.tsx` - For "show all" channel/agency dropdown
+- `src/components/ui/progress.tsx` - For production progress bars
+- `src/components/ui/radio-group.tsx` - For cancellation reason selection
+
+**Files Modified:**
+
+- `convex/schema.ts` - InProduction status, 3 new tables, cancellation fields (+59 lines)
+- `convex/orders/mutations.ts` - Auto-transitions, audit logging (+374 lines)
+- `convex/channels/queries.ts` & `mutations.ts` - Channel usage tracking (NEW)
+- `convex/shipping/queries.ts` & `mutations.ts` - Shipping usage tracking (NEW)
+- `src/pages/OrderDetail.tsx` - Complete rebuild with accordion stepper (+497 lines, -237 lines)
+- `src/hooks/convex/useOrders.ts` - Added usage tracking hooks
+
+**Total: 29 files changed, +3,596 additions, -237 deletions**
+
+**Visual Testing Verified:**
+
+- ✅ Accordion expands/collapses correctly with animations
+- ✅ Status indicators show completed (green), current (blue), pending (gray) states
+- ✅ Package status displays in expanded Packaging step
+- ✅ Channel selector with usage-based buttons + dropdown for all options
+- ✅ 3-step cancellation dialog with impact review
+- ✅ Mobile responsive layout with 44px touch targets
+
+**Branch:** `feature/order-detail-accordion-stepper`
+
+---
+
 ## 2026-02-01 - Schema Review & Critical Bug Fixes
 
 **Comprehensive Convex Schema Audit & Fixes**
