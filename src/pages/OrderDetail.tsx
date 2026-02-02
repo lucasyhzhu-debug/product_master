@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Truck, Package, CheckCircle2, XCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,6 +74,7 @@ function getStepStatus(stepStatus: OrderStatus, currentStatus: OrderStatus): Ste
 // ============================================
 
 export function OrderDetail() {
+  useDocumentTitle('Order Details');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const orderId = id as Id<"orders"> | undefined;

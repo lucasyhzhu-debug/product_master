@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Plus, Trash2, Copy, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +48,7 @@ export function RecipeEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isNew = id === 'new';
+  useDocumentTitle(isNew ? 'New Recipe' : 'Edit Recipe');
   // Convex uses string IDs directly
   const recipeId = isNew ? undefined : (id as Id<"recipes">);
 

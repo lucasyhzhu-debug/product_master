@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -11,6 +12,7 @@ import { ChefHat, ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
 
 export default function Login() {
+  useDocumentTitle('Login');
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
 
