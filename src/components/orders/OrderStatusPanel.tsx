@@ -12,7 +12,8 @@ const STATUS_OPTIONS: OrderStatus[] = [
   'Draft',
   'AwaitingPayment',
   'Confirmed',
-  'ProductionComplete',
+  'InProduction',       // PRD-7: Kitchen actively producing
+  'ProductionComplete', // DEPRECATED: Use Packaging instead
   'Packaging',
   'WaitingShipment',
   'CompleteShipped',

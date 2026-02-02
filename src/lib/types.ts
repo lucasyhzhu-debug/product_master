@@ -418,7 +418,11 @@ export interface CustomerSummary {
 }
 
 // Order types
-export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
+// PRD-7: Added InProduction between Confirmed and Packaging
+export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
+
+// PRD-7: Cancellation categories for enhanced cancellation flow
+export type CancellationCategory = 'customer_request' | 'out_of_stock' | 'payment_issue' | 'duplicate' | 'other';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
 export type SalesChannel = 'IG' | 'WA' | 'Shopee' | 'Tokopedia' | 'Offline' | 'Other';
 

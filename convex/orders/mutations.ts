@@ -98,6 +98,114 @@ function recalculateFinalTotal(
   return totalAmount - discountAmount;
 }
 
+/**
+ * PRD-7: Log an order event to the audit trail.
+ * Used for tracking status changes, auto-transitions, and other significant events.
+ */
+async function logOrderEvent(
+  ctx: MutationCtx,
+  orderId: Id<"orders">,
+  eventType: string,
+  options: {
+    fromStatus?: string;
+    toStatus?: string;
+    reason?: string;
+    category?: string;
+    metadata?: Record<string, unknown>;
+    triggeredBy?: string;
+  } = {}
+): Promise<Id<"orderEvents">> {
+  return await ctx.db.insert("orderEvents", {
+    orderId,
+    eventType,
+    fromStatus: options.fromStatus,
+    toStatus: options.toStatus,
+    reason: options.reason,
+    category: options.category,
+    metadata: options.metadata ? JSON.stringify(options.metadata) : undefined,
+    timestamp: Date.now(),
+    triggeredBy: options.triggeredBy ?? "system",
+  });
+}
+
+/**
+ * PRD-7: Increment channel usage count.
+ * Creates the record if it doesn't exist.
+ */
+async function incrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
+  const existing = await ctx.db
+    .query("channelUsage")
+    .withIndex("by_channel", (q) => q.eq("channel", channel))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount + 1,
+    });
+  } else {
+    await ctx.db.insert("channelUsage", {
+      channel,
+      usageCount: 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Decrement channel usage count.
+ * Does nothing if record doesn't exist or count is already 0.
+ */
+async function decrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
+  const existing = await ctx.db
+    .query("channelUsage")
+    .withIndex("by_channel", (q) => q.eq("channel", channel))
+    .first();
+
+  if (existing && existing.usageCount > 0) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount - 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Increment shipping agency usage count.
+ * Creates the record if it doesn't exist.
+ */
+async function incrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
+  const existing = await ctx.db
+    .query("shippingAgencyUsage")
+    .withIndex("by_agency", (q) => q.eq("agency", agency))
+    .first();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount + 1,
+    });
+  } else {
+    await ctx.db.insert("shippingAgencyUsage", {
+      agency,
+      usageCount: 1,
+    });
+  }
+}
+
+/**
+ * PRD-7: Decrement shipping agency usage count.
+ * Does nothing if record doesn't exist or count is already 0.
+ */
+async function decrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
+  const existing = await ctx.db
+    .query("shippingAgencyUsage")
+    .withIndex("by_agency", (q) => q.eq("agency", agency))
+    .first();
+
+  if (existing && existing.usageCount > 0) {
+    await ctx.db.patch(existing._id, {
+      usageCount: existing.usageCount - 1,
+    });
+  }
+}
+
 // ============================================
 // Mutations
 // ============================================
@@ -341,6 +449,11 @@ export const create = mutation({
       }
     }
 
+    // PRD-7: Track channel usage for "Top 4" button selectors
+    if (args.channel) {
+      await incrementChannelUsage(ctx, args.channel);
+    }
+
     return orderId;
   },
 });
@@ -402,6 +515,7 @@ export const updatePayment = mutation({
 
 /**
  * Update shipping info.
+ * PRD-7: Enhanced with shipping agency usage tracking.
  */
 export const updateShipping = mutation({
   args: {
@@ -413,6 +527,18 @@ export const updateShipping = mutation({
     const order = await ctx.db.get(args.orderId);
     if (!order) {
       throw new Error("Order not found");
+    }
+
+    // PRD-7: Track shipping agency usage changes for "Top 4" button selectors
+    if (args.shippingAgency !== undefined && args.shippingAgency !== order.shippingAgency) {
+      // Decrement old agency usage
+      if (order.shippingAgency) {
+        await decrementShippingAgencyUsage(ctx, order.shippingAgency);
+      }
+      // Increment new agency usage
+      if (args.shippingAgency) {
+        await incrementShippingAgencyUsage(ctx, args.shippingAgency);
+      }
     }
 
     await ctx.db.patch(args.orderId, {
@@ -462,6 +588,18 @@ export const updateDetails = mutation({
     if (updates.channel !== undefined) patchData.channel = updates.channel;
     if (updates.soldBy !== undefined) patchData.soldBy = updates.soldBy;
 
+    // PRD-7: Track channel usage changes for "Top 4" button selectors
+    if (updates.channel !== undefined && updates.channel !== order.channel) {
+      // Decrement old channel usage
+      if (order.channel) {
+        await decrementChannelUsage(ctx, order.channel);
+      }
+      // Increment new channel usage
+      if (updates.channel) {
+        await incrementChannelUsage(ctx, updates.channel);
+      }
+    }
+
     await ctx.db.patch(orderId, patchData);
     return orderId;
   },
@@ -469,11 +607,26 @@ export const updateDetails = mutation({
 
 /**
  * Cancel an order.
+ * PRD-7: Enhanced with detailed cleanup and audit logging.
+ *
+ * This mutation:
+ * 1. Validates order can be cancelled (not already completed/cancelled)
+ * 2. Updates order status with cancellation details
+ * 3. Marks all order items as cancelled (soft delete)
+ * 4. Marks all production records as cancelled (soft delete)
+ * 5. Logs cancellation event for audit trail
  */
 export const cancel = mutation({
   args: {
     orderId: v.id("orders"),
     reason: v.optional(v.string()),
+    reasonCategory: v.optional(v.union(
+      v.literal("customer_request"),
+      v.literal("out_of_stock"),
+      v.literal("payment_issue"),
+      v.literal("duplicate"),
+      v.literal("other")
+    )),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -481,12 +634,70 @@ export const cancel = mutation({
       throw new Error("Order not found");
     }
 
+    // PRD-7: Check if order can be cancelled
+    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
+    if (terminalStatuses.includes(order.status)) {
+      throw new Error("Cannot cancel a completed or already cancelled order");
+    }
+
+    const previousStatus = order.status;
+
+    // PRD-7: Update order with cancellation details
     await ctx.db.patch(args.orderId, {
       status: "Cancelled",
       cancellationReason: args.reason,
+      cancellationCategory: args.reasonCategory,
+      cancelledAt: Date.now(),
     });
 
-    return args.orderId;
+    // PRD-7: Mark all order items as cancelled (soft delete)
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    let itemsCancelled = 0;
+    let productionRecordsCancelled = 0;
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        isCancelled: true,
+      });
+      itemsCancelled++;
+
+      // PRD-7: Mark production records as cancelled
+      const productionRecords = await ctx.db
+        .query("orderItemProduction")
+        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+        .collect();
+
+      for (const record of productionRecords) {
+        await ctx.db.patch(record._id, {
+          isCancelled: true,
+        });
+        productionRecordsCancelled++;
+      }
+    }
+
+    // PRD-7: Log cancellation event for audit trail
+    await logOrderEvent(ctx, args.orderId, "cancelled", {
+      fromStatus: previousStatus,
+      toStatus: "Cancelled",
+      reason: args.reason,
+      category: args.reasonCategory,
+      metadata: {
+        itemsCancelled,
+        productionRecordsCancelled,
+      },
+      triggeredBy: "user",
+    });
+
+    return {
+      orderId: args.orderId,
+      previousStatus,
+      itemsCancelled,
+      productionRecordsCancelled,
+    };
   },
 });
 
@@ -895,10 +1106,12 @@ export const revertToConfirmed = mutation({
  * Complete balls and auto-complete orders.
  * PRD-1: Kitchen Core - Wave 2.
  * PRD-5: Enhanced with dual-write to orderItemProduction.
+ * PRD-7: Enhanced with automatic status transitions:
+ *   - Confirmed -> InProduction (first ball filled)
+ *   - InProduction -> Packaging (all balls complete)
  *
- * Applies a batch of completed balls (big or mid) to Confirmed orders
- * in priority order. Orders are automatically marked as ProductionComplete
- * when all their items reach ballsRemaining = 0.
+ * Applies a batch of completed balls (big or mid) to Confirmed/InProduction orders
+ * in priority order.
  */
 export const completeBalls = mutation({
   args: {
@@ -913,15 +1126,23 @@ export const completeBalls = mutation({
     // PRD-5: Map ball type to production unit code
     const productionUnitCode = args.ballType === "big" ? "BIG_BALL" : "MID_BALL";
 
-    // Get Confirmed orders sorted by priority (same as getKitchenOrders)
+    // PRD-7: Get both Confirmed AND InProduction orders (both can receive balls)
     const confirmedOrders = await ctx.db
       .query("orders")
       .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
       .collect();
 
+    const inProductionOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .collect();
+
+    // Combine orders - Confirmed first (they need to transition), then InProduction
+    const allEligibleOrders = [...confirmedOrders, ...inProductionOrders];
+
     // Fetch items for each order and calculate ball needs (for sorting)
     const ordersWithItems = await Promise.all(
-      confirmedOrders.map(async (order) => {
+      allEligibleOrders.map(async (order) => {
         const items = await ctx.db
           .query("orderItems")
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
@@ -982,6 +1203,7 @@ export const completeBalls = mutation({
     // Apply balls to orders
     let remainingBalls = args.count;
     const completedOrderIds: Id<"orders">[] = [];
+    const transitionedToInProduction: Id<"orders">[] = [];
     const productionTypeFilter = args.ballType === "big" ? "original" : "bite_sized";
 
     // Track updated ballsRemaining for accurate auto-completion check
@@ -994,6 +1216,9 @@ export const completeBalls = mutation({
       const matchingItems = items.filter(
         (item) => item.productionType === productionTypeFilter
       );
+
+      // Track if this order received any balls (for Confirmed -> InProduction transition)
+      let orderReceivedBalls = false;
 
       // Apply balls to matching items (OLD system - dual-write)
       for (const item of matchingItems) {
@@ -1013,6 +1238,21 @@ export const completeBalls = mutation({
         updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
 
         remainingBalls -= ballsToApply;
+        orderReceivedBalls = true;
+      }
+
+      // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
+      if (order.status === "Confirmed" && orderReceivedBalls) {
+        await ctx.db.patch(order._id, {
+          status: "InProduction",
+        });
+        await logOrderEvent(ctx, order._id, "status_auto_transition", {
+          fromStatus: "Confirmed",
+          toStatus: "InProduction",
+          reason: "First ball filled - production started",
+          triggeredBy: "kitchen",
+        });
+        transitionedToInProduction.push(order._id);
       }
 
       // PRD-5: Apply balls to orderItemProduction records (NEW system - dual-write)
@@ -1060,9 +1300,20 @@ export const completeBalls = mutation({
         return (item.ballsRemaining ?? 0) <= 0;
       });
 
+      // PRD-7: When all balls complete, transition to Packaging (not ProductionComplete)
       if (allComplete) {
+        // Get current status (may have been updated to InProduction above)
+        const currentStatus = order.status === "Confirmed" ? "InProduction" : order.status;
+
         await ctx.db.patch(order._id, {
-          status: "ProductionComplete",
+          status: "Packaging",
+        });
+
+        await logOrderEvent(ctx, order._id, "status_auto_transition", {
+          fromStatus: currentStatus,
+          toStatus: "Packaging",
+          reason: "All balls complete - ready for packaging",
+          triggeredBy: "kitchen",
         });
 
         // PRD-5: Mark all items as production complete
@@ -1080,7 +1331,8 @@ export const completeBalls = mutation({
     const overflow = remainingBalls;
 
     return {
-      completedOrderIds,
+      completedOrderIds,              // Orders that moved to Packaging
+      transitionedToInProduction,     // PRD-7: Orders that moved to InProduction
       ballsUsed,
       overflow,
     };
@@ -1261,11 +1513,15 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
 /**
  * Add balls to tray and auto-drain to waiting orders.
  * PRD-6: Visual Inventory Tray System
+ * PRD-7: Enhanced with automatic status transitions:
+ *   - Confirmed -> InProduction (first ball filled)
+ *   - InProduction -> Packaging (all balls complete)
  *
  * Flow:
  * 1. Add balls to tray
  * 2. Auto-drain to waiting orders (sequential, by priority)
- * 3. Return overflow count
+ * 3. Auto-transition order statuses as appropriate
+ * 4. Return overflow count and transition info
  */
 export const addBallsToTray = mutation({
   args: {
@@ -1294,15 +1550,23 @@ export const addBallsToTray = mutation({
     const productionTypeFilter = args.ballType === "original" ? "original" : "bite_sized";
     const productionUnitCode = args.ballType === "original" ? "BIG_BALL" : "MID_BALL";
 
-    // Get Confirmed orders sorted by priority
+    // PRD-7: Get both Confirmed AND InProduction orders (both can receive balls)
     const confirmedOrders = await ctx.db
       .query("orders")
       .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
       .collect();
 
+    const inProductionOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .collect();
+
+    // Combine orders - Confirmed first (they need to transition), then InProduction
+    const allEligibleOrders = [...confirmedOrders, ...inProductionOrders];
+
     // Fetch items for each order
     const ordersWithItems = await Promise.all(
-      confirmedOrders.map(async (order) => {
+      allEligibleOrders.map(async (order) => {
         const items = await ctx.db
           .query("orderItems")
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
@@ -1358,13 +1622,18 @@ export const addBallsToTray = mutation({
     let remainingBalls = args.count;
     const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
     const updatedBallsRemaining = new Map<string, number>();
+    const completedOrderIds: Id<"orders">[] = [];
+    const transitionedToInProduction: Id<"orders">[] = [];
 
-    for (const { items } of sortedOrders) {
+    for (const { order, items } of sortedOrders) {
       if (remainingBalls <= 0) break;
 
       const matchingItems = items.filter(
         (item) => item.productionType === productionTypeFilter
       );
+
+      // Track if this order received any balls (for Confirmed -> InProduction transition)
+      let orderReceivedBalls = false;
 
       for (const item of matchingItems) {
         if (remainingBalls <= 0) break;
@@ -1391,6 +1660,21 @@ export const addBallsToTray = mutation({
         updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
         filledPackages.push({ orderItemId: item._id, ballsAdded: ballsToApply });
         remainingBalls -= ballsToApply;
+        orderReceivedBalls = true;
+      }
+
+      // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
+      if (order.status === "Confirmed" && orderReceivedBalls) {
+        await ctx.db.patch(order._id, {
+          status: "InProduction",
+        });
+        await logOrderEvent(ctx, order._id, "status_auto_transition", {
+          fromStatus: "Confirmed",
+          toStatus: "InProduction",
+          reason: "First ball filled - production started",
+          triggeredBy: "kitchen",
+        });
+        transitionedToInProduction.push(order._id);
       }
 
       // Update orderItemProduction (NEW system - dual-write)
@@ -1417,6 +1701,44 @@ export const addBallsToTray = mutation({
           remainingForNewSystem -= unitsToApply;
         }
       }
+
+      // PRD-7: Check if all items complete for auto-transition to Packaging
+      const itemsWithProductionData = items.filter((item) => item.productionType);
+
+      if (itemsWithProductionData.length > 0) {
+        const allComplete = itemsWithProductionData.every((item) => {
+          const updatedValue = updatedBallsRemaining.get(item._id.toString());
+          if (updatedValue !== undefined) {
+            return updatedValue <= 0;
+          }
+          return (item.ballsRemaining ?? 0) <= 0;
+        });
+
+        if (allComplete) {
+          // Get current status (may have been updated to InProduction above)
+          const currentStatus = order.status === "Confirmed" ? "InProduction" : order.status;
+
+          await ctx.db.patch(order._id, {
+            status: "Packaging",
+          });
+
+          await logOrderEvent(ctx, order._id, "status_auto_transition", {
+            fromStatus: currentStatus,
+            toStatus: "Packaging",
+            reason: "All balls complete - ready for packaging",
+            triggeredBy: "kitchen",
+          });
+
+          // Mark all items as production complete
+          for (const item of items) {
+            await ctx.db.patch(item._id, {
+              isProductionComplete: true,
+            });
+          }
+
+          completedOrderIds.push(order._id);
+        }
+      }
     }
 
     // Calculate final tray count
@@ -1434,6 +1756,8 @@ export const addBallsToTray = mutation({
       overflow,
       filledPackages,
       trayCount: overflow,
+      completedOrderIds,              // PRD-7: Orders that moved to Packaging
+      transitionedToInProduction,     // PRD-7: Orders that moved to InProduction
     };
   },
 });
@@ -1483,6 +1807,9 @@ export const removeBallFromTray = mutation({
 /**
  * Mark a package as packed (Yellow -> Green).
  * PRD-6: Visual Inventory Tray System
+ * PRD-7: Enhanced with automatic status transitions:
+ *   - Packaging -> WaitingShipment (for Delivery orders) when all items packed
+ *   - Packaging -> WaitingPickup (for Pickup orders) when all items packed
  */
 export const markPackagePacked = mutation({
   args: {
@@ -1523,10 +1850,33 @@ export const markPackagePacked = mutation({
         : i.packageStatus === "packed"
     );
 
+    // PRD-7: Auto-transition when all packages are packed
+    let statusTransition: { from: string; to: string } | null = null;
+
+    if (allPacked && order.status === "Packaging") {
+      // Determine next status based on delivery type
+      const nextStatus = order.deliveryType === "Delivery" ? "WaitingShipment" : "WaitingPickup";
+
+      await ctx.db.patch(order._id, {
+        status: nextStatus,
+      });
+
+      // Log the auto-transition event
+      await logOrderEvent(ctx, order._id, "status_auto_transition", {
+        fromStatus: "Packaging",
+        toStatus: nextStatus,
+        reason: "All packages packed - ready for " + (order.deliveryType === "Delivery" ? "shipment" : "pickup"),
+        triggeredBy: "kitchen",
+      });
+
+      statusTransition = { from: "Packaging", to: nextStatus };
+    }
+
     return {
       orderItemId: args.orderItemId,
       allPackagesPacked: allPacked,
       orderId: item.orderId,
+      statusTransition, // PRD-7: Include transition info for frontend toast
     };
   },
 });
