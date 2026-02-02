@@ -2,6 +2,7 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
+import { distributeBallsToOrders } from "./helpers";
 
 // ============================================
 // Input Types
@@ -1092,219 +1093,17 @@ export const completeBalls = mutation({
       throw new Error("Count must be positive");
     }
 
-    // PRD-5: Map ball type to production unit code
-    const productionUnitCode = args.ballType === "big" ? "BIG_BALL" : "MID_BALL";
-
-    // PRD-7: Get both Confirmed AND InProduction orders (both can receive balls)
-    const confirmedOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
-      .collect();
-
-    const inProductionOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
-      .collect();
-
-    // Combine orders - Confirmed first (they need to transition), then InProduction
-    const allEligibleOrders = [...confirmedOrders, ...inProductionOrders];
-
-    // Fetch items for each order and calculate ball needs (for sorting)
-    const ordersWithItems = await Promise.all(
-      allEligibleOrders.map(async (order) => {
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
-
-        // PRD-5: Fetch production records for each item
-        const itemsWithProduction = await Promise.all(
-          items.map(async (item) => {
-            const productionRecords = await ctx.db
-              .query("orderItemProduction")
-              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-              .collect();
-            return { ...item, productionRecords };
-          })
-        );
-
-        let bigBallsNeeded = 0;
-        let midBallsNeeded = 0;
-
-        for (const item of items) {
-          if (item.productionType === "original" && item.productionUnits) {
-            bigBallsNeeded += item.productionUnits;
-          } else if (item.productionType === "bite_sized" && item.productionUnits) {
-            midBallsNeeded += item.productionUnits;
-          }
-        }
-
-        return {
-          order,
-          items: itemsWithProduction,
-          bigBallsNeeded,
-          midBallsNeeded,
-        };
-      })
-    );
-
-    // Sort by: dueDate ASC → totalUnits DESC → orderDate ASC
-    const sortedOrders = ordersWithItems.sort((a, b) => {
-      // Sort by due date first (earliest first)
-      if (a.order.dueDate !== b.order.dueDate) {
-        if (!a.order.dueDate && !b.order.dueDate) return 0;
-        if (!a.order.dueDate) return 1;
-        if (!b.order.dueDate) return -1;
-        return a.order.dueDate - b.order.dueDate;
-      }
-
-      // Then by total units (most first)
-      const aTotalUnits = a.bigBallsNeeded + a.midBallsNeeded;
-      const bTotalUnits = b.bigBallsNeeded + b.midBallsNeeded;
-      if (aTotalUnits !== bTotalUnits) {
-        return bTotalUnits - aTotalUnits;
-      }
-
-      // Finally by order date (earliest first)
-      return a.order.orderDate - b.order.orderDate;
+    const result = await distributeBallsToOrders(ctx, {
+      ballType: args.ballType,
+      count: args.count,
+      trackFilledPackages: false,
     });
 
-    // Apply balls to orders
-    let remainingBalls = args.count;
-    const completedOrderIds: Id<"orders">[] = [];
-    const transitionedToInProduction: Id<"orders">[] = [];
-    const productionTypeFilter = args.ballType === "big" ? "original" : "bite_sized";
-
-    // Track updated ballsRemaining for accurate auto-completion check
-    const updatedBallsRemaining = new Map<string, number>();
-
-    for (const { order, items } of sortedOrders) {
-      if (remainingBalls <= 0) break;
-
-      // Filter items by production type matching ball type (OLD system)
-      const matchingItems = items.filter(
-        (item) => item.productionType === productionTypeFilter
-      );
-
-      // Track if this order received any balls (for Confirmed -> InProduction transition)
-      let orderReceivedBalls = false;
-
-      // Apply balls to matching items (OLD system - dual-write)
-      for (const item of matchingItems) {
-        if (remainingBalls <= 0) break;
-
-        const currentBallsRemaining = item.ballsRemaining ?? 0;
-        if (currentBallsRemaining <= 0) continue;
-
-        const ballsToApply = Math.min(remainingBalls, currentBallsRemaining);
-        const newBallsRemaining = currentBallsRemaining - ballsToApply;
-
-        await ctx.db.patch(item._id, {
-          ballsRemaining: newBallsRemaining,
-        });
-
-        // Track the updated value
-        updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
-
-        remainingBalls -= ballsToApply;
-        orderReceivedBalls = true;
-      }
-
-      // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
-      if (order.status === "Confirmed" && orderReceivedBalls) {
-        await ctx.db.patch(order._id, {
-          status: "InProduction",
-        });
-        await logOrderEvent(ctx, order._id, "status_auto_transition", {
-          fromStatus: "Confirmed",
-          toStatus: "InProduction",
-          reason: "First ball filled - production started",
-          triggeredBy: "kitchen",
-        });
-        transitionedToInProduction.push(order._id);
-      }
-
-      // PRD-5: Apply balls to orderItemProduction records (NEW system - dual-write)
-      // Use remainingBalls (already decremented by OLD system) to stay in sync
-      let remainingForNewSystem = remainingBalls;
-      for (const item of items) {
-        if (remainingForNewSystem <= 0) break;
-
-        // Find matching production records by unit code
-        const matchingRecords = item.productionRecords.filter(
-          (r) => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0
-        );
-
-        for (const record of matchingRecords) {
-          if (remainingForNewSystem <= 0) break;
-
-          const unitsToApply = Math.min(remainingForNewSystem, record.unitsRemaining);
-          const newUnitsRemaining = record.unitsRemaining - unitsToApply;
-          const newUnitsCompleted = record.unitsCompleted + unitsToApply;
-
-          await ctx.db.patch(record._id, {
-            unitsCompleted: newUnitsCompleted,
-            unitsRemaining: newUnitsRemaining,
-          });
-
-          remainingForNewSystem -= unitsToApply;
-        }
-      }
-
-      // Check if ALL items in the order have ballsRemaining = 0 (using tracked values)
-      // IMPORTANT: Only consider items that have production data (productionType set)
-      const itemsWithProductionData = items.filter((item) => item.productionType);
-
-      // If no items have production data, don't auto-complete this order
-      if (itemsWithProductionData.length === 0) {
-        continue;
-      }
-
-      const allComplete = itemsWithProductionData.every((item) => {
-        // Check if we updated this item
-        const updatedValue = updatedBallsRemaining.get(item._id.toString());
-        if (updatedValue !== undefined) {
-          return updatedValue <= 0;
-        }
-        // This item wasn't updated, check its original value
-        return (item.ballsRemaining ?? 0) <= 0;
-      });
-
-      // PRD-7: When all balls complete, transition to Packaging (not ProductionComplete)
-      if (allComplete) {
-        // Get current status (may have been updated to InProduction above)
-        const currentStatus = order.status === "Confirmed" ? "InProduction" : order.status;
-
-        await ctx.db.patch(order._id, {
-          status: "Packaging",
-        });
-
-        await logOrderEvent(ctx, order._id, "status_auto_transition", {
-          fromStatus: currentStatus,
-          toStatus: "Packaging",
-          reason: "All balls complete - ready for packaging",
-          triggeredBy: "kitchen",
-        });
-
-        // PRD-5: Mark all items as production complete
-        for (const item of items) {
-          await ctx.db.patch(item._id, {
-            isProductionComplete: true,
-          });
-        }
-
-        completedOrderIds.push(order._id);
-      }
-    }
-
-    const ballsUsed = args.count - remainingBalls;
-    const overflow = remainingBalls;
-
     return {
-      completedOrderIds,              // Orders that moved to Packaging
-      transitionedToInProduction,     // PRD-7: Orders that moved to InProduction
-      ballsUsed,
-      overflow,
+      completedOrderIds: result.completedOrderIds,
+      transitionedToInProduction: result.transitionedToInProduction,
+      ballsUsed: result.ballsUsed,
+      overflow: result.overflow,
     };
   },
 });
@@ -1516,221 +1315,26 @@ export const addBallsToTray = mutation({
       lastUpdated: Date.now(),
     });
 
-    // Now auto-drain to orders using the existing completeBalls logic
-    const productionTypeFilter = args.ballType === "original" ? "original" : "bite_sized";
-    const productionUnitCode = args.ballType === "original" ? "BIG_BALL" : "MID_BALL";
-
-    // PRD-7: Get both Confirmed AND InProduction orders (both can receive balls)
-    const confirmedOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
-      .collect();
-
-    const inProductionOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
-      .collect();
-
-    // Combine orders - Confirmed first (they need to transition), then InProduction
-    const allEligibleOrders = [...confirmedOrders, ...inProductionOrders];
-
-    // Fetch items for each order
-    const ordersWithItems = await Promise.all(
-      allEligibleOrders.map(async (order) => {
-        const items = await ctx.db
-          .query("orderItems")
-          .withIndex("by_order", (q) => q.eq("orderId", order._id))
-          .collect();
-
-        const itemsWithProduction = await Promise.all(
-          items.map(async (item) => {
-            const productionRecords = await ctx.db
-              .query("orderItemProduction")
-              .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
-              .collect();
-            return { ...item, productionRecords };
-          })
-        );
-
-        let originalBallsNeeded = 0;
-        let biteSizedBallsNeeded = 0;
-
-        for (const item of items) {
-          if (item.productionType === "original" && item.ballsRemaining) {
-            originalBallsNeeded += item.ballsRemaining;
-          } else if (item.productionType === "bite_sized" && item.ballsRemaining) {
-            biteSizedBallsNeeded += item.ballsRemaining;
-          }
-        }
-
-        return {
-          order,
-          items: itemsWithProduction,
-          originalBallsNeeded,
-          biteSizedBallsNeeded,
-        };
-      })
-    );
-
-    // Sort by: dueDate ASC → totalUnits DESC → orderDate ASC
-    const sortedOrders = ordersWithItems.sort((a, b) => {
-      if (a.order.dueDate !== b.order.dueDate) {
-        if (!a.order.dueDate && !b.order.dueDate) return 0;
-        if (!a.order.dueDate) return 1;
-        if (!b.order.dueDate) return -1;
-        return a.order.dueDate - b.order.dueDate;
-      }
-      const aTotalUnits = a.originalBallsNeeded + a.biteSizedBallsNeeded;
-      const bTotalUnits = b.originalBallsNeeded + b.biteSizedBallsNeeded;
-      if (aTotalUnits !== bTotalUnits) {
-        return bTotalUnits - aTotalUnits;
-      }
-      return a.order.orderDate - b.order.orderDate;
+    // Distribute balls to orders
+    const result = await distributeBallsToOrders(ctx, {
+      ballType: args.ballType,
+      count: newCount,
+      trackFilledPackages: true,
     });
-
-    // Apply balls to orders
-    // Use newCount (currentCount + args.count) so that existing tray balls are preserved
-    let remainingBalls = newCount;
-    const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
-    const updatedBallsRemaining = new Map<string, number>();
-    const completedOrderIds: Id<"orders">[] = [];
-    const transitionedToInProduction: Id<"orders">[] = [];
-
-    for (const { order, items } of sortedOrders) {
-      if (remainingBalls <= 0) break;
-
-      const matchingItems = items.filter(
-        (item) => item.productionType === productionTypeFilter
-      );
-
-      // Track if this order received any balls (for Confirmed -> InProduction transition)
-      let orderReceivedBalls = false;
-
-      for (const item of matchingItems) {
-        if (remainingBalls <= 0) break;
-
-        const currentBallsRemaining = item.ballsRemaining ?? 0;
-        if (currentBallsRemaining <= 0) continue;
-
-        const ballsToApply = Math.min(remainingBalls, currentBallsRemaining);
-        const newBallsRemaining = currentBallsRemaining - ballsToApply;
-        const newBallsFilled = (item.ballsFilled ?? 0) + ballsToApply;
-
-        // Determine package status
-        let packageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-        if (newBallsRemaining <= 0) {
-          packageStatus = "filled";
-        }
-
-        await ctx.db.patch(item._id, {
-          ballsRemaining: newBallsRemaining,
-          ballsFilled: newBallsFilled,
-          packageStatus: packageStatus,
-        });
-
-        updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
-        filledPackages.push({ orderItemId: item._id, ballsAdded: ballsToApply });
-        remainingBalls -= ballsToApply;
-        orderReceivedBalls = true;
-      }
-
-      // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
-      if (order.status === "Confirmed" && orderReceivedBalls) {
-        await ctx.db.patch(order._id, {
-          status: "InProduction",
-        });
-        await logOrderEvent(ctx, order._id, "status_auto_transition", {
-          fromStatus: "Confirmed",
-          toStatus: "InProduction",
-          reason: "First ball filled - production started",
-          triggeredBy: "kitchen",
-        });
-        transitionedToInProduction.push(order._id);
-      }
-
-      // Update orderItemProduction (NEW system - dual-write)
-      // Use remainingBalls (already decremented by OLD system) to stay in sync
-      let remainingForNewSystem = remainingBalls;
-      for (const item of items) {
-        if (remainingForNewSystem <= 0) break;
-
-        const matchingRecords = item.productionRecords.filter(
-          (r) => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0
-        );
-
-        for (const record of matchingRecords) {
-          if (remainingForNewSystem <= 0) break;
-
-          const unitsToApply = Math.min(remainingForNewSystem, record.unitsRemaining);
-          const newUnitsRemaining = record.unitsRemaining - unitsToApply;
-          const newUnitsCompleted = record.unitsCompleted + unitsToApply;
-
-          await ctx.db.patch(record._id, {
-            unitsCompleted: newUnitsCompleted,
-            unitsRemaining: newUnitsRemaining,
-          });
-
-          remainingForNewSystem -= unitsToApply;
-        }
-      }
-
-      // PRD-7: Check if all items complete for auto-transition to Packaging
-      const itemsWithProductionData = items.filter((item) => item.productionType);
-
-      if (itemsWithProductionData.length > 0) {
-        const allComplete = itemsWithProductionData.every((item) => {
-          const updatedValue = updatedBallsRemaining.get(item._id.toString());
-          if (updatedValue !== undefined) {
-            return updatedValue <= 0;
-          }
-          return (item.ballsRemaining ?? 0) <= 0;
-        });
-
-        if (allComplete) {
-          // Get current status (may have been updated to InProduction above)
-          const currentStatus = order.status === "Confirmed" ? "InProduction" : order.status;
-
-          await ctx.db.patch(order._id, {
-            status: "Packaging",
-          });
-
-          await logOrderEvent(ctx, order._id, "status_auto_transition", {
-            fromStatus: currentStatus,
-            toStatus: "Packaging",
-            reason: "All balls complete - ready for packaging",
-            triggeredBy: "kitchen",
-          });
-
-          // Mark all items as production complete
-          for (const item of items) {
-            await ctx.db.patch(item._id, {
-              isProductionComplete: true,
-            });
-          }
-
-          completedOrderIds.push(order._id);
-        }
-      }
-    }
-
-    // Calculate final tray count
-    // ballsUsed = total in tray before draining (newCount) minus what's left (remainingBalls)
-    const ballsUsed = newCount - remainingBalls;
-    const overflow = remainingBalls;
 
     // Update inventory with overflow
     await ctx.db.patch(inventory._id, {
-      [fieldName]: overflow,
+      [fieldName]: result.overflow,
       lastUpdated: Date.now(),
     });
 
     return {
-      ballsUsed,
-      overflow,
-      filledPackages,
-      trayCount: overflow,
-      completedOrderIds,              // PRD-7: Orders that moved to Packaging
-      transitionedToInProduction,     // PRD-7: Orders that moved to InProduction
+      ballsUsed: result.ballsUsed,
+      overflow: result.overflow,
+      filledPackages: result.filledPackages,
+      trayCount: result.overflow,
+      completedOrderIds: result.completedOrderIds,
+      transitionedToInProduction: result.transitionedToInProduction,
     };
   },
 });
