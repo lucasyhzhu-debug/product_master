@@ -4,8 +4,7 @@
  * Consolidates the ball distribution algorithm used by both
  * completeBalls and addBallsToTray mutations.
  *
- * Uses NEW system (orderItemProduction) as the source of truth.
- * The OLD system (ballsRemaining) is deprecated and no longer updated.
+ * Uses orderItemProduction as the source of truth for production tracking.
  */
 
 import type { MutationCtx } from "../../_generated/server";

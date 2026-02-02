@@ -38,7 +38,46 @@ function formatDateTime(timestamp: number): string {
 }
 
 // ============================================
-// Template Functions
+// Template Types
+// ============================================
+
+type TemplateType =
+  | "payment_request"
+  | "production_started"
+  | "delivery_complete"
+  | "receipt"
+  | "shipping"
+  | "pickup_ready";
+
+// ============================================
+// Consolidated Template Generator
+// ============================================
+
+/**
+ * Generate WhatsApp message template based on type.
+ * Consolidates all template generation logic into a single parameterized function.
+ */
+function generateTemplate(order: OrderWithItems, template: TemplateType): string {
+  switch (template) {
+    case "payment_request":
+      return generatePaymentRequest(order);
+    case "production_started":
+      return generateProductionStarted(order);
+    case "delivery_complete":
+      return generateDeliveryComplete(order);
+    case "receipt":
+      return generateReceipt(order);
+    case "shipping":
+      return generateShippingConfirmation(order);
+    case "pickup_ready":
+      return generatePickupReady(order);
+    default:
+      throw new Error(`Unknown template type: ${template}`);
+  }
+}
+
+// ============================================
+// Template Functions (Internal)
 // ============================================
 
 /**
@@ -322,22 +361,7 @@ export const getMessage = query({
       customer,
     };
 
-    switch (args.template) {
-      case "payment_request":
-        return generatePaymentRequest(orderWithItems);
-      case "production_started":
-        return generateProductionStarted(orderWithItems);
-      case "delivery_complete":
-        return generateDeliveryComplete(orderWithItems);
-      case "receipt":
-        return generateReceipt(orderWithItems);
-      case "shipping":
-        return generateShippingConfirmation(orderWithItems);
-      case "pickup_ready":
-        return generatePickupReady(orderWithItems);
-      default:
-        throw new Error("Unknown template");
-    }
+    return generateTemplate(orderWithItems, args.template);
   },
 });
 
