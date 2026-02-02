@@ -3,6 +3,12 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
 import { distributeBallsToOrders, logOrderEvent, isTerminalStatus, TERMINAL_STATUSES } from "./helpers";
+import {
+  incrementChannelUsage,
+  decrementChannelUsage,
+  incrementShippingAgencyUsage,
+  decrementShippingAgencyUsage,
+} from "./helpers";
 
 // ============================================
 // Input Types
@@ -68,85 +74,12 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
   return orderNumber;
 }
 
-// logOrderEvent moved to helpers/statusTransitions.ts
-
-/**
- * PRD-7: Increment channel usage count.
- * Creates the record if it doesn't exist.
- */
-async function incrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
-  const existing = await ctx.db
-    .query("channelUsage")
-    .withIndex("by_channel", (q) => q.eq("channel", channel))
-    .first();
-
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      usageCount: existing.usageCount + 1,
-    });
-  } else {
-    await ctx.db.insert("channelUsage", {
-      channel,
-      usageCount: 1,
-    });
-  }
-}
-
-/**
- * PRD-7: Decrement channel usage count.
- * Does nothing if record doesn't exist or count is already 0.
- */
-async function decrementChannelUsage(ctx: MutationCtx, channel: string): Promise<void> {
-  const existing = await ctx.db
-    .query("channelUsage")
-    .withIndex("by_channel", (q) => q.eq("channel", channel))
-    .first();
-
-  if (existing && existing.usageCount > 0) {
-    await ctx.db.patch(existing._id, {
-      usageCount: existing.usageCount - 1,
-    });
-  }
-}
-
-/**
- * PRD-7: Increment shipping agency usage count.
- * Creates the record if it doesn't exist.
- */
-async function incrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
-  const existing = await ctx.db
-    .query("shippingAgencyUsage")
-    .withIndex("by_agency", (q) => q.eq("agency", agency))
-    .first();
-
-  if (existing) {
-    await ctx.db.patch(existing._id, {
-      usageCount: existing.usageCount + 1,
-    });
-  } else {
-    await ctx.db.insert("shippingAgencyUsage", {
-      agency,
-      usageCount: 1,
-    });
-  }
-}
-
-/**
- * PRD-7: Decrement shipping agency usage count.
- * Does nothing if record doesn't exist or count is already 0.
- */
-async function decrementShippingAgencyUsage(ctx: MutationCtx, agency: string): Promise<void> {
-  const existing = await ctx.db
-    .query("shippingAgencyUsage")
-    .withIndex("by_agency", (q) => q.eq("agency", agency))
-    .first();
-
-  if (existing && existing.usageCount > 0) {
-    await ctx.db.patch(existing._id, {
-      usageCount: existing.usageCount - 1,
-    });
-  }
-}
+// Helper functions moved to convex/orders/helpers/
+// - logOrderEvent -> statusTransitions.ts
+// - incrementChannelUsage -> usageTracking.ts
+// - decrementChannelUsage -> usageTracking.ts
+// - incrementShippingAgencyUsage -> usageTracking.ts
+// - decrementShippingAgencyUsage -> usageTracking.ts
 
 // ============================================
 // Mutations
