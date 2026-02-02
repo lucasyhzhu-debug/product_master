@@ -52,7 +52,7 @@ export function useOnboardingTour(autoStart: boolean = false) {
       showProgress: true,
       showButtons: ['next', 'previous', 'close'],
       steps: DASHBOARD_TOUR_STEPS,
-      overlayOpacity: 0.75, // Darker overlay to make highlight stand out
+      overlayOpacity: 0.5, // Semi-transparent overlay for better visibility
       stagePadding: 16,
       stageRadius: 12,
       allowClose: true,
