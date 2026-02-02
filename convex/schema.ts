@@ -373,9 +373,6 @@ export default defineSchema({
     // PRD-0: Ball tracking for Kitchen View
     productionType: v.optional(v.string()), // "original" or "bite_sized"
     productionUnits: v.optional(v.number()), // balls per unit
-    // @deprecated ballsRemaining is no longer updated - use orderItemProduction.unitsRemaining
-    // Kept for backward compatibility with existing data
-    ballsRemaining: v.optional(v.number()),
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
     // PRD-7: Cancellation flag for soft delete
@@ -396,7 +393,8 @@ export default defineSchema({
   })
     .index("by_order", ["orderId"])
     .index("by_product_name", ["productName"])
-    .index("by_menu_product", ["menuProductId"]),
+    .index("by_menu_product", ["menuProductId"])
+    .index("by_production_type", ["orderId", "productionType"]),
 
   // ============================================
   // PRD-5: ORDER ITEM PRODUCTION
@@ -419,7 +417,8 @@ export default defineSchema({
   })
     .index("by_order_item", ["orderItemId"])
     .index("by_production_type", ["productionUnitTypeId"])
-    .index("by_remaining", ["unitsRemaining"]),
+    .index("by_remaining", ["unitsRemaining"])
+    .index("by_completion", ["orderItemId", "unitsRemaining"]),
 
   // ============================================
   // PRD-0: WHATSAPP MESSAGE TRACKING

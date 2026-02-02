@@ -258,15 +258,13 @@ import {
 - **Needs `ctx.db` access?** → Add to `helpers/*.ts`
 - **New concern area?** → Create new file in `helpers/` and export from `index.ts`
 
-**Dual-Write System (Ball Distribution):**
+**Ball Distribution System:**
 
-The `distributeBallsToOrders()` function maintains two tracking systems:
-- **OLD system:** `orderItems.ballsRemaining` (deprecated, for backward compatibility)
-- **NEW system:** `orderItemProduction.unitsRemaining` + `orderItems.ballsFilled/packageStatus`
+The `distributeBallsToOrders()` function uses the production tracking system:
+- **Production tracking:** `orderItemProduction.unitsRemaining` (source of truth)
+- **Visual tracking:** `orderItems.ballsFilled/packageStatus` (for UI display)
 
-Both are updated atomically to ensure consistency. See `helpers/ballDistribution.ts` for implementation.
-
-**Future Migration:** The dual-write will be removed once all clients read from the NEW system.
+See `helpers/ballDistribution.ts` for implementation.
 
 ---
 

@@ -253,10 +253,6 @@ export const create = mutation({
         lineMargin,
         productionType: menuProductData?.productionType,
         productionUnits: menuProductData?.productionUnits,
-        // Initialize ballsRemaining = productionUnits * quantity
-        ballsRemaining: menuProductData
-          ? menuProductData.productionUnits * item.quantity
-          : undefined,
       };
     });
 
@@ -317,7 +313,6 @@ export const create = mutation({
         // Production fields for Kitchen View ball tracking (DEPRECATED - kept for dual-write)
         productionType: item.productionType,
         productionUnits: item.productionUnits,
-        ballsRemaining: item.ballsRemaining,
       });
 
       // PRD-5: Create orderItemProduction records (new production tracking system)
@@ -636,14 +631,12 @@ export const addItem = mutation({
     // Fetch menu product data for production fields
     let productionType: string | undefined;
     let productionUnits: number | undefined;
-    let ballsRemaining: number | undefined;
 
     if (args.item.menuProductId) {
       const menuProduct = await ctx.db.get(args.item.menuProductId);
       if (menuProduct) {
         productionType = menuProduct.productionType;
         productionUnits = menuProduct.productionUnits;
-        ballsRemaining = menuProduct.productionUnits * args.item.quantity;
       }
     }
 
@@ -660,10 +653,9 @@ export const addItem = mutation({
       lineCost,
       lineMargin,
       menuProductId: args.item.menuProductId,
-      // Production fields for Kitchen View ball tracking (DEPRECATED - kept for dual-write)
+      // Production fields for Kitchen View ball tracking
       productionType,
       productionUnits,
-      ballsRemaining,
     });
 
     // PRD-5: Create orderItemProduction records (new production tracking system)
@@ -774,18 +766,12 @@ export const updateItemQuantity = mutation({
     const costDiff = lineCost - item.lineCost;
     const marginDiff = lineMargin - item.lineMargin;
 
-    // Recalculate ballsRemaining if productionUnits exists
-    const newBallsRemaining = item.productionUnits
-      ? item.productionUnits * args.quantity
-      : undefined;
-
     // Update item
     await ctx.db.patch(args.itemId, {
       quantity: args.quantity,
       lineTotal,
       lineCost,
       lineMargin,
-      ballsRemaining: newBallsRemaining,
     });
 
     // PRD-5: Update orderItemProduction records with new quantity (use helper)
@@ -977,9 +963,9 @@ export const backfillOrderItemProduction = mutation({
         // Calculate units based on productionUnits * quantity
         const unitsRequired = (item.productionUnits ?? 0) * item.quantity;
 
-        // If ballsRemaining is 0, the item is complete
-        const ballsRemaining = item.ballsRemaining ?? unitsRequired;
-        const unitsCompleted = unitsRequired - ballsRemaining;
+        // For migration: assume all units are still pending (unitsCompleted = 0)
+        const unitsCompleted = 0;
+        const unitsRemaining = unitsRequired;
 
         await ctx.db.insert("orderItemProduction", {
           orderItemId: item._id,
@@ -987,8 +973,8 @@ export const backfillOrderItemProduction = mutation({
           productionUnitCode: unitCode,
           productionUnitName: unitName,
           unitsRequired,
-          unitsCompleted: Math.max(0, unitsCompleted),
-          unitsRemaining: Math.max(0, ballsRemaining),
+          unitsCompleted,
+          unitsRemaining,
         });
 
         results.processed++;
