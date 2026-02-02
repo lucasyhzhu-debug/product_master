@@ -21,8 +21,9 @@
 1. Create new branch from main
 2. Make changes & commit
 3. Audit & code review
-4. If works → merge back to main
-5. Update docs/CHANGELOG.md
+4. Update documentation (see Documentation Checklist below)
+5. If works → merge back to main
+6. Update docs/CHANGELOG.md (REQUIRED)
 ```
 
 **This applies to:**
@@ -157,11 +158,13 @@ Before starting any implementation task:
 - [ ] Edge cases are handled (empty lists, null values, etc.)
 - [ ] Calculations are correct and handle edge cases
 
-### Documentation
+### Documentation (MANDATORY)
+- [ ] **CHANGELOG.md updated** (REQUIRED for all merges)
+- [ ] SCHEMA.md updated if database schema changed
+- [ ] ROADMAP.md updated if feature completed
+- [ ] API_REFERENCE.md updated if backend functions changed
 - [ ] Complex logic has explanatory comments
-- [ ] Schema changes are documented in CHANGELOG.md
-- [ ] API changes are documented in CHANGELOG.md
-- [ ] Business logic changes are explained
+- [ ] Business logic changes are explained in code
 
 ### Code Review Approval Gates
 
@@ -309,24 +312,110 @@ git commit -m "feat: display yield and cost per gram in UI"
 
 ## Documentation Requirements
 
-After implementation, update relevant documentation:
+### 🚨 MANDATORY: Documentation Checklist
+
+**Before merging ANY code change, verify ALL applicable items are complete:**
+
+#### 1. CHANGELOG.md (REQUIRED FOR ALL MERGES)
+- [ ] **ALWAYS update** `docs/CHANGELOG.md` when merging to main
+- [ ] Add new entry with date, title, and description
+- [ ] List modified files if significant
+- [ ] Group related commits into single changelog entry
+- [ ] Include any migration steps or breaking changes
+
+**Location:** After merge to main, BEFORE pushing
+
+#### 2. SCHEMA.md (Database Changes Only)
+Update `docs/SCHEMA.md` when you:
+- [ ] Add/remove tables
+- [ ] Add/remove/modify fields in existing tables
+- [ ] Change field types (string → union, etc.)
+- [ ] Add/remove indexes
+- [ ] Add/remove order statuses or enums
+- [ ] Modify relationships between tables
+
+**Critical:** If you add a new order status, update the workflow diagram!
+
+#### 3. ROADMAP.md (Feature Completion)
+Update `docs/ROADMAP.md` when you:
+- [ ] Complete a feature listed in "Not Yet Implemented"
+- [ ] Complete a major phase (mark items as [x])
+- [ ] Add new version to Version History table
+- [ ] Add new major features to completed phases
+
+**When:** After significant milestones, not for every commit
+
+#### 4. API_REFERENCE.md (Backend Function Changes)
+Update `docs/API_REFERENCE.md` when you:
+- [ ] Add new Convex queries or mutations
+- [ ] Change function signatures (args or returns)
+- [ ] Add new endpoints or remove old ones
+- [ ] Change response formats
+
+**When:** Backend API changes only
+
+---
+
+### Documentation Decision Tree
+
+**Use this to quickly determine which docs to update:**
+
+```
+Did you change code?
+├─ YES → Update CHANGELOG.md (always)
+│   │
+│   ├─ Did you add/modify database fields or statuses?
+│   │   └─ YES → Update SCHEMA.md
+│   │
+│   ├─ Did you complete a feature from the backlog?
+│   │   └─ YES → Update ROADMAP.md
+│   │
+│   └─ Did you add/modify Convex queries/mutations?
+│       └─ YES → Update API_REFERENCE.md
+│
+└─ NO → No documentation updates needed
+```
+
+---
+
+### Detailed Documentation Guidelines
 
 **For Schema Changes:**
-- New tables/fields documented in SCHEMA.md
-- Index definitions noted
-- Relationship changes clearly explained
+- Document new tables with all fields and validators
+- Note index definitions and their purpose
+- Update workflow diagrams if adding statuses
+- Explain relationship changes clearly
+- Mark deprecated fields with comments
 
 **For Convex Function Changes:**
-- New queries/mutations documented in API_REFERENCE.md
-- Response format examples provided
-- Error cases listed
+- Document function signature with types
+- Provide response format examples
+- List error cases and error messages
+- Note authentication requirements (future)
+- Explain business logic if complex
 
 **For Business Logic:**
-- Algorithm changes documented with examples
-- Edge cases and null handling noted
-- Cost calculation updates reflected
+- Document algorithm changes with examples
+- Note edge cases and null handling
+- Explain cost calculation updates
+- Reference related functions
+- Add inline comments for complex logic
 
 **For Frontend Changes:**
-- New components documented with prop types
-- Hook usage patterns noted
-- State management changes explained
+- Document new components with prop interfaces
+- Note hook usage patterns
+- Explain state management approach
+- Document complex UI interactions
+- Add JSDoc comments for reusable utilities
+
+---
+
+### Enforcement
+
+**Documentation is NOT optional. Code review should verify:**
+- [ ] CHANGELOG.md entry exists (for all merges)
+- [ ] SCHEMA.md updated if database changed
+- [ ] ROADMAP.md updated if feature completed
+- [ ] API_REFERENCE.md updated if backend changed
+
+**If documentation is incomplete, the merge should be blocked until fixed.**

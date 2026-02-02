@@ -438,10 +438,11 @@ orderMessages: defineTable({
 Draft
   └─> AwaitingPayment (WhatsApp sent, waiting for payment)
         └─> Confirmed (payment verified)
-              └─> ProductionComplete (kitchen: production done)
-                    └─> Packaging (kitchen: actively packaging)
-                          ├─> WaitingShipment ─> CompleteShipped (delivered)
-                          └─> WaitingPickup ─> PickedUp (customer picked up)
+              └─> InProduction (kitchen: actively producing)
+                    └─> ProductionComplete (kitchen: production done)
+                          └─> Packaging (kitchen: actively packaging)
+                                ├─> WaitingShipment ─> CompleteShipped (delivered)
+                                └─> WaitingPickup ─> PickedUp (customer picked up)
 
 Any non-terminal → Cancelled (requires cancellationReason)
 ```
@@ -452,9 +453,10 @@ Any non-terminal → Cancelled (requires cancellationReason)
 |--------|-------------|-------------|
 | Draft | Order created, not confirmed | AwaitingPayment, Cancelled |
 | AwaitingPayment | WhatsApp sent, waiting for payment | Confirmed, Cancelled |
-| Confirmed | Payment verified, ready for production | ProductionComplete, Cancelled |
-| ProductionComplete | Kitchen finished production | Packaging, Cancelled |
-| Packaging | Actively packaging | WaitingShipment, WaitingPickup, Cancelled |
+| Confirmed | Payment verified, ready for production | InProduction, Cancelled |
+| InProduction | Kitchen actively producing (first ball filled) | ProductionComplete, Cancelled |
+| ProductionComplete | Kitchen finished production (all balls complete) | Packaging, Cancelled |
+| Packaging | Actively packaging (all items being packed) | WaitingShipment, WaitingPickup, Cancelled |
 | WaitingShipment | Ready for courier | CompleteShipped, Cancelled |
 | CompleteShipped | Delivered to customer (terminal) | - |
 | WaitingPickup | Ready for customer pickup | PickedUp, Cancelled |

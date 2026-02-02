@@ -17,6 +17,7 @@
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | Git workflow, code review process | Before any PR |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Convex queries and mutations reference | When modifying backend |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Convex deployment guide | When deploying |
+| [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) | Testing environment setup | When testing features |
 | [docs/CHANGELOG.md](docs/CHANGELOG.md) | Version history | After merging |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Future plans, backlog | When planning features |
 
@@ -105,9 +106,22 @@ npx convex dev              # Start local Convex dev server
 npx convex deploy           # Deploy to production
 npx convex dashboard        # Open Convex dashboard in browser
 
+# Database Management
+npx convex export           # Backup database
+npx convex import           # Restore database
+# In dashboard → Run: orders/deleteAll:deleteAllOrders  # Clean test data
+
 # Database Seeding (run from Convex dashboard Functions tab)
 # tags:seedDefaults          - Creates default tags
 # menuProducts:seedDefaults  - Creates default menu products
+```
+
+**Database Setup:**
+Single dev deployment (`dev:exciting-fennec-671`) for all development.
+See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for database management.
+```bash
+npx convex dev              # Start backend
+npm run dev                 # Start frontend
 ```
 
 ---
@@ -233,11 +247,25 @@ product_master/
 
 ## Environment Variables
 
+**Single Development Environment:** Convex free tier provides one dev deployment.
+
+| File | Purpose | Committed? |
+|------|---------|-----------|
+| `.env.local` | Active environment | ❌ No (gitignored) |
+| `.env.local.production` | Same as testing (for future use) | ✅ Yes (safe) |
+| `.env.local.testing` | Same as production (for future use) | ✅ Yes (safe) |
+| `.env.example` | Template for new setups | ✅ Yes |
+
+**Current setup:**
 ```bash
-# .env.local (for Convex)
-CONVEX_DEPLOYMENT=dev:your-deployment-name
-VITE_CONVEX_URL=https://your-deployment.convex.cloud
+# .env.local
+CONVEX_DEPLOYMENT=dev:exciting-fennec-671
+VITE_CONVEX_URL=https://exciting-fennec-671.convex.cloud
+VITE_CONVEX_SITE_URL=https://exciting-fennec-671.convex.site
 ```
+
+**For separate testing environment:** Create a second Convex project or upgrade to Convex Pro.
+See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for details.
 
 ---
 
@@ -251,8 +279,9 @@ VITE_CONVEX_URL=https://your-deployment.convex.cloud
 1. Create new branch from main
 2. Make changes & commit
 3. Audit & code review
-4. If works → merge back to main
-5. Update docs/CHANGELOG.md
+4. Update documentation (see below)
+5. Merge back to main
+6. Update docs/CHANGELOG.md (REQUIRED)
 ```
 
 **NO EXCEPTIONS.** Do not commit directly to main.
@@ -268,6 +297,80 @@ npm run build  # verify before push
 git push origin feature/your-name
 # After review: merge to main
 ```
+
+---
+
+## 🚨 Documentation Requirements (MANDATORY)
+
+### Quick Decision Tree
+
+**Before merging, ask yourself:**
+
+```
+Did you change code?
+├─ YES → Update CHANGELOG.md (ALWAYS REQUIRED)
+│   │
+│   ├─ Database schema changed?
+│   │   └─ YES → Update SCHEMA.md
+│   │
+│   ├─ Feature completed?
+│   │   └─ YES → Update ROADMAP.md
+│   │
+│   └─ Backend functions changed?
+│       └─ YES → Update API_REFERENCE.md
+│
+└─ NO → No doc updates needed
+```
+
+### Documentation Files
+
+| File | When to Update | Required? |
+|------|---------------|-----------|
+| **CHANGELOG.md** | After EVERY code merge to main | ✅ YES (always) |
+| **SCHEMA.md** | Database tables/fields/statuses changed | ⚠️ If applicable |
+| **ROADMAP.md** | Feature from backlog completed | ⚠️ If applicable |
+| **API_REFERENCE.md** | Convex queries/mutations changed | ⚠️ If applicable |
+| **CODE_STYLE.md** | New patterns/conventions added | ❌ Rarely |
+
+### Update Examples
+
+**CHANGELOG.md (REQUIRED FOR ALL MERGES):**
+```markdown
+## 2026-02-03 - Feature Name or Bug Fix
+
+**Brief description of what changed**
+
+- Bullet point 1
+- Bullet point 2
+
+**Files Modified:**
+- convex/orders/mutations.ts
+- src/pages/OrderDetail.tsx
+
+**Commits:**
+- abc123 - feat: add new feature
+```
+
+**SCHEMA.md (When schema changes):**
+- Added new table → Document full table definition
+- Added field → Update table section with new field
+- Added order status → Update workflow diagram
+- Added index → Document index purpose
+
+**ROADMAP.md (When feature completed):**
+- Mark item as [x] in appropriate phase
+- Add to version history if milestone
+
+**API_REFERENCE.md (When backend changes):**
+- Document new query/mutation signature
+- Add example response
+- Note any breaking changes
+
+### Enforcement
+
+**Documentation is NOT optional. PRs without complete documentation should be rejected.**
+
+See full details: [docs/WORKFLOW.md](docs/WORKFLOW.md#documentation-requirements)
 
 ---
 

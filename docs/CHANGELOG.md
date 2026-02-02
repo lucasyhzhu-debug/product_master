@@ -13,6 +13,65 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-02 - Order UX Improvements & WhatsApp Template Fixes
+
+**Multiple small improvements to order management and WhatsApp messaging**
+
+### Features Added:
+
+**1. Product Names in Production Progress**
+- Replaced generic "Big Ball/Mid Ball" labels with actual product names
+- Production progress now shows specific products: "Original", "Bite Sized Triple", etc.
+- Added "Go to Kitchen" button in Production step for quick navigation
+- Improved visibility of what's being produced
+
+**Files Modified:**
+- `src/pages/OrderDetail.tsx` - Production progress display
+
+### Bug Fixes:
+
+**2. Multi-line Customer Info Parsing**
+- Fixed order template parser to handle WhatsApp messages where customer info appears on line after label
+- Now correctly parses: `"Alamat:\nJl Green Garden..."` format
+- Handles phone, name, and address fields with line breaks
+
+**Files Modified:**
+- `src/lib/orderTemplateParser.ts` - Parser logic
+
+**3. WhatsApp Template Cleanup**
+- Removed placeholder BCA bank details from order template customers fill in
+- Payment request message still includes real bank info
+- Updated greeting for Dubai Chewy Cookie product
+
+**Files Modified:**
+- `convex/orders/whatsapp.ts` - WhatsApp templates
+
+**4. Kitchen View Completion Flow**
+- Added `markAllItemPackagesPacked` mutation for batch marking packages as packed
+- Added "Mark all (X) as packaged" button per product row in Kitchen View
+- Fixed order completion flow - orders stay visible after completion for better tracking
+- Removed redundant `isCompleted` prop, derive status from `order.status`
+- Replaced exit animation with layout-based reordering for smoother transitions
+- Renamed "Undo Complete" button to "Return to Packaging" for clarity
+- Improved due date display: "Today", "Tomorrow", or "Fri 09:00 (4d)"
+- Fixed dark mode opacity for package cards and draft orders (30%)
+- Changed payment button text to "Confirmation invoice sent..." for accuracy
+
+**Files Modified:**
+- `convex/orders/mutations.ts` - New mutation for batch packaging
+- `src/pages/KitchenView.tsx` - Improved completion flow
+- `src/components/orders/OrderBox.tsx` - Batch packaging UI
+- `src/components/orders/ProductPackage.tsx` - Dark mode fixes
+
+**Commits:**
+- `a83360e` - feat(orders): show product names in production progress and add kitchen link
+- `8da9504` - fix(orders): handle multi-line customer info in order parser
+- `6307541` - fix(whatsapp): update order template greeting for Dubai Chewy Cookie
+- `7f8d575` - feat(kitchen): improve order completion flow and add batch packaging
+- `e8f9761` - fix(whatsapp): remove template BCA details from order template
+
+---
+
 ## 2026-02-02 - Dual-Write System Removal: NEW Production Tracking
 
 **Migrated Kitchen View production tracking from OLD system (`ballsRemaining`) to NEW system (`orderItemProduction`).**
