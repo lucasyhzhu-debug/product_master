@@ -4,6 +4,8 @@ import { Separator } from '@/components/ui/separator';
 import { Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHoldToActivate } from '@/hooks/useHoldToActivate';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { ChannelBadge } from './ChannelBadge';
 import { ProductPackage } from './ProductPackage';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -159,6 +161,20 @@ export function OrderBox({
 
   const urgency = getUrgencyState(order.dueDate);
 
+  // Navigation and auth for order ID link
+  const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canViewOrderDetails = hasPermission('canAccessOrders');
+
+  const handleOrderIdClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (canViewOrderDetails) {
+      // Extract numeric ID from order._id
+      const numericId = order._id.toString().split(':')[1] || order._id;
+      navigate(`/orders/${numericId}`);
+    }
+  };
+
   // Calculate totals
   const packages = expandItemsToPackages(order.items);
 
@@ -234,9 +250,18 @@ export function OrderBox({
           {/* Order info - mobile: stack badge/number above customer */}
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <ChannelBadge channel={order.channel} size="sm" />
-            <span className="font-mono font-semibold text-base sm:text-lg">
-              #{order.orderNumber}
-            </span>
+            {canViewOrderDetails ? (
+              <button
+                onClick={handleOrderIdClick}
+                className="font-mono font-semibold text-base sm:text-lg hover:underline focus:outline-none focus:ring-2 focus:ring-primary rounded-sm px-1 -ml-1"
+              >
+                #{order.orderNumber}
+              </button>
+            ) : (
+              <span className="font-mono font-semibold text-base sm:text-lg">
+                #{order.orderNumber}
+              </span>
+            )}
             {order.customer?.name && (
               <>
                 <span className="text-muted-foreground hidden sm:inline">-</span>
