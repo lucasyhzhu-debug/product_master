@@ -390,6 +390,9 @@ export default defineSchema({
     )),
     // Track balls filled in this package (for visual display)
     ballsFilled: v.optional(v.number()),
+    // PRD-6: Track which individual packages are packed (indices 0 to quantity-1)
+    // When all packages are packed, packageStatus becomes "packed"
+    packedPackageIndices: v.optional(v.array(v.number())),
   })
     .index("by_order", ["orderId"])
     .index("by_product_name", ["productName"])

@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { ChefHat, ChevronDown, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
@@ -16,7 +17,6 @@ import {
   KitchenHelpPanel,
   InventoryTray,
   OrderBox,
-  KitchenOrderCard,
   FlyingBall,
 } from '@/components/orders';
 import { playCompletionFanfare, playDing, playClunk, playSoftClick } from '@/lib/kitchenSounds';
@@ -43,8 +43,13 @@ interface FlyingBallState {
 }
 
 export function KitchenView() {
+  useDocumentTitle('Kitchen');
   const [completedCollapsed, setCompletedCollapsed] = useState(true);
   const [flyingBalls, setFlyingBalls] = useState<FlyingBallState[]>([]);
+
+  // Loading states for Fill Orders buttons
+  const [isFillingOriginal, setIsFillingOriginal] = useState(false);
+  const [isFillingBiteSized, setIsFillingBiteSized] = useState(false);
 
   // Refs for animation positions
   const originalTrayRef = useRef<HTMLDivElement>(null);
@@ -70,12 +75,52 @@ export function KitchenView() {
   // New tray mutations
   const addBallsToTray = useMutation(api.orders.mutations.addBallsToTray);
   const removeBallFromTray = useMutation(api.orders.mutations.removeBallFromTray);
+  const fillPendingOrdersMutation = useMutation(api.orders.mutations.fillPendingOrders);
 
   // Package status mutations
   const markPackagePacked = useMutation(api.orders.mutations.markPackagePacked);
   const unmarkPackagePacked = useMutation(api.orders.mutations.unmarkPackagePacked);
 
   const isLoading = statsLoading || ordersLoading || completedLoading;
+
+  // Calculate pending order count AND total balls needed for each ball type
+  const { pendingOriginalCount, pendingOriginalBalls } = useMemo(() => {
+    if (!pendingOrders) return { pendingOriginalCount: 0, pendingOriginalBalls: 0 };
+    let orderCount = 0;
+    let totalBalls = 0;
+    for (const order of pendingOrders) {
+      const originalItems = order.items?.filter(item => item.production_type === "original") ?? [];
+      if (originalItems.length > 0) {
+        orderCount++;
+        // Sum up balls still needed: (quantity * production_units) - balls_filled
+        for (const item of originalItems) {
+          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
+          const needed = totalRequired - (item.balls_filled ?? 0);
+          if (needed > 0) totalBalls += needed;
+        }
+      }
+    }
+    return { pendingOriginalCount: orderCount, pendingOriginalBalls: totalBalls };
+  }, [pendingOrders]);
+
+  const { pendingBiteSizedCount, pendingBiteSizedBalls } = useMemo(() => {
+    if (!pendingOrders) return { pendingBiteSizedCount: 0, pendingBiteSizedBalls: 0 };
+    let orderCount = 0;
+    let totalBalls = 0;
+    for (const order of pendingOrders) {
+      const biteSizedItems = order.items?.filter(item => item.production_type === "bite_sized") ?? [];
+      if (biteSizedItems.length > 0) {
+        orderCount++;
+        // Sum up balls still needed: (quantity * production_units) - balls_filled
+        for (const item of biteSizedItems) {
+          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
+          const needed = totalRequired - (item.balls_filled ?? 0);
+          if (needed > 0) totalBalls += needed;
+        }
+      }
+    }
+    return { pendingBiteSizedCount: orderCount, pendingBiteSizedBalls: totalBalls };
+  }, [pendingOrders]);
 
   // Trigger flying ball animation
   const triggerFlyingBalls = useCallback(
@@ -132,50 +177,79 @@ export function KitchenView() {
     await revertOrder.mutate(orderId);
   };
 
-  // New tray-based ball completion
+  // Add balls to tray (NO auto-distribution)
   const handleAddBallsToTray = async (ballType: 'original' | 'bite_sized', count: number) => {
     try {
+      const result = await addBallsToTray({ ballType, count });
+
       // Play clunk sound for balls landing in tray
       playClunk();
 
-      const result = await addBallsToTray({ ballType, count });
-
-      // Trigger flying ball animation if balls were used
-      if (result.ballsUsed > 0) {
-        triggerFlyingBalls(ballType, result.ballsUsed);
-
-        // Brief pause for visual effect, then play ding sounds for draining
-        setTimeout(() => {
-          for (let i = 0; i < Math.min(result.ballsUsed, 5); i++) {
-            setTimeout(() => playDing(), i * 100);
-          }
-        }, 200);
-      }
-
-      // Celebrate if packages were filled
-      if (result.filledPackages.length > 0) {
-        confetti({
-          particleCount: 50 * result.filledPackages.length,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-        playCompletionFanfare();
-      }
-
-      // Build toast message
+      // Simple toast - no flying animation on add
       const typeName = ballType === 'original' ? 'Original' : 'Bite-sized';
-      let message = `+${count} ${typeName}`;
-      if (result.ballsUsed > 0) {
-        message += ` → ${result.ballsUsed} applied to orders`;
-      }
-      if (result.overflow > 0) {
-        message += ` (${result.overflow} in tray)`;
-      }
-
-      toast.success(message);
+      toast.success(`+${count} ${typeName} (${result.trayCount} in tray)`);
     } catch (error) {
       toast.error('Failed to add balls');
       console.error(error);
+    }
+  };
+
+  // Fill pending orders with balls from tray
+  const handleFillPendingOrders = async (ballType: 'original' | 'bite_sized') => {
+    const setLoading = ballType === 'original' ? setIsFillingOriginal : setIsFillingBiteSized;
+
+    // Prevent rapid clicks
+    if (isFillingOriginal || isFillingBiteSized) return;
+
+    setLoading(true);
+
+    try {
+      const result = await fillPendingOrdersMutation({ ballType });
+
+      if (!result.success) {
+        toast.error(result.error || 'No balls distributed');
+        return;
+      }
+
+      if (result.ballsUsed === 0) {
+        toast.info('No pending orders to fill');
+        return;
+      }
+
+      // Trigger flying ball animation
+      triggerFlyingBalls(ballType, result.ballsUsed);
+
+      // Play ding sounds (capped at 3 for UX)
+      const dingCount = Math.min(result.ballsUsed, 3);
+      for (let i = 0; i < dingCount; i++) {
+        setTimeout(() => playDing(), i * 100);
+      }
+
+      // Confetti for completed packages
+      if (result.packagesCompleted > 0) {
+        setTimeout(() => {
+          playCompletionFanfare();
+          confetti({
+            particleCount: 50 * result.packagesCompleted,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }, dingCount * 100 + 200);
+      }
+
+      // Success toast
+      const typeName = ballType === 'original' ? 'Original' : 'Bite-sized';
+      let message = `${result.ballsUsed} ${typeName} → ${result.ordersUpdated} order${result.ordersUpdated !== 1 ? 's' : ''}`;
+      if (result.overflow > 0) {
+        message += ` (${result.overflow} remaining)`;
+      }
+      toast.success(message);
+
+    } catch (error) {
+      toast.error('Failed to fill orders. Please try again.');
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -189,13 +263,18 @@ export function KitchenView() {
     }
   };
 
-  const handlePackageStatusChange = async (itemId: Id<"orderItems">, newStatus: 'filled' | 'packed') => {
+  const handlePackageStatusChange = async (itemId: Id<"orderItems">, newStatus: 'filled' | 'packed', packageIndex: number) => {
     try {
       if (newStatus === 'packed') {
         playSoftClick();
-        await markPackagePacked({ orderItemId: itemId });
+        const result = await markPackagePacked({ orderItemId: itemId, packageIndex });
+        // Show toast if order auto-transitioned
+        if (result?.statusTransition) {
+          const nextStatus = result.statusTransition.to === 'WaitingShipment' ? 'Ready for Shipment' : 'Ready for Pickup';
+          toast.success(`Order ${nextStatus}!`, { duration: 3000 });
+        }
       } else {
-        await unmarkPackagePacked({ orderItemId: itemId });
+        await unmarkPackagePacked({ orderItemId: itemId, packageIndex });
       }
     } catch (error) {
       toast.error('Failed to update package');
@@ -250,6 +329,10 @@ export function KitchenView() {
               ref={originalTrayRef}
               ballType="original"
               count={trayInventory?.originalBallCount ?? 0}
+              onFillPendingOrders={() => handleFillPendingOrders('original')}
+              pendingOrderCount={pendingOriginalCount}
+              pendingBallsNeeded={pendingOriginalBalls}
+              isFillingOrders={isFillingOriginal}
             />
           </CardContent>
         </Card>
@@ -277,6 +360,10 @@ export function KitchenView() {
               ref={biteSizedTrayRef}
               ballType="bite_sized"
               count={trayInventory?.biteSizedBallCount ?? 0}
+              onFillPendingOrders={() => handleFillPendingOrders('bite_sized')}
+              pendingOrderCount={pendingBiteSizedCount}
+              pendingBallsNeeded={pendingBiteSizedBalls}
+              isFillingOrders={isFillingBiteSized}
             />
           </CardContent>
         </Card>
@@ -316,6 +403,7 @@ export function KitchenView() {
                         order={{
                           _id: order.id as unknown as Id<"orders">,
                           orderNumber: order.order_number,
+                          status: order.status,
                           channel: order.channel ?? undefined,
                           dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
                           items: (order.items ?? []).map((item) => ({
@@ -325,8 +413,16 @@ export function KitchenView() {
                             productionType: item.production_type,
                             productionUnits: item.production_units,
                             quantity: item.quantity,
-                            packageStatus: 'empty' as const,
-                            ballsFilled: 0,
+                            // Use DB packageStatus, fallback to calculated if not set
+                            packageStatus: item.package_status ?? (
+                              item.balls_filled && item.production_units && item.balls_filled >= (item.quantity * item.production_units)
+                                ? 'filled'
+                                : item.balls_filled && item.balls_filled > 0
+                                  ? 'filling'
+                                  : 'empty'
+                            ),
+                            ballsFilled: item.balls_filled ?? 0,
+                            packedPackageIndices: item.packed_package_indices,
                           })),
                           customer: order.customer_name ? { name: order.customer_name } : null,
                         }}
@@ -381,7 +477,7 @@ export function KitchenView() {
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden"
+                  className="grid grid-cols-1 gap-4 overflow-hidden"
                 >
                   {completedToday.map((order, index) => (
                     <motion.div
@@ -390,11 +486,28 @@ export function KitchenView() {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.03 }}
                     >
-                      <KitchenOrderCard
-                        order={order}
-                        onComplete={() => {}}
+                      <OrderBox
+                        order={{
+                          _id: order.id as unknown as Id<"orders">,
+                          orderNumber: order.order_number,
+                          status: order.status,
+                          channel: order.channel ?? undefined,
+                          dueDate: order.due_date ? new Date(order.due_date).getTime() : undefined,
+                          items: (order.items ?? []).map((item) => ({
+                            _id: (item.id as unknown as Id<"orderItems">) ?? ('' as Id<"orderItems">),
+                            productName: item.product_name,
+                            productVariant: item.product_variant ?? undefined,
+                            productionType: item.production_type,
+                            productionUnits: item.production_units,
+                            quantity: item.quantity,
+                            // Use DB packageStatus, fallback to packed for completed orders
+                            packageStatus: item.package_status ?? 'packed',
+                            ballsFilled: item.balls_filled ?? 0,
+                            packedPackageIndices: item.packed_package_indices,
+                          })),
+                          customer: order.customer_name ? { name: order.customer_name } : null,
+                        }}
                         onRevert={() => handleRevertOrder(order.id as unknown as Id<"orders">)}
-                        isCompleted={true}
                         disabled={!canEditKitchen}
                       />
                     </motion.div>

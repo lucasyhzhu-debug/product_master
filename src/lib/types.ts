@@ -624,6 +624,10 @@ export interface KitchenOrderItem extends OrderItem {
   /** @deprecated Use production_units for total, balls_filled for current progress */
   balls_remaining?: number;
   balls_filled?: number;
+  // PRD-6: Package status for visual inventory system
+  package_status?: 'empty' | 'filling' | 'filled' | 'packed';
+  // PRD-6: Per-package tracking - indices of packages marked as packed
+  packed_package_indices?: number[];
   // PRD-5: Production records for each unit type
   production_records?: OrderItemProduction[];
 }

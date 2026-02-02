@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChannelBadge } from './ChannelBadge';
 import { ProductPackage } from './ProductPackage';
@@ -18,6 +20,7 @@ interface OrderItem {
   quantity: number;
   packageStatus?: PackageStatus;
   ballsFilled?: number;
+  packedPackageIndices?: number[]; // Per-package tracking
 }
 
 interface OrderBoxProps {
@@ -25,12 +28,15 @@ interface OrderBoxProps {
     _id: Id<"orders">;
     orderNumber: string;
     channel?: string;
+    status?: string;
     dueDate?: number;
     items: OrderItem[];
     customer?: { name: string } | null;
   };
-  onPackageStatusChange?: (itemId: Id<"orderItems">, newStatus: 'filled' | 'packed') => void;
+  onPackageStatusChange?: (itemId: Id<"orderItems">, newStatus: 'filled' | 'packed', packageIndex: number) => void;
   onComplete?: () => void;
+  onRevert?: () => void;
+  isCompleted?: boolean;
   disabled?: boolean;
 }
 
@@ -80,6 +86,7 @@ function expandItemsToPackages(items: OrderItem[]): Array<{
 
     const ballsPerPackage = item.productionUnits;
     const totalBallsFilled = item.ballsFilled ?? 0;
+    const packedIndices = item.packedPackageIndices ?? [];
 
     for (let i = 0; i < item.quantity; i++) {
       // Calculate how many balls this specific package has
@@ -89,20 +96,18 @@ function expandItemsToPackages(items: OrderItem[]): Array<{
         ballsPerPackage
       );
 
-      // Determine status
+      // Check if this specific package is packed (using per-package tracking)
+      const isThisPackagePacked = packedIndices.includes(i);
+      const isThisPackageFilled = ballsInThisPackage >= ballsPerPackage;
+
+      // Determine status using per-package tracking
       let status: PackageStatus = 'empty';
-      if (item.packageStatus === 'packed' && ballsInThisPackage === ballsPerPackage) {
+      if (isThisPackagePacked && isThisPackageFilled) {
         status = 'packed';
-      } else if (ballsInThisPackage === ballsPerPackage) {
+      } else if (isThisPackageFilled) {
         status = 'filled';
       } else if (ballsInThisPackage > 0) {
         status = 'filling';
-      }
-
-      // Use item's packageStatus if it's explicitly set and this is the first package
-      // This is a simplification - in reality we'd track per-package status
-      if (i === 0 && item.packageStatus) {
-        status = item.packageStatus;
       }
 
       const displayName = item.productVariant
@@ -139,16 +144,24 @@ function groupPackagesByProduct(packages: ReturnType<typeof expandItemsToPackage
   return Array.from(groups.entries());
 }
 
+// Statuses that mean the order has left the kitchen (completed in kitchen context)
+const COMPLETED_STATUSES = ['WaitingShipment', 'WaitingPickup', 'CompleteShipped', 'PickedUp'];
+
 export function OrderBox({
   order,
   onPackageStatusChange,
   onComplete,
+  onRevert,
+  isCompleted: isCompletedProp,
   disabled = false,
 }: OrderBoxProps) {
   const [isHolding, setIsHolding] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Determine if order is "completed" (left the kitchen) from status, or use prop as override
+  const isCompleted = isCompletedProp ?? COMPLETED_STATUSES.includes(order.status ?? '');
 
   const urgency = getUrgencyState(order.dueDate);
 
@@ -163,6 +176,7 @@ export function OrderBox({
   const biteSizedFilled = biteSizedPackages.reduce((sum, p) => sum + p.ballsFilled, 0);
   const biteSizedNeeded = biteSizedPackages.reduce((sum, p) => sum + p.ballsRequired, 0);
 
+  const allBallsFilled = packages.every((p) => p.ballsFilled >= p.ballsRequired);
   const allPackagesPacked = packages.every((p) => p.status === 'packed');
   const canComplete = allPackagesPacked && !disabled;
 
@@ -207,20 +221,29 @@ export function OrderBox({
     if (disabled || !onPackageStatusChange) return;
 
     if (pkg.status === 'filled') {
-      onPackageStatusChange(pkg.itemId, 'packed');
+      onPackageStatusChange(pkg.itemId, 'packed', pkg.packageIndex);
     } else if (pkg.status === 'packed') {
-      onPackageStatusChange(pkg.itemId, 'filled');
+      onPackageStatusChange(pkg.itemId, 'filled', pkg.packageIndex);
     }
   };
 
-  // Card border styles based on urgency
+  const isDraft = order.status === 'Draft';
+
+  // Card border styles based on completion status, urgency, and draft status
   const cardClassName = cn(
     'relative overflow-hidden transition-all',
     {
+      // Completed orders get green styling
+      'bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-800':
+        isCompleted,
+      // Draft orders get grey styling
+      'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 opacity-75':
+        isDraft && !isCompleted,
+      // Urgency styling (only for non-draft, non-completed)
       'border-red-500 animate-pulse shadow-red-200 dark:shadow-red-900/30 shadow-lg':
-        urgency === 'overdue',
+        urgency === 'overdue' && !isDraft && !isCompleted,
       'border-amber-500 animate-pulse shadow-amber-200 dark:shadow-amber-900/30 shadow-md':
-        urgency === 'urgent',
+        urgency === 'urgent' && !isDraft && !isCompleted,
     }
   );
 
@@ -242,12 +265,15 @@ export function OrderBox({
               </>
             )}
           </div>
-          {/* Urgency & due time */}
+          {/* Status badges & due time */}
           <div className="flex items-center gap-2 shrink-0">
-            {urgency === 'urgent' && (
+            {isDraft && (
+              <Badge className="bg-gray-500 text-white text-xs">DRAFT</Badge>
+            )}
+            {urgency === 'urgent' && !isDraft && (
               <Badge className="bg-amber-500 text-white animate-pulse text-xs">URGENT</Badge>
             )}
-            {urgency === 'overdue' && (
+            {urgency === 'overdue' && !isDraft && (
               <Badge className="bg-red-500 text-white animate-pulse text-xs">OVERDUE</Badge>
             )}
             <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
@@ -278,42 +304,14 @@ export function OrderBox({
             )}
           </div>
 
-          {/* Status / Complete button - full width on mobile */}
-          {allPackagesPacked ? (
-            <div
-              className={cn(
-                'relative h-10 sm:h-9 w-full sm:w-auto sm:min-w-[200px] rounded-md overflow-hidden select-none',
-                canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
-              )}
-              onMouseDown={startHold}
-              onMouseUp={cancelHold}
-              onMouseLeave={cancelHold}
-              onTouchStart={startHold}
-              onTouchEnd={cancelHold}
-              onTouchCancel={cancelHold}
-            >
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-950" />
-              <div
-                className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-100"
-                style={{ width: `${holdProgress}%` }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-xs sm:text-sm font-medium">
-                {isHolding ? (
-                  <span className="text-white mix-blend-difference">
-                    {holdProgress < 100 ? 'Hold...' : 'Completing!'}
-                  </span>
-                ) : (
-                  <span className="text-green-700 dark:text-green-300">
-                    ✓ ALL PACKED - Hold 1s
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <span className="text-xs sm:text-sm text-muted-foreground">
-              Awaiting balls...
-            </span>
-          )}
+          {/* Status text based on order status */}
+          <span className="text-xs sm:text-sm text-muted-foreground">
+            {order.status === 'Packaging' ? 'Packaging' :
+             order.status === 'InProduction' ? 'In Production' :
+             order.status === 'Confirmed' ? 'Confirmed' :
+             order.status === 'Draft' ? 'Draft' :
+             allBallsFilled ? 'Ready to Pack' : 'Awaiting balls...'}
+          </span>
         </div>
       </div>
 
@@ -350,6 +348,56 @@ export function OrderBox({
         {packages.length === 0 && (
           <div className="text-center text-muted-foreground py-4">
             No production items in this order
+          </div>
+        )}
+
+        {/* Undo Complete Button - shows for completed orders */}
+        {isCompleted && onRevert && (
+          <div className="pt-4 border-t mt-4">
+            <Button
+              variant="outline"
+              className="w-full h-12"
+              onClick={onRevert}
+              disabled={disabled}
+            >
+              <Undo2 className="h-5 w-5 mr-2" />
+              Undo Complete
+            </Button>
+          </div>
+        )}
+
+        {/* Complete Order Button - shows when all packages are packed and not completed */}
+        {!isCompleted && allPackagesPacked && (
+          <div className="pt-4 border-t mt-4">
+            <div
+              className={cn(
+                'relative h-14 w-full rounded-lg overflow-hidden select-none',
+                canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
+              )}
+              onMouseDown={startHold}
+              onMouseUp={cancelHold}
+              onMouseLeave={cancelHold}
+              onTouchStart={startHold}
+              onTouchEnd={cancelHold}
+              onTouchCancel={cancelHold}
+            >
+              <div className="absolute inset-0 bg-green-100 dark:bg-green-950" />
+              <div
+                className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-100"
+                style={{ width: `${holdProgress}%` }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center text-base font-bold">
+                {isHolding ? (
+                  <span className="text-white mix-blend-difference">
+                    {holdProgress < 100 ? 'Hold to Complete...' : 'Completing!'}
+                  </span>
+                ) : (
+                  <span className="text-green-700 dark:text-green-300">
+                    ✓ COMPLETE ORDER (Hold 1s)
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
