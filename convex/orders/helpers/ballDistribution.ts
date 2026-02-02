@@ -4,7 +4,8 @@
  * Consolidates the ball distribution algorithm used by both
  * completeBalls and addBallsToTray mutations.
  *
- * DUAL-WRITE: Updates both OLD (ballsRemaining) and NEW (orderItemProduction) systems.
+ * Uses NEW system (orderItemProduction) as the source of truth.
+ * The OLD system (ballsRemaining) is deprecated and no longer updated.
  */
 
 import type { MutationCtx } from "../../_generated/server";
@@ -39,12 +40,6 @@ interface OrderWithItems {
   bigBallsNeeded: number;
   midBallsNeeded: number;
 }
-
-// ============================================
-// Helper: Log Order Event
-// ============================================
-
-// Now using shared logAutoTransition from statusTransitions.ts
 
 // ============================================
 // Helper: Fetch Eligible Orders
@@ -85,15 +80,18 @@ async function fetchEligibleOrdersWithItems(
         })
       );
 
-      // Calculate ball needs
+      // Calculate ball needs from NEW system (production records)
       let bigBallsNeeded = 0;
       let midBallsNeeded = 0;
 
-      for (const item of items) {
-        if (item.productionType === "original" && item.productionUnits) {
-          bigBallsNeeded += item.productionUnits;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
-          midBallsNeeded += item.productionUnits;
+      for (const item of itemsWithProduction) {
+        for (const record of item.productionRecords) {
+          if (record.isCancelled) continue;
+          if (record.productionUnitCode === "BIG_BALL") {
+            bigBallsNeeded += record.unitsRemaining;
+          } else if (record.productionUnitCode === "MID_BALL") {
+            midBallsNeeded += record.unitsRemaining;
+          }
         }
       }
 
@@ -129,6 +127,24 @@ function sortOrdersByPriority(orders: OrderWithItems[]): OrderWithItems[] {
 }
 
 // ============================================
+// Helper: Calculate item balls needed from production records
+// ============================================
+
+function getItemBallsNeeded(
+  item: ItemWithProduction,
+  productionUnitCode: string
+): number {
+  let needed = 0;
+  for (const record of item.productionRecords) {
+    if (record.isCancelled) continue;
+    if (record.productionUnitCode === productionUnitCode) {
+      needed += record.unitsRemaining;
+    }
+  }
+  return needed;
+}
+
+// ============================================
 // Core: Distribute Balls to Orders
 // ============================================
 
@@ -136,7 +152,7 @@ function sortOrdersByPriority(orders: OrderWithItems[]): OrderWithItems[] {
  * Core ball distribution algorithm.
  *
  * Used by both completeBalls and addBallsToTray.
- * Handles dual-write to OLD and NEW production tracking systems.
+ * Uses NEW system (orderItemProduction) as the source of truth.
  */
 export async function distributeBallsToOrders(
   ctx: MutationCtx,
@@ -168,9 +184,10 @@ export async function distributeBallsToOrders(
   const completedOrderIds: Id<"orders">[] = [];
   const transitionedToInProduction: Id<"orders">[] = [];
   const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
-  const updatedBallsRemaining = new Map<string, number>();
-  // Track updated production record values for NEW system completion check
+  // Track updated production record values for completion check
   const updatedUnitsRemaining = new Map<string, number>();
+  // Track balls added per item for UI updates
+  const ballsAddedPerItem = new Map<string, number>();
 
   // Process each order
   for (const { order, items } of sortedOrders) {
@@ -183,42 +200,64 @@ export async function distributeBallsToOrders(
 
     let orderReceivedBalls = false;
 
-    // Apply balls to matching items (OLD system - dual-write)
+    // Apply balls to matching items using NEW system (orderItemProduction)
     for (const item of matchingItems) {
       if (remainingBalls <= 0) break;
 
-      const currentBallsRemaining = item.ballsRemaining ?? 0;
-      if (currentBallsRemaining <= 0) continue;
+      // Get balls needed from production records (NEW system)
+      const ballsNeeded = getItemBallsNeeded(item, productionUnitCode);
+      if (ballsNeeded <= 0) continue;
 
-      const ballsToApply = Math.min(remainingBalls, currentBallsRemaining);
-      const newBallsRemaining = currentBallsRemaining - ballsToApply;
-      const newBallsFilled = (item.ballsFilled ?? 0) + ballsToApply;
+      const ballsToApply = Math.min(remainingBalls, ballsNeeded);
 
-      // Determine package status for addBallsToTray flow
-      let packageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-      if (newBallsRemaining <= 0) {
-        packageStatus = "filled";
+      // Update production records (NEW system - source of truth)
+      let ballsAppliedToItem = 0;
+      const matchingRecords = item.productionRecords.filter(
+        (r) => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0 && !r.isCancelled
+      );
+
+      for (const record of matchingRecords) {
+        if (ballsAppliedToItem >= ballsToApply) break;
+
+        const unitsToApply = Math.min(ballsToApply - ballsAppliedToItem, record.unitsRemaining);
+        const newUnitsRemaining = record.unitsRemaining - unitsToApply;
+        const newUnitsCompleted = record.unitsCompleted + unitsToApply;
+
+        await ctx.db.patch(record._id, {
+          unitsCompleted: newUnitsCompleted,
+          unitsRemaining: newUnitsRemaining,
+        });
+
+        updatedUnitsRemaining.set(record._id.toString(), newUnitsRemaining);
+        ballsAppliedToItem += unitsToApply;
       }
 
-      // Update OLD system
-      if (options.trackFilledPackages) {
-        // addBallsToTray flow - updates more fields
-        await ctx.db.patch(item._id, {
-          ballsRemaining: newBallsRemaining,
-          ballsFilled: newBallsFilled,
-          packageStatus: packageStatus,
-        });
-        filledPackages.push({ orderItemId: item._id, ballsAdded: ballsToApply });
-      } else {
-        // completeBalls flow - minimal update
-        await ctx.db.patch(item._id, {
-          ballsRemaining: newBallsRemaining,
-        });
-      }
+      if (ballsAppliedToItem > 0) {
+        // Track for UI updates
+        const prevBallsAdded = ballsAddedPerItem.get(item._id.toString()) ?? 0;
+        ballsAddedPerItem.set(item._id.toString(), prevBallsAdded + ballsAppliedToItem);
 
-      updatedBallsRemaining.set(item._id.toString(), newBallsRemaining);
-      remainingBalls -= ballsToApply;
-      orderReceivedBalls = true;
+        // Update UI fields on orderItems (ballsFilled, packageStatus)
+        if (options.trackFilledPackages) {
+          const newBallsFilled = (item.ballsFilled ?? 0) + ballsAppliedToItem;
+          const newBallsNeeded = ballsNeeded - ballsAppliedToItem;
+
+          // Determine package status
+          let packageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+          if (newBallsNeeded <= 0) {
+            packageStatus = "filled";
+          }
+
+          await ctx.db.patch(item._id, {
+            ballsFilled: newBallsFilled,
+            packageStatus: packageStatus,
+          });
+          filledPackages.push({ orderItemId: item._id, ballsAdded: ballsAppliedToItem });
+        }
+
+        remainingBalls -= ballsAppliedToItem;
+        orderReceivedBalls = true;
+      }
     }
 
     // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
@@ -235,36 +274,6 @@ export async function distributeBallsToOrders(
       transitionedToInProduction.push(order._id);
     }
 
-    // PRD-5: Apply balls to orderItemProduction records (NEW system - dual-write)
-    // Track balls applied separately for NEW system (parallel to OLD system)
-    const ballsAppliedToOldSystem = options.count - remainingBalls;
-    let newSystemBallsToApply = ballsAppliedToOldSystem;
-
-    for (const item of items) {
-      if (newSystemBallsToApply <= 0) break;
-
-      const matchingRecords = item.productionRecords.filter(
-        (r) => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0
-      );
-
-      for (const record of matchingRecords) {
-        if (newSystemBallsToApply <= 0) break;
-
-        const unitsToApply = Math.min(newSystemBallsToApply, record.unitsRemaining);
-        const newUnitsRemaining = record.unitsRemaining - unitsToApply;
-        const newUnitsCompleted = record.unitsCompleted + unitsToApply;
-
-        await ctx.db.patch(record._id, {
-          unitsCompleted: newUnitsCompleted,
-          unitsRemaining: newUnitsRemaining,
-        });
-
-        // Track updated values for completion check
-        updatedUnitsRemaining.set(record._id.toString(), newUnitsRemaining);
-        newSystemBallsToApply -= unitsToApply;
-      }
-    }
-
     // Check if ALL items in the order are complete using NEW system (orderItemProduction)
     // An item is complete when all its production records have unitsRemaining = 0
     const itemsWithProductionData = items.filter((item) => item.productionType);
@@ -274,12 +283,8 @@ export async function distributeBallsToOrders(
         // Check NEW system: all production records must have unitsRemaining <= 0
         const activeRecords = item.productionRecords.filter(r => !r.isCancelled);
         if (activeRecords.length === 0) {
-          // Fallback to OLD system for items without production records
-          const updatedValue = updatedBallsRemaining.get(item._id.toString());
-          if (updatedValue !== undefined) {
-            return updatedValue <= 0;
-          }
-          return (item.ballsRemaining ?? 0) <= 0;
+          // No production records = item complete (or not tracked)
+          return true;
         }
         // NEW system check: all records must be complete (use updated values if available)
         return activeRecords.every(record => {

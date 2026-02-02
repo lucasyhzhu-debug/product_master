@@ -621,7 +621,9 @@ export interface ProductionTypeStats {
 export interface KitchenOrderItem extends OrderItem {
   production_type?: 'original' | 'bite_sized';
   production_units?: number;
+  /** @deprecated Use production_units for total, balls_filled for current progress */
   balls_remaining?: number;
+  balls_filled?: number;
   // PRD-5: Production records for each unit type
   production_records?: OrderItemProduction[];
 }

@@ -50,7 +50,9 @@ interface ConvexKitchenOrderItem {
   lineMargin: number;
   productionType?: "original" | "bite_sized";
   productionUnits?: number;
+  /** @deprecated Use productionUnits for total, ballsFilled for progress */
   ballsRemaining?: number;
+  ballsFilled?: number;
 }
 
 interface ConvexKitchenOrder {
@@ -151,7 +153,8 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
     created_at: new Date(item._creationTime).toISOString(),
     production_type: item.productionType,
     production_units: item.productionUnits,
-    balls_remaining: item.ballsRemaining,
+    balls_remaining: item.ballsRemaining, // @deprecated
+    balls_filled: item.ballsFilled,
   };
 }
 
