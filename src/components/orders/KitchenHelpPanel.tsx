@@ -39,7 +39,7 @@ export function KitchenHelpPanel({ className }: KitchenHelpPanelProps) {
   if (isMinimized === null) return null;
 
   return (
-    <Card className={cn('bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800', className)}>
+    <Card className={cn('bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800', className)}>
       <CardHeader className="py-3 cursor-pointer" onClick={toggleMinimized}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">

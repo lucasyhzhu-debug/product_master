@@ -20,6 +20,7 @@ export { KitchenHelpPanel } from './KitchenHelpPanel';
 export { ProductPackage } from './ProductPackage';
 export { InventoryTray } from './InventoryTray';
 export { OrderBox } from './OrderBox';
+export { FlyingBall } from './FlyingBall';
 
 // POS Form components (PRD-3: Order Form POS)
 export { ProductButtons } from './ProductButtons';

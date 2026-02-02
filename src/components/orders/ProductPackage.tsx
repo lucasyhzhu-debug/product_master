@@ -28,11 +28,12 @@ interface ProductPackageProps {
 }
 
 // Status colors for border and background
+// White backgrounds with thick colored borders for clear visual distinction
 const statusStyles: Record<PackageStatus, { border: string; bg: string }> = {
-  empty: { border: 'border-gray-300 dark:border-gray-600', bg: 'bg-gray-50 dark:bg-gray-900' },
-  filling: { border: 'border-red-500', bg: 'bg-red-50 dark:bg-red-950/30' },
-  filled: { border: 'border-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-950/30' },
-  packed: { border: 'border-green-500', bg: 'bg-green-50 dark:bg-green-950/30' },
+  empty: { border: 'border-gray-400 dark:border-gray-500', bg: 'bg-white dark:bg-slate-100' },
+  filling: { border: 'border-orange-500', bg: 'bg-white dark:bg-slate-100' },
+  filled: { border: 'border-yellow-500', bg: 'bg-white dark:bg-slate-100' },
+  packed: { border: 'border-green-500', bg: 'bg-white dark:bg-slate-100' },
 };
 
 // Ball sizes for display (smaller than tray for package view)
@@ -106,7 +107,7 @@ export function ProductPackage({
       transition={{ duration: 0.2 }}
       whileTap={isClickable ? { scale: 0.95 } : undefined}
       className={cn(
-        'rounded-lg border-2 p-1.5 sm:p-2 transition-colors',
+        'rounded-lg border-[3px] p-1.5 sm:p-2 transition-colors',
         statusStyles[status].border,
         statusStyles[status].bg,
         isClickable && 'cursor-pointer hover:shadow-md',
@@ -122,10 +123,12 @@ export function ProductPackage({
         }
       }}
     >
-      {/* Product name */}
-      <div className="text-[10px] sm:text-xs font-medium text-center mb-1 sm:mb-2 truncate">
-        {productName}
-      </div>
+      {/* Product name - only show if provided */}
+      {productName && (
+        <div className="text-[10px] sm:text-xs font-medium text-center mb-1 sm:mb-2 truncate">
+          {productName}
+        </div>
+      )}
 
       {/* Ball slots */}
       <div className="flex flex-wrap justify-center gap-0.5 sm:gap-1 min-h-[20px] sm:min-h-[24px] p-1 rounded bg-white/50 dark:bg-black/20">
