@@ -53,6 +53,8 @@ interface ConvexKitchenOrderItem {
   /** @deprecated Use productionUnits for total, ballsFilled for progress */
   ballsRemaining?: number;
   ballsFilled?: number;
+  packageStatus?: "empty" | "filling" | "filled" | "packed";
+  packedPackageIndices?: number[];
 }
 
 interface ConvexKitchenOrder {
@@ -155,6 +157,8 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
     production_units: item.productionUnits,
     balls_remaining: item.ballsRemaining, // @deprecated
     balls_filled: item.ballsFilled,
+    package_status: item.packageStatus,
+    packed_package_indices: item.packedPackageIndices,
   };
 }
 
