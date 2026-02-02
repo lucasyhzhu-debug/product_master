@@ -1,6 +1,7 @@
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
 
 // ============================================
 // Input Types
@@ -64,38 +65,6 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
   }
 
   return orderNumber;
-}
-
-function calculateLineTotals(
-  quantity: number,
-  unitPrice: number,
-  unitCost: number,
-  discountAmount: number
-): { lineTotal: number; lineCost: number; lineMargin: number } {
-  const discountedPrice = unitPrice - discountAmount;
-  const lineTotal = quantity * discountedPrice;
-  const lineCost = quantity * unitCost;
-  const lineMargin = lineTotal - lineCost;
-  return { lineTotal, lineCost, lineMargin };
-}
-
-/**
- * Recalculate finalTotal when totalAmount changes.
- * Handles both percentage and amount-based discounts.
- */
-function recalculateFinalTotal(
-  totalAmount: number,
-  discount?: number,
-  discountType?: "amount" | "percentage"
-): number {
-  if (discount === undefined || discount === 0) {
-    return totalAmount;
-  }
-  const discountAmount =
-    discountType === "percentage"
-      ? totalAmount * (discount / 100)
-      : discount;
-  return totalAmount - discountAmount;
 }
 
 /**

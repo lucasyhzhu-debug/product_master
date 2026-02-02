@@ -99,3 +99,30 @@ export function calculateOrderTotals(items: OrderItem[]): OrderTotals {
     totalMargin: totalAmount - totalCost,
   };
 }
+
+// ============================================
+// Final Total Calculations (with Discounts)
+// ============================================
+
+/**
+ * Recalculate finalTotal when totalAmount changes.
+ * Handles both percentage and amount-based discounts.
+ * @param totalAmount - Total before order-level discount
+ * @param discount - Discount value (percentage or amount)
+ * @param discountType - Type of discount ("amount" or "percentage")
+ * @returns Final total after applying discount
+ */
+export function recalculateFinalTotal(
+  totalAmount: number,
+  discount?: number,
+  discountType?: "amount" | "percentage"
+): number {
+  if (discount === undefined || discount === 0) {
+    return totalAmount;
+  }
+  const discountAmount =
+    discountType === "percentage"
+      ? totalAmount * (discount / 100)
+      : discount;
+  return totalAmount - discountAmount;
+}
