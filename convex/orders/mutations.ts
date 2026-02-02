@@ -1,22 +1,30 @@
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+
+// Pure calculation helpers (no ctx dependency)
 import { calculateLineTotals, recalculateFinalTotal } from "./helpers";
-import { distributeBallsToOrders, logOrderEvent, isTerminalStatus, TERMINAL_STATUSES } from "./helpers";
+
+// Ctx-dependent helpers from helpers/ directory
 import {
+  // Ball distribution
+  distributeBallsToOrders,
+  // Status transitions & audit logging
+  logOrderEvent,
+  isTerminalStatus,
+  // Usage tracking
   incrementChannelUsage,
   decrementChannelUsage,
   incrementShippingAgencyUsage,
   decrementShippingAgencyUsage,
-} from "./helpers";
-import {
+  // Production records
   createProductionRecordsForItem,
   updateProductionRecordsForQuantityChange,
   deleteProductionRecordsForItem,
   cancelOrderProductionRecords,
   markOrderProductionComplete,
   resetOrderProductionComplete,
-} from "./helpers";
+} from "./helpers/index";
 
 // ============================================
 // Input Types
