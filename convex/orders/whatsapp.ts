@@ -370,7 +370,7 @@ export const getOrderTemplate = query({
       });
 
     // Build template
-    let template = "Halo! Mau makan Frollie snacks?\n\n";
+    let template = "Halo! Mau pesan Dubai Chewy Cookie yang mana nih?\n\n";
 
     fixedProducts.forEach((p, i) => {
       // Format grams description
