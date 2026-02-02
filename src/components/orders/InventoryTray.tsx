@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ interface BallPosition {
   rotation: number;
 }
 
-// Generate natural pile positions
+// Generate egg tray style positions - 5x5 grid layout
 function calculateBallPositions(
   count: number,
   ballSize: number,
@@ -35,39 +35,38 @@ function calculateBallPositions(
   containerHeight: number
 ): BallPosition[] {
   const positions: BallPosition[] = [];
-  const visibleCount = Math.min(count, 20);
+  const visibleCount = Math.min(count, 25); // Max 5x5 = 25
 
   if (visibleCount === 0) return positions;
 
-  const padding = ballSize * 0.3;
-  const effectiveHeight = containerHeight - ballSize - padding * 2;
+  // Egg tray layout: 5 balls per row, 5 rows max
+  const ballsPerRow = 5;
+  const horizontalPadding = 10;
+  const verticalPadding = 6;
 
-  // Create pyramid-like arrangement
-  const baseRowCount = Math.min(7, Math.ceil(Math.sqrt(visibleCount * 1.5)));
+  // Calculate spacing to fit balls evenly
+  const availableWidth = containerWidth - horizontalPadding * 2;
+  const horizontalSpacing = availableWidth / ballsPerRow;
 
-  let placed = 0;
-  let row = 0;
+  // Vertical positioning - center rows in container
+  const availableHeight = containerHeight - verticalPadding * 2;
+  const totalRows = Math.ceil(visibleCount / ballsPerRow);
+  const verticalSpacing = availableHeight / Math.max(totalRows, 1);
+  const startY = verticalPadding + verticalSpacing / 2;
 
-  while (placed < visibleCount) {
-    const ballsInRow = Math.max(1, baseRowCount - row);
-    const rowWidth = ballsInRow * (ballSize * 0.85);
-    const startX = (containerWidth - rowWidth) / 2;
-    const y = effectiveHeight - row * (ballSize * 0.75) + padding;
+  for (let i = 0; i < visibleCount; i++) {
+    const row = Math.floor(i / ballsPerRow);
+    const col = i % ballsPerRow;
 
-    for (let i = 0; i < ballsInRow && placed < visibleCount; i++) {
-      // Add slight randomness for natural feel
-      const jitterX = (Math.random() - 0.5) * 4;
-      const jitterY = (Math.random() - 0.5) * 3;
-      const rotation = (Math.random() - 0.5) * 10;
+    // Center each ball in its cell
+    const x = horizontalPadding + col * horizontalSpacing + (horizontalSpacing - ballSize) / 2;
+    const y = startY + row * verticalSpacing;
 
-      positions.push({
-        x: startX + i * (ballSize * 0.85) + jitterX,
-        y: y + jitterY,
-        rotation,
-      });
-      placed++;
-    }
-    row++;
+    positions.push({
+      x,
+      y,
+      rotation: 0, // No rotation for clean egg tray look
+    });
   }
 
   return positions;
@@ -156,35 +155,31 @@ function Ball({
   );
 }
 
-export function InventoryTray({
-  ballType,
-  count,
-  maxVisible = 20,
-  className,
-}: InventoryTrayProps) {
-  const ballSize = BALL_SIZES[ballType];
-  // Responsive container - smaller on mobile
-  const containerWidth = 180;
-  const containerHeight = 100;
+export const InventoryTray = forwardRef<HTMLDivElement, InventoryTrayProps>(
+  function InventoryTray({ ballType, count, maxVisible = 25, className }, ref) {
+    const ballSize = BALL_SIZES[ballType];
+    // Responsive container - smaller on mobile
+    const containerWidth = 180;
+    const containerHeight = 100;
 
-  const visibleCount = Math.min(count, maxVisible);
-  const overflow = Math.max(0, count - maxVisible);
+    const visibleCount = Math.min(count, maxVisible);
+    const overflow = Math.max(0, count - maxVisible);
 
-  const positions = useMemo(
-    () => calculateBallPositions(visibleCount, ballSize, containerWidth, containerHeight),
-    [visibleCount, ballSize]
-  );
+    const positions = useMemo(
+      () => calculateBallPositions(visibleCount, ballSize, containerWidth, containerHeight),
+      [visibleCount, ballSize]
+    );
 
-  // Ghost ball positions for empty state
-  const ghostPositions = useMemo(
-    () => calculateBallPositions(12, ballSize, containerWidth, containerHeight),
-    [ballSize]
-  );
+    // Ghost ball positions for empty state (show 5x3 = 15 ghost balls)
+    const ghostPositions = useMemo(
+      () => calculateBallPositions(15, ballSize, containerWidth, containerHeight),
+      [ballSize]
+    );
 
-  const label = ballType === 'original' ? 'ORIGINAL' : 'BITE-SIZED';
+    const label = ballType === 'original' ? 'ORIGINAL' : 'BITE-SIZED';
 
-  return (
-    <div className={cn('space-y-2', className)}>
+    return (
+      <div ref={ref} className={cn('space-y-2', className)}>
       {/* Tray label */}
       <div className="text-xs font-semibold text-center text-muted-foreground uppercase tracking-wide">
         {label} TRAY
@@ -238,6 +233,6 @@ export function InventoryTray({
       </div>
     </div>
   );
-}
+});
 
 export default InventoryTray;

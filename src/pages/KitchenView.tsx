@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChefHat, ChevronDown, Eye } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -17,6 +17,7 @@ import {
   InventoryTray,
   OrderBox,
   KitchenOrderCard,
+  FlyingBall,
 } from '@/components/orders';
 import { playCompletionFanfare, playDing, playClunk, playSoftClick } from '@/lib/kitchenSounds';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,8 +33,23 @@ import {
 import type { Id } from '../../convex/_generated/dataModel';
 import { cn } from '@/lib/utils';
 
+// Flying ball animation state type
+interface FlyingBallState {
+  id: string;
+  startPosition: { x: number; y: number };
+  endPosition: { x: number; y: number };
+  ballType: 'original' | 'bite_sized';
+  delay: number;
+}
+
 export function KitchenView() {
   const [completedCollapsed, setCompletedCollapsed] = useState(true);
+  const [flyingBalls, setFlyingBalls] = useState<FlyingBallState[]>([]);
+
+  // Refs for animation positions
+  const originalTrayRef = useRef<HTMLDivElement>(null);
+  const biteSizedTrayRef = useRef<HTMLDivElement>(null);
+  const ordersContainerRef = useRef<HTMLDivElement>(null);
 
   // Auth context
   const { hasPermission } = useAuth();
@@ -61,6 +77,53 @@ export function KitchenView() {
 
   const isLoading = statsLoading || ordersLoading || completedLoading;
 
+  // Trigger flying ball animation
+  const triggerFlyingBalls = useCallback(
+    (ballType: 'original' | 'bite_sized', count: number) => {
+      const trayRef = ballType === 'original' ? originalTrayRef : biteSizedTrayRef;
+      const trayRect = trayRef.current?.getBoundingClientRect();
+      const ordersRect = ordersContainerRef.current?.getBoundingClientRect();
+
+      if (!trayRect || !ordersRect) return;
+
+      // Start position is center of tray
+      const startPos = {
+        x: trayRect.left + trayRect.width / 2,
+        y: trayRect.top + trayRect.height / 2,
+      };
+
+      // End position is top of orders container (approximate target)
+      const endPos = {
+        x: ordersRect.left + ordersRect.width / 2,
+        y: ordersRect.top + 50,
+      };
+
+      // Create flying balls (limit to 5 for performance)
+      const ballCount = Math.min(count, 5);
+      const newBalls: FlyingBallState[] = [];
+
+      for (let i = 0; i < ballCount; i++) {
+        // Add slight randomness to end positions for visual interest
+        const offsetX = (Math.random() - 0.5) * 100;
+        const offsetY = (Math.random() - 0.5) * 30;
+
+        newBalls.push({
+          id: `${Date.now()}-${i}`,
+          startPosition: startPos,
+          endPosition: {
+            x: endPos.x + offsetX,
+            y: endPos.y + offsetY,
+          },
+          ballType,
+          delay: i * 0.08,
+        });
+      }
+
+      setFlyingBalls((prev) => [...prev, ...newBalls]);
+    },
+    []
+  );
+
   const handleCompleteOrder = async (orderId: Id<"orders">) => {
     await completeOrder.mutate(orderId);
   };
@@ -77,8 +140,11 @@ export function KitchenView() {
 
       const result = await addBallsToTray({ ballType, count });
 
-      // Brief pause for visual effect, then play ding sounds for draining
+      // Trigger flying ball animation if balls were used
       if (result.ballsUsed > 0) {
+        triggerFlyingBalls(ballType, result.ballsUsed);
+
+        // Brief pause for visual effect, then play ding sounds for draining
         setTimeout(() => {
           for (let i = 0; i < Math.min(result.ballsUsed, 5); i++) {
             setTimeout(() => playDing(), i * 100);
@@ -181,6 +247,7 @@ export function KitchenView() {
               disabled={!canEditKitchen}
             />
             <InventoryTray
+              ref={originalTrayRef}
               ballType="original"
               count={trayInventory?.originalBallCount ?? 0}
             />
@@ -207,6 +274,7 @@ export function KitchenView() {
               disabled={!canEditKitchen}
             />
             <InventoryTray
+              ref={biteSizedTrayRef}
               ballType="bite_sized"
               count={trayInventory?.biteSizedBallCount ?? 0}
             />
@@ -219,7 +287,7 @@ export function KitchenView() {
       ) : (
         <>
           {/* Pending Orders Section */}
-          <section className="space-y-4">
+          <section className="space-y-4" ref={ordersContainerRef}>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <ChefHat className="h-5 w-5" />
               Pending Orders
@@ -351,6 +419,19 @@ export function KitchenView() {
           </section>
         </>
       )}
+
+      {/* Flying balls animation layer */}
+      <AnimatePresence>
+        {flyingBalls.map((ball) => (
+          <FlyingBall
+            key={ball.id}
+            {...ball}
+            onComplete={() => {
+              setFlyingBalls((prev) => prev.filter((b) => b.id !== ball.id));
+            }}
+          />
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
