@@ -134,8 +134,9 @@ describe("formatDeliveryInfo", () => {
 describe("getStatusLabel", () => {
   it("should return correct label for known statuses", () => {
     expect(getStatusLabel("Draft")).toBe("[Draft]");
-    expect(getStatusLabel("Production")).toBe("[Cooking]");
-    expect(getStatusLabel("Complete")).toBe("[Done]");
+    expect(getStatusLabel("ProductionComplete")).toBe("[Cooking Done]");
+    expect(getStatusLabel("Packaging")).toBe("[Packaging]");
+    expect(getStatusLabel("CompleteShipped")).toBe("[Shipped]");
   });
 
   it("should return default label for unknown status", () => {
