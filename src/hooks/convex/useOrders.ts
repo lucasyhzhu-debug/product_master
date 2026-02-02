@@ -603,12 +603,15 @@ export function useConvexUpdateOrderDetails() {
 
 /**
  * Cancel an order.
+ * PRD-7: Enhanced with reason categories for audit trail.
  */
+type CancellationCategory = "customer_request" | "out_of_stock" | "payment_issue" | "duplicate" | "other";
+
 export function useConvexCancelOrder() {
   const mutation = useMutation(api.orders.mutations.cancel);
 
   return {
-    mutate: async (data: { orderId: Id<"orders">; reason?: string }) => {
+    mutate: async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
       try {
         await mutation(data);
         toast.success("Order cancelled");
@@ -618,7 +621,7 @@ export function useConvexCancelOrder() {
         throw error;
       }
     },
-    mutateAsync: async (data: { orderId: Id<"orders">; reason?: string }) => {
+    mutateAsync: async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
       try {
         await mutation(data);
         toast.success("Order cancelled");
