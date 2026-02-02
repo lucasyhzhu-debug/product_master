@@ -29,6 +29,11 @@ import type * as menuProductComponents_queries from "../menuProductComponents/qu
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
 import type * as orders_helpers from "../orders/helpers.js";
+import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
+import type * as orders_helpers_index from "../orders/helpers/index.js";
+import type * as orders_helpers_productionRecords from "../orders/helpers/productionRecords.js";
+import type * as orders_helpers_statusTransitions from "../orders/helpers/statusTransitions.js";
+import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
 import type * as orders_mutations from "../orders/mutations.js";
 import type * as orders_queries from "../orders/queries.js";
 import type * as orders_whatsapp from "../orders/whatsapp.js";
@@ -74,6 +79,11 @@ declare const fullApi: ApiFromModules<{
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
   "orders/helpers": typeof orders_helpers;
+  "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
+  "orders/helpers/index": typeof orders_helpers_index;
+  "orders/helpers/productionRecords": typeof orders_helpers_productionRecords;
+  "orders/helpers/statusTransitions": typeof orders_helpers_statusTransitions;
+  "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
   "orders/mutations": typeof orders_mutations;
   "orders/queries": typeof orders_queries;
   "orders/whatsapp": typeof orders_whatsapp;

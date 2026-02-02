@@ -1,10 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useHoldToActivate } from '@/hooks/useHoldToActivate';
 import { ChannelBadge } from './ChannelBadge';
 import { ProductPackage } from './ProductPackage';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -155,11 +154,6 @@ export function OrderBox({
   isCompleted: isCompletedProp,
   disabled = false,
 }: OrderBoxProps) {
-  const [isHolding, setIsHolding] = useState(false);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // Determine if order is "completed" (left the kitchen) from status, or use prop as override
   const isCompleted = isCompletedProp ?? COMPLETED_STATUSES.includes(order.status ?? '');
 
@@ -180,42 +174,27 @@ export function OrderBox({
   const allPackagesPacked = packages.every((p) => p.status === 'packed');
   const canComplete = allPackagesPacked && !disabled;
 
-  // Hold-to-complete logic
-  const cancelHold = useCallback(() => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    if (progressRef.current) {
-      clearInterval(progressRef.current);
-      progressRef.current = null;
-    }
-    setIsHolding(false);
-    setHoldProgress(0);
-  }, []);
+  // Hold-to-complete hook for complete button
+  const {
+    isHolding: isHoldingComplete,
+    progress: completeProgress,
+    handlers: completeHandlers,
+  } = useHoldToActivate({
+    duration: 1000,
+    onComplete: () => onComplete?.(),
+    disabled: !canComplete,
+  });
 
-  const startHold = useCallback(() => {
-    if (!canComplete) return;
-
-    setIsHolding(true);
-    setHoldProgress(0);
-
-    progressRef.current = setInterval(() => {
-      setHoldProgress((prev) => Math.min(prev + 10, 100));
-    }, 100);
-
-    holdTimerRef.current = setTimeout(() => {
-      onComplete?.();
-      cancelHold();
-    }, 1000);
-  }, [canComplete, onComplete, cancelHold]);
-
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-      if (progressRef.current) clearInterval(progressRef.current);
-    };
-  }, []);
+  // Hold-to-activate hook for undo button
+  const {
+    isHolding: isHoldingUndo,
+    progress: undoProgress,
+    handlers: undoHandlers,
+  } = useHoldToActivate({
+    duration: 1000,
+    onComplete: () => onRevert?.(),
+    disabled: disabled || !isCompleted,
+  });
 
   const handlePackageClick = (pkg: typeof packages[0]) => {
     if (disabled || !onPackageStatusChange) return;
@@ -354,15 +333,31 @@ export function OrderBox({
         {/* Undo Complete Button - shows for completed orders */}
         {isCompleted && onRevert && (
           <div className="pt-4 border-t mt-4">
-            <Button
-              variant="outline"
-              className="w-full h-12"
-              onClick={onRevert}
-              disabled={disabled}
+            <div
+              className={cn(
+                'relative h-14 w-full rounded-lg overflow-hidden select-none border-2 border-amber-500',
+                disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              )}
+              {...undoHandlers}
             >
-              <Undo2 className="h-5 w-5 mr-2" />
-              Undo Complete
-            </Button>
+              <div className="absolute inset-0 bg-amber-50 dark:bg-amber-950/20" />
+              <div
+                className="absolute inset-y-0 left-0 bg-amber-500 transition-all duration-100"
+                style={{ width: `${undoProgress}%` }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center text-base font-bold">
+                {isHoldingUndo ? (
+                  <span className="text-white mix-blend-difference">
+                    Hold... {Math.round(undoProgress)}%
+                  </span>
+                ) : (
+                  <span className="text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                    <Undo2 className="h-5 w-5" />
+                    Undo Complete
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -374,22 +369,17 @@ export function OrderBox({
                 'relative h-14 w-full rounded-lg overflow-hidden select-none',
                 canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
               )}
-              onMouseDown={startHold}
-              onMouseUp={cancelHold}
-              onMouseLeave={cancelHold}
-              onTouchStart={startHold}
-              onTouchEnd={cancelHold}
-              onTouchCancel={cancelHold}
+              {...completeHandlers}
             >
               <div className="absolute inset-0 bg-green-100 dark:bg-green-950" />
               <div
                 className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-100"
-                style={{ width: `${holdProgress}%` }}
+                style={{ width: `${completeProgress}%` }}
               />
               <div className="absolute inset-0 flex items-center justify-center text-base font-bold">
-                {isHolding ? (
+                {isHoldingComplete ? (
                   <span className="text-white mix-blend-difference">
-                    {holdProgress < 100 ? 'Hold to Complete...' : 'Completing!'}
+                    Hold... {Math.round(completeProgress)}%
                   </span>
                 ) : (
                   <span className="text-green-700 dark:text-green-300">
