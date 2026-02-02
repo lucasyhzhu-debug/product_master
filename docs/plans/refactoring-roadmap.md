@@ -14,17 +14,18 @@ This roadmap outlines the systematic refactoring and optimization of the Frollie
 ### Key Metrics
 | Metric | Before | Target | Current |
 |--------|--------|--------|---------|
-| Orders `mutations.ts` lines | 2,010 | 1,400 | 1,405 |
-| Test coverage (helpers) | 0% | 80% | 0% |
-| Dual-write overhead | 2x | 1x | 2x |
+| Orders `mutations.ts` lines | 2,010 | 1,400 | 1,377 |
+| Test coverage (helpers) | 0% | 80% | ~30% |
+| Dual-write overhead | 2x | 1x | 1x |
 | Query N+1 patterns | Multiple | 0 | TBD |
+| Total tests | 184 | 250 | 197 |
 
 ---
 
 ## Completed Work
 
 ### Project 1: Orders Mutations Refactoring
-**Branch:** `refactor/orders-mutations-helpers` | **Status:** PR Ready
+**Branch:** `refactor/orders-mutations-helpers` | **Status:** MERGED
 
 **Achievements:**
 - Reduced `mutations.ts` from 2,010 → 1,405 lines (30%)
@@ -44,12 +45,34 @@ convex/orders/
     └── productionRecords.ts   # createProductionRecordsForItem()
 ```
 
+### Project 2: Dual-Write System Removal
+**Branch:** `refactor/remove-dual-write` | **Status:** MERGED
+
+**Achievements:**
+- Migrated completion logic from OLD system (ballsRemaining) to NEW system (orderItemProduction)
+- Removed dual-write overhead (~50% reduction in ball operation DB writes)
+- Updated frontend types with deprecation markers
+- Created migration documentation
+
+### Project 3: Test Suite (Partial)
+**Branch:** `test/orders-helpers` | **Status:** MERGED
+
+**Achievements:**
+- Added 13 tests for statusTransitions.ts helper
+- Fixed failing whatsapp.test.ts (status label mismatch)
+- Total tests: 197 (all passing)
+
+**Remaining:**
+- Ball distribution integration tests (15 tests planned)
+- Usage tracking tests (6 tests planned)
+- Production records tests (10 tests planned)
+
 ---
 
-## Roadmap Projects
+## Roadmap Projects (Remaining)
 
-### Project 2: Dual-Write System Removal
-**Priority:** HIGH | **Risk:** Medium-High | **Depends On:** Project 1
+### Project 4: Query Optimization
+**Priority:** MEDIUM | **Risk:** Low | **Depends On:** None
 
 #### Problem Statement
 Kitchen View maintains two parallel tracking systems:
@@ -648,11 +671,11 @@ npx convex deploy --preview  # Test in preview first
 ### Technical Metrics
 | Metric | Baseline | Target | Measured |
 |--------|----------|--------|----------|
-| `orders/mutations.ts` lines | 2,010 | < 1,500 | 1,405 |
-| Test coverage (helpers) | 0% | 80% | - |
-| Dual-write queries | 2x | 1x | - |
-| Kitchen View load time | TBD | < 500ms | - |
-| TypeScript `any` count | TBD | 0 | - |
+| `orders/mutations.ts` lines | 2,010 | < 1,500 | 1,377 |
+| Test coverage (helpers) | 0% | 80% | ~30% |
+| Dual-write queries | 2x | 1x | 1x |
+| Kitchen View load time | TBD | < 500ms | TBD |
+| Total tests | 184 | 250 | 197 |
 
 ### Quality Metrics
 | Metric | Target |
@@ -670,6 +693,8 @@ npx convex deploy --preview  # Test in preview first
 |------|--------|
 | 2026-02-02 | Initial roadmap created after orders refactoring |
 | 2026-02-02 | Enhanced with agent assignments, branch management, documentation standards |
+| 2026-02-02 | Project 2 (Dual-Write Removal) completed and merged |
+| 2026-02-02 | Project 3 (Test Suite) partial completion - 13 new tests added |
 
 ---
 
