@@ -107,6 +107,8 @@ function isSeparatorOrEmpty(line: string): boolean {
 
 /**
  * Parse customer information from text.
+ * Handles both same-line values (Alamat: Jl. Sudirman) and
+ * next-line values (Alamat:\nJl. Sudirman).
  */
 function parseCustomerInfo(text: string): ParsedCustomer | null {
   const lines = text.split('\n');
@@ -115,30 +117,79 @@ function parseCustomerInfo(text: string): ParsedCustomer | null {
   let name = '';
   let address = '';
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  // Track pending labels that might have their value on the next line
+  let pendingLabel: 'phone' | 'name' | 'address' | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    // Skip empty lines
+    if (trimmed === '') {
+      pendingLabel = null;
+      continue;
+    }
+
+    // Check if this line is a continuation of a pending label
+    if (pendingLabel && !isLabelLine(trimmed)) {
+      // This line is the value for the previous label
+      switch (pendingLabel) {
+        case 'phone':
+          phone = trimmed.replace(/[^\d+\-\s()]/g, '').trim();
+          break;
+        case 'name':
+          name = trimmed;
+          break;
+        case 'address':
+          address = trimmed;
+          break;
+      }
+      pendingLabel = null;
+      continue;
+    }
 
     // Phone patterns: No. WA:, WA:, Phone:, HP:
-    const phoneMatch = trimmed.match(/^(?:no\.?\s*wa|wa|phone|hp)\s*:\s*(.+)$/i);
+    const phoneMatch = trimmed.match(/^(?:no\.?\s*wa|wa|phone|hp)\s*:\s*(.*)$/i);
     if (phoneMatch) {
-      // Extract digits and common phone characters
-      phone = phoneMatch[1].trim().replace(/[^\d+\-\s()]/g, '').trim();
+      const value = phoneMatch[1].trim();
+      if (value) {
+        // Value on same line
+        phone = value.replace(/[^\d+\-\s()]/g, '').trim();
+        pendingLabel = null;
+      } else {
+        // Value might be on next line
+        pendingLabel = 'phone';
+      }
       continue;
     }
 
     // Name patterns: Nama:, Name:
-    const nameMatch = trimmed.match(/^(?:nama|name)\s*:\s*(.+)$/i);
+    const nameMatch = trimmed.match(/^(?:nama|name)\s*:\s*(.*)$/i);
     if (nameMatch) {
-      name = nameMatch[1].trim();
+      const value = nameMatch[1].trim();
+      if (value) {
+        name = value;
+        pendingLabel = null;
+      } else {
+        pendingLabel = 'name';
+      }
       continue;
     }
 
     // Address patterns: Alamat:, Address:
-    const addressMatch = trimmed.match(/^(?:alamat|address)\s*:\s*(.+)$/i);
+    const addressMatch = trimmed.match(/^(?:alamat|address)\s*:\s*(.*)$/i);
     if (addressMatch) {
-      address = addressMatch[1].trim();
+      const value = addressMatch[1].trim();
+      if (value) {
+        address = value;
+        pendingLabel = null;
+      } else {
+        pendingLabel = 'address';
+      }
       continue;
     }
+
+    // Line doesn't match any pattern, reset pending
+    pendingLabel = null;
   }
 
   // Only return customer if at least one field is populated
@@ -147,6 +198,13 @@ function parseCustomerInfo(text: string): ParsedCustomer | null {
   }
 
   return null;
+}
+
+/**
+ * Check if a line is a label line (No. WA:, Nama:, Alamat:, etc.)
+ */
+function isLabelLine(line: string): boolean {
+  return /^(?:no\.?\s*wa|wa|phone|hp|nama|name|alamat|address)\s*:/i.test(line);
 }
 
 /**
