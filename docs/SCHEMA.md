@@ -401,6 +401,14 @@ orderItems: defineTable({
 - Visual tracking: `ballsFilled` and `packageStatus` for UI display
 - `productionType === "original"` → "big" balls, `productionType === "bite_sized"` → "mid" balls
 
+**Ball Distribution Priority:**
+When balls are added to the kitchen tray, they are distributed to pending orders in this priority:
+1. **Due date** (earliest first)
+2. **Total units** (largest orders first)
+3. **Order date** (oldest first)
+
+See `convex/orders/helpers/ballDistribution.ts` for implementation.
+
 ### 18. `orderMessages` - WhatsApp Message Tracking (PRD-0)
 ```typescript
 orderMessages: defineTable({
