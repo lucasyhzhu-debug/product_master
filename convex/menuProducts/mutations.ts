@@ -1,10 +1,71 @@
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+
+/**
+ * Helper: Calculate unit cost and grams from components.
+ * Fetches productionUnitTypes and sums: unitCostIdr * quantity for each component.
+ */
+async function calculateUnitCostFromComponents(
+  ctx: MutationCtx,
+  components: Array<{ productionUnitTypeId: Id<"productionUnitTypes">; quantity: number }>
+): Promise<{ totalCost: number; totalGrams: number }> {
+  let totalCost = 0;
+  let totalGrams = 0;
+
+  for (const component of components) {
+    const unitType = await ctx.db.get(component.productionUnitTypeId);
+    if (!unitType) {
+      throw new Error(`Production unit type not found: ${component.productionUnitTypeId}`);
+    }
+
+    totalCost += unitType.unitCostIdr * component.quantity;
+    totalGrams += unitType.gramsPerUnit * component.quantity;
+  }
+
+  return { totalCost, totalGrams };
+}
+
+/**
+ * Helper: Update the cached production summary on a menu product.
+ * Fetches all components and builds summary string like "1 Big Ball, 2 Mid Ball".
+ */
+async function updateCachedProductionSummary(
+  ctx: MutationCtx,
+  menuProductId: Id<"menuProducts">
+) {
+  // Get all components for this menu product
+  const components = await ctx.db
+    .query("menuProductComponents")
+    .withIndex("by_menu_product", (q) => q.eq("menuProductId", menuProductId))
+    .collect();
+
+  if (components.length === 0) {
+    await ctx.db.patch(menuProductId, { cachedProductionSummary: undefined });
+    return;
+  }
+
+  // Build summary string
+  const summaryParts = await Promise.all(
+    components
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(async (component) => {
+        const unitType = await ctx.db.get(component.productionUnitTypeId);
+        const name = unitType?.name ?? "Unknown";
+        return `${component.quantity} ${name}`;
+      })
+  );
+
+  const summary = summaryParts.join(", ");
+  await ctx.db.patch(menuProductId, { cachedProductionSummary: summary });
+}
 
 /**
  * Create a new menu product.
  * Minimal required fields: name and defaultPrice.
  * Other fields have sensible defaults for quick creation from OrderForm.
+ *
+ * PRD-4a: Auto-calculates unitCost and grams from components if provided.
  */
 export const create = mutation({
   args: {
@@ -15,6 +76,15 @@ export const create = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    // PRD-4a: Components array for auto-calculation
+    components: v.optional(
+      v.array(
+        v.object({
+          productionUnitTypeId: v.id("productionUnitTypes"),
+          quantity: v.number(),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
     // Generate code from name if not provided
@@ -31,15 +101,53 @@ export const create = mutation({
       return existing._id;
     }
 
+    // PRD-4a: Auto-calculate unitCost and grams from components
+    let unitCost: number | undefined = undefined;
+    let grams = args.grams ?? 0;
+
+    if (args.components && args.components.length > 0) {
+      const calculated = await calculateUnitCostFromComponents(ctx, args.components);
+      unitCost = calculated.totalCost;
+      grams = calculated.totalGrams; // Override provided grams if components specified
+    }
+
     const id = await ctx.db.insert("menuProducts", {
       code,
       name: args.name,
-      grams: args.grams ?? 0,
+      grams,
       defaultPrice: args.defaultPrice,
       productionType: args.productionType ?? "original",
       productionUnits: args.productionUnits ?? 1,
       isActive: args.isActive ?? true,
+      unitCost,
     });
+
+    // PRD-4a: Set components if provided
+    if (args.components && args.components.length > 0) {
+      // Delete any existing components (shouldn't exist for new product, but safety check)
+      const existingComponents = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", id))
+        .collect();
+
+      for (const existing of existingComponents) {
+        await ctx.db.delete(existing._id);
+      }
+
+      // Create new components
+      for (let i = 0; i < args.components.length; i++) {
+        const component = args.components[i];
+        await ctx.db.insert("menuProductComponents", {
+          menuProductId: id,
+          productionUnitTypeId: component.productionUnitTypeId,
+          quantity: component.quantity,
+          sortOrder: i + 1,
+        });
+      }
+
+      // Update cached production summary
+      await updateCachedProductionSummary(ctx, id);
+    }
 
     return id;
   },
@@ -47,6 +155,7 @@ export const create = mutation({
 
 /**
  * Update an existing menu product.
+ * PRD-4a: Auto-calculates unitCost and grams from components if provided.
  */
 export const update = mutation({
   args: {
@@ -58,9 +167,18 @@ export const update = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    // PRD-4a: Components array for auto-calculation
+    components: v.optional(
+      v.array(
+        v.object({
+          productionUnitTypeId: v.id("productionUnitTypes"),
+          quantity: v.number(),
+        })
+      )
+    ),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, components, ...updates } = args;
 
     const current = await ctx.db.get(id);
     if (!current) {
@@ -90,7 +208,48 @@ export const update = mutation({
     if (updates.productionUnits !== undefined) patchData.productionUnits = updates.productionUnits;
     if (updates.isActive !== undefined) patchData.isActive = updates.isActive;
 
+    // PRD-4a: Auto-calculate unitCost and grams from components if provided
+    if (components !== undefined) {
+      if (components.length > 0) {
+        const calculated = await calculateUnitCostFromComponents(ctx, components);
+        patchData.unitCost = calculated.totalCost;
+        patchData.grams = calculated.totalGrams; // Override provided grams if components specified
+      } else {
+        // If components array is empty, clear unitCost and grams
+        patchData.unitCost = undefined;
+        patchData.grams = 0;
+      }
+    }
+
     await ctx.db.patch(id, patchData);
+
+    // PRD-4a: Update components if provided
+    if (components !== undefined) {
+      // Delete existing components
+      const existingComponents = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", id))
+        .collect();
+
+      for (const existing of existingComponents) {
+        await ctx.db.delete(existing._id);
+      }
+
+      // Create new components
+      for (let i = 0; i < components.length; i++) {
+        const component = components[i];
+        await ctx.db.insert("menuProductComponents", {
+          menuProductId: id,
+          productionUnitTypeId: component.productionUnitTypeId,
+          quantity: component.quantity,
+          sortOrder: i + 1,
+        });
+      }
+
+      // Update cached production summary
+      await updateCachedProductionSummary(ctx, id);
+    }
+
     return id;
   },
 });
