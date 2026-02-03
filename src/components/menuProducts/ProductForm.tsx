@@ -24,6 +24,7 @@ import {
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
+  useConvexPosProducts,
   useConvexProductionUnitTypes,
   useConvexMenuProductComponents,
   type PosProduct,
@@ -37,6 +38,11 @@ interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product?: (PosProduct | LegacyProduct) | null;
+  onSlotSwapRequested?: (data: {
+    productId: string;
+    slot: 1 | 2 | 3 | 4;
+    currentProduct: PosProduct;
+  }) => void;
 }
 
 interface ComponentRow {
@@ -45,12 +51,20 @@ interface ComponentRow {
   quantity: number;
 }
 
-export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
+export function ProductForm({
+  open,
+  onOpenChange,
+  product,
+  onSlotSwapRequested,
+}: ProductFormProps) {
   const createMutation = useConvexCreateMenuProduct();
   const updateMutation = useConvexUpdateMenuProduct();
   const assignSlotMutation = useConvexAssignToSlot();
 
   const isEditing = !!product;
+
+  // Query POS products to check for slot conflicts
+  const { data: posProducts } = useConvexPosProducts();
 
   // Query production unit types
   const { data: productionUnitTypes, isLoading: loadingUnitTypes } = useConvexProductionUnitTypes();
@@ -232,9 +246,23 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         const currentSlot = 'posSlot' in product ? product.posSlot?.toString() : 'none';
         if (posSlot !== currentSlot) {
           if (posSlot !== 'none') {
+            const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
+            const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+
+            // Check if slot is occupied and trigger swap confirmation
+            if (occupyingProduct && onSlotSwapRequested) {
+              onSlotSwapRequested({
+                productId: product._id,
+                slot: targetSlot,
+                currentProduct: occupyingProduct,
+              });
+              handleClose();
+              return;
+            }
+
             await assignSlotMutation.mutateAsync({
               id: product._id as Id<"menuProducts">,
-              slot: parseInt(posSlot) as 1 | 2 | 3 | 4,
+              slot: targetSlot,
             });
           }
           // Note: Removing from slot is handled separately in the main page
@@ -245,9 +273,23 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
 
         // Assign to slot if selected
         if (posSlot !== 'none') {
+          const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
+          const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+
+          // Check if slot is occupied and trigger swap confirmation
+          if (occupyingProduct && onSlotSwapRequested) {
+            onSlotSwapRequested({
+              productId: newId as string,
+              slot: targetSlot,
+              currentProduct: occupyingProduct,
+            });
+            handleClose();
+            return;
+          }
+
           await assignSlotMutation.mutateAsync({
             id: newId as Id<"menuProducts">,
-            slot: parseInt(posSlot) as 1 | 2 | 3 | 4,
+            slot: targetSlot,
           });
         }
       }
@@ -279,17 +321,17 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:w-96 sm:max-w-96 p-0 flex flex-col"
+        className="w-full sm:w-96 sm:max-w-96 p-0 flex flex-col overflow-hidden"
       >
-        <SheetHeader className="px-6 py-4 border-b">
-          <SheetTitle>
+        <SheetHeader className="px-4 sm:px-6 py-4 border-b">
+          <SheetTitle className="text-base sm:text-lg">
             {isEditing ? 'Edit Product' : 'New Product'}
           </SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 px-6 py-4">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 px-4 sm:px-6 py-4">
+            <div className="space-y-4 min-w-0">
               {/* Code */}
               <div className="space-y-2">
                 <Label htmlFor="code">Product Code</Label>
@@ -336,20 +378,20 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 {components.length > 0 && (
                   <div className="space-y-2">
                     {components.map((component) => (
-                      <div key={component.id} className="flex gap-2 items-start">
-                        <div className="flex-1 space-y-1">
+                      <div key={component.id} className="flex gap-1 sm:gap-2 items-start">
+                        <div className="flex-1 space-y-1 min-w-0">
                           <Select
                             value={component.productionUnitTypeId ?? ''}
                             onValueChange={(value) =>
                               handleUpdateComponent(component.id, 'productionUnitTypeId', value as Id<"productionUnitTypes">)
                             }
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="text-xs sm:text-sm">
                               <SelectValue placeholder="Select unit type" />
                             </SelectTrigger>
                             <SelectContent>
                               {productionUnitTypes?.map((unitType) => (
-                                <SelectItem key={unitType._id} value={unitType._id}>
+                                <SelectItem key={unitType._id} value={unitType._id} className="text-xs sm:text-sm">
                                   {unitType.name} ({formatNumber(unitType.gramsPerUnit, 0)}g, {formatCurrency(unitType.unitCostIdr)})
                                 </SelectItem>
                               ))}
@@ -357,7 +399,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                           </Select>
                         </div>
 
-                        <div className="w-20">
+                        <div className="w-16 sm:w-20">
                           <Input
                             type="number"
                             min="1"
@@ -366,6 +408,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                               handleUpdateComponent(component.id, 'quantity', e.target.value)
                             }
                             placeholder="Qty"
+                            className="text-xs sm:text-sm"
                           />
                         </div>
 
@@ -374,8 +417,9 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemoveComponent(component.id)}
+                          className="h-9 w-9 shrink-0"
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
                         </Button>
                       </div>
                     ))}
@@ -518,23 +562,23 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
             </div>
           </ScrollArea>
 
-          <SheetFooter className="px-6 py-4 border-t">
+          <SheetFooter className="px-4 sm:px-6 py-4 border-t">
             <div className="flex gap-2 w-full">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                className="flex-1"
+                className="flex-1 text-xs sm:text-sm"
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1"
+                className="flex-1 text-xs sm:text-sm"
                 disabled={isSubmitting}
               >
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Create'}
               </Button>
             </div>

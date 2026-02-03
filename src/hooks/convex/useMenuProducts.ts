@@ -161,6 +161,7 @@ export interface PosProduct {
   productionType?: string;
   productionUnits?: number;
   posSlot: 1 | 2 | 3 | 4;
+  isFixed?: boolean;
 }
 
 export function useConvexPosProducts() {
@@ -178,6 +179,7 @@ export function useConvexPosProducts() {
     productionType: p.productionType,
     productionUnits: p.productionUnits,
     posSlot: p.posSlot as 1 | 2 | 3 | 4,
+    isFixed: p.isFixed,
   }));
 
   return {
@@ -199,6 +201,7 @@ export interface LegacyProduct {
   unitCost?: number;
   productionType?: string;
   productionUnits?: number;
+  isFixed?: boolean;
 }
 
 export function useConvexLegacyProducts() {
@@ -215,6 +218,7 @@ export function useConvexLegacyProducts() {
     unitCost: p.unitCost,
     productionType: p.productionType,
     productionUnits: p.productionUnits,
+    isFixed: p.isFixed,
   }));
 
   return {
