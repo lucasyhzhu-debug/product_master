@@ -48,6 +48,9 @@
 | **Order status transitions** | `convex/orders/helpers/statusTransitions.ts` | - |
 | **Channel/agency usage** | `convex/orders/helpers/usageTracking.ts` | - |
 | **Production records CRUD** | `convex/orders/helpers/productionRecords.ts` | - |
+| **Menu Products (POS slots)** | `convex/schema.ts`<br>`convex/menuProducts/queries.ts`<br>`convex/menuProducts/mutations.ts` | `src/pages/MenuProductsManager.tsx`<br>`src/components/menuProducts/ProductForm.tsx`<br>`src/hooks/convex/useMenuProducts.ts` |
+| **Add new page** | `convex/schema.ts` (if new table)<br>`convex/[entity]/queries.ts`<br>`convex/[entity]/mutations.ts` | `src/App.tsx` (route)<br>`src/pages/[PageName].tsx`<br>`src/hooks/convex/use[Entity].ts` |
+| **Access control** | `convex/[entity]/queries.ts` (add auth checks)<br>`convex/[entity]/mutations.ts` (add auth checks) | `src/App.tsx` (route guards)<br>`src/components/layout/Header.tsx` (nav visibility) |
 
 ---
 
@@ -204,6 +207,57 @@ product_master/
 ├── tsconfig.json
 └── CLAUDE.md                        # This file
 ```
+
+---
+
+## New Page/Feature Checklist
+
+**When creating a new page or major feature, ALWAYS address these questions in the implementation plan:**
+
+### Access Control (MANDATORY)
+
+```
+Before implementing a new page, answer these questions:
+
+1. WHO can access this page?
+   □ All users (public)
+   □ Authenticated users only
+   □ Specific roles (admin, kitchen staff, sales, etc.)
+   □ Owner-only (user can only see their own data)
+
+2. WHAT operations are allowed?
+   □ Read-only for some users?
+   □ Full CRUD for admins only?
+   □ Create allowed but edit restricted?
+
+3. HOW will access be enforced?
+   □ Route-level protection (in App.tsx)
+   □ Component-level conditionals
+   □ Backend query/mutation validation
+   □ Combination of above
+
+4. WHAT should unauthorized users see?
+   □ Redirect to login
+   □ Redirect to dashboard
+   □ Show "Access Denied" message
+   □ Hide navigation link entirely
+```
+
+### Current Access Control Status
+
+| Page | Current Access | Notes |
+|------|---------------|-------|
+| Dashboard | All users | Public landing |
+| RecipeEditor | All users | No restrictions yet |
+| PackagingEditor | All users | No restrictions yet |
+| ProductEditor | All users | No restrictions yet |
+| IngredientsManager | All users | No restrictions yet |
+| MaterialsManager | All users | No restrictions yet |
+| OrderManager | All users | No restrictions yet |
+| OrderDetail | All users | No restrictions yet |
+| KitchenView | All users | Intended for kitchen staff |
+
+**Note:** Authentication/authorization system not yet implemented. When adding auth, update this table and enforce access in both frontend routes and backend queries/mutations.
 
 ---
 
