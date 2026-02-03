@@ -104,24 +104,31 @@ menuProducts: defineTable({
   name: v.string(),                           // e.g., "Original"
   grams: v.number(),                          // 80
   defaultPrice: v.number(),                   // IDR 50000
-  productionType: v.string(),                 // "original" or "bite_sized"
-  productionUnits: v.number(),                // Balls per item (1 for original)
+  productionType: v.string(),                 // "original" or "bite_sized" (DEPRECATED)
+  productionUnits: v.number(),                // Balls per item (DEPRECATED)
   isActive: v.boolean(),
   // PRD-0 additions:
   isFixed: v.optional(v.boolean()),           // Prevents deletion when true
   unitCost: v.optional(v.number()),           // COGS in IDR
+  // PRD-5 additions:
+  cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
+  // PRD-8 additions (POS Slot System):
+  posSlot: v.optional(v.union(1, 2, 3, 4)),   // POS slot (1-4), null = legacy/not on POS
 })
   .index("by_code", ["code"])
   .index("by_active", ["isActive"])
+  .index("by_pos_slot", ["posSlot"])          // PRD-8: Query products by slot
 ```
 
 **Fixed Products (isFixed === true):**
-| Code | Name | Grams | Price | COGS | Units |
-|------|------|-------|-------|------|-------|
-| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 | 1 |
-| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 | 1 |
-| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 | 2 |
-| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 | 3 |
+| Code | Name | Grams | Price | COGS | Units | POS Slot |
+|------|------|-------|-------|------|-------|----------|
+| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 | 1 | 1 |
+| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 | 1 | 2 |
+| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 | 2 | 3 |
+| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 | 3 | 4 |
+
+**Note:** Initial slot assignments set via `migrateFixedProductsToSlots()` migration.
 
 ### 5. `recipes` - Recipe Parent Entity
 ```typescript

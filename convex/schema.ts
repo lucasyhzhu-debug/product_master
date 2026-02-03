@@ -60,9 +60,18 @@ export default defineSchema({
     unitCost: v.optional(v.number()), // COGS in IDR
     // PRD-5: Cached production summary for display
     cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
+    // PRD-8: POS slot assignment (1-4, or null for legacy)
+    // Only products with posSlot appear on POS. Unique per slot.
+    posSlot: v.optional(v.union(
+      v.literal(1),
+      v.literal(2),
+      v.literal(3),
+      v.literal(4)
+    )),
   })
     .index("by_code", ["code"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_pos_slot", ["posSlot"]),
 
   // ============================================
   // PRD-5: PRODUCTION UNIT TYPES

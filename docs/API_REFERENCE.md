@@ -66,9 +66,11 @@ tags.list()                             // List all tags
 ### Menu Products
 ```typescript
 // convex/menuProducts/queries.ts
-menuProducts.list()                     // List all menu products
-menuProducts.listActive()               // List active menu products only
+menuProducts.list({ activeOnly? })      // List all menu products (optional filter)
+menuProducts.get({ id })                // Get single menu product by ID
 menuProducts.getByCode({ code })        // Get by product code
+menuProducts.listPosProducts()          // PRD-8: Get products in POS slots 1-4 (sorted by slot)
+menuProducts.listLegacyProducts()       // PRD-8: Get products not on POS (posSlot undefined)
 ```
 
 ### Recipes
@@ -206,11 +208,14 @@ tags.seedDefaults()                     // Seed default tags
 ### Menu Products
 ```typescript
 // convex/menuProducts/mutations.ts
-menuProducts.create({ code, name, grams, defaultPrice, productionType, productionUnits, isActive })
-menuProducts.update({ id, code?, name?, ... })
+menuProducts.create({ code?, name, grams?, defaultPrice, productionType?, productionUnits?, isActive? })
+menuProducts.update({ id, code?, name?, grams?, defaultPrice?, productionType?, productionUnits?, isActive? })
 menuProducts.remove({ id })                 // Fails if isFixed === true
-menuProducts.seedDefaults()                 // Seed default menu products
+menuProducts.toggleActive({ id })           // Toggle isActive status
+menuProducts.assignToSlot({ id, slot })     // PRD-8: Assign product to POS slot (1-4), atomic swap
+menuProducts.removeFromSlot({ id })         // PRD-8: Remove product from POS (set posSlot undefined)
 menuProducts.seedFixedProducts()            // Seed 4 fixed Frollie products with COGS (PRD-0)
+menuProducts.migrateFixedProductsToSlots()  // PRD-8: One-time migration to assign existing fixed products to slots
 ```
 
 **Fixed Products (seedFixedProducts):**
