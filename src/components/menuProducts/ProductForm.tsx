@@ -38,6 +38,7 @@ interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product?: (PosProduct | LegacyProduct) | null;
+  prefilledSlot?: 1 | 2 | 3 | 4 | null;
   onSlotSwapRequested?: (data: {
     productId: string;
     slot: 1 | 2 | 3 | 4;
@@ -55,6 +56,7 @@ export function ProductForm({
   open,
   onOpenChange,
   product,
+  prefilledSlot,
   onSlotSwapRequested,
 }: ProductFormProps) {
   const createMutation = useConvexCreateMenuProduct();
@@ -112,12 +114,19 @@ export function ProductForm({
     }
   }, [product, existingComponents, loadingComponents]);
 
+  // Set prefilled slot when it changes (for clicking empty slots)
+  useEffect(() => {
+    if (prefilledSlot && !product) {
+      setPosSlot(prefilledSlot.toString());
+    }
+  }, [prefilledSlot, product]);
+
   const resetForm = () => {
     setCode('');
     setName('');
     setGramsOverride('');
     setPrice('');
-    setPosSlot('none');
+    setPosSlot(prefilledSlot ? prefilledSlot.toString() : 'none');
     setComponents([]);
   };
 

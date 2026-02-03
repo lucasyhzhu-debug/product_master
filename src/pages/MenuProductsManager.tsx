@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ export function MenuProductsManager() {
   // Sheet state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<(PosProduct | LegacyProduct) | null>(null);
+  const [prefilledSlot, setPrefilledSlot] = useState<1 | 2 | 3 | 4 | null>(null);
 
   // Delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -51,17 +52,52 @@ export function MenuProductsManager() {
 
   const handleNewProduct = () => {
     setEditingProduct(null);
+    setPrefilledSlot(null);
+    setIsFormOpen(true);
+  };
+
+  const handleNewProductForSlot = (slot: 1 | 2 | 3 | 4) => {
+    setEditingProduct(null);
+    setPrefilledSlot(slot);
     setIsFormOpen(true);
   };
 
   const handleEdit = (product: PosProduct | LegacyProduct) => {
     setEditingProduct(product);
+    setPrefilledSlot(null);
     setIsFormOpen(true);
   };
 
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingProduct(null);
+    setPrefilledSlot(null);
+  };
+
+  // Find first empty slot for legacy product assignment
+  const getFirstEmptySlot = (): 1 | 2 | 3 | 4 | null => {
+    const occupiedSlots = new Set(posProducts?.map((p) => p.posSlot) || []);
+    for (const slot of [1, 2, 3, 4] as const) {
+      if (!occupiedSlots.has(slot)) return slot;
+    }
+    return null;
+  };
+
+  const handleAssignToFirstEmptySlot = async (productId: string) => {
+    const emptySlot = getFirstEmptySlot();
+    if (!emptySlot) {
+      toast.error('All POS slots are full. Remove a product first.');
+      return;
+    }
+    try {
+      await assignSlotMutation.mutateAsync({
+        id: productId as Id<"menuProducts">,
+        slot: emptySlot,
+      });
+      toast.success(`Product assigned to Slot ${emptySlot}`);
+    } catch (error) {
+      console.error('Failed to assign slot:', error);
+    }
   };
 
   const handleRemoveFromPos = async (id: string) => {
@@ -120,10 +156,12 @@ export function MenuProductsManager() {
 
   const renderProductCard = (
     product: PosProduct | LegacyProduct,
-    showPosActions: boolean
+    showPosActions: boolean,
+    showAddToPos: boolean = false
   ) => {
     const margin = calculateMargin(product.defaultPrice, product.unitCost);
     const isPosProduct = 'posSlot' in product;
+    const firstEmptySlot = getFirstEmptySlot();
 
     return (
       <Card key={product._id} className="relative hover:shadow-md transition-shadow">
@@ -208,6 +246,19 @@ export function MenuProductsManager() {
                   <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               )}
+              {showAddToPos && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleAssignToFirstEmptySlot(product._id)}
+                  className="text-green-600 hover:text-green-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
+                  title={firstEmptySlot ? `Add to Slot ${firstEmptySlot}` : 'All slots full'}
+                  aria-label="Add to POS"
+                  disabled={!firstEmptySlot}
+                >
+                  <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -279,11 +330,12 @@ export function MenuProductsManager() {
                     return renderProductCard(product, true);
                   }
 
-                  // Empty slot placeholder
+                  // Empty slot placeholder - clickable to create new product
                   return (
                     <Card
                       key={`empty-slot-${slotNumber}`}
-                      className="border-dashed border-2 hover:border-primary/50 transition-colors"
+                      className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                      onClick={() => handleNewProductForSlot(slotNumber as 1 | 2 | 3 | 4)}
                     >
                       <CardContent className="pt-6">
                         <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
@@ -297,7 +349,7 @@ export function MenuProductsManager() {
                             Empty Slot
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 hidden sm:block">
-                            Assign a product to this slot
+                            Click to create a product
                           </p>
                         </div>
                       </CardContent>
@@ -330,7 +382,7 @@ export function MenuProductsManager() {
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {legacyProducts.map((product) => renderProductCard(product, false))}
+                  {legacyProducts.map((product) => renderProductCard(product, false, true))}
                 </div>
               )}
             </CardContent>
@@ -343,6 +395,7 @@ export function MenuProductsManager() {
         open={isFormOpen}
         onOpenChange={handleFormClose}
         product={editingProduct}
+        prefilledSlot={prefilledSlot}
         onSlotSwapRequested={(data) => {
           setSwapSlotData(data);
           setShowSwapDialog(true);
