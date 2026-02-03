@@ -17,11 +17,11 @@ import { PasteTemplateBox } from './PasteTemplateBox';
 import { DiscountInput } from './DiscountInput';
 import { DeliveryToggle } from './DeliveryToggle';
 import {
-  useConvexFixedProducts,
+  useConvexPosProducts,
   useConvexCreateOrder,
   useConvexCustomerSearch,
   type OrderCreateInput,
-  type FixedProduct,
+  type PosProduct,
 } from '@/hooks/convex';
 import type { ParseResult } from '@/lib/orderTemplateParser';
 import type { OrderLineItem } from '@/lib/types';
@@ -73,8 +73,8 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // Queries & Mutations
   // ============================================
 
-  const { data: fixedProductsData, isLoading: productsLoading } = useConvexFixedProducts();
-  const fixedProducts = fixedProductsData ?? [];
+  const { data: posProductsData, isLoading: productsLoading } = useConvexPosProducts();
+  const posProducts = posProductsData ?? [];
 
   const { data: customers } = useConvexCustomerSearch(customerSearch || '');
 
@@ -136,7 +136,7 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
     if (result.items.length > 0) {
       const newItems = result.items
         .map((item) => {
-          const product = fixedProducts?.find((p) => p.code === item.productCode);
+          const product = posProducts?.find((p) => p.code === item.productCode);
           if (!product) return null;
           return {
             productId: product._id,
@@ -169,7 +169,7 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
   };
 
   const handleAddProduct = (
-    product: FixedProduct,
+    product: PosProduct,
     quantity: number
   ) => {
     const existing = items.find((i) => i.productId === product._id);
@@ -346,7 +346,7 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
         </CardHeader>
         <CardContent className="space-y-4">
           <ProductButtons
-            products={fixedProducts}
+            products={posProducts}
             onAddProduct={handleAddProduct}
           />
 

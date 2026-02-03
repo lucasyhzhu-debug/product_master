@@ -106,14 +106,20 @@ export {
   useConvexMenuProduct,
   useConvexMenuProductByCode,
   useConvexFixedProducts,
+  useConvexPosProducts,
+  useConvexLegacyProducts,
   // Mutation hooks
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexDeleteMenuProduct,
+  useConvexAssignToSlot,
+  useConvexRemoveFromSlot,
   // Types
   type MenuProductCreateInput,
   type MenuProductUpdateInput,
   type FixedProduct,
+  type PosProduct,
+  type LegacyProduct,
 } from "./useMenuProducts";
 
 // Orders
