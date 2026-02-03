@@ -1,6 +1,8 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
+import { fetchOrdersByStatuses } from "./helpers/statusFetching";
+import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
 
 // ============================================
 // Types
@@ -156,10 +158,6 @@ export const getByOrderNumber = query({
 export const getKitchenOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Import helpers (dynamic to avoid circular dependency issues)
-    const { fetchOrdersByStatuses } = await import("./helpers/statusFetching");
-    const { fetchOrdersWithItemsAndProduction } = await import("./helpers/batchFetching");
-
     // Fetch orders by status (consolidated from 6 duplicate queries to 1 helper call)
     // Priority 0: Confirmed, InProduction, Packaging (active orders)
     // Priority 1: Draft (de-prioritized)
