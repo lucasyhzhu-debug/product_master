@@ -184,41 +184,43 @@ The refactor was well-planned with documentation, but the dynamic import workaro
 - [x] Fix committed and pushed to main (`bc3163d`)
 - [x] Verified no other dynamic imports in `convex/` directory
 
-### Short-term
+### Short-term (Completed 2026-02-03)
 
-- [ ] **Clarify Convex environments**: Either use `exciting-fennec-671` for everything OR migrate to `decisive-wombat-7`
-- [ ] **Update `.env.local` comments**: Remove misleading "Production" label
-- [ ] **Add to CODE_STYLE.md**: Document that dynamic `import()` is not allowed in Convex
-- [ ] **Add CI check**: Grep for `await import(` in `convex/` directory
+- [x] **Clarify Convex environments**: Migrated to `decisive-wombat-7` for production
+- [x] **Update `.env.local` comments**: Updated all env files with correct references
+- [x] **Add to CODE_STYLE.md**: Documented "Convex Runtime Restrictions" section
+- [x] **Add CI check**: GitHub Action runs `npm run lint:convex` on every push
 
-### Long-term
+### Long-term (Completed 2026-02-03)
 
-- [ ] Consider consolidating to single Convex deployment
-- [ ] Add production smoke tests after Convex deployments
-- [ ] Create deployment checklist for refactors touching Convex code
+- [x] **Environment separation**: Production on `decisive-wombat-7`, Dev on `exciting-fennec-671`
+- [x] **Add production smoke tests**: Vercel webhook triggers after Convex deploy
+- [x] **Create deployment checklist**: Added to WORKFLOW.md "Convex Deployment Checklist"
 
 ---
 
-## Recommended Environment Setup
+## Current Environment Setup (Post-Migration)
 
-**Option A: Use Development for Everything (Current State)**
+**Implemented: Option B - Proper Separation (2026-02-03)**
+
+| Environment | Deployment | Used By |
+|-------------|------------|---------|
+| **Production** | `prod:decisive-wombat-7` | Vercel, GitHub Actions CI |
+| **Development** | `dev:exciting-fennec-671` | Local development |
+
 ```bash
-# .env.local
-CONVEX_DEPLOYMENT=dev:exciting-fennec-671
-VITE_CONVEX_URL=https://exciting-fennec-671.convex.cloud
+# Local development (connects to dev database)
+npx convex dev
 
-# Deploy command
-npx convex dev --once   # NOT npx convex deploy
+# Production deployment (via CI on push to main)
+# GitHub Action runs: npx convex deploy --yes
 ```
 
-**Option B: Migrate Vercel to Production**
-```bash
-# Update Vercel environment variables to:
-VITE_CONVEX_URL=https://decisive-wombat-7.convex.cloud
-
-# Then use:
-npx convex deploy
-```
+**CI/CD Flow:**
+1. Push to `main`
+2. GitHub Action runs lint check
+3. Convex deployed to production
+4. Vercel webhook triggers frontend rebuild
 
 ---
 

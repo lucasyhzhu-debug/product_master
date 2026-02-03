@@ -13,6 +13,50 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-03 - Production Environment Migration + CI/CD Pipeline
+
+**Migrated from single-environment to proper dev/prod separation with automated CI/CD**
+
+### Environment Migration
+- **Production**: `prod:decisive-wombat-7` (Vercel + GitHub Actions)
+- **Development**: `dev:exciting-fennec-671` (local development)
+- Data exported from dev, deployed to prod, verified counts match
+- Vercel environment variables updated to point to production
+
+### CI/CD Pipeline
+- Created `.github/workflows/deploy.yml`:
+  - Lint check for dynamic imports (`await import(`)
+  - Convex deploy to production (conditional on `convex/` changes)
+  - Vercel webhook trigger (ensures Convex deploys before frontend)
+- Path filters: Only triggers on code changes, not docs
+- Added `npm run lint:convex` script
+
+### Documentation Updates
+- **CODE_STYLE.md**: Added "Convex Runtime Restrictions" section
+- **WORKFLOW.md**: Added "Convex Deployment Checklist" + "Branch Discipline"
+- **CLAUDE.md**: Updated environment variables section
+- **TESTING_GUIDE.md**: Updated for dual-environment setup
+- **RCA report**: Marked all action items complete
+
+### Configuration Updates
+- `scripts/deploy-check.js`: Updated to check for prod:decisive-wombat-7
+- `.env`: Updated to prod:decisive-wombat-7
+- `.env.local.production`: Updated URLs
+- `package.json`: Added lint:convex script
+
+### Files Modified
+- `.github/workflows/deploy.yml` (created)
+- `scripts/deploy-check.js`
+- `.env`, `.env.local.production`
+- `package.json`
+- `docs/CODE_STYLE.md`
+- `docs/WORKFLOW.md`
+- `docs/TESTING_GUIDE.md`
+- `docs/reports/RCA-2026-02-03-kitchen-dynamic-import.md`
+- `CLAUDE.md`
+
+---
+
 ## 2026-02-03 - Documentation Consolidation: README + ONBOARDING
 
 **Consolidated README.md from 453 to 118 lines; ONBOARDING.md from 532 to 153 lines**

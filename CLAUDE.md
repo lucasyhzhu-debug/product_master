@@ -118,12 +118,16 @@ npx convex import           # Restore database
 ```
 
 **Database Setup:**
-Single dev deployment (`dev:exciting-fennec-671`) for all development.
-See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for database management.
+Dual environment setup (migrated 2026-02-03):
+- **Production**: `prod:decisive-wombat-7` (Vercel + CI deploys here)
+- **Development**: `dev:exciting-fennec-671` (local development)
+
 ```bash
-npx convex dev              # Start backend
-npm run dev                 # Start frontend
+npx convex dev              # Start backend (connects to dev)
+npm run dev                 # Start frontend (localhost)
 ```
+
+**CI/CD:** Pushing to `main` triggers GitHub Action → Convex deploy → Vercel rebuild
 
 ---
 
@@ -248,25 +252,37 @@ product_master/
 
 ## Environment Variables
 
-**Single Development Environment:** Convex free tier provides one dev deployment.
+**Dual Environment Setup** (migrated 2026-02-03):
+
+| Environment | Deployment ID | Used By |
+|-------------|---------------|---------|
+| **Production** | `prod:decisive-wombat-7` | Vercel, GitHub Actions CI |
+| **Development** | `dev:exciting-fennec-671` | Local development (`npx convex dev`) |
 
 | File | Purpose | Committed? |
 |------|---------|-----------|
-| `.env.local` | Active environment | ❌ No (gitignored) |
-| `.env.local.production` | Same as testing (for future use) | ✅ Yes (safe) |
-| `.env.local.testing` | Same as production (for future use) | ✅ Yes (safe) |
+| `.env.local` | Local dev environment | ❌ No (gitignored) |
+| `.env.local.production` | Production config reference | ✅ Yes |
+| `.env` | Default deployment (production) | ✅ Yes |
 | `.env.example` | Template for new setups | ✅ Yes |
 
-**Current setup:**
+**Local development (.env.local):**
 ```bash
-# .env.local
 CONVEX_DEPLOYMENT=dev:exciting-fennec-671
 VITE_CONVEX_URL=https://exciting-fennec-671.convex.cloud
 VITE_CONVEX_SITE_URL=https://exciting-fennec-671.convex.site
 ```
 
-**For separate testing environment:** Create a second Convex project or upgrade to Convex Pro.
-See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for details.
+**Production (Vercel + CI):**
+```bash
+CONVEX_DEPLOYMENT=prod:decisive-wombat-7
+VITE_CONVEX_URL=https://decisive-wombat-7.convex.cloud
+VITE_CONVEX_SITE_URL=https://decisive-wombat-7.convex.site
+```
+
+**CI/CD Flow:**
+- Push to `main` → GitHub Action deploys Convex → Vercel webhook rebuilds frontend
+- Local dev uses `exciting-fennec-671` (isolated from production)
 
 ---
 
