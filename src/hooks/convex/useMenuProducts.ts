@@ -20,6 +20,11 @@ export interface MenuProductCreateInput {
   productionType?: string;
   productionUnits?: number;
   isActive?: boolean;
+  // PRD-4a: Components for auto-calculation
+  components?: Array<{
+    productionUnitTypeId: Id<"productionUnitTypes">;
+    quantity: number;
+  }>;
 }
 
 export interface MenuProductUpdateInput {
@@ -30,6 +35,11 @@ export interface MenuProductUpdateInput {
   productionType?: string;
   productionUnits?: number;
   isActive?: boolean;
+  // PRD-4a: Components for auto-calculation
+  components?: Array<{
+    productionUnitTypeId: Id<"productionUnitTypes">;
+    quantity: number;
+  }>;
 }
 
 // ============================================

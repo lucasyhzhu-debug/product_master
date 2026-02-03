@@ -224,3 +224,19 @@ export {
   type FeedbackCreateInput,
   type FeedbackStats,
 } from "./useFeedback";
+
+// Production Unit Types (PRD-4: Menu Products Manager)
+export {
+  useConvexProductionUnitTypes,
+  useConvexProductionUnitType,
+  useConvexProductionUnitTypeByCode,
+  type ProductionUnitType,
+  type ProductionUnitTypeWithId,
+} from "./useProductionUnitTypes";
+
+// Menu Product Components (PRD-4: Menu Products Manager)
+export {
+  useConvexMenuProductComponents,
+  useConvexMenuProductComponentsBatch,
+  type MenuProductComponentWithType,
+} from "./useMenuProductComponents";

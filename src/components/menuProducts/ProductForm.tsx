@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Save, Plus, Trash2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -18,14 +18,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import {
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
+  useConvexProductionUnitTypes,
+  useConvexMenuProductComponents,
   type PosProduct,
   type LegacyProduct,
-} from '@/hooks/convex/useMenuProducts';
-import { formatCurrency, formatPercent } from '@/lib/utils';
+} from '@/hooks/convex';
+import { formatCurrency, formatPercent, formatNumber } from '@/lib/utils';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
 
@@ -35,6 +39,12 @@ interface ProductFormProps {
   product?: (PosProduct | LegacyProduct) | null;
 }
 
+interface ComponentRow {
+  id: string; // Temporary ID for UI (not Convex ID)
+  productionUnitTypeId: Id<"productionUnitTypes"> | null;
+  quantity: number;
+}
+
 export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   const createMutation = useConvexCreateMenuProduct();
   const updateMutation = useConvexUpdateMenuProduct();
@@ -42,33 +52,59 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
 
   const isEditing = !!product;
 
+  // Query production unit types
+  const { data: productionUnitTypes, isLoading: loadingUnitTypes } = useConvexProductionUnitTypes();
+
+  // Query existing components if editing
+  const productId = product?._id as Id<"menuProducts"> | undefined;
+  const { data: existingComponents, isLoading: loadingComponents } = useConvexMenuProductComponents(
+    isEditing ? productId : undefined
+  );
+
   // Form state
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [grams, setGrams] = useState('');
+  const [gramsOverride, setGramsOverride] = useState(''); // User can override auto-calculated grams
   const [price, setPrice] = useState('');
   const [posSlot, setPosSlot] = useState<string>('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Component state
+  const [components, setComponents] = useState<ComponentRow[]>([]);
+
   // Initialize form when product changes
   useEffect(() => {
-    if (product) {
+    if (product && !loadingComponents) {
       setCode(product.code);
       setName(product.name);
-      setGrams(product.grams.toString());
+      setGramsOverride(product.grams.toString());
       setPrice(product.defaultPrice.toString());
       setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
-    } else {
+
+      // Initialize components from existing data
+      if (existingComponents && existingComponents.length > 0) {
+        setComponents(
+          existingComponents.map((comp) => ({
+            id: Math.random().toString(36).substr(2, 9),
+            productionUnitTypeId: comp.productionUnitTypeId,
+            quantity: comp.quantity,
+          }))
+        );
+      } else {
+        setComponents([]);
+      }
+    } else if (!product) {
       resetForm();
     }
-  }, [product]);
+  }, [product, existingComponents, loadingComponents]);
 
   const resetForm = () => {
     setCode('');
     setName('');
-    setGrams('');
+    setGramsOverride('');
     setPrice('');
     setPosSlot('none');
+    setComponents([]);
   };
 
   const handleClose = () => {
@@ -76,6 +112,68 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
     // Delay reset to avoid flash during closing animation
     setTimeout(resetForm, 300);
   };
+
+  // Component management
+  const handleAddComponent = () => {
+    setComponents([
+      ...components,
+      {
+        id: Math.random().toString(36).substr(2, 9),
+        productionUnitTypeId: null,
+        quantity: 1,
+      },
+    ]);
+  };
+
+  const handleRemoveComponent = (id: string) => {
+    setComponents(components.filter((c) => c.id !== id));
+  };
+
+  const handleUpdateComponent = (id: string, field: 'productionUnitTypeId' | 'quantity', value: any) => {
+    setComponents(
+      components.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              [field]: field === 'quantity' ? parseInt(value) || 0 : value,
+            }
+          : c
+      )
+    );
+  };
+
+  // Auto-calculate COGS and grams from components
+  const calculatedValues = useMemo(() => {
+    if (!productionUnitTypes || components.length === 0) {
+      return { totalCost: 0, totalGrams: 0, ballSummary: '' };
+    }
+
+    let totalCost = 0;
+    let totalGrams = 0;
+    const summaryParts: string[] = [];
+
+    for (const component of components) {
+      if (!component.productionUnitTypeId) continue;
+
+      const unitType = productionUnitTypes.find(
+        (ut) => ut._id === component.productionUnitTypeId
+      );
+      if (!unitType) continue;
+
+      totalCost += unitType.unitCostIdr * component.quantity;
+      totalGrams += unitType.gramsPerUnit * component.quantity;
+
+      if (component.quantity > 0) {
+        summaryParts.push(`${component.quantity} ${unitType.name}`);
+      }
+    }
+
+    return {
+      totalCost,
+      totalGrams,
+      ballSummary: summaryParts.join(', ') || 'No components',
+    };
+  }, [components, productionUnitTypes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,30 +184,48 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
       return;
     }
 
-    if (!grams || parseFloat(grams) <= 0) {
-      toast.error('Valid weight is required');
-      return;
-    }
-
     if (!price || parseFloat(price) <= 0) {
       toast.error('Valid price is required');
       return;
     }
 
+    // Validate components if provided
+    const validComponents = components.filter((c) => c.productionUnitTypeId !== null);
+    if (validComponents.some((c) => c.quantity <= 0)) {
+      toast.error('Component quantities must be greater than 0');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      // Prepare components array for mutation
+      const componentsData =
+        validComponents.length > 0
+          ? validComponents.map((c) => ({
+              productionUnitTypeId: c.productionUnitTypeId as Id<"productionUnitTypes">,
+              quantity: c.quantity,
+            }))
+          : undefined;
+
+      // Use override grams if provided, otherwise use calculated
+      const finalGrams =
+        gramsOverride && parseFloat(gramsOverride) > 0
+          ? parseFloat(gramsOverride)
+          : calculatedValues.totalGrams;
+
       const productData = {
         code: code.trim() || undefined,
         name: name.trim(),
-        grams: parseFloat(grams),
+        grams: finalGrams,
         defaultPrice: parseFloat(price),
+        components: componentsData,
       };
 
       if (isEditing) {
         // Update existing product
         await updateMutation.mutateAsync({
           id: product._id as Id<"menuProducts">,
-          updates: productData,
+          ...productData,
         });
 
         // Handle slot assignment separately if changed
@@ -146,11 +262,18 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
   };
 
   // Calculate margin (read-only)
-  const cogs = product?.unitCost ?? 0;
+  // Use calculated COGS from components if available, otherwise use existing unitCost
+  const cogs = components.length > 0 ? calculatedValues.totalCost : (product?.unitCost ?? 0);
   const priceValue = parseFloat(price) || 0;
   const margin = priceValue > 0 && cogs > 0
     ? ((priceValue - cogs) / priceValue) * 100
     : null;
+
+  // Display grams: use override if set, otherwise use calculated
+  const displayGrams =
+    gramsOverride && parseFloat(gramsOverride) > 0
+      ? parseFloat(gramsOverride)
+      : calculatedValues.totalGrams;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -193,18 +316,119 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 />
               </div>
 
-              {/* Grams */}
+              {/* Production Components */}
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Production Components</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddComponent}
+                    disabled={loadingUnitTypes}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+
+                {components.length > 0 && (
+                  <div className="space-y-2">
+                    {components.map((component) => (
+                      <div key={component.id} className="flex gap-2 items-start">
+                        <div className="flex-1 space-y-1">
+                          <Select
+                            value={component.productionUnitTypeId ?? ''}
+                            onValueChange={(value) =>
+                              handleUpdateComponent(component.id, 'productionUnitTypeId', value as Id<"productionUnitTypes">)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productionUnitTypes?.map((unitType) => (
+                                <SelectItem key={unitType._id} value={unitType._id}>
+                                  {unitType.name} ({formatNumber(unitType.gramsPerUnit, 0)}g, {formatCurrency(unitType.unitCostIdr)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="w-20">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={component.quantity}
+                            onChange={(e) =>
+                              handleUpdateComponent(component.id, 'quantity', e.target.value)
+                            }
+                            placeholder="Qty"
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveComponent(component.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {components.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+                    No components added. Click "Add" to define production units.
+                  </p>
+                )}
+              </div>
+
+              {/* Auto-calculated values */}
+              {components.length > 0 && (
+                <div className="rounded-lg bg-muted p-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Auto COGS:</span>
+                    <span className="font-medium">{formatCurrency(calculatedValues.totalCost)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Auto Grams:</span>
+                    <span className="font-medium">{formatNumber(calculatedValues.totalGrams, 1)}g</span>
+                  </div>
+                  <div className="flex items-start justify-between text-sm">
+                    <span className="text-muted-foreground">Ball Summary:</span>
+                    <span className="font-medium text-right">{calculatedValues.ballSummary}</span>
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Grams Override */}
               <div className="space-y-2">
-                <Label htmlFor="grams">Weight (grams) *</Label>
+                <Label htmlFor="grams">Weight Override (grams)</Label>
                 <Input
                   id="grams"
                   type="number"
                   step="0.01"
-                  value={grams}
-                  onChange={(e) => setGrams(e.target.value)}
-                  placeholder="e.g., 50"
-                  required
+                  value={gramsOverride}
+                  onChange={(e) => setGramsOverride(e.target.value)}
+                  placeholder={
+                    components.length > 0
+                      ? `Auto: ${formatNumber(calculatedValues.totalGrams, 1)}g`
+                      : 'e.g., 50'
+                  }
                 />
+                <p className="text-xs text-muted-foreground">
+                  {components.length > 0
+                    ? 'Optional. Override auto-calculated weight.'
+                    : 'Weight in grams (required if no components).'}
+                </p>
               </div>
 
               {/* Price */}
@@ -231,7 +455,9 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Calculated from linked product concept
+                  {components.length > 0
+                    ? 'Auto-calculated from components'
+                    : 'From existing product or linked concept'}
                 </p>
               </div>
 
@@ -269,13 +495,24 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
                 </p>
               </div>
 
-              {/* Ball Production Info (if exists) */}
-              {product?.productionType && product?.productionUnits && (
-                <div className="rounded-lg bg-muted p-3 space-y-1">
-                  <p className="text-sm font-medium">Production Info</p>
-                  <p className="text-xs text-muted-foreground">
-                    {product.productionUnits} {product.productionType === 'bite_sized' ? 'bite-sized' : 'original'} balls per unit
-                  </p>
+              {/* Ball Production Summary */}
+              {(components.length > 0 || (product?.productionType && product?.productionUnits)) && (
+                <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Production Summary</Badge>
+                  </div>
+                  {components.length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{calculatedValues.ballSummary}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Total: {formatNumber(displayGrams, 1)}g at {formatCurrency(cogs)}
+                      </p>
+                    </div>
+                  ) : product?.productionType && product?.productionUnits ? (
+                    <p className="text-xs text-muted-foreground">
+                      {product.productionUnits} {product.productionType === 'bite_sized' ? 'bite-sized' : 'original'} balls per unit
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>
