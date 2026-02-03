@@ -13,6 +13,7 @@ import {
   OrderDetail,
   KitchenView,
   PackagingView,
+  MenuProductsManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -133,6 +134,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessMaterials">
                   <MaterialsManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Menu Products - Manager and Admin */}
+            <Route
+              path="menu-products"
+              element={
+                <ProtectedRoute requiredPermission="canAccessProducts">
+                  <MenuProductsManager />
                 </ProtectedRoute>
               }
             />
