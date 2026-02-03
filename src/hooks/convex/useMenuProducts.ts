@@ -137,6 +137,82 @@ export function useConvexFixedProducts() {
   };
 }
 
+/**
+ * PRD-8 Phase 2: List products assigned to POS slots (posSlot 1-4).
+ * Returns products sorted by slot number.
+ */
+export interface PosProduct {
+  _id: string;
+  code: string;
+  name: string;
+  grams: number;
+  defaultPrice: number;
+  unitCost?: number;
+  productionType?: string;
+  productionUnits?: number;
+  posSlot: 1 | 2 | 3 | 4;
+}
+
+export function useConvexPosProducts() {
+  const data = useQuery(api.menuProducts.queries.listPosProducts);
+  if (data === undefined) return { data: undefined, isLoading: true };
+
+  // Transform to POS-compatible format
+  const posProducts = data.map((p): PosProduct => ({
+    _id: p._id as unknown as string,
+    code: p.code,
+    name: p.name,
+    grams: p.grams ?? 0,
+    defaultPrice: p.defaultPrice,
+    unitCost: p.unitCost,
+    productionType: p.productionType,
+    productionUnits: p.productionUnits,
+    posSlot: p.posSlot as 1 | 2 | 3 | 4,
+  }));
+
+  return {
+    data: posProducts,
+    isLoading: false,
+  };
+}
+
+/**
+ * PRD-8 Phase 2: List legacy products (not on POS).
+ * Returns products with posSlot undefined.
+ */
+export interface LegacyProduct {
+  _id: string;
+  code: string;
+  name: string;
+  grams: number;
+  defaultPrice: number;
+  unitCost?: number;
+  productionType?: string;
+  productionUnits?: number;
+}
+
+export function useConvexLegacyProducts() {
+  const data = useQuery(api.menuProducts.queries.listLegacyProducts);
+  if (data === undefined) return { data: undefined, isLoading: true };
+
+  // Transform to POS-compatible format
+  const legacyProducts = data.map((p): LegacyProduct => ({
+    _id: p._id as unknown as string,
+    code: p.code,
+    name: p.name,
+    grams: p.grams ?? 0,
+    defaultPrice: p.defaultPrice,
+    unitCost: p.unitCost,
+    productionType: p.productionType,
+    productionUnits: p.productionUnits,
+  }));
+
+  return {
+    data: legacyProducts,
+    isLoading: false,
+  };
+}
+
 // ============================================
 // Mutation Hooks
 // ============================================
@@ -228,6 +304,72 @@ export function useConvexDeleteMenuProduct() {
         return true;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to delete menu product";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * PRD-8 Phase 2: Assign a menu product to a POS slot (1-4).
+ * Automatically swaps if slot is occupied.
+ */
+export function useConvexAssignToSlot() {
+  const mutation = useMutation(api.menuProducts.mutations.assignToSlot);
+
+  return {
+    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+      try {
+        const id = await mutation(data);
+        toast.success(`Assigned to slot ${data.slot}`);
+        return id;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to assign slot";
+        toast.error(message);
+        throw error;
+      }
+    },
+    mutateAsync: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+      try {
+        const id = await mutation(data);
+        toast.success(`Assigned to slot ${data.slot}`);
+        return id;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to assign slot";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * PRD-8 Phase 2: Remove a menu product from POS slot.
+ * Moves product to legacy section.
+ */
+export function useConvexRemoveFromSlot() {
+  const mutation = useMutation(api.menuProducts.mutations.removeFromSlot);
+
+  return {
+    mutate: async (id: Id<"menuProducts">) => {
+      try {
+        const resultId = await mutation({ id });
+        toast.success("Removed from POS");
+        return resultId;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to remove from slot";
+        toast.error(message);
+        throw error;
+      }
+    },
+    mutateAsync: async (id: Id<"menuProducts">) => {
+      try {
+        const resultId = await mutation({ id });
+        toast.success("Removed from POS");
+        return resultId;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to remove from slot";
         toast.error(message);
         throw error;
       }
