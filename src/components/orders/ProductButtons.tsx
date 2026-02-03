@@ -19,6 +19,9 @@ interface ProductButtonsProps {
     grams: number;
     defaultPrice: number;
     unitCost?: number;
+    posSlot?: 1 | 2 | 3 | 4;
+    productionType?: string;
+    productionUnits?: number;
   }>;
   onAddProduct: (
     product: ProductButtonsProps['products'][0],
