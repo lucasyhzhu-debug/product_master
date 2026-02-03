@@ -225,7 +225,7 @@ export function ProductForm({ open, onOpenChange, product }: ProductFormProps) {
         // Update existing product
         await updateMutation.mutateAsync({
           id: product._id as Id<"menuProducts">,
-          ...productData,
+          updates: productData,
         });
 
         // Handle slot assignment separately if changed
