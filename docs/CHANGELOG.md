@@ -13,6 +13,93 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-03 - Menu Products Manager with POS Slot System
+
+**Created full CRUD interface for menu products with POS slot management**
+
+### Feature Overview
+- New manager page to view, create, edit, and delete menu products
+- POS slot system (1-4) to control which products appear on POS interface
+- Component-based COGS auto-calculation from production unit types
+- Slot swap confirmation to prevent accidental reassignments
+- Delete protection for fixed products
+- Empty slot placeholders with visual indicators
+- Mobile responsive design (280px minimum)
+
+### Backend Changes (Convex)
+- **Schema**: Added `posSlot` field (union type 1-4) to menuProducts table
+- **Schema**: Added `by_pos_slot` index for efficient queries
+- **Queries**: Added `listPosProducts()` and `listLegacyProducts()`
+- **Mutations**: Added `assignToSlot()`, `removeFromSlot()`, `migrateFixedProductsToSlots()`
+- **Mutations**: Added `calculateUnitCostFromComponents()` helper for COGS calculation
+- **Mutations**: Updated `create` and `update` to accept components array and auto-calculate unitCost/grams
+- **Mutations**: Added `updateCachedProductionSummary()` helper
+
+### Frontend Changes (React)
+- **Page**: Created `src/pages/MenuProductsManager.tsx` with card-based layout
+- **Component**: Created `src/components/menuProducts/ProductForm.tsx` (Sheet-based form)
+- **Hooks**: Added `useConvexPosProducts()`, `useConvexLegacyProducts()`, `useConvexAssignToSlot()`, `useConvexRemoveFromSlot()`
+- **Hooks**: Created `src/hooks/convex/useProductionUnitTypes.ts` for unit type queries
+- **Hooks**: Created `src/hooks/convex/useMenuProductComponents.ts` for component queries
+- **Integration**: Updated `OrderFormPOS.tsx` to use `useConvexPosProducts()` instead of `useConvexFixedProducts()`
+- **Integration**: Updated `ProductButtons.tsx` interface to accept `posSlot` field
+- **Navigation**: Added "Menu Products" button in Dashboard Orders section
+- **Route**: Added `/menu-products` route in App.tsx
+
+### Key Features
+1. **POS Slot Management**: Only slotted products (1-4) appear on POS interface
+2. **Slot Swap Confirmation**: Dialog confirms when reassigning occupied slots
+3. **Component Editor**: Add production unit types with auto-calculated COGS and weight
+4. **Delete Protection**: Fixed products cannot be deleted (show lock icon)
+5. **Empty Slot Placeholders**: Visual indicators for unassigned slots
+6. **Mobile Responsive**: Fully tested at 280px viewport width
+
+### Files Modified (Backend)
+- `convex/schema.ts` - Added posSlot field and index
+- `convex/menuProducts/queries.ts` - Added slot-based queries
+- `convex/menuProducts/mutations.ts` - Added slot management and component calculation
+
+### Files Created (Frontend)
+- `src/pages/MenuProductsManager.tsx`
+- `src/components/menuProducts/ProductForm.tsx`
+- `src/hooks/convex/useProductionUnitTypes.ts`
+- `src/hooks/convex/useMenuProductComponents.ts`
+
+### Files Modified (Frontend)
+- `src/hooks/convex/useMenuProducts.ts` - Added POS product hooks and types
+- `src/hooks/convex/index.ts` - Added barrel exports
+- `src/components/orders/OrderFormPOS.tsx` - Updated to use POS products
+- `src/components/orders/ProductButtons.tsx` - Updated interface
+- `src/pages/Dashboard.tsx` - Added navigation button
+- `src/App.tsx` - Added route
+
+### Documentation Updates
+- `docs/SCHEMA.md` - Documented posSlot field and by_pos_slot index
+- `docs/API_REFERENCE.md` - Documented new queries and mutations
+- `CLAUDE.md` - Added Menu Products to Quick File Finder
+
+### Migration Steps
+Run migration to assign existing fixed products to slots:
+```
+1. Open Convex dashboard: npx convex dashboard
+2. Go to Functions tab
+3. Run: menuProducts:migrateFixedProductsToSlots
+4. Verify: ORIGINAL→slot 1, BITE_SINGLE→slot 2, BITE_DOUBLE→slot 3, BITE_TRIPLE→slot 4
+```
+
+### Commits
+- 8bbe88a - feat: add posSlot field and slot management mutations
+- a6bdfac - feat: add POS product hooks and update OrderFormPOS
+- 7a1acfb - feat: add MenuProductsManager page with card-based UI
+- 2afe28a - fix: resolve build blockers in MenuProductsManager
+- d4b9aa7 - feat: add component-based COGS calculation backend
+- d921dfa - feat: add component editor UI with auto-calculation
+- 1b3e538 - fix: resolve build blockers in Phase 4
+- 831e2ea - feat: add polish and edge case handling
+- 4d8497a - fix: add missing toast import
+
+---
+
 ## 2026-02-03 - Production Environment Migration + CI/CD Pipeline
 
 **Migrated from single-environment to proper dev/prod separation with automated CI/CD**
