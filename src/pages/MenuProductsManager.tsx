@@ -18,6 +18,7 @@ import {
 } from '@/hooks/convex/useMenuProducts';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import type { Id } from '../../convex/_generated/dataModel';
+import { toast } from 'sonner';
 
 export function MenuProductsManager() {
   useDocumentTitle('Menu Products');
