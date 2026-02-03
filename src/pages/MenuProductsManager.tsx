@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import {
   useConvexLegacyProducts,
   useConvexDeleteMenuProduct,
   useConvexRemoveFromSlot,
+  useConvexAssignToSlot,
   type PosProduct,
   type LegacyProduct,
 } from '@/hooks/convex/useMenuProducts';
@@ -27,6 +28,7 @@ export function MenuProductsManager() {
   const { data: legacyProducts, isLoading: loadingLegacy } = useConvexLegacyProducts();
   const deleteMutation = useConvexDeleteMenuProduct();
   const removeFromSlotMutation = useConvexRemoveFromSlot();
+  const assignSlotMutation = useConvexAssignToSlot();
 
   // Sheet state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -35,6 +37,14 @@ export function MenuProductsManager() {
   // Delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Slot swap confirmation
+  const [swapSlotData, setSwapSlotData] = useState<{
+    productId: string;
+    slot: 1 | 2 | 3 | 4;
+    currentProduct: PosProduct;
+  } | null>(null);
+  const [showSwapDialog, setShowSwapDialog] = useState(false);
 
   const isLoading = loadingPos || loadingLegacy;
 
@@ -64,6 +74,18 @@ export function MenuProductsManager() {
 
   const handleDelete = async () => {
     if (deleteId !== null) {
+      // Check if the product is fixed (cannot be deleted)
+      const productToDelete = [...(posProducts || []), ...(legacyProducts || [])].find(
+        (p) => p._id === deleteId
+      );
+
+      if (productToDelete?.isFixed) {
+        toast.error('This product is marked as fixed and cannot be deleted');
+        setShowDeleteDialog(false);
+        setDeleteId(null);
+        return;
+      }
+
       try {
         await deleteMutation.mutateAsync(deleteId as Id<"menuProducts">);
         setShowDeleteDialog(false);
@@ -72,6 +94,21 @@ export function MenuProductsManager() {
         // Error already handled by mutation with toast
         console.error('Failed to delete:', error);
       }
+    }
+  };
+
+  const handleSwapConfirm = async () => {
+    if (!swapSlotData) return;
+
+    try {
+      await assignSlotMutation.mutateAsync({
+        id: swapSlotData.productId as Id<"menuProducts">,
+        slot: swapSlotData.slot,
+      });
+      setShowSwapDialog(false);
+      setSwapSlotData(null);
+    } catch (error) {
+      console.error('Failed to swap slot:', error);
     }
   };
 
@@ -90,25 +127,35 @@ export function MenuProductsManager() {
     return (
       <Card key={product._id} className="relative hover:shadow-md transition-shadow">
         <CardContent className="pt-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-2 sm:gap-4">
             <div className="flex-1 min-w-0">
               {/* Header with name and slot badge */}
-              <div className="flex items-start gap-2 mb-2">
-                <h3 className="font-semibold truncate flex-1">{product.name}</h3>
-                {isPosProduct && (
-                  <Badge variant="default" className="shrink-0">
-                    Slot {(product as PosProduct).posSlot}
-                  </Badge>
-                )}
+              <div className="flex items-start gap-2 mb-2 flex-wrap">
+                <h3 className="font-semibold truncate flex-1 min-w-0 text-sm sm:text-base">
+                  {product.name}
+                </h3>
+                <div className="flex gap-1 shrink-0">
+                  {isPosProduct && (
+                    <Badge variant="default" className="text-xs">
+                      Slot {(product as PosProduct).posSlot}
+                    </Badge>
+                  )}
+                  {product.isFixed && (
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      Fixed
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Code */}
-              <p className="text-sm text-muted-foreground mb-3">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3 truncate">
                 Code: {product.code}
               </p>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                 <div>
                   <p className="text-muted-foreground">Weight</p>
                   <p className="font-medium">{product.grams}g</p>
@@ -143,21 +190,21 @@ export function MenuProductsManager() {
                 variant="ghost"
                 size="sm"
                 onClick={() => handleEdit(product)}
-                className="text-primary hover:text-primary h-8 w-8 p-0"
+                className="text-primary hover:text-primary h-7 w-7 sm:h-8 sm:w-8 p-0"
                 aria-label="Edit product"
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               {showPosActions && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveFromPos(product._id)}
-                  className="text-orange-600 hover:text-orange-600 h-8 w-8 p-0"
+                  className="text-orange-600 hover:text-orange-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
                   title="Remove from POS"
                   aria-label="Remove from POS"
                 >
-                  <ArrowDown className="h-4 w-4" />
+                  <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               )}
               <Button
@@ -167,10 +214,16 @@ export function MenuProductsManager() {
                   setDeleteId(product._id);
                   setShowDeleteDialog(true);
                 }}
-                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                className="text-destructive hover:text-destructive h-7 w-7 sm:h-8 sm:w-8 p-0"
                 aria-label="Delete product"
+                disabled={product.isFixed}
+                title={product.isFixed ? 'Fixed products cannot be deleted' : 'Delete product'}
               >
-                <Trash2 className="h-4 w-4" />
+                {product.isFixed ? (
+                  <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                ) : (
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -180,20 +233,23 @@ export function MenuProductsManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+      <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Menu Products</h1>
-          <p className="text-muted-foreground">Manage POS menu and legacy products</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Menu Products</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Manage POS menu and legacy products
+          </p>
         </div>
-        <Button onClick={handleNewProduct}>
+        <Button onClick={handleNewProduct} className="shrink-0">
           <Plus className="h-4 w-4 mr-2" />
-          New Product
+          <span className="hidden sm:inline">New Product</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
@@ -214,20 +270,40 @@ export function MenuProductsManager() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!posProducts || posProducts.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    No products assigned to POS yet
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Create a product and assign it to a slot
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {posProducts.map((product) => renderProductCard(product, true))}
-                </div>
-              )}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((slotNumber) => {
+                  const product = posProducts?.find((p) => p.posSlot === slotNumber);
+
+                  if (product) {
+                    return renderProductCard(product, true);
+                  }
+
+                  // Empty slot placeholder
+                  return (
+                    <Card
+                      key={`empty-slot-${slotNumber}`}
+                      className="border-dashed border-2 hover:border-primary/50 transition-colors"
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
+                          <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
+                            <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                          </div>
+                          <Badge variant="outline" className="mb-2 text-xs">
+                            Slot {slotNumber}
+                          </Badge>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            Empty Slot
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 hidden sm:block">
+                            Assign a product to this slot
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
@@ -266,6 +342,10 @@ export function MenuProductsManager() {
         open={isFormOpen}
         onOpenChange={handleFormClose}
         product={editingProduct}
+        onSlotSwapRequested={(data) => {
+          setSwapSlotData(data);
+          setShowSwapDialog(true);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -276,6 +356,21 @@ export function MenuProductsManager() {
         title="Delete Product"
         description="Are you sure you want to delete this menu product? This action cannot be undone."
         variant="destructive"
+      />
+
+      {/* Slot Swap Confirmation Dialog */}
+      <ConfirmDialog
+        open={showSwapDialog}
+        onOpenChange={setShowSwapDialog}
+        onConfirm={handleSwapConfirm}
+        title="Swap POS Slot"
+        description={
+          swapSlotData
+            ? `Slot ${swapSlotData.slot} is currently occupied by "${swapSlotData.currentProduct.name}". Do you want to swap it with the selected product? The current product will be moved to legacy.`
+            : ''
+        }
+        confirmLabel="Swap"
+        variant="default"
       />
     </div>
   );
