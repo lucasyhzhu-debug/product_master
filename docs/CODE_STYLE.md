@@ -827,3 +827,110 @@ export function formatOrderReceipt(
   return lines.join("\n");
 }
 ```
+
+---
+
+## Common Implementation Tasks
+
+### Adding a New Order Field
+
+```typescript
+// 1. Update schema.ts
+orders: defineTable({
+  // ... existing fields
+  myNewField: v.optional(v.string()),
+})
+
+// 2. Update mutations.ts (create mutation)
+export const create = mutation({
+  args: {
+    // ... existing args
+    myNewField: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const orderId = await ctx.db.insert("orders", {
+      // ... existing fields
+      myNewField: args.myNewField,
+    });
+    return orderId;
+  },
+});
+
+// 3. Update frontend hook (src/hooks/convex/useOrders.ts)
+// Types auto-generate from schema
+
+// 4. Update UI component
+// Use Convex reactive query to auto-update
+const order = useQuery(api.orders.queries.getById, { id: orderId });
+```
+
+### Creating a New Mutation
+
+```typescript
+// convex/orders/mutations.ts
+export const myNewMutation = mutation({
+  args: {
+    orderId: v.id("orders"),
+    value: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // 1. Fetch and validate
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+
+    // 2. Business logic (use pure helpers when possible)
+    const calculated = myPureHelper(args.value);
+
+    // 3. Update database
+    await ctx.db.patch(args.orderId, {
+      myField: calculated,
+    });
+
+    // 4. Side effects (logging, notifications)
+    await logOrderEvent(ctx, args.orderId, "my_action", "Description");
+
+    return args.orderId;
+  },
+});
+```
+
+### Adding a WhatsApp Template
+
+```typescript
+// convex/orders/whatsapp.ts
+
+// 1. Add to TemplateType union
+type TemplateType =
+  | "payment_request"
+  | "production_started"
+  // ...
+  | "my_new_template";  // ADD HERE
+
+// 2. Create generator function
+function generateMyNewTemplate(order: OrderWithItems): string {
+  const customerName = order.customer?.name ?? order.customerName;
+  return `Halo ${customerName}!\n\nYour custom message here.`;
+}
+
+// 3. Add to switch statement in generateTemplate()
+function generateTemplate(order: OrderWithItems, template: TemplateType): string {
+  switch (template) {
+    // ... existing cases
+    case "my_new_template":
+      return generateMyNewTemplate(order);
+    // ...
+  }
+}
+
+// 4. Update args validator in getMessage query
+export const getMessage = query({
+  args: {
+    orderId: v.id("orders"),
+    template: v.union(
+      // ... existing templates
+      v.literal("my_new_template")  // ADD HERE
+    ),
+  },
+  // ...
+});
+```
