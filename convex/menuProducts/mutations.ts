@@ -223,3 +223,121 @@ export const seedFixedProducts = mutation({
     return results;
   },
 });
+
+/**
+ * PRD-8: Assign a product to a POS slot (1-4).
+ * Atomically swaps slot occupants - if slot is occupied, the current product
+ * is removed from that slot (posSlot set to undefined).
+ *
+ * Business rules:
+ * - Only one product per slot (unique constraint enforced)
+ * - If target slot occupied → current occupant moved to legacy (posSlot = undefined)
+ * - If product already has a different slot → old slot freed
+ */
+export const assignToSlot = mutation({
+  args: {
+    id: v.id("menuProducts"),
+    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+  },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Menu product not found");
+    }
+
+    // Check if target slot is occupied by a different product
+    const allProducts = await ctx.db.query("menuProducts").collect();
+    const occupant = allProducts.find(
+      (p) => p.posSlot === args.slot && p._id !== args.id
+    );
+
+    // Atomic swap: if slot occupied, remove occupant from slot
+    if (occupant) {
+      await ctx.db.patch(occupant._id, { posSlot: undefined });
+    }
+
+    // Assign product to slot
+    await ctx.db.patch(args.id, { posSlot: args.slot });
+
+    return args.id;
+  },
+});
+
+/**
+ * PRD-8: Remove a product from POS (set posSlot to undefined).
+ * Moves product to legacy section.
+ */
+export const removeFromSlot = mutation({
+  args: { id: v.id("menuProducts") },
+  handler: async (ctx, args) => {
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Menu product not found");
+    }
+
+    await ctx.db.patch(args.id, { posSlot: undefined });
+    return args.id;
+  },
+});
+
+/**
+ * PRD-8: Migration - Set initial posSlot for existing fixed products.
+ * Run from Convex dashboard Functions tab: menuProducts:migrateFixedProductsToSlots
+ *
+ * Migration mapping:
+ * - ORIGINAL → posSlot: 1
+ * - BITE_SINGLE → posSlot: 2
+ * - BITE_DOUBLE → posSlot: 3
+ * - BITE_TRIPLE → posSlot: 4
+ *
+ * Safe to run multiple times (idempotent).
+ */
+export const migrateFixedProductsToSlots = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const slotMapping: Array<{
+      code: string;
+      slot: 1 | 2 | 3 | 4;
+    }> = [
+      { code: "ORIGINAL", slot: 1 },
+      { code: "BITE_SINGLE", slot: 2 },
+      { code: "BITE_DOUBLE", slot: 3 },
+      { code: "BITE_TRIPLE", slot: 4 },
+    ];
+
+    const results = [];
+
+    for (const mapping of slotMapping) {
+      const product = await ctx.db
+        .query("menuProducts")
+        .withIndex("by_code", (q) => q.eq("code", mapping.code))
+        .first();
+
+      if (product) {
+        // Only update if posSlot is not already set
+        if (product.posSlot === undefined) {
+          await ctx.db.patch(product._id, { posSlot: mapping.slot });
+          results.push({
+            code: mapping.code,
+            slot: mapping.slot,
+            action: "assigned",
+          });
+        } else {
+          results.push({
+            code: mapping.code,
+            slot: product.posSlot,
+            action: "already_assigned",
+          });
+        }
+      } else {
+        results.push({
+          code: mapping.code,
+          slot: mapping.slot,
+          action: "not_found",
+        });
+      }
+    }
+
+    return results;
+  },
+});
