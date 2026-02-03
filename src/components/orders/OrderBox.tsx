@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHoldToActivate } from '@/hooks/useHoldToActivate';
@@ -380,18 +381,36 @@ export function OrderBox({
                 <span>{group.productName}</span>
                 <span className="text-xs">({group.packages.length})</span>
               </div>
-              {/* Mark all as packaged button */}
-              {!disabled && group.filledCount > 0 && onMarkAllPacked && (
-                <button
-                  onClick={() => {
-                    for (const [itemId, indices] of group.filledByItem) {
-                      onMarkAllPacked(itemId as Id<"orderItems">, indices);
-                    }
-                  }}
-                  className="text-xs px-2 py-1 rounded bg-yellow-500 hover:bg-yellow-600 text-white font-medium transition-colors"
-                >
-                  Mark all ({group.filledCount}) as packaged
-                </button>
+              {/* Mark all as packaged button - always visible, disabled with tooltip when no filled boxes */}
+              {onMarkAllPacked && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          if (disabled || group.filledCount === 0) return;
+                          for (const [itemId, indices] of group.filledByItem) {
+                            onMarkAllPacked(itemId as Id<"orderItems">, indices);
+                          }
+                        }}
+                        disabled={disabled || group.filledCount === 0}
+                        className={cn(
+                          "text-xs px-2 py-1 rounded font-medium transition-colors",
+                          disabled || group.filledCount === 0
+                            ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            : "bg-yellow-500 hover:bg-yellow-600 text-white cursor-pointer"
+                        )}
+                      >
+                        Mark all {group.filledCount > 0 ? `(${group.filledCount}) ` : ''}as packaged
+                      </button>
+                    </TooltipTrigger>
+                    {(disabled || group.filledCount === 0) && (
+                      <TooltipContent>
+                        <p>Have one box fully filled first</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             {/* Packages grid for this product */}
@@ -450,33 +469,56 @@ export function OrderBox({
           </div>
         )}
 
-        {/* Complete Order Button - shows when all packages are packed and not completed */}
-        {!isCompleted && allPackagesPacked && (
+        {/* Complete Order Button - always visible when not completed, disabled with tooltip when not ready */}
+        {!isCompleted && (
           <div className="pt-4 border-t mt-4">
-            <div
-              className={cn(
-                'relative h-14 w-full rounded-lg overflow-hidden select-none',
-                canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
-              )}
-              {...completeHandlers}
-            >
-              <div className="absolute inset-0 bg-green-100 dark:bg-green-950" />
-              <div
-                className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-100"
-                style={{ width: `${completeProgress}%` }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-base font-bold">
-                {isHoldingComplete ? (
-                  <span className="text-white mix-blend-difference">
-                    Hold... {Math.round(completeProgress)}%
-                  </span>
-                ) : (
-                  <span className="text-green-700 dark:text-green-300">
-                    ✓ COMPLETE ORDER (Hold 1s)
-                  </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      'relative h-14 w-full rounded-lg overflow-hidden select-none',
+                      canComplete ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                    )}
+                    {...(canComplete ? completeHandlers : {})}
+                  >
+                    <div className={cn(
+                      "absolute inset-0",
+                      allPackagesPacked
+                        ? "bg-green-100 dark:bg-green-950"
+                        : "bg-gray-100 dark:bg-gray-800"
+                    )} />
+                    <div
+                      className={cn(
+                        "absolute inset-y-0 left-0 transition-all duration-100",
+                        allPackagesPacked ? "bg-green-500" : "bg-gray-400"
+                      )}
+                      style={{ width: `${completeProgress}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center text-base font-bold">
+                      {isHoldingComplete ? (
+                        <span className="text-white mix-blend-difference">
+                          Hold... {Math.round(completeProgress)}%
+                        </span>
+                      ) : (
+                        <span className={cn(
+                          allPackagesPacked
+                            ? "text-green-700 dark:text-green-300"
+                            : "text-gray-500 dark:text-gray-400"
+                        )}>
+                          ✓ COMPLETE ORDER (Hold 1s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                {!allPackagesPacked && (
+                  <TooltipContent>
+                    <p>Complete all packaging to complete the order</p>
+                  </TooltipContent>
                 )}
-              </div>
-            </div>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </CardContent>

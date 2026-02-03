@@ -113,7 +113,9 @@
       "Bash(npx convex * && *)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(git switch:*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
