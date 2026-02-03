@@ -16,7 +16,9 @@
     "env:testing": "node scripts/switch-env.js testing",
     "env:prod": "node scripts/switch-env.js production",
     "dev:testing": "npm run env:testing && npm run dev",
-    "dev:prod": "npm run env:prod && npm run dev"
+    "dev:prod": "npm run env:prod && npm run dev",
+    "deploy:check": "node scripts/deploy-check.js",
+    "deploy:safe": "node scripts/deploy-check.js --deploy"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
