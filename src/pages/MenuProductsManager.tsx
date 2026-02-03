@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -144,6 +144,7 @@ export function MenuProductsManager() {
                 size="sm"
                 onClick={() => handleEdit(product)}
                 className="text-primary hover:text-primary h-8 w-8 p-0"
+                aria-label="Edit product"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -154,6 +155,7 @@ export function MenuProductsManager() {
                   onClick={() => handleRemoveFromPos(product._id)}
                   className="text-orange-600 hover:text-orange-600 h-8 w-8 p-0"
                   title="Remove from POS"
+                  aria-label="Remove from POS"
                 >
                   <ArrowDown className="h-4 w-4" />
                 </Button>
@@ -166,6 +168,7 @@ export function MenuProductsManager() {
                   setShowDeleteDialog(true);
                 }}
                 className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                aria-label="Delete product"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
