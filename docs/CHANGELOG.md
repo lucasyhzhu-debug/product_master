@@ -13,6 +13,101 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-03 - Documentation Consolidation: README + ONBOARDING
+
+**Consolidated README.md from 453 to 118 lines; ONBOARDING.md from 532 to 153 lines**
+
+Eliminated duplicate content across README.md, CLAUDE.md, and ONBOARDING.md per documentation best practices.
+
+### README.md Changes (453 → 118 lines, -74%):
+
+**Removed (now link to other docs):**
+- Detailed project structure → Link to CLAUDE.md
+- Business rules → Link to CLAUDE.md
+- Environment variables → Link to docs/ENVIRONMENTS.md
+- Git workflow details → Link to docs/WORKFLOW.md
+- Common tasks examples → Already in CODE_STYLE.md
+- Troubleshooting → Link to TESTING_GUIDE.md
+- Architecture diagram → Link to SCHEMA.md
+- Database schema details → Link to SCHEMA.md
+- Testing section → Link to TESTING_GUIDE.md
+
+**Kept (essential for GitHub visitors):**
+- Project description (1 paragraph)
+- Quick Start (3 commands)
+- Key Features (5 bullets)
+- Documentation links table
+- Essential commands
+- Simplified project structure
+- Contributing summary
+- Tech Stack (simplified)
+- License
+
+### Documentation Hierarchy (clarified):
+
+| File | Audience | Purpose |
+|------|----------|---------|
+| **README.md** | GitHub visitors | First impression, quick start, links to docs |
+| **CLAUDE.md** | AI agents | Complete context for code generation |
+| **ONBOARDING.md** | New developers | First-day guide, doc routing |
+
+**Files Modified:**
+- `README.md` - Rewritten as lean link-heavy intro (118 lines)
+- `docs/ONBOARDING.md` - Rewritten as getting-started guide (153 lines)
+- `docs/CODE_STYLE.md` - Added Common Implementation Tasks section
+- `docs/SCHEMA.md` - Added Ball Distribution Priority section
+- `docs/CHANGELOG.md` - This entry
+
+---
+
+## 2026-02-03 - Documentation Restructure: ONBOARDING.md Consolidation
+
+**Redistributed ONBOARDING.md content to appropriate documentation files per CLAUDE.md guidance**
+
+ONBOARDING.md was 532 lines containing duplicated content. Consolidated into a lean ~150-line getting-started guide.
+
+### Changes Made:
+
+**1. Moved to CODE_STYLE.md:**
+- "Common Implementation Tasks" section with examples:
+  - Adding a New Order Field
+  - Creating a New Mutation
+  - Adding a WhatsApp Template
+
+**2. Moved to CHANGELOG.md (this entry):**
+- "Post-Refactor Changes (Feb 2026)" historical information
+
+**3. Removed from ONBOARDING.md (duplicates):**
+- Architecture Overview (duplicated SCHEMA.md)
+- Order System Patterns (duplicated CODE_STYLE.md)
+- Testing & Debugging details (duplicated TESTING_GUIDE.md)
+- Key Documentation Files table (duplicated CLAUDE.md)
+
+**4. Added to ONBOARDING.md:**
+- Clear "Where to Find Information" routing section
+- "First Task Checklist" for new developers
+
+**Post-Refactor Changes (Feb 2026) - Historical Reference:**
+
+The February 2026 refactor included:
+1. **Removed `ballsRemaining` field** - Use `orderItemProduction.unitsRemaining` instead
+2. **Two-tier helper system** - Pure helpers in `helpers.ts`, ctx helpers in `helpers/`
+3. **Consolidated WhatsApp templates** - Single parameterized function
+4. **Added indexes** - `by_completion`, `by_production_type` for performance
+5. **Auto-transitions** - Confirmed → InProduction → Packaging
+
+Migration notes for existing orders:
+- Existing orders with old data continue to work
+- Production records backfill available via `backfillProductionRecords` mutation
+- No frontend changes needed (types auto-generate)
+
+**Files Modified:**
+- `docs/ONBOARDING.md` - Rewritten as lean getting-started guide
+- `docs/CODE_STYLE.md` - Added Common Implementation Tasks section
+- `docs/CHANGELOG.md` - Added this entry with historical reference
+
+---
+
 ## 2026-02-03 - Phase 4: Polish & Complete OLD System Removal
 
 **COMPLETE REMOVAL of deprecated ballsRemaining field + consolidation improvements**
