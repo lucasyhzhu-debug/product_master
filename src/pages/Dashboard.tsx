@@ -245,7 +245,7 @@ export function Dashboard() {
         data-tour-step="products"
         action={
           <Button size="sm" asChild className="shadow-sm">
-            <Link to="/products/new">
+            <Link to="/menu-products">
               <Plus className="h-4 w-4 mr-1" />
               New Product
             </Link>
