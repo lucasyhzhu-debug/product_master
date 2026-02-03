@@ -25,9 +25,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
 
-// Configuration
-const EXPECTED_DEPLOYMENT = 'dev:exciting-fennec-671';
-const EXPECTED_URL = 'https://exciting-fennec-671.convex.cloud';
+// Configuration - Updated 2026-02-03 after production migration
+const EXPECTED_DEPLOYMENT = 'prod:decisive-wombat-7';
+const EXPECTED_URL = 'https://decisive-wombat-7.convex.cloud';
 const VERCEL_APP = 'frollie-product.vercel.app';
 
 // Colors for terminal output
@@ -139,10 +139,10 @@ function checkDeploymentTarget() {
     console.log(colors.green + colors.bold + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' + colors.reset);
     logSuccess('Deployment target verification PASSED!');
     console.log('');
-    logInfo(`Target: exciting-fennec-671 (Development Cloud)`);
+    logInfo(`Target: decisive-wombat-7 (Production)`);
     logInfo(`Vercel: ${VERCEL_APP}`);
     console.log('');
-    logSuccess('Safe to deploy with: npx convex dev --once');
+    logSuccess('Safe to deploy with: npx convex deploy --yes');
     console.log(colors.green + colors.bold + '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' + colors.reset);
   }
 
@@ -153,7 +153,7 @@ function deploy() {
   console.log('\n' + colors.blue + '🚀 Deploying to Convex...' + colors.reset + '\n');
 
   try {
-    execSync('npx convex dev --once', {
+    execSync('npx convex deploy --yes', {
       cwd: projectRoot,
       stdio: 'inherit',
     });
