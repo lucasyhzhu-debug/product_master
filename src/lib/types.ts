@@ -719,6 +719,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessUsers: boolean;
   canSeeCosts: boolean;
   canEditKitchen: boolean;
+  canManageWhatsAppTemplates: boolean;  // WhatsApp Template Manager access
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -732,6 +733,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: false,
     canEditKitchen: true,
+    canManageWhatsAppTemplates: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -745,6 +747,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: false,
+    canManageWhatsAppTemplates: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -758,6 +761,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: true,
+    canManageWhatsAppTemplates: true,  // Manager can manage WhatsApp templates
   },
   admin: {
     canAccessDashboard: true,
@@ -771,6 +775,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: true,
     canSeeCosts: true,
     canEditKitchen: true,
+    canManageWhatsAppTemplates: true,  // Admin can manage WhatsApp templates
   },
 };
 
