@@ -104,6 +104,15 @@ export function useManagerOverrides(daysBack?: number) {
 }
 
 /**
+ * Hook to fetch active vouchers for POS combobox.
+ * Returns only currently valid, active vouchers for user selection.
+ */
+export function useActiveVouchersForCombobox() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return useQuery((api as any).vouchers.listActiveForCombobox);
+}
+
+/**
  * Hook to fetch a single voucher by ID.
  */
 export function useVoucher(id: Id<"vouchers"> | undefined) {
