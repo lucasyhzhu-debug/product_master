@@ -55,8 +55,8 @@ jobs:
     if: |
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_convex == 'true') ||
       (github.event_name == 'push' && (
-        contains(github.event.head_commit.modified, 'convex/') ||
-        contains(github.event.head_commit.added, 'convex/')
+        contains(toJSON(github.event.head_commit.modified), 'convex/') ||
+        contains(toJSON(github.event.head_commit.added), 'convex/')
       ))
     steps:
       - uses: actions/checkout@v4
