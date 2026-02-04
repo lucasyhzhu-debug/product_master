@@ -5,7 +5,7 @@
 
 ## Table of Contents
 - [System Architecture Overview](#system-architecture-overview)
-- [Complete Database Schema (19 Tables)](#complete-database-schema-19-tables)
+- [Complete Database Schema (22 Tables)](#complete-database-schema-22-tables)
 - [Order Status Workflow](#order-status-workflow)
 - [Visual Schema Diagram](#visual-schema-diagram)
 - [Data Flow Patterns](#data-flow-patterns)
@@ -47,7 +47,7 @@ Convex Database (automatic)
 
 ---
 
-## Complete Database Schema (19 Tables)
+## Complete Database Schema (22 Tables)
 
 Schema defined in `convex/schema.ts` using Convex's type-safe schema definition.
 
@@ -358,6 +358,12 @@ orders: defineTable({
     v.literal("amount"),
     v.literal("percentage")
   )),
+
+  // Voucher tracking (optional - only if voucher applied)
+  voucherId: v.optional(v.id("vouchers")),
+  voucherCode: v.optional(v.string()),           // Snapshot of code at order time
+  voucherDiscountValue: v.optional(v.number()),  // Calculated discount snapshot
+  lowPriceConfirmed: v.optional(v.boolean()),    // True if user confirmed < 20k order
 })
   .index("by_order_number", ["orderNumber"])
   .index("by_customer", ["customerId"])
@@ -439,6 +445,84 @@ orderMessages: defineTable({
 - `receipt` - Order receipt
 - `shipping` - Shipping notification
 - `pickup_ready` - Pickup notification
+
+### 19. `vouchers` - Discount Voucher Codes
+```typescript
+vouchers: defineTable({
+  // Core identification
+  code: v.string(),                               // Unique, uppercase (e.g., "FREESHIP25")
+  name: v.string(),                               // Admin display name
+  description: v.optional(v.string()),
+
+  // Discount configuration
+  discountType: v.union(
+    v.literal("amount"),
+    v.literal("percentage")
+  ),
+  discountValue: v.number(),                      // IDR amount or percentage (0-100)
+
+  // Constraints
+  minimumOrderAmount: v.optional(v.number()),     // Min order to apply voucher
+  maximumDiscount: v.optional(v.number()),        // Cap for percentage discounts
+
+  // Validity period
+  isActive: v.boolean(),
+  validFrom: v.optional(v.number()),              // Timestamp
+  validUntil: v.optional(v.number()),             // Timestamp
+
+  // Usage limits
+  usageLimit: v.optional(v.number()),             // Total uses allowed (null = unlimited)
+  usageCount: v.number(),                         // Current total usage
+  usagePerCustomer: v.optional(v.number()),       // Per-customer limit (null = unlimited)
+
+  // Manager Override fields (for single-use override vouchers)
+  isManagerOverride: v.optional(v.boolean()),     // True if auto-generated override
+  overrideReason: v.optional(v.string()),         // Required reason for override
+  overrideOrderId: v.optional(v.id("orders")),    // Link to specific order
+
+  // Audit
+  createdBy: v.string(),
+  createdAt: v.number(),                          // Timestamp
+})
+  .index("by_code", ["code"])
+  .index("by_active", ["isActive"])
+  .index("by_active_valid", ["isActive", "validFrom"])
+```
+
+**Voucher Types:**
+- **Regular vouchers**: Created by admin in VouchersManager, reusable based on usage limits
+- **Manager overrides**: Auto-generated single-use codes for special discounts, expire in 24 hours
+
+**Business Rules:**
+- Codes are automatically uppercase
+- Manager overrides require `overrideReason` and are automatically single-use
+- Vouchers are snapshotted on orders (code, discount value) for historical accuracy
+- Vouchers auto-release when order is edited (user must re-apply)
+- Final price after discount must be > 0 (hard block)
+- Final price < Rp 20,000 triggers confirmation dialog
+
+### 20. `voucherUsage` - Per-Customer Voucher Usage Tracking
+```typescript
+voucherUsage: defineTable({
+  voucherId: v.id("vouchers"),
+  customerId: v.id("customers"),
+  orderId: v.id("orders"),
+  usedAt: v.number(),                             // Timestamp
+})
+  .index("by_voucher", ["voucherId"])
+  .index("by_customer", ["customerId"])
+  .index("by_voucher_customer", ["voucherId", "customerId"])
+  .index("by_order", ["orderId"])
+```
+
+**Purpose:** Enforce per-customer usage limits (e.g., "max 1 use per customer").
+
+**Usage Flow:**
+1. User enters voucher code in checkout
+2. Backend validates code, checks usage limits
+3. On order creation: `usageCount` increments, `voucherUsage` record created
+4. On order cancellation: `usageCount` decrements, `voucherUsage` record deleted
+5. On order edit: voucher auto-released (usage count decremented, record deleted)
 
 ---
 
@@ -523,12 +607,19 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
 ┌──────────┐      ┌─────────┐      ┌───────────┐
 │ Customer │<─────│  Order  │─────>│ OrderItem │
 └──────────┘      └─────────┘      └───────────┘
-                       │                  │
-                       │                  └─── menuProductId ───> MenuProduct (optional)
-                       │
-                       └─────────────────>┌───────────────┐
-                                          │ OrderMessages │ (WhatsApp tracking)
-                                          └───────────────┘
+     │                 │                  │
+     │                 │                  └─── menuProductId ───> MenuProduct (optional)
+     │                 │
+     │                 ├─────────────────>┌───────────────┐
+     │                 │                  │ OrderMessages │ (WhatsApp tracking)
+     │                 │                  └───────────────┘
+     │                 │
+     │                 └─── voucherId ───>┌──────────┐
+     │                                    │ Vouchers │
+     │                                    └──────────┘
+     │                                         │
+     │                                         │
+     └────────────────────────────────────────┴──> VoucherUsage (M:N tracking)
 ```
 
 ---

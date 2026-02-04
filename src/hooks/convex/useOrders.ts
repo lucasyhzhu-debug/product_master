@@ -63,6 +63,9 @@ export interface OrderCreateInput {
   // Order-level discount
   orderLevelDiscount?: number;
   orderLevelDiscountType?: "amount" | "percentage";
+  // Voucher fields
+  voucherCode?: string;
+  lowPriceConfirmed?: boolean;
   items: OrderItemInput[];
   createdBy?: string;
 }
