@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen, UtensilsCrossed } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -61,6 +62,8 @@ function filterAndSortByTags<T extends TaggedItem>(
 export function Dashboard() {
   useDocumentTitle('Dashboard');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const { hasPermission } = useAuth();
+  const canAccessMenuProducts = hasPermission('canAccessMenuProducts');
 
   // Convex hooks - data comes back as raw arrays or undefined
   const rawRecipes = useConvexRecipes();
@@ -180,12 +183,14 @@ export function Dashboard() {
         </div>
         <div className="flex-1 h-px bg-border" />
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/menu-products">
-              <UtensilsCrossed className="h-4 w-4 mr-1" />
-              Menu Products
-            </Link>
-          </Button>
+          {canAccessMenuProducts && (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/menu-products">
+                <UtensilsCrossed className="h-4 w-4 mr-1" />
+                Menu Products
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <Link to="/orders">View All Orders</Link>
           </Button>
@@ -244,12 +249,14 @@ export function Dashboard() {
         }
         data-tour-step="products"
         action={
-          <Button size="sm" asChild className="shadow-sm">
-            <Link to="/menu-products">
-              <Plus className="h-4 w-4 mr-1" />
-              New Product
-            </Link>
-          </Button>
+          canAccessMenuProducts ? (
+            <Button size="sm" asChild className="shadow-sm">
+              <Link to="/menu-products">
+                <Plus className="h-4 w-4 mr-1" />
+                New Product
+              </Link>
+            </Button>
+          ) : undefined
         }
       >
         {loadingProducts ? (

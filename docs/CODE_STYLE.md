@@ -240,6 +240,78 @@ export const createOrder = mutation({
 });
 ```
 
+### Backend Authorization Pattern
+
+For mutations/queries that require role-based access control, use `requireRole()` from `convex/lib/auth.ts`:
+
+```typescript
+import { mutation } from "../_generated/server";
+import { v } from "convex/values";
+import { requireRole } from "../lib/auth";
+
+// Protected mutation - admin only
+export const create = mutation({
+  args: {
+    token: v.string(),  // Session token from frontend
+    name: v.string(),
+    // ... other args
+  },
+  handler: async (ctx, args) => {
+    // Validate auth before any business logic
+    await requireRole(ctx, args.token, ["admin"]);
+
+    // Extract token from args before passing to db
+    const { token: _, ...data } = args;
+    void _; // Suppress unused variable warning
+
+    return await ctx.db.insert("myTable", data);
+  },
+});
+
+// Multiple allowed roles
+export const update = mutation({
+  args: { token: v.string(), id: v.id("myTable") },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // ... rest of handler
+  },
+});
+```
+
+**Frontend pattern for protected mutations:**
+
+```typescript
+// src/hooks/convex/useMyHook.ts
+import { useMutation } from "convex/react";
+import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "sonner";
+
+export function useProtectedMutation() {
+  const mutation = useMutation(api.myModule.mutations.create);
+  const { user } = useAuth();
+
+  return {
+    mutate: async (data: CreateInput) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      return mutation({ ...data, token: user.token });
+    },
+  };
+}
+```
+
+**Available roles:** `kitchen`, `order_staff`, `manager`, `admin`
+
+**Implementation checklist:**
+1. Add `token: v.string()` to mutation args
+2. Call `requireRole(ctx, args.token, [allowedRoles])` at handler start
+3. Extract token before passing to db operations
+4. Update frontend hooks to pass token from `useAuth()`
+
+---
+
 ### Helper Functions
 
 #### Two-Tier Helper Architecture (Orders Module)
