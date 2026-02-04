@@ -7,6 +7,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import type { MenuProduct } from "@/lib/types";
+import { useAuth } from "../../contexts/AuthContext";
 
 // ============================================
 // Types
@@ -233,14 +234,20 @@ export function useConvexLegacyProducts() {
 
 /**
  * Create a new menu product.
+ * Requires admin authentication.
  */
 export function useConvexCreateMenuProduct() {
   const mutation = useMutation(api.menuProducts.mutations.create);
+  const { user } = useAuth();
 
   return {
     mutate: async (data: MenuProductCreateInput) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const id = await mutation(data);
+        const id = await mutation({ ...data, token: user.token });
         toast.success("Menu product created");
         return id;
       } catch (error: unknown) {
@@ -250,8 +257,12 @@ export function useConvexCreateMenuProduct() {
       }
     },
     mutateAsync: async (data: MenuProductCreateInput) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const id = await mutation(data);
+        const id = await mutation({ ...data, token: user.token });
         toast.success("Menu product created");
         return id;
       } catch (error: unknown) {
@@ -265,14 +276,20 @@ export function useConvexCreateMenuProduct() {
 
 /**
  * Update an existing menu product.
+ * Requires admin authentication.
  */
 export function useConvexUpdateMenuProduct() {
   const mutation = useMutation(api.menuProducts.mutations.update);
+  const { user } = useAuth();
 
   return {
     mutate: async (data: { id: Id<"menuProducts">; updates: MenuProductUpdateInput }) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        await mutation({ id: data.id, ...data.updates });
+        await mutation({ id: data.id, token: user.token, ...data.updates });
         toast.success("Menu product updated");
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to update menu product";
@@ -281,8 +298,12 @@ export function useConvexUpdateMenuProduct() {
       }
     },
     mutateAsync: async (data: { id: Id<"menuProducts">; updates: MenuProductUpdateInput }) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        await mutation({ id: data.id, ...data.updates });
+        await mutation({ id: data.id, token: user.token, ...data.updates });
         toast.success("Menu product updated");
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to update menu product";
@@ -295,14 +316,20 @@ export function useConvexUpdateMenuProduct() {
 
 /**
  * Delete a menu product.
+ * Requires admin authentication.
  */
 export function useConvexDeleteMenuProduct() {
   const mutation = useMutation(api.menuProducts.mutations.remove);
+  const { user } = useAuth();
 
   return {
     mutate: async (id: Id<"menuProducts">) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        await mutation({ id });
+        await mutation({ id, token: user.token });
         toast.success("Menu product deleted");
         return true;
       } catch (error: unknown) {
@@ -312,8 +339,12 @@ export function useConvexDeleteMenuProduct() {
       }
     },
     mutateAsync: async (id: Id<"menuProducts">) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        await mutation({ id });
+        await mutation({ id, token: user.token });
         toast.success("Menu product deleted");
         return true;
       } catch (error: unknown) {
@@ -328,14 +359,20 @@ export function useConvexDeleteMenuProduct() {
 /**
  * PRD-8 Phase 2: Assign a menu product to a POS slot (1-4).
  * Automatically swaps if slot is occupied.
+ * Requires admin authentication.
  */
 export function useConvexAssignToSlot() {
   const mutation = useMutation(api.menuProducts.mutations.assignToSlot);
+  const { user } = useAuth();
 
   return {
     mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const id = await mutation(data);
+        const id = await mutation({ ...data, token: user.token });
         toast.success(`Assigned to slot ${data.slot}`);
         return id;
       } catch (error: unknown) {
@@ -345,8 +382,12 @@ export function useConvexAssignToSlot() {
       }
     },
     mutateAsync: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const id = await mutation(data);
+        const id = await mutation({ ...data, token: user.token });
         toast.success(`Assigned to slot ${data.slot}`);
         return id;
       } catch (error: unknown) {
@@ -361,14 +402,20 @@ export function useConvexAssignToSlot() {
 /**
  * PRD-8 Phase 2: Remove a menu product from POS slot.
  * Moves product to legacy section.
+ * Requires admin authentication.
  */
 export function useConvexRemoveFromSlot() {
   const mutation = useMutation(api.menuProducts.mutations.removeFromSlot);
+  const { user } = useAuth();
 
   return {
     mutate: async (id: Id<"menuProducts">) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const resultId = await mutation({ id });
+        const resultId = await mutation({ id, token: user.token });
         toast.success("Removed from POS");
         return resultId;
       } catch (error: unknown) {
@@ -378,8 +425,12 @@ export function useConvexRemoveFromSlot() {
       }
     },
     mutateAsync: async (id: Id<"menuProducts">) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
       try {
-        const resultId = await mutation({ id });
+        const resultId = await mutation({ id, token: user.token });
         toast.success("Removed from POS");
         return resultId;
       } catch (error: unknown) {

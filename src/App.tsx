@@ -138,11 +138,11 @@ function App() {
               }
             />
 
-            {/* Menu Products - Manager and Admin */}
+            {/* Menu Products - Admin only */}
             <Route
               path="menu-products"
               element={
-                <ProtectedRoute requiredPermission="canAccessProducts">
+                <ProtectedRoute requiredPermission="canAccessMenuProducts">
                   <MenuProductsManager />
                 </ProtectedRoute>
               }

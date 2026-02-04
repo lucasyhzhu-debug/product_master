@@ -719,6 +719,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessUsers: boolean;
   canSeeCosts: boolean;
   canEditKitchen: boolean;
+  canAccessMenuProducts: boolean;  // Menu Products Manager (admin-only)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -732,6 +733,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: false,
     canEditKitchen: true,
+    canAccessMenuProducts: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -745,6 +747,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: false,
+    canAccessMenuProducts: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -758,6 +761,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: true,
+    canAccessMenuProducts: false,
   },
   admin: {
     canAccessDashboard: true,
@@ -771,6 +775,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessUsers: true,
     canSeeCosts: true,
     canEditKitchen: true,
+    canAccessMenuProducts: true,  // Admin-only
   },
 };
 
