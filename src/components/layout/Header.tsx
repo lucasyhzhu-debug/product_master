@@ -13,7 +13,8 @@ import {
   LogOut,
   User,
   Menu,
-  MessageSquare
+  MessageSquare,
+  Ticket
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRoleDisplayName } from '@/lib/types';
@@ -28,6 +29,7 @@ const allNavItems = [
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' as const },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' as const },
+  { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' as const },
   { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const, hidden: true },
   { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const, hidden: true },
   { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const, hidden: true },

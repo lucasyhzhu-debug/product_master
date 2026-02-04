@@ -10,3 +10,4 @@ export { KitchenView } from './KitchenView';
 export { PackagingView } from './PackagingView';
 export { MenuProductsManager } from './MenuProductsManager';
 export { WhatsAppTemplatesManager } from './WhatsAppTemplatesManager';
+export { VouchersManager } from './VouchersManager';
