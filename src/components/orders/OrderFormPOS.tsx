@@ -160,11 +160,14 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     if (result.items.length > 0) {
       const newItems = result.items
         .map((item) => {
-          const product = posProducts?.find((p) => p.code === item.productCode);
+          // Match by product name (case-insensitive) for dynamic product support
+          const product = posProducts?.find(
+            (p) => p.name.toLowerCase() === item.productName.toLowerCase()
+          );
           if (!product) return null;
           return {
             productId: product._id,
-            productCode: item.productCode,
+            productCode: product.code,
             productName: product.name,
             grams: product.grams,
             quantity: item.quantity,

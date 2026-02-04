@@ -3,6 +3,10 @@
  *
  * Parses filled-in WhatsApp order templates into structured data.
  * Supports both standard bracket format and informal ordering patterns.
+ *
+ * This parser is DYNAMIC - it extracts product names from the template
+ * and returns them as-is. The consumer is responsible for matching
+ * names against the actual product list.
  */
 
 // ============================================
@@ -10,8 +14,7 @@
 // ============================================
 
 export interface ParsedItem {
-  productCode: string;      // ORIGINAL, BITE_SINGLE, etc.
-  productName: string;      // Full product name
+  productName: string;      // Raw extracted product name
   quantity: number;
 }
 
@@ -29,48 +32,8 @@ export interface ParseResult {
 }
 
 // ============================================
-// Product Code Mapping
-// ============================================
-
-const productCodeMap: Record<string, string> = {
-  'original': 'ORIGINAL',
-  'bite sized single': 'BITE_SINGLE',
-  'bite single': 'BITE_SINGLE',
-  'single': 'BITE_SINGLE',
-  'bite sized double': 'BITE_DOUBLE',
-  'bite double': 'BITE_DOUBLE',
-  'double': 'BITE_DOUBLE',
-  'bite sized triple': 'BITE_TRIPLE',
-  'bite triple': 'BITE_TRIPLE',
-  'triple': 'BITE_TRIPLE',
-};
-
-// ============================================
 // Helper Functions
 // ============================================
-
-/**
- * Normalize product name to product code.
- * Returns null if no matching code found.
- */
-function getProductCode(productName: string): string | null {
-  const normalized = productName.toLowerCase().trim();
-
-  // Try direct match first
-  if (productCodeMap[normalized]) {
-    return productCodeMap[normalized];
-  }
-
-  // Try partial matches (longest match first for accuracy)
-  const sortedKeys = Object.keys(productCodeMap).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
-    if (normalized.includes(key)) {
-      return productCodeMap[key];
-    }
-  }
-
-  return null;
-}
 
 /**
  * Check if a line is a separator or should be ignored.
@@ -88,6 +51,7 @@ function isSeparatorOrEmpty(line: string): boolean {
   // Common header/footer patterns to skip
   const skipPatterns = [
     /^halo!/i,
+    /^mau pesan/i,
     /^mau makan/i,
     /^untuk customer/i,
     /^isi jumlah/i,
@@ -210,6 +174,8 @@ function isLabelLine(line: string): boolean {
 /**
  * Parse bracket format: "1. Original (80g) - Rp 50.000 [2]"
  * Returns null if not bracket format or quantity is 0/empty.
+ *
+ * Now returns raw product name without code mapping.
  */
 function parseBracketFormat(line: string): ParsedItem | null {
   // Pattern: optional number/dot, product name, optional details in (), optional price, [quantity]
@@ -226,11 +192,10 @@ function parseBracketFormat(line: string): ParsedItem | null {
   const quantity = parseInt(quantityStr, 10);
   if (isNaN(quantity) || quantity <= 0) return null;
 
-  const productCode = getProductCode(productName);
-  if (!productCode) return null;
+  // Skip if product name is empty
+  if (!productName) return null;
 
   return {
-    productCode,
     productName,
     quantity,
   };
@@ -241,6 +206,8 @@ function parseBracketFormat(line: string): ParsedItem | null {
  * - "2x Original" or "2 x Original"
  * - "Original x 2" or "Original x2"
  * - "Original: 2"
+ *
+ * Now returns raw product name without code mapping.
  */
 function parseInformalFormat(line: string): ParsedItem | null {
   const trimmed = line.trim();
@@ -250,10 +217,9 @@ function parseInformalFormat(line: string): ParsedItem | null {
   if (prefixMatch) {
     const quantity = parseInt(prefixMatch[1], 10);
     const productName = prefixMatch[2].trim();
-    const productCode = getProductCode(productName);
 
-    if (productCode && quantity > 0) {
-      return { productCode, productName, quantity };
+    if (productName && quantity > 0) {
+      return { productName, quantity };
     }
   }
 
@@ -262,10 +228,9 @@ function parseInformalFormat(line: string): ParsedItem | null {
   if (suffixMatch) {
     const productName = suffixMatch[1].trim();
     const quantity = parseInt(suffixMatch[2], 10);
-    const productCode = getProductCode(productName);
 
-    if (productCode && quantity > 0) {
-      return { productCode, productName, quantity };
+    if (productName && quantity > 0) {
+      return { productName, quantity };
     }
   }
 
@@ -274,10 +239,9 @@ function parseInformalFormat(line: string): ParsedItem | null {
   if (colonMatch) {
     const productName = colonMatch[1].trim();
     const quantity = parseInt(colonMatch[2], 10);
-    const productCode = getProductCode(productName);
 
-    if (productCode && quantity > 0) {
-      return { productCode, productName, quantity };
+    if (productName && quantity > 0) {
+      return { productName, quantity };
     }
   }
 
@@ -286,21 +250,19 @@ function parseInformalFormat(line: string): ParsedItem | null {
 
 /**
  * Check if a line looks like it might be a product line but failed to parse.
+ * Uses format-based detection (not hardcoded product keywords).
  */
 function looksLikeProductLine(line: string): boolean {
-  const trimmed = line.trim().toLowerCase();
+  const trimmed = line.trim();
 
-  // Check if contains product-related keywords
-  const productKeywords = ['original', 'bite', 'single', 'double', 'triple', 'sized'];
-  for (const keyword of productKeywords) {
-    if (trimmed.includes(keyword)) return true;
-  }
+  // Check if contains bracket notation with empty or no quantity
+  if (/\[\s*\]/.test(trimmed)) return true;
 
-  // Check if contains bracket notation
-  if (/\[\s*\d*\s*\]/.test(trimmed)) return true;
+  // Check if starts with a number followed by period (numbered list)
+  if (/^\d+\.\s+\S/.test(trimmed)) return true;
 
-  // Check if starts with a number (like "1.")
-  if (/^\d+\./.test(trimmed)) return true;
+  // Check for informal patterns with "x" multiplier
+  if (/^\d+\s*x\s+/i.test(trimmed) || /\s+x\s*\d+$/i.test(trimmed)) return true;
 
   return false;
 }
@@ -387,19 +349,6 @@ export function parseOrderTemplate(text: string): ParseResult {
 // ============================================
 
 /**
- * Get human-readable product name from code.
- */
-export function getProductNameFromCode(code: string): string {
-  const codeToName: Record<string, string> = {
-    'ORIGINAL': 'Original',
-    'BITE_SINGLE': 'Bite Sized Single',
-    'BITE_DOUBLE': 'Bite Sized Double',
-    'BITE_TRIPLE': 'Bite Sized Triple',
-  };
-  return codeToName[code] || code;
-}
-
-/**
  * Validate and summarize parse results for user feedback.
  */
 export function summarizeParseResult(result: ParseResult): string {
@@ -408,7 +357,7 @@ export function summarizeParseResult(result: ParseResult): string {
   }
 
   const itemSummary = result.items
-    .map(item => `${item.quantity}x ${getProductNameFromCode(item.productCode)}`)
+    .map(item => `${item.quantity}x ${item.productName}`)
     .join(', ');
 
   const customerSummary = result.customer
