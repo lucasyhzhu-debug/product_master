@@ -125,7 +125,7 @@ export function PasteTemplateBox({ onParsed, initialValue = '' }: PasteTemplateB
         </Button>
         <Button onClick={handleParse} className="w-full sm:w-auto">
           <FileText className="h-4 w-4 mr-2" />
-          Parse & Create
+          Load Customer Orders
         </Button>
       </div>
 
