@@ -1,6 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 
 // ============================================
 // WhatsApp Template Generators
@@ -9,6 +10,157 @@ import type { Doc } from "../_generated/dataModel";
 interface OrderWithItems extends Doc<"orders"> {
   items: Doc<"orderItems">[];
   customer: Doc<"customers"> | null;
+}
+
+// ============================================
+// Template Variable Substitution
+// ============================================
+
+/**
+ * Replace template variables with actual values.
+ */
+function renderTemplate(
+  templateString: string,
+  variables: Record<string, string>
+): string {
+  let result = templateString;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(key.replace(/[{}]/g, "\\$&"), "g"), value);
+  }
+  return result;
+}
+
+/**
+ * Build variables object from order data for template rendering.
+ */
+function buildTemplateVariables(
+  order: OrderWithItems,
+  template: TemplateType
+): Record<string, string> {
+  const customerName = order.customer?.name ?? order.customerName;
+  const dueDateStr = order.dueDate ? formatDate(order.dueDate) : "";
+
+  // Items summary
+  const itemsLines = order.items.map((item) => {
+    const priceK = item.unitPrice / 1000;
+    let desc = item.productName;
+    if (item.productVariant) {
+      desc += ` (${item.productVariant})`;
+    }
+    return `• ${item.quantity}x ${desc} @ ${priceK.toFixed(0)}k`;
+  });
+  const itemsText = itemsLines.join("\n");
+
+  // Calculate discount note
+  let discountNote = "";
+  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    const discountAmount =
+      order.orderLevelDiscountType === "percentage"
+        ? order.totalAmount * (order.orderLevelDiscount / 100)
+        : order.orderLevelDiscount;
+
+    const discountDisplay =
+      order.orderLevelDiscountType === "percentage"
+        ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
+        : formatCurrency(discountAmount);
+
+    discountNote = `\n(Includes ${discountDisplay} discount!)`;
+  }
+
+  const finalTotal = order.finalTotal ?? order.totalAmount;
+  const finalTotalFormatted = formatCurrency(finalTotal);
+
+  // Delivery info
+  let deliveryInfo = "";
+  if (order.deliveryType === "Pickup") {
+    const location = order.pickupLocation || "Goldfinch Legato";
+    deliveryInfo = `📍 Pickup at: ${location}`;
+  } else if (order.deliveryType === "Delivery" && order.deliveryAddress) {
+    deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
+  }
+
+  // Payment info
+  let paymentInfo = `Payment: ${order.paymentStatus}`;
+  if (order.paymentMethod) {
+    paymentInfo += ` (${order.paymentMethod})`;
+  }
+
+  // Status label
+  const statusEmoji: Record<string, string> = {
+    Draft: "[Draft]",
+    AwaitingPayment: "[Payment]",
+    Confirmed: "[Confirmed]",
+    ProductionComplete: "[Cooking Done]",
+    Packaging: "[Packaging]",
+    WaitingShipment: "[Ready to Ship]",
+    CompleteShipped: "[Shipped]",
+    WaitingPickup: "[Ready for Pickup]",
+    PickedUp: "[Picked Up]",
+    Cancelled: "[Cancelled]",
+  };
+  const statusLabel = statusEmoji[order.status] || "[Order]";
+
+  // Channel suffix
+  const channelSuffix = order.channel ? ` (${order.channel})` : "";
+
+  // Due date line
+  const dueDateLine = order.dueDate ? `\nDue: ${formatDateTime(order.dueDate)}` : "";
+
+  // Notes section
+  const notesSection = order.notes ? `\n\nNotes:\n${order.notes}` : "";
+
+  // Delivery line for receipt
+  let deliveryLine = `Type: ${order.deliveryType}`;
+  if (order.deliveryType === "Pickup" && order.pickupLocation) {
+    deliveryLine += ` @ ${order.pickupLocation}`;
+  } else if (order.deliveryType === "Delivery" && order.deliveryAddress) {
+    deliveryLine += `\nAddress: ${order.deliveryAddress}`;
+  }
+  if (order.shippingAgency) {
+    deliveryLine += `\nShipping: ${order.shippingAgency}`;
+    if (order.shippingNumber) {
+      deliveryLine += ` (${order.shippingNumber})`;
+    }
+  }
+
+  return {
+    "{customer_name}": customerName,
+    "{order_number}": order.orderNumber,
+    "{items_list}": itemsText,
+    "{total_amount}": finalTotalFormatted,
+    "{delivery_info}": template === "receipt" ? deliveryLine : deliveryInfo,
+    "{due_date}": dueDateStr,
+    "{discount_note}": discountNote,
+    "{payment_info}": paymentInfo,
+    "{notes_section}": notesSection,
+    "{status_label}": statusLabel,
+    "{channel_suffix}": channelSuffix,
+    "{due_date_line}": dueDateLine,
+    "{shipping_number}": order.shippingNumber || "-",
+    "{shipping_agency}": order.shippingAgency || "-",
+    "{delivery_address}": order.deliveryAddress || "",
+    "{pickup_location}": order.pickupLocation || "Goldfinch Legato",
+  };
+}
+
+/**
+ * Fetch template from database, with fallback to hardcoded defaults.
+ */
+async function getTemplateContent(
+  ctx: QueryCtx,
+  templateCode: string,
+  language: "id" | "en" = "id"
+): Promise<string | null> {
+  const template = await ctx.db
+    .query("whatsappTemplates")
+    .withIndex("by_code", (q) => q.eq("code", templateCode))
+    .first();
+
+  if (template) {
+    return language === "en" ? template.templateEn : template.templateId;
+  }
+
+  return null;
 }
 
 function formatCurrency(amount: number): string {
@@ -329,6 +481,7 @@ See you soon!`;
 
 /**
  * Get WhatsApp message for an order.
+ * Fetches template from database first, falls back to hardcoded if not found.
  */
 export const getMessage = query({
   args: {
@@ -341,6 +494,7 @@ export const getMessage = query({
       v.literal("shipping"),
       v.literal("pickup_ready")
     ),
+    language: v.optional(v.union(v.literal("id"), v.literal("en"))),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -361,6 +515,20 @@ export const getMessage = query({
       customer,
     };
 
+    // Try to get template from database
+    const dbTemplate = await getTemplateContent(
+      ctx,
+      args.template,
+      args.language ?? "id"
+    );
+
+    if (dbTemplate) {
+      // Use DB template with variable substitution
+      const variables = buildTemplateVariables(orderWithItems, args.template);
+      return renderTemplate(dbTemplate, variables);
+    }
+
+    // Fallback to hardcoded template generators
     return generateTemplate(orderWithItems, args.template);
   },
 });
@@ -371,32 +539,27 @@ export const getMessage = query({
 
 /**
  * Get clean order template for customer to fill in quantities.
- * Includes products + BCA bank info.
+ * Uses POS slots (1-4) for product ordering, NOT the deprecated isFixed field.
+ * This template is DYNAMICALLY generated from menuProducts - it is NOT editable
+ * via the WhatsApp Template Manager because it must reflect live pricing.
  */
 export const getOrderTemplate = query({
   args: {},
   handler: async (ctx) => {
-    // Get all active fixed products
+    // Get all products with POS slots (1-4), sorted by slot
     const products = await ctx.db
       .query("menuProducts")
-      .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
 
-    // Filter to fixed products only and sort
-    const fixedProducts = products
-      .filter((p) => p.isFixed === true)
-      .sort((a, b) => {
-        // Sort: original first, then by grams ascending
-        if (a.productionType !== b.productionType) {
-          return a.productionType === "original" ? -1 : 1;
-        }
-        return a.grams - b.grams;
-      });
+    // Filter to products with posSlot and sort by slot number
+    const posProducts = products
+      .filter((p) => p.posSlot !== undefined && p.isActive)
+      .sort((a, b) => (a.posSlot ?? 0) - (b.posSlot ?? 0));
 
     // Build template
     let template = "Halo! Mau pesan Dubai Chewy Cookie yang mana nih?\n\n";
 
-    fixedProducts.forEach((p, i) => {
+    posProducts.forEach((p, i) => {
       // Format grams description
       let gramsDesc = `${p.grams}g`;
       if (p.productionUnits > 1) {
