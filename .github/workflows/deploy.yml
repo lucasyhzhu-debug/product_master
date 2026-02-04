@@ -1,7 +1,24 @@
 name: Deploy
 
 on:
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      deploy_convex:
+        description: 'Deploy Convex backend'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      deploy_vercel:
+        description: 'Trigger Vercel frontend deploy'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
   push:
     branches: [main]
     paths:
@@ -30,13 +47,17 @@ jobs:
           fi
           echo "No dynamic imports found"
 
-  # Job 2: Deploy Convex (only if convex/ changed)
+  # Job 2: Deploy Convex
   deploy-convex:
     runs-on: ubuntu-latest
     needs: lint-convex
-    # Only deploy Convex if backend files changed
-    if: contains(github.event.head_commit.modified, 'convex/') ||
+    # Run if: manual trigger with deploy_convex=true, OR push event with convex/ changes
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_convex == 'true') ||
+      (github.event_name == 'push' && (
+        contains(github.event.head_commit.modified, 'convex/') ||
         contains(github.event.head_commit.added, 'convex/')
+      ))
     steps:
       - uses: actions/checkout@v4
 
@@ -54,12 +75,19 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex deploy --yes
 
-  # Job 3: Trigger Vercel (runs after lint, optionally after convex deploy)
+  # Job 3: Trigger Vercel (waits for Convex to complete first)
   trigger-vercel:
     runs-on: ubuntu-latest
-    needs: [lint-convex]
-    # Always run after lint passes (Vercel needs to rebuild for any code change)
-    if: always() && needs.lint-convex.result == 'success'
+    needs: [lint-convex, deploy-convex]
+    # Run if: lint passes, convex either succeeds or skips, and vercel deploy is requested
+    if: |
+      always() &&
+      needs.lint-convex.result == 'success' &&
+      (needs.deploy-convex.result == 'success' || needs.deploy-convex.result == 'skipped') &&
+      (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_vercel == 'true') ||
+        github.event_name == 'push'
+      )
     steps:
       - name: Trigger Vercel Deployment
         run: |
