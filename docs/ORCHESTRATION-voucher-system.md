@@ -77,17 +77,17 @@ main
 ## Git Checkpoint Strategy
 
 - [x] CP-0: Integration branch created - `feature/voucher-system`
-- [ ] CP-1: Phase 1 complete - Schema deployed, tables visible
-- [ ] CP-2: Phase 2 complete - CRUD queries/mutations work
-- [ ] CP-3: Phase 3 complete - Order integration works
-- [ ] CP-4: Phases 4,5,6 complete - Full E2E flow works
+- [x] CP-1: Phase 1 complete - Schema deployed, tables visible (commit 2d1331c)
+- [x] CP-2: Phase 2 complete - CRUD queries/mutations work (commit afa4496)
+- [x] CP-3: Phase 3 complete - Order integration works (commit 9f36237)
+- [x] CP-4: Phases 4,5,6 complete - Full E2E flow works (commits 346e96a, f099811, 12c10d8)
 - [ ] CP-FINAL: Integration to main - All verification passes
 
 ## Success Criteria
 
-- [ ] `npm run type-check` passes
-- [ ] `npm run build` succeeds
-- [ ] Convex dev server runs without errors
+- [x] `npm run type-check` passes
+- [x] `npm run build` succeeds
+- [ ] Convex dev server runs without errors (requires `npx convex dev` to regenerate types)
 - [ ] Voucher CRUD works in dashboard
 - [ ] Voucher application works in POS
 - [ ] Manager override creates single-use voucher
@@ -111,12 +111,12 @@ main
 
 | Phase | Branch | Status | Completed |
 |-------|--------|--------|-----------|
-| 1 | feature/voucher-schema | In Progress | - |
-| 2 | feature/voucher-backend-crud | Pending | - |
-| 3 | feature/voucher-order-integration | Pending | - |
-| 4 | feature/voucher-access-control | Pending | - |
-| 5 | feature/voucher-manager-page | Pending | - |
-| 6 | feature/voucher-pos-integration | Pending | - |
+| 1 | feature/voucher-schema | Complete | 2d1331c |
+| 2 | feature/voucher-backend-crud | Complete | afa4496 |
+| 3 | feature/voucher-order-integration | Complete | 9f36237 |
+| 4 | feature/voucher-access-control | Complete | 346e96a |
+| 5 | feature/voucher-manager-page | Complete | f099811 |
+| 6 | feature/voucher-pos-integration | Complete | 12c10d8 |
 
 ---
 

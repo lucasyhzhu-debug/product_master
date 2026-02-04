@@ -49,6 +49,8 @@
 | **Channel/agency usage** | `convex/orders/helpers/usageTracking.ts` | - |
 | **Production records CRUD** | `convex/orders/helpers/productionRecords.ts` | - |
 | **Menu Products (POS slots)** | `convex/schema.ts`<br>`convex/menuProducts/queries.ts`<br>`convex/menuProducts/mutations.ts` | `src/pages/MenuProductsManager.tsx`<br>`src/components/menuProducts/ProductForm.tsx`<br>`src/hooks/convex/useMenuProducts.ts` |
+| **Vouchers (discount codes)** | `convex/schema.ts` (vouchers, voucherUsage tables)<br>`convex/vouchers/queries.ts`<br>`convex/vouchers/mutations.ts` | `src/pages/VouchersManager.tsx`<br>`src/hooks/convex/useVouchers.ts` |
+| **Voucher POS integration** | `convex/vouchers/queries.ts` (validateVoucher)<br>`convex/orders/mutations.ts` (voucher application logic) | `src/components/orders/VoucherInput.tsx`<br>`src/components/orders/ManagerOverrideDialog.tsx`<br>`src/components/orders/LowPriceWarningDialog.tsx`<br>`src/components/orders/OrderFormPOS.tsx` (integration) |
 | **Add new page** | `convex/schema.ts` (if new table)<br>`convex/[entity]/queries.ts`<br>`convex/[entity]/mutations.ts` | `src/App.tsx` (route)<br>`src/pages/[PageName].tsx`<br>`src/hooks/convex/use[Entity].ts` |
 | **Access control** | `convex/[entity]/queries.ts` (add auth checks)<br>`convex/[entity]/mutations.ts` (add auth checks) | `src/App.tsx` (route guards)<br>`src/components/layout/Header.tsx` (nav visibility) |
 
@@ -57,7 +59,7 @@
 ## Critical File Paths
 
 **Backend (Convex):**
-- `convex/schema.ts` — Database schema definition (19 tables)
+- `convex/schema.ts` — Database schema definition (22 tables)
 - `convex/lib/costCalculator.ts` — Cost calculation logic
 - `convex/orders/whatsapp.ts` — WhatsApp receipt generation
 - `convex/orders/helpers.ts` — Pure order calculation helpers (no ctx)
@@ -257,8 +259,9 @@ Before implementing a new page, answer these questions:
 | OrderDetail | All users | No restrictions yet |
 | KitchenView | All users | Intended for kitchen staff |
 | MenuProductsManager | Admin only | Backend mutations + Frontend route protected |
+| VouchersManager | Admin only | Backend mutations + Frontend route protected. Manager override creation allowed for managers during checkout only. |
 
-**Note:** Authentication/authorization system implemented for MenuProductsManager. When adding auth to other pages, update this table and enforce access in both frontend routes and backend queries/mutations.
+**Note:** Authentication/authorization system implemented for MenuProductsManager and VouchersManager. When adding auth to other pages, update this table and enforce access in both frontend routes and backend queries/mutations.
 
 ---
 
