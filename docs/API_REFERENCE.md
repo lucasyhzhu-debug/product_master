@@ -177,6 +177,38 @@ orders.whatsapp.getMessageHistory({ orderId })       // Sent message audit trail
 }
 ```
 
+### Vouchers
+```typescript
+// convex/vouchers/queries.ts
+vouchers.list()                         // List all vouchers
+vouchers.getById({ id })                // Get single voucher
+vouchers.validateVoucher({             // Validate and calculate discount
+  code: string,
+  customerId?: Id<"customers">,
+  orderTotal: number
+})
+```
+
+**validateVoucher Response:**
+```typescript
+{
+  isValid: boolean;
+  voucherId?: Id<"vouchers">;
+  voucher?: Doc<"vouchers">;
+  calculatedDiscount?: number;
+  finalPrice?: number;
+  errorMessage?: string;          // Reason for invalid (if isValid is false)
+}
+```
+
+**Validation Rules:**
+- Code must be active (`isActive === true`)
+- Current date must be within `validFrom` and `validUntil` (if set)
+- Usage limit not exceeded (`usageCount < usageLimit` if set)
+- Per-customer limit not exceeded (if `customerId` provided and `usagePerCustomer` set)
+- Order total meets minimum (`orderTotal >= minimumOrderAmount` if set)
+- Final price after discount must be > 0
+
 ---
 
 ## Mutations (Write Operations)
@@ -336,6 +368,64 @@ orders.completeBalls({ ballType, count }) // Batch ball completion with overflow
 3. Decrement `ballsRemaining` on each item (min 0)
 4. If order has leftover count, overflow to next order
 5. Auto-complete orders when ALL items have `ballsRemaining === 0`
+
+### Vouchers
+```typescript
+// convex/vouchers/mutations.ts
+vouchers.create({
+  code: string,                      // Auto-uppercase
+  name: string,
+  description?: string,
+  discountType: "amount" | "percentage",
+  discountValue: number,
+  minimumOrderAmount?: number,
+  maximumDiscount?: number,
+  isActive: boolean,
+  validFrom?: number,
+  validUntil?: number,
+  usageLimit?: number,
+  usagePerCustomer?: number,
+  createdBy: string
+})
+
+vouchers.update({
+  id: Id<"vouchers">,
+  // All fields optional except id
+  code?: string,
+  name?: string,
+  description?: string,
+  discountType?: "amount" | "percentage",
+  discountValue?: number,
+  minimumOrderAmount?: number,
+  maximumDiscount?: number,
+  isActive?: boolean,
+  validFrom?: number,
+  validUntil?: number,
+  usageLimit?: number,
+  usagePerCustomer?: number
+})
+
+vouchers.deactivate({ id })          // Set isActive = false
+
+vouchers.createManagerOverride({    // Generate single-use override code
+  discountType: "amount" | "percentage",
+  discountValue: number,
+  reason: string,
+  orderId: Id<"orders">,
+  createdBy: string
+})
+```
+
+**Manager Override Rules:**
+- Automatically generates unique code (format: `OVERRIDE-XXXXXX`)
+- Single-use: `usageLimit = 1`
+- 24-hour expiry: `validUntil = now + 24h`
+- Requires `reason` for audit trail
+- Linked to specific `orderId`
+
+**Authorization:**
+- All voucher CRUD mutations require admin role
+- Manager override creation allowed for managers and admins (but only accessible during checkout, not via VouchersManager page)
 
 ---
 
