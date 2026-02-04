@@ -406,6 +406,18 @@ export function useConvexWhatsAppMessage(
   };
 }
 
+/**
+ * Get the dynamic WhatsApp order template with current POS products and prices.
+ * Used by OrderFormPOS to pre-fill the order sheet textarea.
+ */
+export function useConvexOrderTemplate() {
+  const data = useQuery(api.orders.whatsapp.getOrderTemplate);
+  return {
+    data,
+    isLoading: data === undefined,
+  };
+}
+
 // ============================================
 // Mutation Hooks
 // ============================================
