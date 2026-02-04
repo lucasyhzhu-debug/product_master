@@ -21,6 +21,7 @@ After merging any code change, add a new entry with:
 - **Frontend Route Protection**: Added `canAccessMenuProducts` permission (admin-only)
 - **Backend Mutation Authorization**: All 6 menuProducts mutations now require admin role via `requireRole()`
 - **Session Handling**: Frontend hooks check for valid session before mutations
+- **Dashboard Button Visibility**: Menu Products buttons hidden for non-admin users
 
 ### Permission Matrix Update
 | Role | canAccessMenuProducts |
@@ -47,6 +48,7 @@ After merging any code change, add a new entry with:
 ### Files Modified
 - `src/lib/types.ts` - Added canAccessMenuProducts permission
 - `src/App.tsx` - Updated route protection
+- `src/pages/Dashboard.tsx` - Hide Menu Products buttons for non-admin
 - `src/hooks/convex/useMenuProducts.ts` - Added token to all mutations
 - `src/hooks/convex/useProtectedMutation.ts` - NEW: Reusable auth wrapper
 - `convex/menuProducts/mutations.ts` - Added requireRole checks
@@ -55,6 +57,7 @@ After merging any code change, add a new entry with:
 
 ### Commits
 - feat: add admin-only access for MenuProductsManager
+- fix: hide Menu Products buttons from non-admin users in Dashboard
 
 ---
 
