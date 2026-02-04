@@ -174,7 +174,7 @@ export function OrderManager() {
 
   // Feature flag for order form redesign
   // Toggle via: localStorage.setItem('ff_order_form_redesign', 'true'); location.reload();
-  const useRedesign = useFeatureFlag('order_form_redesign', false);
+  const useRedesign = useFeatureFlag('order_form_redesign');
 
   // Select the appropriate form component based on feature flag
   const FormComponent = useRedesign ? OrderFormPOSRedesign : OrderFormPOS;

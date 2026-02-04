@@ -30,7 +30,7 @@ export type FeatureFlagName =
  * Set to false for gradual rollout, true for immediate availability
  */
 const FEATURE_FLAG_DEFAULTS: Record<FeatureFlagName, boolean> = {
-  order_form_redesign: false,  // Phase 3: Gradually increase from 0% to 100%
+  order_form_redesign: import.meta.env.DEV,  // Enabled in localhost, disabled in production
 };
 
 /**

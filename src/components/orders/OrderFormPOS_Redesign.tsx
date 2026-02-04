@@ -675,7 +675,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
             {...fadeIn}
             transition={{ delay: 0.4 }}
           >
-            <Card className="overflow-hidden border-2 border-gray-100">
+            <Card className="overflow-visible border-2 border-gray-100">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
