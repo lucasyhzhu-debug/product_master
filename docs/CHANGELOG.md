@@ -13,6 +13,54 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-04 - Admin-Only Access for MenuProductsManager
+
+**Implemented defense-in-depth security for Menu Products Manager**
+
+### Security Features
+- **Frontend Route Protection**: Added `canAccessMenuProducts` permission (admin-only)
+- **Backend Mutation Authorization**: All 6 menuProducts mutations now require admin role via `requireRole()`
+- **Session Handling**: Frontend hooks check for valid session before mutations
+- **Dashboard Button Visibility**: Menu Products buttons hidden for non-admin users
+
+### Permission Matrix Update
+| Role | canAccessMenuProducts |
+|------|----------------------|
+| kitchen | false |
+| order_staff | false |
+| manager | false |
+| admin | true |
+
+### Backend Changes (Convex)
+- **Mutations**: Added `token: v.string()` arg to `create`, `update`, `remove`, `toggleActive`, `assignToSlot`, `removeFromSlot`
+- **Mutations**: Added `requireRole(ctx, args.token, ["admin"])` authorization check
+
+### Frontend Changes (React)
+- **Types**: Added `canAccessMenuProducts` to `ROLE_PERMISSIONS` matrix in `src/lib/types.ts`
+- **Route**: Updated `ProtectedRoute` to use `canAccessMenuProducts` instead of `canAccessProducts`
+- **Hooks**: Updated all mutation hooks in `useMenuProducts.ts` to pass auth token
+- **Hooks**: Created reusable `useProtectedMutation.ts` wrapper for future use
+
+### Documentation
+- Updated Access Control Status table in CLAUDE.md
+- Added Backend Authorization Pattern section in CODE_STYLE.md
+
+### Files Modified
+- `src/lib/types.ts` - Added canAccessMenuProducts permission
+- `src/App.tsx` - Updated route protection
+- `src/pages/Dashboard.tsx` - Hide Menu Products buttons for non-admin
+- `src/hooks/convex/useMenuProducts.ts` - Added token to all mutations
+- `src/hooks/convex/useProtectedMutation.ts` - NEW: Reusable auth wrapper
+- `convex/menuProducts/mutations.ts` - Added requireRole checks
+- `CLAUDE.md` - Updated access control table
+- `docs/CODE_STYLE.md` - Added authorization pattern docs
+
+### Commits
+- feat: add admin-only access for MenuProductsManager
+- fix: hide Menu Products buttons from non-admin users in Dashboard
+
+---
+
 ## 2026-02-03 - Menu Products Manager with POS Slot System
 
 **Created full CRUD interface for menu products with POS slot management**
