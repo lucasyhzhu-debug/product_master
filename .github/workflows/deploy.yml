@@ -1,0 +1,96 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_convex:
+        description: 'Deploy Convex backend'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      deploy_vercel:
+        description: 'Trigger Vercel frontend deploy'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  push:
+    branches: [main]
+    paths:
+      - 'convex/**'           # Backend changes
+      - 'src/**'              # Frontend changes
+      - 'package.json'        # Dependency changes
+      - 'package-lock.json'
+      - 'vite.config.ts'      # Build config
+      - 'tsconfig.json'
+
+jobs:
+  # Job 1: Lint check for forbidden patterns (always runs if workflow triggers)
+  lint-convex:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for forbidden dynamic imports
+        run: |
+          echo "Checking for dynamic imports in convex/ directory..."
+          if grep -rE "await\s+import\s*\(" convex/ --include="*.ts"; then
+            echo "ERROR: Dynamic imports found in Convex code!"
+            echo "Dynamic import() is not supported in the Convex runtime."
+            echo "Use static imports at the top of the file instead."
+            exit 1
+          fi
+          echo "No dynamic imports found"
+
+  # Job 2: Deploy Convex
+  deploy-convex:
+    runs-on: ubuntu-latest
+    needs: lint-convex
+    # Run if: manual trigger with deploy_convex=true, OR push event with convex/ changes
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_convex == 'true') ||
+      (github.event_name == 'push' && (
+        contains(github.event.head_commit.modified, 'convex/') ||
+        contains(github.event.head_commit.added, 'convex/')
+      ))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Convex Production
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy --yes
+
+  # Job 3: Trigger Vercel (waits for Convex to complete first)
+  trigger-vercel:
+    runs-on: ubuntu-latest
+    needs: [lint-convex, deploy-convex]
+    # Run if: lint passes, convex either succeeds or skips, and vercel deploy is requested
+    if: |
+      always() &&
+      needs.lint-convex.result == 'success' &&
+      (needs.deploy-convex.result == 'success' || needs.deploy-convex.result == 'skipped') &&
+      (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_vercel == 'true') ||
+        github.event_name == 'push'
+      )
+    steps:
+      - name: Trigger Vercel Deployment
+        run: |
+          echo "Triggering Vercel deployment..."
+          curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+          echo "Vercel deployment triggered successfully"

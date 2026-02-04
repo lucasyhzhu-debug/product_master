@@ -8,3 +8,4 @@ export { OrderManager } from './OrderManager';
 export { OrderDetail } from './OrderDetail';
 export { KitchenView } from './KitchenView';
 export { PackagingView } from './PackagingView';
+export { MenuProductsManager } from './MenuProductsManager';

@@ -13,6 +13,46 @@
 
 ## Convex Backend Patterns
 
+### Convex Runtime Restrictions
+
+**CRITICAL: Dynamic imports are NOT supported in Convex**
+
+The Convex serverless runtime runs in restricted V8 isolates that do not support ES dynamic `import()`. This will work locally but **fail silently in production**.
+
+```typescript
+// FORBIDDEN - Will cause 204 No Content in production
+export const myQuery = query({
+  handler: async (ctx) => {
+    const { helper } = await import("./helpers"); // BREAKS IN PRODUCTION
+  },
+});
+
+// CORRECT - Use static imports at file top
+import { helper } from "./helpers";
+
+export const myQuery = query({
+  handler: async (ctx) => {
+    // Use helper directly
+  },
+});
+```
+
+**Why this matters:**
+- Dynamic imports may work in `npx convex dev` but fail when deployed
+- Errors appear as `TypeError: dynamic module import unsupported`
+- The query returns 204 No Content with no obvious error to users
+
+**If you have circular dependencies:**
+- Restructure code to eliminate the cycle
+- Move shared types/interfaces to a separate file
+- Never use dynamic imports as a workaround
+
+**CI Protection:**
+- The GitHub Action runs `npm run lint:convex` to check for dynamic imports
+- Any `await import(` pattern in `convex/` will fail the build
+
+---
+
 ### Schema Definition
 ```typescript
 // convex/schema.ts

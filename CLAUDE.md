@@ -48,6 +48,9 @@
 | **Order status transitions** | `convex/orders/helpers/statusTransitions.ts` | - |
 | **Channel/agency usage** | `convex/orders/helpers/usageTracking.ts` | - |
 | **Production records CRUD** | `convex/orders/helpers/productionRecords.ts` | - |
+| **Menu Products (POS slots)** | `convex/schema.ts`<br>`convex/menuProducts/queries.ts`<br>`convex/menuProducts/mutations.ts` | `src/pages/MenuProductsManager.tsx`<br>`src/components/menuProducts/ProductForm.tsx`<br>`src/hooks/convex/useMenuProducts.ts` |
+| **Add new page** | `convex/schema.ts` (if new table)<br>`convex/[entity]/queries.ts`<br>`convex/[entity]/mutations.ts` | `src/App.tsx` (route)<br>`src/pages/[PageName].tsx`<br>`src/hooks/convex/use[Entity].ts` |
+| **Access control** | `convex/[entity]/queries.ts` (add auth checks)<br>`convex/[entity]/mutations.ts` (add auth checks) | `src/App.tsx` (route guards)<br>`src/components/layout/Header.tsx` (nav visibility) |
 
 ---
 
@@ -118,12 +121,16 @@ npx convex import           # Restore database
 ```
 
 **Database Setup:**
-Single dev deployment (`dev:exciting-fennec-671`) for all development.
-See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for database management.
+Dual environment setup (migrated 2026-02-03):
+- **Production**: `prod:decisive-wombat-7` (Vercel + CI deploys here)
+- **Development**: `dev:exciting-fennec-671` (local development)
+
 ```bash
-npx convex dev              # Start backend
-npm run dev                 # Start frontend
+npx convex dev              # Start backend (connects to dev)
+npm run dev                 # Start frontend (localhost)
 ```
+
+**CI/CD:** Pushing to `main` triggers GitHub Action → Convex deploy → Vercel rebuild
 
 ---
 
@@ -203,6 +210,57 @@ product_master/
 
 ---
 
+## New Page/Feature Checklist
+
+**When creating a new page or major feature, ALWAYS address these questions in the implementation plan:**
+
+### Access Control (MANDATORY)
+
+```
+Before implementing a new page, answer these questions:
+
+1. WHO can access this page?
+   □ All users (public)
+   □ Authenticated users only
+   □ Specific roles (admin, kitchen staff, sales, etc.)
+   □ Owner-only (user can only see their own data)
+
+2. WHAT operations are allowed?
+   □ Read-only for some users?
+   □ Full CRUD for admins only?
+   □ Create allowed but edit restricted?
+
+3. HOW will access be enforced?
+   □ Route-level protection (in App.tsx)
+   □ Component-level conditionals
+   □ Backend query/mutation validation
+   □ Combination of above
+
+4. WHAT should unauthorized users see?
+   □ Redirect to login
+   □ Redirect to dashboard
+   □ Show "Access Denied" message
+   □ Hide navigation link entirely
+```
+
+### Current Access Control Status
+
+| Page | Current Access | Notes |
+|------|---------------|-------|
+| Dashboard | All users | Public landing |
+| RecipeEditor | All users | No restrictions yet |
+| PackagingEditor | All users | No restrictions yet |
+| ProductEditor | All users | No restrictions yet |
+| IngredientsManager | All users | No restrictions yet |
+| MaterialsManager | All users | No restrictions yet |
+| OrderManager | All users | No restrictions yet |
+| OrderDetail | All users | No restrictions yet |
+| KitchenView | All users | Intended for kitchen staff |
+
+**Note:** Authentication/authorization system not yet implemented. When adding auth, update this table and enforce access in both frontend routes and backend queries/mutations.
+
+---
+
 ## Key Business Rules
 
 1. **Unit conversion**: kg→g, l→ml, m→cm. 1 ml = 1 g for liquid calculations.
@@ -248,25 +306,37 @@ product_master/
 
 ## Environment Variables
 
-**Single Development Environment:** Convex free tier provides one dev deployment.
+**Dual Environment Setup** (migrated 2026-02-03):
+
+| Environment | Deployment ID | Used By |
+|-------------|---------------|---------|
+| **Production** | `prod:decisive-wombat-7` | Vercel, GitHub Actions CI |
+| **Development** | `dev:exciting-fennec-671` | Local development (`npx convex dev`) |
 
 | File | Purpose | Committed? |
 |------|---------|-----------|
-| `.env.local` | Active environment | ❌ No (gitignored) |
-| `.env.local.production` | Same as testing (for future use) | ✅ Yes (safe) |
-| `.env.local.testing` | Same as production (for future use) | ✅ Yes (safe) |
+| `.env.local` | Local dev environment | ❌ No (gitignored) |
+| `.env.local.production` | Production config reference | ✅ Yes |
+| `.env` | Default deployment (production) | ✅ Yes |
 | `.env.example` | Template for new setups | ✅ Yes |
 
-**Current setup:**
+**Local development (.env.local):**
 ```bash
-# .env.local
 CONVEX_DEPLOYMENT=dev:exciting-fennec-671
 VITE_CONVEX_URL=https://exciting-fennec-671.convex.cloud
 VITE_CONVEX_SITE_URL=https://exciting-fennec-671.convex.site
 ```
 
-**For separate testing environment:** Create a second Convex project or upgrade to Convex Pro.
-See [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md) for details.
+**Production (Vercel + CI):**
+```bash
+CONVEX_DEPLOYMENT=prod:decisive-wombat-7
+VITE_CONVEX_URL=https://decisive-wombat-7.convex.cloud
+VITE_CONVEX_SITE_URL=https://decisive-wombat-7.convex.site
+```
+
+**CI/CD Flow:**
+- Push to `main` → GitHub Action deploys Convex → Vercel webhook rebuilds frontend
+- Local dev uses `exciting-fennec-671` (isolated from production)
 
 ---
 
