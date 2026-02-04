@@ -1,6 +1,7 @@
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { requireRole } from "../lib/auth";
 
 /**
  * Helper: Calculate unit cost and grams from components.
@@ -69,6 +70,7 @@ async function updateCachedProductionSummary(
  */
 export const create = mutation({
   args: {
+    token: v.string(),
     code: v.optional(v.string()),
     name: v.string(),
     grams: v.optional(v.number()),
@@ -87,6 +89,8 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
     // Generate code from name if not provided
     const code = args.code ?? `CUSTOM_${args.name.toUpperCase().replace(/\s+/g, '_').slice(0, 20)}`;
 
@@ -159,6 +163,7 @@ export const create = mutation({
  */
 export const update = mutation({
   args: {
+    token: v.string(),
     id: v.id("menuProducts"),
     code: v.optional(v.string()),
     name: v.optional(v.string()),
@@ -178,7 +183,11 @@ export const update = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const { id, components, ...updates } = args;
+    await requireRole(ctx, args.token, ["admin"]);
+
+    // Extract token and id from args to avoid passing them to db.patch
+    const { id, token: _, components, ...updates } = args;
+    void _; // Suppress unused variable warning
 
     const current = await ctx.db.get(id);
     if (!current) {
@@ -259,8 +268,10 @@ export const update = mutation({
  * PRD-0: Fixed products cannot be deleted.
  */
 export const remove = mutation({
-  args: { id: v.id("menuProducts") },
+  args: { token: v.string(), id: v.id("menuProducts") },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
     const product = await ctx.db.get(args.id);
     if (!product) {
       throw new Error("Menu product not found");
@@ -280,8 +291,10 @@ export const remove = mutation({
  * Toggle active status of a menu product.
  */
 export const toggleActive = mutation({
-  args: { id: v.id("menuProducts") },
+  args: { token: v.string(), id: v.id("menuProducts") },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
     const current = await ctx.db.get(args.id);
     if (!current) {
       throw new Error("Menu product not found");
@@ -395,10 +408,13 @@ export const seedFixedProducts = mutation({
  */
 export const assignToSlot = mutation({
   args: {
+    token: v.string(),
     id: v.id("menuProducts"),
     slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
   },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
     const product = await ctx.db.get(args.id);
     if (!product) {
       throw new Error("Menu product not found");
@@ -427,8 +443,10 @@ export const assignToSlot = mutation({
  * Moves product to legacy section.
  */
 export const removeFromSlot = mutation({
-  args: { id: v.id("menuProducts") },
+  args: { token: v.string(), id: v.id("menuProducts") },
   handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
     const product = await ctx.db.get(args.id);
     if (!product) {
       throw new Error("Menu product not found");

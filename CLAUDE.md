@@ -256,8 +256,9 @@ Before implementing a new page, answer these questions:
 | OrderManager | All users | No restrictions yet |
 | OrderDetail | All users | No restrictions yet |
 | KitchenView | All users | Intended for kitchen staff |
+| MenuProductsManager | Admin only | Backend mutations + Frontend route protected |
 
-**Note:** Authentication/authorization system not yet implemented. When adding auth, update this table and enforce access in both frontend routes and backend queries/mutations.
+**Note:** Authentication/authorization system implemented for MenuProductsManager. When adding auth to other pages, update this table and enforce access in both frontend routes and backend queries/mutations.
 
 ---
 
