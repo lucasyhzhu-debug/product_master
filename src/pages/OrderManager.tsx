@@ -23,8 +23,10 @@ import {
 import { PageHeader } from '@/components/layout';
 import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
+import { OrderFormPOS as OrderFormPOSRedesign } from '@/components/orders/OrderFormPOS_Redesign';
 
 import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
+import { useFeatureFlag } from '@/lib/featureFlags';
 import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -170,6 +172,13 @@ export function OrderManager() {
   const [showForm, setShowForm] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  // Feature flag for order form redesign
+  // Toggle via: localStorage.setItem('ff_order_form_redesign', 'true'); location.reload();
+  const useRedesign = useFeatureFlag('order_form_redesign', false);
+
+  // Select the appropriate form component based on feature flag
+  const FormComponent = useRedesign ? OrderFormPOSRedesign : OrderFormPOS;
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -269,7 +278,7 @@ export function OrderManager() {
             </div>
           </CardHeader>
           <CardContent>
-            <OrderFormPOS
+            <FormComponent
               onSuccess={() => handleOrderCreated()}
               onCancel={() => setShowForm(false)}
             />
@@ -297,7 +306,7 @@ export function OrderManager() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <OrderFormPOS
+                  <FormComponent
                     onSuccess={() => handleOrderCreated()}
                     onCancel={() => setShowForm(false)}
                   />
@@ -366,7 +375,7 @@ export function OrderManager() {
             <DialogHeader>
               <DialogTitle>New Order</DialogTitle>
             </DialogHeader>
-            <OrderFormPOS
+            <FormComponent
               onSuccess={() => handleOrderCreated()}
               onCancel={() => setShowForm(false)}
             />
