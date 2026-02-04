@@ -83,7 +83,7 @@ export default function Login() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-6">
+      <main className="flex-1 flex items-start justify-center pt-8 p-6">
         <div className="w-full max-w-lg">
           {!selectedUserId ? (
             // Step 1: Select User
