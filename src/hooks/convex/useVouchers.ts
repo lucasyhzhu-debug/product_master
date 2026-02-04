@@ -16,6 +16,7 @@ import { toast } from "sonner";
 const vouchersApi = (api as any).vouchers as {
   queries: {
     list: unknown;
+    listActiveForCombobox: unknown;
     listOverrides: unknown;
     getById: unknown;
     getByCode: unknown;
@@ -109,7 +110,7 @@ export function useManagerOverrides(daysBack?: number) {
  */
 export function useActiveVouchersForCombobox() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return useQuery((api as any).vouchers.listActiveForCombobox);
+  return useQuery(vouchersApi.queries.listActiveForCombobox as any);
 }
 
 /**
