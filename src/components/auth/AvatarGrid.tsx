@@ -34,13 +34,13 @@ export function AvatarGrid({ selectedUserId, onSelectUser }: AvatarGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
       {activeUsers.map((user) => (
         <button
           key={user._id}
           onClick={() => onSelectUser(user._id)}
           className={cn(
-            "flex flex-col items-center p-4 rounded-xl transition-all",
+            "flex flex-col items-center p-6 rounded-xl transition-all",
             "border-2 hover:border-primary hover:bg-primary/5",
             selectedUserId === user._id
               ? "border-primary bg-primary/10 ring-2 ring-primary ring-offset-2"
@@ -52,22 +52,22 @@ export function AvatarGrid({ selectedUserId, onSelectUser }: AvatarGridProps) {
             <img
               src={user.avatarUrl}
               alt={user.name}
-              className="w-16 h-16 rounded-full object-cover"
+              className="w-20 h-20 rounded-full object-cover"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <User className="w-8 h-8 text-muted-foreground" />
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
+              <User className="w-10 h-10 text-muted-foreground" />
             </div>
           )}
 
           {/* Name */}
-          <span className="mt-2 font-medium text-sm text-center truncate w-full">
+          <span className="mt-3 font-medium text-base text-center truncate w-full">
             {user.name}
           </span>
 
           {/* Role badge */}
           <span className={cn(
-            "mt-1 text-xs px-2 py-0.5 rounded-full",
+            "mt-2 text-sm px-3 py-1 rounded-full",
             getRoleBadgeColor(user.role as UserRole)
           )}>
             {getRoleDisplayName(user.role as UserRole)}

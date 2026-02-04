@@ -291,6 +291,91 @@ git commit -m "feat: display yield and cost per gram in UI"
 
 ---
 
+## Convex Deployment Checklist
+
+Use this checklist before deploying any changes that touch `convex/` files.
+
+### Pre-Deployment
+
+- [ ] **No dynamic imports**: Run `npm run lint:convex` or check CI
+- [ ] **Schema changes reviewed**: If `schema.ts` changed, verify indexes and field types
+- [ ] **Test locally**: Run `npx convex dev` and test the affected features
+- [ ] **Check for N+1 queries**: Review any new queries for batch fetching opportunities
+
+### Deployment
+
+- [ ] **Deploy code first**: `npx convex deploy --yes`
+- [ ] **Verify in dashboard**: Check Convex dashboard for any errors
+- [ ] **Test production**: Visit the affected pages on production URL
+
+### Post-Deployment
+
+- [ ] **Monitor logs**: Watch Convex logs for 5 minutes after deployment
+- [ ] **Check Kitchen view**: If orders/kitchen code changed, verify `/kitchen` works
+- [ ] **Verify real-time updates**: Test that mutations trigger query updates
+
+### Rollback Plan
+
+If issues occur:
+1. Check Convex dashboard logs for error messages
+2. If critical: Restore previous code via `git revert` + `npx convex deploy`
+3. Data issues: Use `npx convex import` with a recent backup
+
+### Environment Commands Reference
+
+| Command | Target | Use When |
+|---------|--------|----------|
+| `npx convex dev` | Development | Local development |
+| `npx convex dev --once` | Development | One-time push to dev |
+| `npx convex deploy` | Production | Ready for users (auto via CI) |
+| `npx convex export --prod` | Production | Backup production data |
+
+---
+
+## Branch Discipline
+
+**Rule:** Never push untested code directly to `main`.
+
+### Standard Feature Work
+
+```bash
+git switch -c feature/my-feature      # Create branch
+# ... develop and test locally with npx convex dev ...
+git add . && git commit -m "feat: my feature"
+git switch main && git pull
+git merge feature/my-feature
+git push origin main                  # Triggers CI → production deploy
+```
+
+### Hotfix While Working on Feature
+
+```bash
+git stash                             # Save WIP
+git switch main && git pull
+git switch -c hotfix/urgent-fix
+# ... make minimal fix ...
+git add . && git commit -m "fix: urgent issue"
+git switch main
+git merge hotfix/urgent-fix
+git push origin main                  # Deploys only the fix
+git switch feature/my-feature
+git stash pop                         # Resume work
+```
+
+### CI/CD Behavior
+
+When you push to `main`:
+1. **GitHub Action** runs lint check (no dynamic imports)
+2. **If `convex/` changed**: Convex code deployed to production
+3. **Vercel webhook** triggered to rebuild frontend
+
+**Path filters** - CI only triggers for code changes, not docs:
+- `convex/**` → Deploys Convex + triggers Vercel
+- `src/**` → Triggers Vercel only
+- `docs/**` → Nothing (push freely)
+
+---
+
 ## Common Code Review Issues to Avoid
 
 ### Convex Backend

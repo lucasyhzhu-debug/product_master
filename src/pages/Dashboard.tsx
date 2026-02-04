@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen } from 'lucide-react';
+import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen, UtensilsCrossed } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useOnboardingTour } from '@/components/onboarding';
@@ -179,9 +179,17 @@ export function Dashboard() {
           </TooltipProvider>
         </div>
         <div className="flex-1 h-px bg-border" />
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/orders">View All Orders</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/menu-products">
+              <UtensilsCrossed className="h-4 w-4 mr-1" />
+              Menu Products
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/orders">View All Orders</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Order Stats Cards */}
@@ -237,7 +245,7 @@ export function Dashboard() {
         data-tour-step="products"
         action={
           <Button size="sm" asChild className="shadow-sm">
-            <Link to="/products/new">
+            <Link to="/menu-products">
               <Plus className="h-4 w-4 mr-1" />
               New Product
             </Link>

@@ -2,18 +2,25 @@
 
 ## Overview
 
-**IMPORTANT:** Convex's free tier provides a **single dev deployment** per project. This means production and testing share the same database. For true isolation, you would need a separate Convex project or upgrade to Convex Pro.
+**Updated 2026-02-03:** We now have separate development and production environments.
 
-This guide explains best practices for testing while using a shared database.
+This guide explains the dual-environment setup and best practices for testing.
 
 ---
 
 ## Current Setup
 
-You have **one Convex deployment**:
-- **Deployment:** `dev:exciting-fennec-671`
-- **Database:** Single shared database
-- **Usage:** Both development and production use the same data
+You have **two Convex deployments**:
+
+| Environment | Deployment ID | Database | Used By |
+|-------------|---------------|----------|---------|
+| **Production** | `prod:decisive-wombat-7` | Production data (real users) | Vercel, GitHub Actions |
+| **Development** | `dev:exciting-fennec-671` | Test/dev data | Local development |
+
+**Key Points:**
+- Local `npx convex dev` connects to the **development** database
+- Pushing to `main` deploys to **production** via GitHub Actions
+- The two databases are completely isolated
 
 ---
 
@@ -49,31 +56,53 @@ npx convex dashboard
 
 ---
 
-## Future: Separate Testing Environment
+## Environment Isolation (Active)
 
-When you're ready to deploy to real production users, you have these options:
+**We now have proper environment separation:**
 
-### Option 1: Separate Convex Project (Free)
+| What You Do | Where It Goes | Impact |
+|-------------|---------------|--------|
+| `npx convex dev` | Development (`exciting-fennec-671`) | Only you see changes |
+| `git push origin main` | Production (`decisive-wombat-7`) | Real users see changes |
 
-Create a second Convex project for testing:
+### Local Development Workflow
 
-1. Go to [convex.dev](https://convex.dev)
-2. Create a new project called "product-master-testing"
-3. Update `.env.local.testing`:
-   ```bash
-   VITE_CONVEX_URL=https://new-testing-deployment.convex.cloud
-   CONVEX_DEPLOYMENT=dev:new-testing-deployment
-   ```
-4. Now you have true isolation:
-   - Production: `exciting-fennec-671`
-   - Testing: `new-testing-deployment`
+```bash
+# Terminal 1: Convex dev server (connects to dev database)
+npx convex dev
 
-### Option 2: Upgrade to Convex Pro
+# Terminal 2: Vite dev server
+npm run dev
 
-Convex Pro supports multiple deployments within a single project:
-- `prod` deployment for production users
-- `dev` deployment for development/testing
-- Costs money but provides seamless environment switching
+# Make changes, test locally
+# Changes only affect development database
+```
+
+### Deploying to Production
+
+```bash
+# 1. Commit your changes
+git add .
+git commit -m "feat: my feature"
+
+# 2. Push to main
+git push origin main
+
+# 3. GitHub Action automatically:
+#    - Runs lint check (no dynamic imports)
+#    - Deploys Convex to production
+#    - Triggers Vercel rebuild
+```
+
+### Comparing Environments
+
+```bash
+# Check development data
+npx convex data orders
+
+# Check production data
+npx convex data orders --prod
+```
 
 ---
 
