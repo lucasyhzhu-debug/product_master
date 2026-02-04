@@ -545,6 +545,24 @@ export default defineSchema({
     .index("by_usage", ["usageCount"]),
 
   // ============================================
+  // WHATSAPP TEMPLATE MANAGEMENT
+  // Editable templates for WhatsApp messages
+  // ============================================
+
+  whatsappTemplates: defineTable({
+    code: v.string(), // "payment_request", "production_started", etc.
+    name: v.string(), // Human-readable name
+    description: v.optional(v.string()), // Usage context
+    templateId: v.string(), // Indonesian template
+    templateEn: v.string(), // English template
+    availableVariables: v.array(v.string()), // ["{customer_name}", "{order_number}", ...]
+    isDefault: v.boolean(), // System default (cannot delete)
+    lastEditedBy: v.optional(v.string()),
+    lastEditedAt: v.optional(v.number()),
+  })
+    .index("by_code", ["code"]),
+
+  // ============================================
   // PRD-7: ORDER EVENTS AUDIT TABLE
   // Tracks all status changes and significant events
   // for audit trail and debugging
