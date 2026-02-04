@@ -61,6 +61,8 @@ import type * as shipping_mutations from "../shipping/mutations.js";
 import type * as shipping_queries from "../shipping/queries.js";
 import type * as tags_mutations from "../tags/mutations.js";
 import type * as tags_queries from "../tags/queries.js";
+import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
+import type * as whatsappTemplates_queries from "../whatsappTemplates/queries.js";
 
 import type {
   ApiFromModules,
@@ -122,6 +124,8 @@ declare const fullApi: ApiFromModules<{
   "shipping/queries": typeof shipping_queries;
   "tags/mutations": typeof tags_mutations;
   "tags/queries": typeof tags_queries;
+  "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;
+  "whatsappTemplates/queries": typeof whatsappTemplates_queries;
 }>;
 
 /**
