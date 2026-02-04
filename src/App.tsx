@@ -15,6 +15,7 @@ import {
   PackagingView,
   MenuProductsManager,
   WhatsAppTemplatesManager,
+  VouchersManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -165,6 +166,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canManageWhatsAppTemplates">
                   <WhatsAppTemplatesManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Vouchers - Admin only */}
+            <Route
+              path="vouchers"
+              element={
+                <ProtectedRoute requiredPermission="canAccessVouchers">
+                  <VouchersManager />
                 </ProtectedRoute>
               }
             />

@@ -721,6 +721,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canEditKitchen: boolean;
   canAccessMenuProducts: boolean;  // Menu Products Manager (admin-only)
   canManageWhatsAppTemplates: boolean;  // WhatsApp Template Manager access
+  canAccessVouchers: boolean;  // Vouchers Manager (admin-only)
+  canCreateOverrideVoucher: boolean;  // Manager override during checkout (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -736,6 +738,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canEditKitchen: true,
     canAccessMenuProducts: false,
     canManageWhatsAppTemplates: false,
+    canAccessVouchers: false,
+    canCreateOverrideVoucher: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -751,6 +755,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canEditKitchen: false,
     canAccessMenuProducts: false,
     canManageWhatsAppTemplates: false,
+    canAccessVouchers: false,
+    canCreateOverrideVoucher: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -766,6 +772,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canEditKitchen: true,
     canAccessMenuProducts: false,
     canManageWhatsAppTemplates: true,  // Manager can manage WhatsApp templates
+    canAccessVouchers: false,  // Manager cannot access VouchersManager page
+    canCreateOverrideVoucher: true,  // Manager can create override during checkout
   },
   admin: {
     canAccessDashboard: true,
@@ -781,6 +789,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canEditKitchen: true,
     canAccessMenuProducts: true,  // Admin-only
     canManageWhatsAppTemplates: true,  // Admin can manage WhatsApp templates
+    canAccessVouchers: true,  // Admin-only
+    canCreateOverrideVoucher: true,  // Admin can create override during checkout
   },
 };
 
