@@ -13,6 +13,7 @@ import {
   createProductionRecordsForItem,
   updateProductionRecordsForQuantityChange,
   deleteProductionRecordsForItem,
+  clearVoucherFromOrder,
 } from "../helpers/index";
 
 // ============================================
@@ -45,6 +46,16 @@ export const addItem = mutation({
     const order = await ctx.db.get(args.orderId);
     if (!order) {
       throw new Error("Order not found");
+    }
+
+    // Auto-release voucher when order is modified
+    // Returns true if voucher was cleared, indicating frontend should show toast
+    const voucherCleared = await clearVoucherFromOrder(ctx, args.orderId);
+
+    // Re-fetch order if voucher was cleared (finalTotal may have changed)
+    const currentOrder = voucherCleared ? await ctx.db.get(args.orderId) : order;
+    if (!currentOrder) {
+      throw new Error("Order not found after voucher clear");
     }
 
     const discount = args.item.discountAmount ?? 0;
@@ -91,26 +102,26 @@ export const addItem = mutation({
     }
 
     // Calculate new totals
-    const newTotalAmount = order.totalAmount + lineTotal;
-    const newTotalCost = order.totalCost + lineCost;
+    const newTotalAmount = currentOrder.totalAmount + lineTotal;
+    const newTotalCost = currentOrder.totalCost + lineCost;
 
-    // Recalculate finalTotal with order-level discount
+    // Recalculate finalTotal with order-level discount (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
-      order.orderLevelDiscount,
-      order.orderLevelDiscountType
+      currentOrder.orderLevelDiscount,
+      currentOrder.orderLevelDiscountType
     );
 
     // Update order totals
     await ctx.db.patch(args.orderId, {
       totalAmount: newTotalAmount,
       totalCost: newTotalCost,
-      totalMargin: order.totalMargin + lineMargin,
-      itemCount: order.itemCount + 1,
+      totalMargin: currentOrder.totalMargin + lineMargin,
+      itemCount: currentOrder.itemCount + 1,
       finalTotal: newFinalTotal,
     });
 
-    return itemId;
+    return { itemId, voucherCleared };
   },
 });
 
@@ -132,23 +143,32 @@ export const removeItem = mutation({
       throw new Error("Order not found");
     }
 
-    // Calculate new totals
-    const newTotalAmount = order.totalAmount - item.lineTotal;
-    const newTotalCost = order.totalCost - item.lineCost;
+    // Auto-release voucher when order is modified
+    const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
 
-    // Recalculate finalTotal with order-level discount
+    // Re-fetch order if voucher was cleared
+    const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
+    if (!currentOrder) {
+      throw new Error("Order not found after voucher clear");
+    }
+
+    // Calculate new totals
+    const newTotalAmount = currentOrder.totalAmount - item.lineTotal;
+    const newTotalCost = currentOrder.totalCost - item.lineCost;
+
+    // Recalculate finalTotal with order-level discount (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
-      order.orderLevelDiscount,
-      order.orderLevelDiscountType
+      currentOrder.orderLevelDiscount,
+      currentOrder.orderLevelDiscountType
     );
 
     // Update order totals
     await ctx.db.patch(item.orderId, {
       totalAmount: newTotalAmount,
       totalCost: newTotalCost,
-      totalMargin: order.totalMargin - item.lineMargin,
-      itemCount: order.itemCount - 1,
+      totalMargin: currentOrder.totalMargin - item.lineMargin,
+      itemCount: currentOrder.itemCount - 1,
       finalTotal: newFinalTotal,
     });
 
@@ -157,7 +177,7 @@ export const removeItem = mutation({
 
     // Delete item
     await ctx.db.delete(args.itemId);
-    return true;
+    return { success: true, voucherCleared };
   },
 });
 
@@ -178,6 +198,15 @@ export const updateItemQuantity = mutation({
     const order = await ctx.db.get(item.orderId);
     if (!order) {
       throw new Error("Order not found");
+    }
+
+    // Auto-release voucher when order is modified
+    const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
+
+    // Re-fetch order if voucher was cleared
+    const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
+    if (!currentOrder) {
+      throw new Error("Order not found after voucher clear");
     }
 
     // Calculate new line totals
@@ -207,24 +236,24 @@ export const updateItemQuantity = mutation({
     }
 
     // Calculate new order totals
-    const newTotalAmount = order.totalAmount + amountDiff;
-    const newTotalCost = order.totalCost + costDiff;
+    const newTotalAmount = currentOrder.totalAmount + amountDiff;
+    const newTotalCost = currentOrder.totalCost + costDiff;
 
-    // Recalculate finalTotal with order-level discount
+    // Recalculate finalTotal with order-level discount (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
-      order.orderLevelDiscount,
-      order.orderLevelDiscountType
+      currentOrder.orderLevelDiscount,
+      currentOrder.orderLevelDiscountType
     );
 
     // Update order totals
     await ctx.db.patch(item.orderId, {
       totalAmount: newTotalAmount,
       totalCost: newTotalCost,
-      totalMargin: order.totalMargin + marginDiff,
+      totalMargin: currentOrder.totalMargin + marginDiff,
       finalTotal: newFinalTotal,
     });
 
-    return args.itemId;
+    return { itemId: args.itemId, voucherCleared };
   },
 });
