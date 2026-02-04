@@ -95,6 +95,20 @@ Identify specific opportunities:
 - Is there a clear verification strategy?
 - Are edge cases considered in testing?
 
+#### 3.7 Git Workflow Compliance
+Check that the plan includes proper version control practices:
+- Does the plan specify creating a feature branch before starting?
+- Are there clear commit checkpoints with atomic commits?
+- Does each phase have a commit message template following `<type>: <description>` format?
+- Is there a build/type-check verification step before pushing?
+- Is the merge-to-main strategy clear (after review, not direct commits)?
+- Are multi-file changes grouped into logical commits?
+
+**Questions to answer:**
+- Will this plan result in clean, atomic commits?
+- Are there natural commit boundaries in the implementation steps?
+- Is the plan structured to avoid large, mixed commits?
+
 ### Step 4: Principal Developer Review
 
 Adopt the persona of a **10x Principal Developer** with architectural oversight.
@@ -144,6 +158,20 @@ Identify missing edge cases:
 - Should SCHEMA.md be updated?
 - Should CLAUDE.md be updated?
 - Are there API changes that need documentation?
+
+#### 4.8 Git & CI/CD Integration
+Review version control strategy at an architectural level:
+- Is there a rollback strategy if the implementation fails?
+- Are there deployment checkpoints (local dev → staging → production)?
+- Does the plan consider CI/CD triggers (what runs on push to main)?
+- Are there any schema migrations that need special deployment ordering?
+- Should data backups be taken before certain phases?
+- Are there hotfix considerations if bugs are discovered mid-implementation?
+
+**Questions to answer:**
+- Can this implementation be safely reverted if issues occur?
+- Is the deployment sequence correct (backend before frontend, migrations first)?
+- Will CI catch the issues before production if something goes wrong?
 
 ### Step 5: Generate Consolidated Recommendations
 
@@ -253,15 +281,72 @@ Which agents should handle each phase of implementation:
 
 ---
 
-## 8. Documentation Checkpoints
+## 8. Git Workflow Assessment
+
+### Branch Strategy
+| Assessment | Status |
+|------------|--------|
+| Feature branch specified | {✅ Yes / ❌ No / ⚠️ Implicit} |
+| Branch naming convention | {✅ Correct / ❌ Missing / ⚠️ Unclear} |
+| Merge strategy documented | {✅ Yes / ❌ No} |
+
+### Commit Strategy
+| Phase | Expected Commits | Commit Type | Notes |
+|-------|------------------|-------------|-------|
+| {Phase 1} | {Number} | {feat/fix/refactor} | {Are these atomic?} |
+
+### Recommended Commit Checkpoints
+The plan should commit at these natural boundaries:
+1. {After schema changes} → `feat: add X field to Y table`
+2. {After backend logic} → `feat: implement X calculation`
+3. {After frontend} → `feat: display X in Y component`
+4. {After tests} → `test: add tests for X feature`
+
+### Pre-Push Verification
+- [ ] Plan includes `npm run build` check
+- [ ] Plan includes `npm run type-check` verification
+- [ ] Plan includes local testing before push
+
+### CI/CD Considerations
+| Concern | Assessment |
+|---------|------------|
+| Rollback strategy | {✅ Documented / ❌ Missing} |
+| Deployment order | {✅ Correct / ⚠️ Needs adjustment} |
+| Data backup needed | {Yes/No} |
+| Migration safety | {✅ Safe / ⚠️ Review needed} |
+
+### Git Workflow Issues Found
+- {Issue 1: e.g., "No commit checkpoints between phases"}
+- {Issue 2: e.g., "Missing branch creation step"}
+
+---
+
+## 9. Documentation Checkpoints
 
 | Phase | Documentation Update Required |
 |-------|-------------------------------|
 | {Phase} | {docs/SCHEMA.md, docs/CODE_STYLE.md, etc.} |
 
+### CHANGELOG.md Entry (Draft)
+```markdown
+## {Date} - {Feature Name}
+
+**{Brief description}**
+
+- {Change 1}
+- {Change 2}
+
+**Files Modified:**
+- {file1}
+- {file2}
+
+**Commits:**
+- {hash} - {type}: {description}
+```
+
 ---
 
-## 9. Edge Cases to Address
+## 10. Edge Cases to Address
 
 The plan should explicitly handle:
 
@@ -271,7 +356,7 @@ The plan should explicitly handle:
 
 ---
 
-## 10. Approval Conditions
+## 11. Approval Conditions
 
 **For Approval, address:**
 1. {Critical issue 1}
@@ -359,12 +444,16 @@ Claude:
 - "Is this the simplest solution?"
 - "What existing code can we reuse?"
 - "Will this be easy to maintain?"
+- "Where are the natural commit boundaries?"
+- "Can I commit and verify incrementally?"
 
 **Principal Developer thinks:**
 - "Does this fit our architecture?"
 - "What could go wrong at scale?"
 - "Are we making the right trade-offs?"
 - "Will future developers understand this?"
+- "Can we safely roll this back if it fails?"
+- "Is the deployment sequence correct?"
 
 ## Common Issues to Watch For
 
@@ -392,6 +481,16 @@ Claude:
 - Missing schema update plans
 - Unclear success criteria
 - No rollback strategy
+
+### Git Workflow Issues
+- No feature branch creation step at the start
+- Large mixed commits instead of atomic commits
+- Missing build verification before push
+- Direct commits to main implied
+- No commit checkpoints between implementation phases
+- Missing CHANGELOG.md update requirement
+- No deployment order consideration for schema changes
+- Missing rollback strategy for failed deployments
 
 ## Integration with Other Skills
 
