@@ -51,9 +51,13 @@ function buildTemplateVariables(
   });
   const itemsText = itemsLines.join("\n");
 
-  // Calculate discount note
+  // Calculate discount note (voucher takes precedence over manual discount)
   let discountNote = "";
-  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+  if (order.voucherCode && order.voucherDiscountValue) {
+    // Voucher discount
+    discountNote = `\n(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+    // Manual discount
     const discountAmount =
       order.orderLevelDiscountType === "percentage"
         ? order.totalAmount * (order.orderLevelDiscount / 100)
@@ -251,9 +255,11 @@ function generatePaymentRequest(order: OrderWithItems): string {
   const itemsText = itemsLines.join("\n");
   const dueDateStr = order.dueDate ? formatDate(order.dueDate) : "";
 
-  // Calculate discount note if present
+  // Calculate discount note if present (voucher takes precedence)
   let discountNote = "";
-  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+  if (order.voucherCode && order.voucherDiscountValue) {
+    discountNote = `(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
     const discountAmount = order.orderLevelDiscountType === "percentage"
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount;
@@ -379,9 +385,11 @@ function generateReceipt(order: OrderWithItems): string {
 
   const itemsText = itemsLines.join("\n");
 
-  // Calculate discount note if present
+  // Calculate discount note if present (voucher takes precedence)
   let discountNote = "";
-  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
+  if (order.voucherCode && order.voucherDiscountValue) {
+    discountNote = `(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
     const discountAmount = order.orderLevelDiscountType === "percentage"
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount;

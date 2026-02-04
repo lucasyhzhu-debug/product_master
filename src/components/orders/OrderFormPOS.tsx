@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Clipboard, Send, X, Plus, Minus, Trash2, HelpCircle, Loader2 } from 'lucide-react';
+import { Clipboard, Send, X, Plus, Minus, Trash2, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,9 @@ import { ProductButtons } from './ProductButtons';
 import { PasteTemplateBox } from './PasteTemplateBox';
 import { DiscountInput } from './DiscountInput';
 import { DeliveryToggle } from './DeliveryToggle';
+import { VoucherInput, type AppliedVoucher } from './VoucherInput';
+import { ManagerOverrideDialog } from './ManagerOverrideDialog';
+import { LowPriceWarningDialog } from './LowPriceWarningDialog';
 import {
   useConvexPosProducts,
   useConvexCreateOrder,
@@ -24,11 +27,15 @@ import {
   type OrderCreateInput,
   type PosProduct,
 } from '@/hooks/convex';
+import { useAuth } from '@/contexts/AuthContext';
 import type { ParseResult } from '@/lib/orderTemplateParser';
 import type { OrderLineItem } from '@/lib/types';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+
+// Low price threshold (Rp 20,000)
+const LOW_PRICE_THRESHOLD = 20000;
 
 interface OrderFormPOSProps {
   onSuccess?: (orderId: string) => void;
@@ -63,9 +70,19 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // Notes
   const [notes, setNotes] = useState('');
 
-  // Discount
+  // Manual Discount (order-level discount entered manually)
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
+
+  // Voucher
+  const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
+
+  // Manager Override Dialog
+  const [showManagerOverride, setShowManagerOverride] = useState(false);
+
+  // Low Price Warning Dialog
+  const [showLowPriceWarning, setShowLowPriceWarning] = useState(false);
+  const [lowPriceConfirmed, setLowPriceConfirmed] = useState(false);
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,6 +100,9 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
   const createOrder = useConvexCreateOrder();
 
+  const { hasPermission } = useAuth();
+  const canCreateOverride = hasPermission("canCreateOverrideVoucher");
+
   // ============================================
   // Calculated Values
   // ============================================
@@ -92,17 +112,28 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     [items]
   );
 
-  const discountValue = discountType === 'percentage'
+  // Manual discount (percentage or fixed amount)
+  const manualDiscountValue = discountType === 'percentage'
     ? subtotal * (discountAmount / 100)
     : discountAmount;
 
-  const total = subtotal - discountValue;
+  // Voucher discount (already calculated in the voucher object)
+  const voucherDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
+
+  // Total discount (manual + voucher - but typically you'd use one or the other)
+  // Business rule: voucher replaces manual discount when applied
+  const totalDiscountValue = appliedVoucher ? voucherDiscountValue : manualDiscountValue;
+
+  const total = subtotal - totalDiscountValue;
 
   const todayFormatted = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
+
+  // Check if order total is below threshold
+  const isLowPrice = total > 0 && total < LOW_PRICE_THRESHOLD;
 
   // ============================================
   // Handlers
@@ -144,6 +175,9 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
         })
         .filter((item): item is OrderLineItem => item !== null);
       setItems(newItems);
+      // Clear voucher when items change
+      setAppliedVoucher(null);
+      setLowPriceConfirmed(false);
     }
 
     if (result.customer) {
@@ -165,6 +199,10 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     product: PosProduct,
     quantity: number
   ) => {
+    // Clear voucher when items change (order modified)
+    setAppliedVoucher(null);
+    setLowPriceConfirmed(false);
+
     const existing = items.find((i) => i.productId === product._id);
     if (existing) {
       setItems(
@@ -196,6 +234,10 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   };
 
   const updateItemQuantity = (productId: string, delta: number) => {
+    // Clear voucher when items change (order modified)
+    setAppliedVoucher(null);
+    setLowPriceConfirmed(false);
+
     setItems(
       items.map((item) => {
         if (item.productId === productId) {
@@ -208,6 +250,10 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   };
 
   const removeItem = (productId: string) => {
+    // Clear voucher when items change (order modified)
+    setAppliedVoucher(null);
+    setLowPriceConfirmed(false);
+
     setItems(items.filter((item) => item.productId !== productId));
   };
 
@@ -226,6 +272,44 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     setShowCustomerDropdown(false);
   };
 
+  // Voucher handlers
+  const handleApplyVoucher = (voucher: AppliedVoucher) => {
+    setAppliedVoucher(voucher);
+    // Clear manual discount when voucher is applied
+    setDiscountAmount(0);
+    setDiscountType('amount');
+    setLowPriceConfirmed(false);
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setLowPriceConfirmed(false);
+  };
+
+  // Manager override handler
+  const handleOverrideCreated = (voucher: {
+    id: string;
+    code: string;
+    discountType: "amount" | "percentage";
+    discountValue: number;
+    calculatedDiscount: number;
+  }) => {
+    // Apply the override voucher
+    setAppliedVoucher({
+      id: voucher.id,
+      code: voucher.code,
+      name: "Manager Override",
+      discountType: voucher.discountType,
+      discountValue: voucher.discountValue,
+      calculatedDiscount: voucher.calculatedDiscount,
+    });
+    // Clear manual discount
+    setDiscountAmount(0);
+    setDiscountType('amount');
+    setLowPriceConfirmed(false);
+  };
+
+  // Submit handler
   const handleSubmit = async () => {
     // Validation
     if (items.length === 0) {
@@ -237,6 +321,22 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       return;
     }
 
+    // Check for low price and show warning if not confirmed
+    if (isLowPrice && !lowPriceConfirmed) {
+      setShowLowPriceWarning(true);
+      return;
+    }
+
+    await executeSubmit();
+  };
+
+  const handleLowPriceConfirm = async () => {
+    setLowPriceConfirmed(true);
+    setShowLowPriceWarning(false);
+    await executeSubmit();
+  };
+
+  const executeSubmit = async () => {
     setIsSubmitting(true);
     try {
       const orderData: OrderCreateInput = {
@@ -249,9 +349,17 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
         deliveryAddress: deliveryType === 'Delivery' ? deliveryAddress : undefined,
         dueDate: new Date(dueDate).getTime(),
         notes: notes || undefined,
-        // Include order-level discount if set
-        orderLevelDiscount: discountAmount > 0 ? discountAmount : undefined,
-        orderLevelDiscountType: discountAmount > 0 ? discountType : undefined,
+        // Include order-level discount (manual or from voucher)
+        orderLevelDiscount: appliedVoucher
+          ? undefined // Voucher handles its own discount
+          : (discountAmount > 0 ? discountAmount : undefined),
+        orderLevelDiscountType: appliedVoucher
+          ? undefined
+          : (discountAmount > 0 ? discountType : undefined),
+        // Include voucher code if applied
+        voucherCode: appliedVoucher?.code,
+        // Include low price confirmation flag
+        lowPriceConfirmed: lowPriceConfirmed || undefined,
         items: items.map((item) => ({
           productName: item.productName,
           quantity: item.quantity,
@@ -265,14 +373,11 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       const orderId = await createOrder.mutateAsync(orderData);
       toast.success('Order created!');
 
-      // Copy WhatsApp receipt to clipboard
-      // Note: This would require fetching the WhatsApp message template
-      // For now, we'll skip this feature or implement it in the parent component
-
       onSuccess?.(orderId as unknown as string);
     } catch (error) {
       console.error('Failed to create order:', error);
-      toast.error('Failed to create order');
+      const message = error instanceof Error ? error.message : 'Failed to create order';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -557,22 +662,57 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       </Card>
 
       {/* ============================================
-          7. Discount Section
+          7. Discount & Voucher Section
           ============================================ */}
       <Card>
         <CardHeader>
-          <CardTitle>Discount</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Discount & Voucher</CardTitle>
+            {canCreateOverride && !appliedVoucher && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowManagerOverride(true)}
+                disabled={subtotal === 0}
+              >
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Manager Override
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          <DiscountInput
+        <CardContent className="space-y-4">
+          {/* Voucher Input */}
+          <VoucherInput
             subtotal={subtotal}
-            discountAmount={discountAmount}
-            discountType={discountType}
-            onChange={(amount, type) => {
-              setDiscountAmount(amount);
-              setDiscountType(type);
-            }}
+            customerId={selectedCustomerId ?? undefined}
+            appliedVoucher={appliedVoucher}
+            onApplyVoucher={handleApplyVoucher}
+            onRemoveVoucher={handleRemoveVoucher}
+            disabled={isSubmitting || subtotal === 0}
           />
+
+          {/* Manual Discount (hidden when voucher is applied) */}
+          {!appliedVoucher && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Or enter manual discount
+                </Label>
+                <DiscountInput
+                  subtotal={subtotal}
+                  discountAmount={discountAmount}
+                  discountType={discountType}
+                  onChange={(amount, type) => {
+                    setDiscountAmount(amount);
+                    setDiscountType(type);
+                    setLowPriceConfirmed(false);
+                  }}
+                />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -589,10 +729,14 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
             <span className="font-medium">{formatCurrency(subtotal)}</span>
           </div>
 
-          {discountValue > 0 && (
+          {totalDiscountValue > 0 && (
             <div className="flex justify-between text-sm text-destructive">
-              <span>Discount</span>
-              <span>- {formatCurrency(discountValue)}</span>
+              <span>
+                {appliedVoucher
+                  ? `Voucher (${appliedVoucher.code})`
+                  : 'Discount'}
+              </span>
+              <span>- {formatCurrency(totalDiscountValue)}</span>
             </div>
           )}
 
@@ -600,8 +744,16 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
           <div className="flex justify-between font-semibold text-lg text-primary">
             <span>Order Total</span>
-            <span>{formatCurrency(total)}</span>
+            <span className={isLowPrice ? 'text-amber-600' : ''}>
+              {formatCurrency(total)}
+            </span>
           </div>
+
+          {isLowPrice && (
+            <p className="text-xs text-amber-600">
+              Order total is below Rp 20,000. Confirmation will be required.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -612,7 +764,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
         <Button
           className="w-full gap-2"
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || total <= 0}
           size="lg"
         >
           {isSubmitting ? (
@@ -628,6 +780,26 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
           )}
         </Button>
       </div>
+
+      {/* ============================================
+          Dialogs
+          ============================================ */}
+      <ManagerOverrideDialog
+        open={showManagerOverride}
+        onOpenChange={setShowManagerOverride}
+        subtotal={subtotal}
+        onOverrideCreated={handleOverrideCreated}
+      />
+
+      <LowPriceWarningDialog
+        open={showLowPriceWarning}
+        onOpenChange={setShowLowPriceWarning}
+        finalPrice={total}
+        originalPrice={subtotal}
+        discountAmount={totalDiscountValue}
+        onConfirm={handleLowPriceConfirm}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }

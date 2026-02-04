@@ -311,6 +311,12 @@ export default defineSchema({
     )),
     finalTotal: v.optional(v.number()), // totalAmount - discount
 
+    // Voucher tracking (optional - only if voucher applied)
+    voucherId: v.optional(v.id("vouchers")),
+    voucherCode: v.optional(v.string()), // Snapshot of code at order time
+    voucherDiscountValue: v.optional(v.number()), // Calculated discount snapshot
+    lowPriceConfirmed: v.optional(v.boolean()), // True if user confirmed < 20k order
+
     // Sales tracking - Channel with type-safe union
     channel: v.optional(v.union(
       v.literal("whatsapp"),
@@ -582,4 +588,60 @@ export default defineSchema({
     .index("by_order", ["orderId"])
     .index("by_type", ["eventType"])
     .index("by_timestamp", ["timestamp"]),
+
+  // ============================================
+  // VOUCHER SYSTEM
+  // Promotional discount codes with usage tracking
+  // ============================================
+
+  vouchers: defineTable({
+    // Core identification
+    code: v.string(), // Unique, uppercase (e.g., "FREESHIP25")
+    name: v.string(), // Admin display name
+    description: v.optional(v.string()),
+
+    // Discount configuration
+    discountType: v.union(v.literal("amount"), v.literal("percentage")),
+    discountValue: v.number(), // IDR amount or percentage (0-100)
+
+    // Constraints
+    minimumOrderAmount: v.optional(v.number()), // Min order to apply voucher
+    maximumDiscount: v.optional(v.number()), // Cap for percentage discounts
+
+    // Validity period
+    isActive: v.boolean(),
+    validFrom: v.optional(v.number()), // Timestamp
+    validUntil: v.optional(v.number()), // Timestamp
+
+    // Usage limits
+    usageLimit: v.optional(v.number()), // Total uses allowed (null = unlimited)
+    usageCount: v.number(), // Current total usage
+    usagePerCustomer: v.optional(v.number()), // Per-customer limit (null = unlimited)
+
+    // Manager Override fields (for single-use override vouchers)
+    isManagerOverride: v.optional(v.boolean()), // True if auto-generated override
+    overrideReason: v.optional(v.string()), // Required reason for override
+    overrideOrderId: v.optional(v.id("orders")), // Link to specific order
+
+    // Audit
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_code", ["code"])
+    .index("by_active", ["isActive"])
+    .index("by_manager_override", ["isManagerOverride"])
+    .index("by_active_valid", ["isActive", "validFrom"]), // For efficient validation queries
+
+  // Per-customer voucher usage tracking
+  voucherUsage: defineTable({
+    voucherId: v.id("vouchers"),
+    customerId: v.id("customers"),
+    orderId: v.id("orders"),
+    usedAt: v.number(), // Timestamp
+  })
+    .index("by_voucher", ["voucherId"])
+    .index("by_customer", ["customerId"])
+    .index("by_voucher_customer", ["voucherId", "customerId"])
+    .index("by_order", ["orderId"]),
 });

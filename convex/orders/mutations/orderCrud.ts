@@ -19,6 +19,10 @@ import {
   cancelOrderProductionRecords,
   markOrderProductionComplete,
   resetOrderProductionComplete,
+  validateAndApplyVoucher,
+  recordVoucherUsage,
+  releaseVoucherUsage,
+  validateFinalPrice,
 } from "../helpers/index";
 
 // ============================================
@@ -131,6 +135,9 @@ export const create = mutation({
       v.literal("amount"),
       v.literal("percentage")
     )),
+    // Voucher (optional - if provided, will validate and apply)
+    voucherCode: v.optional(v.string()),
+    lowPriceConfirmed: v.optional(v.boolean()), // Required if final price < 20k
     // Items
     items: v.array(orderItemInput),
     createdBy: v.optional(v.string()),
@@ -244,17 +251,50 @@ export const create = mutation({
       };
     });
 
-    // Calculate order-level discount
-    let discountAmount = 0;
+    // Calculate order-level discount (manual discount)
+    let manualDiscountAmount = 0;
     if (args.orderLevelDiscount !== undefined && args.orderLevelDiscountType !== undefined) {
       if (args.orderLevelDiscountType === "percentage") {
-        discountAmount = totalAmount * (args.orderLevelDiscount / 100);
+        manualDiscountAmount = totalAmount * (args.orderLevelDiscount / 100);
       } else {
-        discountAmount = args.orderLevelDiscount;
+        manualDiscountAmount = args.orderLevelDiscount;
       }
     }
 
-    const finalTotal = totalAmount - discountAmount;
+    // Process voucher if provided
+    let voucherInfo: {
+      voucherId: Id<"vouchers">;
+      voucherCode: string;
+      voucherDiscountValue: number;
+    } | undefined;
+
+    if (args.voucherCode) {
+      // Voucher and manual discount are mutually exclusive
+      // If voucher is provided, it overrides manual discount
+      voucherInfo = await validateAndApplyVoucher(
+        ctx,
+        args.voucherCode,
+        totalAmount,
+        customerId
+      );
+      // Use voucher discount instead of manual discount
+      manualDiscountAmount = 0;
+    }
+
+    // Calculate final total
+    const totalDiscount = voucherInfo?.voucherDiscountValue ?? manualDiscountAmount;
+
+    // Validate final price (hard block if <= 0)
+    const { finalPrice, isLowPrice } = validateFinalPrice(totalAmount, totalDiscount);
+
+    // Check low price confirmation if needed
+    if (isLowPrice && !args.lowPriceConfirmed) {
+      throw new Error(
+        "CONFIRMATION_REQUIRED:LOW_PRICE:Final price is below Rp 20,000. Please confirm this is intentional."
+      );
+    }
+
+    const finalTotal = finalPrice;
 
     // Create order
     const orderId = await ctx.db.insert("orders", {
@@ -269,9 +309,16 @@ export const create = mutation({
       totalAmount,
       totalCost,
       totalMargin: totalAmount - totalCost,
-      orderLevelDiscount: args.orderLevelDiscount,
-      orderLevelDiscountType: args.orderLevelDiscountType,
+      // Manual discount (only used if no voucher)
+      orderLevelDiscount: voucherInfo ? undefined : args.orderLevelDiscount,
+      orderLevelDiscountType: voucherInfo ? undefined : args.orderLevelDiscountType,
       finalTotal,
+      // Voucher info (if applied)
+      voucherId: voucherInfo?.voucherId,
+      voucherCode: voucherInfo?.voucherCode,
+      voucherDiscountValue: voucherInfo?.voucherDiscountValue,
+      lowPriceConfirmed: isLowPrice ? args.lowPriceConfirmed : undefined,
+      // Other fields
       channel: args.channel,
       soldBy: args.soldBy,
       deliveryType: args.deliveryType ?? "Pickup",
@@ -312,6 +359,11 @@ export const create = mutation({
     // PRD-7: Track channel usage for "Top 4" button selectors
     if (args.channel) {
       await incrementChannelUsage(ctx, args.channel);
+    }
+
+    // Record voucher usage if voucher was applied
+    if (voucherInfo) {
+      await recordVoucherUsage(ctx, voucherInfo.voucherId, customerId, orderId);
     }
 
     return orderId;
@@ -379,6 +431,11 @@ export const cancel = mutation({
 
     // PRD-7: Mark production records as cancelled (use helper)
     await cancelOrderProductionRecords(ctx, args.orderId);
+
+    // Release voucher usage if voucher was applied
+    if (order.voucherId) {
+      await releaseVoucherUsage(ctx, order.voucherId, args.orderId);
+    }
 
     // Count how many production records were cancelled (for audit log)
     let productionRecordsCancelled = 0;

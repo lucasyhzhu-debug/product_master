@@ -13,6 +13,218 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-04 - Voucher Code Feature - Complete Discount System
+
+**Implemented comprehensive voucher code system with manager overrides and POS integration**
+
+### Feature Overview
+- Full CRUD voucher management (admin-only interface)
+- Voucher code validation with usage limits and per-customer restrictions
+- Manager override vouchers for ad-hoc discounts (single-use, 24hr expiry)
+- POS checkout integration with real-time validation
+- Low price warning dialog for orders < Rp 20,000
+- Automatic voucher release on order edit (prevents stale discounts)
+- Historical snapshots (voucher code/value saved on orders)
+
+### Business Rules Implemented
+1. **Voucher Types**:
+   - Regular vouchers: Reusable codes with configurable usage limits
+   - Manager overrides: Auto-generated single-use codes for special discounts
+2. **Validation**:
+   - Active status check (`isActive === true`)
+   - Date range validation (`validFrom` to `validUntil`)
+   - Total usage limit check (`usageCount < usageLimit`)
+   - Per-customer limit check (tracked via `voucherUsage` table)
+   - Minimum order amount enforcement
+3. **Final Price Rules**:
+   - Hard block: Final price ≤ 0 (backend validation)
+   - Warning dialog: Final price < Rp 20,000 (requires confirmation)
+4. **Order Integration**:
+   - Voucher auto-release on order modification (user must re-apply)
+   - Usage count decrements on order cancellation
+   - Voucher snapshots preserved on orders for historical accuracy
+
+### Backend Changes (Convex)
+
+**Schema (Phase 1)**:
+- Added `vouchers` table (14 fields including discount config, validity, usage limits)
+- Added `voucherUsage` table (tracking per-customer voucher usage)
+- Added voucher fields to `orders` table:
+  - `voucherId: v.optional(v.id("vouchers"))`
+  - `voucherCode: v.optional(v.string())` (snapshot)
+  - `voucherDiscountValue: v.optional(v.number())` (snapshot)
+  - `lowPriceConfirmed: v.optional(v.boolean())`
+- Added indexes: `by_code`, `by_active`, `by_active_valid` on vouchers
+- Added indexes: `by_voucher`, `by_customer`, `by_voucher_customer`, `by_order` on voucherUsage
+
+**Queries (Phase 2)**:
+- Created `convex/vouchers/queries.ts`:
+  - `list()` - List all vouchers with metadata
+  - `getById({ id })` - Get single voucher
+  - `validateVoucher({ code, customerId?, orderTotal })` - Validate and calculate discount
+
+**Mutations (Phase 2)**:
+- Created `convex/vouchers/mutations.ts`:
+  - `create({ code, name, description, discountType, discountValue, ... })` - Admin creates voucher
+  - `update({ id, ... })` - Admin edits voucher
+  - `deactivate({ id })` - Admin deactivates voucher
+  - `createManagerOverride({ discountType, discountValue, reason, orderId })` - Generate single-use override
+- All mutations require admin role via `requireRole(ctx, args.token, ["admin"])`
+- Manager override allowed for managers and admins (but only during checkout)
+
+**Order Integration (Phase 3)**:
+- Modified `convex/orders/mutations/orderCrud.ts`:
+  - Added voucher application logic in `create()`
+  - Added voucher validation (calls `validateVoucher` query)
+  - Added `voucherUsage` record creation on order creation
+  - Added usage count increment/decrement logic
+  - Added voucher auto-release on order edit (decrements usage, deletes voucherUsage record)
+  - Added final price validation (hard block if ≤ 0)
+- Updated `convex/orders/whatsapp.ts` to include voucher in receipt template
+
+### Frontend Changes (React)
+
+**Access Control (Phase 4)**:
+- Added `canAccessVouchers` permission to `src/lib/types.ts` (admin: true, others: false)
+- Added `/vouchers` protected route in `src/App.tsx`
+- Added "Vouchers" navigation link in `src/components/layout/Header.tsx` (admin only)
+- Imported Space Grotesk font for voucher codes
+- Added brand colors to Tailwind config: `#2A5C4D` (Forest Green), `#FF6B35` (Terracotta Orange)
+
+**VouchersManager Page (Phase 5)**:
+- Created `src/pages/VouchersManager.tsx`:
+  - Two-column layout (voucher list + detail/form panel)
+  - Tabbed interface: Active / Scheduled / Inactive / Manager Overrides
+  - VoucherCard component with usage progress bar animation
+  - VoucherForm with validation
+  - Staggered list rendering with Framer Motion
+  - "Generate Code" button with shuffle animation
+- Created `src/hooks/convex/useVouchers.ts`:
+  - `useConvexVouchers()` - List all vouchers
+  - `useConvexVoucherById({ id })` - Get single voucher
+  - `useConvexCreateVoucher()` - Create mutation hook
+  - `useConvexUpdateVoucher()` - Update mutation hook
+  - `useConvexDeactivateVoucher()` - Deactivate mutation hook
+
+**POS Integration (Phase 6)**:
+- Created `src/components/orders/VoucherInput.tsx`:
+  - State machine (idle/validating/valid/applied/error)
+  - Real-time validation with 300ms debounce
+  - Success/error animations (slide-down, shake)
+  - Applied state with emerald background transition
+  - Clear button with fade transition
+- Created `src/components/orders/ManagerOverrideDialog.tsx`:
+  - Discount type selector (percentage/flat amount)
+  - Value slider with gradient thumb and real-time preview
+  - Final price calculation with color transitions
+  - Reason textarea (required for audit)
+  - Confirmation checkbox for low prices
+  - Gradient button with disabled state handling
+- Created `src/components/orders/LowPriceWarningDialog.tsx`:
+  - Large final price display (5xl font size)
+  - Order breakdown in calculator-style box
+  - Explicit confirmation checkbox
+  - "Proceed" button disabled until confirmed
+- Modified `src/components/orders/OrderFormPOS.tsx`:
+  - Integrated VoucherInput component
+  - Integrated ManagerOverrideDialog (manager + admin only)
+  - Integrated LowPriceWarningDialog
+  - Toast notification on voucher auto-release: "Order modified - voucher removed"
+- Created shadcn/ui components:
+  - `src/components/ui/switch.tsx` - Switch component for active toggle
+  - `src/components/ui/alert-dialog.tsx` - AlertDialog for confirmations
+
+### Design System
+
+**Aesthetic Direction**: "Refined Brutalism with Warm Accents"
+- **Colors**: Indonesian earth tones (Forest Green #2A5C4D, Terracotta Orange #FF6B35)
+- **Typography**: Space Grotesk (voucher codes/emphasis), Inter (body)
+- **Spatial Design**: Dense grids with luxurious individual components
+- **Motion**: Snappy (200ms) state changes, smooth (400ms) modal transitions, playful success states
+
+### Documentation Updates
+
+- **docs/SCHEMA.md**:
+  - Updated table count: 19 → 22 tables
+  - Added Section 19: `vouchers` table with full schema
+  - Added Section 20: `voucherUsage` table with usage flow
+  - Updated Section 16: `orders` table with voucher fields
+  - Updated Visual Schema Diagram to include voucher relationships
+- **docs/API_REFERENCE.md**:
+  - Added voucher queries section (`list`, `getById`, `validateVoucher`)
+  - Added voucher mutations section (`create`, `update`, `deactivate`, `createManagerOverride`)
+  - Documented validation rules and response formats
+- **CLAUDE.md**:
+  - Updated Access Control Status table (added VouchersManager)
+  - Updated Quick File Finder (added voucher tasks)
+  - Updated table count in Critical File Paths: 19 → 22 tables
+
+### Files Created
+
+**Backend**:
+- `convex/vouchers/queries.ts` - Voucher read operations
+- `convex/vouchers/mutations.ts` - Voucher write operations
+
+**Frontend**:
+- `src/pages/VouchersManager.tsx` - Admin voucher management interface
+- `src/hooks/convex/useVouchers.ts` - Voucher query/mutation hooks
+- `src/components/orders/VoucherInput.tsx` - POS voucher code input
+- `src/components/orders/ManagerOverrideDialog.tsx` - Manager override creation
+- `src/components/orders/LowPriceWarningDialog.tsx` - Low price confirmation
+- `src/components/ui/switch.tsx` - shadcn/ui Switch component
+- `src/components/ui/alert-dialog.tsx` - shadcn/ui AlertDialog component
+
+### Files Modified
+
+**Backend**:
+- `convex/schema.ts` - Added vouchers, voucherUsage tables; updated orders table
+- `convex/orders/mutations/orderCrud.ts` - Voucher application and auto-release logic
+- `convex/orders/whatsapp.ts` - Include voucher in receipt template
+
+**Frontend**:
+- `src/lib/types.ts` - Added `canAccessVouchers` permission
+- `src/App.tsx` - Added `/vouchers` route
+- `src/components/layout/Header.tsx` - Added Vouchers nav item
+- `src/pages/index.ts` - Export VouchersManager
+- `src/hooks/convex/useOrders.ts` - Added voucherCode/lowPriceConfirmed fields
+- `src/components/orders/OrderFormPOS.tsx` - Integrated voucher system
+- `tailwind.config.js` - Added brand colors and Space Grotesk font
+
+**Documentation**:
+- `docs/SCHEMA.md` - Added voucher tables, updated orders table
+- `docs/API_REFERENCE.md` - Added voucher functions documentation
+- `CLAUDE.md` - Updated access control, quick file finder, table count
+- `docs/CHANGELOG.md` - This entry
+
+### Commits (feature/voucher-system branch)
+
+1. `2d1331c` - feat(schema): add vouchers and voucherUsage tables for discount system
+2. `afa4496` - feat(vouchers): add CRUD queries and mutations for voucher system
+3. `9f36237` - feat(orders): integrate voucher system with order mutations
+4. `346e96a` - feat(vouchers): add access control and route for VouchersManager
+5. `f099811` - feat(vouchers): implement VouchersManager page with full CRUD
+6. `12c10d8` - feat(vouchers): integrate voucher system into POS checkout
+
+### Testing Checklist
+
+Before production deployment, verify:
+- [ ] Admin can create/edit/delete vouchers via VouchersManager
+- [ ] Voucher codes validate correctly (active, date range, usage limits)
+- [ ] Per-customer usage limits enforced
+- [ ] Manager can create override vouchers during checkout
+- [ ] Low price warning shows when final < Rp 20,000
+- [ ] Final price ≤ 0 blocked by backend
+- [ ] Voucher auto-releases when order is edited
+- [ ] Usage count decrements on order cancellation
+- [ ] WhatsApp receipt includes voucher details
+- [ ] Voucher history preserved on completed orders
+
+### Migration Notes
+
+No migration needed. Tables will auto-create on deployment. Existing orders unaffected (voucher fields optional).
+
+---
+
 ## 2026-02-04 - Admin-Only Access for MenuProductsManager
 
 **Implemented defense-in-depth security for Menu Products Manager**
