@@ -11,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
-import { useVoucherValidation } from "@/hooks/convex/useVouchers";
-// Note: useActiveVouchersForCombobox is temporarily disabled due to deployment issue
+import { useVoucherValidation, useActiveVouchersForCombobox } from "@/hooks/convex/useVouchers";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface VoucherInputProps {
@@ -58,9 +57,7 @@ export function VoucherInput({
   };
 
   // Fetch active vouchers for combobox
-  // DISABLED: Function deployment issue - will debug separately
-  // Using empty array instead of null to prevent TypeScript narrowing issues
-  const activeVouchers: VoucherDropdownItem[] = []; // useActiveVouchersForCombobox() ?? [];
+  const activeVouchers: VoucherDropdownItem[] = useActiveVouchersForCombobox() ?? [];
 
   // Debounce the code input for validation
   const [debouncedCode, setDebouncedCode] = useState("");
