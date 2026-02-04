@@ -49,6 +49,47 @@ export const list = query({
 });
 
 /**
+ * List active vouchers for POS combobox dropdown.
+ * Returns only currently valid, active vouchers (non-override) for user selection.
+ */
+export const listActiveForCombobox = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    // Get all vouchers
+    let vouchers = await ctx.db
+      .query("vouchers")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    // Filter: active, not manager override, within validity period, not depleted
+    vouchers = vouchers.filter((v) => {
+      // Exclude manager overrides
+      if (v.isManagerOverride) return false;
+
+      // Check validity period
+      if (v.validFrom && now < v.validFrom) return false;
+      if (v.validUntil && now > v.validUntil) return false;
+
+      // Check usage limit
+      if (v.usageLimit && v.usageCount >= v.usageLimit) return false;
+
+      return true;
+    });
+
+    // Return simplified format for combobox
+    return vouchers.map((v) => ({
+      code: v.code,
+      name: v.name,
+      discountType: v.discountType,
+      discountValue: v.discountValue,
+      minimumOrderAmount: v.minimumOrderAmount,
+    }));
+  },
+});
+
+/**
  * List manager override vouchers.
  * Used for Manager Overrides tab in VouchersManager.
  */
@@ -289,3 +330,4 @@ export const getVoucherStats = query({
     };
   },
 });
+
