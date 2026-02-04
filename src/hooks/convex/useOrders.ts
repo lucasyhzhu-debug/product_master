@@ -87,7 +87,7 @@ export type OrderStatusType =
 export type PaymentStatusType = "Unpaid" | "Partial" | "Paid";
 
 export interface OrderFilters {
-  status?: OrderStatusType;
+  status?: OrderStatusType | OrderStatusType[];
   channel?: OrderChannel;
   dueDateFrom?: number;
   dueDateTo?: number;
