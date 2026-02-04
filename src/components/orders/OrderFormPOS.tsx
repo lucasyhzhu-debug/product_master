@@ -20,6 +20,7 @@ import {
   useConvexPosProducts,
   useConvexCreateOrder,
   useConvexCustomerSearch,
+  useConvexOrderTemplate,
   type OrderCreateInput,
   type PosProduct,
 } from '@/hooks/convex';
@@ -78,6 +79,8 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
   const { data: customers } = useConvexCustomerSearch(customerSearch || '');
 
+  const { data: orderTemplate, isLoading: templateLoading } = useConvexOrderTemplate();
+
   const createOrder = useConvexCreateOrder();
 
   // ============================================
@@ -106,26 +109,16 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // ============================================
 
   const handleCopyTemplate = async () => {
-    const template = `Halo! Mau makan Frollie snacks?
-
-1. Original (80g) - Rp 50.000 [  ]
-2. Bite Sized Single (45g) - Rp 35.000 [  ]
-3. Bite Sized Double (90g = 2x45g) - Rp 70.000 [  ]
-4. Bite Sized Triple (135g = 3x45g) - Rp 99.000 [  ]
-
----
-Untuk customer baru:
-No. WA:
-Nama:
-Alamat:
-
-Isi jumlah yang diinginkan di dalam [ ]
-
----
-Transfer ke: BCA 1234567890 a.n. Frollie`;
-
+    if (!orderTemplate) {
+      toast.error('Template loading...');
+      return;
+    }
+    if (orderTemplate.trim() === '') {
+      toast.error('No POS products configured. Add products in Menu Products Manager.');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(template);
+      await navigator.clipboard.writeText(orderTemplate);
       toast.success('Template copied to clipboard');
     } catch {
       toast.error('Could not copy to clipboard');
@@ -306,7 +299,7 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
-              Template
+              Send Order Sheet to Customer
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -326,14 +319,24 @@ Transfer ke: BCA 1234567890 a.n. Frollie`;
                 </Tooltip>
               </TooltipProvider>
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={handleCopyTemplate} className="shrink-0">
-              <Clipboard className="h-4 w-4 mr-2" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyTemplate}
+              disabled={templateLoading}
+              className="shrink-0"
+            >
+              {templateLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Clipboard className="h-4 w-4 mr-2" />
+              )}
               Copy Template
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          <PasteTemplateBox onParsed={handleParsed} />
+          <PasteTemplateBox onParsed={handleParsed} initialValue={orderTemplate ?? ''} />
         </CardContent>
       </Card>
 

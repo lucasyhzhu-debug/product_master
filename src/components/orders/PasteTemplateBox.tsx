@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clipboard, FileText, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,10 +9,18 @@ import { toast } from 'sonner';
 
 interface PasteTemplateBoxProps {
   onParsed: (result: ParseResult) => void;
+  initialValue?: string;
 }
 
-export function PasteTemplateBox({ onParsed }: PasteTemplateBoxProps) {
-  const [templateText, setTemplateText] = useState('');
+export function PasteTemplateBox({ onParsed, initialValue = '' }: PasteTemplateBoxProps) {
+  const [templateText, setTemplateText] = useState(initialValue);
+
+  // Update textarea when initialValue changes (for async loading from Convex)
+  useEffect(() => {
+    if (initialValue && !templateText) {
+      setTemplateText(initialValue);
+    }
+  }, [initialValue, templateText]);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
 
   const handlePaste = async () => {
