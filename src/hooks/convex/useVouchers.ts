@@ -23,6 +23,7 @@ const vouchersApi = (api as any).vouchers as {
     validateVoucher: unknown;
     getCustomerUsageCount: unknown;
     getVoucherStats: unknown;
+    getOverrideOrderDetails: unknown;
   };
   mutations: {
     create: unknown;
