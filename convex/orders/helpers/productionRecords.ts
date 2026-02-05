@@ -150,6 +150,7 @@ export async function resetOrderProductionComplete(
 
 /**
  * Create production records for a new order item based on menu product components.
+ * Uses componentType → productionUnitType bridge (required by orderItemProduction schema).
  */
 export async function createProductionRecordsForItem(
   ctx: MutationCtx,
@@ -165,16 +166,34 @@ export async function createProductionRecordsForItem(
 
   // Create production records for each component
   for (const component of components) {
-    const unitType = await ctx.db.get(component.productionUnitTypeId);
-    if (!unitType) continue;
+    // Get componentType
+    const componentType = await ctx.db.get(component.componentTypeId);
+    if (!componentType) continue;
+
+    // Only create records for production components (not packaging)
+    if (componentType.category !== "production") continue;
 
     const unitsRequired = component.quantity * quantity;
 
+    // Bridge: Find productionUnitType by matching code
+    // This bridge MUST stay because orderItemProduction.productionUnitTypeId is REQUIRED (v.id, not optional)
+    const productionUnitType = await ctx.db
+      .query("productionUnitTypes")
+      .withIndex("by_code", (q) => q.eq("code", componentType.code))
+      .first();
+
+    if (!productionUnitType) {
+      console.warn(
+        `No productionUnitType found for componentType "${componentType.code}". Skipping production record.`
+      );
+      continue;
+    }
+
     await ctx.db.insert("orderItemProduction", {
       orderItemId,
-      productionUnitTypeId: component.productionUnitTypeId,
-      productionUnitCode: unitType.code,
-      productionUnitName: unitType.name,
+      productionUnitTypeId: productionUnitType._id,
+      productionUnitCode: componentType.code,
+      productionUnitName: componentType.name,
       unitsRequired,
       unitsCompleted: 0,
       unitsRemaining: unitsRequired,
@@ -198,10 +217,22 @@ export async function updateProductionRecordsForQuantityChange(
     .withIndex("by_menu_product", (q) => q.eq("menuProductId", menuProductId))
     .collect();
 
-  // Create a map of component productionUnitTypeId to quantity
+  // Create a map of productionUnitTypeId to quantity
+  // We need to map componentType → productionUnitType to match orderItemProduction records
   const componentMap = new Map<string, number>();
   for (const comp of components) {
-    componentMap.set(comp.productionUnitTypeId.toString(), comp.quantity);
+    const componentType = await ctx.db.get(comp.componentTypeId);
+    if (!componentType || componentType.category !== "production") continue;
+
+    // Find matching productionUnitType by code
+    const productionUnitType = await ctx.db
+      .query("productionUnitTypes")
+      .withIndex("by_code", (q) => q.eq("code", componentType.code))
+      .first();
+
+    if (productionUnitType) {
+      componentMap.set(productionUnitType._id.toString(), comp.quantity);
+    }
   }
 
   // Get existing production records

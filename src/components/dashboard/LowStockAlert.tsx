@@ -85,7 +85,7 @@ export function LowStockAlert() {
       <CardContent>
         <div className="space-y-3">
           {topAlerts.map((alert) => {
-            const percentAvailable = (alert.available / alert.reorderPoint) * 100;
+            const percentAvailable = (alert.available / (alert.reorderPoint ?? 1)) * 100;
             const severity = percentAvailable <= 0 ? "critical" : percentAvailable < 50 ? "urgent" : "warning";
 
             return (

@@ -21,9 +21,9 @@ export interface MenuProductCreateInput {
   productionType?: string;
   productionUnits?: number;
   isActive?: boolean;
-  // PRD-4a: Components for auto-calculation
+  // Unified BOM: Components array using componentTypeId
   components?: Array<{
-    productionUnitTypeId: Id<"productionUnitTypes">;
+    componentTypeId: Id<"componentTypes">;
     quantity: number;
   }>;
 }
@@ -36,9 +36,9 @@ export interface MenuProductUpdateInput {
   productionType?: string;
   productionUnits?: number;
   isActive?: boolean;
-  // PRD-4a: Components for auto-calculation
+  // Unified BOM: Components array using componentTypeId
   components?: Array<{
-    productionUnitTypeId: Id<"productionUnitTypes">;
+    componentTypeId: Id<"componentTypes">;
     quantity: number;
   }>;
 }
@@ -163,6 +163,17 @@ export interface PosProduct {
   productionUnits?: number;
   posSlot: 1 | 2 | 3 | 4;
   isFixed?: boolean;
+  productType?: "food" | "packaging";
+}
+
+export interface PackagingPosProduct {
+  _id: string;
+  code: string;
+  name: string;
+  defaultPrice: number;
+  unitCost?: number;
+  packagingPosSlot: 1 | 2 | 3 | 4;
+  productType: "packaging";
 }
 
 export function useConvexPosProducts() {
@@ -181,6 +192,7 @@ export function useConvexPosProducts() {
     productionUnits: p.productionUnits,
     posSlot: p.posSlot as 1 | 2 | 3 | 4,
     isFixed: p.isFixed,
+    productType: p.productType as "food" | "packaging" | undefined,
   }));
 
   return {
@@ -203,6 +215,7 @@ export interface LegacyProduct {
   productionType?: string;
   productionUnits?: number;
   isFixed?: boolean;
+  productType?: "food" | "packaging";
 }
 
 export function useConvexLegacyProducts() {
@@ -220,6 +233,7 @@ export function useConvexLegacyProducts() {
     productionType: p.productionType,
     productionUnits: p.productionUnits,
     isFixed: p.isFixed,
+    productType: p.productType as "food" | "packaging" | undefined,
   }));
 
   return {
@@ -435,6 +449,88 @@ export function useConvexRemoveFromSlot() {
         return resultId;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Failed to remove from slot";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+// ============================================
+// Packaging POS Hooks
+// ============================================
+
+/**
+ * List packaging products assigned to packaging POS slots (1-4).
+ */
+export function useConvexPackagingPosProducts() {
+  const data = useQuery(api.menuProducts.queries.listPackagingPosProducts);
+  if (data === undefined) return { data: undefined, isLoading: true };
+
+  const packagingProducts = data.map((p): PackagingPosProduct => ({
+    _id: p._id as unknown as string,
+    code: p.code,
+    name: p.name,
+    defaultPrice: p.defaultPrice,
+    unitCost: p.unitCost,
+    packagingPosSlot: p.packagingPosSlot as 1 | 2 | 3 | 4,
+    productType: "packaging",
+  }));
+
+  return {
+    data: packagingProducts,
+    isLoading: false,
+  };
+}
+
+/**
+ * Assign a packaging product to a packaging POS slot (1-4).
+ * Validates product is packaging-type.
+ * Requires admin authentication.
+ */
+export function useConvexAssignToPackagingSlot() {
+  const mutation = useMutation(api.menuProducts.mutations.assignToPackagingSlot);
+  const { user } = useAuth();
+
+  return {
+    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      try {
+        const id = await mutation({ ...data, token: user.token });
+        toast.success(`Assigned to packaging slot ${data.slot}`);
+        return id;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to assign packaging slot";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * Remove a packaging product from its packaging POS slot.
+ * Requires admin authentication.
+ */
+export function useConvexRemoveFromPackagingSlot() {
+  const mutation = useMutation(api.menuProducts.mutations.removeFromPackagingSlot);
+  const { user } = useAuth();
+
+  return {
+    mutate: async (id: Id<"menuProducts">) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      try {
+        const resultId = await mutation({ id, token: user.token });
+        toast.success("Removed from packaging POS");
+        return resultId;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to remove from packaging slot";
         toast.error(message);
         throw error;
       }

@@ -20,6 +20,8 @@ import {
   InventoryManager,
   LocationsManager,
   ComponentTypesManager,
+  ProductionComponentsManager,
+  PackagingComponentsManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -214,12 +216,32 @@ function App() {
               }
             />
 
-            {/* Component Types - Manager and Admin */}
+            {/* Component Types - Manager and Admin (legacy path) */}
             <Route
               path="inventory/components"
               element={
                 <ProtectedRoute requiredPermission="canAccessInventory">
                   <ComponentTypesManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Production Components - Manager and Admin */}
+            <Route
+              path="components/production"
+              element={
+                <ProtectedRoute requiredPermission="canAccessInventory">
+                  <ProductionComponentsManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Packaging Components - Manager and Admin */}
+            <Route
+              path="components/packaging"
+              element={
+                <ProtectedRoute requiredPermission="canAccessInventory">
+                  <PackagingComponentsManager />
                 </ProtectedRoute>
               }
             />

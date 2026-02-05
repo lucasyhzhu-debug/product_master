@@ -109,6 +109,22 @@ export function useConvexLocationTransactions(
   );
 }
 
+/**
+ * Get latest batch for a component at a location.
+ * Used for pre-filling supplier info when receiving new stock.
+ */
+export function useConvexLatestBatch(
+  componentTypeId: Id<"componentTypes"> | undefined,
+  locationId: Id<"storageLocations"> | undefined
+) {
+  return useQuery(
+    api.inventory.queries.getLatestBatch,
+    componentTypeId && locationId
+      ? { componentTypeId, locationId }
+      : "skip"
+  );
+}
+
 // ============================================================================
 // MUTATION HOOKS
 // ============================================================================
@@ -118,6 +134,16 @@ export function useConvexLocationTransactions(
  */
 export function useConvexReceiveStock() {
   return useMutation(api.inventory.mutations.receiveStock);
+}
+
+/**
+ * Create component and receive stock (combined operation)
+ *
+ * Creates a new packaging component type on first receipt.
+ * Used by Receive Stock dialog for inline component creation.
+ */
+export function useConvexCreateComponentAndReceiveStock() {
+  return useMutation(api.inventory.mutations.createComponentAndReceiveStock);
 }
 
 /**
@@ -165,6 +191,7 @@ export type ReceiveStockInput = {
   expiryDate?: number;
   referenceNote?: string;
   createdBy: string;
+  copyFromBatchId?: Id<"inventoryBatches">;
 };
 
 export type TransferStockInput = {
@@ -199,6 +226,7 @@ export type LowStockAlert = {
     isActive: boolean;
     createdBy: string;
     createdAt: number;
+    alarmPercentage?: number;
   };
   location: {
     _id: string;
@@ -217,8 +245,12 @@ export type LowStockAlert = {
     totalReserved: number;
     weightedUnitCostIdr: number;
     lastUpdated: number;
+    lastRestockTotalStock?: number;
   };
   available: number;
-  reorderPoint: number;
-  shortage: number;
+  reorderPoint?: number;
+  shortage?: number;
+  alarmType?: "units" | "percentage" | "both";
+  percentRemaining?: number;
+  alarmPercentage?: number;
 };

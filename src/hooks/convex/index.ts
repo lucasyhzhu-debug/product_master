@@ -108,17 +108,21 @@ export {
   useConvexFixedProducts,
   useConvexPosProducts,
   useConvexLegacyProducts,
+  useConvexPackagingPosProducts,
   // Mutation hooks
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexDeleteMenuProduct,
   useConvexAssignToSlot,
   useConvexRemoveFromSlot,
+  useConvexAssignToPackagingSlot,
+  useConvexRemoveFromPackagingSlot,
   // Types
   type MenuProductCreateInput,
   type MenuProductUpdateInput,
   type FixedProduct,
   type PosProduct,
+  type PackagingPosProduct,
   type LegacyProduct,
 } from "./useMenuProducts";
 
@@ -251,8 +255,10 @@ export {
   useConvexInventoryReport,
   useConvexComponentBatches,
   useConvexLocationTransactions,
+  useConvexLatestBatch,
   // Mutation hooks
   useConvexReceiveStock,
+  useConvexCreateComponentAndReceiveStock,
   useConvexTransferStock,
   useConvexAdjustStock,
   useConvexDeleteBatch,
@@ -276,6 +282,7 @@ export {
   useConvexCreateComponentType,
   useConvexUpdateComponentType,
   useConvexDeleteComponentType,
+  useConvexCreatePackagingQuick,
   // Types
   type ComponentTypeCreateInput,
   type ComponentTypeUpdateInput,

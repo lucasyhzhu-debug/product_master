@@ -614,6 +614,60 @@ const updateField = <K extends keyof FormState>(
 };
 ```
 
+### React Hooks Rules
+
+**CRITICAL: All hooks must be called before any conditional returns**
+
+React requires hooks to be called in the same order on every render. Violating this causes "Rendered more hooks than during the previous render" errors.
+
+#### ✅ CORRECT Pattern
+```typescript
+export function MyComponent() {
+  // 1. Call ALL hooks at the top
+  const [state, setState] = useState(false);
+  const data = useQuery(api.myQuery.list);
+  const mutation = useMutation(api.myMutation.create);
+  const computed = useMemo(() => expensiveCalc(data), [data]);
+
+  // 2. THEN do conditional returns
+  if (data === undefined) {
+    return <Loading />;
+  }
+
+  if (data.length === 0) {
+    return <Empty />;
+  }
+
+  // 3. Finally, render main content
+  return <div>...</div>;
+}
+```
+
+#### ❌ WRONG Pattern
+```typescript
+export function MyComponent() {
+  const [state, setState] = useState(false);
+
+  // WRONG: Early return before calling all hooks
+  if (someCondition) {
+    return <Loading />;
+  }
+
+  // WRONG: These hooks won't be called on every render
+  const data = useQuery(api.myQuery.list);
+  const computed = useMemo(() => calc(data), [data]);
+}
+```
+
+**Why this matters:**
+- React tracks hooks by call order, not by name
+- Conditional hook calls cause React to lose track of state
+- Errors manifest as "hook order changed" or "rendered more hooks"
+
+**Reference:** [React Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks)
+
+---
+
 ### Form Handling
 ```typescript
 // Use controlled components

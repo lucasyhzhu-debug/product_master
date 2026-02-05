@@ -634,7 +634,8 @@ export const getPackagingOrders = query({
             let productionComponents: Array<{
               _id: Id<"menuProductComponents">;
               menuProductId: Id<"menuProducts">;
-              productionUnitTypeId: Id<"productionUnitTypes">;
+              componentTypeId?: Id<"componentTypes">;
+              productionUnitTypeId?: Id<"productionUnitTypes">;
               quantity: number;
               sortOrder: number;
               productionUnitType: Awaited<ReturnType<typeof ctx.db.get<"productionUnitTypes">>>;
@@ -651,7 +652,9 @@ export const getPackagingOrders = query({
 
               productionComponents = await Promise.all(
                 components.map(async (comp) => {
-                  const unitType = await ctx.db.get(comp.productionUnitTypeId);
+                  const unitType = comp.productionUnitTypeId
+                    ? await ctx.db.get(comp.productionUnitTypeId)
+                    : null;
                   return {
                     ...comp,
                     productionUnitType: unitType,

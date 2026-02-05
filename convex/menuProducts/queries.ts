@@ -45,6 +45,7 @@ export const getByCode = query({
 /**
  * PRD-8: List products assigned to POS slots (1-4), sorted by slot.
  * Returns products with posSlot 1-4 in slot order.
+ * Excludes packaging-type products (which use packagingPosSlot instead).
  */
 export const listPosProducts = query({
   args: {},
@@ -54,9 +55,9 @@ export const listPosProducts = query({
       .query("menuProducts")
       .collect();
 
-    // Filter for products with posSlot and sort by slot
+    // Filter for products with posSlot (exclude packaging type) and sort by slot
     const posProducts = products
-      .filter((p) => p.posSlot !== undefined)
+      .filter((p) => p.posSlot !== undefined && p.productType !== "packaging")
       .sort((a, b) => (a.posSlot ?? 0) - (b.posSlot ?? 0));
 
     return posProducts;
@@ -78,5 +79,26 @@ export const listLegacyProducts = query({
     const legacyProducts = products.filter((p) => p.posSlot === undefined);
 
     return legacyProducts;
+  },
+});
+
+/**
+ * List products assigned to packaging POS slots (1-4), sorted by slot.
+ * Returns packaging products with packagingPosSlot 1-4 in slot order.
+ */
+export const listPackagingPosProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all products with packagingPosSlot defined (1-4)
+    const products = await ctx.db
+      .query("menuProducts")
+      .collect();
+
+    // Filter for products with packagingPosSlot and sort by slot
+    const packagingPosProducts = products
+      .filter((p) => p.packagingPosSlot !== undefined)
+      .sort((a, b) => (a.packagingPosSlot ?? 0) - (b.packagingPosSlot ?? 0));
+
+    return packagingPosProducts;
   },
 });

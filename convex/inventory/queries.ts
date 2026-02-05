@@ -10,8 +10,12 @@ import { v } from "convex/values";
 /**
  * Get low stock alerts
  *
- * Returns components where available stock < reorderPoint.
+ * Returns components where available stock < reorderPoint OR below alarmPercentage.
  * Available = totalStock - totalReserved
+ *
+ * Alert fires if EITHER threshold is breached:
+ * - Units threshold: available < reorderPoint
+ * - Percentage threshold: (available / lastRestockTotalStock) < alarmPercentage
  */
 export const getLowStockAlerts = query({
   args: {},
@@ -30,28 +34,62 @@ export const getLowStockAlerts = query({
       // Skip if component doesn't track inventory
       if (!component.trackInventory) continue;
 
-      // Skip if no reorder point set
-      if (!component.reorderPoint) continue;
-
       const available = stock.totalStock - stock.totalReserved;
 
-      if (available < component.reorderPoint) {
+      // Check units threshold
+      const unitsBreached = component.reorderPoint != null && available < component.reorderPoint;
+
+      // Check percentage threshold
+      let percentRemaining: number | undefined = undefined;
+      let percentageBreached = false;
+
+      if (
+        component.alarmPercentage != null &&
+        stock.lastRestockTotalStock != null &&
+        stock.lastRestockTotalStock > 0
+      ) {
+        percentRemaining = (available / stock.lastRestockTotalStock) * 100;
+        percentageBreached = percentRemaining < component.alarmPercentage;
+      }
+
+      // Alert if either threshold breached
+      if (unitsBreached || percentageBreached) {
+        let alarmType: "units" | "percentage" | "both";
+        if (unitsBreached && percentageBreached) {
+          alarmType = "both";
+        } else if (unitsBreached) {
+          alarmType = "units";
+        } else {
+          alarmType = "percentage";
+        }
+
         alerts.push({
           component,
           location,
           stock,
           available,
           reorderPoint: component.reorderPoint,
-          shortage: component.reorderPoint - available,
+          shortage: component.reorderPoint ? component.reorderPoint - available : undefined,
+          alarmType,
+          percentRemaining,
+          alarmPercentage: component.alarmPercentage,
         });
       }
     }
 
     // Sort by shortage percentage (most critical first)
     alerts.sort((a, b) => {
-      const aPercent = a.available / a.reorderPoint;
-      const bPercent = b.available / b.reorderPoint;
-      return aPercent - bPercent;
+      // Prioritize by percentage if available
+      if (a.percentRemaining != null && b.percentRemaining != null) {
+        return a.percentRemaining - b.percentRemaining;
+      }
+      // Fall back to units-based percentage
+      if (a.reorderPoint && b.reorderPoint) {
+        const aPercent = a.available / a.reorderPoint;
+        const bPercent = b.available / b.reorderPoint;
+        return aPercent - bPercent;
+      }
+      return 0;
     });
 
     return alerts;
@@ -353,5 +391,36 @@ export const getLocationTransactions = query({
       location,
       transactions: enrichedTransactions,
     };
+  },
+});
+
+/**
+ * Get latest batch for a component at a location
+ *
+ * Returns the most recent batch by purchase date.
+ * Used for pre-filling supplier info when receiving new stock.
+ */
+export const getLatestBatch = query({
+  args: {
+    componentTypeId: v.id("componentTypes"),
+    locationId: v.id("storageLocations"),
+  },
+  handler: async (ctx, args) => {
+    // Get all batches for this component at this location
+    const batches = await ctx.db
+      .query("inventoryBatches")
+      .withIndex("by_fifo", (q) =>
+        q.eq("componentTypeId", args.componentTypeId).eq("locationId", args.locationId)
+      )
+      .collect();
+
+    if (batches.length === 0) {
+      return null;
+    }
+
+    // Sort by purchase date descending (newest first)
+    batches.sort((a, b) => b.purchaseDate - a.purchaseDate);
+
+    return batches[0];
   },
 });

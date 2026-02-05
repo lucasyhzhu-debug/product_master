@@ -11,6 +11,133 @@ import { consumeFromFIFO, applyFIFOConsumption } from "./fifo";
 import { updateComponentStock } from "./helpers";
 
 /**
+ * Create component and receive stock (combined operation)
+ *
+ * Creates a new packaging component type on first receipt.
+ * Used by Receive Stock dialog for inline component creation.
+ */
+export const createComponentAndReceiveStock = mutation({
+  args: {
+    // New component details
+    code: v.string(),
+    name: v.string(),
+    category: v.union(
+      v.literal("direct_packaging"),
+      v.literal("indirect_packaging")
+    ),
+    unit: v.string(),
+    reorderPoint: v.optional(v.number()),
+    color: v.optional(v.string()),
+    // Receipt details (same as receiveStock)
+    locationId: v.id("storageLocations"),
+    purchaseDate: v.number(),
+    supplierName: v.string(),
+    supplierBrand: v.optional(v.string()),
+    purchaseReference: v.optional(v.string()),
+    purchaseUrl: v.optional(v.string()),
+    quantityPurchased: v.number(),
+    totalCostIdr: v.number(),
+    expiryDate: v.optional(v.number()),
+    referenceNote: v.optional(v.string()),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if component code already exists
+    const existing = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_code", (q) => q.eq("code", args.code))
+      .first();
+
+    if (existing) {
+      throw new Error(`Component with code "${args.code}" already exists`);
+    }
+
+    // Validate location exists
+    const location = await ctx.db.get(args.locationId);
+    if (!location) {
+      throw new Error("Location not found");
+    }
+
+    // Get max sortOrder for new component
+    const allComponents = await ctx.db.query("componentTypes").collect();
+    const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
+
+    // Create component type (NO unitCostIdr - comes from batches!)
+    const componentId = await ctx.db.insert("componentTypes", {
+      code: args.code,
+      name: args.name,
+      category: args.category,
+      unitCostIdr: 0, // Placeholder - will be calculated from batches
+      unit: args.unit,
+      gramsPerUnit: undefined, // Packaging doesn't need grams
+      trackInventory: true, // Always true for packaging
+      reorderPoint: args.reorderPoint,
+      reorderQuantity: undefined,
+      color: args.color,
+      sortOrder: maxSort + 1,
+      isActive: true,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
+
+    // Calculate unit cost for this batch
+    const unitCostIdr = args.totalCostIdr / args.quantityPurchased;
+
+    // Create batch
+    const batchId = await ctx.db.insert("inventoryBatches", {
+      componentTypeId: componentId,
+      locationId: args.locationId,
+      purchaseDate: args.purchaseDate,
+      supplierName: args.supplierName,
+      supplierBrand: args.supplierBrand,
+      purchaseReference: args.purchaseReference,
+      purchaseUrl: args.purchaseUrl,
+      quantityPurchased: args.quantityPurchased,
+      totalCostIdr: args.totalCostIdr,
+      unitCostIdr,
+      quantityRemaining: args.quantityPurchased,
+      quantityReserved: 0,
+      status: "active",
+      expiryDate: args.expiryDate,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
+
+    // Create transaction record
+    await ctx.db.insert("componentTransactions", {
+      componentTypeId: componentId,
+      locationId: args.locationId,
+      batchId,
+      transactionType: "receive",
+      quantity: args.quantityPurchased,
+      unitCostAtTime: unitCostIdr,
+      referenceNote: args.referenceNote,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
+
+    // Update component stock aggregates
+    await updateComponentStock(ctx, componentId, args.locationId);
+
+    // Set lastRestockTotalStock baseline (for percentage alerts)
+    const stockRecord = await ctx.db
+      .query("componentStock")
+      .withIndex("by_component_location", (q) =>
+        q.eq("componentTypeId", componentId).eq("locationId", args.locationId)
+      )
+      .first();
+
+    if (stockRecord) {
+      await ctx.db.patch(stockRecord._id, {
+        lastRestockTotalStock: stockRecord.totalStock,
+      });
+    }
+
+    return { componentId, batchId };
+  },
+});
+
+/**
  * Receive stock - Create new batch with supplier info
  *
  * Creates a new inventory batch and updates componentStock aggregates.
@@ -33,6 +160,8 @@ export const receiveStock = mutation({
     expiryDate: v.optional(v.number()),
     referenceNote: v.optional(v.string()),
     createdBy: v.string(),
+    // Copy supplier fields from existing batch
+    copyFromBatchId: v.optional(v.id("inventoryBatches")),
   },
   handler: async (ctx, args) => {
     // Validate component exists
@@ -52,6 +181,22 @@ export const receiveStock = mutation({
       throw new Error("Quantity must be positive");
     }
 
+    // If copyFromBatchId provided, pre-fill supplier fields
+    let supplierName = args.supplierName;
+    let supplierBrand = args.supplierBrand;
+    let purchaseReference = args.purchaseReference;
+    let purchaseUrl = args.purchaseUrl;
+
+    if (args.copyFromBatchId) {
+      const sourceBatch = await ctx.db.get(args.copyFromBatchId);
+      if (sourceBatch) {
+        supplierName = supplierName || sourceBatch.supplierName;
+        supplierBrand = supplierBrand || sourceBatch.supplierBrand;
+        purchaseReference = purchaseReference || sourceBatch.purchaseReference;
+        purchaseUrl = purchaseUrl || sourceBatch.purchaseUrl;
+      }
+    }
+
     // Calculate unit cost
     const unitCostIdr = args.totalCostIdr / args.quantityPurchased;
 
@@ -60,10 +205,10 @@ export const receiveStock = mutation({
       componentTypeId: args.componentTypeId,
       locationId: args.locationId,
       purchaseDate: args.purchaseDate,
-      supplierName: args.supplierName,
-      supplierBrand: args.supplierBrand,
-      purchaseReference: args.purchaseReference,
-      purchaseUrl: args.purchaseUrl,
+      supplierName,
+      supplierBrand,
+      purchaseReference,
+      purchaseUrl,
       quantityPurchased: args.quantityPurchased,
       totalCostIdr: args.totalCostIdr,
       unitCostIdr,
@@ -90,6 +235,20 @@ export const receiveStock = mutation({
 
     // Update component stock aggregates
     await updateComponentStock(ctx, args.componentTypeId, args.locationId);
+
+    // Set lastRestockTotalStock baseline (for percentage alerts)
+    const stockRecord = await ctx.db
+      .query("componentStock")
+      .withIndex("by_component_location", (q) =>
+        q.eq("componentTypeId", args.componentTypeId).eq("locationId", args.locationId)
+      )
+      .first();
+
+    if (stockRecord) {
+      await ctx.db.patch(stockRecord._id, {
+        lastRestockTotalStock: stockRecord.totalStock,
+      });
+    }
 
     return batchId;
   },

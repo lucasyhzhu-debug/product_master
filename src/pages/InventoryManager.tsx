@@ -6,7 +6,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { Package, Plus, AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Package, Plus, AlertTriangle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +26,7 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { StatCard } from "@/components/inventory/StatCard";
 
 export function InventoryManager() {
+  const navigate = useNavigate();
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
   >("all");
@@ -35,45 +37,9 @@ export function InventoryManager() {
   const report = useConvexInventoryReport(true);
   const lowStockAlerts = useConvexLowStockAlerts();
 
-  // Loading state
-  if (
-    locations === undefined ||
-    report === undefined ||
-    lowStockAlerts === undefined
-  ) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-12 w-64" />
-        <div className="grid gap-4 lg:grid-cols-4">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-        </div>
-        <Skeleton className="h-96" />
-      </div>
-    );
-  }
-
-  // Calculate stats
-  const totalComponents = report.matrix.length;
-  const totalStockValue = report.matrix.reduce((sum, row) => {
-    return (
-      sum +
-      row.stockByLocation.reduce(
-        (locSum, loc) => locSum + loc.totalStock * loc.weightedUnitCostIdr,
-        0
-      )
-    );
-  }, 0);
-  const totalReserved = report.matrix.reduce(
-    (sum, row) => sum + row.totalReservedAcrossLocations,
-    0
-  );
-  const lowStockCount = lowStockAlerts.length;
-
-  // Filter matrix by location
+  // Filter matrix by location (MUST be before early return to satisfy Rules of Hooks)
   const filteredMatrix = useMemo(() => {
+    if (!report) return [];
     if (selectedLocation === "all") {
       return report.matrix;
     }
@@ -96,7 +62,44 @@ export function InventoryManager() {
         };
       })
       .filter((row): row is NonNullable<typeof row> => row !== null);
-  }, [report.matrix, selectedLocation]);
+  }, [report, selectedLocation]);
+
+  // Loading state
+  if (
+    locations === undefined ||
+    report === undefined ||
+    lowStockAlerts === undefined
+  ) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <div className="grid gap-4 lg:grid-cols-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  // Calculate stats (safe to use report here, TypeScript knows it's defined after loading check)
+  const totalComponents = report.matrix.length;
+  const totalStockValue = report.matrix.reduce((sum, row) => {
+    return (
+      sum +
+      row.stockByLocation.reduce(
+        (locSum, loc) => locSum + loc.totalStock * loc.weightedUnitCostIdr,
+        0
+      )
+    );
+  }, 0);
+  const totalReserved = report.matrix.reduce(
+    (sum, row) => sum + row.totalReservedAcrossLocations,
+    0
+  );
+  const lowStockCount = lowStockAlerts.length;
 
   return (
     <div className="space-y-6">
@@ -104,10 +107,20 @@ export function InventoryManager() {
       <PageHeader
         title="Inventory"
         action={
-          <Button onClick={() => setReceiveDialogOpen(true)} size="lg">
-            <Plus className="h-5 w-5 mr-2" />
-            Receive Stock
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => navigate("/inventory/components")}
+              variant="outline"
+              size="lg"
+            >
+              <Settings className="h-5 w-5 mr-2" />
+              Manage Components
+            </Button>
+            <Button onClick={() => setReceiveDialogOpen(true)} size="lg">
+              <Plus className="h-5 w-5 mr-2" />
+              Receive Stock
+            </Button>
+          </div>
         }
       />
 

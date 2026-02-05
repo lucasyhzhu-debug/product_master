@@ -4,32 +4,30 @@ interface KanbanColumnProps {
   title: string;
   subtitle: string;
   count: number;
-  color: 'amber' | 'blue' | 'emerald' | 'slate';
+  color: 'orange' | 'blue' | 'green';
   icon: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
 }
 
 const colorStyles = {
-  amber: {
-    header: 'bg-amber-900/50 border-amber-800',
-    count: 'bg-amber-600 text-white',
-    accent: 'text-amber-400',
+  orange: {
+    header: 'bg-orange-50 border-orange-200',
+    count: 'bg-orange-600 text-white',
+    title: 'text-orange-900',
+    subtitle: 'text-orange-700',
   },
   blue: {
-    header: 'bg-blue-900/50 border-blue-800',
+    header: 'bg-blue-50 border-blue-200',
     count: 'bg-blue-600 text-white',
-    accent: 'text-blue-400',
+    title: 'text-blue-900',
+    subtitle: 'text-blue-700',
   },
-  emerald: {
-    header: 'bg-emerald-900/50 border-emerald-800',
-    count: 'bg-emerald-600 text-white',
-    accent: 'text-emerald-400',
-  },
-  slate: {
-    header: 'bg-slate-800 border-slate-700',
-    count: 'bg-slate-600 text-white',
-    accent: 'text-slate-400',
+  green: {
+    header: 'bg-green-50 border-green-200',
+    count: 'bg-green-600 text-white',
+    title: 'text-green-900',
+    subtitle: 'text-green-700',
   },
 };
 
@@ -37,25 +35,25 @@ export function KanbanColumn({ title, subtitle, count, color, icon, footer, chil
   const styles = colorStyles[color];
 
   return (
-    <div className="flex flex-col bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
+    <div className="flex flex-col bg-white rounded-lg border-2 border-gray-200 overflow-hidden shadow-sm min-h-[600px]">
       {/* Header */}
-      <div className={cn('px-4 py-3 border-b', styles.header)}>
+      <div className={cn('px-4 py-3 border-b-2', styles.header)}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className={styles.accent}>{icon}</span>
+          <div className="flex items-center gap-2.5">
+            <span className={styles.title}>{icon}</span>
             <div>
-              <h2 className="font-semibold text-white">{title}</h2>
-              <p className="text-xs text-slate-400">{subtitle}</p>
+              <h2 className={cn('font-bold text-base', styles.title)}>{title}</h2>
+              <p className={cn('text-xs mt-0.5', styles.subtitle)}>{subtitle}</p>
             </div>
           </div>
-          <span className={cn('px-2.5 py-1 rounded-full text-sm font-bold', styles.count)}>
+          <span className={cn('px-3 py-1.5 rounded-full text-base font-bold min-w-[2.5rem] text-center', styles.count)}>
             {count}
           </span>
         </div>
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 p-3 overflow-y-auto">
+      <div className="flex-1 p-3 overflow-y-auto bg-gray-50">
         {children}
       </div>
 

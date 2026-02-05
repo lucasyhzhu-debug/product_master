@@ -88,6 +88,14 @@ export function useConvexDeleteComponentType() {
   return useMutation(api.componentTypes.mutations.remove);
 }
 
+/**
+ * Quick-create a packaging component type (name only).
+ * Auto-generates code, sets sensible defaults.
+ */
+export function useConvexCreatePackagingQuick() {
+  return useMutation(api.componentTypes.mutations.createPackagingQuick);
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -105,6 +113,9 @@ export type ComponentTypeCreateInput = {
   color?: string;
   sortOrder?: number;
   isActive?: boolean;
+  description?: string;
+  consumptionStage?: "boxing" | "labeling" | "none";
+  alarmPercentage?: number;
   createdBy: string;
 };
 
@@ -119,6 +130,9 @@ export type ComponentTypeUpdateInput = {
   color?: string;
   sortOrder?: number;
   isActive?: boolean;
+  description?: string;
+  consumptionStage?: "boxing" | "labeling" | "none";
+  alarmPercentage?: number;
 };
 
 export type ComponentType = {
@@ -137,4 +151,14 @@ export type ComponentType = {
   isActive: boolean;
   createdBy: string;
   createdAt: number;
+  description?: string;
+  consumptionStage?: "boxing" | "labeling" | "none";
+  alarmPercentage?: number;
+  // Cost insights (calculated from batches for packaging components)
+  costInsights?: {
+    latestCost: number | null;
+    lowestCost: number | null;
+    weightedAverageCost: number | null;
+    priceChangePercent: number | null;
+  };
 };

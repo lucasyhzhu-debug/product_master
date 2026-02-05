@@ -28,6 +28,13 @@ export const create = mutation({
     color: v.optional(v.string()),
     sortOrder: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    description: v.optional(v.string()),
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),
+      v.literal("labeling"),
+      v.literal("none")
+    )),
+    alarmPercentage: v.optional(v.number()),
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
@@ -68,16 +75,25 @@ export const create = mutation({
       sortOrder = maxSort + 1;
     }
 
+    // Default consumptionStage based on category
+    const consumptionStage = args.consumptionStage ??
+      (args.category === "direct_packaging" ? "boxing" :
+       args.category === "indirect_packaging" ? "none" :
+       "none");
+
     const componentId = await ctx.db.insert("componentTypes", {
       code: args.code,
       name: args.name,
       category: args.category,
+      description: args.description,
       unitCostIdr: args.unitCostIdr,
       unit: args.unit,
       gramsPerUnit: args.gramsPerUnit,
       trackInventory: args.trackInventory,
       reorderPoint: args.reorderPoint,
       reorderQuantity: args.reorderQuantity,
+      consumptionStage,
+      alarmPercentage: args.alarmPercentage,
       color: args.color,
       sortOrder,
       isActive: args.isActive ?? true,
@@ -104,6 +120,13 @@ export const update = mutation({
     color: v.optional(v.string()),
     sortOrder: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    description: v.optional(v.string()),
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),
+      v.literal("labeling"),
+      v.literal("none")
+    )),
+    alarmPercentage: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const component = await ctx.db.get(args.id);
@@ -142,19 +165,18 @@ export const remove = mutation({
       throw new Error("Component not found");
     }
 
-    // TODO: Check if used in menuProductComponents
-    // Temporarily disabled until Wave 1.5 migration (productionUnitTypeId → componentTypeId FK)
-    // const usedInProducts = await ctx.db
-    //   .query("menuProductComponents")
-    //   .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.id))
-    //   .first();
-    //
-    // if (usedInProducts) {
-    //   const menuProduct = await ctx.db.get(usedInProducts.menuProductId);
-    //   throw new Error(
-    //     `Cannot delete: component is used in menu product "${menuProduct?.name || "unknown"}"`
-    //   );
-    // }
+    // Check if used in menuProductComponents
+    const usedInProducts = await ctx.db
+      .query("menuProductComponents")
+      .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.id))
+      .first();
+
+    if (usedInProducts) {
+      const menuProduct = await ctx.db.get(usedInProducts.menuProductId);
+      throw new Error(
+        `Cannot delete: component is used in menu product "${menuProduct?.name || "unknown"}"`
+      );
+    }
 
     // Check if has inventory batches
     const hasBatches = await ctx.db
@@ -183,5 +205,67 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
 
     return true;
+  },
+});
+
+/**
+ * Quick-create a packaging component type.
+ *
+ * Minimal input (name only). Auto-generates code, sets sensible defaults.
+ * Used for inline creation in ProductForm.
+ */
+export const createPackagingQuick = mutation({
+  args: {
+    name: v.string(),
+    category: v.optional(v.union(
+      v.literal("direct_packaging"),
+      v.literal("indirect_packaging")
+    )),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const category = args.category ?? "direct_packaging";
+
+    // Auto-generate code from name
+    const baseCode = `PKG_${args.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30)}`;
+
+    // Check for duplicate and append suffix if needed
+    let code = baseCode;
+    let suffix = 0;
+    while (true) {
+      const existing = await ctx.db
+        .query("componentTypes")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (!existing) break;
+      suffix++;
+      code = `${baseCode}_${suffix}`;
+    }
+
+    // Get max sortOrder
+    const allComponents = await ctx.db.query("componentTypes").collect();
+    const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
+
+    const componentId = await ctx.db.insert("componentTypes", {
+      code,
+      name: args.name,
+      category,
+      description: undefined,
+      unitCostIdr: 0, // To be updated from inventory batches
+      unit: "pcs",
+      gramsPerUnit: undefined,
+      trackInventory: true,
+      reorderPoint: undefined,
+      reorderQuantity: undefined,
+      consumptionStage: category === "direct_packaging" ? "boxing" : "none",
+      alarmPercentage: undefined,
+      color: undefined,
+      sortOrder: maxSort + 1,
+      isActive: true,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    });
+
+    return componentId;
   },
 });

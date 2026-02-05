@@ -1,6 +1,4 @@
-import { Minus, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BallTrayCounterProps {
@@ -17,12 +15,12 @@ const BALL_COLORS = {
   original: {
     fill: '#93C572',
     stroke: '#7B3F00',
-    name: 'Original',
+    name: 'Original Balls',
   },
   bite_sized: {
     fill: '#93C572',
     stroke: '#7B3F00',
-    name: 'Bite-sized',
+    name: 'Bite-Sized Balls',
   },
 };
 
@@ -39,89 +37,82 @@ export function BallTrayCounter({
   const isLow = count < pendingBalls;
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4 space-y-3">
+    <div className="rounded-lg border-2 border-gray-200 bg-white p-4 space-y-3 shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg width="24" height="22" viewBox="0 0 24 22">
+        <div className="flex items-center gap-2.5">
+          <svg width="28" height="26" viewBox="0 0 28 26">
             <ellipse
-              cx="12"
-              cy="11"
-              rx={ballType === 'original' ? '10' : '7.5'}
-              ry={ballType === 'original' ? '9' : '7'}
+              cx="14"
+              cy="13"
+              rx={ballType === 'original' ? '12' : '9'}
+              ry={ballType === 'original' ? '11' : '8.5'}
               fill={config.fill}
               stroke={config.stroke}
               strokeWidth="2.5"
             />
             <ellipse
-              cx={ballType === 'original' ? '8' : '9'}
-              cy={ballType === 'original' ? '7' : '6'}
-              rx={ballType === 'original' ? '3' : '2'}
-              ry={ballType === 'original' ? '2' : '1.5'}
-              fill="rgba(255,255,255,0.35)"
+              cx={ballType === 'original' ? '9' : '10'}
+              cy={ballType === 'original' ? '8' : '7'}
+              rx={ballType === 'original' ? '3.5' : '2.5'}
+              ry={ballType === 'original' ? '2.5' : '2'}
+              fill="rgba(255,255,255,0.4)"
             />
           </svg>
-          <span className="font-semibold text-white">{config.name}</span>
+          <span className="font-semibold text-base text-gray-900">{config.name}</span>
         </div>
 
         {/* Count Badge */}
-        <Badge
-          variant={isLow ? 'destructive' : 'secondary'}
-          className={cn('text-lg font-bold', isLow && 'animate-pulse')}
+        <div
+          className={cn(
+            'text-2xl font-bold tabular-nums px-3 py-1 rounded-lg',
+            isLow ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-900'
+          )}
         >
           {count}
-        </Badge>
+        </div>
       </div>
 
       {/* Pending Info */}
       {pendingOrders > 0 && (
-        <div className="text-xs text-slate-400">
+        <div className="text-sm text-gray-700 bg-gray-50 rounded px-2.5 py-1.5 font-medium">
           {pendingOrders} order{pendingOrders > 1 ? 's' : ''} need {pendingBalls} ball{pendingBalls > 1 ? 's' : ''}
         </div>
       )}
 
-      {/* Quick Add Buttons */}
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
+      {/* Control Buttons */}
+      <div className="grid grid-cols-4 gap-2">
+        <button
           onClick={onRemove}
           disabled={disabled || count === 0}
-          className="flex-1 border-slate-600 hover:bg-slate-700"
+          className="col-span-1 h-11 flex items-center justify-center rounded-lg border-2 border-gray-300 bg-white hover:bg-gray-100 active:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation"
         >
-          <Minus className="h-4 w-4 mr-1" />
-          Remove
-        </Button>
+          <Minus className="h-5 w-5 text-gray-700" />
+        </button>
 
-        <Button
-          size="sm"
+        <button
           onClick={() => onAdd(5)}
           disabled={disabled}
-          className="flex-1 bg-amber-600 hover:bg-amber-500"
+          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          <Plus className="h-4 w-4 mr-1" />
           +5
-        </Button>
+        </button>
 
-        <Button
-          size="sm"
+        <button
           onClick={() => onAdd(10)}
           disabled={disabled}
-          className="flex-1 bg-amber-600 hover:bg-amber-500"
+          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          <Plus className="h-4 w-4 mr-1" />
           +10
-        </Button>
+        </button>
 
-        <Button
-          size="sm"
+        <button
           onClick={() => onAdd(20)}
           disabled={disabled}
-          className="flex-1 bg-amber-600 hover:bg-amber-500"
+          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
-          <Plus className="h-4 w-4 mr-1" />
           +20
-        </Button>
+        </button>
       </div>
     </div>
   );

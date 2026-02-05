@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock, Boxes, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,23 +13,29 @@ import {
   useConvexDeleteMenuProduct,
   useConvexRemoveFromSlot,
   useConvexAssignToSlot,
+  useConvexPackagingPosProducts,
+  useConvexRemoveFromPackagingSlot,
   type PosProduct,
   type LegacyProduct,
+  type PackagingPosProduct,
 } from '@/hooks/convex/useMenuProducts';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import type { Id } from '../../convex/_generated/dataModel';
 import { toast } from 'sonner';
 
 export function MenuProductsManager() {
-  useDocumentTitle('Menu Products');
+  useDocumentTitle('Product Manager');
   const navigate = useNavigate();
 
   // Convex hooks
   const { data: posProducts, isLoading: loadingPos } = useConvexPosProducts();
   const { data: legacyProducts, isLoading: loadingLegacy } = useConvexLegacyProducts();
+  const { data: packagingPosProducts, isLoading: loadingPackagingPos } = useConvexPackagingPosProducts();
   const deleteMutation = useConvexDeleteMenuProduct();
   const removeFromSlotMutation = useConvexRemoveFromSlot();
   const assignSlotMutation = useConvexAssignToSlot();
+
+  const removeFromPackagingSlotMutation = useConvexRemoveFromPackagingSlot();
 
   // Sheet state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -48,7 +54,7 @@ export function MenuProductsManager() {
   } | null>(null);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
 
-  const isLoading = loadingPos || loadingLegacy;
+  const isLoading = loadingPos || loadingLegacy || loadingPackagingPos;
 
   const handleNewProduct = () => {
     setEditingProduct(null);
@@ -62,8 +68,8 @@ export function MenuProductsManager() {
     setIsFormOpen(true);
   };
 
-  const handleEdit = (product: PosProduct | LegacyProduct) => {
-    setEditingProduct(product);
+  const handleEdit = (product: PosProduct | LegacyProduct | PackagingPosProduct) => {
+    setEditingProduct(product as PosProduct | LegacyProduct);
     setPrefilledSlot(null);
     setIsFormOpen(true);
   };
@@ -106,6 +112,14 @@ export function MenuProductsManager() {
     } catch (error) {
       // Error already handled by mutation with toast
       console.error('Failed to remove from POS:', error);
+    }
+  };
+
+  const handleRemoveFromPackagingSlot = async (id: string) => {
+    try {
+      await removeFromPackagingSlotMutation.mutate(id as Id<"menuProducts">);
+    } catch (error) {
+      console.error('Failed to remove from packaging slot:', error);
     }
   };
 
@@ -178,6 +192,12 @@ export function MenuProductsManager() {
                     <Badge variant="default" className="text-xs">
                       Slot {(product as PosProduct).posSlot}
                     </Badge>
+                  )}
+                  {product.productType === "packaging" && (
+                    <Badge className="text-xs bg-blue-500">Packaging</Badge>
+                  )}
+                  {(!product.productType || product.productType === "food") && (
+                    <Badge className="text-xs bg-green-500">Food</Badge>
                   )}
                   {product.isFixed && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
@@ -293,11 +313,20 @@ export function MenuProductsManager() {
           Back
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Menu Products</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Product Manager</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Manage POS menu and legacy products
+            Manage POS menu, packaging products, and legacy products
           </p>
         </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate('/inventory')}
+          className="shrink-0"
+        >
+          <Boxes className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Inventory</span>
+          <span className="sm:hidden">Inv</span>
+        </Button>
         <Button onClick={handleNewProduct} className="shrink-0">
           <Plus className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">New Product</span>
@@ -311,11 +340,11 @@ export function MenuProductsManager() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* POS Menu Section (Slots 1-4) */}
+          {/* Food POS Menu Section (Slots 1-4) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>POS Menu (Slots 1-4)</span>
+                <span>Food POS (Slots 1-4)</span>
                 <Badge variant="secondary">
                   {posProducts?.length || 0} / 4 slots
                 </Badge>
@@ -350,6 +379,115 @@ export function MenuProductsManager() {
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 hidden sm:block">
                             Click to create a product
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Packaging POS Section (Slots 1-4) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Packaging POS (Slots 1-4)</span>
+                <Badge variant="secondary">
+                  {packagingPosProducts?.length || 0} / 4 slots
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {[1, 2, 3, 4].map((slotNumber) => {
+                  const product = packagingPosProducts?.find((p) => p.packagingPosSlot === slotNumber);
+
+                  if (product) {
+                    return (
+                      <Card key={product._id} className="relative hover:shadow-md transition-shadow">
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between gap-2 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              {/* Header with name and slot badge */}
+                              <div className="flex items-start gap-2 mb-2 flex-wrap">
+                                <h3 className="font-semibold truncate flex-1 min-w-0 text-sm sm:text-base">
+                                  {product.name}
+                                </h3>
+                                <div className="flex gap-1 shrink-0">
+                                  <Badge variant="default" className="text-xs">
+                                    Slot {product.packagingPosSlot}
+                                  </Badge>
+                                  <Badge className="text-xs bg-blue-500">Packaging</Badge>
+                                </div>
+                              </div>
+
+                              {/* Code */}
+                              <p className="text-xs sm:text-sm text-muted-foreground mb-3 truncate">
+                                Code: {product.code}
+                              </p>
+
+                              {/* Stats Grid */}
+                              <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Price</p>
+                                  <p className="font-medium">{formatCurrency(product.defaultPrice)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">COGS</p>
+                                  <p className="font-medium">{formatCurrency(product.unitCost ?? 0)}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-col gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(product)}
+                                className="text-primary hover:text-primary h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                aria-label="Edit product"
+                              >
+                                <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFromPackagingSlot(product._id)}
+                                className="text-orange-600 hover:text-orange-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
+                                title="Remove from Packaging POS"
+                                aria-label="Remove from Packaging POS"
+                              >
+                                <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
+                  // Empty slot placeholder
+                  return (
+                    <Card
+                      key={`empty-packaging-slot-${slotNumber}`}
+                      className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors"
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
+                          <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
+                            <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                          </div>
+                          <Badge variant="outline" className="mb-2 text-xs">
+                            Slot {slotNumber}
+                          </Badge>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            Empty Slot
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 hidden sm:block">
+                            Assign packaging product
                           </p>
                         </div>
                       </CardContent>

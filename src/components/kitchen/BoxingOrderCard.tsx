@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackageCounter } from './PackageCounter';
@@ -12,10 +11,9 @@ interface BoxingOrderCardProps {
     items: Array<{
       _id: Id<'orderItems'>;
       productName: string;
-      quantity: number; // Total packages for this product
-      filled: number; // How many filled so far
+      quantity: number;
+      filled: number;
       ballsPerPackage: number;
-      boxType: string;
     }>;
     totalBallsNeeded: number;
     totalBallsFilled: number;
@@ -35,54 +33,52 @@ export function BoxingOrderCard({ order, onFillPackage, onUnfillPackage, disable
   const progressPercent = (order.totalPackagesFilled / order.totalPackages) * 100;
 
   return (
-    <motion.div
-      layout
+    <div
       className={cn(
-        'rounded-xl overflow-hidden border-2 transition-all',
+        'rounded-lg overflow-hidden border-2 bg-white transition-all',
         isComplete
-          ? 'bg-emerald-900/30 border-emerald-600'
+          ? 'border-green-500 shadow-md'
           : isUrgent
-            ? 'bg-slate-700/50 border-l-4 border-l-red-500 border-slate-600'
-            : 'bg-slate-700/50 border-slate-600'
+            ? 'border-l-4 border-l-red-500 border-gray-300'
+            : 'border-gray-300'
       )}
     >
       {/* Header */}
-      <div className="px-3 py-2 flex items-center justify-between bg-slate-800/50">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-bold text-white">
+      <div className="px-3.5 py-2.5 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center gap-2.5">
+          <span className="font-mono text-base font-bold text-gray-900">
             {order.orderNumber}
           </span>
           {isUrgent && (
-            <div className="flex items-center gap-1 text-xs text-red-400">
-              <Clock className="h-3 w-3" />
-              <span>{minutesAgo}m ago</span>
+            <div className="flex items-center gap-1 text-xs font-medium text-red-600">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{minutesAgo}m</span>
             </div>
           )}
         </div>
         {isComplete && (
-          <span className="text-xs font-semibold text-emerald-400 uppercase">
+          <span className="text-xs font-bold text-green-600 uppercase px-2 py-0.5 bg-green-100 rounded">
             Complete
           </span>
         )}
       </div>
 
       {/* Progress Bar */}
-      <div className="h-1 bg-slate-900/50 relative overflow-hidden">
-        <motion.div
-          className="h-full bg-emerald-500"
-          initial={{ width: 0 }}
-          animate={{ width: `${progressPercent}%` }}
+      <div className="h-2 bg-gray-100 relative overflow-hidden">
+        <div
+          className="h-full bg-green-500 transition-all duration-300"
+          style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      {/* Customer */}
-      <div className="px-3 py-2 border-b border-slate-600/50">
-        <p className="text-sm text-slate-300 truncate">{order.customerName}</p>
-        <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+      {/* Customer & Stats */}
+      <div className="px-3.5 py-2.5 border-b border-gray-200">
+        <p className="text-sm font-medium text-gray-900 truncate">{order.customerName}</p>
+        <div className="flex items-center gap-3 mt-1 text-xs text-gray-600 font-medium">
           <span>
             {order.totalPackagesFilled}/{order.totalPackages} packages
           </span>
-          <span>•</span>
+          <span className="text-gray-400">•</span>
           <span>
             {order.totalBallsFilled}/{order.totalBallsNeeded} balls
           </span>
@@ -90,7 +86,7 @@ export function BoxingOrderCard({ order, onFillPackage, onUnfillPackage, disable
       </div>
 
       {/* Items with Counter Buttons */}
-      <div className="p-2 space-y-2">
+      <div className="p-3 space-y-3 bg-gray-50">
         {order.items.map((item) => (
           <PackageCounter
             key={item._id}
@@ -98,13 +94,12 @@ export function BoxingOrderCard({ order, onFillPackage, onUnfillPackage, disable
             total={item.quantity}
             filled={item.filled}
             ballsPerPackage={item.ballsPerPackage}
-            boxType={item.boxType}
             onIncrement={() => onFillPackage(item._id)}
             onDecrement={() => onUnfillPackage(item._id)}
             disabled={disabled}
           />
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 }
