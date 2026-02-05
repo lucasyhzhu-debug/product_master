@@ -30,7 +30,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ProductButtons } from './ProductButtons';
 import { PasteTemplateBox } from './PasteTemplateBox';
-import { DiscountInput } from './DiscountInput';
 import { DeliveryToggle } from './DeliveryToggle';
 import { VoucherInput, type AppliedVoucher } from './VoucherInput';
 import { ManagerOverrideDialog } from './ManagerOverrideDialog';
@@ -105,10 +104,6 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // Notes
   const [notes, setNotes] = useState('');
 
-  // Manual Discount (order-level discount entered manually)
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
-
   // Voucher
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
 
@@ -150,17 +145,8 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     [items]
   );
 
-  // Manual discount (percentage or fixed amount)
-  const manualDiscountValue = discountType === 'percentage'
-    ? subtotal * (discountAmount / 100)
-    : discountAmount;
-
-  // Voucher discount (already calculated in the voucher object)
-  const voucherDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
-
-  // Total discount (manual + voucher - but typically you'd use one or the other)
-  // Business rule: voucher replaces manual discount when applied
-  const totalDiscountValue = appliedVoucher ? voucherDiscountValue : manualDiscountValue;
+  // Voucher discount (only discount method now)
+  const totalDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
 
   const total = subtotal - totalDiscountValue;
 
@@ -402,13 +388,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
         dueDate: new Date(dueDate).getTime(),
         notes: notes || undefined,
         // Include order-level discount (manual or from voucher)
-        orderLevelDiscount: appliedVoucher
-          ? undefined // Voucher handles its own discount
-          : (discountAmount > 0 ? discountAmount : undefined),
-        orderLevelDiscountType: appliedVoucher
-          ? undefined
-          : (discountAmount > 0 ? discountType : undefined),
-        // Include voucher code if applied
+        // Include voucher code if applied (vouchers are the only discount method)
         voucherCode: appliedVoucher?.code,
         // Include low price confirmation flag
         lowPriceConfirmed: lowPriceConfirmed || undefined,
@@ -894,29 +874,6 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
                   )}
                 </div>
 
-                {/* Manual Discount Section (hidden when voucher is applied) */}
-                {!appliedVoucher && (
-                  <>
-                    <Separator />
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Tag className="h-4 w-4 text-[#E07856]" />
-                        <Label className="text-sm font-semibold text-[#2D3748]">Manual Discount</Label>
-                      </div>
-                      <DiscountInput
-                        subtotal={subtotal}
-                        discountAmount={discountAmount}
-                        discountType={discountType}
-                        onChange={(amount, type) => {
-                          setDiscountAmount(amount);
-                          setDiscountType(type);
-                          setLowPriceConfirmed(false);
-                        }}
-                      />
-                    </div>
-                  </>
-                )}
-
                 <Separator />
 
                 {/* Totals */}
@@ -926,13 +883,9 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
                     <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
                   </div>
 
-                  {totalDiscountValue > 0 && (
-                    <div className="flex justify-between text-sm text-red-600">
-                      <span>
-                        {appliedVoucher
-                          ? `Voucher (${appliedVoucher.code})`
-                          : 'Discount'}
-                      </span>
+                  {totalDiscountValue > 0 && appliedVoucher && (
+                    <div className="flex justify-between text-sm text-emerald-600">
+                      <span>Voucher ({appliedVoucher.code})</span>
                       <span className="font-semibold">- {formatCurrency(totalDiscountValue)}</span>
                     </div>
                   )}
