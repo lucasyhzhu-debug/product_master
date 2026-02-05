@@ -171,6 +171,13 @@ export const validateVoucher = query({
 
     // 2. Check voucher is active
     if (!voucher.isActive) {
+      // Specific error message for consumed manager overrides
+      if (voucher.isManagerOverride) {
+        return {
+          valid: false,
+          error: "This manager override has already been used and cannot be reused",
+        };
+      }
       return { valid: false, error: "This voucher is no longer active" };
     }
 
@@ -327,6 +334,36 @@ export const getVoucherStats = query({
       uniqueCustomers,
       status,
       usageRecords: usageRecords.slice(0, 10), // Last 10 usages for preview
+    };
+  },
+});
+
+/**
+ * Get order details for a manager override's linked order.
+ * Returns null if voucher doesn't have a linked order.
+ * Returns { orderDeleted: true } if linked order was deleted.
+ */
+export const getOverrideOrderDetails = query({
+  args: { voucherId: v.id("vouchers") },
+  handler: async (ctx, args) => {
+    const voucher = await ctx.db.get(args.voucherId);
+    if (!voucher || !voucher.overrideOrderId) {
+      return null;
+    }
+
+    const order = await ctx.db.get(voucher.overrideOrderId);
+    if (!order) {
+      // Order was deleted
+      return { orderDeleted: true };
+    }
+
+    return {
+      orderDeleted: false,
+      orderNumber: order.orderNumber,
+      orderDate: order.orderDate,
+      customerName: order.customerName,
+      status: order.status,
+      finalTotal: order.finalTotal,
     };
   },
 });
