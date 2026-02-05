@@ -13,6 +13,115 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-05 - Orders Page Complete Redesign - Terracotta Theme & Golden Ratio Layout
+
+**Complete visual and structural redesign of the Orders page with terracotta design language**
+
+### Design Philosophy
+- Extends warm terracotta palette from OrderFormPOS_Redesign to entire Orders ecosystem
+- Golden ratio layout (61.8% / 38.2%) for optimal visual balance
+- Form AND function - easy eye scanning with unified visual hierarchy
+- Terracotta (#E07856) as primary accent color throughout
+
+### Major Changes
+
+**1. Theme Infrastructure (Phase 1)**
+- Added terracotta CSS variables to `src/index.css`:
+  - `--color-terracotta`, `--color-terracotta-dark`, `--color-terracotta-darker`
+  - `--color-terracotta-light`, `--color-terracotta-muted`
+  - Text colors and dark gradient variables
+- Added Playfair Display font for headings (already in HTML)
+- Created utility classes: `.text-terracotta`, `.bg-terracotta`, `.order-heading`
+- Added order-specific styles: `.order-card-hover`, `.order-queue-scroll`, `.status-dot`
+
+**2. Shared Order Constants (Phase 1)**
+- Created `src/lib/orderConstants.ts`:
+  - Extracted `STATUS_COLORS` and `PAYMENT_COLORS` maps
+  - Added `STATUS_CATEGORIES` for grouping (awaiting, paidReady, kitchen, ready, completed)
+  - Added `CATEGORY_INFO` with labels, colors, emojis, descriptions
+  - Helper functions: `getStatusCategory()`, `getStatusDotColor()`, `getWaitingTimeInfo()`, `formatOrderDate()`
+
+**3. Backend Multi-Status Filtering (Phase 2)**
+- Updated `src/hooks/convex/useOrders.ts`:
+  - `OrderFilters.status` now supports `OrderStatus | OrderStatus[]`
+- Updated `convex/orders/queries.ts`:
+  - `list()` query handles array of statuses
+  - When array provided, fetches all and filters in memory
+  - Enables category-based filtering (e.g., all kitchen statuses at once)
+
+**4. Orders Page Layout (Phases 3-5)**
+- Complete redesign of `src/pages/OrderManager.tsx`:
+  - **Golden ratio flex layout**: 61.8% form / 38.2% queue sidebar
+  - **Form always visible** (no toggle button or empty state)
+  - **Queue always visible** in sticky sidebar
+  - **Page header** with Playfair Display font, terracotta underline accent
+  - **Search bar** integrated into header with terracotta focus ring
+
+**5. Action-Oriented Filter Buttons**
+- Replaced dropdown with category pill buttons:
+  - **All**: Show all active orders (default)
+  - **Awaiting Payment** 🟡: Draft, AwaitingPayment
+  - **Paid & Ready** 🔵: Confirmed (waiting for kitchen)
+  - **In Kitchen** 🟣: InProduction, Packaging
+  - **Ready Ship/Pick** 🟢: WaitingShipment, WaitingPickup
+  - **More** (dropdown): Completed, PickedUp, Cancelled
+- Buttons show real-time count badges
+- Active button has terracotta background and shadow
+- Inactive buttons have terracotta hover state
+
+**6. Compact Order Cards**
+- Horizontal 72px cards with:
+  - **Status dot** (12px circle, category color) on left
+  - **Order info**: number (mono font), customer name, item count, due date
+  - **Waiting badge**: Shows time since AwaitingPayment
+  - **Amount**: Terracotta color, bold
+  - **Payment progress bar** (4px) at bottom for Partial payments
+  - **Hover effect**: Lift animation + terracotta left border
+
+**7. Grouped Queue Sidebar**
+- Orders grouped by status category
+- **Sticky section headers** with:
+  - Category emoji + label
+  - Count badge (category color)
+  - Description text (muted)
+- **Custom scrollbar** (8px, terracotta thumb on hover)
+- **Today's stats footer** (dark gradient):
+  - Shows count and total amount for today's orders
+  - Fixed at bottom of sidebar
+
+**8. Animations**
+- Framer Motion for smooth transitions:
+  - Order cards: fade + slide in
+  - Section changes: stagger animation
+  - Filter changes: AnimatePresence with exit animations
+
+### Files Modified
+- `src/index.css` - Theme variables, utility classes
+- `src/lib/orderConstants.ts` - **NEW** - Shared constants
+- `src/hooks/convex/useOrders.ts` - Multi-status filter type
+- `convex/orders/queries.ts` - Array status handling
+- `src/pages/OrderManager.tsx` - Complete redesign
+
+### Visual Tokens
+| Token | Value | Usage |
+|-------|-------|-------|
+| Primary Accent | `#E07856` | Buttons, links, highlights |
+| Dark Accent | `#D66A4A` | Hover states |
+| Heading Font | Playfair Display | Page titles |
+| Body Font | Inter | All other text |
+| Card Radius | 16px (rounded-xl) | Cards, buttons |
+| Golden Ratio | 61.8% / 38.2% | Main layout split |
+
+### Breaking Changes
+None - backward compatible with existing data
+
+### Migration Notes
+- Feature flag `ff_order_form_redesign` continues to control which form variant is used
+- No database changes required
+- Playfair Display font already loaded in `index.html`
+
+---
+
 ## 2026-02-04 - Voucher Code Feature - Complete Discount System
 
 **Implemented comprehensive voucher code system with manager overrides and POS integration**
