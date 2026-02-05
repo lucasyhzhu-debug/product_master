@@ -1,197 +1,381 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Plus, Search, Filter, ShoppingCart, SearchX } from 'lucide-react';
+import { Search, ShoppingCart, SearchX, ChevronDown, FileEdit, List } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { PageHeader } from '@/components/layout';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
 import { OrderFormPOS as OrderFormPOSRedesign } from '@/components/orders/OrderFormPOS_Redesign';
 
 import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
 import { useFeatureFlag } from '@/lib/featureFlags';
-import type { OrderSummary, OrderStatus, PaymentStatus } from '@/lib/types';
+import { formatCurrency } from '@/lib/utils';
+import type { OrderSummary } from '@/lib/types';
+import {
+  STATUS_CATEGORIES,
+  CATEGORY_INFO,
+  getStatusCategory,
+  getStatusDotColor,
+  getWaitingTimeInfo,
+  formatOrderDate,
+  type StatusCategory,
+} from '@/lib/orderConstants';
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  Draft: 'bg-gray-500',
-  AwaitingPayment: 'bg-amber-500',
-  Confirmed: 'bg-blue-500',
-  InProduction: 'bg-purple-500',      // PRD-7: Kitchen actively producing
-  ProductionComplete: 'bg-purple-500', // DEPRECATED
-  Packaging: 'bg-indigo-500',
-  WaitingShipment: 'bg-yellow-500',
-  CompleteShipped: 'bg-green-500',
-  WaitingPickup: 'bg-orange-500',
-  PickedUp: 'bg-green-500',
-  Cancelled: 'bg-red-500',
-};
-
-const PAYMENT_COLORS: Record<PaymentStatus, string> = {
-  Unpaid: 'bg-orange-500',
-  Partial: 'bg-yellow-500',
-  Paid: 'bg-green-500',
-};
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatDate(dateString: string | null): string {
-  if (!dateString) return '-';
-  return new Date(dateString).toLocaleDateString('id-ID', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-function getWaitingTimeInfo(awaitingSince: string | null): { text: string; color: string } | null {
-  if (!awaitingSince) return null;
-
-  const start = new Date(awaitingSince);
-  const now = new Date();
-  const diffMs = now.getTime() - start.getTime();
-  const diffHours = diffMs / (1000 * 60 * 60);
-  const diffDays = diffHours / 24;
-
-  let text: string;
-  let color: string;
-
-  if (diffHours < 1) {
-    text = `${Math.floor(diffMs / (1000 * 60))}m`;
-    color = 'bg-green-100 text-green-700';
-  } else if (diffHours < 24) {
-    text = `${Math.floor(diffHours)}h`;
-    color = 'bg-green-100 text-green-700';
-  } else if (diffDays < 2) {
-    text = `${Math.floor(diffDays)}d ${Math.floor(diffHours % 24)}h`;
-    color = 'bg-yellow-100 text-yellow-700';
-  } else {
-    text = `${Math.floor(diffDays)}d`;
-    color = 'bg-red-100 text-red-700';
-  }
-
-  return { text: `Waiting ${text}`, color };
-}
+// ============================================
+// Compact Order Card
+// ============================================
 
 interface OrderCardProps {
   order: OrderSummary;
   onClick: () => void;
 }
 
-function OrderCard({ order, onClick }: OrderCardProps) {
+function OrderCardCompact({ order, onClick }: OrderCardProps) {
+  const dotColor = getStatusDotColor(order.status);
   const waitingInfo = order.status === 'AwaitingPayment'
     ? getWaitingTimeInfo(order.awaiting_payment_since ?? null)
     : null;
 
-  return (
-    <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-mono text-lg font-bold">{order.order_number}</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-sm font-medium truncate max-w-[120px]">{order.customer_name}</span>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex gap-1">
-              <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
-              <Badge className={PAYMENT_COLORS[order.payment_status]}>
-                {order.payment_status}
-              </Badge>
-            </div>
-            {waitingInfo && (
-              <Badge className={waitingInfo.color}>{waitingInfo.text}</Badge>
-            )}
-          </div>
-        </div>
+  // Calculate payment progress percentage
+  const paymentProgress = order.payment_status === 'Paid' ? 100 :
+                          order.payment_status === 'Partial' ? 50 : 0;
 
-        <div className="flex justify-between items-end mt-3">
-          <div className="text-sm text-muted-foreground">
-            <p>{order.item_count} item{order.item_count > 1 ? 's' : ''}</p>
-            {order.due_date && (
-              <p>Due: {formatDate(order.due_date)}</p>
-            )}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Card
+        className="h-18 cursor-pointer order-card-hover overflow-hidden"
+        onClick={onClick}
+      >
+        <div className="flex items-center gap-3 p-3">
+          {/* Status Dot */}
+          <div
+            className="status-dot flex-shrink-0"
+            style={{ backgroundColor: dotColor }}
+          />
+
+          {/* Order Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="font-mono text-sm font-bold text-gray-900">
+                {order.order_number}
+              </span>
+              <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                {order.customer_name}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{order.item_count} item{order.item_count > 1 ? 's' : ''}</span>
+              {order.due_date && (
+                <>
+                  <span>•</span>
+                  <span>Due: {formatOrderDate(order.due_date)}</span>
+                </>
+              )}
+              {waitingInfo && (
+                <>
+                  <span>•</span>
+                  <Badge variant="outline" className={`${waitingInfo.color} text-xs px-1 py-0`}>
+                    {waitingInfo.text}
+                  </Badge>
+                </>
+              )}
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-xl font-bold">{formatCurrency(order.total_amount)}</p>
+
+          {/* Amount */}
+          <div className="text-right flex-shrink-0">
+            <p className="text-sm font-bold text-terracotta">
+              {formatCurrency(order.total_amount)}
+            </p>
             {order.total_discount > 0 && (
-              <p className="text-sm text-orange-600 font-semibold">
+              <p className="text-xs text-orange-600">
                 -{formatCurrency(order.total_discount)}
               </p>
             )}
           </div>
         </div>
 
-        {(order.channel || order.sold_by) && (
-          <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
-            {order.channel && <span>{order.channel}</span>}
-            {order.sold_by && <span>by {order.sold_by}</span>}
+        {/* Payment Progress Bar */}
+        {paymentProgress > 0 && paymentProgress < 100 && (
+          <div className="h-1 bg-gray-100">
+            <div
+              className="h-full bg-terracotta transition-all"
+              style={{ width: `${paymentProgress}%` }}
+            />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </Card>
+    </motion.div>
   );
 }
 
-// PRD-0: Type-safe status filter
-type StatusFilterValue = OrderFilters['status'] | 'all';
+// ============================================
+// Filter Buttons
+// ============================================
+
+type FilterButtonValue = 'all' | StatusCategory;
+
+interface FilterButtonsProps {
+  activeFilter: FilterButtonValue;
+  onFilterChange: (filter: FilterButtonValue) => void;
+  orderCounts: Record<StatusCategory, number>;
+}
+
+function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButtonsProps) {
+  const mainCategories: Array<{ value: FilterButtonValue; label: string; category?: StatusCategory }> = [
+    { value: 'all', label: 'All' },
+    { value: 'awaiting', label: 'Awaiting Payment', category: 'awaiting' },
+    { value: 'paidReady', label: 'Paid & Ready', category: 'paidReady' },
+    { value: 'kitchen', label: 'In Kitchen', category: 'kitchen' },
+    { value: 'ready', label: 'Ready Ship/Pick', category: 'ready' },
+  ];
+
+  return (
+    <div className="flex items-center gap-2 overflow-x-auto pb-2 md:flex-wrap md:overflow-visible md:pb-0">
+      {mainCategories.map(({ value, label, category }) => {
+        const isActive = activeFilter === value;
+        const count = category ? orderCounts[category] : 0;
+        const info = category ? CATEGORY_INFO[category] : null;
+
+        return (
+          <Button
+            key={value}
+            variant={isActive ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onFilterChange(value)}
+            className={`
+              min-w-[100px] md:min-w-[120px] transition-all flex-shrink-0
+              ${isActive
+                ? 'bg-terracotta hover:bg-terracotta-dark text-white shadow-md'
+                : 'hover:border-terracotta hover:text-terracotta'
+              }
+            `}
+          >
+            <span className="flex items-center gap-1 md:gap-2">
+              {info && <span className="text-sm md:text-base">{info.emoji}</span>}
+              <span className="text-xs md:text-sm">{label}</span>
+              {category && count > 0 && (
+                <Badge
+                  variant="secondary"
+                  className={`ml-1 text-xs ${isActive ? 'bg-white/20 text-white' : ''}`}
+                >
+                  {count}
+                </Badge>
+              )}
+            </span>
+          </Button>
+        );
+      })}
+
+      {/* More Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant={activeFilter === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            className={`
+              ${activeFilter === 'completed'
+                ? 'bg-terracotta hover:bg-terracotta-dark text-white'
+                : 'hover:border-terracotta'
+              }
+            `}
+          >
+            More
+            <ChevronDown className="ml-1 h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onFilterChange('completed')}>
+            <span className="flex items-center gap-2">
+              <span>{CATEGORY_INFO.completed.emoji}</span>
+              <span>{CATEGORY_INFO.completed.label}</span>
+              {orderCounts.completed > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {orderCounts.completed}
+                </Badge>
+              )}
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+// ============================================
+// Orders Queue Sidebar
+// ============================================
+
+interface OrdersQueueProps {
+  orders: OrderSummary[];
+  activeFilter: FilterButtonValue;
+  onOrderClick: (orderId: number) => void;
+}
+
+function OrdersQueue({ orders, activeFilter, onOrderClick }: OrdersQueueProps) {
+  // Group orders by category
+  const groupedOrders = useMemo(() => {
+    const groups: Record<StatusCategory, OrderSummary[]> = {
+      awaiting: [],
+      paidReady: [],
+      kitchen: [],
+      ready: [],
+      completed: [],
+    };
+
+    orders.forEach((order) => {
+      const category = getStatusCategory(order.status);
+      groups[category].push(order);
+    });
+
+    return groups;
+  }, [orders]);
+
+  // Calculate today's stats
+  const todayStats = useMemo(() => {
+    const today = new Date().toDateString();
+    const todayOrders = orders.filter((o) =>
+      new Date(o.created_at).toDateString() === today
+    );
+    const totalAmount = todayOrders.reduce((sum, o) => sum + o.total_amount, 0);
+
+    return {
+      count: todayOrders.length,
+      amount: totalAmount,
+    };
+  }, [orders]);
+
+  // Determine which categories to show
+  const categoriesToShow = activeFilter === 'all'
+    ? (['awaiting', 'paidReady', 'kitchen', 'ready'] as StatusCategory[])
+    : [activeFilter as StatusCategory];
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto order-queue-scroll pr-2">
+        <AnimatePresence mode="wait">
+          {categoriesToShow.map((category) => {
+            const categoryOrders = groupedOrders[category];
+            const info = CATEGORY_INFO[category];
+
+            if (categoryOrders.length === 0 && activeFilter !== 'all') {
+              return (
+                <motion.div
+                  key={category}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center py-12 text-muted-foreground"
+                >
+                  <p>No orders in {info.label.toLowerCase()}</p>
+                </motion.div>
+              );
+            }
+
+            if (categoryOrders.length === 0) return null;
+
+            return (
+              <motion.div
+                key={category}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-6"
+              >
+                {/* Section Header */}
+                <div className="sticky top-0 bg-background z-10 pb-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{info.emoji}</span>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                      {info.label}
+                    </h3>
+                    <Badge className={`${info.color} text-white`}>
+                      {categoryOrders.length}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {info.description}
+                  </p>
+                </div>
+
+                {/* Orders */}
+                <div className="space-y-2">
+                  {categoryOrders.map((order) => (
+                    <OrderCardCompact
+                      key={order.id}
+                      order={order}
+                      onClick={() => onOrderClick(order.id)}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+
+      {/* Today's Stats Footer */}
+      <div className="mt-4 pt-4 border-t bg-gradient-to-r from-[var(--color-dark-gradient-from)] to-[var(--color-dark-gradient-to)] text-white p-4 rounded-lg -mx-2">
+        <div className="flex justify-between items-center text-sm">
+          <span>📊 Today:</span>
+          <span className="font-bold">
+            {todayStats.count} orders • {formatCurrency(todayStats.amount)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Main Component
+// ============================================
 
 export function OrderManager() {
   useDocumentTitle('Orders');
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterButtonValue>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [activeTab, setActiveTab] = useState<'form' | 'queue'>('form');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Feature flag for order form redesign
-  // Toggle via: localStorage.setItem('ff_order_form_redesign', 'true'); location.reload();
   const useRedesign = useFeatureFlag('order_form_redesign');
-
-  // Select the appropriate form component based on feature flag
   const FormComponent = useRedesign ? OrderFormPOSRedesign : OrderFormPOS;
 
+  // Mobile breakpoint detection
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Layout breakpoints
-  const isNarrow = windowWidth < 1024; // Show form above on narrow screens (< lg)
-  const isMobile = windowWidth < 640;  // Use dialog on mobile (< sm)
+  // Build filters for backend query
+  const filters: OrderFilters | undefined = useMemo(() => {
+    if (activeFilter === 'all') return undefined;
+    const statuses = STATUS_CATEGORIES[activeFilter as StatusCategory];
+    return { status: statuses as any };
+  }, [activeFilter]);
 
-  const filters: OrderFilters | undefined = statusFilter !== 'all' ? { status: statusFilter } : undefined;
   const { data: orders, isLoading } = useConvexOrders(filters);
 
+  // Apply search filter
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     if (!searchQuery) return orders;
@@ -205,182 +389,189 @@ export function OrderManager() {
     );
   }, [orders, searchQuery]);
 
+  // Calculate order counts by category
+  const orderCounts = useMemo(() => {
+    const counts: Record<StatusCategory, number> = {
+      awaiting: 0,
+      paidReady: 0,
+      kitchen: 0,
+      ready: 0,
+      completed: 0,
+    };
+
+    if (!orders) return counts;
+
+    orders.forEach((order) => {
+      const category = getStatusCategory(order.status);
+      counts[category]++;
+    });
+
+    return counts;
+  }, [orders]);
+
   const handleOrderClick = (orderId: number) => {
     navigate(`/orders/${orderId}`);
   };
 
   const handleOrderCreated = () => {
-    setShowForm(false);
+    // Form will handle success toast, just refresh will happen automatically
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Orders"
-        action={
-          <div className="flex gap-2">
-            {/* CSV export removed - would need Convex action implementation */}
-            <Button size="sm" onClick={() => setShowForm(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Order
-            </Button>
-          </div>
-        }
-      />
+    <div className="space-y-4 md:space-y-6 pb-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold order-heading text-gray-900 mb-1">
+          Orders
+        </h1>
+        <div className="w-16 h-1 bg-terracotta rounded-full mb-3 md:mb-4" />
 
-      {/* Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1 max-w-sm">
+        {/* Search Bar */}
+        <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            aria-label="Search orders by number, customer name, or salesperson"
-            placeholder="Search orders..."
+            aria-label="Search orders by number, customer, or salesperson"
+            placeholder={isMobile ? "Search..." : "Search orders... ⌘K"}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 focus-terracotta"
           />
         </div>
-
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilterValue)} aria-label="Filter orders by status">
-          <SelectTrigger className="w-40">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="Draft">Draft</SelectItem>
-            <SelectItem value="AwaitingPayment">Awaiting Payment</SelectItem>
-            <SelectItem value="Confirmed">Confirmed</SelectItem>
-            <SelectItem value="ProductionComplete">Production Complete</SelectItem>
-            <SelectItem value="Packaging">Packaging</SelectItem>
-            <SelectItem value="WaitingShipment">Waiting for Shipment</SelectItem>
-            <SelectItem value="CompleteShipped">Shipped</SelectItem>
-            <SelectItem value="WaitingPickup">Waiting for Pickup</SelectItem>
-            <SelectItem value="PickedUp">Picked Up</SelectItem>
-            <SelectItem value="Cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Form Above (Narrow screens, non-mobile) */}
-      {showForm && isNarrow && !isMobile && (
-        <Card className="mb-6">
-          <CardHeader className="pb-4">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-xl">New Order</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowForm(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <FormComponent
-              onSuccess={() => handleOrderCreated()}
-              onCancel={() => setShowForm(false)}
-            />
-          </CardContent>
-        </Card>
+      {/* Mobile Tab Navigation */}
+      {isMobile && (
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('form')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+              activeTab === 'form'
+                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileEdit className="h-4 w-4" />
+            <span>New Order</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+              activeTab === 'queue'
+                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <List className="h-4 w-4" />
+            <span>
+              Queue {orders && orders.length > 0 && `(${orders.length})`}
+            </span>
+          </button>
+        </div>
       )}
 
-      {/* Content */}
-      <div className={`grid gap-6 ${isNarrow ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'}`}>
-        {/* Quick Create Form - Main Section (Wide screens only) */}
-        {!isNarrow && (
-          <div className="lg:col-span-2">
-            {showForm ? (
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-xl">New Order</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowForm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <FormComponent
-                    onSuccess={() => handleOrderCreated()}
-                    onCancel={() => setShowForm(false)}
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-dashed">
-                <CardContent className="py-16 text-center">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Create New Order</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Start a new order with the quick creation form
-                  </p>
-                  <Button
-                    size="lg"
-                    onClick={() => setShowForm(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Order
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Order List Sidebar */}
-        <div className={isNarrow ? '' : 'lg:col-span-1'}>
-          <div className="space-y-4">
-            {isLoading ? (
-              <LoadingCards count={3} />
-            ) : filteredOrders.length === 0 ? (
-              orders?.length === 0 ? (
-                <EmptyState
-                  icon={ShoppingCart}
-                  title="No orders yet"
-                  description="Create your first order to start tracking sales and production."
-                  action={{ label: 'Create Order', onClick: () => setShowForm(true) }}
-                />
-              ) : (
-                <EmptyState
-                  icon={SearchX}
-                  title="No matching orders"
-                  description="Try adjusting your search or filters to find what you're looking for."
-                />
-              )
-            ) : (
-              <div className="grid gap-4">
-                {filteredOrders.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onClick={() => handleOrderClick(order.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Filter Buttons - Scrollable on mobile */}
+      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
+        <FilterButtons
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          orderCounts={orderCounts}
+        />
       </div>
 
-      {/* Mobile Form Modal */}
-      {showForm && isMobile && (
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>New Order</DialogTitle>
-            </DialogHeader>
+      {/* Main Content - Responsive Layout */}
+      {isMobile ? (
+        /* Mobile: Tab-based single column */
+        <AnimatePresence mode="wait">
+          {activeTab === 'form' ? (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <FormComponent
+                onSuccess={handleOrderCreated}
+                onCancel={() => {}}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="queue"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="min-h-[60vh]"
+            >
+              {isLoading ? (
+                <LoadingCards count={3} />
+              ) : filteredOrders.length === 0 ? (
+                orders?.length === 0 ? (
+                  <EmptyState
+                    icon={ShoppingCart}
+                    title="No orders yet"
+                    description="Orders will appear here once created."
+                  />
+                ) : (
+                  <EmptyState
+                    icon={SearchX}
+                    title="No matching orders"
+                    description="Try adjusting your search or filters."
+                  />
+                )
+              ) : (
+                <OrdersQueue
+                  orders={filteredOrders}
+                  activeFilter={activeFilter}
+                  onOrderClick={handleOrderClick}
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        /* Desktop: Golden Ratio Layout */
+        <div className="flex gap-6">
+          {/* Form Section - 61.8% */}
+          <div className="flex-[618] min-w-0">
             <FormComponent
-              onSuccess={() => handleOrderCreated()}
-              onCancel={() => setShowForm(false)}
+              onSuccess={handleOrderCreated}
+              onCancel={() => {}}
             />
-          </DialogContent>
-        </Dialog>
+          </div>
+
+          {/* Orders Queue - 38.2% */}
+          <div className="flex-[382] min-w-0">
+            <Card className="h-[calc(100vh-280px)] sticky top-6">
+              <div className="p-4 h-full">
+                {isLoading ? (
+                  <LoadingCards count={3} />
+                ) : filteredOrders.length === 0 ? (
+                  orders?.length === 0 ? (
+                    <EmptyState
+                      icon={ShoppingCart}
+                      title="No orders yet"
+                      description="Orders will appear here once created."
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={SearchX}
+                      title="No matching orders"
+                      description="Try adjusting your search or filters."
+                    />
+                  )
+                ) : (
+                  <OrdersQueue
+                    orders={filteredOrders}
+                    activeFilter={activeFilter}
+                    onOrderClick={handleOrderClick}
+                  />
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );
