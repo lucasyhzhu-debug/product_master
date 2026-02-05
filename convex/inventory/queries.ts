@@ -169,18 +169,18 @@ export const getLocationInventory = query({
     );
 
     // Filter nulls and optionally inactive
-    inventory = inventory.filter((item) => {
+    const filteredInventory = inventory.filter((item): item is NonNullable<typeof item> => {
       if (!item) return false;
       if (args.activeOnly && !item.component.isActive) return false;
       return true;
-    }) as NonNullable<typeof inventory[number]>[];
+    });
 
     // Sort by component name
-    inventory.sort((a, b) => a.component.name.localeCompare(b.component.name));
+    filteredInventory.sort((a, b) => a.component.name.localeCompare(b.component.name));
 
     return {
       location,
-      inventory,
+      inventory: filteredInventory,
     };
   },
 });

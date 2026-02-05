@@ -15,13 +15,16 @@ export const list = query({
     activeOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    let q = ctx.db.query("componentTypes");
+    let components;
 
     if (args.activeOnly) {
-      q = q.withIndex("by_active", (q) => q.eq("isActive", true));
+      components = await ctx.db
+        .query("componentTypes")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect();
+    } else {
+      components = await ctx.db.query("componentTypes").collect();
     }
-
-    const components = await q.collect();
 
     // Sort by sortOrder, then by name
     return components.sort((a, b) => {

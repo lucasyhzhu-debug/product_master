@@ -143,9 +143,10 @@ export const remove = mutation({
     }
 
     // Check if used in menuProductComponents
+    // Note: Using by_production_type index until schema migration renames it
     const usedInProducts = await ctx.db
       .query("menuProductComponents")
-      .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.id))
+      .withIndex("by_production_type", (q) => q.eq("productionUnitTypeId", args.id))
       .first();
 
     if (usedInProducts) {
