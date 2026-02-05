@@ -25,7 +25,6 @@ export { FlyingBall } from './FlyingBall';
 // POS Form components (PRD-3: Order Form POS)
 export { ProductButtons } from './ProductButtons';
 export { PasteTemplateBox } from './PasteTemplateBox';
-export { DiscountInput } from './DiscountInput';
 export { DeliveryToggle } from './DeliveryToggle';
 export { OrderFormPOS } from './OrderFormPOS';
 

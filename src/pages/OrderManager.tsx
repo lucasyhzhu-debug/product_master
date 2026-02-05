@@ -16,10 +16,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
-import { OrderFormPOS as OrderFormPOSRedesign } from '@/components/orders/OrderFormPOS_Redesign';
 
 import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
-import { useFeatureFlag } from '@/lib/featureFlags';
 import { formatCurrency } from '@/lib/utils';
 import type { OrderSummary } from '@/lib/types';
 import {
@@ -355,10 +353,6 @@ export function OrderManager() {
   const [activeTab, setActiveTab] = useState<'form' | 'queue'>('form');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Feature flag for order form redesign
-  const useRedesign = useFeatureFlag('order_form_redesign');
-  const FormComponent = useRedesign ? OrderFormPOSRedesign : OrderFormPOS;
-
   // Mobile breakpoint detection
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -490,7 +484,7 @@ export function OrderManager() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.2 }}
             >
-              <FormComponent
+              <OrderFormPOS
                 onSuccess={handleOrderCreated}
                 onCancel={() => {}}
               />
@@ -535,7 +529,7 @@ export function OrderManager() {
         <div className="flex gap-6">
           {/* Form Section - 61.8% */}
           <div className="flex-[618] min-w-0">
-            <FormComponent
+            <OrderFormPOS
               onSuccess={handleOrderCreated}
               onCancel={() => {}}
             />
