@@ -13,6 +13,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-05 - WhatsApp Template Format Updates
+
+**Currency and discount display improvements for WhatsApp messages**
+
+- Changed currency format from `IDR` to `Rp` throughout all WhatsApp templates
+- Simplified discount display: now shows `(Includes Rp XX.XXX discount!)` instead of voucher codes
+- Consistent formatting across payment request, receipt, and DB template system
+
+**Files Modified:**
+- `convex/orders/whatsapp.ts` - formatCurrency + 3 discount note locations
+- `convex/orders/whatsappHelpers.ts` - formatCurrency (for testability)
+- `convex/orders/__tests__/whatsapp.test.ts` - updated test assertions
+- `src/lib/whatsappTemplates.ts` - frontend preview formatCurrency
+
+**Commits:**
+- fix: change currency format from IDR to Rp in WhatsApp helpers
+- fix: update WhatsApp templates - Rp currency + simplified discount
+- fix: update frontend WhatsApp preview currency format
+
+---
+
 ## 2026-02-05 - Orders Page Complete Redesign - Terracotta Theme & Golden Ratio Layout
 
 **Complete visual and structural redesign of the Orders page with terracotta design language**
