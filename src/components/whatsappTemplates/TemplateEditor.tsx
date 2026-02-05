@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, X, CheckCheck, RotateCcw, Save, Loader2 } from "lucide-react";
+import { X, CheckCheck, RotateCcw, Save, Loader2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -180,26 +180,17 @@ export function TemplateEditor({
         <SheetContent
           side="right"
           className="w-full sm:max-w-[700px] p-0 overflow-hidden"
+          hideCloseButton
         >
           {/* Header */}
           <SheetHeader className="p-4 border-b bg-gradient-to-r from-[#25D366]/10 to-transparent">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onOpenChange(false)}
-                className="h-8 w-8"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-2xl">{icon}</span>
-                <div>
-                  <SheetTitle className="text-left">{template.name}</SheetTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {template.description}
-                  </p>
-                </div>
+              <span className="text-2xl">{icon}</span>
+              <div className="flex-1">
+                <SheetTitle className="text-left">{template.name}</SheetTitle>
+                <p className="text-xs text-muted-foreground">
+                  {template.description}
+                </p>
               </div>
               <Button
                 variant="ghost"
