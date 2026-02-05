@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Search, ShoppingCart, SearchX, ChevronDown } from 'lucide-react';
+import { Search, ShoppingCart, SearchX, ChevronDown, FileEdit, List } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -147,7 +147,7 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
   ];
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 overflow-x-auto pb-2 md:flex-wrap md:overflow-visible md:pb-0">
       {mainCategories.map(({ value, label, category }) => {
         const isActive = activeFilter === value;
         const count = category ? orderCounts[category] : 0;
@@ -160,20 +160,20 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
             size="sm"
             onClick={() => onFilterChange(value)}
             className={`
-              min-w-[120px] transition-all
+              min-w-[100px] md:min-w-[120px] transition-all flex-shrink-0
               ${isActive
                 ? 'bg-terracotta hover:bg-terracotta-dark text-white shadow-md'
                 : 'hover:border-terracotta hover:text-terracotta'
               }
             `}
           >
-            <span className="flex items-center gap-2">
-              {info && <span>{info.emoji}</span>}
-              <span>{label}</span>
+            <span className="flex items-center gap-1 md:gap-2">
+              {info && <span className="text-sm md:text-base">{info.emoji}</span>}
+              <span className="text-xs md:text-sm">{label}</span>
               {category && count > 0 && (
                 <Badge
                   variant="secondary"
-                  className={`ml-1 ${isActive ? 'bg-white/20 text-white' : ''}`}
+                  className={`ml-1 text-xs ${isActive ? 'bg-white/20 text-white' : ''}`}
                 >
                   {count}
                 </Badge>
@@ -352,10 +352,19 @@ export function OrderManager() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<FilterButtonValue>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'form' | 'queue'>('form');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // Feature flag for order form redesign
   const useRedesign = useFeatureFlag('order_form_redesign');
   const FormComponent = useRedesign ? OrderFormPOSRedesign : OrderFormPOS;
+
+  // Mobile breakpoint detection
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Build filters for backend query
   const filters: OrderFilters | undefined = useMemo(() => {
@@ -409,20 +418,20 @@ export function OrderManager() {
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="space-y-4 md:space-y-6 pb-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold order-heading text-gray-900 mb-1">
+        <h1 className="text-2xl md:text-3xl font-bold order-heading text-gray-900 mb-1">
           Orders
         </h1>
-        <div className="w-16 h-1 bg-terracotta rounded-full mb-4" />
+        <div className="w-16 h-1 bg-terracotta rounded-full mb-3 md:mb-4" />
 
         {/* Search Bar */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             aria-label="Search orders by number, customer, or salesperson"
-            placeholder="Search orders... ⌘K"
+            placeholder={isMobile ? "Search..." : "Search orders... ⌘K"}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 focus-terracotta"
@@ -430,27 +439,71 @@ export function OrderManager() {
         </div>
       </div>
 
-      {/* Filter Buttons */}
-      <FilterButtons
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        orderCounts={orderCounts}
-      />
-
-      {/* Main Content - Golden Ratio Layout */}
-      <div className="flex gap-6">
-        {/* Form Section - 61.8% */}
-        <div className="flex-[618] min-w-0">
-          <FormComponent
-            onSuccess={handleOrderCreated}
-            onCancel={() => {}}
-          />
+      {/* Mobile Tab Navigation */}
+      {isMobile && (
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('form')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+              activeTab === 'form'
+                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileEdit className="h-4 w-4" />
+            <span>New Order</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+              activeTab === 'queue'
+                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <List className="h-4 w-4" />
+            <span>
+              Queue {orders && orders.length > 0 && `(${orders.length})`}
+            </span>
+          </button>
         </div>
+      )}
 
-        {/* Orders Queue - 38.2% */}
-        <div className="flex-[382] min-w-0">
-          <Card className="h-[calc(100vh-280px)] sticky top-6">
-            <div className="p-4 h-full">
+      {/* Filter Buttons - Scrollable on mobile */}
+      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
+        <FilterButtons
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          orderCounts={orderCounts}
+        />
+      </div>
+
+      {/* Main Content - Responsive Layout */}
+      {isMobile ? (
+        /* Mobile: Tab-based single column */
+        <AnimatePresence mode="wait">
+          {activeTab === 'form' ? (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <FormComponent
+                onSuccess={handleOrderCreated}
+                onCancel={() => {}}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="queue"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="min-h-[60vh]"
+            >
               {isLoading ? (
                 <LoadingCards count={3} />
               ) : filteredOrders.length === 0 ? (
@@ -474,10 +527,52 @@ export function OrderManager() {
                   onOrderClick={handleOrderClick}
                 />
               )}
-            </div>
-          </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        /* Desktop: Golden Ratio Layout */
+        <div className="flex gap-6">
+          {/* Form Section - 61.8% */}
+          <div className="flex-[618] min-w-0">
+            <FormComponent
+              onSuccess={handleOrderCreated}
+              onCancel={() => {}}
+            />
+          </div>
+
+          {/* Orders Queue - 38.2% */}
+          <div className="flex-[382] min-w-0">
+            <Card className="h-[calc(100vh-280px)] sticky top-6">
+              <div className="p-4 h-full">
+                {isLoading ? (
+                  <LoadingCards count={3} />
+                ) : filteredOrders.length === 0 ? (
+                  orders?.length === 0 ? (
+                    <EmptyState
+                      icon={ShoppingCart}
+                      title="No orders yet"
+                      description="Orders will appear here once created."
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={SearchX}
+                      title="No matching orders"
+                      description="Try adjusting your search or filters."
+                    />
+                  )
+                ) : (
+                  <OrdersQueue
+                    orders={filteredOrders}
+                    activeFilter={activeFilter}
+                    onOrderClick={handleOrderClick}
+                  />
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
