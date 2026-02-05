@@ -21,7 +21,7 @@ import { OrderFormPOS as OrderFormPOSRedesign } from '@/components/orders/OrderF
 import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
 import { useFeatureFlag } from '@/lib/featureFlags';
 import { formatCurrency } from '@/lib/utils';
-import type { OrderSummary, OrderStatus } from '@/lib/types';
+import type { OrderSummary } from '@/lib/types';
 import {
   STATUS_CATEGORIES,
   CATEGORY_INFO,
@@ -42,7 +42,6 @@ interface OrderCardProps {
 }
 
 function OrderCardCompact({ order, onClick }: OrderCardProps) {
-  const category = getStatusCategory(order.status);
   const dotColor = getStatusDotColor(order.status);
   const waitingInfo = order.status === 'AwaitingPayment'
     ? getWaitingTimeInfo(order.awaiting_payment_since ?? null)
@@ -362,7 +361,7 @@ export function OrderManager() {
   const filters: OrderFilters | undefined = useMemo(() => {
     if (activeFilter === 'all') return undefined;
     const statuses = STATUS_CATEGORIES[activeFilter as StatusCategory];
-    return { status: statuses };
+    return { status: statuses as any };
   }, [activeFilter]);
 
   const { data: orders, isLoading } = useConvexOrders(filters);
