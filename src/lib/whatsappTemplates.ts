@@ -13,7 +13,7 @@ import type { OrderDetail, WhatsAppTemplateTab, WhatsAppLanguage } from './types
  * Format a number as Indonesian Rupiah currency.
  */
 export function formatCurrency(amount: number): string {
-  return `IDR ${amount.toLocaleString('id-ID')}`;
+  return `Rp ${amount.toLocaleString('id-ID')}`;
 }
 
 /**
