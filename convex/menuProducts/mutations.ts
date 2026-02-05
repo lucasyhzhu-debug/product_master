@@ -2,7 +2,7 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
-import { calculateMenuProductCOGS } from "../lib/costCalculator";
+// import { calculateMenuProductCOGS } from "../lib/costCalculator";
 
 /**
  * Helper: Calculate unit cost and grams from components.
@@ -40,53 +40,53 @@ async function calculateUnitCostFromComponents(
  * @param components - Array of { componentTypeId, quantity }
  * @returns { totalCost, totalGrams, breakdown }
  */
-async function calculateUnitCostFromComponentTypes(
-  ctx: MutationCtx,
-  components: Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
-): Promise<{
-  totalCost: number;
-  totalGrams: number;
-  breakdown: {
-    production: number;
-    directPackaging: number;
-    indirectPackaging: number;
-  };
-}> {
-  // Fetch all component types and build input for COGS calculator
-  const enrichedComponents = await Promise.all(
-    components.map(async (component) => {
-      const componentType = await ctx.db.get(component.componentTypeId);
-      if (!componentType) {
-        throw new Error(`Component type not found: ${component.componentTypeId}`);
-      }
-
-      return {
-        unitCostIdr: componentType.unitCostIdr,
-        category: componentType.category,
-        quantity: component.quantity,
-        gramsPerUnit: componentType.gramsPerUnit,
-      };
-    })
-  );
-
-  // Calculate COGS breakdown
-  const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
-
-  // Calculate total grams (only from production components)
-  const totalGrams = enrichedComponents
-    .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
-    .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
-
-  return {
-    totalCost: cogsBreakdown.total,
-    totalGrams,
-    breakdown: {
-      production: cogsBreakdown.production,
-      directPackaging: cogsBreakdown.directPackaging,
-      indirectPackaging: cogsBreakdown.indirectPackaging,
-    },
-  };
-}
+// async function calculateUnitCostFromComponentTypes(
+//   ctx: MutationCtx,
+//   components: Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
+// ): Promise<{
+//   totalCost: number;
+//   totalGrams: number;
+//   breakdown: {
+//     production: number;
+//     directPackaging: number;
+//     indirectPackaging: number;
+//   };
+// }> {
+//   // Fetch all component types and build input for COGS calculator
+//   const enrichedComponents = await Promise.all(
+//     components.map(async (component) => {
+//       const componentType = await ctx.db.get(component.componentTypeId);
+//       if (!componentType) {
+//         throw new Error(`Component type not found: ${component.componentTypeId}`);
+//       }
+// 
+//       return {
+//         unitCostIdr: componentType.unitCostIdr,
+//         category: componentType.category,
+//         quantity: component.quantity,
+//         gramsPerUnit: componentType.gramsPerUnit,
+//       };
+//     })
+//   );
+// 
+//   // Calculate COGS breakdown
+//   const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
+// 
+//   // Calculate total grams (only from production components)
+//   const totalGrams = enrichedComponents
+//     .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
+//     .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
+// 
+//   return {
+//     totalCost: cogsBreakdown.total,
+//     totalGrams,
+//     breakdown: {
+//       production: cogsBreakdown.production,
+//       directPackaging: cogsBreakdown.directPackaging,
+//       indirectPackaging: cogsBreakdown.indirectPackaging,
+//     },
+//   };
+// }
 
 /**
  * Helper: Update the cached production summary on a menu product.

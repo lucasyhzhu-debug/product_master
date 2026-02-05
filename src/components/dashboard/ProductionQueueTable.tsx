@@ -20,6 +20,8 @@ const STATUS_CONFIG: Record<
   InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600' }, // PRD-7
   ProductionComplete: { label: 'Production Done', variant: 'secondary', color: 'text-purple-600' },
   Packaging: { label: 'Packaging', variant: 'default', color: 'text-indigo-600' },
+  Boxed: { label: 'Boxed', variant: 'default', color: 'text-amber-600' },
+  Labeled: { label: 'Labeled', variant: 'default', color: 'text-blue-600' },
   WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600' },
   CompleteShipped: { label: 'Shipped', variant: 'secondary', color: 'text-green-600' },
   WaitingPickup: { label: 'Ready for Pickup', variant: 'outline', color: 'text-green-600' },

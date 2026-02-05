@@ -50,6 +50,8 @@ const STATUS_ORDER: Record<OrderStatus, number> = {
   'InProduction': 3,
   'ProductionComplete': 4, // Deprecated
   'Packaging': 4,
+  'Boxed': 4,        // Added
+  'Labeled': 5,      // Added
   'WaitingShipment': 5,
   'WaitingPickup': 5,
   'CompleteShipped': 6,

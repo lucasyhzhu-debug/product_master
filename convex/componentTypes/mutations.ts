@@ -142,19 +142,19 @@ export const remove = mutation({
       throw new Error("Component not found");
     }
 
-    // Check if used in menuProductComponents
-    // Note: Using by_production_type index until schema migration renames it
-    const usedInProducts = await ctx.db
-      .query("menuProductComponents")
-      .withIndex("by_production_type", (q) => q.eq("productionUnitTypeId", args.id))
-      .first();
-
-    if (usedInProducts) {
-      const menuProduct = await ctx.db.get(usedInProducts.menuProductId);
-      throw new Error(
-        `Cannot delete: component is used in menu product "${menuProduct?.name || "unknown"}"`
-      );
-    }
+    // TODO: Check if used in menuProductComponents
+    // Temporarily disabled until Wave 1.5 migration (productionUnitTypeId → componentTypeId FK)
+    // const usedInProducts = await ctx.db
+    //   .query("menuProductComponents")
+    //   .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.id))
+    //   .first();
+    //
+    // if (usedInProducts) {
+    //   const menuProduct = await ctx.db.get(usedInProducts.menuProductId);
+    //   throw new Error(
+    //     `Cannot delete: component is used in menu product "${menuProduct?.name || "unknown"}"`
+    //   );
+    // }
 
     // Check if has inventory batches
     const hasBatches = await ctx.db

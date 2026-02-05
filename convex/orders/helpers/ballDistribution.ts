@@ -178,7 +178,6 @@ export async function distributeBallsToOrders(
                              options.ballType === "bite_sized" ? "mid" :
                              options.ballType;
   const productionUnitCode = normalizedBallType === "big" ? "BIG_BALL" : "MID_BALL";
-  const productionTypeFilter = normalizedBallType === "big" ? "original" : "bite_sized";
 
   // Fetch and sort eligible orders
   const ordersWithItems = await fetchEligibleOrdersWithItems(ctx);

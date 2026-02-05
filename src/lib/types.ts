@@ -419,7 +419,8 @@ export interface CustomerSummary {
 
 // Order types
 // PRD-7: Added InProduction between Confirmed and Packaging
-export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
+// PRD-Kitchen-Workflow: Added Boxed and Labeled statuses for inventory management
+export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'Boxed' | 'Labeled' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
 
 // PRD-7: Cancellation categories for enhanced cancellation flow
 export type CancellationCategory = 'customer_request' | 'out_of_stock' | 'payment_issue' | 'duplicate' | 'other';
@@ -723,6 +724,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canManageWhatsAppTemplates: boolean;  // WhatsApp Template Manager access
   canAccessVouchers: boolean;  // Vouchers Manager (admin-only)
   canCreateOverrideVoucher: boolean;  // Manager override during checkout (manager + admin)
+  canAccessInventory: boolean;  // Inventory Manager (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -740,6 +742,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canManageWhatsAppTemplates: false,
     canAccessVouchers: false,
     canCreateOverrideVoucher: false,
+    canAccessInventory: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -757,6 +760,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canManageWhatsAppTemplates: false,
     canAccessVouchers: false,
     canCreateOverrideVoucher: false,
+    canAccessInventory: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -774,6 +778,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canManageWhatsAppTemplates: true,  // Manager can manage WhatsApp templates
     canAccessVouchers: false,  // Manager cannot access VouchersManager page
     canCreateOverrideVoucher: true,  // Manager can create override during checkout
+    canAccessInventory: true,  // Manager can access inventory
   },
   admin: {
     canAccessDashboard: true,
@@ -791,6 +796,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canManageWhatsAppTemplates: true,  // Admin can manage WhatsApp templates
     canAccessVouchers: true,  // Admin-only
     canCreateOverrideVoucher: true,  // Admin can create override during checkout
+    canAccessInventory: true,  // Admin can access inventory
   },
 };
 

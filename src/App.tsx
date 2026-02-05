@@ -12,10 +12,14 @@ import {
   OrderManager,
   OrderDetail,
   KitchenView,
+  KitchenViewV2,
   PackagingView,
   MenuProductsManager,
   WhatsAppTemplatesManager,
   VouchersManager,
+  InventoryManager,
+  LocationsManager,
+  ComponentTypesManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -57,6 +61,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessKitchen">
                   <KitchenView />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Kitchen V2 - Wave 5 Implementation (Testing) */}
+            <Route
+              path="kitchen-v2"
+              element={
+                <ProtectedRoute requiredPermission="canAccessKitchen">
+                  <KitchenViewV2 />
                 </ProtectedRoute>
               }
             />
@@ -176,6 +190,36 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessVouchers">
                   <VouchersManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Inventory - Manager and Admin */}
+            <Route
+              path="inventory"
+              element={
+                <ProtectedRoute requiredPermission="canAccessInventory">
+                  <InventoryManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Inventory Locations - Manager and Admin */}
+            <Route
+              path="inventory/locations"
+              element={
+                <ProtectedRoute requiredPermission="canAccessInventory">
+                  <LocationsManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Component Types - Manager and Admin */}
+            <Route
+              path="inventory/components"
+              element={
+                <ProtectedRoute requiredPermission="canAccessInventory">
+                  <ComponentTypesManager />
                 </ProtectedRoute>
               }
             />

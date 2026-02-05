@@ -10,6 +10,8 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   InProduction: 'bg-purple-500',      // PRD-7: Kitchen actively producing
   ProductionComplete: 'bg-purple-500', // DEPRECATED
   Packaging: 'bg-indigo-500',
+  Boxed: 'bg-amber-600',              // Wave 5: Boxed (ready for stickers)
+  Labeled: 'bg-blue-600',             // Wave 5: Labeled (ready to ship)
   WaitingShipment: 'bg-yellow-500',
   CompleteShipped: 'bg-green-500',
   WaitingPickup: 'bg-orange-500',

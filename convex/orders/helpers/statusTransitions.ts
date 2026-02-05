@@ -19,6 +19,8 @@ export const ALL_ORDER_STATUSES = [
   "AwaitingPayment",
   "Confirmed",
   "InProduction",
+  "Boxed",
+  "Labeled",
   "Packaging",
   "WaitingShipment",
   "WaitingPickup",
@@ -144,6 +146,7 @@ export async function transitionToInProduction(
 
 /**
  * Transition order to Packaging status.
+ * DEPRECATED: Use transitionToBoxed instead.
  * Marks all items as production complete.
  */
 export async function transitionToPackaging(
@@ -161,4 +164,36 @@ export async function transitionToPackaging(
   for (const item of items) {
     await ctx.db.patch(item._id, { isProductionComplete: true });
   }
+}
+
+/**
+ * Transition order to Boxed status.
+ * Triggered when all packages are filled and boxed.
+ */
+export async function transitionToBoxed(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  reason: string = "All packages boxed - ready for stickering"
+): Promise<void> {
+  const fromStatus = order.status;
+
+  await ctx.db.patch(order._id, { status: "Boxed" });
+  await logAutoTransition(ctx, order._id, fromStatus, "Boxed", reason, "kitchen");
+}
+
+/**
+ * Transition order to Labeled status.
+ * Triggered when stickers are applied to all boxes.
+ */
+export async function transitionToLabeled(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  reason: string = "All boxes labeled - ready for shipment"
+): Promise<void> {
+  if (order.status !== "Boxed") {
+    return; // Only transition from Boxed
+  }
+
+  await ctx.db.patch(order._id, { status: "Labeled" });
+  await logAutoTransition(ctx, order._id, "Boxed", "Labeled", reason, "kitchen");
 }
