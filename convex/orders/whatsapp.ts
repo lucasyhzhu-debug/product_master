@@ -51,24 +51,18 @@ function buildTemplateVariables(
   });
   const itemsText = itemsLines.join("\n");
 
-  // Calculate discount note (voucher takes precedence over manual discount)
+  // Calculate discount note - unified format (no voucher code shown)
   let discountNote = "";
-  if (order.voucherCode && order.voucherDiscountValue) {
-    // Voucher discount
-    discountNote = `\n(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  if (order.voucherDiscountValue && order.voucherDiscountValue > 0) {
+    // Voucher discount - show amount only, not code
+    discountNote = `\n(Includes ${formatCurrency(order.voucherDiscountValue)} discount!)`;
   } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
-    // Manual discount
+    // Manual discount - show calculated amount
     const discountAmount =
       order.orderLevelDiscountType === "percentage"
         ? order.totalAmount * (order.orderLevelDiscount / 100)
         : order.orderLevelDiscount;
-
-    const discountDisplay =
-      order.orderLevelDiscountType === "percentage"
-        ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
-        : formatCurrency(discountAmount);
-
-    discountNote = `\n(Includes ${discountDisplay} discount!)`;
+    discountNote = `\n(Includes ${formatCurrency(discountAmount)} discount!)`;
   }
 
   const finalTotal = order.finalTotal ?? order.totalAmount;
@@ -168,7 +162,7 @@ async function getTemplateContent(
 }
 
 function formatCurrency(amount: number): string {
-  return `IDR ${amount.toLocaleString("id-ID")}`;
+  return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
 function formatDate(timestamp: number): string {
@@ -255,20 +249,15 @@ function generatePaymentRequest(order: OrderWithItems): string {
   const itemsText = itemsLines.join("\n");
   const dueDateStr = order.dueDate ? formatDate(order.dueDate) : "";
 
-  // Calculate discount note if present (voucher takes precedence)
+  // Calculate discount note - unified format (no voucher code shown)
   let discountNote = "";
-  if (order.voucherCode && order.voucherDiscountValue) {
-    discountNote = `(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  if (order.voucherDiscountValue && order.voucherDiscountValue > 0) {
+    discountNote = `(Includes ${formatCurrency(order.voucherDiscountValue)} discount!)`;
   } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
     const discountAmount = order.orderLevelDiscountType === "percentage"
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount;
-
-    const discountDisplay = order.orderLevelDiscountType === "percentage"
-      ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
-      : formatCurrency(discountAmount);
-
-    discountNote = `(Includes ${discountDisplay} discount!)`;
+    discountNote = `(Includes ${formatCurrency(discountAmount)} discount!)`;
   }
 
   const finalTotal = order.finalTotal ?? order.totalAmount;
@@ -385,20 +374,15 @@ function generateReceipt(order: OrderWithItems): string {
 
   const itemsText = itemsLines.join("\n");
 
-  // Calculate discount note if present (voucher takes precedence)
+  // Calculate discount note - unified format (no voucher code shown)
   let discountNote = "";
-  if (order.voucherCode && order.voucherDiscountValue) {
-    discountNote = `(Voucher ${order.voucherCode}: -${formatCurrency(order.voucherDiscountValue)})`;
+  if (order.voucherDiscountValue && order.voucherDiscountValue > 0) {
+    discountNote = `(Includes ${formatCurrency(order.voucherDiscountValue)} discount!)`;
   } else if (order.orderLevelDiscount && order.orderLevelDiscountType) {
     const discountAmount = order.orderLevelDiscountType === "percentage"
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount;
-
-    const discountDisplay = order.orderLevelDiscountType === "percentage"
-      ? `${formatCurrency(discountAmount)} (${order.orderLevelDiscount}%)`
-      : formatCurrency(discountAmount);
-
-    discountNote = `(Includes ${discountDisplay} discount)`;
+    discountNote = `(Includes ${formatCurrency(discountAmount)} discount!)`;
   }
 
   const finalTotal = order.finalTotal ?? order.totalAmount;

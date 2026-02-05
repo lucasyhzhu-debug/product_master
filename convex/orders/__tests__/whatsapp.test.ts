@@ -15,12 +15,12 @@ import {
 describe("formatCurrency", () => {
   it("should format currency in Indonesian Rupiah format", () => {
     const result = formatCurrency(50000);
-    expect(result).toBe("IDR 50.000");
+    expect(result).toBe("Rp 50.000");
   });
 
   it("should handle large amounts with proper thousand separators", () => {
     const result = formatCurrency(1500000);
-    expect(result).toBe("IDR 1.500.000");
+    expect(result).toBe("Rp 1.500.000");
   });
 });
 

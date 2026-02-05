@@ -3,6 +3,9 @@
  * Voucher system: Create, edit, and manage voucher codes for discounts
  */
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -64,6 +67,8 @@ import {
   RefreshCw,
   ShieldCheck,
   Clock,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -712,6 +717,12 @@ function OverrideCard({ voucher, onCopyCode }: OverrideCardProps) {
   const isExpired =
     voucher.validUntil !== undefined && Date.now() > voucher.validUntil;
 
+  // Fetch linked order details if override has been used
+  const orderDetails = useQuery(
+    api.vouchers.getOverrideOrderDetails,
+    voucher.overrideOrderId ? { voucherId: voucher._id } : "skip"
+  );
+
   return (
     <Card className={cn(isExpired && "opacity-60")}>
       <CardHeader className="pb-3">
@@ -747,6 +758,28 @@ function OverrideCard({ voucher, onCopyCode }: OverrideCardProps) {
           <p className="text-sm text-muted-foreground">
             <span className="font-medium">Reason:</span> {voucher.overrideReason}
           </p>
+        )}
+
+        {/* Order linkage */}
+        {voucher.overrideOrderId && (
+          <div className="text-sm">
+            {orderDetails === undefined ? (
+              <span className="text-muted-foreground">Loading order...</span>
+            ) : orderDetails?.orderDeleted ? (
+              <span className="text-destructive flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                Order has been deleted
+              </span>
+            ) : orderDetails ? (
+              <Link
+                to={`/orders/${voucher.overrideOrderId}`}
+                className="text-blue-600 hover:underline flex items-center gap-1"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Used by Order #{orderDetails.orderNumber}
+              </Link>
+            ) : null}
+          </div>
         )}
 
         {/* Created info */}

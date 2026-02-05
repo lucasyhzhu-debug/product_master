@@ -123,6 +123,8 @@ export async function validateAndApplyVoucher(
 /**
  * Increment voucher usage count and create usage record.
  * Called after successful order creation.
+ *
+ * For manager overrides: also deactivates and links to consuming order.
  */
 export async function recordVoucherUsage(
   ctx: MutationCtx,
@@ -141,6 +143,15 @@ export async function recordVoucherUsage(
     updatedAt: Date.now(),
   });
 
+  // If this is a manager override, deactivate and link to order
+  if (voucher.isManagerOverride) {
+    await ctx.db.patch(voucherId, {
+      isActive: false,
+      overrideOrderId: orderId,
+      updatedAt: Date.now(),
+    });
+  }
+
   // Create usage record
   await ctx.db.insert("voucherUsage", {
     voucherId,
@@ -153,6 +164,9 @@ export async function recordVoucherUsage(
 /**
  * Decrement voucher usage count and delete usage record.
  * Called when order is cancelled.
+ *
+ * For manager overrides: does NOT reactivate or clear order link
+ * (maintains audit trail even if order is cancelled/deleted).
  */
 export async function releaseVoucherUsage(
   ctx: MutationCtx,
@@ -170,6 +184,9 @@ export async function releaseVoucherUsage(
     usageCount: Math.max(0, voucher.usageCount - 1),
     updatedAt: Date.now(),
   });
+
+  // IMPORTANT: For manager overrides, do NOT reactivate or clear order link
+  // This maintains audit trail even if order is cancelled/deleted
 
   // Delete usage record for this order
   const usageRecord = await ctx.db
