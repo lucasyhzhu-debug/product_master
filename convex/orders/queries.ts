@@ -62,13 +62,13 @@ export const list = query({
       // Handle array of statuses (fetch all and filter in memory)
       if (Array.isArray(args.status)) {
         orders = await ctx.db.query("orders").order("desc").take(limit * 2);
-        orders = orders.filter((o) => args.status!.includes(o.status as any));
+        orders = orders.filter((o) => (args.status as string[]).includes(o.status));
         orders = orders.slice(0, limit);
       } else {
         // Single status - use index
         orders = await ctx.db
           .query("orders")
-          .withIndex("by_status", (q) => q.eq("status", args.status as string))
+          .withIndex("by_status", (q) => q.eq("status", args.status as any))
           .order("desc")
           .take(limit);
       }
