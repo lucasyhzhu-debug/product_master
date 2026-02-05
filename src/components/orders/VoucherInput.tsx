@@ -222,16 +222,18 @@ export function VoucherInput({
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={handleKeyDown}
             onFocus={() => setShowDropdown(true)}
-            placeholder="Enter code or select from dropdown"
+            onClick={() => setShowDropdown(true)}
+            placeholder="Type code or select from dropdown"
             className={cn(
               "font-mono pr-10",
               isValid && "border-green-500 focus-visible:ring-green-500",
               error && "border-destructive"
             )}
             disabled={disabled}
+            autoComplete="off"
           />
           {/* Status indicator */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
             {isValidating && (
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
             )}
@@ -243,10 +245,17 @@ export function VoucherInput({
             )}
             <ChevronDown
               className={cn(
-                "w-4 h-4 text-muted-foreground transition-transform cursor-pointer",
-                showDropdown && "transform rotate-180"
+                "w-4 h-4 text-muted-foreground transition-transform cursor-pointer pointer-events-auto",
+                showDropdown && "transform rotate-180",
+                disabled && "opacity-50"
               )}
-              onClick={() => setShowDropdown(!showDropdown)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!disabled) {
+                  setShowDropdown(!showDropdown);
+                  inputRef.current?.focus();
+                }
+              }}
             />
           </div>
 
