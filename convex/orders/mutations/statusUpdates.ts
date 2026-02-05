@@ -13,12 +13,20 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
+// Inventory integration
+import {
+  reserveStockForOrder,
+  consumeBoxingMaterials,
+  consumeStickerMaterials,
+  releaseReservation,
+} from "./inventoryIntegration";
+
 // ============================================
 // Type-safe Update Interfaces
 // ============================================
 
 interface OrderStatusUpdate {
-  status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled";
+  status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Boxed" | "Labeled" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled";
   awaitingPaymentSince?: number;
 }
 
@@ -40,6 +48,12 @@ interface OrderDetailsUpdate {
 
 /**
  * Update order status.
+ *
+ * Integrates with inventory management:
+ * - Confirmed: Reserve stock for packaging components
+ * - Boxed: Consume boxing materials (boxes, wrappers, ball paper)
+ * - Labeled: Consume sticker materials (product/QR stickers)
+ * - Cancelled: Release all reservations
  */
 export const updateStatus = mutation({
   args: {
@@ -50,6 +64,8 @@ export const updateStatus = mutation({
       v.literal("Confirmed"),
       v.literal("InProduction"),
       v.literal("ProductionComplete"),
+      v.literal("Boxed"),
+      v.literal("Labeled"),
       v.literal("Packaging"),
       v.literal("WaitingShipment"),
       v.literal("CompleteShipped"),
@@ -57,6 +73,7 @@ export const updateStatus = mutation({
       v.literal("PickedUp"),
       v.literal("Cancelled")
     ),
+    locationId: v.optional(v.id("storageLocations")),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -64,14 +81,69 @@ export const updateStatus = mutation({
       throw new Error("Order not found");
     }
 
-    const updates: OrderStatusUpdate = { status: args.status };
+    const oldStatus = order.status;
+    const newStatus = args.status;
+
+    const updates: OrderStatusUpdate = { status: newStatus };
 
     // Track awaiting payment timestamp
-    if (args.status === "AwaitingPayment" && !order.awaitingPaymentSince) {
+    if (newStatus === "AwaitingPayment" && !order.awaitingPaymentSince) {
       updates.awaitingPaymentSince = Date.now();
     }
 
+    // Update order status first
     await ctx.db.patch(args.orderId, updates);
+
+    // ============================================
+    // Inventory Integration
+    // ============================================
+
+    // Reserve stock when confirming order
+    if (newStatus === "Confirmed" && oldStatus !== "Confirmed") {
+      try {
+        await reserveStockForOrder(ctx, {
+          orderId: args.orderId,
+          locationId: args.locationId,
+        });
+      } catch (error) {
+        // Revert status on failure
+        await ctx.db.patch(args.orderId, { status: oldStatus });
+        throw error;
+      }
+    }
+
+    // Consume boxing materials when marking as boxed
+    if (newStatus === "Boxed" && oldStatus !== "Boxed") {
+      try {
+        await consumeBoxingMaterials(ctx, { orderId: args.orderId });
+      } catch (error) {
+        // Revert status on failure
+        await ctx.db.patch(args.orderId, { status: oldStatus });
+        throw error;
+      }
+    }
+
+    // Consume sticker materials when marking as labeled
+    if (newStatus === "Labeled" && oldStatus !== "Labeled") {
+      try {
+        await consumeStickerMaterials(ctx, { orderId: args.orderId });
+      } catch (error) {
+        // Revert status on failure
+        await ctx.db.patch(args.orderId, { status: oldStatus });
+        throw error;
+      }
+    }
+
+    // Release reservations when cancelling
+    if (newStatus === "Cancelled" && oldStatus !== "Cancelled") {
+      try {
+        await releaseReservation(ctx, { orderId: args.orderId });
+      } catch (error) {
+        // Log error but don't revert (cancellation should succeed)
+        console.error("Error releasing reservations:", error);
+      }
+    }
+
     return args.orderId;
   },
 });

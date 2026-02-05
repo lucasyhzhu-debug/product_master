@@ -43,6 +43,8 @@ export {
   revertToPackaging,
   markAllItemPackagesPacked,
   unmarkPackagePacked,
+  fillPackage,
+  unfillPackage,
 } from "./packaging";
 
 // Migrations
@@ -50,4 +52,13 @@ export {
   backfillOrderItemProduction,
   migrateChannelCodes,
   backfillProductionRecords,
+  migratePackagingToBoxed,
 } from "./migrations";
+
+// Inventory Integration
+export {
+  reserveStockForOrder,
+  consumeBoxingMaterials,
+  consumeStickerMaterials,
+  releaseReservation,
+} from "./inventoryIntegration";
