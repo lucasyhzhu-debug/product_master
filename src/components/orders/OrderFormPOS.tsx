@@ -1,20 +1,34 @@
 import { useState, useMemo } from 'react';
-import { Clipboard, Send, X, Plus, Minus, Trash2, HelpCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Clipboard,
+  Send,
+  X,
+  Plus,
+  Minus,
+  Trash2,
+  Sparkles,
+  Loader2,
+  Package,
+  User,
+  MapPin,
+  Calendar,
+  FileText,
+  ChevronRight,
+  CheckCircle2,
+  AlertCircle,
+  ShieldCheck,
+  Ticket
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { ProductButtons } from './ProductButtons';
 import { PasteTemplateBox } from './PasteTemplateBox';
-import { DiscountInput } from './DiscountInput';
 import { DeliveryToggle } from './DeliveryToggle';
 import { VoucherInput, type AppliedVoucher } from './VoucherInput';
 import { ManagerOverrideDialog } from './ManagerOverrideDialog';
@@ -41,6 +55,25 @@ interface OrderFormPOSProps {
   onSuccess?: (orderId: string) => void;
   onCancel?: () => void;
 }
+
+// Animation variants
+const fadeIn = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+};
+
+const slideIn = {
+  initial: { opacity: 0, x: -20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: 20 },
+};
+
+const scaleIn = {
+  initial: { opacity: 0, scale: 0.95 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.95 },
+};
 
 export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // ============================================
@@ -70,10 +103,6 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // Notes
   const [notes, setNotes] = useState('');
 
-  // Manual Discount (order-level discount entered manually)
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [discountType, setDiscountType] = useState<'amount' | 'percentage'>('amount');
-
   // Voucher
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null);
 
@@ -86,6 +115,9 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // UI State
+  const [showTemplateBox, setShowTemplateBox] = useState(false);
 
   // ============================================
   // Queries & Mutations
@@ -112,19 +144,13 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     [items]
   );
 
-  // Manual discount (percentage or fixed amount)
-  const manualDiscountValue = discountType === 'percentage'
-    ? subtotal * (discountAmount / 100)
-    : discountAmount;
-
-  // Voucher discount (already calculated in the voucher object)
-  const voucherDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
-
-  // Total discount (manual + voucher - but typically you'd use one or the other)
-  // Business rule: voucher replaces manual discount when applied
-  const totalDiscountValue = appliedVoucher ? voucherDiscountValue : manualDiscountValue;
+  // Voucher discount (only discount method now)
+  const totalDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
 
   const total = subtotal - totalDiscountValue;
+
+  // Check if order total is below threshold
+  const isLowPrice = total > 0 && total < LOW_PRICE_THRESHOLD;
 
   const todayFormatted = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
@@ -132,8 +158,14 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     year: 'numeric',
   });
 
-  // Check if order total is below threshold
-  const isLowPrice = total > 0 && total < LOW_PRICE_THRESHOLD;
+  // Form completion state
+  const hasItems = items.length > 0;
+  const hasCustomer = (isNewCustomer && customerName.trim()) || (!isNewCustomer && selectedCustomerId);
+  const completionSteps = [
+    { label: 'Products', complete: hasItems },
+    { label: 'Customer', complete: hasCustomer },
+    { label: 'Ready', complete: hasItems && hasCustomer },
+  ];
 
   // ============================================
   // Handlers
@@ -150,7 +182,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
     }
     try {
       await navigator.clipboard.writeText(orderTemplate);
-      toast.success('Template copied to clipboard');
+      toast.success('Template copied! Send to customer via WhatsApp');
     } catch {
       toast.error('Could not copy to clipboard');
     }
@@ -181,6 +213,8 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       // Clear voucher when items change
       setAppliedVoucher(null);
       setLowPriceConfirmed(false);
+      setShowTemplateBox(false);
+      toast.success(`${newItems.length} products added from template`);
     }
 
     if (result.customer) {
@@ -278,9 +312,6 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   // Voucher handlers
   const handleApplyVoucher = (voucher: AppliedVoucher) => {
     setAppliedVoucher(voucher);
-    // Clear manual discount when voucher is applied
-    setDiscountAmount(0);
-    setDiscountType('amount');
     setLowPriceConfirmed(false);
   };
 
@@ -306,9 +337,6 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       discountValue: voucher.discountValue,
       calculatedDiscount: voucher.calculatedDiscount,
     });
-    // Clear manual discount
-    setDiscountAmount(0);
-    setDiscountType('amount');
     setLowPriceConfirmed(false);
   };
 
@@ -352,14 +380,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
         deliveryAddress: deliveryType === 'Delivery' ? deliveryAddress : undefined,
         dueDate: new Date(dueDate).getTime(),
         notes: notes || undefined,
-        // Include order-level discount (manual or from voucher)
-        orderLevelDiscount: appliedVoucher
-          ? undefined // Voucher handles its own discount
-          : (discountAmount > 0 ? discountAmount : undefined),
-        orderLevelDiscountType: appliedVoucher
-          ? undefined
-          : (discountAmount > 0 ? discountType : undefined),
-        // Include voucher code if applied
+        // Include voucher code if applied (vouchers are the only discount method)
         voucherCode: appliedVoucher?.code,
         // Include low price confirmation flag
         lowPriceConfirmed: lowPriceConfirmed || undefined,
@@ -374,7 +395,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       };
 
       const orderId = await createOrder.mutateAsync(orderData);
-      toast.success('Order created!');
+      toast.success('Order created successfully!');
 
       onSuccess?.(orderId as unknown as string);
     } catch (error) {
@@ -392,396 +413,532 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
   if (productsLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* ============================================
-          1. Template Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2">
-              Send Order Sheet to Customer
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">
-                      1. Copy the template to your clipboard
-                      <br />
-                      2. Send to customer via WhatsApp
-                      <br />
-                      3. When they reply with filled quantities, paste it here
-                      <br />
-                      4. Click "Parse & Fill" to auto-populate the order
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyTemplate}
-              disabled={templateLoading}
-              className="shrink-0"
-            >
-              {templateLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Clipboard className="h-4 w-4 mr-2" />
-              )}
-              Copy Template
-            </Button>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+        .order-form-heading {
+          font-family: 'Playfair Display', serif;
+          letter-spacing: -0.02em;
+        }
+
+        .order-form-body {
+          font-family: 'Inter', sans-serif;
+        }
+      `}</style>
+
+      {/* Header with Progress */}
+      <motion.div
+        className="space-y-4"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="order-form-heading text-3xl font-bold text-[#2D3748]">
+            New Order
+          </h2>
+          <div className="flex items-center gap-2">
+            {completionSteps.map((step, index) => (
+              <div key={step.label} className="flex items-center gap-2">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-center gap-2"
+                >
+                  {step.complete ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                  )}
+                  <span className={`text-sm ${step.complete ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+                    {step.label}
+                  </span>
+                </motion.div>
+                {index < completionSteps.length - 1 && (
+                  <ChevronRight className="h-3 w-3 text-gray-300" />
+                )}
+              </div>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          <PasteTemplateBox onParsed={handleParsed} initialValue={orderTemplate ?? ''} />
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* ============================================
-          2. Products Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Products</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ProductButtons
-            products={posProducts}
-            onAddProduct={handleAddProduct}
-          />
+        {/* Quick Template Access */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <button
+            onClick={() => setShowTemplateBox(!showTemplateBox)}
+            className="group w-full p-4 rounded-xl bg-gradient-to-br from-[#E07856]/10 to-[#E07856]/5 border border-[#E07856]/20 hover:border-[#E07856]/40 transition-all duration-300"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-[#E07856]/10 flex items-center justify-center group-hover:bg-[#E07856]/20 transition-colors">
+                  <Sparkles className="h-5 w-5 text-[#E07856]" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-sm text-[#2D3748]">Quick Start with WhatsApp Template</p>
+                  <p className="text-xs text-gray-500">Copy template → Send to customer → Paste their reply</p>
+                </div>
+              </div>
+              <motion.div
+                animate={{ rotate: showTemplateBox ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Plus className="h-5 w-5 text-[#E07856]" />
+              </motion.div>
+            </div>
+          </button>
+        </motion.div>
 
-          {items.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Line Items</Label>
-                {items.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="p-3 bg-muted rounded-md space-y-2"
+        <AnimatePresence>
+          {showTemplateBox && (
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden rounded-xl border border-[#E07856]/20 bg-white"
+            >
+              <div className="p-4 bg-gradient-to-r from-[#E07856]/5 to-transparent border-b border-[#E07856]/10">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm">WhatsApp Order Template</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyTemplate}
+                    disabled={templateLoading}
+                    className="gap-2"
                   >
-                    {/* Row 1: Product name and delete button */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium">
-                        {item.productName}
-                        <span className="text-sm text-muted-foreground ml-1">
-                          ({item.grams}g)
-                        </span>
+                    {templateLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Clipboard className="h-4 w-4" />
+                    )}
+                    Copy Template
+                  </Button>
+                </div>
+              </div>
+              <div className="p-4">
+                <PasteTemplateBox onParsed={handleParsed} initialValue={orderTemplate ?? ''} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Products & Details */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Products Section */}
+          <motion.div
+            {...fadeIn}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="overflow-hidden border-2 border-gray-100">
+              <div className="p-6 bg-gradient-to-br from-gray-50 to-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-[#E07856]/10 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-[#E07856]" />
+                  </div>
+                  <div>
+                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Products</h3>
+                    <p className="text-xs text-gray-500">Select items for this order</p>
+                  </div>
+                </div>
+
+                <ProductButtons
+                  products={posProducts}
+                  onAddProduct={handleAddProduct}
+                />
+
+                <AnimatePresence>
+                  {items.length > 0 && (
+                    <motion.div
+                      {...fadeIn}
+                      className="mt-6 space-y-3"
+                    >
+                      <Separator className="my-4" />
+                      <div className="flex items-center justify-between mb-3">
+                        <Label className="text-sm font-semibold text-gray-700">Order Items</Label>
+                        <Badge variant="secondary" className="text-xs">
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </Badge>
                       </div>
+                      {items.map((item, index) => (
+                        <motion.div
+                          key={item.productId}
+                          {...slideIn}
+                          transition={{ delay: index * 0.05 }}
+                          className="group p-4 rounded-lg bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:border-[#E07856]/30 hover:shadow-md transition-all duration-300"
+                        >
+                          <div className="flex items-center justify-between gap-4 mb-3">
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-[#2D3748]">{item.productName}</p>
+                              <p className="text-xs text-gray-500">{item.grams}g</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeItem(item.productId)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-full"
+                                onClick={() => updateItemQuantity(item.productId, -1)}
+                                disabled={item.quantity <= 1}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <span className="w-12 text-center font-bold text-lg text-[#2D3748]">
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-full"
+                                onClick={() => updateItemQuantity(item.productId, 1)}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <span className="font-bold text-lg text-[#E07856]">
+                              {formatCurrency(item.lineTotal)}
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {items.length === 0 && (
+                  <motion.div
+                    {...fadeIn}
+                    className="mt-6 p-8 text-center rounded-lg border-2 border-dashed border-gray-200"
+                  >
+                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-sm text-gray-500">No products added yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Click the buttons above to add products</p>
+                  </motion.div>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Customer Section */}
+          <motion.div
+            {...fadeIn}
+            transition={{ delay: 0.4 }}
+          >
+            <Card className="overflow-visible border-2 border-gray-100">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                    <User className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Customer</h3>
+                    <p className="text-xs text-gray-500">Who is this order for?</p>
+                  </div>
+                </div>
+
+                {isNewCustomer ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Customer name"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="flex-1"
+                      />
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive shrink-0"
-                        onClick={() => removeItem(item.productId)}
+                        onClick={() => {
+                          setIsNewCustomer(false);
+                          setCustomerSearch('');
+                          setCustomerName('');
+                          setCustomerPhone('');
+                        }}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    {/* Row 2: Quantity controls and price */}
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.productId, -1)}
-                          disabled={item.quantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-10 text-center font-semibold text-lg">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateItemQuantity(item.productId, 1)}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <span className="font-semibold text-lg">
-                        {formatCurrency(item.lineTotal)}
-                      </span>
-                    </div>
+                    <Input
+                      placeholder="Phone (optional)"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                    />
                   </div>
-                ))}
+                ) : (
+                  <div className="relative">
+                    <Input
+                      placeholder="Search customer..."
+                      value={customerSearch || ''}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerDropdown(true);
+                        setSelectedCustomerId(null);
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                    />
+                    <AnimatePresence>
+                      {showCustomerDropdown && customerSearch && (
+                        <motion.div
+                          {...scaleIn}
+                          transition={{ duration: 0.2 }}
+                          className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-100 rounded-lg shadow-xl max-h-48 overflow-auto"
+                        >
+                          {customers?.map((customer) => (
+                            <button
+                              key={customer.id}
+                              className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm border-b last:border-b-0 transition-colors"
+                              onClick={() => handleCustomerSelect(customer)}
+                            >
+                              <div className="font-medium text-[#2D3748]">{customer.name}</div>
+                              {customer.phone && (
+                                <div className="text-xs text-gray-500 mt-1">{customer.phone}</div>
+                              )}
+                            </button>
+                          ))}
+                          <button
+                            className="w-full px-4 py-3 text-left hover:bg-blue-50 text-sm text-blue-600 font-medium flex items-center gap-2"
+                            onClick={handleCreateNewCustomer}
+                          >
+                            <Plus className="h-4 w-4" />
+                            Create new customer "{customerSearch}"
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </Card>
+          </motion.div>
 
-      {/* ============================================
-          3. Customer Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Customer</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {isNewCustomer ? (
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Customer name"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="flex-1"
-                />
+          {/* Delivery Section */}
+          <motion.div
+            {...fadeIn}
+            transition={{ delay: 0.5 }}
+          >
+            <Card className="overflow-hidden border-2 border-gray-100">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Delivery</h3>
+                    <p className="text-xs text-gray-500">Pickup or delivery?</p>
+                  </div>
+                </div>
+
+                <DeliveryToggle value={deliveryType} onChange={setDeliveryType} />
+
+                <AnimatePresence>
+                  {deliveryType === 'Delivery' && (
+                    <motion.div
+                      {...fadeIn}
+                      transition={{ duration: 0.3 }}
+                      className="mt-4 space-y-2"
+                    >
+                      <Label className="text-sm">Delivery Address</Label>
+                      <Textarea
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="Enter delivery address..."
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Dates & Notes Section */}
+          <motion.div
+            {...fadeIn}
+            transition={{ delay: 0.6 }}
+          >
+            <Card className="overflow-hidden border-2 border-gray-100">
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Label className="text-sm">Order Date</Label>
+                    </div>
+                    <Input value={todayFormatted} disabled className="bg-gray-50" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Label className="text-sm">Due Date</Label>
+                    </div>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="h-4 w-4 text-gray-400" />
+                    <Label className="text-sm">Notes (Optional)</Label>
+                  </div>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Special instructions..."
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Right Column - Summary */}
+        <div className="lg:col-span-1">
+          <motion.div
+            {...fadeIn}
+            transition={{ delay: 0.7 }}
+            className="sticky top-6"
+          >
+            <Card className="overflow-hidden border-2 border-gray-100">
+              <div className="p-6 bg-gradient-to-br from-[#2D3748] to-[#1A202C] text-white">
+                <h3 className="order-form-heading text-2xl font-bold mb-1">Order Summary</h3>
+                <p className="text-sm text-gray-300">Review before submitting</p>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Voucher Section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Ticket className="h-4 w-4 text-[#E07856]" />
+                    <Label className="text-sm font-semibold text-[#2D3748]">Voucher</Label>
+                  </div>
+                  <VoucherInput
+                    subtotal={subtotal}
+                    customerId={selectedCustomerId ?? undefined}
+                    appliedVoucher={appliedVoucher}
+                    onApplyVoucher={handleApplyVoucher}
+                    onRemoveVoucher={handleRemoveVoucher}
+                    disabled={isSubmitting || subtotal === 0}
+                  />
+
+                  {/* Manager Override Button */}
+                  {canCreateOverride && !appliedVoucher && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-3 border-[#E07856] text-[#E07856] hover:bg-[#E07856]/10"
+                      onClick={() => setShowManagerOverride(true)}
+                      disabled={subtotal === 0}
+                    >
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      Manager Override
+                    </Button>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Totals */}
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
+                  </div>
+
+                  {totalDiscountValue > 0 && appliedVoucher && (
+                    <div className="flex justify-between text-sm text-emerald-600">
+                      <span>Voucher ({appliedVoucher.code})</span>
+                      <span className="font-semibold">- {formatCurrency(totalDiscountValue)}</span>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div className="flex justify-between">
+                    <span className="order-form-heading text-xl font-bold text-[#2D3748]">Total</span>
+                    <span className={`order-form-heading text-2xl font-bold ${isLowPrice ? 'text-amber-600' : 'text-[#E07856]'}`}>
+                      {formatCurrency(total)}
+                    </span>
+                  </div>
+
+                  {isLowPrice && (
+                    <p className="text-xs text-amber-600">
+                      Order total is below Rp 20,000. Confirmation will be required.
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                {/* Validation Warnings */}
+                <AnimatePresence>
+                  {(!hasItems || !hasCustomer) && (
+                    <motion.div
+                      {...fadeIn}
+                      className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2"
+                    >
+                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-xs text-amber-800">
+                        {!hasItems && <p>• Add at least one product</p>}
+                        {!hasCustomer && <p>• Select or create a customer</p>}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Submit Button */}
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setIsNewCustomer(false);
-                    setCustomerSearch('');
-                    setCustomerName('');
-                    setCustomerPhone('');
-                  }}
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] shadow-lg hover:shadow-xl transition-all duration-300"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !hasItems || !hasCustomer || total <= 0}
+                  size="lg"
                 >
-                  <X className="h-4 w-4" />
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      Creating Order...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-5 w-5 mr-2" />
+                      Create Order
+                    </>
+                  )}
                 </Button>
               </div>
-              <Input
-                placeholder="Phone (optional)"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="relative">
-              <Input
-                placeholder="Search customer..."
-                value={customerSearch || ''}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value);
-                  setShowCustomerDropdown(true);
-                  setSelectedCustomerId(null);
-                }}
-                onFocus={() => setShowCustomerDropdown(true)}
-              />
-              {showCustomerDropdown && customerSearch && (
-                <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
-                  {customers?.map((customer) => (
-                    <button
-                      key={customer.id}
-                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
-                      onClick={() => handleCustomerSelect(customer)}
-                    >
-                      <div className="font-medium">{customer.name}</div>
-                      {customer.phone && (
-                        <div className="text-xs text-muted-foreground">{customer.phone}</div>
-                      )}
-                    </button>
-                  ))}
-                  <button
-                    className="w-full px-3 py-2 text-left hover:bg-accent text-sm border-t text-primary"
-                    onClick={handleCreateNewCustomer}
-                  >
-                    <Plus className="inline h-3 w-3 mr-1" />
-                    Create "{customerSearch}"
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          4. Delivery Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <DeliveryToggle value={deliveryType} onChange={setDeliveryType} />
-
-          {deliveryType === 'Delivery' && (
-            <div className="space-y-2">
-              <Label>Delivery Address</Label>
-              <Textarea
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder="Enter delivery address..."
-                rows={2}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          5. Dates Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Dates</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Order Date</Label>
-            <Input value={todayFormatted} disabled className="bg-muted" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          6. Notes Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Notes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Special instructions..."
-            rows={2}
-          />
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          7. Discount & Voucher Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Discount & Voucher</CardTitle>
-            {canCreateOverride && !appliedVoucher && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowManagerOverride(true)}
-                disabled={subtotal === 0}
-              >
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                Manager Override
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Voucher Input */}
-          <VoucherInput
-            subtotal={subtotal}
-            customerId={selectedCustomerId ?? undefined}
-            appliedVoucher={appliedVoucher}
-            onApplyVoucher={handleApplyVoucher}
-            onRemoveVoucher={handleRemoveVoucher}
-            disabled={isSubmitting || subtotal === 0}
-          />
-
-          {/* Manual Discount (hidden when voucher is applied) */}
-          {!appliedVoucher && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">
-                  Or enter manual discount
-                </Label>
-                <DiscountInput
-                  subtotal={subtotal}
-                  discountAmount={discountAmount}
-                  discountType={discountType}
-                  onChange={(amount, type) => {
-                    setDiscountAmount(amount);
-                    setDiscountType(type);
-                    setLowPriceConfirmed(false);
-                  }}
-                />
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          8. Totals Section
-          ============================================ */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Order Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-medium">{formatCurrency(subtotal)}</span>
-          </div>
-
-          {totalDiscountValue > 0 && (
-            <div className="flex justify-between text-sm text-destructive">
-              <span>
-                {appliedVoucher
-                  ? `Voucher (${appliedVoucher.code})`
-                  : 'Discount'}
-              </span>
-              <span>- {formatCurrency(totalDiscountValue)}</span>
-            </div>
-          )}
-
-          <Separator />
-
-          <div className="flex justify-between font-semibold text-lg text-primary">
-            <span>Order Total</span>
-            <span className={isLowPrice ? 'text-amber-600' : ''}>
-              {formatCurrency(total)}
-            </span>
-          </div>
-
-          {isLowPrice && (
-            <p className="text-xs text-amber-600">
-              Order total is below Rp 20,000. Confirmation will be required.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ============================================
-          9. Submit Section
-          ============================================ */}
-      <div className="flex pt-2">
-        <Button
-          className="w-full gap-2"
-          onClick={handleSubmit}
-          disabled={isSubmitting || total <= 0}
-          size="lg"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Creating Order...
-            </>
-          ) : (
-            <>
-              <Send className="h-4 w-4" />
-              Create Order
-            </>
-          )}
-        </Button>
+            </Card>
+          </motion.div>
+        </div>
       </div>
 
       {/* ============================================
