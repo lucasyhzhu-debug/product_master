@@ -20,6 +20,7 @@ interface OrderWithItems extends Doc<"orders"> {
 /**
  * List orders with optional filters.
  * PRD-0: Uses type-safe union for status filter.
+ * Supports both single status and array of statuses for category filtering.
  */
 export const list = query({
   args: {
@@ -27,13 +28,27 @@ export const list = query({
       v.literal("Draft"),
       v.literal("AwaitingPayment"),
       v.literal("Confirmed"),
+      v.literal("InProduction"),
       v.literal("ProductionComplete"),
       v.literal("Packaging"),
       v.literal("WaitingShipment"),
       v.literal("CompleteShipped"),
       v.literal("WaitingPickup"),
       v.literal("PickedUp"),
-      v.literal("Cancelled")
+      v.literal("Cancelled"),
+      v.array(v.union(
+        v.literal("Draft"),
+        v.literal("AwaitingPayment"),
+        v.literal("Confirmed"),
+        v.literal("InProduction"),
+        v.literal("ProductionComplete"),
+        v.literal("Packaging"),
+        v.literal("WaitingShipment"),
+        v.literal("CompleteShipped"),
+        v.literal("WaitingPickup"),
+        v.literal("PickedUp"),
+        v.literal("Cancelled")
+      ))
     )),
     channel: v.optional(v.string()),
     dueDateFrom: v.optional(v.number()),
@@ -43,14 +58,22 @@ export const list = query({
   handler: async (ctx, args): Promise<OrderWithItems[]> => {
     const limit = args.limit ?? 100;
 
-    // Get orders - use index if status filter is provided
+    // Get orders - use index if single status filter is provided
     let orders;
     if (args.status) {
-      orders = await ctx.db
-        .query("orders")
-        .withIndex("by_status", (q) => q.eq("status", args.status!))
-        .order("desc")
-        .take(limit);
+      // Handle array of statuses (fetch all and filter in memory)
+      if (Array.isArray(args.status)) {
+        orders = await ctx.db.query("orders").order("desc").take(limit * 2);
+        orders = orders.filter((o) => (args.status as string[]).includes(o.status));
+        orders = orders.slice(0, limit);
+      } else {
+        // Single status - use index
+        orders = await ctx.db
+          .query("orders")
+          .withIndex("by_status", (q) => q.eq("status", args.status as any))
+          .order("desc")
+          .take(limit);
+      }
     } else {
       orders = await ctx.db.query("orders").order("desc").take(limit);
     }
