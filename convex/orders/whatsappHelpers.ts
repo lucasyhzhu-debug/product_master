@@ -10,10 +10,10 @@
 /**
  * Format a number as Indonesian Rupiah currency.
  * @param amount - The amount to format
- * @returns Formatted string like "IDR 50.000"
+ * @returns Formatted string like "Rp 50.000"
  */
 export function formatCurrency(amount: number): string {
-  return `IDR ${amount.toLocaleString("id-ID")}`;
+  return `Rp ${amount.toLocaleString("id-ID")}`;
 }
 
 /**
