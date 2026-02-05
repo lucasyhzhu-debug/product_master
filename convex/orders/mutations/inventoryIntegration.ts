@@ -4,10 +4,7 @@
  * Handles stock reservation, consumption, and release for orders.
  * Integrates with FIFO consumption logic and component stock tracking.
  *
- * BRIDGE IMPLEMENTATION:
- * - Works with current schema (menuProductComponents.productionUnitTypeId)
- * - Maps productionUnitTypes → componentTypes via code matching
- * - Ready for Wave 4 migration (will use componentTypeId directly after migration)
+ * Uses unified BOM via menuProductComponents.componentTypeId (required field).
  */
 
 import { mutation } from "../../_generated/server";
@@ -37,36 +34,13 @@ interface ReservationShortage {
 }
 
 // ============================================
-// BOM Calculation Helper with Bridge
+// BOM Calculation Helper
 // ============================================
 
 /**
- * Map productionUnitTypeId to componentTypeId
+ * Calculate components needed for order items.
  *
- * BRIDGE FUNCTION: Will be removed after Wave 4 migration.
- * Matches by code field to find corresponding componentType.
- */
-async function mapProductionUnitToComponent(
-  ctx: MutationCtx,
-  productionUnitTypeId: Id<"productionUnitTypes">
-): Promise<Id<"componentTypes"> | null> {
-  // Get the production unit type
-  const productionUnit = await ctx.db.get(productionUnitTypeId);
-  if (!productionUnit) return null;
-
-  // Find corresponding componentType by code
-  const componentType = await ctx.db
-    .query("componentTypes")
-    .withIndex("by_code", (q) => q.eq("code", productionUnit.code))
-    .first();
-
-  return componentType?._id ?? null;
-}
-
-/**
- * Calculate components needed for order items
- *
- * BRIDGE IMPLEMENTATION: Maps productionUnitTypes → componentTypes
+ * Uses unified BOM via menuProductComponents.componentTypeId.
  */
 async function calculateComponentsForOrder(
   ctx: MutationCtx,
@@ -90,22 +64,17 @@ async function calculateComponentsForOrder(
       .collect();
 
     for (const comp of menuProductComponents) {
-      // Bridge: Map productionUnitTypeId → componentTypeId
-      const componentTypeId = await mapProductionUnitToComponent(
-        ctx,
-        comp.productionUnitTypeId
-      );
-
-      if (!componentTypeId) {
+      // componentTypeId is now required after migration
+      if (!comp.componentTypeId) {
         console.warn(
-          `Could not map productionUnitTypeId ${comp.productionUnitTypeId} to componentType`
+          `Missing componentTypeId for component ${comp._id}. Run migration.`
         );
         continue;
       }
 
       const needed = comp.quantity * item.quantity;
-      const current = componentsNeeded.get(componentTypeId) || 0;
-      componentsNeeded.set(componentTypeId, current + needed);
+      const current = componentsNeeded.get(comp.componentTypeId) || 0;
+      componentsNeeded.set(comp.componentTypeId, current + needed);
     }
   }
 
@@ -349,24 +318,14 @@ export async function consumeBoxingMaterialsInternal(
     return { consumed: 0 };
   }
 
-  // Define boxing material codes (direct packaging used during boxing)
-  const boxingMaterialCodes = [
-    "LONG_BOX",
-    "SINGLE_BOX",
-    "DELIVERY_BOX_15",
-    "WRAPPER",
-    "BALL_PAPER",
-    "BOX_STICKER",
-  ];
-
   let consumedCount = 0;
 
   for (const reservation of reservations) {
     const componentType = await ctx.db.get(reservation.componentTypeId);
     if (!componentType) continue;
 
-    // Only consume boxing materials (not stickers)
-    if (!boxingMaterialCodes.includes(componentType.code)) {
+    // Only consume boxing materials (consumptionStage === "boxing")
+    if (componentType.consumptionStage !== "boxing") {
       continue;
     }
 
@@ -449,20 +408,14 @@ export async function consumeStickerMaterialsInternal(
     return { consumed: 0 };
   }
 
-  // Define sticker material codes
-  const stickerMaterialCodes = [
-    "PRODUCT_STICKER",
-    "QR_STICKER",
-  ];
-
   let consumedCount = 0;
 
   for (const reservation of reservations) {
     const componentType = await ctx.db.get(reservation.componentTypeId);
     if (!componentType) continue;
 
-    // Only consume sticker materials
-    if (!stickerMaterialCodes.includes(componentType.code)) {
+    // Only consume sticker materials (consumptionStage === "labeling")
+    if (componentType.consumptionStage !== "labeling") {
       continue;
     }
 

@@ -19,7 +19,8 @@
     "dev:prod": "npm run env:prod && npm run dev",
     "deploy:check": "node scripts/deploy-check.js",
     "deploy:safe": "node scripts/deploy-check.js --deploy",
-    "lint:convex": "! grep -rE \"await\\s+import\\s*\\(\" convex/ --include=\"*.ts\""
+    "lint:convex": "! grep -rE \"await\\s+import\\s*\\(\" convex/ --include=\"*.ts\"",
+    "migrate:bom-v2": "npx convex run migrations/bomRefactorV2:cleanSlateAndSeed"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

@@ -1,6 +1,6 @@
 /**
  * Convex hooks for menu product components.
- * PRD-4b: Component editor for menu products.
+ * Unified BOM: Components use componentTypeId.
  */
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -11,7 +11,7 @@ import type { Id, Doc } from "../../../convex/_generated/dataModel";
 // ============================================
 
 export interface MenuProductComponentWithType extends Doc<"menuProductComponents"> {
-  productionUnitType: Doc<"productionUnitTypes"> | null;
+  componentType: Doc<"componentTypes"> | null;
 }
 
 // ============================================

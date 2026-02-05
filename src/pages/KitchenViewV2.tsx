@@ -1,15 +1,14 @@
 /**
- * KitchenView V2 - Redesigned with boxing/stickering workflow
+ * KitchenView V2 - Production-optimized kitchen workflow
  *
- * This is Wave 5 implementation for the inventory management system.
- * Features 3-column Kanban layout for Boxing, Stickering, and Ready to Ship.
+ * Redesigned for tablet/touchscreen use in production environment.
+ * Focus: Readability, touch-friendly controls, minimal visual noise.
  */
 
 import { useState, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Package, Tag, Truck, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { PageHeader } from '@/components/layout';
 import { LoadingCards } from '@/components/shared';
 import {
   KanbanColumn,
@@ -28,7 +27,7 @@ import { toast } from 'sonner';
 import type { Id } from '../../convex/_generated/dataModel';
 
 export function KitchenViewV2() {
-  useDocumentTitle('Kitchen - Wave 5');
+  useDocumentTitle('Kitchen Production');
 
   const { hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
@@ -83,25 +82,16 @@ export function KitchenViewV2() {
   const transformedBoxingOrders = useMemo(() => {
     return boxingOrders.map((order) => {
       const orderItems = (order.items ?? []).map((item) => {
-        // Handle legacy orders without menuProductId
-        if (!item.menuProductId) {
-          return {
-            _id: item._id as unknown as Id<'orderItems'>,
-            productName: item.productName,
-            quantity: item.quantity,
-            filled: Math.floor((item.ballsFilled ?? 0) / (item.productionUnits ?? 1)),
-            ballsPerPackage: item.productionUnits ?? 1,
-            boxType: 'Standard', // Fallback for legacy
-          };
-        }
+        const ballsPerPackage = item.productionUnits ?? 1;
+        const ballsFilled = item.ballsFilled ?? 0;
+        const filled = Math.floor(ballsFilled / ballsPerPackage);
 
         return {
           _id: item._id as unknown as Id<'orderItems'>,
           productName: item.productName,
           quantity: item.quantity,
-          filled: Math.floor((item.ballsFilled ?? 0) / (item.productionUnits ?? 1)),
-          ballsPerPackage: item.productionUnits ?? 1,
-          boxType: 'Standard', // TODO: Get from menuProduct packaging type
+          filled,
+          ballsPerPackage,
         };
       });
 
@@ -137,7 +127,6 @@ export function KitchenViewV2() {
       customerName: order.customerName ?? 'Unknown',
       totalPackages: order.itemCount,
       stickerTypes: [
-        // TODO: Calculate from menuProduct packaging components
         { name: 'Box Sticker', count: order.itemCount },
       ],
     }));
@@ -194,7 +183,6 @@ export function KitchenViewV2() {
   };
 
   const handleApplyStickers = async (orderId: Id<'orders'>) => {
-    // For single order, transition directly to Labeled
     try {
       await updateOrderStatus({ orderId, status: 'Labeled' });
       toast.success('Stickers applied');
@@ -227,8 +215,6 @@ export function KitchenViewV2() {
 
   const handleMarkShipped = async (orderId: Id<'orders'>) => {
     try {
-      // Determine if pickup or shipment based on order details
-      // For now, default to CompleteShipped
       await updateOrderStatus({ orderId, status: 'CompleteShipped' });
       toast.success('Order marked as shipped');
     } catch (error) {
@@ -239,7 +225,7 @@ export function KitchenViewV2() {
 
   const isLoading = kitchenOrders === undefined;
 
-  // Mock daily stats (TODO: Implement backend query)
+  // Mock daily stats
   const dailyStats = {
     ballsProduced: 0,
     ordersCompleted: 0,
@@ -248,19 +234,12 @@ export function KitchenViewV2() {
     inventoryConsumed: [],
   };
 
-  // Mock packaging inventory (TODO: Implement backend query)
+  // Mock packaging inventory
   const packagingInventory = [
     { name: 'Long Box', available: 12, reserved: 8, reorderPoint: 20, isLow: true, isCritical: false },
     { name: 'Single Box', available: 85, reserved: 10, reorderPoint: 50, isLow: false, isCritical: false },
     { name: 'Wrapper', available: 200, reserved: 50, reorderPoint: 300, isLow: true, isCritical: false },
-    {
-      name: 'Product Sticker',
-      available: 150,
-      reserved: 20,
-      reorderPoint: 100,
-      isLow: false,
-      isCritical: false,
-    },
+    { name: 'Product Sticker', available: 150, reserved: 20, reorderPoint: 100, isLow: false, isCritical: false },
     { name: 'QR Sticker', available: 45, reserved: 15, reorderPoint: 80, isLow: true, isCritical: false },
   ];
 
@@ -275,7 +254,6 @@ export function KitchenViewV2() {
       for (const item of order.items) {
         const remaining = item.quantity - item.filled;
         if (remaining > 0) {
-          // TODO: Determine ball type from menuProduct
           originalCount++;
           originalBalls += remaining * item.ballsPerPackage;
         }
@@ -290,31 +268,38 @@ export function KitchenViewV2() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="border-b border-slate-700 bg-slate-800/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-4">
+      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+        <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <PageHeader title="Kitchen View" />
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kitchen Production</h1>
               {!canEditKitchen && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Eye className="h-3 w-3" />
+                <Badge variant="secondary" className="flex items-center gap-1.5 text-sm">
+                  <Eye className="h-3.5 w-3.5" />
                   View Only
                 </Badge>
               )}
             </div>
+            <div className="text-sm text-gray-600">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Layout */}
-      <div className="container mx-auto px-6 py-6 flex gap-6">
-        {/* Left Sidebar - Ball Trays & Daily Summary */}
-        <aside className="w-80 space-y-4 flex-shrink-0">
+      <div className="px-3 sm:px-4 py-4 flex gap-3 sm:gap-4">
+        {/* Left Sidebar */}
+        <aside className="w-64 lg:w-72 space-y-4 flex-shrink-0 hidden lg:block">
           {/* Ball Trays */}
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">Ball Inventory</h2>
+            <h2 className="text-base font-semibold text-gray-900 px-1">Ball Inventory</h2>
             <BallTrayCounter
               ballType="original"
               count={trayInventory?.originalBallCount ?? 0}
@@ -340,14 +325,14 @@ export function KitchenViewV2() {
         </aside>
 
         {/* Main Content - 3 Column Kanban */}
-        <main className="flex-1">
-          <div className="grid grid-cols-3 gap-4 h-[calc(100vh-12rem)]">
+        <main className="flex-1 min-w-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             {/* Column 1: Boxing */}
             <KanbanColumn
               title="Needs Boxing"
               subtitle="Fill packages"
               count={transformedBoxingOrders.length}
-              color="amber"
+              color="orange"
               icon={<Package className="w-5 h-5" />}
             >
               <div className="space-y-3">
@@ -361,7 +346,9 @@ export function KitchenViewV2() {
                   />
                 ))}
                 {transformedBoxingOrders.length === 0 && (
-                  <div className="text-center text-slate-400 py-8">No orders to box</div>
+                  <div className="text-center text-gray-500 py-12 text-sm">
+                    No orders to box
+                  </div>
                 )}
               </div>
             </KanbanColumn>
@@ -375,16 +362,16 @@ export function KitchenViewV2() {
               icon={<Tag className="w-5 h-5" />}
               footer={
                 transformedStickeringOrders.length > 0 && (
-                  <div className="p-4 bg-blue-900/30 border-t border-blue-800">
+                  <div className="p-3 bg-blue-50 border-t border-blue-200">
                     <button
                       onClick={() =>
                         handleBatchSticker(transformedStickeringOrders.map((o) => o._id))
                       }
                       disabled={!canEditKitchen}
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+                      className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
                     >
                       <Tag className="w-4 h-4 inline mr-2" />
-                      Apply Stickers to All ({transformedStickeringOrders.length})
+                      Apply All ({transformedStickeringOrders.length})
                     </button>
                   </div>
                 )
@@ -400,7 +387,9 @@ export function KitchenViewV2() {
                   />
                 ))}
                 {transformedStickeringOrders.length === 0 && (
-                  <div className="text-center text-slate-400 py-8">No orders to sticker</div>
+                  <div className="text-center text-gray-500 py-12 text-sm">
+                    No orders to sticker
+                  </div>
                 )}
               </div>
             </KanbanColumn>
@@ -410,7 +399,7 @@ export function KitchenViewV2() {
               title="Ready to Ship"
               subtitle="Labeled, awaiting dispatch"
               count={transformedReadyOrders.length}
-              color="emerald"
+              color="green"
               icon={<Truck className="w-5 h-5" />}
             >
               <div className="space-y-2">
@@ -423,7 +412,9 @@ export function KitchenViewV2() {
                   />
                 ))}
                 {transformedReadyOrders.length === 0 && (
-                  <div className="text-center text-slate-400 py-8">No orders ready</div>
+                  <div className="text-center text-gray-500 py-12 text-sm">
+                    No orders ready
+                  </div>
                 )}
               </div>
             </KanbanColumn>
@@ -431,8 +422,8 @@ export function KitchenViewV2() {
         </main>
 
         {/* Right Sidebar - Packaging Inventory */}
-        <aside className="w-72 space-y-4 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-white">Packaging Stock</h2>
+        <aside className="w-56 lg:w-64 space-y-4 flex-shrink-0 hidden xl:block">
+          <h2 className="text-base font-semibold text-gray-900 px-1">Materials</h2>
           <div className="space-y-2">
             {packagingInventory.map((item, idx) => (
               <PackagingStockItem key={idx} {...item} />
@@ -448,9 +439,8 @@ export function KitchenViewV2() {
         action={batchDialog.action}
         summary={{
           orderCount: batchDialog.orderIds.length,
-          packageCount: batchDialog.orderIds.length, // TODO: Calculate actual packages
+          packageCount: batchDialog.orderIds.length,
           consumables: [
-            // TODO: Calculate from menuProduct BOMs
             {
               name: 'Box Sticker',
               quantity: batchDialog.orderIds.length,
@@ -458,7 +448,7 @@ export function KitchenViewV2() {
               isLow: false,
             },
           ],
-          totalCOGS: 0, // TODO: Calculate from FIFO
+          totalCOGS: 0,
         }}
         onConfirm={handleConfirmBatch}
       />

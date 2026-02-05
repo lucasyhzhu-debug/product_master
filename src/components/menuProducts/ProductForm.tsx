@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -25,11 +25,13 @@ import {
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
   useConvexPosProducts,
-  useConvexProductionUnitTypes,
   useConvexMenuProductComponents,
+  useConvexComponentsByCategory,
   type PosProduct,
   type LegacyProduct,
 } from '@/hooks/convex';
+import { ProductionComponentsSection } from './ProductionComponentsSection';
+import { PackagingComponentsSection } from './PackagingComponentsSection';
 import { formatCurrency, formatPercent, formatNumber } from '@/lib/utils';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
@@ -47,8 +49,8 @@ interface ProductFormProps {
 }
 
 interface ComponentRow {
-  id: string; // Temporary ID for UI (not Convex ID)
-  productionUnitTypeId: Id<"productionUnitTypes"> | null;
+  id: string; // Temporary ID for UI
+  componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
 }
 
@@ -68,8 +70,13 @@ export function ProductForm({
   // Query POS products to check for slot conflicts
   const { data: posProducts } = useConvexPosProducts();
 
-  // Query production unit types
-  const { data: productionUnitTypes, isLoading: loadingUnitTypes } = useConvexProductionUnitTypes();
+  // Query all component types for cost calculation
+  const productionComponents = useConvexComponentsByCategory("production", true);
+  const directPackaging = useConvexComponentsByCategory("direct_packaging", true);
+  const indirectPackaging = useConvexComponentsByCategory("indirect_packaging", true);
+  const allComponentsLoaded = productionComponents !== undefined &&
+                               directPackaging !== undefined &&
+                               indirectPackaging !== undefined;
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -80,13 +87,14 @@ export function ProductForm({
   // Form state
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [gramsOverride, setGramsOverride] = useState(''); // User can override auto-calculated grams
+  const [gramsOverride, setGramsOverride] = useState('');
   const [price, setPrice] = useState('');
   const [posSlot, setPosSlot] = useState<string>('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Component state
-  const [components, setComponents] = useState<ComponentRow[]>([]);
+  // Component state (separate for production and packaging)
+  const [productionRows, setProductionRows] = useState<ComponentRow[]>([]);
+  const [packagingRows, setPackagingRows] = useState<ComponentRow[]>([]);
 
   // Initialize form when product changes
   useEffect(() => {
@@ -97,17 +105,32 @@ export function ProductForm({
       setPrice(product.defaultPrice.toString());
       setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
 
-      // Initialize components from existing data
+      // Split existing components into production and packaging
       if (existingComponents && existingComponents.length > 0) {
-        setComponents(
-          existingComponents.map((comp) => ({
-            id: Math.random().toString(36).substr(2, 9),
-            productionUnitTypeId: comp.productionUnitTypeId,
-            quantity: comp.quantity,
-          }))
-        );
+        const production: ComponentRow[] = [];
+        const packaging: ComponentRow[] = [];
+
+        existingComponents.forEach((comp) => {
+          if (comp.componentType) {
+            const row: ComponentRow = {
+              id: Math.random().toString(36).substr(2, 9),
+              componentTypeId: comp.componentTypeId ?? null,
+              quantity: comp.quantity,
+            };
+
+            if (comp.componentType.category === 'production') {
+              production.push(row);
+            } else {
+              packaging.push(row);
+            }
+          }
+        });
+
+        setProductionRows(production);
+        setPackagingRows(packaging);
       } else {
-        setComponents([]);
+        setProductionRows([]);
+        setPackagingRows([]);
       }
     } else if (!product) {
       resetForm();
@@ -127,7 +150,8 @@ export function ProductForm({
     setGramsOverride('');
     setPrice('');
     setPosSlot(prefilledSlot ? prefilledSlot.toString() : 'none');
-    setComponents([]);
+    setProductionRows([]);
+    setPackagingRows([]);
   };
 
   const handleClose = () => {
@@ -136,67 +160,56 @@ export function ProductForm({
     setTimeout(resetForm, 300);
   };
 
-  // Component management
-  const handleAddComponent = () => {
-    setComponents([
-      ...components,
-      {
-        id: Math.random().toString(36).substr(2, 9),
-        productionUnitTypeId: null,
-        quantity: 1,
-      },
-    ]);
-  };
-
-  const handleRemoveComponent = (id: string) => {
-    setComponents(components.filter((c) => c.id !== id));
-  };
-
-  const handleUpdateComponent = (id: string, field: 'productionUnitTypeId' | 'quantity', value: any) => {
-    setComponents(
-      components.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              [field]: field === 'quantity' ? parseInt(value) || 0 : value,
-            }
-          : c
-      )
-    );
-  };
-
-  // Auto-calculate COGS and grams from components
+  // Calculate COGS and grams from components
   const calculatedValues = useMemo(() => {
-    if (!productionUnitTypes || components.length === 0) {
-      return { totalCost: 0, totalGrams: 0, ballSummary: '' };
+    if (!allComponentsLoaded) {
+      return { productionCost: 0, packagingCost: 0, totalCost: 0, totalGrams: 0, summary: '' };
     }
 
-    let totalCost = 0;
+    const allComponents = [
+      ...(productionComponents ?? []),
+      ...(directPackaging ?? []),
+      ...(indirectPackaging ?? []),
+    ];
+
+    let productionCost = 0;
+    let packagingCost = 0;
     let totalGrams = 0;
     const summaryParts: string[] = [];
 
-    for (const component of components) {
-      if (!component.productionUnitTypeId) continue;
+    // Calculate production costs and grams
+    for (const row of productionRows) {
+      if (!row.componentTypeId) continue;
 
-      const unitType = productionUnitTypes.find(
-        (ut) => ut._id === component.productionUnitTypeId
-      );
-      if (!unitType) continue;
+      const comp = allComponents.find((c) => c._id === row.componentTypeId);
+      if (!comp) continue;
 
-      totalCost += unitType.unitCostIdr * component.quantity;
-      totalGrams += unitType.gramsPerUnit * component.quantity;
+      productionCost += comp.unitCostIdr * row.quantity;
+      totalGrams += (comp.gramsPerUnit ?? 0) * row.quantity;
 
-      if (component.quantity > 0) {
-        summaryParts.push(`${component.quantity} ${unitType.name}`);
+      if (row.quantity > 0) {
+        summaryParts.push(`${row.quantity} ${comp.name}`);
       }
     }
 
+    // Calculate packaging costs
+    for (const row of packagingRows) {
+      if (!row.componentTypeId) continue;
+
+      const comp = allComponents.find((c) => c._id === row.componentTypeId);
+      if (!comp) continue;
+
+      packagingCost += comp.unitCostIdr * row.quantity;
+    }
+
     return {
-      totalCost,
+      productionCost,
+      packagingCost,
+      totalCost: productionCost + packagingCost,
       totalGrams,
-      ballSummary: summaryParts.join(', ') || 'No components',
+      summary: summaryParts.join(', ') || 'No production components',
     };
-  }, [components, productionUnitTypes]);
+  }, [productionRows, packagingRows, productionComponents, directPackaging, indirectPackaging, allComponentsLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,23 +225,25 @@ export function ProductForm({
       return;
     }
 
-    // Validate components if provided
-    const validComponents = components.filter((c) => c.productionUnitTypeId !== null);
-    if (validComponents.some((c) => c.quantity <= 0)) {
+    // Validate components
+    const validProduction = productionRows.filter((c) => c.componentTypeId !== null);
+    const validPackaging = packagingRows.filter((c) => c.componentTypeId !== null);
+
+    if ([...validProduction, ...validPackaging].some((c) => c.quantity <= 0)) {
       toast.error('Component quantities must be greater than 0');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Prepare components array for mutation
-      const componentsData =
-        validComponents.length > 0
-          ? validComponents.map((c) => ({
-              productionUnitTypeId: c.productionUnitTypeId as Id<"productionUnitTypes">,
-              quantity: c.quantity,
-            }))
-          : undefined;
+      // Combine all components
+      const allComponents = [...validProduction, ...validPackaging];
+      const componentsData = allComponents.length > 0
+        ? allComponents.map((c) => ({
+            componentTypeId: c.componentTypeId as Id<"componentTypes">,
+            quantity: c.quantity,
+          }))
+        : undefined;
 
       // Use override grams if provided, otherwise use calculated
       const finalGrams =
@@ -274,7 +289,6 @@ export function ProductForm({
               slot: targetSlot,
             });
           }
-          // Note: Removing from slot is handled separately in the main page
         }
       } else {
         // Create new product
@@ -305,16 +319,15 @@ export function ProductForm({
 
       handleClose();
     } catch (error) {
-      // Error already handled by mutations with toast
       console.error('Failed to save product:', error);
+      // Toast already shown by mutations
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Calculate margin (read-only)
-  // Use calculated COGS from components if available, otherwise use existing unitCost
-  const cogs = components.length > 0 ? calculatedValues.totalCost : (product?.unitCost ?? 0);
+  // Calculate margin
+  const cogs = calculatedValues.totalCost;
   const priceValue = parseFloat(price) || 0;
   const margin = priceValue > 0 && cogs > 0
     ? ((priceValue - cogs) / priceValue) * 100
@@ -369,94 +382,48 @@ export function ProductForm({
 
               {/* Production Components */}
               <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Production Components</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddComponent}
-                    disabled={loadingUnitTypes}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
-                </div>
+              <ProductionComponentsSection
+                components={productionRows}
+                onChange={setProductionRows}
+                disabled={isSubmitting}
+              />
 
-                {components.length > 0 && (
-                  <div className="space-y-2">
-                    {components.map((component) => (
-                      <div key={component.id} className="flex gap-1 sm:gap-2 items-start">
-                        <div className="flex-1 space-y-1 min-w-0">
-                          <Select
-                            value={component.productionUnitTypeId ?? ''}
-                            onValueChange={(value) =>
-                              handleUpdateComponent(component.id, 'productionUnitTypeId', value as Id<"productionUnitTypes">)
-                            }
-                          >
-                            <SelectTrigger className="text-xs sm:text-sm">
-                              <SelectValue placeholder="Select unit type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productionUnitTypes?.map((unitType) => (
-                                <SelectItem key={unitType._id} value={unitType._id} className="text-xs sm:text-sm">
-                                  {unitType.name} ({formatNumber(unitType.gramsPerUnit, 0)}g, {formatCurrency(unitType.unitCostIdr)})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+              {/* Packaging Components */}
+              <Separator />
+              <PackagingComponentsSection
+                components={packagingRows}
+                onChange={setPackagingRows}
+                disabled={isSubmitting}
+              />
 
-                        <div className="w-16 sm:w-20">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={component.quantity}
-                            onChange={(e) =>
-                              handleUpdateComponent(component.id, 'quantity', e.target.value)
-                            }
-                            placeholder="Qty"
-                            className="text-xs sm:text-sm"
-                          />
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveComponent(component.id)}
-                          className="h-9 w-9 shrink-0"
-                        >
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {components.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-                    No components added. Click "Add" to define production units.
-                  </p>
-                )}
-              </div>
-
-              {/* Auto-calculated values */}
-              {components.length > 0 && (
+              {/* Auto-calculated summary */}
+              {(productionRows.length > 0 || packagingRows.length > 0) && (
                 <div className="rounded-lg bg-muted p-3 space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Auto COGS:</span>
-                    <span className="font-medium">{formatCurrency(calculatedValues.totalCost)}</span>
+                    <span className="text-muted-foreground">Production Cost:</span>
+                    <span className="font-medium">{formatCurrency(calculatedValues.productionCost)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Auto Grams:</span>
-                    <span className="font-medium">{formatNumber(calculatedValues.totalGrams, 1)}g</span>
+                    <span className="text-muted-foreground">Packaging Cost:</span>
+                    <span className="font-medium">{formatCurrency(calculatedValues.packagingCost)}</span>
                   </div>
-                  <div className="flex items-start justify-between text-sm">
-                    <span className="text-muted-foreground">Ball Summary:</span>
-                    <span className="font-medium text-right">{calculatedValues.ballSummary}</span>
+                  <Separator />
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>Total COGS:</span>
+                    <span>{formatCurrency(calculatedValues.totalCost)}</span>
                   </div>
+                  {productionRows.length > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Auto Grams:</span>
+                        <span className="font-medium">{formatNumber(calculatedValues.totalGrams, 1)}g</span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm">
+                        <span className="text-muted-foreground">Summary:</span>
+                        <span className="font-medium text-right">{calculatedValues.summary}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -472,15 +439,15 @@ export function ProductForm({
                   value={gramsOverride}
                   onChange={(e) => setGramsOverride(e.target.value)}
                   placeholder={
-                    components.length > 0
+                    productionRows.length > 0
                       ? `Auto: ${formatNumber(calculatedValues.totalGrams, 1)}g`
                       : 'e.g., 50'
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  {components.length > 0
+                  {productionRows.length > 0
                     ? 'Optional. Override auto-calculated weight.'
-                    : 'Weight in grams (required if no components).'}
+                    : 'Weight in grams (optional).'}
                 </p>
               </div>
 
@@ -508,9 +475,9 @@ export function ProductForm({
                   className="bg-muted"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {components.length > 0
+                  {(productionRows.length > 0 || packagingRows.length > 0)
                     ? 'Auto-calculated from components'
-                    : 'From existing product or linked concept'}
+                    : 'No components defined'}
                 </p>
               </div>
 
@@ -548,24 +515,18 @@ export function ProductForm({
                 </p>
               </div>
 
-              {/* Ball Production Summary */}
-              {(components.length > 0 || (product?.productionType && product?.productionUnits)) && (
+              {/* Production Summary Badge */}
+              {productionRows.length > 0 && (
                 <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">Production Summary</Badge>
                   </div>
-                  {components.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{calculatedValues.ballSummary}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Total: {formatNumber(displayGrams, 1)}g at {formatCurrency(cogs)}
-                      </p>
-                    </div>
-                  ) : product?.productionType && product?.productionUnits ? (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{calculatedValues.summary}</p>
                     <p className="text-xs text-muted-foreground">
-                      {product.productionUnits} {product.productionType === 'bite_sized' ? 'bite-sized' : 'original'} balls per unit
+                      Total: {formatNumber(displayGrams, 1)}g at {formatCurrency(calculatedValues.productionCost)}
                     </p>
-                  ) : null}
+                  </div>
                 </div>
               )}
             </div>

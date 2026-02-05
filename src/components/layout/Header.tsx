@@ -15,7 +15,10 @@ import {
   Menu,
   MessageSquare,
   Ticket,
-  Warehouse
+  Warehouse,
+  Boxes,
+  Circle,
+  Tag,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getRoleDisplayName } from '@/lib/types';
@@ -26,18 +29,23 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 // Define all navigation items with permission requirements
 // Items with hidden: true are temporarily disabled for all users
 const allNavItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
-  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
+  { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' as const },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' as const },
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' as const },
+  { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' as const },
+  { path: '/components/packaging', label: 'Packaging', icon: Boxes, permission: 'canAccessInventory' as const },
+  // Admin section
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' as const },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' as const },
+  { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' as const },
+  // Hidden legacy pages
   { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const, hidden: true },
   { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const, hidden: true },
   { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const, hidden: true },
   { path: '/ingredients', label: 'Ingredients', icon: Apple, permission: 'canAccessIngredients' as const, hidden: true },
   { path: '/materials', label: 'Materials', icon: PackageOpen, permission: 'canAccessMaterials' as const, hidden: true },
-  { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' as const },
 ];
 
 export function Header() {

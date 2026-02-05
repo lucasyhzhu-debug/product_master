@@ -2,98 +2,73 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
-// import { calculateMenuProductCOGS } from "../lib/costCalculator";
+import { calculateMenuProductCOGS } from "../lib/costCalculator";
 
-/**
- * Helper: Calculate unit cost and grams from components.
- * Fetches productionUnitTypes and sums: unitCostIdr * quantity for each component.
- */
-async function calculateUnitCostFromComponents(
-  ctx: MutationCtx,
-  components: Array<{ productionUnitTypeId: Id<"productionUnitTypes">; quantity: number }>
-): Promise<{ totalCost: number; totalGrams: number }> {
-  let totalCost = 0;
-  let totalGrams = 0;
-
-  for (const component of components) {
-    const unitType = await ctx.db.get(component.productionUnitTypeId);
-    if (!unitType) {
-      throw new Error(`Production unit type not found: ${component.productionUnitTypeId}`);
-    }
-
-    totalCost += unitType.unitCostIdr * component.quantity;
-    totalGrams += unitType.gramsPerUnit * component.quantity;
-  }
-
-  return { totalCost, totalGrams };
-}
 
 /**
  * Helper: Calculate unit cost and grams from componentTypes (Unified BOM).
  *
- * This is the enhanced version that works with the new inventory system.
- * Currently NOT USED because schema migration is pending (Wave 1).
- * Once menuProductComponents.componentTypeId FK is migrated, replace
- * calculateUnitCostFromComponents with this function.
+ * This is the primary calculation function using the unified component system.
+ * Returns detailed COGS breakdown by category (production, direct/indirect packaging).
  *
  * @param ctx - Mutation context
  * @param components - Array of { componentTypeId, quantity }
  * @returns { totalCost, totalGrams, breakdown }
  */
-// async function calculateUnitCostFromComponentTypes(
-//   ctx: MutationCtx,
-//   components: Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
-// ): Promise<{
-//   totalCost: number;
-//   totalGrams: number;
-//   breakdown: {
-//     production: number;
-//     directPackaging: number;
-//     indirectPackaging: number;
-//   };
-// }> {
-//   // Fetch all component types and build input for COGS calculator
-//   const enrichedComponents = await Promise.all(
-//     components.map(async (component) => {
-//       const componentType = await ctx.db.get(component.componentTypeId);
-//       if (!componentType) {
-//         throw new Error(`Component type not found: ${component.componentTypeId}`);
-//       }
-// 
-//       return {
-//         unitCostIdr: componentType.unitCostIdr,
-//         category: componentType.category,
-//         quantity: component.quantity,
-//         gramsPerUnit: componentType.gramsPerUnit,
-//       };
-//     })
-//   );
-// 
-//   // Calculate COGS breakdown
-//   const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
-// 
-//   // Calculate total grams (only from production components)
-//   const totalGrams = enrichedComponents
-//     .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
-//     .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
-// 
-//   return {
-//     totalCost: cogsBreakdown.total,
-//     totalGrams,
-//     breakdown: {
-//       production: cogsBreakdown.production,
-//       directPackaging: cogsBreakdown.directPackaging,
-//       indirectPackaging: cogsBreakdown.indirectPackaging,
-//     },
-//   };
-// }
+// Exported for use by other modules (e.g., order COGS calculation)
+export async function calculateUnitCostFromComponentTypes(
+  ctx: MutationCtx,
+  components: Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
+): Promise<{
+  totalCost: number;
+  totalGrams: number;
+  breakdown: {
+    production: number;
+    directPackaging: number;
+    indirectPackaging: number;
+  };
+}> {
+  // Fetch all component types and build input for COGS calculator
+  const enrichedComponents = await Promise.all(
+    components.map(async (component) => {
+      const componentType = await ctx.db.get(component.componentTypeId);
+      if (!componentType) {
+        throw new Error(`Component type not found: ${component.componentTypeId}`);
+      }
+
+      return {
+        unitCostIdr: componentType.unitCostIdr,
+        category: componentType.category,
+        quantity: component.quantity,
+        gramsPerUnit: componentType.gramsPerUnit,
+      };
+    })
+  );
+
+  // Calculate COGS breakdown
+  const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
+
+  // Calculate total grams (only from production components)
+  const totalGrams = enrichedComponents
+    .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
+    .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
+
+  return {
+    totalCost: cogsBreakdown.total,
+    totalGrams,
+    breakdown: {
+      production: cogsBreakdown.production,
+      directPackaging: cogsBreakdown.directPackaging,
+      indirectPackaging: cogsBreakdown.indirectPackaging,
+    },
+  };
+}
 
 /**
  * Helper: Update the cached production summary on a menu product.
- * Fetches all components and builds summary string like "1 Big Ball, 2 Mid Ball".
+ * Fetches all components and builds summary string like "3 Big Ball, 1 Long Box".
  *
- * TODO (Wave 4): After schema migration, update to include packaging in summary.
- * Example: "3 Mid Ball, 1 Long Box, 3 Wrapper"
+ * Uses unified BOM via componentTypeId (required field after migration).
  */
 async function updateCachedProductionSummary(
   ctx: MutationCtx,
@@ -110,15 +85,21 @@ async function updateCachedProductionSummary(
     return;
   }
 
-  // Build summary string
-  // TODO (Wave 4): Once schema migrated to componentTypeId, fetch componentTypes instead of productionUnitTypes
+  // Build summary string from componentTypes
   const summaryParts = await Promise.all(
     components
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map(async (component) => {
-        const unitType = await ctx.db.get(component.productionUnitTypeId);
-        const name = unitType?.name ?? "Unknown";
-        return `${component.quantity} ${name}`;
+        if (!component.componentTypeId) {
+          return `${component.quantity} Unknown`;
+        }
+
+        const componentType = await ctx.db.get(component.componentTypeId);
+        if (!componentType) {
+          return `${component.quantity} Unknown`;
+        }
+
+        return `${component.quantity} ${componentType.name}`;
       })
   );
 
@@ -143,11 +124,11 @@ export const create = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
-    // PRD-4a: Components array for auto-calculation
+    // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
         v.object({
-          productionUnitTypeId: v.id("productionUnitTypes"),
+          componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
         })
       )
@@ -173,11 +154,20 @@ export const create = mutation({
     // PRD-4a: Auto-calculate unitCost and grams from components
     let unitCost: number | undefined = undefined;
     let grams = args.grams ?? 0;
+    let productType: "food" | "packaging" | undefined = undefined;
 
     if (args.components && args.components.length > 0) {
-      const calculated = await calculateUnitCostFromComponents(ctx, args.components);
+      const calculated = await calculateUnitCostFromComponentTypes(ctx, args.components);
       unitCost = calculated.totalCost;
       grams = calculated.totalGrams; // Override provided grams if components specified
+
+      // Auto-derive productType from component categories
+      const hasProductionComponent = args.components.some(async (comp) => {
+        const componentType = await ctx.db.get(comp.componentTypeId);
+        return componentType?.category === "production";
+      });
+
+      productType = (await hasProductionComponent) ? "food" : "packaging";
     }
 
     const id = await ctx.db.insert("menuProducts", {
@@ -186,29 +176,21 @@ export const create = mutation({
       grams,
       defaultPrice: args.defaultPrice,
       productionType: args.productionType ?? "original",
-      productionUnits: args.productionUnits ?? 1,
+      productionUnits: args.productionUnits ?? 0,
       isActive: args.isActive ?? true,
       unitCost,
+      productType,
     });
 
     // PRD-4a: Set components if provided
     if (args.components && args.components.length > 0) {
-      // Delete any existing components (shouldn't exist for new product, but safety check)
-      const existingComponents = await ctx.db
-        .query("menuProductComponents")
-        .withIndex("by_menu_product", (q) => q.eq("menuProductId", id))
-        .collect();
-
-      for (const existing of existingComponents) {
-        await ctx.db.delete(existing._id);
-      }
-
       // Create new components
       for (let i = 0; i < args.components.length; i++) {
         const component = args.components[i];
+
         await ctx.db.insert("menuProductComponents", {
           menuProductId: id,
-          productionUnitTypeId: component.productionUnitTypeId,
+          componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
         });
@@ -237,11 +219,11 @@ export const update = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
-    // PRD-4a: Components array for auto-calculation
+    // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
         v.object({
-          productionUnitTypeId: v.id("productionUnitTypes"),
+          componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
         })
       )
@@ -285,13 +267,24 @@ export const update = mutation({
     // PRD-4a: Auto-calculate unitCost and grams from components if provided
     if (components !== undefined) {
       if (components.length > 0) {
-        const calculated = await calculateUnitCostFromComponents(ctx, components);
+        const calculated = await calculateUnitCostFromComponentTypes(ctx, components);
         patchData.unitCost = calculated.totalCost;
         patchData.grams = calculated.totalGrams; // Override provided grams if components specified
+
+        // Auto-derive productType from component categories
+        const hasProductionComponent = await Promise.all(
+          components.map(async (comp) => {
+            const componentType = await ctx.db.get(comp.componentTypeId);
+            return componentType?.category === "production";
+          })
+        );
+
+        patchData.productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
       } else {
         // If components array is empty, clear unitCost and grams
         patchData.unitCost = undefined;
         patchData.grams = 0;
+        patchData.productType = undefined;
       }
     }
 
@@ -312,9 +305,10 @@ export const update = mutation({
       // Create new components
       for (let i = 0; i < components.length; i++) {
         const component = components[i];
+
         await ctx.db.insert("menuProductComponents", {
           menuProductId: id,
-          productionUnitTypeId: component.productionUnitTypeId,
+          componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
         });
@@ -518,6 +512,67 @@ export const removeFromSlot = mutation({
     }
 
     await ctx.db.patch(args.id, { posSlot: undefined });
+    return args.id;
+  },
+});
+
+/**
+ * Assign a packaging product to a packaging POS slot (1-4).
+ * Only allows packaging-type products (productType === "packaging").
+ * Atomically swaps slot occupants - if slot is occupied, the current product
+ * is removed from that slot (packagingPosSlot set to undefined).
+ */
+export const assignToPackagingSlot = mutation({
+  args: {
+    token: v.string(),
+    id: v.id("menuProducts"),
+    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Menu product not found");
+    }
+
+    // Validate product is packaging type
+    if (product.productType !== "packaging") {
+      throw new Error("Only packaging products can be assigned to packaging POS slots");
+    }
+
+    // Check if target slot is occupied by a different product
+    const allProducts = await ctx.db.query("menuProducts").collect();
+    const occupant = allProducts.find(
+      (p) => p.packagingPosSlot === args.slot && p._id !== args.id
+    );
+
+    // Atomic swap: if slot occupied, remove occupant from slot
+    if (occupant) {
+      await ctx.db.patch(occupant._id, { packagingPosSlot: undefined });
+    }
+
+    // Assign product to slot
+    await ctx.db.patch(args.id, { packagingPosSlot: args.slot });
+
+    return args.id;
+  },
+});
+
+/**
+ * Remove a product from packaging POS (set packagingPosSlot to undefined).
+ */
+export const removeFromPackagingSlot = mutation({
+  args: { token: v.string(), id: v.id("menuProducts") },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const product = await ctx.db.get(args.id);
+    if (!product) {
+      throw new Error("Menu product not found");
+    }
+
+    await ctx.db.patch(args.id, { packagingPosSlot: undefined });
     return args.id;
   },
 });

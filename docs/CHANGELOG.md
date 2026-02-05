@@ -13,6 +13,104 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-06 - BOM Refactor V3: Unified Component System
+
+**Major refactor: Full unified BOM with componentTypeId, packaging products, and clean slate migration.**
+
+### Summary
+Completed the BOM (Bill of Materials) refactor V3. All product components now use `componentTypeId` exclusively (not `productionUnitTypeId`). Added packaging product support, packaging POS slots, `consumptionStage` for inventory consumption, and percentage-based stock alerts.
+
+### Schema Changes
+- `componentTypes`: Added `description`, `consumptionStage` ("boxing"|"labeling"|"none"), `alarmPercentage`
+- `menuProducts`: Added `packagingPosSlot` (1-4), `productType` ("food"|"packaging"), index `by_packaging_pos_slot`
+- `componentStock`: Added `lastRestockTotalStock` (baseline for % alerts)
+
+### Backend Changes
+- `componentTypes/mutations.ts`: Accept new fields, added `createPackagingQuick` (name-only create)
+- `componentTypes/queries.ts`: Added `priceChangePercent` to cost insights
+- `menuProducts/mutations.ts`: Components now `{componentTypeId, quantity}`, auto-derives `productType`, added `assignToPackagingSlot`/`removeFromPackagingSlot`
+- `menuProducts/queries.ts`: Added `listPackagingPosProducts`, `listPosProducts` excludes packaging
+- `menuProductComponents/mutations.ts`: Simplified to use `componentTypeId` only
+- `menuProductComponents/queries.ts`: Returns `componentType` (not `productionUnitType`)
+- `orders/helpers/productionRecords.ts`: Simplified code-bridge (always lookup by code)
+- `orders/mutations/inventoryIntegration.ts`: Uses `consumptionStage` instead of hardcoded material arrays
+- `inventory/queries.ts`: Dual-threshold alerts (units + percentage), added `getLatestBatch`
+- `inventory/mutations.ts`: `receiveStock` sets `lastRestockTotalStock`, supports `copyFromBatchId`
+
+### Frontend Changes
+- `ProductForm.tsx`: Rewritten with `ProductionComponentsSection` + `PackagingComponentsSection` sub-components
+- `MenuProductsManager.tsx`: Renamed "Product Manager", added Packaging POS section, product type badges
+- New pages: `ProductionComponentsManager.tsx`, `PackagingComponentsManager.tsx`
+- Navigation reordered: Products first, Dashboard in admin section
+- New routes: `/components/production`, `/components/packaging`
+- Hooks updated for new backend APIs
+
+### Migration
+Run: `npm run migrate:bom-v2` (or `npx convex run migrations/bomRefactorV2:cleanSlateAndSeed`)
+- Wipes all test inventory data (batches, stock, transactions, reservations, BOM links)
+- Keeps only BIG_BALL + MID_BALL production components
+- Seeds `productType: "food"` on all existing menu products
+
+---
+
+## 2026-02-05 - Inventory System FK Migration Complete
+
+**Completed Wave 1.5: Migrated menuProductComponents from productionUnitTypes to componentTypes.**
+
+### Summary
+Successfully migrated the Bill of Materials (BOM) system to use the unified `componentTypes` table instead of the legacy `productionUnitTypes` table. This enables the full inventory management system with FIFO tracking for both production components (balls) and packaging materials (boxes, stickers).
+
+### Migration Results
+- ✅ 7 menuProductComponents records migrated successfully
+- ✅ All records now reference componentTypes via `componentTypeId`
+- ✅ Legacy `productionUnitTypeId` field retained for backward compatibility
+- ✅ Schema validation passing with required `componentTypeId`
+
+### Technical Changes
+
+**Schema Updates:**
+- `menuProductComponents.componentTypeId` - Now REQUIRED (was optional during migration)
+- `menuProductComponents.productionUnitTypeId` - Now optional/legacy (was required)
+- New index: `by_component_type` on componentTypeId
+- Removed index: `by_production_type` on productionUnitTypeId
+
+**Code Updates (8 files modified):**
+- `convex/menuProductComponents/mutations.ts` - Create/update now looks up componentType from productionUnitType
+- `convex/menuProductComponents/queries.ts` - Queries return both componentType and productionUnitType
+- `convex/menuProducts/mutations.ts` - Menu product creation maps to componentTypes
+- `convex/orders/helpers/productionRecords.ts` - Production record creation uses componentTypes
+- `convex/orders/mutations/orderCrud.ts` - Order creation enriches with componentTypes
+- `convex/orders/mutations/inventoryIntegration.ts` - Inventory bridge uses componentTypeId
+- `convex/orders/queries.ts` - Type definitions updated for optional fields
+- `convex/productionUnitTypes/mutations.ts` - Deletion checks scan all records (no index)
+
+**Migration Scripts:**
+- `convex/migrations/updateMenuProductComponentsFK.ts` - Migration script with dry-run, rollback, and verification
+- `convex/migrations/inventorySetup.ts` - Base data migration (already completed)
+
+### What This Enables
+- ✅ Unified BOM system for production + packaging components
+- ✅ FIFO inventory consumption tracking
+- ✅ Multi-location stock management (Kitchen, Office, Legato Goldfinch)
+- ✅ Automatic stock reservation on order confirmation
+- ✅ Automatic stock consumption on boxing/labeling
+- ✅ Low stock alerts for packaging materials
+- ✅ Enhanced COGS calculation from component costs
+
+### Backward Compatibility
+- Legacy `productionUnitTypeId` field maintained for existing code that hasn't been updated
+- All queries return both `componentType` and `productionUnitType` (legacy)
+- Production records still use `productionUnitTypeId` (separate migration needed later)
+
+### Next Steps (Future Work)
+- Consider migrating `orderItemProduction` table to use componentTypes (optional)
+- Remove legacy `productionUnitTypeId` field after full system verification (6-12 months)
+- Update frontend to show componentType details in order views
+
+**Migration Audit:** See `docs/AUDIT_REPORT_2026-02-05.md` for complete pre-migration verification
+
+---
+
 ## 2026-02-05 - Fix Kitchen Ball Filling for New Menu Products
 
 **Critical bug fix: Ball distribution now works correctly for all menu products with components.**

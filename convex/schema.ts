@@ -68,10 +68,23 @@ export default defineSchema({
       v.literal(3),
       v.literal(4)
     )),
+    // BOM Refactor: Packaging POS slot (1-4) for packaging-only products
+    packagingPosSlot: v.optional(v.union(
+      v.literal(1),
+      v.literal(2),
+      v.literal(3),
+      v.literal(4)
+    )),
+    // BOM Refactor: Derived product type (food = has production components, packaging = only packaging)
+    productType: v.optional(v.union(
+      v.literal("food"),       // Has >= 1 production component
+      v.literal("packaging")   // Only packaging components
+    )),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
-    .index("by_pos_slot", ["posSlot"]),
+    .index("by_pos_slot", ["posSlot"])
+    .index("by_packaging_pos_slot", ["packagingPosSlot"]),
 
   // ============================================
   // PRD-5: PRODUCTION UNIT TYPES
@@ -98,12 +111,14 @@ export default defineSchema({
 
   menuProductComponents: defineTable({
     menuProductId: v.id("menuProducts"),
-    productionUnitTypeId: v.id("productionUnitTypes"),
-    quantity: v.number(), // How many of this unit type per product
+    componentTypeId: v.id("componentTypes"), // Unified BOM: production + packaging (REQUIRED after migration)
+    quantity: v.number(), // How many of this component per product
     sortOrder: v.number(), // Display ordering
+    // Legacy field (kept for backward compatibility, can be removed in future)
+    productionUnitTypeId: v.optional(v.id("productionUnitTypes")),
   })
     .index("by_menu_product", ["menuProductId"])
-    .index("by_production_type", ["productionUnitTypeId"]),
+    .index("by_component_type", ["componentTypeId"]),
 
   // ============================================
   // RECIPE TABLES
@@ -669,6 +684,9 @@ export default defineSchema({
     // Production-specific (only for category="production")
     gramsPerUnit: v.optional(v.number()), // 80g for Big Ball
 
+    // Description
+    description: v.optional(v.string()),
+
     // Cost (all components)
     unitCostIdr: v.number(), // Cost per unit in IDR
     unit: v.string(), // "pcs", "g", "m", "sheets"
@@ -677,6 +695,16 @@ export default defineSchema({
     trackInventory: v.boolean(), // true for packaging, false for production
     reorderPoint: v.optional(v.number()), // Alert when available < this
     reorderQuantity: v.optional(v.number()), // Suggested order quantity
+
+    // Consumption stage: when inventory is consumed during order lifecycle
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),    // Consumed at Boxed transition
+      v.literal("labeling"),  // Consumed at Labeled transition
+      v.literal("none")       // Not tracked (production/manual)
+    )),
+
+    // Alarm percentage: alert when stock drops below this % of last restock
+    alarmPercentage: v.optional(v.number()),
 
     // Display
     color: v.optional(v.string()), // Hex color (for kitchen balls)
@@ -766,6 +794,9 @@ export default defineSchema({
     latestSupplierName: v.optional(v.string()),
     latestPurchaseUrl: v.optional(v.string()),
     latestUnitCostIdr: v.optional(v.number()),
+
+    // BOM Refactor: Snapshot of totalStock after last restock (for % alarm calculation)
+    lastRestockTotalStock: v.optional(v.number()),
 
     lastUpdated: v.number(),
   })

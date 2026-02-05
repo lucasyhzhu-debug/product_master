@@ -119,21 +119,21 @@ export const toggleActive = mutation({
 export const remove = mutation({
   args: { id: v.id("productionUnitTypes") },
   handler: async (ctx, args) => {
-    // Check if used in menu product components
-    const menuComponents = await ctx.db
-      .query("menuProductComponents")
-      .withIndex("by_production_type", (q) => q.eq("productionUnitTypeId", args.id))
-      .first();
+    // Check if used in menu product components (no index on productionUnitTypeId anymore, must scan)
+    const allMenuComponents = await ctx.db.query("menuProductComponents").collect();
+    const menuComponents = allMenuComponents.find(
+      (c) => c.productionUnitTypeId === args.id
+    );
 
     if (menuComponents) {
       throw new Error("Cannot delete: Production unit type is used in menu product components");
     }
 
     // Check if used in order item production
-    const orderProduction = await ctx.db
-      .query("orderItemProduction")
-      .withIndex("by_production_type", (q) => q.eq("productionUnitTypeId", args.id))
-      .first();
+    const allOrderProduction = await ctx.db.query("orderItemProduction").collect();
+    const orderProduction = allOrderProduction.find(
+      (p) => p.productionUnitTypeId === args.id
+    );
 
     if (orderProduction) {
       throw new Error("Cannot delete: Production unit type is used in order production records");

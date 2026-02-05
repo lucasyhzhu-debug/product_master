@@ -210,16 +210,54 @@ export const create = mutation({
       if (components.length > 0) {
         const enrichedComponents = await Promise.all(
           components.map(async (comp) => {
-            const unitType = await ctx.db.get(comp.productionUnitTypeId);
+            // Use componentType (new system) or fallback to productionUnitType (legacy)
+            const componentType = comp.componentTypeId
+              ? await ctx.db.get(comp.componentTypeId)
+              : null;
+            const code = componentType?.code ?? "UNKNOWN";
+            const name = componentType?.name ?? "Unknown";
+
+            // Get productionUnitTypeId: use legacy field if exists, otherwise find by code
+            let productionUnitTypeId: Id<"productionUnitTypes"> | undefined =
+              comp.productionUnitTypeId;
+
+            if (!productionUnitTypeId && componentType) {
+              // Post-migration: find productionUnitType by matching code
+              const productionUnitType = await ctx.db
+                .query("productionUnitTypes")
+                .withIndex("by_code", (q) => q.eq("code", componentType.code))
+                .first();
+
+              productionUnitTypeId = productionUnitType?._id;
+            }
+
+            // Skip if we can't resolve productionUnitTypeId
+            if (!productionUnitTypeId) {
+              return null;
+            }
+
             return {
-              productionUnitTypeId: comp.productionUnitTypeId,
-              productionUnitCode: unitType?.code ?? "UNKNOWN",
-              productionUnitName: unitType?.name ?? "Unknown",
+              productionUnitTypeId,
+              productionUnitCode: code,
+              productionUnitName: name,
               quantity: comp.quantity,
             };
           })
         );
-        menuProductComponentsMap.set(mpId.toString(), enrichedComponents);
+
+        // Filter out null entries
+        const validComponents = enrichedComponents.filter((c) => c !== null);
+        if (validComponents.length > 0) {
+          menuProductComponentsMap.set(
+            mpId.toString(),
+            validComponents as Array<{
+              productionUnitTypeId: Id<"productionUnitTypes">;
+              productionUnitCode: string;
+              productionUnitName: string;
+              quantity: number;
+            }>
+          );
+        }
       }
     }
 
