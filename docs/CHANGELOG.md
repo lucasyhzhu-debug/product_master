@@ -13,6 +13,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-05 - Manager Override One-Time Use Enforcement
+
+**Manager overrides now automatically deactivate after first use and link to the consuming order.**
+
+- Manager overrides are now true one-time use vouchers
+- Auto-deactivate (`isActive: false`) immediately on first use
+- Link to specific order via `overrideOrderId` field
+- VouchersManager shows "Used by Order #XXXX" link (or "Order Deleted" if removed)
+- Cancelled orders do NOT reactivate overrides (maintains audit trail)
+- Enhanced error message: "This manager override has already been used and cannot be reused"
+
+**Files Modified:**
+- convex/orders/helpers/voucherHandling.ts
+- convex/vouchers/queries.ts
+- src/pages/VouchersManager.tsx
+
+**Commits:**
+- 5bedadf - feat(vouchers): auto-deactivate manager overrides on first use
+- 3f869b0 - feat(vouchers): add override-specific error messaging
+- 9d446dc - feat(vouchers): display order linkage and deletion status
+
+**Breaking Changes:** None (backwards compatible)
+
+**Migration Notes:** Existing consumed overrides continue to block reuse via `usageCount` check. New overrides benefit from explicit deactivation and order linking.
+
+---
+
 ## 2026-02-05 - WhatsApp Template Format Updates
 
 **Currency and discount display improvements for WhatsApp messages**
