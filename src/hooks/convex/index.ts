@@ -241,3 +241,59 @@ export {
   useConvexMenuProductComponentsBatch,
   type MenuProductComponentWithType,
 } from "./useMenuProductComponents";
+
+// Inventory (Inventory Management System)
+export {
+  // Query hooks
+  useConvexLowStockAlerts,
+  useConvexComponentInventory,
+  useConvexLocationInventory,
+  useConvexInventoryReport,
+  useConvexComponentBatches,
+  useConvexLocationTransactions,
+  // Mutation hooks
+  useConvexReceiveStock,
+  useConvexTransferStock,
+  useConvexAdjustStock,
+  useConvexDeleteBatch,
+  useConvexExpireBatch,
+  // Types
+  type ReceiveStockInput,
+  type TransferStockInput,
+  type AdjustStockInput,
+  type LowStockAlert,
+} from "./useInventory";
+
+// Component Types (Inventory Management System)
+export {
+  // Query hooks
+  useConvexComponentTypes,
+  useConvexComponentType,
+  useConvexComponentsByCategory,
+  useConvexInventoryTrackedComponents,
+  useConvexComponentByCode,
+  // Mutation hooks
+  useConvexCreateComponentType,
+  useConvexUpdateComponentType,
+  useConvexDeleteComponentType,
+  // Types
+  type ComponentTypeCreateInput,
+  type ComponentTypeUpdateInput,
+  type ComponentType,
+} from "./useComponentTypes";
+
+// Storage Locations (Inventory Management System)
+export {
+  // Query hooks
+  useConvexStorageLocations,
+  useConvexStorageLocation,
+  useConvexDefaultLocation,
+  // Mutation hooks
+  useConvexCreateStorageLocation,
+  useConvexUpdateStorageLocation,
+  useConvexDeleteStorageLocation,
+  // Types
+  type StorageLocationCreateInput,
+  type StorageLocationUpdateInput,
+  type StorageLocation,
+} from "./useStorageLocations";
