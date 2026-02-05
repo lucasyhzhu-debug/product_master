@@ -13,6 +13,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-05 - Fix Kitchen Ball Filling for New Menu Products
+
+**Critical bug fix: Ball distribution now works correctly for all menu products with components.**
+
+### Root Cause
+The ball distribution algorithm was using the OLD production system (`orderItems.productionType` field) to filter which items receive balls, but then applying balls using the NEW system (`orderItemProduction` records). When these two systems were out of sync (which happened for all new menu products with `menuProductComponents`), balls failed to distribute.
+
+### Changes
+- Updated item filter in `distributeBallsToOrders()` to check for presence of matching production records instead of `productionType` field
+- Updated completion check filter to use production records instead of `productionType` field
+
+### Impact
+- All new menu products with components (combo packs, etc.) now fill correctly in Kitchen View
+- Legacy products continue to work unchanged
+- Order completion workflow is restored
+
+**Files Modified:**
+- `convex/orders/helpers/ballDistribution.ts` - Lines 201-209 (item filter), Line 290 (completion check)
+
+**Technical Details:**
+- Old filter: `item.productionType === productionTypeFilter`
+- New filter: `item.productionRecords.some(r => r.productionUnitCode === productionUnitCode && r.unitsRemaining > 0 && !r.isCancelled)`
+
+**Full RCA:** See `docs/reviews/staffreview-ball-filling-bug-2026-02-05.md`
+
+---
+
 ## 2026-02-05 - Manager Override One-Time Use Enforcement
 
 **Manager overrides now automatically deactivate after first use and link to the consuming order.**

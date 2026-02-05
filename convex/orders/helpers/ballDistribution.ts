@@ -198,10 +198,15 @@ export async function distributeBallsToOrders(
   for (const { order, items } of sortedOrders) {
     if (remainingBalls <= 0) break;
 
-    // Filter items by production type
-    const matchingItems = items.filter(
-      (item) => item.productionType === productionTypeFilter
-    );
+    // Filter items that have production records of the requested ball type
+    // FIX: Use NEW system (production records) instead of OLD system (productionType field)
+    const matchingItems = items.filter((item) => {
+      return item.productionRecords.some(
+        (r) => r.productionUnitCode === productionUnitCode &&
+               r.unitsRemaining > 0 &&
+               !r.isCancelled
+      );
+    });
 
     let orderReceivedBalls = false;
 
@@ -281,7 +286,8 @@ export async function distributeBallsToOrders(
 
     // Check if ALL items in the order are complete using NEW system (orderItemProduction)
     // An item is complete when all its production records have unitsRemaining = 0
-    const itemsWithProductionData = items.filter((item) => item.productionType);
+    // FIX: Use NEW system (production records) instead of OLD system (productionType field)
+    const itemsWithProductionData = items.filter((item) => item.productionRecords.length > 0);
 
     if (itemsWithProductionData.length > 0) {
       const allComplete = itemsWithProductionData.every((item) => {
