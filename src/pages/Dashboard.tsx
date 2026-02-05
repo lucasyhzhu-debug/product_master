@@ -24,6 +24,7 @@ import {
   OrderStatsCardsSkeleton,
   ProductionQueueTable,
   ProductionQueueTableSkeleton,
+  LowStockAlert,
 } from '@/components/dashboard';
 import {
   useConvexRecipes,
@@ -159,6 +160,9 @@ export function Dashboard() {
           onToggleTag={handleToggleTag}
         />
       )}
+
+      {/* Low Stock Alerts Widget */}
+      <LowStockAlert />
 
       {/* Section Divider - Orders & Production */}
       <div className="flex items-center gap-4 pt-4" data-tour-step="orders">

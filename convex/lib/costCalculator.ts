@@ -72,3 +72,66 @@ export function calculateLineCost(
   const quantityBase = normalizeToBaseUnit(quantity, unit);
   return costPerBaseUnit * quantityBase;
 }
+
+/**
+ * Calculate menu product COGS from components (Unified BOM).
+ *
+ * Use this for products with componentTypes (new inventory system).
+ * For legacy products using productionUnitTypes, continue using existing logic.
+ *
+ * Breakdown by component category:
+ * - production: Kitchen-produced units (balls)
+ * - direct_packaging: Auto-included packaging (boxes, stickers, wrappers)
+ * - indirect_packaging: Separate line items (brochures, bags) - not included in COGS
+ *
+ * @param components - Array of { unitCostIdr, category, quantity }
+ * @returns Breakdown: { production, directPackaging, indirectPackaging, total }
+ *
+ * @example
+ * // Product with 3 Mid Balls + packaging
+ * const components = [
+ *   { unitCostIdr: 3000, category: "production", quantity: 3 },        // 9000
+ *   { unitCostIdr: 500, category: "direct_packaging", quantity: 1 },   // 500
+ *   { unitCostIdr: 50, category: "direct_packaging", quantity: 3 },    // 150
+ * ];
+ * const cogs = calculateMenuProductCOGS(components);
+ * // => { production: 9000, directPackaging: 650, indirectPackaging: 0, total: 9650 }
+ */
+export function calculateMenuProductCOGS(
+  components: Array<{
+    unitCostIdr: number;
+    category: "production" | "direct_packaging" | "indirect_packaging";
+    quantity: number;
+  }>
+): {
+  production: number;
+  directPackaging: number;
+  indirectPackaging: number;
+  total: number;
+} {
+  let production = 0;
+  let directPackaging = 0;
+  let indirectPackaging = 0;
+
+  for (const component of components) {
+    const lineCost = component.unitCostIdr * component.quantity;
+
+    if (component.category === "production") {
+      production += lineCost;
+    } else if (component.category === "direct_packaging") {
+      directPackaging += lineCost;
+    } else if (component.category === "indirect_packaging") {
+      indirectPackaging += lineCost;
+    }
+  }
+
+  // Total COGS = production + direct packaging (indirect is sold separately)
+  const total = production + directPackaging;
+
+  return {
+    production,
+    directPackaging,
+    indirectPackaging,
+    total,
+  };
+}

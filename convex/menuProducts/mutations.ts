@@ -2,6 +2,7 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
+import { calculateMenuProductCOGS } from "../lib/costCalculator";
 
 /**
  * Helper: Calculate unit cost and grams from components.
@@ -28,8 +29,71 @@ async function calculateUnitCostFromComponents(
 }
 
 /**
+ * Helper: Calculate unit cost and grams from componentTypes (Unified BOM).
+ *
+ * This is the enhanced version that works with the new inventory system.
+ * Currently NOT USED because schema migration is pending (Wave 1).
+ * Once menuProductComponents.componentTypeId FK is migrated, replace
+ * calculateUnitCostFromComponents with this function.
+ *
+ * @param ctx - Mutation context
+ * @param components - Array of { componentTypeId, quantity }
+ * @returns { totalCost, totalGrams, breakdown }
+ */
+async function calculateUnitCostFromComponentTypes(
+  ctx: MutationCtx,
+  components: Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
+): Promise<{
+  totalCost: number;
+  totalGrams: number;
+  breakdown: {
+    production: number;
+    directPackaging: number;
+    indirectPackaging: number;
+  };
+}> {
+  // Fetch all component types and build input for COGS calculator
+  const enrichedComponents = await Promise.all(
+    components.map(async (component) => {
+      const componentType = await ctx.db.get(component.componentTypeId);
+      if (!componentType) {
+        throw new Error(`Component type not found: ${component.componentTypeId}`);
+      }
+
+      return {
+        unitCostIdr: componentType.unitCostIdr,
+        category: componentType.category,
+        quantity: component.quantity,
+        gramsPerUnit: componentType.gramsPerUnit,
+      };
+    })
+  );
+
+  // Calculate COGS breakdown
+  const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
+
+  // Calculate total grams (only from production components)
+  const totalGrams = enrichedComponents
+    .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
+    .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
+
+  return {
+    totalCost: cogsBreakdown.total,
+    totalGrams,
+    breakdown: {
+      production: cogsBreakdown.production,
+      directPackaging: cogsBreakdown.directPackaging,
+      indirectPackaging: cogsBreakdown.indirectPackaging,
+    },
+  };
+}
+
+/**
  * Helper: Update the cached production summary on a menu product.
  * Fetches all components and builds summary string like "1 Big Ball, 2 Mid Ball".
+ *
+ * TODO (Wave 4): After schema migration, update to include packaging in summary.
+ * Example: "3 Mid Ball, 1 Long Box, 3 Wrapper"
  */
 async function updateCachedProductionSummary(
   ctx: MutationCtx,
@@ -47,6 +111,7 @@ async function updateCachedProductionSummary(
   }
 
   // Build summary string
+  // TODO (Wave 4): Once schema migrated to componentTypeId, fetch componentTypes instead of productionUnitTypes
   const summaryParts = await Promise.all(
     components
       .sort((a, b) => a.sortOrder - b.sortOrder)
