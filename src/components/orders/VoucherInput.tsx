@@ -212,7 +212,7 @@ export function VoucherInput({
     <div className="space-y-2">
       <Label className="flex items-center gap-2">
         <Ticket className="w-4 h-4" />
-        Voucher Code
+        Voucher
       </Label>
       <div className="flex gap-2">
         <div className="relative flex-1">
