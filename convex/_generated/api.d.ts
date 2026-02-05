@@ -13,6 +13,7 @@ import type * as auth_queries from "../auth/queries.js";
 import type * as auth_seed from "../auth/seed.js";
 import type * as channels_mutations from "../channels/mutations.js";
 import type * as channels_queries from "../channels/queries.js";
+import type * as componentTypes_seed from "../componentTypes/seed.js";
 import type * as customers_mutations from "../customers/mutations.js";
 import type * as customers_queries from "../customers/queries.js";
 import type * as dashboard_queries from "../dashboard/queries.js";
@@ -28,6 +29,7 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
@@ -37,6 +39,7 @@ import type * as orders_helpers_productionRecords from "../orders/helpers/produc
 import type * as orders_helpers_statusFetching from "../orders/helpers/statusFetching.js";
 import type * as orders_helpers_statusTransitions from "../orders/helpers/statusTransitions.js";
 import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
+import type * as orders_helpers_voucherHandling from "../orders/helpers/voucherHandling.js";
 import type * as orders_migrations from "../orders/migrations.js";
 import type * as orders_mutations from "../orders/mutations.js";
 import type * as orders_mutations_index from "../orders/mutations/index.js";
@@ -61,6 +64,8 @@ import type * as shipping_mutations from "../shipping/mutations.js";
 import type * as shipping_queries from "../shipping/queries.js";
 import type * as tags_mutations from "../tags/mutations.js";
 import type * as tags_queries from "../tags/queries.js";
+import type * as vouchers_mutations from "../vouchers/mutations.js";
+import type * as vouchers_queries from "../vouchers/queries.js";
 import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
 import type * as whatsappTemplates_queries from "../whatsappTemplates/queries.js";
 
@@ -76,6 +81,7 @@ declare const fullApi: ApiFromModules<{
   "auth/seed": typeof auth_seed;
   "channels/mutations": typeof channels_mutations;
   "channels/queries": typeof channels_queries;
+  "componentTypes/seed": typeof componentTypes_seed;
   "customers/mutations": typeof customers_mutations;
   "customers/queries": typeof customers_queries;
   "dashboard/queries": typeof dashboard_queries;
@@ -91,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "migrations/inventorySetup": typeof migrations_inventorySetup;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
@@ -100,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   "orders/helpers/statusFetching": typeof orders_helpers_statusFetching;
   "orders/helpers/statusTransitions": typeof orders_helpers_statusTransitions;
   "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
+  "orders/helpers/voucherHandling": typeof orders_helpers_voucherHandling;
   "orders/migrations": typeof orders_migrations;
   "orders/mutations": typeof orders_mutations;
   "orders/mutations/index": typeof orders_mutations_index;
@@ -124,6 +132,8 @@ declare const fullApi: ApiFromModules<{
   "shipping/queries": typeof shipping_queries;
   "tags/mutations": typeof tags_mutations;
   "tags/queries": typeof tags_queries;
+  "vouchers/mutations": typeof vouchers_mutations;
+  "vouchers/queries": typeof vouchers_queries;
   "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;
   "whatsappTemplates/queries": typeof whatsappTemplates_queries;
 }>;
