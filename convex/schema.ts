@@ -644,4 +644,181 @@ export default defineSchema({
     .index("by_customer", ["customerId"])
     .index("by_voucher_customer", ["voucherId", "customerId"])
     .index("by_order", ["orderId"]),
+
+  // ============================================
+  // INVENTORY MANAGEMENT SYSTEM
+  // Unified BOM tracking for production + packaging
+  // ============================================
+
+  // Unified component types (replaces productionUnitTypes for BOM)
+  componentTypes: defineTable({
+    // Identity
+    code: v.string(), // "BIG_BALL", "LONG_BOX", "BROCHURE"
+    name: v.string(), // "Big Ball", "Long Box", "Brochure"
+
+    // Classification (3 categories)
+    category: v.union(
+      v.literal("production"), // Kitchen produces (balls)
+      v.literal("direct_packaging"), // Auto-included with product (boxes, stickers)
+      v.literal("indirect_packaging") // Sold as separate line items (brochures, bags)
+    ),
+
+    // Production-specific (only for category="production")
+    gramsPerUnit: v.optional(v.number()), // 80g for Big Ball
+
+    // Cost (all components)
+    unitCostIdr: v.number(), // Cost per unit in IDR
+    unit: v.string(), // "pcs", "g", "m", "sheets"
+
+    // Inventory settings (packaging only - production is made to order)
+    trackInventory: v.boolean(), // true for packaging, false for production
+    reorderPoint: v.optional(v.number()), // Alert when available < this
+    reorderQuantity: v.optional(v.number()), // Suggested order quantity
+
+    // Display
+    color: v.optional(v.string()), // Hex color (for kitchen balls)
+    sortOrder: v.number(),
+    isActive: v.boolean(),
+
+    // Metadata
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_category", ["category"])
+    .index("by_active", ["isActive"])
+    .index("by_track_inventory", ["trackInventory"]),
+
+  // Storage locations (Kitchen, Office, Legato Goldfinch)
+  storageLocations: defineTable({
+    name: v.string(), // "Kitchen", "Office", "Legato Goldfinch"
+    locationType: v.union(
+      v.literal("office"), // Office (default)
+      v.literal("kitchen"), // Kitchen
+      v.literal("venue") // Legato Goldfinch
+    ),
+    address: v.optional(v.string()),
+    isActive: v.boolean(),
+    isDefault: v.optional(v.boolean()), // Office = true
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_type", ["locationType"])
+    .index("by_active", ["isActive"])
+    .index("by_default", ["isDefault"]),
+
+  // Inventory batches (FIFO tracking + purchase history)
+  inventoryBatches: defineTable({
+    componentTypeId: v.id("componentTypes"),
+    locationId: v.id("storageLocations"),
+
+    // Purchase details
+    purchaseDate: v.number(), // When received
+    supplierName: v.string(), // "Tokopedia - PackagingCo"
+    supplierBrand: v.optional(v.string()), // Brand name if relevant
+    purchaseReference: v.optional(v.string()), // PO#, invoice#
+    purchaseUrl: v.optional(v.string()), // Link to reorder
+
+    // Quantities
+    quantityPurchased: v.number(), // 2000 stickers
+    totalCostIdr: v.number(), // Rp 100,000 for the batch
+    unitCostIdr: v.number(), // Rp 50 per sticker (calculated)
+
+    // FIFO tracking
+    quantityRemaining: v.number(), // How many left in this batch
+    quantityReserved: v.number(), // Reserved for confirmed orders
+    // Available = quantityRemaining - quantityReserved
+
+    // Status
+    status: v.union(
+      v.literal("active"), // Has remaining stock
+      v.literal("depleted"), // All consumed
+      v.literal("expired") // Past expiry (if tracked)
+    ),
+    expiryDate: v.optional(v.number()), // For perishables
+
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_component", ["componentTypeId"])
+    .index("by_location", ["locationId"])
+    .index("by_component_location", ["componentTypeId", "locationId"])
+    .index("by_status", ["status"])
+    .index("by_fifo", ["componentTypeId", "locationId", "purchaseDate"]), // FIFO order
+
+  // Component stock (aggregated view - computed from batches)
+  componentStock: defineTable({
+    componentTypeId: v.id("componentTypes"),
+    locationId: v.id("storageLocations"),
+
+    // Aggregated from all active batches
+    totalStock: v.number(), // Sum of quantityRemaining
+    totalReserved: v.number(), // Sum of quantityReserved
+    // Available = totalStock - totalReserved
+
+    // Weighted average cost (for COGS display)
+    weightedUnitCostIdr: v.number(), // Σ(qty × cost) / Σ(qty)
+
+    // Latest batch info (LIFO for reordering)
+    latestSupplierName: v.optional(v.string()),
+    latestPurchaseUrl: v.optional(v.string()),
+    latestUnitCostIdr: v.optional(v.number()),
+
+    lastUpdated: v.number(),
+  })
+    .index("by_component", ["componentTypeId"])
+    .index("by_location", ["locationId"])
+    .index("by_component_location", ["componentTypeId", "locationId"]),
+
+  // Transaction history (audit log)
+  componentTransactions: defineTable({
+    componentTypeId: v.id("componentTypes"),
+    locationId: v.id("storageLocations"),
+    batchId: v.optional(v.id("inventoryBatches")), // Which batch affected
+
+    transactionType: v.union(
+      v.literal("receive"), // New batch received
+      v.literal("consume"), // Used for order (FIFO from oldest batch)
+      v.literal("reserve"), // Reserved for confirmed order
+      v.literal("unreserve"), // Released (order cancelled)
+      v.literal("adjust"), // Physical count adjustment
+      v.literal("transfer_out"),
+      v.literal("transfer_in"),
+      v.literal("expire") // Batch expired
+    ),
+
+    quantity: v.number(), // + for in, - for out
+    unitCostAtTime: v.number(), // Cost per unit at transaction time (from batch)
+
+    // Links
+    orderId: v.optional(v.id("orders")),
+    transferId: v.optional(v.string()),
+    referenceNote: v.optional(v.string()),
+
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_component", ["componentTypeId", "createdAt"])
+    .index("by_location", ["locationId", "createdAt"])
+    .index("by_batch", ["batchId"])
+    .index("by_order", ["orderId"]),
+
+  // Order component reservations (track reserved stock per order)
+  orderComponentReservations: defineTable({
+    orderId: v.id("orders"),
+    componentTypeId: v.id("componentTypes"),
+    locationId: v.id("storageLocations"),
+    quantityReserved: v.number(),
+    quantityConsumed: v.number(),
+    status: v.union(
+      v.literal("reserved"),
+      v.literal("consumed"),
+      v.literal("released")
+    ),
+    createdAt: v.number(),
+    consumedAt: v.optional(v.number()),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_component", ["componentTypeId"])
+    .index("by_status", ["status"]),
 });
