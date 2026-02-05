@@ -8,7 +8,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { consumeFromFIFO, applyFIFOConsumption } from "./fifo";
-import { updateComponentStock, validateStockAdjustment } from "./helpers";
+import { updateComponentStock } from "./helpers";
 
 /**
  * Receive stock - Create new batch with supplier info

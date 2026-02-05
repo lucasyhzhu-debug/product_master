@@ -272,13 +272,16 @@ export default defineSchema({
 
     // PRD-0: Status workflow with type-safe unions
     // PRD-7: Added InProduction between Confirmed and Packaging
+    // PRD-Kitchen-Workflow: Added Boxed and Labeled statuses for inventory management
     status: v.union(
       v.literal("Draft"),
       v.literal("AwaitingPayment"),
       v.literal("Confirmed"),
       v.literal("InProduction"),        // NEW: Kitchen actively producing
+      v.literal("Boxed"),               // NEW: All packages filled and boxed
+      v.literal("Labeled"),             // NEW: Stickers applied to boxes
       v.literal("ProductionComplete"),  // DEPRECATED: Use Packaging instead
-      v.literal("Packaging"),
+      v.literal("Packaging"),           // DEPRECATED: Use Boxed instead
       v.literal("WaitingShipment"),
       v.literal("CompleteShipped"),
       v.literal("WaitingPickup"),

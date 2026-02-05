@@ -13,12 +13,12 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
-// Inventory integration
+// Inventory integration (internal helpers)
 import {
-  reserveStockForOrder,
-  consumeBoxingMaterials,
-  consumeStickerMaterials,
-  releaseReservation,
+  reserveStockForOrderInternal,
+  consumeBoxingMaterialsInternal,
+  consumeStickerMaterialsInternal,
+  releaseReservationInternal,
 } from "./inventoryIntegration";
 
 // ============================================
@@ -101,7 +101,7 @@ export const updateStatus = mutation({
     // Reserve stock when confirming order
     if (newStatus === "Confirmed" && oldStatus !== "Confirmed") {
       try {
-        await reserveStockForOrder(ctx, {
+        await reserveStockForOrderInternal(ctx, {
           orderId: args.orderId,
           locationId: args.locationId,
         });
@@ -115,7 +115,7 @@ export const updateStatus = mutation({
     // Consume boxing materials when marking as boxed
     if (newStatus === "Boxed" && oldStatus !== "Boxed") {
       try {
-        await consumeBoxingMaterials(ctx, { orderId: args.orderId });
+        await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
         await ctx.db.patch(args.orderId, { status: oldStatus });
@@ -126,7 +126,7 @@ export const updateStatus = mutation({
     // Consume sticker materials when marking as labeled
     if (newStatus === "Labeled" && oldStatus !== "Labeled") {
       try {
-        await consumeStickerMaterials(ctx, { orderId: args.orderId });
+        await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
         await ctx.db.patch(args.orderId, { status: oldStatus });
@@ -137,7 +137,7 @@ export const updateStatus = mutation({
     // Release reservations when cancelling
     if (newStatus === "Cancelled" && oldStatus !== "Cancelled") {
       try {
-        await releaseReservation(ctx, { orderId: args.orderId });
+        await releaseReservationInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Log error but don't revert (cancellation should succeed)
         console.error("Error releasing reservations:", error);

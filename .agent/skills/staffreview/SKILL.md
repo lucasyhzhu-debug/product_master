@@ -23,6 +23,49 @@ Simulate a rigorous code review session where two senior engineers review an imp
 
 ## Workflow
 
+### Step 0: Mandatory Plan Validation (FIRST)
+
+**Before any review, validate the plan against CLAUDE.md mandatory requirements.**
+
+Run the `/validate-plan` checklist on the plan:
+
+```
+PLAN VALIDATION CHECKLIST
+═════════════════════════
+
+□ Git Workflow section exists?
+  → Branch name specified?
+  → Checkpoint strategy defined?
+
+□ Implementation Waves section exists?
+  → Agents assigned?
+  → File paths specified?
+  → PARALLEL/SEQUENTIAL marked?
+
+□ Documentation Updates section exists?
+  → CHANGELOG.md checkbox?
+
+□ Success Criteria section exists?
+  → Type check requirement?
+  → Build requirement?
+
+═════════════════════════
+```
+
+**If plan is INCOMPLETE (missing required sections):**
+1. Silently add the missing sections to your review output
+2. Include a "Plan Structure Additions" section in your review showing what was added
+3. Continue with the full review - do NOT stop or ask permission
+4. The completed plan sections become part of your deliverable
+
+**If plan is COMPLETE:**
+- Note: "✅ Plan structure validated"
+- Proceed to Step 1
+
+**Key principle:** Your job is to deliver a complete, reviewable plan. Fill gaps automatically using project context and best practices.
+
+---
+
 ### Step 1: Plan Discovery & Initial Read
 
 **If path argument provided:**

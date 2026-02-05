@@ -16,8 +16,10 @@ export const STATUS_COLORS: Record<OrderStatus, string> = {
   AwaitingPayment: 'bg-amber-500',
   Confirmed: 'bg-blue-500',
   InProduction: 'bg-purple-500',
+  Boxed: 'bg-amber-500', // NEW: Boxed and ready for stickers
+  Labeled: 'bg-blue-500', // NEW: Stickers applied, ready to ship
   ProductionComplete: 'bg-purple-500', // DEPRECATED
-  Packaging: 'bg-indigo-500',
+  Packaging: 'bg-indigo-500', // DEPRECATED
   WaitingShipment: 'bg-yellow-500',
   CompleteShipped: 'bg-green-500',
   WaitingPickup: 'bg-orange-500',
@@ -38,7 +40,7 @@ export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
 export const STATUS_CATEGORIES = {
   awaiting: ['Draft', 'AwaitingPayment'] as OrderStatus[],
   paidReady: ['Confirmed'] as OrderStatus[],
-  kitchen: ['InProduction', 'Packaging'] as OrderStatus[],
+  kitchen: ['InProduction', 'Boxed', 'Labeled', 'Packaging'] as OrderStatus[], // Added Boxed/Labeled
   ready: ['WaitingShipment', 'WaitingPickup'] as OrderStatus[],
   completed: ['CompleteShipped', 'PickedUp', 'Cancelled'] as OrderStatus[],
 } as const;

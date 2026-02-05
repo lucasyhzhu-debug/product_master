@@ -8,6 +8,145 @@
 
 ---
 
+## 🚨 MANDATORY PLANNING REQUIREMENTS
+
+**EVERY implementation plan MUST include these sections. Plans missing these sections are incomplete.**
+
+### 1. Git Workflow (REQUIRED)
+
+```markdown
+## Git Workflow
+
+**Branch:** `feature/{descriptive-name}` or `fix/{bug-name}`
+
+**Checkpoint Strategy:**
+- [ ] Checkpoint 1: After {phase} - commit message
+- [ ] Checkpoint 2: After {phase} - commit message
+- [ ] Final: After build passes - ready for merge
+
+**Commands:**
+git switch -c feature/{name}  # Create branch BEFORE any changes
+# ... make changes ...
+git add <specific-files>
+git commit -m "feat: description"
+npm run build  # MUST pass before merge
+```
+
+**NO direct commits to main. NO exceptions.**
+
+### 2. Documentation Updates (REQUIRED)
+
+```markdown
+## Documentation Updates
+
+After merge, update these files:
+- [ ] docs/CHANGELOG.md (ALWAYS required)
+- [ ] docs/SCHEMA.md (if schema changed)
+- [ ] docs/API_REFERENCE.md (if backend changed)
+- [ ] docs/ROADMAP.md (if feature completed)
+```
+
+### 3. Agentic Architecture (REQUIRED for multi-file changes)
+
+```markdown
+## Implementation Waves
+
+### Wave 1: Backend [PARALLEL]
+| Agent | Task | Files |
+|-------|------|-------|
+| convex-backend | Schema changes | convex/schema.ts |
+| convex-backend | Queries/mutations | convex/{entity}/*.ts |
+
+### Wave 2: Frontend [PARALLEL, after Wave 1]
+| Agent | Task | Files |
+|-------|------|-------|
+| react-ui-builder | UI components | src/pages/*.tsx |
+| frontend-integrator | Hook wiring | src/hooks/convex/*.ts |
+
+### Wave 3: Verification [SEQUENTIAL]
+| Agent | Task |
+|-------|------|
+| code-auditor | Type check + pattern compliance |
+| Bash | npm run build |
+```
+
+### 4. Success Criteria (REQUIRED)
+
+```markdown
+## Success Criteria
+
+- [ ] `npm run type-check` passes
+- [ ] `npm run build` succeeds
+- [ ] All CHANGELOG entries added
+- [ ] {Feature-specific criteria}
+```
+
+### Quick Template
+
+Copy this into every plan:
+
+```markdown
+## Git Workflow
+**Branch:** `feature/{name}`
+**Checkpoints:** TBD based on waves
+
+## Implementation Waves
+{Define waves with agents}
+
+## Documentation Updates
+- [ ] CHANGELOG.md
+- [ ] {Other docs if applicable}
+
+## Success Criteria
+- [ ] Type check passes
+- [ ] Build succeeds
+- [ ] {Feature criteria}
+```
+
+### 5. Plan Validation Gate (BEFORE IMPLEMENTATION)
+
+**Before starting ANY implementation, validate the plan against this checklist:**
+
+```
+PLAN VALIDATION CHECKLIST
+═════════════════════════
+
+□ Git Workflow section exists?
+  → Branch name specified?
+  → Checkpoint strategy defined?
+  → "No direct commits to main" acknowledged?
+
+□ Implementation Waves section exists?
+  → Agents assigned to each wave?
+  → File paths specified?
+  → Wave dependencies marked (PARALLEL vs SEQUENTIAL)?
+
+□ Documentation Updates section exists?
+  → CHANGELOG.md checkbox present?
+  → Other docs identified if applicable?
+
+□ Success Criteria section exists?
+  → Type check requirement?
+  → Build requirement?
+  → Feature-specific criteria?
+
+═════════════════════════
+If ANY checkbox is missing: STOP and complete the plan first.
+Do NOT proceed with implementation until all sections are present.
+```
+
+**Validation command for agents:**
+```
+Before implementing, ask yourself:
+"Does this plan have Git Workflow, Implementation Waves,
+Documentation Updates, and Success Criteria sections?"
+
+If NO → Add missing sections before proceeding
+If YES → Proceed with implementation
+```
+
+---
+
 ## Documentation Index
 
 | File | Purpose | When to Read |
@@ -214,7 +353,12 @@ product_master/
 
 ## New Page/Feature Checklist
 
-**When creating a new page or major feature, ALWAYS address these questions in the implementation plan:**
+**When creating a new page or major feature, ALWAYS include:**
+
+1. ✅ **Mandatory Planning Requirements** (see top of this file)
+2. ✅ **Access Control** questions (see below)
+
+**Plans missing git workflow, documentation updates, or agentic waves are INCOMPLETE.**
 
 ### Access Control (MANDATORY)
 
@@ -508,6 +652,30 @@ When the user types `/staffreview`, execute the staffreview skill to review impl
 - Before starting implementation of any plan
 - After writing a new implementation plan (self-review)
 - When inheriting a plan from another developer
+
+### /validate-plan
+
+When the user types `/validate-plan`, validate an implementation plan against mandatory requirements.
+
+**Instructions:** Read and follow `.agent/skills/validate-plan/SKILL.md`
+
+**Quick summary:**
+1. Accept optional path argument or prompt for plan selection
+2. Check for Git Workflow section (branch, checkpoints)
+3. Check for Implementation Waves section (agents, files, execution order)
+4. Check for Documentation Updates section (CHANGELOG + conditionals)
+5. Check for Success Criteria section (type-check, build, feature-specific)
+6. Report validation status with specific fixes needed
+
+**Use when:**
+- BEFORE starting implementation of ANY plan (MANDATORY)
+- After writing a new plan (self-validation)
+- When reviewing plans during /staffreview
+- When inheriting a plan from another session
+
+**Output:**
+- ✅ PLAN VALIDATED - Ready for implementation
+- ❌ PLAN INCOMPLETE - Lists missing sections with template to fix
 
 ---
 

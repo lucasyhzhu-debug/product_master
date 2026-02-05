@@ -6,7 +6,7 @@ import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 
 // Ctx-dependent helpers
-import { logOrderEvent } from "../helpers/index";
+import { logOrderEvent, transitionToBoxed, transitionToInProduction } from "../helpers/index";
 
 // ============================================
 // Mutations
@@ -351,6 +351,160 @@ export const unmarkPackagePacked = mutation({
     return {
       orderItemId: args.orderItemId,
       packageIndex,
+    };
+  },
+});
+
+/**
+ * Fill balls into a package (increment ballsFilled).
+ * PRD-Kitchen-Workflow: Package-based ball filling.
+ *
+ * @param orderItemId - The order item ID
+ * @param ballsToAdd - Number of balls to add (default 1)
+ */
+export const fillPackage = mutation({
+  args: {
+    orderItemId: v.id("orderItems"),
+    ballsToAdd: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.orderItemId);
+    if (!item) {
+      throw new Error("Order item not found");
+    }
+
+    const ballsToAdd = args.ballsToAdd ?? 1;
+    const currentBallsFilled = item.ballsFilled ?? 0;
+    const ballsPerPackage = item.productionUnits ?? 1;
+    const quantity = item.quantity ?? 1;
+    const totalBallsRequired = quantity * ballsPerPackage;
+
+    // Calculate new ballsFilled
+    const newBallsFilled = Math.min(currentBallsFilled + ballsToAdd, totalBallsRequired);
+
+    // Determine packageStatus
+    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+    const packedIndices = item.packedPackageIndices ?? [];
+    const allPackagesPacked = packedIndices.length >= quantity;
+
+    if (allPackagesPacked) {
+      newPackageStatus = "packed";
+    } else if (newBallsFilled >= totalBallsRequired) {
+      newPackageStatus = "filled";
+    } else if (newBallsFilled > 0) {
+      newPackageStatus = "filling";
+    } else {
+      newPackageStatus = "empty";
+    }
+
+    // Update item
+    await ctx.db.patch(args.orderItemId, {
+      ballsFilled: newBallsFilled,
+      packageStatus: newPackageStatus,
+    });
+
+    // Check if this is the first ball (transition to InProduction)
+    if (currentBallsFilled === 0 && newBallsFilled > 0) {
+      const order = await ctx.db.get(item.orderId);
+      if (order && order.status === "Confirmed") {
+        await transitionToInProduction(ctx, order, "First ball filled - production started");
+      }
+    }
+
+    // Check if all packages are now filled (auto-transition to Boxed)
+    if (newBallsFilled >= totalBallsRequired && !allPackagesPacked) {
+      const order = await ctx.db.get(item.orderId);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // Check if ALL items in the order are now filled
+      const allItems = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
+        .collect();
+
+      const productionItems = allItems.filter((i) => i.productionType);
+
+      const allItemsFilled = productionItems.every((i) => {
+        if (i._id.toString() === args.orderItemId.toString()) {
+          // Use the updated state for this item
+          return newBallsFilled >= totalBallsRequired;
+        }
+        const ballsFilledInItem = i.ballsFilled ?? 0;
+        const ballsPerPkg = i.productionUnits ?? 1;
+        const qty = i.quantity ?? 1;
+        const totalRequired = qty * ballsPerPkg;
+        return ballsFilledInItem >= totalRequired;
+      });
+
+      // Auto-transition to Boxed if all items are filled
+      if (allItemsFilled && order.status === "InProduction") {
+        await transitionToBoxed(ctx, order, "All packages filled - ready for boxing");
+      }
+    }
+
+    return {
+      orderItemId: args.orderItemId,
+      ballsFilled: newBallsFilled,
+      packageStatus: newPackageStatus,
+    };
+  },
+});
+
+/**
+ * Unfill balls from a package (decrement ballsFilled).
+ * PRD-Kitchen-Workflow: Package-based ball filling.
+ *
+ * @param orderItemId - The order item ID
+ * @param ballsToRemove - Number of balls to remove (default 1)
+ */
+export const unfillPackage = mutation({
+  args: {
+    orderItemId: v.id("orderItems"),
+    ballsToRemove: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.orderItemId);
+    if (!item) {
+      throw new Error("Order item not found");
+    }
+
+    const ballsToRemove = args.ballsToRemove ?? 1;
+    const currentBallsFilled = item.ballsFilled ?? 0;
+
+    // Calculate new ballsFilled (cannot go below 0)
+    const newBallsFilled = Math.max(0, currentBallsFilled - ballsToRemove);
+
+    // Determine packageStatus
+    const ballsPerPackage = item.productionUnits ?? 1;
+    const quantity = item.quantity ?? 1;
+    const totalBallsRequired = quantity * ballsPerPackage;
+    const packedIndices = item.packedPackageIndices ?? [];
+    const allPackagesPacked = packedIndices.length >= quantity;
+
+    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
+
+    if (allPackagesPacked) {
+      newPackageStatus = "packed";
+    } else if (newBallsFilled >= totalBallsRequired) {
+      newPackageStatus = "filled";
+    } else if (newBallsFilled > 0) {
+      newPackageStatus = "filling";
+    } else {
+      newPackageStatus = "empty";
+    }
+
+    // Update item
+    await ctx.db.patch(args.orderItemId, {
+      ballsFilled: newBallsFilled,
+      packageStatus: newPackageStatus,
+    });
+
+    return {
+      orderItemId: args.orderItemId,
+      ballsFilled: newBallsFilled,
+      packageStatus: newPackageStatus,
     };
   },
 });

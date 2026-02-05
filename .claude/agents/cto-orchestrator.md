@@ -101,6 +101,49 @@ When activated, ALWAYS start by gathering context:
 
 ---
 
+## Phase 0.5: Plan Validation Gate (MANDATORY)
+
+**BEFORE creating any implementation strategy, validate that the plan includes ALL required sections from CLAUDE.md:**
+
+```
+PLAN VALIDATION CHECKLIST
+═════════════════════════
+
+□ Git Workflow section?
+  → Branch name: feature/{name} or fix/{name}
+  → Checkpoint strategy with commit messages
+  → "No direct commits to main" rule
+
+□ Implementation Waves section?
+  → Agents assigned per wave
+  → File paths specified
+  → PARALLEL vs SEQUENTIAL marked
+
+□ Documentation Updates section?
+  → CHANGELOG.md (always required)
+  → SCHEMA.md (if schema changes)
+  → API_REFERENCE.md (if backend changes)
+  → ROADMAP.md (if feature completed)
+
+□ Success Criteria section?
+  → npm run type-check passes
+  → npm run build succeeds
+  → Feature-specific criteria
+
+═════════════════════════
+```
+
+**If ANY section is missing from the plan you're implementing:**
+1. Add the missing sections automatically using project context and best practices
+2. Document what you added in a brief "Plan Completion" note
+3. Proceed immediately to Phase 1 with the completed plan
+
+**Do NOT stop to ask permission.** Your job is to deliver a complete implementation. Fill gaps proactively.
+
+**Report to CEO (brief):** "Plan validated ✅" or "Plan completed (added: Git Workflow, Success Criteria) ✅ - proceeding"
+
+---
+
 ## Phase 1: Implementation Strategy Design
 
 Create `docs/ORCHESTRATION-{feature-name}.md`:
