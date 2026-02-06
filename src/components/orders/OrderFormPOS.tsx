@@ -27,7 +27,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ProductButtons } from './ProductButtons';
+import { ProductButtons, type ProductButtonProduct } from './ProductButtons';
 import { PasteTemplateBox } from './PasteTemplateBox';
 import { DeliveryToggle } from './DeliveryToggle';
 import { VoucherInput, type AppliedVoucher } from './VoucherInput';
@@ -35,11 +35,11 @@ import { ManagerOverrideDialog } from './ManagerOverrideDialog';
 import { LowPriceWarningDialog } from './LowPriceWarningDialog';
 import {
   useConvexPosProducts,
+  useConvexPackagingPosProducts,
   useConvexCreateOrder,
   useConvexCustomerSearch,
   useConvexOrderTemplate,
   type OrderCreateInput,
-  type PosProduct,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
 import type { ParseResult } from '@/lib/orderTemplateParser';
@@ -125,6 +125,9 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
   const { data: posProductsData, isLoading: productsLoading } = useConvexPosProducts();
   const posProducts = posProductsData ?? [];
+
+  const { data: packagingProductsData } = useConvexPackagingPosProducts();
+  const packagingProducts = packagingProductsData ?? [];
 
   const { data: customers } = useConvexCustomerSearch(customerSearch || '');
 
@@ -233,7 +236,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   };
 
   const handleAddProduct = (
-    product: PosProduct,
+    product: ProductButtonProduct,
     quantity: number
   ) => {
     // Clear voucher when items change (order modified)
@@ -260,7 +263,7 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
           productId: product._id,
           productCode: product.code,
           productName: product.name,
-          grams: product.grams,
+          grams: product.grams ?? 0,
           quantity,
           unitPrice: product.defaultPrice,
           unitCost: product.unitCost || 0,
@@ -559,7 +562,24 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
                 <ProductButtons
                   products={posProducts}
                   onAddProduct={handleAddProduct}
+                  label={packagingProducts.length > 0 ? "Food" : undefined}
                 />
+
+                {packagingProducts.length > 0 && (
+                  <div className="mt-4">
+                    <ProductButtons
+                      products={packagingProducts.map((p) => ({
+                        _id: p._id,
+                        code: p.code,
+                        name: p.name,
+                        defaultPrice: p.defaultPrice,
+                        unitCost: p.unitCost,
+                      }))}
+                      onAddProduct={handleAddProduct}
+                      label="Packaging"
+                    />
+                  </div>
+                )}
 
                 <AnimatePresence>
                   {items.length > 0 && (
@@ -584,7 +604,12 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
                           <div className="flex items-center justify-between gap-4 mb-3">
                             <div className="flex-1">
                               <p className="font-semibold text-sm text-[#2D3748]">{item.productName}</p>
-                              <p className="text-xs text-gray-500">{item.grams}g</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                {item.grams > 0 && <span>{item.grams}g</span>}
+                                {item.quantity > 1 && (
+                                  <span className="text-gray-400">@ {formatCurrency(item.unitPrice)}</span>
+                                )}
+                              </div>
                             </div>
                             <Button
                               variant="ghost"
@@ -870,19 +895,21 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
 
                 {/* Totals */}
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
-                  </div>
-
                   {totalDiscountValue > 0 && appliedVoucher && (
-                    <div className="flex justify-between text-sm text-emerald-600">
-                      <span>Voucher ({appliedVoucher.code})</span>
-                      <span className="font-semibold">- {formatCurrency(totalDiscountValue)}</span>
-                    </div>
-                  )}
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal</span>
+                        <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
+                      </div>
 
-                  <Separator />
+                      <div className="flex justify-between text-sm text-emerald-600">
+                        <span>Voucher ({appliedVoucher.code})</span>
+                        <span className="font-semibold">- {formatCurrency(totalDiscountValue)}</span>
+                      </div>
+
+                      <Separator />
+                    </>
+                  )}
 
                   <div className="flex justify-between">
                     <span className="order-form-heading text-xl font-bold text-[#2D3748]">Total</span>
