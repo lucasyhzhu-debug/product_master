@@ -41,6 +41,7 @@ export function MenuProductsManager() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<(PosProduct | AvailableProduct) | null>(null);
   const [prefilledSlot, setPrefilledSlot] = useState<number | null>(null);
+  const [prefilledProductType, setPrefilledProductType] = useState<'food' | 'packaging' | null>(null);
 
   // Delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -59,18 +60,21 @@ export function MenuProductsManager() {
   const handleNewProduct = () => {
     setEditingProduct(null);
     setPrefilledSlot(null);
+    setPrefilledProductType(null);
     setIsFormOpen(true);
   };
 
-  const handleNewProductForSlot = (slot: number) => {
+  const handleNewProductForSlot = (slot: number, type: 'food' | 'packaging' = 'food') => {
     setEditingProduct(null);
     setPrefilledSlot(slot);
+    setPrefilledProductType(type);
     setIsFormOpen(true);
   };
 
   const handleEdit = (product: PosProduct | AvailableProduct | PackagingPosProduct) => {
     setEditingProduct(product as PosProduct | AvailableProduct);
     setPrefilledSlot(null);
+    setPrefilledProductType(null);
     setIsFormOpen(true);
   };
 
@@ -78,6 +82,7 @@ export function MenuProductsManager() {
     setIsFormOpen(false);
     setEditingProduct(null);
     setPrefilledSlot(null);
+    setPrefilledProductType(null);
   };
 
   // Find the next available slot number (1-based, first gap or max+1)
@@ -443,7 +448,7 @@ export function MenuProductsManager() {
                 {/* "+" card to add a packaging product to next slot */}
                 <Card
                   className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
-                  onClick={() => handleNewProductForSlot(getNextAvailableSlot('packaging'))}
+                  onClick={() => handleNewProductForSlot(getNextAvailableSlot('packaging'), 'packaging')}
                 >
                   <CardContent className="pt-6">
                     <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
@@ -499,6 +504,7 @@ export function MenuProductsManager() {
         onOpenChange={handleFormClose}
         product={editingProduct}
         prefilledSlot={prefilledSlot}
+        prefilledProductType={prefilledProductType}
         onSlotSwapRequested={(data) => {
           setSwapSlotData(data);
           setShowSwapDialog(true);

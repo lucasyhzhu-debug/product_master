@@ -505,22 +505,25 @@ export function useConvexAssignToPackagingSlot() {
   const mutation = useMutation(api.menuProducts.mutations.assignToPackagingSlot);
   const { user } = useAuth();
 
+  const execute = async (data: { id: Id<"menuProducts">; slot: number }) => {
+    if (!user?.token) {
+      toast.error("Session expired. Please log in again.");
+      throw new Error("Not authenticated");
+    }
+    try {
+      const id = await mutation({ ...data, token: user.token });
+      toast.success(`Assigned to packaging slot ${data.slot}`);
+      return id;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to assign packaging slot";
+      toast.error(message);
+      throw error;
+    }
+  };
+
   return {
-    mutate: async (data: { id: Id<"menuProducts">; slot: number }) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
-      try {
-        const id = await mutation({ ...data, token: user.token });
-        toast.success(`Assigned to packaging slot ${data.slot}`);
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to assign packaging slot";
-        toast.error(message);
-        throw error;
-      }
-    },
+    mutate: execute,
+    mutateAsync: execute,
   };
 }
 

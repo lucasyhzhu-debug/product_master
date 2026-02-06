@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -25,7 +26,9 @@ import {
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
+  useConvexAssignToPackagingSlot,
   useConvexPosProducts,
+  useConvexPackagingPosProducts,
   useConvexMenuProducts,
   useConvexMenuProductComponents,
   useConvexComponentsByCategory,
@@ -43,6 +46,7 @@ interface ProductFormProps {
   onOpenChange: (open: boolean) => void;
   product?: (PosProduct | AvailableProduct) | null;
   prefilledSlot?: number | null;
+  prefilledProductType?: 'food' | 'packaging' | null;
   onSlotSwapRequested?: (data: {
     productId: string;
     slot: number;
@@ -62,16 +66,19 @@ export function ProductForm({
   onOpenChange,
   product,
   prefilledSlot,
+  prefilledProductType,
   onSlotSwapRequested,
 }: ProductFormProps) {
   const createMutation = useConvexCreateMenuProduct();
   const updateMutation = useConvexUpdateMenuProduct();
   const assignSlotMutation = useConvexAssignToSlot();
+  const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
 
   const isEditing = !!product;
 
-  // Query POS products to check for slot conflicts
+  // Query POS products to check for slot conflicts (separate namespaces)
   const { data: posProducts } = useConvexPosProducts();
+  const { data: packagingPosProducts } = useConvexPackagingPosProducts();
 
   // Query all component types for cost calculation
   const productionComponents = useConvexComponentsByCategory("production", true);
@@ -94,6 +101,7 @@ export function ProductForm({
   const [isActive, setIsActive] = useState(true);
   const [gramsOverride, setGramsOverride] = useState('');
   const [price, setPrice] = useState('');
+  const [isFree, setIsFree] = useState(false);
   const [posSlot, setPosSlot] = useState<string>('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -107,13 +115,19 @@ export function ProductForm({
       setName(product.name);
       setGramsOverride(product.grams.toString());
       setPrice(product.defaultPrice.toString());
-      setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
-
+      setIsFree(product.defaultPrice === 0);
       // Determine product type from existing data
       const existingProductType = 'productType' in product && product.productType
         ? product.productType as 'food' | 'packaging'
         : 'food';
       setProductType(existingProductType);
+
+      // Read correct slot based on product type
+      if (existingProductType === 'packaging' && 'packagingPosSlot' in product) {
+        setPosSlot(product.packagingPosSlot ? product.packagingPosSlot.toString() : 'none');
+      } else {
+        setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
+      }
 
       // Determine active state (check for isActive on the raw product data)
       // PosProduct and LegacyProduct don't expose isActive directly, default to true
@@ -152,12 +166,15 @@ export function ProductForm({
     }
   }, [product, existingComponents, loadingComponents]);
 
-  // Set prefilled slot when it changes (for clicking empty slots)
+  // Set prefilled slot and product type when clicking empty slots
   useEffect(() => {
     if (prefilledSlot && !product) {
       setPosSlot(prefilledSlot.toString());
     }
-  }, [prefilledSlot, product]);
+    if (prefilledProductType && !product) {
+      setProductType(prefilledProductType);
+    }
+  }, [prefilledSlot, prefilledProductType, product]);
 
   const resetForm = () => {
     setName('');
@@ -165,6 +182,7 @@ export function ProductForm({
     setIsActive(true);
     setGramsOverride('');
     setPrice('');
+    setIsFree(false);
     setPosSlot(prefilledSlot ? prefilledSlot.toString() : 'none');
     setProductionRows([]);
     setPackagingRows([]);
@@ -237,7 +255,7 @@ export function ProductForm({
       return;
     }
 
-    if (!price || parseFloat(price) <= 0) {
+    if (!isFree && (!price || parseFloat(price) <= 0)) {
       toast.error('Valid price is required');
       return;
     }
@@ -274,10 +292,22 @@ export function ProductForm({
       const productData = {
         name: name.trim(),
         grams: finalGrams,
-        defaultPrice: parseFloat(price),
+        defaultPrice: isFree ? 0 : parseFloat(price),
         isActive,
         components: componentsData,
+        productType,
       };
+
+      // Determine which slot mutation and product list to use based on product type
+      const isPackaging = productType === 'packaging';
+      const slotMutation = isPackaging ? assignPackagingSlotMutation : assignSlotMutation;
+      const slotProducts = isPackaging ? packagingPosProducts : posProducts;
+      const findOccupant = (targetSlot: number) =>
+        isPackaging
+          ? slotProducts?.find((p: { packagingPosSlot?: number; _id?: string }) =>
+              'packagingPosSlot' in p && (p as { packagingPosSlot: number }).packagingPosSlot === targetSlot)
+          : slotProducts?.find((p: { posSlot?: number; _id?: string }) =>
+              'posSlot' in p && (p as { posSlot: number }).posSlot === targetSlot);
 
       if (isEditing) {
         // Update existing product
@@ -287,24 +317,25 @@ export function ProductForm({
         });
 
         // Handle slot assignment separately if changed
-        const currentSlot = 'posSlot' in product ? product.posSlot?.toString() : 'none';
+        const currentSlot = isPackaging
+          ? ('packagingPosSlot' in product ? product.packagingPosSlot?.toString() : 'none')
+          : ('posSlot' in product ? product.posSlot?.toString() : 'none');
         if (posSlot !== currentSlot) {
           if (posSlot !== 'none') {
             const targetSlot = parseInt(posSlot);
-            const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+            const occupyingProduct = findOccupant(targetSlot);
 
-            // Check if slot is occupied and trigger swap confirmation
             if (occupyingProduct && onSlotSwapRequested) {
               onSlotSwapRequested({
                 productId: product._id,
                 slot: targetSlot,
-                currentProduct: occupyingProduct,
+                currentProduct: occupyingProduct as PosProduct,
               });
               handleClose();
               return;
             }
 
-            await assignSlotMutation.mutateAsync({
+            await slotMutation.mutateAsync({
               id: product._id as Id<"menuProducts">,
               slot: targetSlot,
             });
@@ -317,20 +348,19 @@ export function ProductForm({
         // Assign to slot if selected
         if (posSlot !== 'none') {
           const targetSlot = parseInt(posSlot);
-          const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+          const occupyingProduct = findOccupant(targetSlot);
 
-          // Check if slot is occupied and trigger swap confirmation
           if (occupyingProduct && onSlotSwapRequested) {
             onSlotSwapRequested({
               productId: newId as string,
               slot: targetSlot,
-              currentProduct: occupyingProduct,
+              currentProduct: occupyingProduct as PosProduct,
             });
             handleClose();
             return;
           }
 
-          await assignSlotMutation.mutateAsync({
+          await slotMutation.mutateAsync({
             id: newId as Id<"menuProducts">,
             slot: targetSlot,
           });
@@ -358,7 +388,7 @@ export function ProductForm({
 
   // Calculate margin
   const cogs = calculatedValues.totalCost;
-  const priceValue = parseFloat(price) || 0;
+  const priceValue = isFree ? 0 : (parseFloat(price) || 0);
   const margin = priceValue > 0 && cogs > 0
     ? ((priceValue - cogs) / priceValue) * 100
     : null;
@@ -510,15 +540,29 @@ export function ProductForm({
               <div className="grid grid-cols-2 gap-4">
                 {/* Price */}
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price (IDR) *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="price">Price (IDR) {!isFree && '*'}</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Checkbox
+                        id="isFree"
+                        checked={isFree}
+                        onCheckedChange={(checked) => {
+                          setIsFree(checked === true);
+                          if (checked) setPrice('0');
+                        }}
+                      />
+                      <Label htmlFor="isFree" className="text-xs font-normal cursor-pointer">Free</Label>
+                    </div>
+                  </div>
                   <Input
                     id="price"
                     type="number"
                     step="0.01"
-                    value={price}
+                    value={isFree ? '0' : price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="e.g., 15000"
-                    required
+                    disabled={isFree}
+                    className={isFree ? 'opacity-50' : ''}
                   />
                 </div>
 

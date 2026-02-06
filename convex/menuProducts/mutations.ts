@@ -122,6 +122,7 @@ export const create = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
@@ -157,22 +158,24 @@ export const create = mutation({
     // PRD-4a: Auto-calculate unitCost and grams from components
     let unitCost: number | undefined = undefined;
     let grams = args.grams ?? 0;
-    let productType: "food" | "packaging" | undefined = undefined;
+    let productType: "food" | "packaging" | undefined = args.productType;
 
     if (args.components && args.components.length > 0) {
       const calculated = await calculateUnitCostFromComponentTypes(ctx, args.components);
       unitCost = calculated.totalCost;
       grams = calculated.totalGrams; // Override provided grams if components specified
 
-      // Auto-derive productType from component categories
-      const hasProductionComponent = await Promise.all(
-        args.components.map(async (comp) => {
-          const componentType = await ctx.db.get(comp.componentTypeId);
-          return componentType?.category === "production";
-        })
-      );
+      // Auto-derive productType from component categories if not explicitly set
+      if (!productType) {
+        const hasProductionComponent = await Promise.all(
+          args.components.map(async (comp) => {
+            const componentType = await ctx.db.get(comp.componentTypeId);
+            return componentType?.category === "production";
+          })
+        );
 
-      productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
+        productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
+      }
     }
 
     const id = await ctx.db.insert("menuProducts", {
