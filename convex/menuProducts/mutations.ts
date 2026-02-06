@@ -128,6 +128,11 @@ export const create = mutation({
         v.object({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
+          consumptionStage: v.optional(v.union(
+            v.literal("boxing"),
+            v.literal("labeling"),
+            v.literal("none")
+          )),
         })
       )
     ),
@@ -193,6 +198,7 @@ export const create = mutation({
           componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
+          ...(component.consumptionStage ? { consumptionStage: component.consumptionStage } : {}),
         });
       }
 
@@ -225,6 +231,11 @@ export const update = mutation({
         v.object({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
+          consumptionStage: v.optional(v.union(
+            v.literal("boxing"),
+            v.literal("labeling"),
+            v.literal("none")
+          )),
         })
       )
     ),
@@ -311,6 +322,7 @@ export const update = mutation({
           componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
+          ...(component.consumptionStage ? { consumptionStage: component.consumptionStage } : {}),
         });
       }
 
