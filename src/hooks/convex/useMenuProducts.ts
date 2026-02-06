@@ -161,7 +161,7 @@ export interface PosProduct {
   unitCost?: number;
   productionType?: string;
   productionUnits?: number;
-  posSlot: 1 | 2 | 3 | 4;
+  posSlot: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
@@ -173,7 +173,7 @@ export interface PackagingPosProduct {
   name: string;
   defaultPrice: number;
   unitCost?: number;
-  packagingPosSlot: 1 | 2 | 3 | 4;
+  packagingPosSlot: number;
   productType: "packaging";
 }
 
@@ -191,7 +191,7 @@ export function useConvexPosProducts() {
     unitCost: p.unitCost,
     productionType: p.productionType,
     productionUnits: p.productionUnits,
-    posSlot: p.posSlot as 1 | 2 | 3 | 4,
+    posSlot: p.posSlot as number,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
@@ -384,7 +384,7 @@ export function useConvexAssignToSlot() {
   const { user } = useAuth();
 
   return {
-    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+    mutate: async (data: { id: Id<"menuProducts">; slot: number }) => {
       if (!user?.token) {
         toast.error("Session expired. Please log in again.");
         throw new Error("Not authenticated");
@@ -399,7 +399,7 @@ export function useConvexAssignToSlot() {
         throw error;
       }
     },
-    mutateAsync: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+    mutateAsync: async (data: { id: Id<"menuProducts">; slot: number }) => {
       if (!user?.token) {
         toast.error("Session expired. Please log in again.");
         throw new Error("Not authenticated");
@@ -477,7 +477,7 @@ export function useConvexPackagingPosProducts() {
     name: p.name,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
-    packagingPosSlot: p.packagingPosSlot as 1 | 2 | 3 | 4,
+    packagingPosSlot: p.packagingPosSlot as number,
     productType: "packaging",
   }));
 
@@ -497,7 +497,7 @@ export function useConvexAssignToPackagingSlot() {
   const { user } = useAuth();
 
   return {
-    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+    mutate: async (data: { id: Id<"menuProducts">; slot: number }) => {
       if (!user?.token) {
         toast.error("Session expired. Please log in again.");
         throw new Error("Not authenticated");

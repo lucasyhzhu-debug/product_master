@@ -469,10 +469,15 @@ export const assignToSlot = mutation({
   args: {
     token: v.string(),
     id: v.id("menuProducts"),
-    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+    slot: v.number(),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
+
+    // Runtime validation: slot must be a positive integer
+    if (!Number.isInteger(args.slot) || args.slot < 1) {
+      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+    }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
@@ -526,10 +531,15 @@ export const assignToPackagingSlot = mutation({
   args: {
     token: v.string(),
     id: v.id("menuProducts"),
-    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+    slot: v.number(),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
+
+    // Runtime validation: slot must be a positive integer
+    if (!Number.isInteger(args.slot) || args.slot < 1) {
+      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+    }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
@@ -594,7 +604,7 @@ export const migrateFixedProductsToSlots = mutation({
   handler: async (ctx) => {
     const slotMapping: Array<{
       code: string;
-      slot: 1 | 2 | 3 | 4;
+      slot: number;
     }> = [
       { code: "ORIGINAL", slot: 1 },
       { code: "BITE_SINGLE", slot: 2 },

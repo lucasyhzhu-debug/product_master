@@ -40,10 +40,10 @@ interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product?: (PosProduct | LegacyProduct) | null;
-  prefilledSlot?: 1 | 2 | 3 | 4 | null;
+  prefilledSlot?: number | null;
   onSlotSwapRequested?: (data: {
     productId: string;
-    slot: 1 | 2 | 3 | 4;
+    slot: number;
     currentProduct: PosProduct;
   }) => void;
 }
@@ -267,7 +267,7 @@ export function ProductForm({
         const currentSlot = 'posSlot' in product ? product.posSlot?.toString() : 'none';
         if (posSlot !== currentSlot) {
           if (posSlot !== 'none') {
-            const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
+            const targetSlot = parseInt(posSlot);
             const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
 
             // Check if slot is occupied and trigger swap confirmation
@@ -293,7 +293,7 @@ export function ProductForm({
 
         // Assign to slot if selected
         if (posSlot !== 'none') {
-          const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
+          const targetSlot = parseInt(posSlot);
           const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
 
           // Check if slot is occupied and trigger swap confirmation
