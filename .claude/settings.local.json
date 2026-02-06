@@ -134,7 +134,12 @@
       "Bash(pkill:*)",
       "Bash(git merge:*)",
       "Bash(if not exist \"D:\\\\Claude\\\\Product Manager\\\\product_master\\\\convex\\\\componentTypes\" mkdir \"D:\\\\Claude\\\\Product Manager\\\\product_master\\\\convex\\\\componentTypes\")",
-      "Bash(git -C \"D:\\\\Claude\\\\Product Manager\\\\product_master\" branch --show-current)"
+      "Bash(git -C \"D:\\\\Claude\\\\Product Manager\\\\product_master\" branch --show-current)",
+      "Bash(chmod:*)",
+      "Bash(powershell:*)",
+      "Bash(Select-String \"error TS\")",
+      "Bash(del:*)",
+      "Bash(git worktree:*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -153,5 +158,21 @@
       "Bash(mkfs *)",
       "Bash(dd if=*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/hooks/context-alert.ps1"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -ExecutionPolicy Bypass -File .claude/statusline.ps1"
   }
 }
