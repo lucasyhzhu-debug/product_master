@@ -65,8 +65,27 @@ export const listPosProducts = query({
 });
 
 /**
- * PRD-8: List legacy products (not on POS).
- * Returns products with posSlot null/undefined.
+ * List available products (not assigned to any POS slot).
+ * Returns products without posSlot AND without packagingPosSlot.
+ * Renamed from listLegacyProducts in Wave 3 BOM improvements.
+ */
+export const listAvailableProducts = query({
+  args: {},
+  handler: async (ctx) => {
+    const products = await ctx.db
+      .query("menuProducts")
+      .collect();
+
+    // Exclude products on either food POS or packaging POS
+    return products.filter(
+      (p) => p.posSlot === undefined && p.packagingPosSlot === undefined
+    );
+  },
+});
+
+/**
+ * @deprecated Use listAvailableProducts instead.
+ * Kept for backward compatibility with existing API references.
  */
 export const listLegacyProducts = query({
   args: {},
@@ -75,10 +94,10 @@ export const listLegacyProducts = query({
       .query("menuProducts")
       .collect();
 
-    // Filter for products without posSlot
-    const legacyProducts = products.filter((p) => p.posSlot === undefined);
-
-    return legacyProducts;
+    // Same as listAvailableProducts
+    return products.filter(
+      (p) => p.posSlot === undefined && p.packagingPosSlot === undefined
+    );
   },
 });
 

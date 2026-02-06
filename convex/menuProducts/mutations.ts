@@ -9,7 +9,7 @@ import { calculateMenuProductCOGS } from "../lib/costCalculator";
  * Helper: Calculate unit cost and grams from componentTypes (Unified BOM).
  *
  * This is the primary calculation function using the unified component system.
- * Returns detailed COGS breakdown by category (production, direct/indirect packaging).
+ * Returns detailed COGS breakdown by category (production, packaging).
  *
  * @param ctx - Mutation context
  * @param components - Array of { componentTypeId, quantity }
@@ -24,8 +24,7 @@ export async function calculateUnitCostFromComponentTypes(
   totalGrams: number;
   breakdown: {
     production: number;
-    directPackaging: number;
-    indirectPackaging: number;
+    packaging: number;
   };
 }> {
   // Fetch all component types and build input for COGS calculator
@@ -58,8 +57,7 @@ export async function calculateUnitCostFromComponentTypes(
     totalGrams,
     breakdown: {
       production: cogsBreakdown.production,
-      directPackaging: cogsBreakdown.directPackaging,
-      indirectPackaging: cogsBreakdown.indirectPackaging,
+      packaging: cogsBreakdown.packaging,
     },
   };
 }
@@ -124,12 +122,18 @@ export const create = mutation({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
+    productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
         v.object({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
+          consumptionStage: v.optional(v.union(
+            v.literal("boxing"),
+            v.literal("labeling"),
+            v.literal("none")
+          )),
         })
       )
     ),
@@ -154,20 +158,24 @@ export const create = mutation({
     // PRD-4a: Auto-calculate unitCost and grams from components
     let unitCost: number | undefined = undefined;
     let grams = args.grams ?? 0;
-    let productType: "food" | "packaging" | undefined = undefined;
+    let productType: "food" | "packaging" | undefined = args.productType;
 
     if (args.components && args.components.length > 0) {
       const calculated = await calculateUnitCostFromComponentTypes(ctx, args.components);
       unitCost = calculated.totalCost;
       grams = calculated.totalGrams; // Override provided grams if components specified
 
-      // Auto-derive productType from component categories
-      const hasProductionComponent = args.components.some(async (comp) => {
-        const componentType = await ctx.db.get(comp.componentTypeId);
-        return componentType?.category === "production";
-      });
+      // Auto-derive productType from component categories if not explicitly set
+      if (!productType) {
+        const hasProductionComponent = await Promise.all(
+          args.components.map(async (comp) => {
+            const componentType = await ctx.db.get(comp.componentTypeId);
+            return componentType?.category === "production";
+          })
+        );
 
-      productType = (await hasProductionComponent) ? "food" : "packaging";
+        productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
+      }
     }
 
     const id = await ctx.db.insert("menuProducts", {
@@ -193,6 +201,7 @@ export const create = mutation({
           componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
+          ...(component.consumptionStage ? { consumptionStage: component.consumptionStage } : {}),
         });
       }
 
@@ -218,6 +227,7 @@ export const update = mutation({
     defaultPrice: v.optional(v.number()),
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
+    productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     isActive: v.optional(v.boolean()),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
@@ -225,6 +235,11 @@ export const update = mutation({
         v.object({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
+          consumptionStage: v.optional(v.union(
+            v.literal("boxing"),
+            v.literal("labeling"),
+            v.literal("none")
+          )),
         })
       )
     ),
@@ -233,7 +248,7 @@ export const update = mutation({
     await requireRole(ctx, args.token, ["admin"]);
 
     // Extract token and id from args to avoid passing them to db.patch
-    const { id, token: _, components, ...updates } = args;
+    const { id, token: _, components, productType: _pt, ...updates } = args;
     void _; // Suppress unused variable warning
 
     const current = await ctx.db.get(id);
@@ -311,6 +326,7 @@ export const update = mutation({
           componentTypeId: component.componentTypeId,
           quantity: component.quantity,
           sortOrder: i + 1,
+          ...(component.consumptionStage ? { consumptionStage: component.consumptionStage } : {}),
         });
       }
 
@@ -469,10 +485,15 @@ export const assignToSlot = mutation({
   args: {
     token: v.string(),
     id: v.id("menuProducts"),
-    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+    slot: v.number(),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
+
+    // Runtime validation: slot must be a positive integer
+    if (!Number.isInteger(args.slot) || args.slot < 1) {
+      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+    }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
@@ -526,10 +547,15 @@ export const assignToPackagingSlot = mutation({
   args: {
     token: v.string(),
     id: v.id("menuProducts"),
-    slot: v.union(v.literal(1), v.literal(2), v.literal(3), v.literal(4)),
+    slot: v.number(),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
+
+    // Runtime validation: slot must be a positive integer
+    if (!Number.isInteger(args.slot) || args.slot < 1) {
+      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+    }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
@@ -594,7 +620,7 @@ export const migrateFixedProductsToSlots = mutation({
   handler: async (ctx) => {
     const slotMapping: Array<{
       code: string;
-      slot: 1 | 2 | 3 | 4;
+      slot: number;
     }> = [
       { code: "ORIGINAL", slot: 1 },
       { code: "BITE_SINGLE", slot: 2 },

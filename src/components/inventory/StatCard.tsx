@@ -10,15 +10,23 @@ interface StatCardProps {
   title: string;
   value: string | number;
   icon: ReactNode;
-  variant?: "primary" | "success" | "warning" | "danger" | "default";
+  variant?: "primary" | "success" | "warning" | "danger" | "terracotta" | "default";
 }
 
 const variantStyles = {
-  primary: "bg-gradient-to-br from-slate-700 to-slate-800 text-slate-100",
-  success: "bg-gradient-to-br from-emerald-900/40 to-emerald-800/30 text-emerald-100 border-emerald-800",
-  warning: "bg-gradient-to-br from-amber-900/40 to-amber-800/30 text-amber-100 border-amber-800",
-  danger: "bg-gradient-to-br from-red-900/40 to-red-800/30 text-red-100 border-red-800",
-  default: "bg-gradient-to-br from-slate-700 to-slate-800 text-slate-100",
+  primary: "bg-slate-900 text-white border-slate-700",
+  success: "bg-slate-900 text-white border-emerald-700",
+  warning: "bg-slate-900 text-white border-amber-700",
+  danger: "bg-slate-900 text-white border-red-700",
+  terracotta: "bg-slate-900 text-white border-[#E07856]/50",
+  default: "bg-slate-900 text-white border-slate-700",
+};
+
+const iconStyles: Record<string, string> = {
+  terracotta: "bg-[#E07856]/15 text-[#E07856]",
+  danger: "bg-red-500/15 text-red-400",
+  warning: "bg-amber-500/15 text-amber-400",
+  success: "bg-emerald-500/15 text-emerald-400",
 };
 
 export function StatCard({ title, value, icon, variant = "default" }: StatCardProps) {
@@ -29,13 +37,16 @@ export function StatCard({ title, value, icon, variant = "default" }: StatCardPr
     )}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-3">
-          <div className="p-2 rounded-lg bg-white/10">
+          <div className={cn(
+            "p-2 rounded-lg",
+            iconStyles[variant] || "bg-white/10"
+          )}>
             {icon}
           </div>
         </div>
         <div className="space-y-1">
-          <p className="text-sm font-medium text-slate-300">{title}</p>
-          <p className="text-3xl font-mono font-bold">{value}</p>
+          <p className="text-base font-semibold text-slate-300">{title}</p>
+          <p className="text-3xl font-mono font-bold tracking-tight text-white">{value}</p>
         </div>
       </CardContent>
     </Card>

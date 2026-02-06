@@ -35,6 +35,7 @@ export function KitchenViewV2() {
   // Fetch kitchen data
   const kitchenOrders = useQuery(api.orders.queries.getKitchenOrders, {});
   const trayInventory = useQuery(api.orders.queries.getTrayInventory, {});
+  const packagingStockData = useQuery(api.inventory.queries.getPackagingStockSummary, {});
 
   // Mutations
   const fillPackageMutation = useMutation(api.orders.mutations.fillPackage);
@@ -234,14 +235,8 @@ export function KitchenViewV2() {
     inventoryConsumed: [],
   };
 
-  // Mock packaging inventory
-  const packagingInventory = [
-    { name: 'Long Box', available: 12, reserved: 8, reorderPoint: 20, isLow: true, isCritical: false },
-    { name: 'Single Box', available: 85, reserved: 10, reorderPoint: 50, isLow: false, isCritical: false },
-    { name: 'Wrapper', available: 200, reserved: 50, reorderPoint: 300, isLow: true, isCritical: false },
-    { name: 'Product Sticker', available: 150, reserved: 20, reorderPoint: 100, isLow: false, isCritical: false },
-    { name: 'QR Sticker', available: 45, reserved: 15, reorderPoint: 80, isLow: true, isCritical: false },
-  ];
+  // Real packaging inventory from Convex
+  const packagingInventory = packagingStockData ?? [];
 
   // Calculate pending ball stats
   const pendingBallStats = useMemo(() => {

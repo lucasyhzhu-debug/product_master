@@ -14,6 +14,4 @@ export { WhatsAppTemplatesManager } from './WhatsAppTemplatesManager';
 export { VouchersManager } from './VouchersManager';
 export { InventoryManager } from './InventoryManager';
 export { LocationsManager } from './LocationsManager';
-export { ComponentTypesManager } from './ComponentTypesManager';
 export { ProductionComponentsManager } from './ProductionComponentsManager';
-export { PackagingComponentsManager } from './PackagingComponentsManager';

@@ -21,28 +21,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Select imports removed - replaced with button grid in Wave 5
 import { toast } from "sonner";
 import {
   useConvexReceiveStock,
   useConvexCreateComponentAndReceiveStock,
-  useConvexInventoryTrackedComponents
+  useConvexInventoryTrackedComponents,
+  useConvexLatestBatch,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { ComponentType, StorageLocation } from "@/hooks/convex";
+import type { ComponentType } from "@/hooks/convex";
 import { formatCurrency, cn } from "@/lib/utils";
 
 interface ReceiveStockDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  locations: StorageLocation[];
-  lowStockComponents: ComponentType[];
+  locations: Array<{ _id: Id<"storageLocations">; name: string; isDefault?: boolean }>;
+  lowStockComponents?: ComponentType[];
+  preselectedComponentId?: Id<"componentTypes">;
+  forceCreateMode?: boolean;
 }
 
 type Mode = 'select' | 'create-new';
@@ -51,7 +48,9 @@ export function ReceiveStockDialog({
   open,
   onOpenChange,
   locations,
-  lowStockComponents,
+  lowStockComponents = [],
+  preselectedComponentId,
+  forceCreateMode,
 }: ReceiveStockDialogProps) {
   // Mode state
   const [mode, setMode] = useState<Mode>('select');
@@ -65,8 +64,8 @@ export function ReceiveStockDialog({
   const [newComponentCode, setNewComponentCode] = useState("");
   const [newComponentName, setNewComponentName] = useState("");
   const [newComponentCategory, setNewComponentCategory] = useState<
-    "direct_packaging" | "indirect_packaging"
-  >("direct_packaging");
+    "packaging"
+  >("packaging");
   const [newComponentUnit, setNewComponentUnit] = useState("");
   const [newComponentReorderPoint, setNewComponentReorderPoint] = useState("");
 
@@ -87,6 +86,17 @@ export function ReceiveStockDialog({
   const receiveStock = useConvexReceiveStock();
   const createAndReceive = useConvexCreateComponentAndReceiveStock();
 
+  // Auto-populate supplier info from latest batch
+  const latestBatch = useConvexLatestBatch(
+    selectedComponentId ?? undefined,
+    selectedLocationId ?? undefined
+  );
+
+  const handleComponentSelect = (componentId: Id<"componentTypes">) => {
+    setSelectedComponentId(componentId);
+    // Auto-populate supplier info will happen via useEffect when latestBatch updates
+  };
+
   // Set default location
   useEffect(() => {
     if (locations.length > 0 && !selectedLocationId) {
@@ -95,14 +105,24 @@ export function ReceiveStockDialog({
     }
   }, [locations, selectedLocationId]);
 
+  // Auto-populate supplier info from latest batch
+  useEffect(() => {
+    if (latestBatch && selectedComponentId) {
+      // Only auto-populate if fields are currently empty (don't overwrite user edits)
+      if (!supplierName) setSupplierName(latestBatch.supplierName ?? "");
+      if (!supplierBrand) setSupplierBrand(latestBatch.supplierBrand ?? "");
+      if (!purchaseUrl) setPurchaseUrl(latestBatch.purchaseUrl ?? "");
+    }
+  }, [latestBatch, selectedComponentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      setMode('select');
-      setSelectedComponentId(null);
+      setMode(forceCreateMode ? 'create-new' : 'select');
+      setSelectedComponentId(preselectedComponentId ?? null);
       setNewComponentCode("");
       setNewComponentName("");
-      setNewComponentCategory("direct_packaging");
+      setNewComponentCategory("packaging");
       setNewComponentUnit("");
       setNewComponentReorderPoint("");
       setQuantity("");
@@ -112,7 +132,7 @@ export function ReceiveStockDialog({
       setPurchaseReference("");
       setPurchaseUrl("");
     }
-  }, [open]);
+  }, [open, preselectedComponentId, forceCreateMode]);
 
   const unitCost =
     quantity && totalCost
@@ -224,64 +244,73 @@ export function ReceiveStockDialog({
           {/* Mode: Select Existing or Create New */}
           {mode === 'select' ? (
             <>
-              {/* Component Selection */}
+              {/* Component Selection - Button Grid (skip when preselected) */}
+              {preselectedComponentId ? (
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <div className="text-sm text-slate-400">Receiving stock for:</div>
+                  <div className="font-semibold text-slate-100">
+                    {allComponents?.find(c => c._id === preselectedComponentId)?.name ?? "Loading..."}
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-2">
                 <Label>Select Component</Label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {lowStockComponents.slice(0, 3).map((comp) => (
-                    <Button
-                      key={comp._id}
-                      variant={
-                        selectedComponentId === comp._id ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setSelectedComponentId(comp._id)}
-                      className={cn(
-                        "font-mono",
-                        selectedComponentId === comp._id && "bg-emerald-600"
-                      )}
-                    >
-                      <Badge
-                        variant="outline"
-                        className="mr-2 bg-red-500/20 text-red-300 border-red-600"
-                      >
-                        LOW
-                      </Badge>
-                      {comp.name}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedComponentId(null)}
-                  >
-                    Other...
-                  </Button>
-                </div>
-
-                {/* Dropdown for all components */}
-                {selectedComponentId === null && allComponents && (
-                  <Select
-                    value={selectedComponentId ?? ""}
-                    onValueChange={(value) =>
-                      setSelectedComponentId(value as Id<"componentTypes">)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a component" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allComponents.map((comp) => (
-                        <SelectItem key={comp._id} value={comp._id}>
-                          {comp.name} ({comp.category.replace("_", " ")})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {allComponents && allComponents.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {/* Sort: low stock first (components in lowStockComponents list) */}
+                    {[...allComponents]
+                      .sort((a, b) => {
+                        const aIsLow = lowStockComponents.some((l) => l._id === a._id);
+                        const bIsLow = lowStockComponents.some((l) => l._id === b._id);
+                        if (aIsLow && !bIsLow) return -1;
+                        if (!aIsLow && bIsLow) return 1;
+                        return a.name.localeCompare(b.name);
+                      })
+                      .map((comp) => {
+                        const isLow = lowStockComponents.some((l) => l._id === comp._id);
+                        const isSelected = selectedComponentId === comp._id;
+                        return (
+                          <button
+                            key={comp._id}
+                            type="button"
+                            onClick={() => handleComponentSelect(comp._id)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg border-2 p-2.5 text-left transition-colors text-sm",
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-100"
+                                : isLow
+                                  ? "border-amber-700/50 bg-amber-900/10 hover:border-amber-600/70"
+                                  : "border-slate-700 hover:border-slate-500"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{comp.name}</div>
+                              <div className="text-xs text-slate-400">
+                                {comp.category}
+                              </div>
+                            </div>
+                            {isLow && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 bg-red-500/20 text-red-300 border-red-600"
+                              >
+                                LOW
+                              </Badge>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400 text-center py-4">
+                    Loading components...
+                  </div>
                 )}
               </div>
+              )}
 
               {/* Create New Button */}
+              {!preselectedComponentId && (
               <Button
                 variant="outline"
                 onClick={() => setMode('create-new')}
@@ -290,6 +319,7 @@ export function ReceiveStockDialog({
                 <Plus className="h-4 w-4 mr-2" />
                 Create New Packaging Component
               </Button>
+              )}
             </>
           ) : (
             <>
@@ -344,15 +374,9 @@ export function ReceiveStockDialog({
                     }
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="direct_packaging" id="direct" />
-                      <Label htmlFor="direct" className="font-normal cursor-pointer">
-                        Direct Packaging <span className="text-xs text-slate-400">(touches food)</span>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="indirect_packaging" id="indirect" />
-                      <Label htmlFor="indirect" className="font-normal cursor-pointer">
-                        Indirect Packaging <span className="text-xs text-slate-400">(outer boxes, stickers)</span>
+                      <RadioGroupItem value="packaging" id="packaging" />
+                      <Label htmlFor="packaging" className="font-normal cursor-pointer">
+                        Packaging <span className="text-xs text-slate-400">(boxes, stickers, etc.)</span>
                       </Label>
                     </div>
                   </RadioGroup>

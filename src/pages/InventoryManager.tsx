@@ -6,10 +6,10 @@
  */
 
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Package, Plus, AlertTriangle, Settings } from "lucide-react";
+import { Package, Plus, AlertTriangle, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout";
@@ -26,43 +26,91 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { StatCard } from "@/components/inventory/StatCard";
 
 export function InventoryManager() {
-  const navigate = useNavigate();
+
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
   >("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "production" | "packaging">("all");
+  const [sortBy, setSortBy] = useState<"name" | "percent_lowest" | "count_lowest" | "most_expensive">("name");
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [showLegacy, setShowLegacy] = useState(false);
 
-  // Queries
+  // Queries - get ALL components (active + legacy) so we can split client-side
   const locations = useConvexStorageLocations(true);
-  const report = useConvexInventoryReport(true);
+  const report = useConvexInventoryReport(false);
   const lowStockAlerts = useConvexLowStockAlerts();
 
-  // Filter matrix by location (MUST be before early return to satisfy Rules of Hooks)
-  const filteredMatrix = useMemo(() => {
-    if (!report) return [];
-    if (selectedLocation === "all") {
-      return report.matrix;
-    }
+  // Split matrix into active and legacy, then filter by location and category
+  const { activeMatrix, legacyMatrix } = useMemo(() => {
+    if (!report) return { activeMatrix: [], legacyMatrix: [] };
 
-    return report.matrix
-      .map((row) => {
-        const stockAtLocation = row.stockByLocation.find(
-          (loc) => loc.locationId === selectedLocation
-        );
-        if (!stockAtLocation || stockAtLocation.totalStock === 0) {
-          return null;
+    const applyFilters = (matrix: typeof report.matrix) => {
+      let filtered = matrix;
+
+      // Apply category filter
+      if (categoryFilter !== "all") {
+        filtered = filtered.filter((row) => row.component.category === categoryFilter);
+      }
+
+      // Apply location filter
+      if (selectedLocation === "all") {
+        return filtered;
+      }
+
+      return filtered
+        .map((row) => {
+          const stockAtLocation = row.stockByLocation.find(
+            (loc) => loc.locationId === selectedLocation
+          );
+          if (!stockAtLocation || stockAtLocation.totalStock === 0) {
+            return null;
+          }
+
+          return {
+            ...row,
+            stockByLocation: [stockAtLocation],
+            totalAcrossLocations: stockAtLocation.totalStock,
+            totalReservedAcrossLocations: stockAtLocation.totalReserved,
+            totalAvailable: stockAtLocation.available,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+    };
+
+    const applySorting = (matrix: ReturnType<typeof applyFilters>) => {
+      return [...matrix].sort((a, b) => {
+        switch (sortBy) {
+          case "percent_lowest": {
+            const aPercent = a.component.reorderPoint && a.component.reorderPoint > 0
+              ? a.totalAvailable / a.component.reorderPoint
+              : Infinity;
+            const bPercent = b.component.reorderPoint && b.component.reorderPoint > 0
+              ? b.totalAvailable / b.component.reorderPoint
+              : Infinity;
+            return aPercent - bPercent;
+          }
+          case "count_lowest":
+            return a.totalAvailable - b.totalAvailable;
+          case "most_expensive": {
+            const aMaxCost = Math.max(...a.stockByLocation.map(s => s.weightedUnitCostIdr), 0);
+            const bMaxCost = Math.max(...b.stockByLocation.map(s => s.weightedUnitCostIdr), 0);
+            if (aMaxCost === 0 && bMaxCost === 0) return a.component.name.localeCompare(b.component.name);
+            return bMaxCost - aMaxCost;
+          }
+          default: // "name"
+            return a.component.name.localeCompare(b.component.name);
         }
+      });
+    };
 
-        return {
-          ...row,
-          stockByLocation: [stockAtLocation],
-          totalAcrossLocations: stockAtLocation.totalStock,
-          totalReservedAcrossLocations: stockAtLocation.totalReserved,
-          totalAvailable: stockAtLocation.available,
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => row !== null);
-  }, [report, selectedLocation]);
+    const active = report.matrix.filter((row) => row.component.isActive !== false);
+    const legacy = report.matrix.filter((row) => row.component.isActive === false);
+
+    return {
+      activeMatrix: applySorting(applyFilters(active)),
+      legacyMatrix: applySorting(applyFilters(legacy)),
+    };
+  }, [report, selectedLocation, categoryFilter, sortBy]);
 
   // Loading state
   if (
@@ -84,9 +132,11 @@ export function InventoryManager() {
     );
   }
 
-  // Calculate stats (safe to use report here, TypeScript knows it's defined after loading check)
-  const totalComponents = report.matrix.length;
-  const totalStockValue = report.matrix.reduce((sum, row) => {
+  // Calculate stats from active components only
+  const activeRows = report.matrix.filter((row) => row.component.isActive !== false);
+  const legacyCount = report.matrix.length - activeRows.length;
+  const totalComponents = activeRows.length;
+  const totalStockValue = activeRows.reduce((sum, row) => {
     return (
       sum +
       row.stockByLocation.reduce(
@@ -95,7 +145,7 @@ export function InventoryManager() {
       )
     );
   }, 0);
-  const totalReserved = report.matrix.reduce(
+  const totalReserved = activeRows.reduce(
     (sum, row) => sum + row.totalReservedAcrossLocations,
     0
   );
@@ -107,20 +157,14 @@ export function InventoryManager() {
       <PageHeader
         title="Inventory"
         action={
-          <div className="flex gap-3">
-            <Button
-              onClick={() => navigate("/inventory/components")}
-              variant="outline"
-              size="lg"
-            >
-              <Settings className="h-5 w-5 mr-2" />
-              Manage Components
-            </Button>
-            <Button onClick={() => setReceiveDialogOpen(true)} size="lg">
-              <Plus className="h-5 w-5 mr-2" />
-              Receive Stock
-            </Button>
-          </div>
+          <Button
+            onClick={() => setReceiveDialogOpen(true)}
+            size="lg"
+            className="bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] text-white shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            Receive New Stock Type
+          </Button>
         }
       />
 
@@ -135,7 +179,7 @@ export function InventoryManager() {
           title="Total Components"
           value={totalComponents}
           icon={<Package className="h-5 w-5" />}
-          variant="primary"
+          variant="terracotta"
         />
         <StatCard
           title="Stock Value"
@@ -159,10 +203,53 @@ export function InventoryManager() {
 
       {/* Location Tabs */}
       <Card className="border-slate-700 bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80">
-        <CardHeader className="border-b border-slate-700">
-          <CardTitle className="text-xl font-mono tracking-tight text-slate-100">
-            Stock Levels by Location
-          </CardTitle>
+        <CardHeader className="border-b border-slate-700 border-b-[#E07856]/20">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-xl font-mono tracking-tight text-slate-100">
+              Stock Levels by Location
+            </CardTitle>
+            <div className="flex flex-wrap gap-3">
+              {/* Category Filter */}
+              <div className="flex gap-1.5">
+                {(["all", "production", "packaging"] as const).map((cat) => (
+                  <Badge
+                    key={cat}
+                    variant={categoryFilter === cat ? "default" : "outline"}
+                    className={`cursor-pointer text-xs px-3 py-1 transition-colors ${
+                      categoryFilter === cat
+                        ? "bg-[#E07856] text-white border-[#E07856] hover:bg-[#D66A4A]"
+                        : "bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-600/50"
+                    }`}
+                    onClick={() => setCategoryFilter(cat)}
+                  >
+                    {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </Badge>
+                ))}
+              </div>
+              {/* Sort Controls */}
+              <div className="flex gap-1.5 border-l border-slate-700 pl-3">
+                {([
+                  { key: "name", label: "Name" },
+                  { key: "percent_lowest", label: "% Lowest" },
+                  { key: "count_lowest", label: "# Lowest" },
+                  { key: "most_expensive", label: "Priciest" },
+                ] as const).map(({ key, label }) => (
+                  <Badge
+                    key={key}
+                    variant={sortBy === key ? "default" : "outline"}
+                    className={`cursor-pointer text-xs px-3 py-1 transition-colors ${
+                      sortBy === key
+                        ? "bg-slate-600 text-white border-slate-500 hover:bg-slate-500"
+                        : "bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-600/50"
+                    }`}
+                    onClick={() => setSortBy(key)}
+                  >
+                    {label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-6">
           <Tabs
@@ -187,7 +274,8 @@ export function InventoryManager() {
             </TabsList>
 
             <TabsContent value={selectedLocation} className="mt-0">
-              {filteredMatrix.length === 0 ? (
+              {/* Active Components */}
+              {activeMatrix.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">No inventory yet</p>
@@ -197,7 +285,7 @@ export function InventoryManager() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredMatrix.map((row) => (
+                  {activeMatrix.map((row) => (
                     <ComponentRow
                       key={row.component._id}
                       component={row.component}
@@ -210,17 +298,50 @@ export function InventoryManager() {
                   ))}
                 </div>
               )}
+
+              {/* Legacy Components Section */}
+              {legacyCount > 0 && (
+                <div className="mt-6 pt-4 border-t border-slate-700/50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLegacy(!showLegacy)}
+                    className="mb-3 text-slate-400 hover:text-slate-200"
+                  >
+                    <Archive className="h-4 w-4 mr-2" />
+                    {showLegacy ? "Hide" : "Show"} Legacy Inventory ({legacyCount})
+                  </Button>
+
+                  {showLegacy && legacyMatrix.length > 0 && (
+                    <div className="space-y-2 opacity-60">
+                      {legacyMatrix.map((row) => (
+                        <ComponentRow
+                          key={row.component._id}
+                          component={row.component}
+                          stockByLocation={row.stockByLocation}
+                          totalAvailable={row.totalAvailable}
+                          totalReserved={row.totalReservedAcrossLocations}
+                          isLowStock={row.isLowStock}
+                          locations={report.locations}
+                          isLegacy
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
-      {/* Receive Stock Dialog */}
+      {/* Receive Stock Dialog (top button - force create mode for new stock types) */}
       <ReceiveStockDialog
         open={receiveDialogOpen}
         onOpenChange={setReceiveDialogOpen}
         locations={locations}
         lowStockComponents={lowStockAlerts.slice(0, 3).map((a) => a.component)}
+        forceCreateMode
       />
     </div>
   );

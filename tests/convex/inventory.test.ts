@@ -21,7 +21,7 @@ async function createComponentType(
   overrides: {
     code?: string;
     name?: string;
-    category?: "production" | "direct_packaging" | "indirect_packaging";
+    category?: "production" | "packaging" | "direct_packaging" | "indirect_packaging";
     unitCostIdr?: number;
     trackInventory?: boolean;
     consumptionStage?: "boxing" | "labeling" | "none";
@@ -31,7 +31,7 @@ async function createComponentType(
     return await ctx.db.insert("componentTypes", {
       code: overrides.code ?? "TEST_BOX",
       name: overrides.name ?? "Test Box",
-      category: overrides.category ?? "direct_packaging",
+      category: overrides.category ?? "packaging",
       unitCostIdr: overrides.unitCostIdr ?? 500,
       unit: "pcs",
       trackInventory: overrides.trackInventory ?? true,

@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save } from 'lucide-react';
+import { Save, UtensilsCrossed, Package } from 'lucide-react';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -20,15 +21,19 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   useConvexCreateMenuProduct,
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
+  useConvexAssignToPackagingSlot,
   useConvexPosProducts,
+  useConvexPackagingPosProducts,
+  useConvexMenuProducts,
   useConvexMenuProductComponents,
   useConvexComponentsByCategory,
   type PosProduct,
-  type LegacyProduct,
+  type AvailableProduct,
 } from '@/hooks/convex';
 import { ProductionComponentsSection } from './ProductionComponentsSection';
 import { PackagingComponentsSection } from './PackagingComponentsSection';
@@ -39,11 +44,12 @@ import { toast } from 'sonner';
 interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  product?: (PosProduct | LegacyProduct) | null;
-  prefilledSlot?: 1 | 2 | 3 | 4 | null;
+  product?: (PosProduct | AvailableProduct) | null;
+  prefilledSlot?: number | null;
+  prefilledProductType?: 'food' | 'packaging' | null;
   onSlotSwapRequested?: (data: {
     productId: string;
-    slot: 1 | 2 | 3 | 4;
+    slot: number;
     currentProduct: PosProduct;
   }) => void;
 }
@@ -52,6 +58,7 @@ interface ComponentRow {
   id: string; // Temporary ID for UI
   componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
+  consumptionStage?: "boxing" | "labeling" | "none";
 }
 
 export function ProductForm({
@@ -59,24 +66,28 @@ export function ProductForm({
   onOpenChange,
   product,
   prefilledSlot,
+  prefilledProductType,
   onSlotSwapRequested,
 }: ProductFormProps) {
   const createMutation = useConvexCreateMenuProduct();
   const updateMutation = useConvexUpdateMenuProduct();
   const assignSlotMutation = useConvexAssignToSlot();
+  const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
 
   const isEditing = !!product;
 
-  // Query POS products to check for slot conflicts
+  // Query POS products to check for slot conflicts (separate namespaces)
   const { data: posProducts } = useConvexPosProducts();
+  const { data: packagingPosProducts } = useConvexPackagingPosProducts();
 
   // Query all component types for cost calculation
   const productionComponents = useConvexComponentsByCategory("production", true);
-  const directPackaging = useConvexComponentsByCategory("direct_packaging", true);
-  const indirectPackaging = useConvexComponentsByCategory("indirect_packaging", true);
+  const packagingComponents = useConvexComponentsByCategory("packaging", true);
   const allComponentsLoaded = productionComponents !== undefined &&
-                               directPackaging !== undefined &&
-                               indirectPackaging !== undefined;
+                               packagingComponents !== undefined;
+
+  // Query all products for duplicate name detection
+  const { data: allProducts } = useConvexMenuProducts();
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -85,10 +96,12 @@ export function ProductForm({
   );
 
   // Form state
-  const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [productType, setProductType] = useState<'food' | 'packaging'>('food');
+  const [isActive, setIsActive] = useState(true);
   const [gramsOverride, setGramsOverride] = useState('');
   const [price, setPrice] = useState('');
+  const [isFree, setIsFree] = useState(false);
   const [posSlot, setPosSlot] = useState<string>('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -99,11 +112,26 @@ export function ProductForm({
   // Initialize form when product changes
   useEffect(() => {
     if (product && !loadingComponents) {
-      setCode(product.code);
       setName(product.name);
       setGramsOverride(product.grams.toString());
       setPrice(product.defaultPrice.toString());
-      setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
+      setIsFree(product.defaultPrice === 0);
+      // Determine product type from existing data
+      const existingProductType = 'productType' in product && product.productType
+        ? product.productType as 'food' | 'packaging'
+        : 'food';
+      setProductType(existingProductType);
+
+      // Read correct slot based on product type
+      if (existingProductType === 'packaging' && 'packagingPosSlot' in product) {
+        setPosSlot(product.packagingPosSlot ? product.packagingPosSlot.toString() : 'none');
+      } else {
+        setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
+      }
+
+      // Determine active state (check for isActive on the raw product data)
+      // PosProduct and LegacyProduct don't expose isActive directly, default to true
+      setIsActive(true);
 
       // Split existing components into production and packaging
       if (existingComponents && existingComponents.length > 0) {
@@ -116,6 +144,7 @@ export function ProductForm({
               id: Math.random().toString(36).substr(2, 9),
               componentTypeId: comp.componentTypeId ?? null,
               quantity: comp.quantity,
+              consumptionStage: comp.consumptionStage ?? undefined,
             };
 
             if (comp.componentType.category === 'production') {
@@ -137,18 +166,23 @@ export function ProductForm({
     }
   }, [product, existingComponents, loadingComponents]);
 
-  // Set prefilled slot when it changes (for clicking empty slots)
+  // Set prefilled slot and product type when clicking empty slots
   useEffect(() => {
     if (prefilledSlot && !product) {
       setPosSlot(prefilledSlot.toString());
     }
-  }, [prefilledSlot, product]);
+    if (prefilledProductType && !product) {
+      setProductType(prefilledProductType);
+    }
+  }, [prefilledSlot, prefilledProductType, product]);
 
   const resetForm = () => {
-    setCode('');
     setName('');
+    setProductType('food');
+    setIsActive(true);
     setGramsOverride('');
     setPrice('');
+    setIsFree(false);
     setPosSlot(prefilledSlot ? prefilledSlot.toString() : 'none');
     setProductionRows([]);
     setPackagingRows([]);
@@ -168,8 +202,7 @@ export function ProductForm({
 
     const allComponents = [
       ...(productionComponents ?? []),
-      ...(directPackaging ?? []),
-      ...(indirectPackaging ?? []),
+      ...(packagingComponents ?? []),
     ];
 
     let productionCost = 0;
@@ -177,18 +210,20 @@ export function ProductForm({
     let totalGrams = 0;
     const summaryParts: string[] = [];
 
-    // Calculate production costs and grams
-    for (const row of productionRows) {
-      if (!row.componentTypeId) continue;
+    // Calculate production costs and grams (only for food products)
+    if (productType === 'food') {
+      for (const row of productionRows) {
+        if (!row.componentTypeId) continue;
 
-      const comp = allComponents.find((c) => c._id === row.componentTypeId);
-      if (!comp) continue;
+        const comp = allComponents.find((c) => c._id === row.componentTypeId);
+        if (!comp) continue;
 
-      productionCost += comp.unitCostIdr * row.quantity;
-      totalGrams += (comp.gramsPerUnit ?? 0) * row.quantity;
+        productionCost += comp.unitCostIdr * row.quantity;
+        totalGrams += (comp.gramsPerUnit ?? 0) * row.quantity;
 
-      if (row.quantity > 0) {
-        summaryParts.push(`${row.quantity} ${comp.name}`);
+        if (row.quantity > 0) {
+          summaryParts.push(`${row.quantity} ${comp.name}`);
+        }
       }
     }
 
@@ -209,7 +244,7 @@ export function ProductForm({
       totalGrams,
       summary: summaryParts.join(', ') || 'No production components',
     };
-  }, [productionRows, packagingRows, productionComponents, directPackaging, indirectPackaging, allComponentsLoaded]);
+  }, [productionRows, packagingRows, productionComponents, packagingComponents, allComponentsLoaded, productType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,13 +255,15 @@ export function ProductForm({
       return;
     }
 
-    if (!price || parseFloat(price) <= 0) {
+    if (!isFree && (!price || parseFloat(price) <= 0)) {
       toast.error('Valid price is required');
       return;
     }
 
     // Validate components
-    const validProduction = productionRows.filter((c) => c.componentTypeId !== null);
+    const validProduction = productType === 'food'
+      ? productionRows.filter((c) => c.componentTypeId !== null)
+      : [];
     const validPackaging = packagingRows.filter((c) => c.componentTypeId !== null);
 
     if ([...validProduction, ...validPackaging].some((c) => c.quantity <= 0)) {
@@ -242,6 +279,7 @@ export function ProductForm({
         ? allComponents.map((c) => ({
             componentTypeId: c.componentTypeId as Id<"componentTypes">,
             quantity: c.quantity,
+            ...(c.consumptionStage ? { consumptionStage: c.consumptionStage } : {}),
           }))
         : undefined;
 
@@ -252,12 +290,24 @@ export function ProductForm({
           : calculatedValues.totalGrams;
 
       const productData = {
-        code: code.trim() || undefined,
         name: name.trim(),
         grams: finalGrams,
-        defaultPrice: parseFloat(price),
+        defaultPrice: isFree ? 0 : parseFloat(price),
+        isActive,
         components: componentsData,
+        productType,
       };
+
+      // Determine which slot mutation and product list to use based on product type
+      const isPackaging = productType === 'packaging';
+      const slotMutation = isPackaging ? assignPackagingSlotMutation : assignSlotMutation;
+      const slotProducts = isPackaging ? packagingPosProducts : posProducts;
+      const findOccupant = (targetSlot: number) =>
+        isPackaging
+          ? slotProducts?.find((p: { packagingPosSlot?: number; _id?: string }) =>
+              'packagingPosSlot' in p && (p as { packagingPosSlot: number }).packagingPosSlot === targetSlot)
+          : slotProducts?.find((p: { posSlot?: number; _id?: string }) =>
+              'posSlot' in p && (p as { posSlot: number }).posSlot === targetSlot);
 
       if (isEditing) {
         // Update existing product
@@ -267,24 +317,25 @@ export function ProductForm({
         });
 
         // Handle slot assignment separately if changed
-        const currentSlot = 'posSlot' in product ? product.posSlot?.toString() : 'none';
+        const currentSlot = isPackaging
+          ? ('packagingPosSlot' in product ? product.packagingPosSlot?.toString() : 'none')
+          : ('posSlot' in product ? product.posSlot?.toString() : 'none');
         if (posSlot !== currentSlot) {
           if (posSlot !== 'none') {
-            const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
-            const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+            const targetSlot = parseInt(posSlot);
+            const occupyingProduct = findOccupant(targetSlot);
 
-            // Check if slot is occupied and trigger swap confirmation
             if (occupyingProduct && onSlotSwapRequested) {
               onSlotSwapRequested({
                 productId: product._id,
                 slot: targetSlot,
-                currentProduct: occupyingProduct,
+                currentProduct: occupyingProduct as PosProduct,
               });
               handleClose();
               return;
             }
 
-            await assignSlotMutation.mutateAsync({
+            await slotMutation.mutateAsync({
               id: product._id as Id<"menuProducts">,
               slot: targetSlot,
             });
@@ -296,21 +347,20 @@ export function ProductForm({
 
         // Assign to slot if selected
         if (posSlot !== 'none') {
-          const targetSlot = parseInt(posSlot) as 1 | 2 | 3 | 4;
-          const occupyingProduct = posProducts?.find((p) => p.posSlot === targetSlot);
+          const targetSlot = parseInt(posSlot);
+          const occupyingProduct = findOccupant(targetSlot);
 
-          // Check if slot is occupied and trigger swap confirmation
           if (occupyingProduct && onSlotSwapRequested) {
             onSlotSwapRequested({
               productId: newId as string,
               slot: targetSlot,
-              currentProduct: occupyingProduct,
+              currentProduct: occupyingProduct as PosProduct,
             });
             handleClose();
             return;
           }
 
-          await assignSlotMutation.mutateAsync({
+          await slotMutation.mutateAsync({
             id: newId as Id<"menuProducts">,
             slot: targetSlot,
           });
@@ -326,9 +376,19 @@ export function ProductForm({
     }
   };
 
+  // Check for duplicate product name
+  const duplicateProduct = useMemo(() => {
+    if (!name.trim() || !allProducts) return null;
+    const trimmedName = name.trim().toLowerCase();
+    const existing = allProducts.find(
+      (p) => p.name.toLowerCase() === trimmedName && p.id !== (product?._id as unknown as number)
+    );
+    return existing || null;
+  }, [name, allProducts, product]);
+
   // Calculate margin
   const cogs = calculatedValues.totalCost;
-  const priceValue = parseFloat(price) || 0;
+  const priceValue = isFree ? 0 : (parseFloat(price) || 0);
   const margin = priceValue > 0 && cogs > 0
     ? ((priceValue - cogs) / priceValue) * 100
     : null;
@@ -340,32 +400,67 @@ export function ProductForm({
       : calculatedValues.totalGrams;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:w-96 sm:max-w-96 p-0 flex flex-col overflow-hidden"
-      >
-        <SheetHeader className="px-4 sm:px-6 py-4 border-b">
-          <SheetTitle className="text-base sm:text-lg">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+          <DialogTitle className="text-lg">
             {isEditing ? 'Edit Product' : 'New Product'}
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 px-4 sm:px-6 py-4">
-            <div className="space-y-4 min-w-0">
-              {/* Code */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <ScrollArea className="flex-1 px-6 py-4">
+            <div className="space-y-5">
+              {/* Product Type Toggle */}
               <div className="space-y-2">
-                <Label htmlFor="code">Product Code</Label>
-                <Input
-                  id="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="e.g., MP001"
+                <Label>Product Type</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProductType('food')}
+                    className={`flex items-center gap-2 rounded-lg border-2 p-3 transition-colors ${
+                      productType === 'food'
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-muted hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Food</div>
+                      <div className="text-xs text-muted-foreground">Production + Packaging</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProductType('packaging')}
+                    className={`flex items-center gap-2 rounded-lg border-2 p-3 transition-colors ${
+                      productType === 'packaging'
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-muted hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <Package className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">Packaging</div>
+                      <div className="text-xs text-muted-foreground">Packaging only</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Active/Inactive Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label htmlFor="active-toggle" className="text-sm font-medium">Active</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive products are hidden from the POS
+                  </p>
+                </div>
+                <Switch
+                  id="active-toggle"
+                  checked={isActive}
+                  onCheckedChange={setIsActive}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Optional. Internal reference code.
-                </p>
               </div>
 
               {/* Name */}
@@ -377,18 +472,28 @@ export function ProductForm({
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Pistachio Crunch"
                   required
+                  className={duplicateProduct ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
                 />
+                {duplicateProduct && (
+                  <p className="text-xs text-amber-600 font-medium">
+                    A product named "{duplicateProduct.name}" already exists. Consider using a different name.
+                  </p>
+                )}
               </div>
 
-              {/* Production Components */}
-              <Separator />
-              <ProductionComponentsSection
-                components={productionRows}
-                onChange={setProductionRows}
-                disabled={isSubmitting}
-              />
+              {/* Production Components (Food only) */}
+              {productType === 'food' && (
+                <>
+                  <Separator />
+                  <ProductionComponentsSection
+                    components={productionRows}
+                    onChange={setProductionRows}
+                    disabled={isSubmitting}
+                  />
+                </>
+              )}
 
-              {/* Packaging Components */}
+              {/* Packaging Components (Both types) */}
               <Separator />
               <PackagingComponentsSection
                 components={packagingRows}
@@ -399,10 +504,12 @@ export function ProductForm({
               {/* Auto-calculated summary */}
               {(productionRows.length > 0 || packagingRows.length > 0) && (
                 <div className="rounded-lg bg-muted p-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Production Cost:</span>
-                    <span className="font-medium">{formatCurrency(calculatedValues.productionCost)}</span>
-                  </div>
+                  {productType === 'food' && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Production Cost:</span>
+                      <span className="font-medium">{formatCurrency(calculatedValues.productionCost)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Packaging Cost:</span>
                     <span className="font-medium">{formatCurrency(calculatedValues.packagingCost)}</span>
@@ -412,7 +519,7 @@ export function ProductForm({
                     <span>Total COGS:</span>
                     <span>{formatCurrency(calculatedValues.totalCost)}</span>
                   </div>
-                  {productionRows.length > 0 && (
+                  {productType === 'food' && productionRows.length > 0 && (
                     <>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Auto Grams:</span>
@@ -429,94 +536,104 @@ export function ProductForm({
 
               <Separator />
 
-              {/* Grams Override */}
-              <div className="space-y-2">
-                <Label htmlFor="grams">Weight Override (grams)</Label>
-                <Input
-                  id="grams"
-                  type="number"
-                  step="0.01"
-                  value={gramsOverride}
-                  onChange={(e) => setGramsOverride(e.target.value)}
-                  placeholder={
-                    productionRows.length > 0
-                      ? `Auto: ${formatNumber(calculatedValues.totalGrams, 1)}g`
-                      : 'e.g., 50'
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  {productionRows.length > 0
-                    ? 'Optional. Override auto-calculated weight.'
-                    : 'Weight in grams (optional).'}
-                </p>
-              </div>
+              {/* Two-column layout for Price, Weight, COGS, Margin */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Price */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="price">Price (IDR) {!isFree && '*'}</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Checkbox
+                        id="isFree"
+                        checked={isFree}
+                        onCheckedChange={(checked) => {
+                          setIsFree(checked === true);
+                          if (checked) setPrice('0');
+                        }}
+                      />
+                      <Label htmlFor="isFree" className="text-xs font-normal cursor-pointer">Free</Label>
+                    </div>
+                  </div>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    value={isFree ? '0' : price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="e.g., 15000"
+                    disabled={isFree}
+                    className={isFree ? 'opacity-50' : ''}
+                  />
+                </div>
 
-              {/* Price */}
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (IDR) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="e.g., 15000"
-                  required
-                />
-              </div>
+                {/* Grams Override (Food only) */}
+                {productType === 'food' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="grams">Weight (grams)</Label>
+                    <Input
+                      id="grams"
+                      type="number"
+                      step="0.01"
+                      value={gramsOverride}
+                      onChange={(e) => setGramsOverride(e.target.value)}
+                      placeholder={
+                        productionRows.length > 0
+                          ? `Auto: ${formatNumber(calculatedValues.totalGrams, 1)}g`
+                          : 'e.g., 50'
+                      }
+                    />
+                  </div>
+                )}
 
-              {/* COGS (Read-only) */}
-              <div className="space-y-2">
-                <Label htmlFor="cogs">COGS</Label>
-                <Input
-                  id="cogs"
-                  value={formatCurrency(cogs)}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {(productionRows.length > 0 || packagingRows.length > 0)
-                    ? 'Auto-calculated from components'
-                    : 'No components defined'}
-                </p>
-              </div>
+                {/* COGS (Read-only) */}
+                <div className="space-y-2">
+                  <Label htmlFor="cogs">COGS</Label>
+                  <Input
+                    id="cogs"
+                    value={formatCurrency(cogs)}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
 
-              {/* Margin (Calculated) */}
-              <div className="space-y-2">
-                <Label htmlFor="margin">Margin</Label>
-                <Input
-                  id="margin"
-                  value={margin ? formatPercent(margin) : '-'}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Auto-calculated: (Price - COGS) / Price
-                </p>
+                {/* Margin (Calculated) */}
+                <div className="space-y-2">
+                  <Label htmlFor="margin">Margin</Label>
+                  <Input
+                    id="margin"
+                    value={margin ? formatPercent(margin) : '-'}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
               </div>
 
               {/* POS Slot */}
               <div className="space-y-2">
-                <Label htmlFor="posSlot">POS Slot</Label>
+                <Label htmlFor="posSlot">
+                  {productType === 'food' ? 'Food POS Slot' : 'Packaging POS Slot'}
+                </Label>
                 <Select value={posSlot} onValueChange={setPosSlot}>
                   <SelectTrigger id="posSlot">
                     <SelectValue placeholder="Select slot" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None (Legacy)</SelectItem>
+                    <SelectItem value="none">None (Available)</SelectItem>
                     <SelectItem value="1">Slot 1</SelectItem>
                     <SelectItem value="2">Slot 2</SelectItem>
                     <SelectItem value="3">Slot 3</SelectItem>
                     <SelectItem value="4">Slot 4</SelectItem>
+                    <SelectItem value="5">Slot 5</SelectItem>
+                    <SelectItem value="6">Slot 6</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Assign to POS quick-access slot (max 4)
+                  Assign to POS quick-access slot
                 </p>
               </div>
 
-              {/* Production Summary Badge */}
-              {productionRows.length > 0 && (
+              {/* Production Summary Badge (Food only) */}
+              {productType === 'food' && productionRows.length > 0 && (
                 <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">Production Summary</Badge>
@@ -532,29 +649,29 @@ export function ProductForm({
             </div>
           </ScrollArea>
 
-          <SheetFooter className="px-4 sm:px-6 py-4 border-t">
+          <DialogFooter className="px-6 py-4 border-t shrink-0">
             <div className="flex gap-2 w-full">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                className="flex-1 text-xs sm:text-sm"
+                className="flex-1"
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                className="flex-1 text-xs sm:text-sm"
+                className="flex-1"
                 disabled={isSubmitting}
               >
-                <Save className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <Save className="h-4 w-4 mr-2" />
                 {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Create'}
               </Button>
             </div>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

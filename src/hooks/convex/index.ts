@@ -107,6 +107,7 @@ export {
   useConvexMenuProductByCode,
   useConvexFixedProducts,
   useConvexPosProducts,
+  useConvexAvailableProducts,
   useConvexLegacyProducts,
   useConvexPackagingPosProducts,
   // Mutation hooks
@@ -123,6 +124,7 @@ export {
   type FixedProduct,
   type PosProduct,
   type PackagingPosProduct,
+  type AvailableProduct,
   type LegacyProduct,
 } from "./useMenuProducts";
 

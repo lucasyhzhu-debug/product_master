@@ -29,7 +29,7 @@ import { toast } from "sonner";
 interface ComponentTypeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultCategory?: "production" | "direct_packaging" | "indirect_packaging";
+  defaultCategory?: "production" | "packaging";
 }
 
 export function ComponentTypeDialog({
@@ -140,7 +140,7 @@ export function ComponentTypeDialog({
               value={category}
               onValueChange={(value) =>
                 setCategory(
-                  value as "production" | "direct_packaging" | "indirect_packaging"
+                  value as "production" | "packaging"
                 )
               }
             >
@@ -149,11 +149,8 @@ export function ComponentTypeDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="production">Production (balls)</SelectItem>
-                <SelectItem value="direct_packaging">
-                  Direct Packaging (auto-included)
-                </SelectItem>
-                <SelectItem value="indirect_packaging">
-                  Indirect Packaging (optional add-ons)
+                <SelectItem value="packaging">
+                  Packaging (boxes, stickers, etc.)
                 </SelectItem>
               </SelectContent>
             </Select>
