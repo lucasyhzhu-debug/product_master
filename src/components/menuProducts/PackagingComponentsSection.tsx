@@ -47,16 +47,14 @@ export function PackagingComponentsSection({
 }: PackagingComponentsSectionProps) {
   const { user } = useAuth();
 
-  // Query packaging components (both direct and indirect)
-  const directPackaging = useConvexComponentsByCategory("direct_packaging", true);
-  const indirectPackaging = useConvexComponentsByCategory("indirect_packaging", true);
+  // Query packaging components (unified category)
+  const packagingComponents = useConvexComponentsByCategory("packaging", true);
 
-  const isLoading = directPackaging === undefined || indirectPackaging === undefined;
+  const isLoading = packagingComponents === undefined;
 
-  // Combine both categories
+  // All packaging components sorted by name
   const allPackagingComponents = [
-    ...(directPackaging ?? []),
-    ...(indirectPackaging ?? []),
+    ...(packagingComponents ?? []),
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   // Quick create state
@@ -192,30 +190,11 @@ export function PackagingComponentsSection({
                         <SelectValue placeholder="Select packaging item" />
                       </SelectTrigger>
                       <SelectContent>
-                        {directPackaging && directPackaging.length > 0 && (
-                          <>
-                            <SelectItem value="direct-header" disabled className="font-semibold text-xs">
-                              Direct Packaging
-                            </SelectItem>
-                            {directPackaging.map((ct) => (
-                              <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm pl-6">
-                                {ct.name} ({formatCurrency(ct.unitCostIdr)})
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                        {indirectPackaging && indirectPackaging.length > 0 && (
-                          <>
-                            <SelectItem value="indirect-header" disabled className="font-semibold text-xs">
-                              Indirect Packaging
-                            </SelectItem>
-                            {indirectPackaging.map((ct) => (
-                              <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm pl-6">
-                                {ct.name} ({formatCurrency(ct.unitCostIdr)})
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
+                        {allPackagingComponents.map((ct) => (
+                          <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm">
+                            {ct.name} ({formatCurrency(ct.unitCostIdr)})
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     {selectedComponent && (

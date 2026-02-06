@@ -72,11 +72,9 @@ export function ProductForm({
 
   // Query all component types for cost calculation
   const productionComponents = useConvexComponentsByCategory("production", true);
-  const directPackaging = useConvexComponentsByCategory("direct_packaging", true);
-  const indirectPackaging = useConvexComponentsByCategory("indirect_packaging", true);
+  const packagingComponents = useConvexComponentsByCategory("packaging", true);
   const allComponentsLoaded = productionComponents !== undefined &&
-                               directPackaging !== undefined &&
-                               indirectPackaging !== undefined;
+                               packagingComponents !== undefined;
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -168,8 +166,7 @@ export function ProductForm({
 
     const allComponents = [
       ...(productionComponents ?? []),
-      ...(directPackaging ?? []),
-      ...(indirectPackaging ?? []),
+      ...(packagingComponents ?? []),
     ];
 
     let productionCost = 0;
@@ -209,7 +206,7 @@ export function ProductForm({
       totalGrams,
       summary: summaryParts.join(', ') || 'No production components',
     };
-  }, [productionRows, packagingRows, productionComponents, directPackaging, indirectPackaging, allComponentsLoaded]);
+  }, [productionRows, packagingRows, productionComponents, packagingComponents, allComponentsLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

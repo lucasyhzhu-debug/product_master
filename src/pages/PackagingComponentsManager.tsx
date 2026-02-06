@@ -53,8 +53,8 @@ export function PackagingComponentsManager() {
 
   // Form state for create dialog
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<"direct_packaging" | "indirect_packaging">(
-    "direct_packaging"
+  const [category, setCategory] = useState<"packaging">(
+    "packaging"
   );
   const [consumptionStage, setConsumptionStage] = useState<"boxing" | "labeling" | "none">(
     "boxing"
@@ -66,7 +66,7 @@ export function PackagingComponentsManager() {
 
   const resetForm = () => {
     setName("");
-    setCategory("direct_packaging");
+    setCategory("packaging");
     setConsumptionStage("boxing");
     setUnit("pcs");
     setDescription("");
@@ -81,7 +81,7 @@ export function PackagingComponentsManager() {
 
   const handleEdit = (component: ComponentType) => {
     setName(component.name);
-    setCategory(component.category as "direct_packaging" | "indirect_packaging");
+    setCategory("packaging");
     setConsumptionStage(component.consumptionStage || "none");
     setUnit(component.unit);
     setDescription(component.description || "");
@@ -174,9 +174,9 @@ export function PackagingComponentsManager() {
     );
   }
 
-  // Filter packaging components (both direct and indirect)
+  // Filter packaging components
   const packagingComponents = allComponents.filter(
-    (c) => c.category === "direct_packaging" || c.category === "indirect_packaging"
+    (c) => c.category === "packaging"
   );
 
   const activeComponents = packagingComponents.filter((c) => c.isActive);
@@ -203,11 +203,8 @@ export function PackagingComponentsManager() {
               <Badge variant="outline" className="text-xs">
                 {component.code}
               </Badge>
-              <Badge
-                variant={component.category === "direct_packaging" ? "default" : "secondary"}
-                className="text-xs"
-              >
-                {component.category === "direct_packaging" ? "Direct" : "Indirect"}
+              <Badge variant="default" className="text-xs">
+                Packaging
               </Badge>
               {component.consumptionStage && component.consumptionStage !== "none" && (
                 <Badge variant="outline" className="text-xs">
@@ -356,29 +353,7 @@ export function PackagingComponentsManager() {
               />
             </div>
 
-            {!editingComponent && (
-              <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={category}
-                  onValueChange={(value) =>
-                    setCategory(value as "direct_packaging" | "indirect_packaging")
-                  }
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="direct_packaging">
-                      Direct Packaging (auto-included with products)
-                    </SelectItem>
-                    <SelectItem value="indirect_packaging">
-                      Indirect Packaging (optional add-ons)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Category is always "packaging" now - no selector needed */}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">

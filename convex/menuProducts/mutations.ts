@@ -9,7 +9,7 @@ import { calculateMenuProductCOGS } from "../lib/costCalculator";
  * Helper: Calculate unit cost and grams from componentTypes (Unified BOM).
  *
  * This is the primary calculation function using the unified component system.
- * Returns detailed COGS breakdown by category (production, direct/indirect packaging).
+ * Returns detailed COGS breakdown by category (production, packaging).
  *
  * @param ctx - Mutation context
  * @param components - Array of { componentTypeId, quantity }
@@ -24,8 +24,7 @@ export async function calculateUnitCostFromComponentTypes(
   totalGrams: number;
   breakdown: {
     production: number;
-    directPackaging: number;
-    indirectPackaging: number;
+    packaging: number;
   };
 }> {
   // Fetch all component types and build input for COGS calculator
@@ -58,8 +57,7 @@ export async function calculateUnitCostFromComponentTypes(
     totalGrams,
     breakdown: {
       production: cogsBreakdown.production,
-      directPackaging: cogsBreakdown.directPackaging,
-      indirectPackaging: cogsBreakdown.indirectPackaging,
+      packaging: cogsBreakdown.packaging,
     },
   };
 }

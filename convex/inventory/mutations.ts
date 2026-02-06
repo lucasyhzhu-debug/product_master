@@ -22,8 +22,7 @@ export const createComponentAndReceiveStock = mutation({
     code: v.string(),
     name: v.string(),
     category: v.union(
-      v.literal("direct_packaging"),
-      v.literal("indirect_packaging")
+      v.literal("packaging")
     ),
     unit: v.string(),
     reorderPoint: v.optional(v.number()),
