@@ -35,7 +35,7 @@ export function useConvexComponentType(id: Id<"componentTypes"> | undefined) {
  * Get component types by category
  */
 export function useConvexComponentsByCategory(
-  category: "production" | "direct_packaging" | "indirect_packaging",
+  category: "production" | "packaging",
   activeOnly?: boolean
 ) {
   return useQuery(api.componentTypes.queries.getByCategory, {
@@ -103,7 +103,7 @@ export function useConvexCreatePackagingQuick() {
 export type ComponentTypeCreateInput = {
   code: string;
   name: string;
-  category: "production" | "direct_packaging" | "indirect_packaging";
+  category: "production" | "packaging";
   unitCostIdr: number;
   unit: string;
   gramsPerUnit?: number;
@@ -139,7 +139,7 @@ export type ComponentType = {
   _id: Id<"componentTypes">;
   code: string;
   name: string;
-  category: "production" | "direct_packaging" | "indirect_packaging";
+  category: "production" | "packaging";
   unitCostIdr: number;
   unit: string;
   gramsPerUnit?: number;

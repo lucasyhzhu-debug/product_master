@@ -65,8 +65,8 @@ export function ReceiveStockDialog({
   const [newComponentCode, setNewComponentCode] = useState("");
   const [newComponentName, setNewComponentName] = useState("");
   const [newComponentCategory, setNewComponentCategory] = useState<
-    "direct_packaging" | "indirect_packaging"
-  >("direct_packaging");
+    "packaging"
+  >("packaging");
   const [newComponentUnit, setNewComponentUnit] = useState("");
   const [newComponentReorderPoint, setNewComponentReorderPoint] = useState("");
 
@@ -102,7 +102,7 @@ export function ReceiveStockDialog({
       setSelectedComponentId(null);
       setNewComponentCode("");
       setNewComponentName("");
-      setNewComponentCategory("direct_packaging");
+      setNewComponentCategory("packaging");
       setNewComponentUnit("");
       setNewComponentReorderPoint("");
       setQuantity("");
@@ -344,15 +344,9 @@ export function ReceiveStockDialog({
                     }
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="direct_packaging" id="direct" />
-                      <Label htmlFor="direct" className="font-normal cursor-pointer">
-                        Direct Packaging <span className="text-xs text-slate-400">(touches food)</span>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="indirect_packaging" id="indirect" />
-                      <Label htmlFor="indirect" className="font-normal cursor-pointer">
-                        Indirect Packaging <span className="text-xs text-slate-400">(outer boxes, stickers)</span>
+                      <RadioGroupItem value="packaging" id="packaging" />
+                      <Label htmlFor="packaging" className="font-normal cursor-pointer">
+                        Packaging <span className="text-xs text-slate-400">(boxes, stickers, etc.)</span>
                       </Label>
                     </div>
                   </RadioGroup>

@@ -114,6 +114,12 @@ export default defineSchema({
     componentTypeId: v.id("componentTypes"), // Unified BOM: production + packaging
     quantity: v.number(), // How many of this component per product
     sortOrder: v.number(), // Display ordering
+    // Per-product override for consumption stage (overrides componentTypes.consumptionStage)
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),    // Consumed at Boxed transition
+      v.literal("labeling"),  // Consumed at Labeled transition
+      v.literal("none")       // Not tracked (production/manual)
+    )),
   })
     .index("by_menu_product", ["menuProductId"])
     .index("by_component_type", ["componentTypeId"]),
@@ -672,11 +678,10 @@ export default defineSchema({
     code: v.string(), // "BIG_BALL", "LONG_BOX", "BROCHURE"
     name: v.string(), // "Big Ball", "Long Box", "Brochure"
 
-    // Classification (3 categories)
+    // Classification (2 categories after migration)
     category: v.union(
       v.literal("production"), // Kitchen produces (balls)
-      v.literal("direct_packaging"), // Auto-included with product (boxes, stickers)
-      v.literal("indirect_packaging") // Sold as separate line items (brochures, bags)
+      v.literal("packaging") // All packaging items (boxes, stickers, brochures)
     ),
 
     // Production-specific (only for category="production")
@@ -847,6 +852,13 @@ export default defineSchema({
       v.literal("consumed"),
       v.literal("released")
     ),
+    // Snapshot of effective consumption stage at reservation time
+    // Decouples consumption pipeline from future schema changes
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),
+      v.literal("labeling"),
+      v.literal("none")
+    )),
     createdAt: v.number(),
     consumedAt: v.optional(v.number()),
   })
