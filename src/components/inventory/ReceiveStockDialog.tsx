@@ -30,14 +30,16 @@ import {
   useConvexLatestBatch,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { ComponentType, StorageLocation } from "@/hooks/convex";
+import type { ComponentType } from "@/hooks/convex";
 import { formatCurrency, cn } from "@/lib/utils";
 
 interface ReceiveStockDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  locations: StorageLocation[];
-  lowStockComponents: ComponentType[];
+  locations: Array<{ _id: Id<"storageLocations">; name: string; isDefault?: boolean }>;
+  lowStockComponents?: ComponentType[];
+  preselectedComponentId?: Id<"componentTypes">;
+  forceCreateMode?: boolean;
 }
 
 type Mode = 'select' | 'create-new';
@@ -46,7 +48,9 @@ export function ReceiveStockDialog({
   open,
   onOpenChange,
   locations,
-  lowStockComponents,
+  lowStockComponents = [],
+  preselectedComponentId,
+  forceCreateMode,
 }: ReceiveStockDialogProps) {
   // Mode state
   const [mode, setMode] = useState<Mode>('select');
@@ -114,8 +118,8 @@ export function ReceiveStockDialog({
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
-      setMode('select');
-      setSelectedComponentId(null);
+      setMode(forceCreateMode ? 'create-new' : 'select');
+      setSelectedComponentId(preselectedComponentId ?? null);
       setNewComponentCode("");
       setNewComponentName("");
       setNewComponentCategory("packaging");
@@ -128,7 +132,7 @@ export function ReceiveStockDialog({
       setPurchaseReference("");
       setPurchaseUrl("");
     }
-  }, [open]);
+  }, [open, preselectedComponentId, forceCreateMode]);
 
   const unitCost =
     quantity && totalCost
@@ -240,7 +244,15 @@ export function ReceiveStockDialog({
           {/* Mode: Select Existing or Create New */}
           {mode === 'select' ? (
             <>
-              {/* Component Selection - Button Grid */}
+              {/* Component Selection - Button Grid (skip when preselected) */}
+              {preselectedComponentId ? (
+                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                  <div className="text-sm text-slate-400">Receiving stock for:</div>
+                  <div className="font-semibold text-slate-100">
+                    {allComponents?.find(c => c._id === preselectedComponentId)?.name ?? "Loading..."}
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-2">
                 <Label>Select Component</Label>
                 {allComponents && allComponents.length > 0 ? (
@@ -295,8 +307,10 @@ export function ReceiveStockDialog({
                   </div>
                 )}
               </div>
+              )}
 
               {/* Create New Button */}
+              {!preselectedComponentId && (
               <Button
                 variant="outline"
                 onClick={() => setMode('create-new')}
@@ -305,6 +319,7 @@ export function ReceiveStockDialog({
                 <Plus className="h-4 w-4 mr-2" />
                 Create New Packaging Component
               </Button>
+              )}
             </>
           ) : (
             <>

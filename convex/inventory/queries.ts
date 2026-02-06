@@ -272,6 +272,9 @@ export const getInventoryReport = query({
               totalReserved: stock?.totalReserved ?? 0,
               available,
               weightedUnitCostIdr: stock?.weightedUnitCostIdr ?? 0,
+              latestSupplierName: stock?.latestSupplierName,
+              latestPurchaseUrl: stock?.latestPurchaseUrl,
+              latestUnitCostIdr: stock?.latestUnitCostIdr,
             };
           })
         );
