@@ -7,7 +7,7 @@ import { convexTest } from 'convex-test';
 import { expect, test, describe } from 'vitest';
 import { api } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
-import { createCustomer } from './helpers';
+import { createCustomer, createDefaultStorageLocation } from './helpers';
 
 // ============================================
 // Order Number Generation Tests (4 tests)
@@ -21,6 +21,7 @@ describe('Order Number Generation', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         {
           productName: 'Test Product',
@@ -44,6 +45,7 @@ describe('Order Number Generation', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         {
           productName: 'First Order',
@@ -68,6 +70,7 @@ describe('Order Number Generation', () => {
     // Create first order
     const firstOrderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Product 1', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -79,6 +82,7 @@ describe('Order Number Generation', () => {
     // Create second order
     const secondOrderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Product 2', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -90,6 +94,7 @@ describe('Order Number Generation', () => {
     // Create third order
     const thirdOrderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Product 3', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -106,6 +111,7 @@ describe('Order Number Generation', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test Product', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -227,6 +233,7 @@ describe('Status Transitions', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -240,9 +247,11 @@ describe('Status Transitions', () => {
     const t = convexTest(schema);
 
     const customerId = await createCustomer(t);
+    await createDefaultStorageLocation(t);
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -264,6 +273,7 @@ describe('Status Transitions', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -288,6 +298,7 @@ describe('Status Transitions', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -316,6 +327,7 @@ describe('Order Item Management', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Product A', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -382,6 +394,7 @@ describe('Order Item Management', () => {
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -405,9 +418,11 @@ describe('Order Item Management', () => {
     const t = convexTest(schema);
 
     const customerId = await createCustomer(t);
+    await createDefaultStorageLocation(t);
 
     const orderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Test', quantity: 1, unitPrice: 10000, unitCost: 5000 },
       ],
@@ -427,6 +442,7 @@ describe('Order Item Management', () => {
     // Change back to Draft - but we can't do that directly, so let's test with a fresh draft
     const draftOrderId = await t.mutation(api.orders.mutations.create, {
       customerId,
+      lowPriceConfirmed: true,
       items: [
         { productName: 'Draft Test', quantity: 1, unitPrice: 5000, unitCost: 2000 },
       ],
