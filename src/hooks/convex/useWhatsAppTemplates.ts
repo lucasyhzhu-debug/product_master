@@ -52,42 +52,25 @@ export function useConvexWhatsAppTemplateByCode(code: string | undefined) {
 export function useConvexUpdateWhatsAppTemplate() {
   const mutation = useMutation(api.whatsappTemplates.mutations.update);
 
-  return {
-    mutate: async (data: {
-      id: Id<"whatsappTemplates">;
-      templateId: string;
-      templateEn: string;
-      editedBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Template updated successfully");
-        return { success: true };
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : "Failed to update template";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      id: Id<"whatsappTemplates">;
-      templateId: string;
-      templateEn: string;
-      editedBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Template updated successfully");
-        return { success: true };
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : "Failed to update template";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    id: Id<"whatsappTemplates">;
+    templateId: string;
+    templateEn: string;
+    editedBy?: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Template updated successfully");
+      return { success: true };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to update template";
+      toast.error(message);
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -96,38 +79,23 @@ export function useConvexUpdateWhatsAppTemplate() {
 export function useConvexResetWhatsAppTemplate() {
   const mutation = useMutation(api.whatsappTemplates.mutations.resetToDefault);
 
-  return {
-    mutate: async (data: {
-      id: Id<"whatsappTemplates">;
-      editedBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Template reset to default");
-        return { success: true };
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : "Failed to reset template";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      id: Id<"whatsappTemplates">;
-      editedBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Template reset to default");
-        return { success: true };
-      } catch (error: unknown) {
-        const message =
-          error instanceof Error ? error.message : "Failed to reset template";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    id: Id<"whatsappTemplates">;
+    editedBy?: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Template reset to default");
+      return { success: true };
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reset template";
+      toast.error(message);
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**

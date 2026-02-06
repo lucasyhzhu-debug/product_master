@@ -88,28 +88,18 @@ export function useConvexPackagingSearch(query: string, limit?: number) {
 export function useConvexCreatePackaging() {
   const mutation = useMutation(api.packaging.mutations.create);
 
-  return {
-    mutate: async (data: PackagingCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create packaging"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: PackagingCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create packaging"));
-        throw error;
-      }
-    },
+  const execute = async (data: PackagingCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Packaging created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create packaging"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -118,38 +108,23 @@ export function useConvexCreatePackaging() {
 export function useConvexCopyPackagingVersion() {
   const mutation = useMutation(api.packaging.mutations.copyVersion);
 
-  return {
-    mutate: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      copyFromVersionId: Id<"packagingVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      copyFromVersionId: Id<"packagingVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    packagingRecipeId: Id<"packagingRecipes">;
+    copyFromVersionId: Id<"packagingVersions">;
+    versionName: string;
+    description?: string;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version copied successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to copy version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -158,34 +133,21 @@ export function useConvexCopyPackagingVersion() {
 export function useConvexCreatePackagingVersion() {
   const mutation = useMutation(api.packaging.mutations.createVersion);
 
-  return {
-    mutate: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      versionData: PackagingVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      versionData: PackagingVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    packagingRecipeId: Id<"packagingRecipes">;
+    versionData: PackagingVersionInput;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -194,32 +156,20 @@ export function useConvexCreatePackagingVersion() {
 export function useConvexUpdatePackagingTags() {
   const mutation = useMutation(api.packaging.mutations.updateTags);
 
-  return {
-    mutate: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      tagIds: Id<"tags">[];
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      tagIds: Id<"tags">[];
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    packagingRecipeId: Id<"packagingRecipes">;
+    tagIds: Id<"tags">[];
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Tags updated successfully");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update tags"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -228,32 +178,20 @@ export function useConvexUpdatePackagingTags() {
 export function useConvexUpdatePackagingName() {
   const mutation = useMutation(api.packaging.mutations.updateName);
 
-  return {
-    mutate: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      name: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Packaging name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      packagingRecipeId: Id<"packagingRecipes">;
-      name: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Packaging name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    packagingRecipeId: Id<"packagingRecipes">;
+    name: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Packaging name updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update name"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -262,28 +200,18 @@ export function useConvexUpdatePackagingName() {
 export function useConvexDeletePackaging() {
   const mutation = useMutation(api.packaging.mutations.remove);
 
-  return {
-    mutate: async (packagingRecipeId: Id<"packagingRecipes">) => {
-      try {
-        await mutation({ packagingRecipeId });
-        toast.success("Packaging deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete packaging"));
-        throw error;
-      }
-    },
-    mutateAsync: async (packagingRecipeId: Id<"packagingRecipes">) => {
-      try {
-        await mutation({ packagingRecipeId });
-        toast.success("Packaging deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete packaging"));
-        throw error;
-      }
-    },
+  const execute = async (packagingRecipeId: Id<"packagingRecipes">) => {
+    try {
+      await mutation({ packagingRecipeId });
+      toast.success("Packaging deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete packaging"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**

@@ -64,29 +64,17 @@ export function useConvexMaterialSearch(query: string, limit?: number) {
  */
 export function useConvexCreateMaterial() {
   const mutation = useMutation(api.materials.mutations.create);
-
-  return {
-    mutate: async (data: MaterialCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging material created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create packaging material"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: MaterialCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging material created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create packaging material"));
-        throw error;
-      }
-    },
+  const execute = async (data: MaterialCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Packaging material created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create packaging material"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -94,29 +82,17 @@ export function useConvexCreateMaterial() {
  */
 export function useConvexUpdateMaterial() {
   const mutation = useMutation(api.materials.mutations.update);
-
-  return {
-    mutate: async (data: { id: Id<"packagingMaterials"> } & Partial<MaterialCreateInput>) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging material updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update packaging material"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { id: Id<"packagingMaterials"> } & Partial<MaterialCreateInput>) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Packaging material updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update packaging material"));
-        throw error;
-      }
-    },
+  const execute = async (data: { id: Id<"packagingMaterials"> } & Partial<MaterialCreateInput>) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Packaging material updated successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update packaging material"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -124,27 +100,15 @@ export function useConvexUpdateMaterial() {
  */
 export function useConvexDeleteMaterial() {
   const mutation = useMutation(api.materials.mutations.remove);
-
-  return {
-    mutate: async (id: Id<"packagingMaterials">) => {
-      try {
-        await mutation({ id });
-        toast.success("Packaging material deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete packaging material"));
-        throw error;
-      }
-    },
-    mutateAsync: async (id: Id<"packagingMaterials">) => {
-      try {
-        await mutation({ id });
-        toast.success("Packaging material deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete packaging material"));
-        throw error;
-      }
-    },
+  const execute = async (id: Id<"packagingMaterials">) => {
+    try {
+      await mutation({ id });
+      toast.success("Packaging material deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete packaging material"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }
