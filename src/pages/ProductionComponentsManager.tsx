@@ -44,19 +44,20 @@ export function ProductionComponentsManager() {
   const updateComponentType = useConvexUpdateComponentType();
 
   // Form state for create dialog
-  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [gramsPerUnit, setGramsPerUnit] = useState("");
-  const [color, setColor] = useState("");
+  const [color, setColor] = useState("#6b7280");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Auto-generate code from name
+  const autoCode = name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30);
+
   const resetForm = () => {
-    setCode("");
     setName("");
     setUnitCost("");
     setGramsPerUnit("");
-    setColor("");
+    setColor("#6b7280");
   };
 
   const handleCreateOpen = () => {
@@ -66,18 +67,17 @@ export function ProductionComponentsManager() {
   };
 
   const handleEdit = (component: ComponentType) => {
-    setCode(component.code);
     setName(component.name);
     setUnitCost(component.unitCostIdr.toString());
     setGramsPerUnit(component.gramsPerUnit?.toString() || "");
-    setColor(component.color || "");
+    setColor(component.color || "#6b7280");
     setEditingComponent(component);
     setCreateDialogOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!code.trim() || !name.trim()) {
-      toast.error("Code and name are required");
+    if (!name.trim()) {
+      toast.error("Name is required");
       return;
     }
     if (!unitCost || Number(unitCost) <= 0) {
@@ -98,20 +98,20 @@ export function ProductionComponentsManager() {
           name: name.trim(),
           unitCostIdr: Number(unitCost),
           gramsPerUnit: gramsPerUnit ? Number(gramsPerUnit) : undefined,
-          color: color.trim() || undefined,
+          color: color || undefined,
         });
         toast.success("Production component updated");
       } else {
-        // Create new component
+        // Create new component with auto-generated code
         await createComponentType({
-          code: code.trim().toUpperCase(),
+          code: autoCode,
           name: name.trim(),
           category: "production",
           unitCostIdr: Number(unitCost),
           unit: "pcs",
           gramsPerUnit: gramsPerUnit ? Number(gramsPerUnit) : undefined,
           trackInventory: false, // Production components don't track inventory
-          color: color.trim() || undefined,
+          color: color || undefined,
           createdBy: user.name,
         });
         toast.success("Production component created");
@@ -309,31 +309,23 @@ export function ProductionComponentsManager() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="code">Code *</Label>
-                <Input
-                  id="code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="BIG_BALL"
-                  className="font-mono"
-                  disabled={!!editingComponent} // Cannot edit code
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Big Ball"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Big Ball"
+                autoFocus
+              />
+              {!editingComponent && name.trim() && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  Code: {autoCode}
+                </p>
+              )}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="unitCost">Unit Cost (IDR) *</Label>
                 <Input
@@ -343,7 +335,6 @@ export function ProductionComponentsManager() {
                   value={unitCost}
                   onChange={(e) => setUnitCost(e.target.value)}
                   placeholder="1000"
-                  className="font-mono"
                 />
               </div>
 
@@ -356,20 +347,22 @@ export function ProductionComponentsManager() {
                   value={gramsPerUnit}
                   onChange={(e) => setGramsPerUnit(e.target.value)}
                   placeholder="45"
-                  className="font-mono"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="color">Color (Hex)</Label>
-              <Input
-                id="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                placeholder="#ff6b6b"
-                className="font-mono"
-              />
+              <Label htmlFor="color">Color</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="color"
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-10 w-14 rounded-md border border-input cursor-pointer"
+                />
+                <span className="text-sm text-muted-foreground font-mono">{color}</span>
+              </div>
             </div>
           </div>
 

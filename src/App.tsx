@@ -19,9 +19,7 @@ import {
   VouchersManager,
   InventoryManager,
   LocationsManager,
-  ComponentTypesManager,
   ProductionComponentsManager,
-  PackagingComponentsManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -216,16 +214,6 @@ function App() {
               }
             />
 
-            {/* Component Types - Manager and Admin (legacy path) */}
-            <Route
-              path="inventory/components"
-              element={
-                <ProtectedRoute requiredPermission="canAccessInventory">
-                  <ComponentTypesManager />
-                </ProtectedRoute>
-              }
-            />
-
             {/* Production Components - Manager and Admin */}
             <Route
               path="components/production"
@@ -236,15 +224,9 @@ function App() {
               }
             />
 
-            {/* Packaging Components - Manager and Admin */}
-            <Route
-              path="components/packaging"
-              element={
-                <ProtectedRoute requiredPermission="canAccessInventory">
-                  <PackagingComponentsManager />
-                </ProtectedRoute>
-              }
-            />
+            {/* Redirects for deleted pages (bookmarked URLs) */}
+            <Route path="inventory/components" element={<Navigate to="/components/production" replace />} />
+            <Route path="components/packaging" element={<Navigate to="/inventory" replace />} />
           </Route>
 
           {/* Catch-all redirect to login */}
