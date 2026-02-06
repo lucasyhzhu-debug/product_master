@@ -40,7 +40,7 @@ export function MenuProductsManager() {
   // Sheet state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<(PosProduct | LegacyProduct) | null>(null);
-  const [prefilledSlot, setPrefilledSlot] = useState<1 | 2 | 3 | 4 | null>(null);
+  const [prefilledSlot, setPrefilledSlot] = useState<number | null>(null);
 
   // Delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function MenuProductsManager() {
   // Slot swap confirmation
   const [swapSlotData, setSwapSlotData] = useState<{
     productId: string;
-    slot: 1 | 2 | 3 | 4;
+    slot: number;
     currentProduct: PosProduct;
   } | null>(null);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
@@ -62,7 +62,7 @@ export function MenuProductsManager() {
     setIsFormOpen(true);
   };
 
-  const handleNewProductForSlot = (slot: 1 | 2 | 3 | 4) => {
+  const handleNewProductForSlot = (slot: number) => {
     setEditingProduct(null);
     setPrefilledSlot(slot);
     setIsFormOpen(true);
@@ -81,7 +81,7 @@ export function MenuProductsManager() {
   };
 
   // Find first empty slot for legacy product assignment
-  const getFirstEmptySlot = (): 1 | 2 | 3 | 4 | null => {
+  const getFirstEmptySlot = (): number | null => {
     const occupiedSlots = new Set(posProducts?.map((p) => p.posSlot) || []);
     for (const slot of [1, 2, 3, 4] as const) {
       if (!occupiedSlots.has(slot)) return slot;
@@ -364,7 +364,7 @@ export function MenuProductsManager() {
                     <Card
                       key={`empty-slot-${slotNumber}`}
                       className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
-                      onClick={() => handleNewProductForSlot(slotNumber as 1 | 2 | 3 | 4)}
+                      onClick={() => handleNewProductForSlot(slotNumber)}
                     >
                       <CardContent className="pt-6">
                         <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">

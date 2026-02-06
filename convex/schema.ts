@@ -60,21 +60,11 @@ export default defineSchema({
     unitCost: v.optional(v.number()), // COGS in IDR
     // PRD-5: Cached production summary for display
     cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
-    // PRD-8: POS slot assignment (1-4, or null for legacy)
+    // PRD-8: POS slot assignment (positive integer, or undefined for unassigned)
     // Only products with posSlot appear on POS. Unique per slot.
-    posSlot: v.optional(v.union(
-      v.literal(1),
-      v.literal(2),
-      v.literal(3),
-      v.literal(4)
-    )),
-    // BOM Refactor: Packaging POS slot (1-4) for packaging-only products
-    packagingPosSlot: v.optional(v.union(
-      v.literal(1),
-      v.literal(2),
-      v.literal(3),
-      v.literal(4)
-    )),
+    posSlot: v.optional(v.number()),
+    // BOM Refactor: Packaging POS slot (positive integer) for packaging-only products
+    packagingPosSlot: v.optional(v.number()),
     // BOM Refactor: Derived product type (food = has production components, packaging = only packaging)
     productType: v.optional(v.union(
       v.literal("food"),       // Has >= 1 production component
