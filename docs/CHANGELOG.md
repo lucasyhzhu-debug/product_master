@@ -13,6 +13,40 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-06 - Cleanup: Make componentTypeId Required, Remove Legacy productionUnitTypeId
+
+**Post-migration cleanup: Removed optional/legacy workarounds from menuProductComponents after FK migration completed in production.**
+
+### Summary
+The `componentTypeId` field on `menuProductComponents` was temporarily made optional to support a live production migration. With all records now migrated, this cleanup makes the field required again and removes the legacy `productionUnitTypeId` field and all associated null-check workarounds.
+
+### Changes
+
+**Schema (`convex/schema.ts`):**
+- `menuProductComponents.componentTypeId`: `v.optional(v.id)` reverted to `v.id("componentTypes")` (required)
+- `menuProductComponents.productionUnitTypeId`: Removed (legacy field, no longer needed)
+
+**Backend (5 files):**
+- `convex/menuProductComponents/queries.ts` - Removed 3 ternary null-check workarounds
+- `convex/menuProductComponents/mutations.ts` - Removed 1 ternary null-check in `updateCachedProductionSummary`
+- `convex/orders/helpers/productionRecords.ts` - Removed 2 `if (!componentTypeId) continue` guards
+- `convex/orders/mutations/orderCrud.ts` - Removed legacy `productionUnitTypeId` fallback, always uses componentType code-bridge
+- `convex/orders/queries.ts` - `getPackagingOrders`: Changed from `productionUnitType` to `componentType` enrichment
+- `convex/productionUnitTypes/mutations.ts` - Removed dead `menuProductComponents` scan
+
+**Frontend (1 file):**
+- `src/pages/PackagingView.tsx` - Updated `ProductionComponent` interface from `productionUnitType` to `componentType`
+
+**Deleted:**
+- `convex/migrations/updateMenuProductComponentsFK.ts` - Migration already ran on production
+
+### Notes
+- `orderItemProduction.productionUnitTypeId` is unchanged (still required, kitchen bridge intact)
+- No data migration needed (all records already have `componentTypeId` set)
+- Net: 28 insertions, 237 deletions
+
+---
+
 ## 2026-02-06 - BOM Refactor V3: Unified Component System
 
 **Major refactor: Full unified BOM with componentTypeId, packaging products, and clean slate migration.**
