@@ -233,11 +233,11 @@ export function MenuProductsManager() {
                 </div>
               </div>
 
-              {/* Ball Summary */}
-              {product.productionType && product.productionUnits && (
+              {/* BOM Summary */}
+              {product.cachedProductionSummary && (
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground">
-                    Production: {product.productionUnits} {product.productionType === 'bite_sized' ? 'bite-sized' : 'original'} balls
+                    Production: {product.cachedProductionSummary}
                   </p>
                 </div>
               )}

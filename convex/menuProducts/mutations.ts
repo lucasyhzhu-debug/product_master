@@ -162,12 +162,14 @@ export const create = mutation({
       grams = calculated.totalGrams; // Override provided grams if components specified
 
       // Auto-derive productType from component categories
-      const hasProductionComponent = args.components.some(async (comp) => {
-        const componentType = await ctx.db.get(comp.componentTypeId);
-        return componentType?.category === "production";
-      });
+      const hasProductionComponent = await Promise.all(
+        args.components.map(async (comp) => {
+          const componentType = await ctx.db.get(comp.componentTypeId);
+          return componentType?.category === "production";
+        })
+      );
 
-      productType = (await hasProductionComponent) ? "food" : "packaging";
+      productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
     }
 
     const id = await ctx.db.insert("menuProducts", {
