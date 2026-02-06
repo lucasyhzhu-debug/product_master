@@ -7,6 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/shared';
 import { ProductForm } from '@/components/menuProducts/ProductForm';
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
+import { POSPreviewPanel } from '@/components/menuProducts/POSPreviewPanel';
+import { DraggableProductCard } from '@/components/menuProducts/DraggableProductCard';
+import { SortableProductCard } from '@/components/menuProducts/SortableProductCard';
+import { DroppableSlotZone } from '@/components/menuProducts/DroppableSlotZone';
+import { DragOverlayCard } from '@/components/menuProducts/DragOverlayCard';
 import {
   useConvexPosProducts,
   useConvexAvailableProducts,
@@ -15,6 +22,9 @@ import {
   useConvexAssignToSlot,
   useConvexPackagingPosProducts,
   useConvexRemoveFromPackagingSlot,
+  useConvexAssignToPackagingSlot,
+  useConvexReorderSlots,
+  useConvexReorderPackagingSlots,
   type PosProduct,
   type AvailableProduct,
   type PackagingPosProduct,
@@ -34,8 +44,13 @@ export function MenuProductsManager() {
   const deleteMutation = useConvexDeleteMenuProduct();
   const removeFromSlotMutation = useConvexRemoveFromSlot();
   const assignSlotMutation = useConvexAssignToSlot();
-
   const removeFromPackagingSlotMutation = useConvexRemoveFromPackagingSlot();
+  const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
+  const reorderSlotsMutation = useConvexReorderSlots();
+  const reorderPackagingSlotsMutation = useConvexReorderPackagingSlots();
+
+  // DnD state
+  const [activeProduct, setActiveProduct] = useState<PosProduct | AvailableProduct | PackagingPosProduct | null>(null);
 
   // Sheet state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -56,6 +71,12 @@ export function MenuProductsManager() {
   const [showSwapDialog, setShowSwapDialog] = useState(false);
 
   const isLoading = loadingPos || loadingAvailable || loadingPackagingPos;
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+  );
 
   const handleNewProduct = () => {
     setEditingProduct(null);
@@ -99,11 +120,17 @@ export function MenuProductsManager() {
   const handleAssignToNextSlot = async (productId: string, type: 'food' | 'packaging') => {
     const nextSlot = getNextAvailableSlot(type);
     try {
-      await assignSlotMutation.mutateAsync({
-        id: productId as Id<"menuProducts">,
-        slot: nextSlot,
-      });
-      toast.success(`Product assigned to Slot ${nextSlot}`);
+      if (type === 'packaging') {
+        await assignPackagingSlotMutation.mutateAsync({
+          id: productId as Id<"menuProducts">,
+          slot: nextSlot,
+        });
+      } else {
+        await assignSlotMutation.mutateAsync({
+          id: productId as Id<"menuProducts">,
+          slot: nextSlot,
+        });
+      }
     } catch (error) {
       console.error('Failed to assign slot:', error);
     }
@@ -113,7 +140,6 @@ export function MenuProductsManager() {
     try {
       await removeFromSlotMutation.mutateAsync(id as Id<"menuProducts">);
     } catch (error) {
-      // Error already handled by mutation with toast
       console.error('Failed to remove from POS:', error);
     }
   };
@@ -128,7 +154,6 @@ export function MenuProductsManager() {
 
   const handleDelete = async () => {
     if (deleteId !== null) {
-      // Check if the product is fixed (cannot be deleted)
       const productToDelete = [...(posProducts || []), ...(availableProducts || [])].find(
         (p) => p._id === deleteId
       );
@@ -145,7 +170,6 @@ export function MenuProductsManager() {
         setShowDeleteDialog(false);
         setDeleteId(null);
       } catch (error) {
-        // Error already handled by mutation with toast
         console.error('Failed to delete:', error);
       }
     }
@@ -166,18 +190,146 @@ export function MenuProductsManager() {
     }
   };
 
+  // DnD handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    const { product } = event.active.data.current ?? {};
+    setActiveProduct(product ?? null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveProduct(null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveProduct(null);
+
+    if (!over || !active.data.current) return;
+
+    const { product, section: sourceSection } = active.data.current;
+    const overData = over.data.current ?? {};
+    const overId = String(over.id);
+
+    const isPackaging = product.productType === 'packaging';
+
+    // No-op: available → available
+    if (sourceSection === 'available' && (overId === 'available-zone' || overData.section === 'available')) return;
+    // No-op: same item
+    if (String(active.id) === overId) return;
+
+    try {
+      // === Drop on available zone = remove from POS ===
+      if (overId === 'available-zone') {
+        if (sourceSection === 'food-pos') {
+          await removeFromSlotMutation.mutateAsync(product._id as Id<"menuProducts">);
+          // Reorder remaining food products to compact slots
+          const remaining = posProducts?.filter(p => p._id !== product._id) ?? [];
+          if (remaining.length > 0) {
+            await reorderSlotsMutation.mutate(
+              remaining.map(p => p._id as Id<"menuProducts">)
+            );
+          }
+        } else if (sourceSection === 'packaging-pos') {
+          await removeFromPackagingSlotMutation.mutate(product._id as Id<"menuProducts">);
+          // Reorder remaining packaging products to compact slots
+          const remaining = packagingPosProducts?.filter(p => p._id !== product._id) ?? [];
+          if (remaining.length > 0) {
+            await reorderPackagingSlotsMutation.mutate(
+              remaining.map(p => p._id as Id<"menuProducts">)
+            );
+          }
+        }
+        return;
+      }
+
+      // === Reorder within food POS (sortable) ===
+      if (sourceSection === 'food-pos' && overData.section === 'food-pos' && posProducts) {
+        const oldIndex = posProducts.findIndex(p => p._id === product._id);
+        const newIndex = posProducts.findIndex(p => p._id === overId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const newOrder = arrayMove(posProducts, oldIndex, newIndex);
+          await reorderSlotsMutation.mutate(
+            newOrder.map(p => p._id as Id<"menuProducts">)
+          );
+        }
+        return;
+      }
+
+      // === Reorder within packaging POS (sortable) ===
+      if (sourceSection === 'packaging-pos' && overData.section === 'packaging-pos' && packagingPosProducts) {
+        const oldIndex = packagingPosProducts.findIndex(p => p._id === product._id);
+        const newIndex = packagingPosProducts.findIndex(p => p._id === overId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const newOrder = arrayMove(packagingPosProducts, oldIndex, newIndex);
+          await reorderPackagingSlotsMutation.mutate(
+            newOrder.map(p => p._id as Id<"menuProducts">)
+          );
+        }
+        return;
+      }
+
+      // === Available → Food POS (insert at position) ===
+      if (sourceSection === 'available' && !isPackaging) {
+        // Determine if dropping on an existing food POS item or the empty slot zone
+        const overSection = overData.section;
+        const overSlotType = overData.slotType;
+
+        if (overSection === 'food-pos' || overSlotType === 'food') {
+          // Insert at the position of the over item
+          const currentIds = posProducts?.map(p => p._id as Id<"menuProducts">) ?? [];
+          const overIndex = posProducts?.findIndex(p => p._id === overId) ?? -1;
+          const insertIndex = overIndex === -1 ? currentIds.length : overIndex;
+
+          currentIds.splice(insertIndex, 0, product._id as Id<"menuProducts">);
+          await reorderSlotsMutation.mutate(currentIds);
+        }
+        return;
+      }
+
+      // === Available → Packaging POS (insert at position) ===
+      if (sourceSection === 'available' && isPackaging) {
+        const overSection = overData.section;
+        const overSlotType = overData.slotType;
+
+        if (overSection === 'packaging-pos' || overSlotType === 'packaging') {
+          const currentIds = packagingPosProducts?.map(p => p._id as Id<"menuProducts">) ?? [];
+          const overIndex = packagingPosProducts?.findIndex(p => p._id === overId) ?? -1;
+          const insertIndex = overIndex === -1 ? currentIds.length : overIndex;
+
+          currentIds.splice(insertIndex, 0, product._id as Id<"menuProducts">);
+          await reorderPackagingSlotsMutation.mutate(currentIds);
+        }
+        return;
+      }
+
+      // Cross-type prevention
+      if (!isPackaging && overData.slotType === 'packaging') {
+        toast.error('Food products cannot be assigned to packaging slots');
+        return;
+      }
+      if (isPackaging && overData.slotType === 'food') {
+        toast.error('Packaging products cannot be assigned to food slots');
+        return;
+      }
+    } catch (error) {
+      console.error('Drag-drop operation failed:', error);
+    }
+  };
+
   const calculateMargin = (price: number, cogs: number | undefined) => {
     if (!cogs || cogs === 0) return null;
     return ((price - cogs) / price) * 100;
   };
 
   const renderProductCard = (
-    product: PosProduct | AvailableProduct,
+    product: PosProduct | AvailableProduct | PackagingPosProduct,
     showPosActions: boolean,
-    showAddToPos: boolean = false
+    showAddToPos: boolean = false,
+    showDelete: boolean = true
   ) => {
     const margin = calculateMargin(product.defaultPrice, product.unitCost);
     const isPosProduct = 'posSlot' in product;
+    const isPackagingPosProduct = 'packagingPosSlot' in product;
     const isFood = !product.productType || product.productType === 'food';
 
     return (
@@ -196,13 +348,18 @@ export function MenuProductsManager() {
                       Slot {(product as PosProduct).posSlot}
                     </Badge>
                   )}
+                  {isPackagingPosProduct && (
+                    <Badge variant="default" className="text-xs">
+                      Slot {(product as PackagingPosProduct).packagingPosSlot}
+                    </Badge>
+                  )}
                   {product.productType === "packaging" && (
                     <Badge className="text-xs bg-blue-500">Packaging</Badge>
                   )}
                   {isFood && (
                     <Badge className="text-xs bg-green-500">Food</Badge>
                   )}
-                  {product.isFixed && (
+                  {'isFixed' in product && product.isFixed && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
                       <Lock className="h-3 w-3" />
                       Fixed
@@ -213,7 +370,7 @@ export function MenuProductsManager() {
 
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
-                {isFood && (
+                {isFood && 'grams' in product && (
                   <div>
                     <p className="text-muted-foreground">Weight</p>
                     <p className="font-medium">{product.grams}g</p>
@@ -234,7 +391,7 @@ export function MenuProductsManager() {
               </div>
 
               {/* BOM Summary */}
-              {product.cachedProductionSummary && (
+              {'cachedProductionSummary' in product && product.cachedProductionSummary && (
                 <div className="mt-3 pt-3 border-t">
                   <p className="text-xs text-muted-foreground">
                     {product.cachedProductionSummary}
@@ -254,7 +411,7 @@ export function MenuProductsManager() {
               >
                 <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
-              {showPosActions && (
+              {showPosActions && isPosProduct && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -262,6 +419,18 @@ export function MenuProductsManager() {
                   className="text-orange-600 hover:text-orange-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
                   title="Remove from POS"
                   aria-label="Remove from POS"
+                >
+                  <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+              {showPosActions && isPackagingPosProduct && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveFromPackagingSlot(product._id)}
+                  className="text-orange-600 hover:text-orange-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
+                  title="Remove from Packaging POS"
+                  aria-label="Remove from Packaging POS"
                 >
                   <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
@@ -278,24 +447,26 @@ export function MenuProductsManager() {
                   <ArrowUp className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDeleteId(product._id);
-                  setShowDeleteDialog(true);
-                }}
-                className="text-destructive hover:text-destructive h-7 w-7 sm:h-8 sm:w-8 p-0"
-                aria-label="Delete product"
-                disabled={product.isFixed}
-                title={product.isFixed ? 'Fixed products cannot be deleted' : 'Delete product'}
-              >
-                {product.isFixed ? (
-                  <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
-                ) : (
-                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                )}
-              </Button>
+              {showDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDeleteId(product._id);
+                    setShowDeleteDialog(true);
+                  }}
+                  className="text-destructive hover:text-destructive h-7 w-7 sm:h-8 sm:w-8 p-0"
+                  aria-label="Delete product"
+                  disabled={'isFixed' in product && product.isFixed === true}
+                  title={'isFixed' in product && product.isFixed ? 'Fixed products cannot be deleted' : 'Delete product'}
+                >
+                  {'isFixed' in product && product.isFixed ? (
+                    <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                  ) : (
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -338,164 +509,185 @@ export function MenuProductsManager() {
           <p className="text-muted-foreground">Loading products...</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Food POS Menu Section (Dynamic Slots) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Food POS</span>
-                <Badge variant="secondary">
-                  {posProducts?.length || 0} products
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {/* Render occupied food POS slots */}
-                {posProducts?.map((product) => renderProductCard(product, true))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+            {/* Left: management cards */}
+            <div className="space-y-6">
+              {/* Food POS Menu Section (Dynamic Slots) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Food POS</span>
+                    <Badge variant="secondary">
+                      {posProducts?.length || 0} products
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SortableContext
+                    items={posProducts?.map(p => p._id) ?? []}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {posProducts?.map((product) => (
+                        <SortableProductCard
+                          key={product._id}
+                          id={product._id}
+                          product={product}
+                          section="food-pos"
+                        >
+                          {renderProductCard(product, true, false, true)}
+                        </SortableProductCard>
+                      ))}
 
-                {/* "+" card to add a new product to next slot */}
-                <Card
-                  className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
-                  onClick={() => handleNewProductForSlot(getNextAvailableSlot('food'))}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
-                      <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
-                        <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
-                      </div>
-                      <Badge variant="outline" className="mb-2 text-xs">
-                        Slot {getNextAvailableSlot('food')}
-                      </Badge>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Add Food Product
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Packaging POS Section (Dynamic Slots) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Packaging POS</span>
-                <Badge variant="secondary">
-                  {packagingPosProducts?.length || 0} products
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {/* Render occupied packaging POS slots */}
-                {packagingPosProducts?.map((product) => (
-                  <Card key={product._id} className="relative hover:shadow-md transition-shadow">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between gap-2 sm:gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 mb-2 flex-wrap">
-                            <h3 className="font-semibold truncate flex-1 min-w-0 text-sm sm:text-base">
-                              {product.name}
-                            </h3>
-                            <div className="flex gap-1 shrink-0">
-                              <Badge variant="default" className="text-xs">
-                                Slot {product.packagingPosSlot}
+                      {/* Empty slot drop zone for adding new products */}
+                      <DroppableSlotZone
+                        id={`food-slot-${getNextAvailableSlot('food')}`}
+                        slotType="food"
+                        slotNumber={getNextAvailableSlot('food')}
+                      >
+                        <Card
+                          className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => handleNewProductForSlot(getNextAvailableSlot('food'))}
+                        >
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
+                              <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
+                                <Plus className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                              </div>
+                              <Badge variant="outline" className="mb-2 text-xs">
+                                Slot {getNextAvailableSlot('food')}
                               </Badge>
-                              <Badge className="text-xs bg-blue-500">Packaging</Badge>
+                              <p className="text-xs sm:text-sm text-muted-foreground">
+                                Add Food Product
+                              </p>
                             </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
-                            <div>
-                              <p className="text-muted-foreground">Price</p>
-                              <p className="font-medium">{formatCurrency(product.defaultPrice)}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">COGS</p>
-                              <p className="font-medium">{formatCurrency(product.unitCost ?? 0)}</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(product)}
-                            className="text-primary hover:text-primary h-7 w-7 sm:h-8 sm:w-8 p-0"
-                            aria-label="Edit product"
-                          >
-                            <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveFromPackagingSlot(product._id)}
-                            className="text-orange-600 hover:text-orange-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
-                            title="Remove from Packaging POS"
-                            aria-label="Remove from Packaging POS"
-                          >
-                            <ArrowDown className="h-3 w-3 sm:h-4 sm:w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* "+" card to add a packaging product to next slot */}
-                <Card
-                  className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
-                  onClick={() => handleNewProductForSlot(getNextAvailableSlot('packaging'), 'packaging')}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
-                      <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
-                        <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
-                      </div>
-                      <Badge variant="outline" className="mb-2 text-xs">
-                        Slot {getNextAvailableSlot('packaging')}
-                      </Badge>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Add Packaging Product
-                      </p>
+                          </CardContent>
+                        </Card>
+                      </DroppableSlotZone>
                     </div>
+                  </SortableContext>
+                </CardContent>
+              </Card>
+
+              {/* Packaging POS Section (Dynamic Slots) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Packaging POS</span>
+                    <Badge variant="secondary">
+                      {packagingPosProducts?.length || 0} products
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <SortableContext
+                    items={packagingPosProducts?.map(p => p._id) ?? []}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {packagingPosProducts?.map((product) => (
+                        <SortableProductCard
+                          key={product._id}
+                          id={product._id}
+                          product={product}
+                          section="packaging-pos"
+                        >
+                          {renderProductCard(product, true, false, false)}
+                        </SortableProductCard>
+                      ))}
+
+                      {/* Empty slot drop zone for adding new packaging products */}
+                      <DroppableSlotZone
+                        id={`packaging-slot-${getNextAvailableSlot('packaging')}`}
+                        slotType="packaging"
+                        slotNumber={getNextAvailableSlot('packaging')}
+                      >
+                        <Card
+                          className="border-dashed border-2 hover:border-primary/50 hover:bg-accent/50 transition-colors cursor-pointer"
+                          onClick={() => handleNewProductForSlot(getNextAvailableSlot('packaging'), 'packaging')}
+                        >
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
+                              <div className="rounded-full bg-muted p-2 sm:p-3 mb-2 sm:mb-3">
+                                <Package className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                              </div>
+                              <Badge variant="outline" className="mb-2 text-xs">
+                                Slot {getNextAvailableSlot('packaging')}
+                              </Badge>
+                              <p className="text-xs sm:text-sm text-muted-foreground">
+                                Add Packaging Product
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </DroppableSlotZone>
+                    </div>
+                  </SortableContext>
+                </CardContent>
+              </Card>
+
+              {/* Available Products Section */}
+              <DroppableSlotZone id="available-zone" slotType="available">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>Available Products</span>
+                      <Badge variant="secondary">
+                        {availableProducts?.length || 0} products
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!availableProducts || availableProducts.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">
+                          No available products
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Products not assigned to any POS slot will appear here
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {availableProducts.map((product) => (
+                          <DraggableProductCard
+                            key={product._id}
+                            id={`available-${product._id}`}
+                            product={product}
+                            section="available"
+                          >
+                            {renderProductCard(product, false, true, true)}
+                          </DraggableProductCard>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              </div>
-            </CardContent>
-          </Card>
+              </DroppableSlotZone>
+            </div>
 
-          {/* Available Products Section (formerly Legacy) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Available Products</span>
-                <Badge variant="secondary">
-                  {availableProducts?.length || 0} products
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!availableProducts || availableProducts.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    No available products
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Products not assigned to any POS slot will appear here
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {availableProducts.map((product) => renderProductCard(product, false, true))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            {/* Right: POS Preview Panel (xl+ only) */}
+            <div className="hidden xl:block">
+              <div className="sticky top-6">
+                <POSPreviewPanel
+                  posProducts={posProducts}
+                  packagingPosProducts={packagingPosProducts}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DragOverlay dropAnimation={null}>
+            {activeProduct && <DragOverlayCard product={activeProduct} />}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* Product Form Sheet */}
