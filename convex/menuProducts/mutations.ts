@@ -227,6 +227,7 @@ export const update = mutation({
     defaultPrice: v.optional(v.number()),
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
+    productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     isActive: v.optional(v.boolean()),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
@@ -247,7 +248,7 @@ export const update = mutation({
     await requireRole(ctx, args.token, ["admin"]);
 
     // Extract token and id from args to avoid passing them to db.patch
-    const { id, token: _, components, ...updates } = args;
+    const { id, token: _, components, productType: _pt, ...updates } = args;
     void _; // Suppress unused variable warning
 
     const current = await ctx.db.get(id);
