@@ -114,8 +114,6 @@ export default defineSchema({
     componentTypeId: v.id("componentTypes"), // Unified BOM: production + packaging
     quantity: v.number(), // How many of this component per product
     sortOrder: v.number(), // Display ordering
-    // TEMPORARY: Allow legacy field so deploy passes while we strip it from production docs
-    productionUnitTypeId: v.optional(v.id("productionUnitTypes")),
   })
     .index("by_menu_product", ["menuProductId"])
     .index("by_component_type", ["componentTypeId"]),
