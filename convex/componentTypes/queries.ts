@@ -10,6 +10,37 @@ import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 
 /**
+ * Sort comparator: by sortOrder ascending, then by name ascending.
+ */
+function sortBySortOrderThenName<T extends { sortOrder: number; name: string }>(
+  a: T,
+  b: T
+): number {
+  if (a.sortOrder !== b.sortOrder) {
+    return a.sortOrder - b.sortOrder;
+  }
+  return a.name.localeCompare(b.name);
+}
+
+/**
+ * Enrich components with cost insights from inventory batches.
+ */
+async function enrichWithCostInsights<T extends { _id: Id<"componentTypes">; trackInventory: boolean }>(
+  ctx: QueryCtx,
+  components: T[]
+): Promise<(T & { costInsights: Awaited<ReturnType<typeof calculateCostInsights>> | undefined })[]> {
+  return await Promise.all(
+    components.map(async (component) => {
+      if (component.trackInventory) {
+        const costInsights = await calculateCostInsights(ctx, component._id);
+        return { ...component, costInsights };
+      }
+      return { ...component, costInsights: undefined };
+    })
+  );
+}
+
+/**
  * Calculate cost insights from inventory batches (for packaging components)
  */
 async function calculateCostInsights(
@@ -85,24 +116,8 @@ export const list = query({
       components = await ctx.db.query("componentTypes").collect();
     }
 
-    // Add cost insights for packaging components
-    const componentsWithInsights = await Promise.all(
-      components.map(async (component) => {
-        if (component.trackInventory) {
-          const costInsights = await calculateCostInsights(ctx, component._id);
-          return { ...component, costInsights };
-        }
-        return { ...component, costInsights: undefined };
-      })
-    );
-
-    // Sort by sortOrder, then by name
-    return componentsWithInsights.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    const componentsWithInsights = await enrichWithCostInsights(ctx, components);
+    return componentsWithInsights.sort(sortBySortOrderThenName);
   },
 });
 
@@ -148,24 +163,8 @@ export const getByCategory = query({
       components = components.filter((c) => c.isActive);
     }
 
-    // Add cost insights for packaging components
-    const componentsWithInsights = await Promise.all(
-      components.map(async (component) => {
-        if (component.trackInventory) {
-          const costInsights = await calculateCostInsights(ctx, component._id);
-          return { ...component, costInsights };
-        }
-        return { ...component, costInsights: undefined };
-      })
-    );
-
-    // Sort by sortOrder, then by name
-    return componentsWithInsights.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    const componentsWithInsights = await enrichWithCostInsights(ctx, components);
+    return componentsWithInsights.sort(sortBySortOrderThenName);
   },
 });
 
@@ -186,21 +185,8 @@ export const getInventoryTracked = query({
       components = components.filter((c) => c.isActive);
     }
 
-    // Add cost insights (all these components track inventory)
-    const componentsWithInsights = await Promise.all(
-      components.map(async (component) => {
-        const costInsights = await calculateCostInsights(ctx, component._id);
-        return { ...component, costInsights };
-      })
-    );
-
-    // Sort by sortOrder, then by name
-    return componentsWithInsights.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) {
-        return a.sortOrder - b.sortOrder;
-      }
-      return a.name.localeCompare(b.name);
-    });
+    const componentsWithInsights = await enrichWithCostInsights(ctx, components);
+    return componentsWithInsights.sort(sortBySortOrderThenName);
   },
 });
 
