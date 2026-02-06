@@ -55,8 +55,8 @@ if ($agent) {
     $segments += "${magenta}@${agent}${reset}"
 }
 
-# 4. Context: remaining% + used tokens / max tokens
-$segments += "${ctxColor}${remaining}% left${reset} ${dim}(${tokensK}k/${ctxSizeK}k)${reset}"
+# 4. Context: remaining% + used% + token counts
+$segments += "${ctxColor}${remaining}% left${reset}${dim}, ${reset}${ctxColor}${percent}% used${reset} ${dim}(${tokensK}k/${ctxSizeK}k)${reset}"
 
 # --- Join with separator and output ---
 $separator = "${dim} | ${reset}"
