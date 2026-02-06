@@ -22,8 +22,7 @@ export const createComponentAndReceiveStock = mutation({
     code: v.string(),
     name: v.string(),
     category: v.union(
-      v.literal("direct_packaging"),
-      v.literal("indirect_packaging")
+      v.literal("packaging")
     ),
     unit: v.string(),
     reorderPoint: v.optional(v.number()),
@@ -307,39 +306,42 @@ export const transferStock = mutation({
     // Update source location stock
     await updateComponentStock(ctx, args.componentTypeId, args.fromLocationId);
 
-    // Create new batch at destination with weighted average cost
-    const batchId = await ctx.db.insert("inventoryBatches", {
-      componentTypeId: args.componentTypeId,
-      locationId: args.toLocationId,
-      purchaseDate: Date.now(),
-      supplierName: `Transfer from ${fromLocation.name}`,
-      supplierBrand: undefined,
-      purchaseReference: transferId,
-      purchaseUrl: undefined,
-      quantityPurchased: args.quantity,
-      totalCostIdr: fifoResult.totalCost,
-      unitCostIdr: fifoResult.averageCost,
-      quantityRemaining: args.quantity,
-      quantityReserved: 0,
-      status: "active",
-      expiryDate: undefined,
-      createdBy: args.createdBy,
-      createdAt: Date.now(),
-    });
+    // Create per-batch copies at destination, preserving original supplier details
+    for (const consumption of fifoResult.consumptions) {
+      const sourceBatch = await ctx.db.get(consumption.batchId);
 
-    // Create transfer_in transaction
-    await ctx.db.insert("componentTransactions", {
-      componentTypeId: args.componentTypeId,
-      locationId: args.toLocationId,
-      batchId,
-      transactionType: "transfer_in",
-      quantity: args.quantity,
-      unitCostAtTime: fifoResult.averageCost,
-      transferId,
-      referenceNote: args.referenceNote,
-      createdBy: args.createdBy,
-      createdAt: Date.now(),
-    });
+      const destBatchId = await ctx.db.insert("inventoryBatches", {
+        componentTypeId: args.componentTypeId,
+        locationId: args.toLocationId,
+        purchaseDate: sourceBatch?.purchaseDate ?? Date.now(),
+        supplierName: sourceBatch?.supplierName ?? `Transfer from ${fromLocation.name}`,
+        supplierBrand: sourceBatch?.supplierBrand,
+        purchaseReference: transferId,
+        purchaseUrl: sourceBatch?.purchaseUrl,
+        quantityPurchased: consumption.quantity,
+        totalCostIdr: consumption.totalCost,
+        unitCostIdr: consumption.unitCost,
+        quantityRemaining: consumption.quantity,
+        quantityReserved: 0,
+        status: "active",
+        expiryDate: sourceBatch?.expiryDate,
+        createdBy: args.createdBy,
+        createdAt: Date.now(),
+      });
+
+      await ctx.db.insert("componentTransactions", {
+        componentTypeId: args.componentTypeId,
+        locationId: args.toLocationId,
+        batchId: destBatchId,
+        transactionType: "transfer_in",
+        quantity: consumption.quantity,
+        unitCostAtTime: consumption.unitCost,
+        transferId,
+        referenceNote: args.referenceNote,
+        createdBy: args.createdBy,
+        createdAt: Date.now(),
+      });
+    }
 
     // Update destination location stock
     await updateComponentStock(ctx, args.componentTypeId, args.toLocationId);
@@ -380,9 +382,21 @@ export const adjustStock = mutation({
 
     const quantityDelta = args.newQuantity - batch.quantityRemaining;
 
+    // Also update quantityPurchased when adjusting UP (prevents "150/100" display)
+    const newQuantityPurchased = args.newQuantity > batch.quantityPurchased
+      ? args.newQuantity
+      : batch.quantityPurchased;
+
+    // Scale totalCostIdr proportionally at same unit cost when adjusting up
+    const totalCostIdr = args.newQuantity > batch.quantityPurchased
+      ? batch.unitCostIdr * args.newQuantity
+      : batch.totalCostIdr;
+
     // Update batch
     await ctx.db.patch(args.batchId, {
       quantityRemaining: args.newQuantity,
+      quantityPurchased: newQuantityPurchased,
+      totalCostIdr,
       status: args.newQuantity === 0 ? "depleted" : "active",
     });
 

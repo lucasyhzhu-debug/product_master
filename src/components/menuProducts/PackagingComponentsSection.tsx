@@ -32,6 +32,7 @@ interface ComponentRow {
   id: string; // Temporary UI-only ID
   componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
+  consumptionStage?: "boxing" | "labeling" | "none";
 }
 
 interface PackagingComponentsSectionProps {
@@ -47,21 +48,20 @@ export function PackagingComponentsSection({
 }: PackagingComponentsSectionProps) {
   const { user } = useAuth();
 
-  // Query packaging components (both direct and indirect)
-  const directPackaging = useConvexComponentsByCategory("direct_packaging", true);
-  const indirectPackaging = useConvexComponentsByCategory("indirect_packaging", true);
+  // Query packaging components (unified category)
+  const packagingComponents = useConvexComponentsByCategory("packaging", true);
 
-  const isLoading = directPackaging === undefined || indirectPackaging === undefined;
+  const isLoading = packagingComponents === undefined;
 
-  // Combine both categories
+  // All packaging components sorted by name
   const allPackagingComponents = [
-    ...(directPackaging ?? []),
-    ...(indirectPackaging ?? []),
+    ...(packagingComponents ?? []),
   ].sort((a, b) => a.name.localeCompare(b.name));
 
   // Quick create state
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newComponentName, setNewComponentName] = useState('');
+  const [newComponentStage, setNewComponentStage] = useState<"boxing" | "labeling" | "none">("boxing");
   const [isCreating, setIsCreating] = useState(false);
   const createPackagingQuick = useConvexCreatePackagingQuick();
 
@@ -72,6 +72,7 @@ export function PackagingComponentsSection({
         id: Math.random().toString(36).substr(2, 9),
         componentTypeId: null,
         quantity: 1,
+        consumptionStage: "boxing",
       },
     ]);
   };
@@ -80,16 +81,26 @@ export function PackagingComponentsSection({
     onChange(components.filter((c) => c.id !== id));
   };
 
-  const handleUpdate = (id: string, field: 'componentTypeId' | 'quantity', value: any) => {
+  const handleUpdate = (id: string, field: 'componentTypeId' | 'quantity' | 'consumptionStage', value: unknown) => {
     onChange(
-      components.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              [field]: field === 'quantity' ? parseInt(value) || 0 : value,
-            }
-          : c
-      )
+      components.map((c) => {
+        if (c.id !== id) return c;
+
+        const updated = {
+          ...c,
+          [field]: field === 'quantity' ? parseInt(value as string) || 0 : value,
+        };
+
+        // When selecting a component, inherit its default consumption stage
+        if (field === 'componentTypeId' && !c.consumptionStage) {
+          const selectedComp = allPackagingComponents.find((ct) => ct._id === value);
+          if (selectedComp?.consumptionStage) {
+            updated.consumptionStage = selectedComp.consumptionStage as "boxing" | "labeling" | "none";
+          }
+        }
+
+        return updated;
+      })
     );
   };
 
@@ -108,23 +119,24 @@ export function PackagingComponentsSection({
     try {
       const newId = await createPackagingQuick({
         name: newComponentName.trim(),
+        consumptionStage: newComponentStage,
         createdBy: user.name,
       });
 
       toast.success('Packaging component created');
 
-      // Add the new component to the list
-      handleAdd();
-      // Set it as the selected component for the new row
-      const newRow = {
+      // Add the new component to the list with the selected consumption stage
+      const newRow: ComponentRow = {
         id: Math.random().toString(36).substr(2, 9),
         componentTypeId: newId as Id<"componentTypes">,
         quantity: 1,
+        consumptionStage: newComponentStage,
       };
       onChange([...components, newRow]);
 
       setShowCreateDialog(false);
       setNewComponentName('');
+      setNewComponentStage('boxing');
     } catch (error) {
       console.error('Failed to create packaging component:', error);
       // Toast is already shown by the mutation hook
@@ -179,74 +191,85 @@ export function PackagingComponentsSection({
               );
 
               return (
-                <div key={component.id} className="flex gap-1 sm:gap-2 items-start">
-                  <div className="flex-1 space-y-1 min-w-0">
-                    <Select
-                      value={component.componentTypeId ?? ''}
-                      onValueChange={(value) =>
-                        handleUpdate(component.id, 'componentTypeId', value as Id<"componentTypes">)
-                      }
+                <div key={component.id} className="space-y-1.5">
+                  <div className="flex gap-1 sm:gap-2 items-start">
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <Select
+                        value={component.componentTypeId ?? ''}
+                        onValueChange={(value) =>
+                          handleUpdate(component.id, 'componentTypeId', value as Id<"componentTypes">)
+                        }
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="text-xs sm:text-sm">
+                          <SelectValue placeholder="Select packaging item" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allPackagingComponents.map((ct) => (
+                            <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm">
+                              {ct.name} ({formatCurrency(ct.unitCostIdr)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedComponent && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatCurrency(selectedComponent.unitCostIdr)} x {component.quantity} = {formatCurrency(selectedComponent.unitCostIdr * component.quantity)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="w-16 sm:w-20">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={component.quantity}
+                        onChange={(e) => handleUpdate(component.id, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        className="text-xs sm:text-sm"
+                        disabled={disabled}
+                      />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemove(component.id)}
+                      className="h-9 w-9 shrink-0"
                       disabled={disabled}
                     >
-                      <SelectTrigger className="text-xs sm:text-sm">
-                        <SelectValue placeholder="Select packaging item" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {directPackaging && directPackaging.length > 0 && (
-                          <>
-                            <SelectItem value="direct-header" disabled className="font-semibold text-xs">
-                              Direct Packaging
-                            </SelectItem>
-                            {directPackaging.map((ct) => (
-                              <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm pl-6">
-                                {ct.name} ({formatCurrency(ct.unitCostIdr)})
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                        {indirectPackaging && indirectPackaging.length > 0 && (
-                          <>
-                            <SelectItem value="indirect-header" disabled className="font-semibold text-xs">
-                              Indirect Packaging
-                            </SelectItem>
-                            {indirectPackaging.map((ct) => (
-                              <SelectItem key={ct._id} value={ct._id} className="text-xs sm:text-sm pl-6">
-                                {ct.name} ({formatCurrency(ct.unitCostIdr)})
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {selectedComponent && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency(selectedComponent.unitCostIdr)} × {component.quantity} = {formatCurrency(selectedComponent.unitCostIdr * component.quantity)}
-                      </p>
-                    )}
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
+                    </Button>
                   </div>
 
-                  <div className="w-16 sm:w-20">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={component.quantity}
-                      onChange={(e) => handleUpdate(component.id, 'quantity', e.target.value)}
-                      placeholder="Qty"
-                      className="text-xs sm:text-sm"
-                      disabled={disabled}
-                    />
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemove(component.id)}
-                    className="h-9 w-9 shrink-0"
-                    disabled={disabled}
-                  >
-                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
-                  </Button>
+                  {/* Consumption Stage Selector */}
+                  {component.componentTypeId && (
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Consumed at:</span>
+                      <div className="flex gap-1">
+                        {(["boxing", "labeling", "none"] as const).map((stage) => (
+                          <button
+                            key={stage}
+                            type="button"
+                            onClick={() => handleUpdate(component.id, 'consumptionStage', stage)}
+                            disabled={disabled}
+                            className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                              (component.consumptionStage ?? 'boxing') === stage
+                                ? stage === 'boxing'
+                                  ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                  : stage === 'labeling'
+                                    ? 'bg-purple-100 border-purple-300 text-purple-700'
+                                    : 'bg-gray-100 border-gray-300 text-gray-600'
+                                : 'bg-transparent border-muted text-muted-foreground hover:border-muted-foreground/50'
+                            }`}
+                          >
+                            {stage === 'boxing' ? 'Boxing' : stage === 'labeling' ? 'Labeling' : 'None'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -279,6 +302,34 @@ export function PackagingComponentsSection({
                 autoFocus
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>Consumed At</Label>
+              <div className="flex gap-2">
+                {(["boxing", "labeling", "none"] as const).map((stage) => (
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => setNewComponentStage(stage)}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-colors ${
+                      newComponentStage === stage
+                        ? stage === 'boxing'
+                          ? 'border-blue-400 bg-blue-50 text-blue-700'
+                          : stage === 'labeling'
+                            ? 'border-purple-400 bg-purple-50 text-purple-700'
+                            : 'border-gray-400 bg-gray-50 text-gray-600'
+                        : 'border-muted hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    {stage === 'boxing' ? 'Boxing' : stage === 'labeling' ? 'Labeling' : 'None'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                When is this component consumed during the order workflow?
+              </p>
+            </div>
+
             <p className="text-xs text-muted-foreground">
               Cost will default to Rp 0 until you receive stock in the Inventory Manager.
             </p>
@@ -290,6 +341,7 @@ export function PackagingComponentsSection({
               onClick={() => {
                 setShowCreateDialog(false);
                 setNewComponentName('');
+                setNewComponentStage('boxing');
               }}
               disabled={isCreating}
             >

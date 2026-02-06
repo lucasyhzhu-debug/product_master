@@ -134,8 +134,7 @@ export const getByCategory = query({
   args: {
     category: v.union(
       v.literal("production"),
-      v.literal("direct_packaging"),
-      v.literal("indirect_packaging")
+      v.literal("packaging")
     ),
     activeOnly: v.optional(v.boolean()),
   },

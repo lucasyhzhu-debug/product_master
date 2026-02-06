@@ -25,6 +25,7 @@ export interface MenuProductCreateInput {
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
     quantity: number;
+    consumptionStage?: "boxing" | "labeling" | "none";
   }>;
 }
 
@@ -40,6 +41,7 @@ export interface MenuProductUpdateInput {
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
     quantity: number;
+    consumptionStage?: "boxing" | "labeling" | "none";
   }>;
 }
 
@@ -161,9 +163,10 @@ export interface PosProduct {
   unitCost?: number;
   productionType?: string;
   productionUnits?: number;
-  posSlot: 1 | 2 | 3 | 4;
+  posSlot: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
+  cachedProductionSummary?: string;
 }
 
 export interface PackagingPosProduct {
@@ -172,7 +175,7 @@ export interface PackagingPosProduct {
   name: string;
   defaultPrice: number;
   unitCost?: number;
-  packagingPosSlot: 1 | 2 | 3 | 4;
+  packagingPosSlot: number;
   productType: "packaging";
 }
 
@@ -190,9 +193,10 @@ export function useConvexPosProducts() {
     unitCost: p.unitCost,
     productionType: p.productionType,
     productionUnits: p.productionUnits,
-    posSlot: p.posSlot as 1 | 2 | 3 | 4,
+    posSlot: p.posSlot as number,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
+    cachedProductionSummary: p.cachedProductionSummary,
   }));
 
   return {
@@ -202,10 +206,10 @@ export function useConvexPosProducts() {
 }
 
 /**
- * PRD-8 Phase 2: List legacy products (not on POS).
- * Returns products with posSlot undefined.
+ * List available products (not assigned to any POS slot).
+ * Returns products without posSlot or packagingPosSlot.
  */
-export interface LegacyProduct {
+export interface AvailableProduct {
   _id: string;
   code: string;
   name: string;
@@ -216,14 +220,17 @@ export interface LegacyProduct {
   productionUnits?: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
+  cachedProductionSummary?: string;
 }
 
-export function useConvexLegacyProducts() {
-  const data = useQuery(api.menuProducts.queries.listLegacyProducts);
+/** @deprecated Use AvailableProduct instead */
+export type LegacyProduct = AvailableProduct;
+
+export function useConvexAvailableProducts() {
+  const data = useQuery(api.menuProducts.queries.listAvailableProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
 
-  // Transform to POS-compatible format
-  const legacyProducts = data.map((p): LegacyProduct => ({
+  const availableProducts = data.map((p): AvailableProduct => ({
     _id: p._id as unknown as string,
     code: p.code,
     name: p.name,
@@ -234,12 +241,18 @@ export function useConvexLegacyProducts() {
     productionUnits: p.productionUnits,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
+    cachedProductionSummary: p.cachedProductionSummary,
   }));
 
   return {
-    data: legacyProducts,
+    data: availableProducts,
     isLoading: false,
   };
+}
+
+/** @deprecated Use useConvexAvailableProducts instead */
+export function useConvexLegacyProducts() {
+  return useConvexAvailableProducts();
 }
 
 // ============================================
@@ -380,7 +393,7 @@ export function useConvexAssignToSlot() {
   const { user } = useAuth();
 
   return {
-    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+    mutate: async (data: { id: Id<"menuProducts">; slot: number }) => {
       if (!user?.token) {
         toast.error("Session expired. Please log in again.");
         throw new Error("Not authenticated");
@@ -395,7 +408,7 @@ export function useConvexAssignToSlot() {
         throw error;
       }
     },
-    mutateAsync: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
+    mutateAsync: async (data: { id: Id<"menuProducts">; slot: number }) => {
       if (!user?.token) {
         toast.error("Session expired. Please log in again.");
         throw new Error("Not authenticated");
@@ -473,7 +486,7 @@ export function useConvexPackagingPosProducts() {
     name: p.name,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
-    packagingPosSlot: p.packagingPosSlot as 1 | 2 | 3 | 4,
+    packagingPosSlot: p.packagingPosSlot as number,
     productType: "packaging",
   }));
 
@@ -492,22 +505,25 @@ export function useConvexAssignToPackagingSlot() {
   const mutation = useMutation(api.menuProducts.mutations.assignToPackagingSlot);
   const { user } = useAuth();
 
+  const execute = async (data: { id: Id<"menuProducts">; slot: number }) => {
+    if (!user?.token) {
+      toast.error("Session expired. Please log in again.");
+      throw new Error("Not authenticated");
+    }
+    try {
+      const id = await mutation({ ...data, token: user.token });
+      toast.success(`Assigned to packaging slot ${data.slot}`);
+      return id;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to assign packaging slot";
+      toast.error(message);
+      throw error;
+    }
+  };
+
   return {
-    mutate: async (data: { id: Id<"menuProducts">; slot: 1 | 2 | 3 | 4 }) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
-      try {
-        const id = await mutation({ ...data, token: user.token });
-        toast.success(`Assigned to packaging slot ${data.slot}`);
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to assign packaging slot";
-        toast.error(message);
-        throw error;
-      }
-    },
+    mutate: execute,
+    mutateAsync: execute,
   };
 }
 

@@ -81,57 +81,55 @@ export function calculateLineCost(
  *
  * Breakdown by component category:
  * - production: Kitchen-produced units (balls)
- * - direct_packaging: Auto-included packaging (boxes, stickers, wrappers)
- * - indirect_packaging: Separate line items (brochures, bags) - not included in COGS
+ * - packaging: All packaging items (boxes, stickers, brochures, bags)
+ *
+ * ALL packaging is included in COGS (business decision confirmed by user).
  *
  * @param components - Array of { unitCostIdr, category, quantity }
- * @returns Breakdown: { production, directPackaging, indirectPackaging, total }
+ * @returns Breakdown: { production, packaging, total }
  *
  * @example
  * // Product with 3 Mid Balls + packaging
  * const components = [
- *   { unitCostIdr: 3000, category: "production", quantity: 3 },        // 9000
- *   { unitCostIdr: 500, category: "direct_packaging", quantity: 1 },   // 500
- *   { unitCostIdr: 50, category: "direct_packaging", quantity: 3 },    // 150
+ *   { unitCostIdr: 3000, category: "production", quantity: 3 },   // 9000
+ *   { unitCostIdr: 500, category: "packaging", quantity: 1 },     // 500
+ *   { unitCostIdr: 50, category: "packaging", quantity: 3 },      // 150
  * ];
  * const cogs = calculateMenuProductCOGS(components);
- * // => { production: 9000, directPackaging: 650, indirectPackaging: 0, total: 9650 }
+ * // => { production: 9000, packaging: 650, total: 9650 }
  */
 export function calculateMenuProductCOGS(
   components: Array<{
     unitCostIdr: number;
-    category: "production" | "direct_packaging" | "indirect_packaging";
+    category: string; // "production" | "packaging" (also accepts legacy "direct_packaging" | "indirect_packaging")
     quantity: number;
   }>
 ): {
   production: number;
-  directPackaging: number;
-  indirectPackaging: number;
+  packaging: number;
   total: number;
 } {
   let production = 0;
-  let directPackaging = 0;
-  let indirectPackaging = 0;
+  let packaging = 0;
 
   for (const component of components) {
     const lineCost = component.unitCostIdr * component.quantity;
 
     if (component.category === "production") {
       production += lineCost;
-    } else if (component.category === "direct_packaging") {
-      directPackaging += lineCost;
-    } else if (component.category === "indirect_packaging") {
-      indirectPackaging += lineCost;
+    } else {
+      // All non-production categories are packaging
+      // Handles "packaging", "direct_packaging", "indirect_packaging"
+      packaging += lineCost;
     }
   }
 
-  // Total COGS = production + direct packaging (indirect is sold separately)
-  const total = production + directPackaging;
+  // Total COGS = production + packaging (ALL packaging included)
+  const total = production + packaging;
 
   return {
     production,
-    directPackaging,
-    indirectPackaging,
+    packaging,
     total,
   };
 }

@@ -215,7 +215,7 @@ export type LowStockAlert = {
     _id: string;
     code: string;
     name: string;
-    category: "production" | "direct_packaging" | "indirect_packaging";
+    category: "production" | "packaging";
     unitCostIdr: number;
     unit: string;
     trackInventory: boolean;

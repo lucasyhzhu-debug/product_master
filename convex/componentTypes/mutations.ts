@@ -16,8 +16,7 @@ export const create = mutation({
     name: v.string(),
     category: v.union(
       v.literal("production"),
-      v.literal("direct_packaging"),
-      v.literal("indirect_packaging")
+      v.literal("packaging")
     ),
     unitCostIdr: v.number(),
     unit: v.string(),
@@ -54,11 +53,7 @@ export const create = mutation({
     }
 
     // Validate: packaging components must track inventory
-    if (
-      (args.category === "direct_packaging" ||
-        args.category === "indirect_packaging") &&
-      !args.trackInventory
-    ) {
+    if (args.category === "packaging" && !args.trackInventory) {
       throw new Error("Packaging components must track inventory");
     }
 
@@ -77,9 +72,7 @@ export const create = mutation({
 
     // Default consumptionStage based on category
     const consumptionStage = args.consumptionStage ??
-      (args.category === "direct_packaging" ? "boxing" :
-       args.category === "indirect_packaging" ? "none" :
-       "none");
+      (args.category === "packaging" ? "boxing" : "none");
 
     const componentId = await ctx.db.insert("componentTypes", {
       code: args.code,
@@ -217,14 +210,16 @@ export const remove = mutation({
 export const createPackagingQuick = mutation({
   args: {
     name: v.string(),
-    category: v.optional(v.union(
-      v.literal("direct_packaging"),
-      v.literal("indirect_packaging")
+    category: v.optional(v.literal("packaging")),
+    consumptionStage: v.optional(v.union(
+      v.literal("boxing"),
+      v.literal("labeling"),
+      v.literal("none")
     )),
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
-    const category = args.category ?? "direct_packaging";
+    const category = args.category ?? "packaging";
 
     // Auto-generate code from name
     const baseCode = `PKG_${args.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30)}`;
@@ -257,7 +252,7 @@ export const createPackagingQuick = mutation({
       trackInventory: true,
       reorderPoint: undefined,
       reorderQuantity: undefined,
-      consumptionStage: category === "direct_packaging" ? "boxing" : "none",
+      consumptionStage: args.consumptionStage ?? "boxing",
       alarmPercentage: undefined,
       color: undefined,
       sortOrder: maxSort + 1,

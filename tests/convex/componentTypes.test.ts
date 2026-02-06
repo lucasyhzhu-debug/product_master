@@ -20,7 +20,7 @@ async function createComponentType(
   overrides: {
     code?: string;
     name?: string;
-    category?: "production" | "direct_packaging" | "indirect_packaging";
+    category?: "production" | "packaging" | "direct_packaging" | "indirect_packaging";
     unitCostIdr?: number;
     unit?: string;
     gramsPerUnit?: number;
@@ -32,7 +32,7 @@ async function createComponentType(
     return await ctx.db.insert("componentTypes", {
       code: overrides.code ?? "TEST_COMP",
       name: overrides.name ?? "Test Component",
-      category: overrides.category ?? "direct_packaging",
+      category: overrides.category ?? "packaging",
       unitCostIdr: overrides.unitCostIdr ?? 500,
       unit: overrides.unit ?? "pcs",
       gramsPerUnit: overrides.gramsPerUnit,
@@ -72,13 +72,13 @@ describe("Component Types CRUD", () => {
     expect(component?.trackInventory).toBe(false);
   });
 
-  test("can create a direct packaging component type", async () => {
+  test("can create a packaging component type", async () => {
     const t = convexTest(schema);
 
     const id = await createComponentType(t, {
       code: "LONG_BOX",
       name: "Long Box",
-      category: "direct_packaging",
+      category: "packaging",
       unitCostIdr: 5000,
       trackInventory: true,
       consumptionStage: "boxing",
@@ -86,26 +86,26 @@ describe("Component Types CRUD", () => {
 
     const component = await t.run(async (ctx) => ctx.db.get(id));
 
-    expect(component?.category).toBe("direct_packaging");
+    expect(component?.category).toBe("packaging");
     expect(component?.trackInventory).toBe(true);
     expect(component?.consumptionStage).toBe("boxing");
   });
 
-  test("can create an indirect packaging component type", async () => {
+  test("can create a packaging component with labeling stage", async () => {
     const t = convexTest(schema);
 
     const id = await createComponentType(t, {
-      code: "BROCHURE",
-      name: "Brochure",
-      category: "indirect_packaging",
+      code: "STICKER",
+      name: "Sticker",
+      category: "packaging",
       unitCostIdr: 200,
-      consumptionStage: "none",
+      consumptionStage: "labeling",
     });
 
     const component = await t.run(async (ctx) => ctx.db.get(id));
 
-    expect(component?.category).toBe("indirect_packaging");
-    expect(component?.consumptionStage).toBe("none");
+    expect(component?.category).toBe("packaging");
+    expect(component?.consumptionStage).toBe("labeling");
   });
 
   test("can update component fields", async () => {
@@ -163,8 +163,8 @@ describe("Component Types Category Filtering", () => {
 
     // Create one of each category
     await createComponentType(t, { code: "P1", name: "Prod 1", category: "production", gramsPerUnit: 80, trackInventory: false });
-    await createComponentType(t, { code: "D1", name: "Direct 1", category: "direct_packaging" });
-    await createComponentType(t, { code: "I1", name: "Indirect 1", category: "indirect_packaging", consumptionStage: "none" });
+    await createComponentType(t, { code: "D1", name: "Box 1", category: "packaging", consumptionStage: "boxing" });
+    await createComponentType(t, { code: "I1", name: "Sticker 1", category: "packaging", consumptionStage: "labeling" });
 
     const productionComponents = await t.run(async (ctx) => {
       return await ctx.db
@@ -179,12 +179,12 @@ describe("Component Types Category Filtering", () => {
     const packagingComponents = await t.run(async (ctx) => {
       return await ctx.db
         .query("componentTypes")
-        .filter((q) => q.eq(q.field("category"), "direct_packaging"))
+        .filter((q) => q.eq(q.field("category"), "packaging"))
         .collect();
     });
 
-    expect(packagingComponents.length).toBe(1);
-    expect(packagingComponents[0].code).toBe("D1");
+    expect(packagingComponents.length).toBe(2);
+    expect(packagingComponents.map(c => c.code).sort()).toEqual(["D1", "I1"]);
   });
 
   test("can filter inventory-tracked components", async () => {
@@ -225,7 +225,7 @@ describe("Menu Product Components BOM", () => {
     const longBoxId = await createComponentType(t, {
       code: "LONG_BOX",
       name: "Long Box",
-      category: "direct_packaging",
+      category: "packaging",
       unitCostIdr: 5000,
       consumptionStage: "boxing",
     });
@@ -278,13 +278,13 @@ describe("Menu Product Components BOM", () => {
     expect(components[1].componentTypeId).toBe(longBoxId);
   });
 
-  test("COGS is sum of production + direct packaging", async () => {
+  test("COGS is sum of production + all packaging", async () => {
     const t = convexTest(schema);
 
     // Simulate COGS calculation for ORIGINAL product
     // 1 Big Ball @ 11231 = 11231 (production)
-    // 1 Long Box @ 5000 = 5000 (direct_packaging)
-    // 1 Sticker @ 3000 = 3000 (direct_packaging)
+    // 1 Long Box @ 5000 = 5000 (packaging)
+    // 1 Sticker @ 3000 = 3000 (packaging)
     // Total COGS = 11231 + 5000 + 3000 = 19231
 
     const bigBallId = await createComponentType(t, {
@@ -292,11 +292,11 @@ describe("Menu Product Components BOM", () => {
       gramsPerUnit: 80, unitCostIdr: 11231, trackInventory: false,
     });
     const boxId = await createComponentType(t, {
-      code: "LB", name: "Long Box", category: "direct_packaging",
+      code: "LB", name: "Long Box", category: "packaging",
       unitCostIdr: 5000, consumptionStage: "boxing",
     });
     const stickerId = await createComponentType(t, {
-      code: "ST", name: "Sticker", category: "direct_packaging",
+      code: "ST", name: "Sticker", category: "packaging",
       unitCostIdr: 3000, consumptionStage: "labeling",
     });
 
@@ -311,19 +311,19 @@ describe("Menu Product Components BOM", () => {
 
     // Calculate COGS like the system does
     let productionCost = 0;
-    let directPackagingCost = 0;
+    let packagingCost = 0;
 
     const quantities = [1, 1, 1]; // 1 of each
     types.forEach((type, i) => {
       if (!type) return;
       const lineCost = type.unitCostIdr * quantities[i];
       if (type.category === "production") productionCost += lineCost;
-      if (type.category === "direct_packaging") directPackagingCost += lineCost;
+      else packagingCost += lineCost; // All non-production is packaging
     });
 
     expect(productionCost).toBe(11231);
-    expect(directPackagingCost).toBe(8000);
-    expect(productionCost + directPackagingCost).toBe(19231);
+    expect(packagingCost).toBe(8000);
+    expect(productionCost + packagingCost).toBe(19231);
   });
 });
 
