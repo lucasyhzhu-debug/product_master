@@ -128,6 +128,40 @@ export function recalculateFinalTotal(
 }
 
 // ============================================
+// Package Status Calculation
+// ============================================
+
+/**
+ * Calculate the overall package status for an order item.
+ * Pure function used by packaging mutations (markPackagePacked, unmarkPackagePacked,
+ * fillPackage, unfillPackage, markAllItemPackagesPacked).
+ *
+ * @param ballsFilled - Number of balls filled so far
+ * @param quantity - Number of packages (order quantity)
+ * @param ballsPerPackage - Production units per package
+ * @param packedIndicesCount - Number of packages marked as packed
+ * @returns Package status: "empty" | "filling" | "filled" | "packed"
+ */
+export function calculatePackageStatus(
+  ballsFilled: number,
+  quantity: number,
+  ballsPerPackage: number,
+  packedIndicesCount: number
+): "empty" | "filling" | "filled" | "packed" {
+  const totalBallsRequired = quantity * ballsPerPackage;
+  const allPackagesPacked = packedIndicesCount >= quantity;
+
+  if (allPackagesPacked) {
+    return "packed";
+  } else if (ballsFilled >= totalBallsRequired) {
+    return "filled";
+  } else if (ballsFilled > 0) {
+    return "filling";
+  }
+  return "empty";
+}
+
+// ============================================
 // Production Unit Calculations
 // ============================================
 

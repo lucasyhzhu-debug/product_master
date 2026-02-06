@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals } from "../helpers";
+import { calculateLineTotals, generateOrderNumber as formatOrderNumber } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -59,9 +59,8 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
     }
   }
 
-  // Generate next sequence
-  const nextSequence = maxSequence + 1;
-  const orderNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
+  // Use pure helper for format string generation
+  const orderNumber = formatOrderNumber(now, maxSequence);
 
   // Verify uniqueness (handles race condition)
   const existing = await ctx.db
@@ -71,8 +70,7 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
 
   if (existing) {
     // Rare race condition - retry with incremented sequence
-    const retrySequence = nextSequence + 1;
-    return `${prefix}${String(retrySequence).padStart(3, "0")}`;
+    return formatOrderNumber(now, maxSequence + 1);
   }
 
   return orderNumber;
