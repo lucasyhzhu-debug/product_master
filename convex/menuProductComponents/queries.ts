@@ -17,9 +17,7 @@ export const getByMenuProduct = query({
     // Enrich with component type details
     const enrichedComponents = await Promise.all(
       components.map(async (component) => {
-        const componentType = component.componentTypeId
-          ? await ctx.db.get(component.componentTypeId)
-          : null;
+        const componentType = await ctx.db.get(component.componentTypeId);
         return {
           ...component,
           componentType,
@@ -51,9 +49,7 @@ export const getByMenuProductIds = query({
         // Enrich with component type details
         const enrichedComponents = await Promise.all(
           components.map(async (component) => {
-            const componentType = component.componentTypeId
-              ? await ctx.db.get(component.componentTypeId)
-              : null;
+            const componentType = await ctx.db.get(component.componentTypeId);
             return {
               ...component,
               componentType,
@@ -85,9 +81,7 @@ export const getById = query({
     const component = await ctx.db.get(args.id);
     if (!component) return null;
 
-    const componentType = component.componentTypeId
-      ? await ctx.db.get(component.componentTypeId)
-      : null;
+    const componentType = await ctx.db.get(component.componentTypeId);
     return {
       ...component,
       componentType,

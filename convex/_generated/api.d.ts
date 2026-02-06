@@ -35,8 +35,8 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as migrations_bomRefactorV2 from "../migrations/bomRefactorV2.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
-import type * as migrations_updateMenuProductComponentsFK from "../migrations/updateMenuProductComponentsFK.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
@@ -113,8 +113,8 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "migrations/bomRefactorV2": typeof migrations_bomRefactorV2;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
-  "migrations/updateMenuProductComponentsFK": typeof migrations_updateMenuProductComponentsFK;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;

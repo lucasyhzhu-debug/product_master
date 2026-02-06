@@ -210,36 +210,21 @@ export const create = mutation({
       if (components.length > 0) {
         const enrichedComponents = await Promise.all(
           components.map(async (comp) => {
-            // Use componentType (new system) or fallback to productionUnitType (legacy)
-            const componentType = comp.componentTypeId
-              ? await ctx.db.get(comp.componentTypeId)
-              : null;
-            const code = componentType?.code ?? "UNKNOWN";
-            const name = componentType?.name ?? "Unknown";
+            const componentType = await ctx.db.get(comp.componentTypeId);
+            if (!componentType) return null;
 
-            // Get productionUnitTypeId: use legacy field if exists, otherwise find by code
-            let productionUnitTypeId: Id<"productionUnitTypes"> | undefined =
-              comp.productionUnitTypeId;
+            // Bridge: find productionUnitType by code (required by orderItemProduction schema)
+            const productionUnitType = await ctx.db
+              .query("productionUnitTypes")
+              .withIndex("by_code", (q) => q.eq("code", componentType.code))
+              .first();
 
-            if (!productionUnitTypeId && componentType) {
-              // Post-migration: find productionUnitType by matching code
-              const productionUnitType = await ctx.db
-                .query("productionUnitTypes")
-                .withIndex("by_code", (q) => q.eq("code", componentType.code))
-                .first();
-
-              productionUnitTypeId = productionUnitType?._id;
-            }
-
-            // Skip if we can't resolve productionUnitTypeId
-            if (!productionUnitTypeId) {
-              return null;
-            }
+            if (!productionUnitType) return null;
 
             return {
-              productionUnitTypeId,
-              productionUnitCode: code,
-              productionUnitName: name,
+              productionUnitTypeId: productionUnitType._id,
+              productionUnitCode: componentType.code,
+              productionUnitName: componentType.name,
               quantity: comp.quantity,
             };
           })

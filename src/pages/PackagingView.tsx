@@ -22,7 +22,7 @@ import { formatCurrency } from '@/lib/utils';
 interface ProductionComponent {
   _id: string;
   quantity: number;
-  productionUnitType: {
+  componentType: {
     _id: string;
     code: string;
     name: string;
@@ -251,7 +251,7 @@ function PackagingItem({ item }: PackagingItemProps) {
   const productionSummary = item.menuProduct?.cachedProductionSummary ||
     (item.productionComponents.length > 0
       ? item.productionComponents
-          .map((c) => `${c.quantity} ${c.productionUnitType?.name ?? 'Unknown'}`)
+          .map((c) => `${c.quantity} ${c.componentType?.name ?? 'Unknown'}`)
           .join(', ')
       : null);
 
@@ -276,13 +276,13 @@ function PackagingItem({ item }: PackagingItemProps) {
               variant="secondary"
               className="text-xs"
               style={{
-                backgroundColor: comp.productionUnitType?.color
-                  ? `${comp.productionUnitType.color}20`
+                backgroundColor: comp.componentType?.color
+                  ? `${comp.componentType.color}20`
                   : undefined,
-                borderColor: comp.productionUnitType?.color || undefined,
+                borderColor: comp.componentType?.color || undefined,
               }}
             >
-              {comp.quantity} {comp.productionUnitType?.name ?? 'unit'}
+              {comp.quantity} {comp.componentType?.name ?? 'unit'}
             </Badge>
           ))}
           {item.productionComponents.length === 0 && productionSummary && (
