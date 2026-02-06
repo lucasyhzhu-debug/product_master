@@ -30,7 +30,7 @@ import {
   useConvexMenuProductComponents,
   useConvexComponentsByCategory,
   type PosProduct,
-  type LegacyProduct,
+  type AvailableProduct,
 } from '@/hooks/convex';
 import { ProductionComponentsSection } from './ProductionComponentsSection';
 import { PackagingComponentsSection } from './PackagingComponentsSection';
@@ -41,7 +41,7 @@ import { toast } from 'sonner';
 interface ProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  product?: (PosProduct | LegacyProduct) | null;
+  product?: (PosProduct | AvailableProduct) | null;
   prefilledSlot?: number | null;
   onSlotSwapRequested?: (data: {
     productId: string;
