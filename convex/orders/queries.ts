@@ -3,15 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fetchOrdersByStatuses } from "./helpers/statusFetching";
 import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
-
-// ============================================
-// Types
-// ============================================
-
-interface OrderWithItems extends Doc<"orders"> {
-  items: Doc<"orderItems">[];
-  customer: Doc<"customers"> | null;
-}
+import type { OrderWithItems } from "./types";
 
 // ============================================
 // Queries

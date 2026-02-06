@@ -25,19 +25,8 @@ import {
   validateFinalPrice,
 } from "../helpers/index";
 
-// ============================================
-// Input Types
-// ============================================
-
-const orderItemInput = v.object({
-  productName: v.string(),
-  productVariant: v.optional(v.string()),
-  quantity: v.number(),
-  unitPrice: v.number(),
-  unitCost: v.number(),
-  discountAmount: v.optional(v.number()),
-  menuProductId: v.optional(v.id("menuProducts")),
-});
+// Shared validators
+import { orderItemInput, channelValidator } from "../validators";
 
 // ============================================
 // Helper Functions
@@ -108,19 +97,7 @@ export const create = mutation({
       })
     ),
     // Order details
-    channel: v.optional(v.union(
-      v.literal("whatsapp"),
-      v.literal("instagram"),
-      v.literal("shopee"),
-      v.literal("tiktok"),
-      v.literal("tokopedia"),
-      v.literal("grabfood"),
-      v.literal("k3mart_gf"),
-      v.literal("legato_tamtem"),
-      v.literal("legato_goldfinch"),
-      v.literal("bazaar"),
-      v.literal("other")
-    )),
+    channel: v.optional(channelValidator),
     soldBy: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),

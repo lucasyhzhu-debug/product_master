@@ -65,6 +65,20 @@ export const listPosProducts = query({
 });
 
 /**
+ * Shared handler for listing available (unslotted) products.
+ */
+async function getAvailableProducts(ctx: { db: import("../_generated/server").QueryCtx["db"] }) {
+  const products = await ctx.db
+    .query("menuProducts")
+    .collect();
+
+  // Exclude products on either food POS or packaging POS
+  return products.filter(
+    (p) => p.posSlot === undefined && p.packagingPosSlot === undefined
+  );
+}
+
+/**
  * List available products (not assigned to any POS slot).
  * Returns products without posSlot AND without packagingPosSlot.
  * Renamed from listLegacyProducts in Wave 3 BOM improvements.
@@ -72,14 +86,7 @@ export const listPosProducts = query({
 export const listAvailableProducts = query({
   args: {},
   handler: async (ctx) => {
-    const products = await ctx.db
-      .query("menuProducts")
-      .collect();
-
-    // Exclude products on either food POS or packaging POS
-    return products.filter(
-      (p) => p.posSlot === undefined && p.packagingPosSlot === undefined
-    );
+    return await getAvailableProducts(ctx);
   },
 });
 
@@ -90,14 +97,7 @@ export const listAvailableProducts = query({
 export const listLegacyProducts = query({
   args: {},
   handler: async (ctx) => {
-    const products = await ctx.db
-      .query("menuProducts")
-      .collect();
-
-    // Same as listAvailableProducts
-    return products.filter(
-      (p) => p.posSlot === undefined && p.packagingPosSlot === undefined
-    );
+    return await getAvailableProducts(ctx);
   },
 });
 
