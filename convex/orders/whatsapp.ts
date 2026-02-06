@@ -44,7 +44,7 @@ function buildTemplateVariables(
   const itemsLines = order.items.map((item) => {
     const priceK = item.unitPrice / 1000;
     let desc = item.productName;
-    if (item.productVariant) {
+    if (item.productVariant && !item.productName.includes(item.productVariant)) {
       desc += ` (${item.productVariant})`;
     }
     return `• ${item.quantity}x ${desc} @ ${priceK.toFixed(0)}k`;
@@ -240,7 +240,7 @@ function generatePaymentRequest(order: OrderWithItems): string {
   const itemsLines = order.items.map((item) => {
     const priceK = item.unitPrice / 1000;
     let desc = item.productName;
-    if (item.productVariant) {
+    if (item.productVariant && !item.productName.includes(item.productVariant)) {
       desc += ` (${item.productVariant})`;
     }
     return `• ${item.quantity}x ${desc} @ ${priceK.toFixed(0)}k`;
@@ -361,7 +361,7 @@ function generateReceipt(order: OrderWithItems): string {
   const itemsLines = order.items.map((item) => {
     const priceK = item.unitPrice / 1000;
     let desc = item.productName;
-    if (item.productVariant) {
+    if (item.productVariant && !item.productName.includes(item.productVariant)) {
       desc += ` (${item.productVariant})`;
     }
 
