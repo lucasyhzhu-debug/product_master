@@ -7,6 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/utils";
 import type {
   KitchenStats,
   KitchenOrder,
@@ -276,30 +277,18 @@ export function useConvexCompletedToday() {
 export function useConvexCompleteOrder() {
   const mutation = useMutation(api.orders.mutations.completeOrder);
 
-  return {
-    mutate: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order marked as complete");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to complete order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order marked as complete");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to complete order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (orderId: Id<"orders">) => {
+    try {
+      await mutation({ orderId });
+      toast.success("Order marked as complete");
+      return orderId;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to complete order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -309,30 +298,18 @@ export function useConvexCompleteOrder() {
 export function useConvexRevertToConfirmed() {
   const mutation = useMutation(api.orders.mutations.revertToConfirmed);
 
-  return {
-    mutate: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order reverted to Confirmed");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to revert order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order reverted to Confirmed");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to revert order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (orderId: Id<"orders">) => {
+    try {
+      await mutation({ orderId });
+      toast.success("Order reverted to Confirmed");
+      return orderId;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to revert order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -354,36 +331,21 @@ export function useConvexCompleteBalls() {
 export function useConvexCompletePackaging() {
   const mutation = useMutation(api.orders.mutations.completePackaging);
 
-  return {
-    mutate: async (orderId: Id<"orders">) => {
-      try {
-        const result = await mutation({ orderId });
-        const statusText = result.newStatus === 'WaitingShipment'
-          ? 'Ready for shipment!'
-          : 'Ready for pickup!';
-        toast.success(statusText);
-        return result;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to complete packaging";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (orderId: Id<"orders">) => {
-      try {
-        const result = await mutation({ orderId });
-        const statusText = result.newStatus === 'WaitingShipment'
-          ? 'Ready for shipment!'
-          : 'Ready for pickup!';
-        toast.success(statusText);
-        return result;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to complete packaging";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (orderId: Id<"orders">) => {
+    try {
+      const result = await mutation({ orderId });
+      const statusText = result.newStatus === 'WaitingShipment'
+        ? 'Ready for shipment!'
+        : 'Ready for pickup!';
+      toast.success(statusText);
+      return result;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to complete packaging"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -393,28 +355,16 @@ export function useConvexCompletePackaging() {
 export function useConvexRevertToPackaging() {
   const mutation = useMutation(api.orders.mutations.revertToPackaging);
 
-  return {
-    mutate: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.info("Order moved back to Packaging");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to revert order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.info("Order moved back to Packaging");
-        return orderId;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to revert order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (orderId: Id<"orders">) => {
+    try {
+      await mutation({ orderId });
+      toast.info("Order moved back to Packaging");
+      return orderId;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to revert order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }

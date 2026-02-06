@@ -46,28 +46,18 @@ export function useConvexTagsMany(ids: Id<"tags">[]) {
 export function useConvexCreateTag() {
   const mutation = useMutation(api.tags.mutations.create);
 
-  return {
-    mutate: async (data: TagCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Tag created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create tag"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: TagCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Tag created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create tag"));
-        throw error;
-      }
-    },
+  const execute = async (data: TagCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Tag created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create tag"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -76,28 +66,18 @@ export function useConvexCreateTag() {
 export function useConvexUpdateTag() {
   const mutation = useMutation(api.tags.mutations.update);
 
-  return {
-    mutate: async (data: { id: Id<"tags">; name: string }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Tag updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tag"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { id: Id<"tags">; name: string }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Tag updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tag"));
-        throw error;
-      }
-    },
+  const execute = async (data: { id: Id<"tags">; name: string }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Tag updated successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update tag"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -106,28 +86,18 @@ export function useConvexUpdateTag() {
 export function useConvexDeleteTag() {
   const mutation = useMutation(api.tags.mutations.remove);
 
-  return {
-    mutate: async (id: Id<"tags">) => {
-      try {
-        await mutation({ id });
-        toast.success("Tag deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete tag"));
-        throw error;
-      }
-    },
-    mutateAsync: async (id: Id<"tags">) => {
-      try {
-        await mutation({ id });
-        toast.success("Tag deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete tag"));
-        throw error;
-      }
-    },
+  const execute = async (id: Id<"tags">) => {
+    try {
+      await mutation({ id });
+      toast.success("Tag deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete tag"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**

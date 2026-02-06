@@ -15,6 +15,7 @@ import type {
   PaymentStatus,
   ProductSuggestion,
 } from "@/lib/types";
+import { getErrorMessage } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -437,30 +438,18 @@ export function useConvexOrderTemplate() {
 export function useConvexCreateOrder() {
   const mutation = useMutation(api.orders.mutations.create);
 
-  return {
-    mutate: async (data: OrderCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Order created successfully");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to create order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: OrderCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Order created successfully");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to create order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: OrderCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Order created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -469,28 +458,17 @@ export function useConvexCreateOrder() {
 export function useConvexUpdateOrderStatus() {
   const mutation = useMutation(api.orders.mutations.updateStatus);
 
-  return {
-    mutate: async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
-      try {
-        await mutation(data);
-        toast.success("Order status updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update status";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
-      try {
-        await mutation(data);
-        toast.success("Order status updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update status";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
+    try {
+      await mutation(data);
+      toast.success("Order status updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update status"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -500,36 +478,21 @@ export function useConvexUpdateOrderStatus() {
 export function useConvexUpdateOrderPayment() {
   const mutation = useMutation(api.orders.mutations.updatePayment);
 
-  return {
-    mutate: async (data: {
-      orderId: Id<"orders">;
-      paymentStatus: PaymentStatusType;
-      paymentMethod?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Payment status updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update payment";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      orderId: Id<"orders">;
-      paymentStatus: PaymentStatusType;
-      paymentMethod?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Payment status updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update payment";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    orderId: Id<"orders">;
+    paymentStatus: PaymentStatusType;
+    paymentMethod?: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Payment status updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update payment"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -538,36 +501,21 @@ export function useConvexUpdateOrderPayment() {
 export function useConvexUpdateOrderShipping() {
   const mutation = useMutation(api.orders.mutations.updateShipping);
 
-  return {
-    mutate: async (data: {
-      orderId: Id<"orders">;
-      shippingAgency?: string;
-      shippingNumber?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Shipping info updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update shipping";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      orderId: Id<"orders">;
-      shippingAgency?: string;
-      shippingNumber?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Shipping info updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update shipping";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    orderId: Id<"orders">;
+    shippingAgency?: string;
+    shippingNumber?: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Shipping info updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update shipping"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -576,50 +524,28 @@ export function useConvexUpdateOrderShipping() {
 export function useConvexUpdateOrderDetails() {
   const mutation = useMutation(api.orders.mutations.updateDetails);
 
-  return {
-    mutate: async (data: {
-      orderId: Id<"orders">;
-      dueDate?: number;
-      notes?: string;
-      deliveryType?: string;
-      pickupLocation?: string;
-      deliveryAddress?: string;
-      contactWa?: string;
-      contactIg?: string;
-      channel?: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
-      soldBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Order details updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update details";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      orderId: Id<"orders">;
-      dueDate?: number;
-      notes?: string;
-      deliveryType?: string;
-      pickupLocation?: string;
-      deliveryAddress?: string;
-      contactWa?: string;
-      contactIg?: string;
-      channel?: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
-      soldBy?: string;
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Order details updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update details";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    orderId: Id<"orders">;
+    dueDate?: number;
+    notes?: string;
+    deliveryType?: string;
+    pickupLocation?: string;
+    deliveryAddress?: string;
+    contactWa?: string;
+    contactIg?: string;
+    channel?: "whatsapp" | "instagram" | "shopee" | "tiktok" | "tokopedia" | "grabfood" | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar" | "other";
+    soldBy?: string;
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Order details updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update details"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -631,28 +557,17 @@ type CancellationCategory = "customer_request" | "out_of_stock" | "payment_issue
 export function useConvexCancelOrder() {
   const mutation = useMutation(api.orders.mutations.cancel);
 
-  return {
-    mutate: async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
-      try {
-        await mutation(data);
-        toast.success("Order cancelled");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to cancel order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
-      try {
-        await mutation(data);
-        toast.success("Order cancelled");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to cancel order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
+    try {
+      await mutation(data);
+      toast.success("Order cancelled");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to cancel order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -661,30 +576,18 @@ export function useConvexCancelOrder() {
 export function useConvexDeleteOrder() {
   const mutation = useMutation(api.orders.mutations.remove);
 
-  return {
-    mutate: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order deleted");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to delete order";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (orderId: Id<"orders">) => {
-      try {
-        await mutation({ orderId });
-        toast.success("Order deleted");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to delete order";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (orderId: Id<"orders">) => {
+    try {
+      await mutation({ orderId });
+      toast.success("Order deleted");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete order"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -693,30 +596,18 @@ export function useConvexDeleteOrder() {
 export function useConvexAddOrderItem() {
   const mutation = useMutation(api.orders.mutations.addItem);
 
-  return {
-    mutate: async (data: { orderId: Id<"orders">; item: OrderItemInput }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Item added");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to add item";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { orderId: Id<"orders">; item: OrderItemInput }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Item added");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to add item";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: { orderId: Id<"orders">; item: OrderItemInput }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Item added");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to add item"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -725,30 +616,18 @@ export function useConvexAddOrderItem() {
 export function useConvexRemoveOrderItem() {
   const mutation = useMutation(api.orders.mutations.removeItem);
 
-  return {
-    mutate: async (itemId: Id<"orderItems">) => {
-      try {
-        await mutation({ itemId });
-        toast.success("Item removed");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to remove item";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (itemId: Id<"orderItems">) => {
-      try {
-        await mutation({ itemId });
-        toast.success("Item removed");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to remove item";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (itemId: Id<"orderItems">) => {
+    try {
+      await mutation({ itemId });
+      toast.success("Item removed");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to remove item"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -757,28 +636,17 @@ export function useConvexRemoveOrderItem() {
 export function useConvexUpdateOrderItemQuantity() {
   const mutation = useMutation(api.orders.mutations.updateItemQuantity);
 
-  return {
-    mutate: async (data: { itemId: Id<"orderItems">; quantity: number }) => {
-      try {
-        await mutation(data);
-        toast.success("Quantity updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update quantity";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { itemId: Id<"orderItems">; quantity: number }) => {
-      try {
-        await mutation(data);
-        toast.success("Quantity updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update quantity";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: { itemId: Id<"orderItems">; quantity: number }) => {
+    try {
+      await mutation(data);
+      toast.success("Quantity updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update quantity"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -788,34 +656,19 @@ export function useConvexUpdateOrderItemQuantity() {
 export function useConvexUpdateOrderDiscount() {
   const mutation = useMutation(api.orders.mutations.updateOrderDiscount);
 
-  return {
-    mutate: async (data: {
-      orderId: Id<"orders">;
-      discount: number;
-      discountType: "amount" | "percentage";
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Discount updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update discount";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      orderId: Id<"orders">;
-      discount: number;
-      discountType: "amount" | "percentage";
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Discount updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update discount";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    orderId: Id<"orders">;
+    discount: number;
+    discountType: "amount" | "percentage";
+  }) => {
+    try {
+      await mutation(data);
+      toast.success("Discount updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update discount"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
