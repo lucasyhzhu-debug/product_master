@@ -547,6 +547,9 @@ export function OrderDetail() {
             items={order.items}
             totalAmount={order.total_amount}
             totalDiscount={order.total_discount}
+            voucherCode={order.voucher_code}
+            voucherDiscountValue={order.voucher_discount_value}
+            finalTotal={order.final_total}
           />
 
           {/* Delivery Info (for delivery orders) */}

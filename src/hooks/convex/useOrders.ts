@@ -140,6 +140,9 @@ interface ConvexOrder {
   orderLevelDiscount?: number;
   orderLevelDiscountType?: "amount" | "percentage";
   finalTotal?: number;
+  // Voucher tracking
+  voucherCode?: string;
+  voucherDiscountValue?: number;
   itemCount: number;
   channel?: string;
   soldBy?: string;
@@ -244,6 +247,9 @@ function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
       order.totalAmount > 0
         ? (order.totalMargin / order.totalAmount) * 100
         : null,
+    voucher_code: order.voucherCode ?? null,
+    voucher_discount_value: order.voucherDiscountValue ?? null,
+    final_total: order.finalTotal ?? null,
     channel: order.channel ?? null,
     sold_by: order.soldBy ?? null,
     notes: order.notes ?? null,
