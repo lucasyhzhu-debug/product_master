@@ -34,8 +34,8 @@ export function StatCard({ title, value, icon, variant = "default" }: StatCardPr
           </div>
         </div>
         <div className="space-y-1">
-          <p className="text-sm font-medium text-slate-300">{title}</p>
-          <p className="text-3xl font-mono font-bold">{value}</p>
+          <p className="text-base font-semibold text-slate-100">{title}</p>
+          <p className="text-3xl font-mono font-bold tracking-tight">{value}</p>
         </div>
       </CardContent>
     </Card>

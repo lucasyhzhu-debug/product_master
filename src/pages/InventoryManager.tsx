@@ -9,6 +9,7 @@ import { useState, useMemo } from "react";
 import { Package, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout";
@@ -29,6 +30,7 @@ export function InventoryManager() {
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
   >("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "production" | "packaging">("all");
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
 
   // Queries
@@ -36,14 +38,23 @@ export function InventoryManager() {
   const report = useConvexInventoryReport(true);
   const lowStockAlerts = useConvexLowStockAlerts();
 
-  // Filter matrix by location (MUST be before early return to satisfy Rules of Hooks)
+  // Filter matrix by location and category (MUST be before early return to satisfy Rules of Hooks)
   const filteredMatrix = useMemo(() => {
     if (!report) return [];
-    if (selectedLocation === "all") {
-      return report.matrix;
+
+    let matrix = report.matrix;
+
+    // Apply category filter
+    if (categoryFilter !== "all") {
+      matrix = matrix.filter((row) => row.component.category === categoryFilter);
     }
 
-    return report.matrix
+    // Apply location filter
+    if (selectedLocation === "all") {
+      return matrix;
+    }
+
+    return matrix
       .map((row) => {
         const stockAtLocation = row.stockByLocation.find(
           (loc) => loc.locationId === selectedLocation
@@ -61,7 +72,7 @@ export function InventoryManager() {
         };
       })
       .filter((row): row is NonNullable<typeof row> => row !== null);
-  }, [report, selectedLocation]);
+  }, [report, selectedLocation, categoryFilter]);
 
   // Loading state
   if (
@@ -149,9 +160,28 @@ export function InventoryManager() {
       {/* Location Tabs */}
       <Card className="border-slate-700 bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80">
         <CardHeader className="border-b border-slate-700">
-          <CardTitle className="text-xl font-mono tracking-tight text-slate-100">
-            Stock Levels by Location
-          </CardTitle>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-xl font-mono tracking-tight text-slate-100">
+              Stock Levels by Location
+            </CardTitle>
+            {/* Category Filter */}
+            <div className="flex gap-1.5">
+              {(["all", "production", "packaging"] as const).map((cat) => (
+                <Badge
+                  key={cat}
+                  variant={categoryFilter === cat ? "default" : "outline"}
+                  className={`cursor-pointer text-xs px-3 py-1 transition-colors ${
+                    categoryFilter === cat
+                      ? ""
+                      : "bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-600/50"
+                  }`}
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </Badge>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-6">
           <Tabs

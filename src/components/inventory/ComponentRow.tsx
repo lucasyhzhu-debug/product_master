@@ -115,35 +115,63 @@ export function ComponentRow({
           </p>
         </div>
 
-        {/* Stock Summary */}
-        <div className="flex items-center gap-6 font-mono text-sm">
-          <div className="text-right">
-            <div className="text-slate-400 text-xs">Available</div>
-            <div
-              className={cn(
-                "text-lg font-bold",
-                isCritical
-                  ? "text-red-400"
-                  : isLowStock
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-              )}
-            >
-              {totalAvailable}
-            </div>
-          </div>
-          {totalReserved > 0 && (
-            <div className="text-right">
-              <div className="text-slate-400 text-xs">Reserved</div>
-              <div className="text-lg font-bold text-amber-400">
-                {totalReserved}
+        {/* Stock Summary with Progress Bar */}
+        <div className="flex items-center gap-4 font-mono text-sm">
+          {/* Progress bar (only when reorder point is set) */}
+          {component.reorderPoint && component.reorderPoint > 0 && (
+            <div className="hidden sm:block w-24">
+              <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    isCritical
+                      ? "bg-red-500"
+                      : isLowStock
+                        ? "bg-amber-500"
+                        : totalAvailable > component.reorderPoint * 2
+                          ? "bg-emerald-500"
+                          : "bg-emerald-500"
+                  )}
+                  style={{
+                    width: `${Math.min(100, (totalAvailable / (component.reorderPoint * 2)) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-slate-500 text-center mt-0.5">
+                {Math.round((totalAvailable / component.reorderPoint) * 100)}%
               </div>
             </div>
           )}
-          <div className="text-right">
-            <div className="text-slate-400 text-xs">Total</div>
-            <div className="text-lg font-bold text-slate-200">
-              {totalAvailable + totalReserved}
+
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-slate-400 text-xs">Available</div>
+              <div
+                className={cn(
+                  "text-lg font-bold",
+                  isCritical
+                    ? "text-red-400"
+                    : isLowStock
+                    ? "text-amber-400"
+                    : "text-emerald-400"
+                )}
+              >
+                {totalAvailable}
+              </div>
+            </div>
+            {totalReserved > 0 && (
+              <div className="text-right">
+                <div className="text-slate-400 text-xs">Reserved</div>
+                <div className="text-lg font-bold text-amber-400">
+                  {totalReserved}
+                </div>
+              </div>
+            )}
+            <div className="text-right">
+              <div className="text-slate-400 text-xs">Total</div>
+              <div className="text-lg font-bold text-slate-200">
+                {totalAvailable + totalReserved}
+              </div>
             </div>
           </div>
         </div>

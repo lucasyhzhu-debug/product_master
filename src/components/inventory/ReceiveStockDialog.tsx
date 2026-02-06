@@ -21,18 +21,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Select imports removed - replaced with button grid in Wave 5
 import { toast } from "sonner";
 import {
   useConvexReceiveStock,
   useConvexCreateComponentAndReceiveStock,
-  useConvexInventoryTrackedComponents
+  useConvexInventoryTrackedComponents,
+  useConvexLatestBatch,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ComponentType, StorageLocation } from "@/hooks/convex";
@@ -87,6 +82,17 @@ export function ReceiveStockDialog({
   const receiveStock = useConvexReceiveStock();
   const createAndReceive = useConvexCreateComponentAndReceiveStock();
 
+  // Auto-populate supplier info from latest batch
+  const latestBatch = useConvexLatestBatch(
+    selectedComponentId ?? undefined,
+    selectedLocationId ?? undefined
+  );
+
+  const handleComponentSelect = (componentId: Id<"componentTypes">) => {
+    setSelectedComponentId(componentId);
+    // Auto-populate supplier info will happen via useEffect when latestBatch updates
+  };
+
   // Set default location
   useEffect(() => {
     if (locations.length > 0 && !selectedLocationId) {
@@ -94,6 +100,16 @@ export function ReceiveStockDialog({
       setSelectedLocationId(defaultLoc._id);
     }
   }, [locations, selectedLocationId]);
+
+  // Auto-populate supplier info from latest batch
+  useEffect(() => {
+    if (latestBatch && selectedComponentId) {
+      // Only auto-populate if fields are currently empty (don't overwrite user edits)
+      if (!supplierName) setSupplierName(latestBatch.supplierName ?? "");
+      if (!supplierBrand) setSupplierBrand(latestBatch.supplierBrand ?? "");
+      if (!purchaseUrl) setPurchaseUrl(latestBatch.purchaseUrl ?? "");
+    }
+  }, [latestBatch, selectedComponentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -224,60 +240,59 @@ export function ReceiveStockDialog({
           {/* Mode: Select Existing or Create New */}
           {mode === 'select' ? (
             <>
-              {/* Component Selection */}
+              {/* Component Selection - Button Grid */}
               <div className="space-y-2">
                 <Label>Select Component</Label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {lowStockComponents.slice(0, 3).map((comp) => (
-                    <Button
-                      key={comp._id}
-                      variant={
-                        selectedComponentId === comp._id ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setSelectedComponentId(comp._id)}
-                      className={cn(
-                        "font-mono",
-                        selectedComponentId === comp._id && "bg-emerald-600"
-                      )}
-                    >
-                      <Badge
-                        variant="outline"
-                        className="mr-2 bg-red-500/20 text-red-300 border-red-600"
-                      >
-                        LOW
-                      </Badge>
-                      {comp.name}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedComponentId(null)}
-                  >
-                    Other...
-                  </Button>
-                </div>
-
-                {/* Dropdown for all components */}
-                {selectedComponentId === null && allComponents && (
-                  <Select
-                    value={selectedComponentId ?? ""}
-                    onValueChange={(value) =>
-                      setSelectedComponentId(value as Id<"componentTypes">)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a component" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allComponents.map((comp) => (
-                        <SelectItem key={comp._id} value={comp._id}>
-                          {comp.name} ({comp.category.replace("_", " ")})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {allComponents && allComponents.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {/* Sort: low stock first (components in lowStockComponents list) */}
+                    {[...allComponents]
+                      .sort((a, b) => {
+                        const aIsLow = lowStockComponents.some((l) => l._id === a._id);
+                        const bIsLow = lowStockComponents.some((l) => l._id === b._id);
+                        if (aIsLow && !bIsLow) return -1;
+                        if (!aIsLow && bIsLow) return 1;
+                        return a.name.localeCompare(b.name);
+                      })
+                      .map((comp) => {
+                        const isLow = lowStockComponents.some((l) => l._id === comp._id);
+                        const isSelected = selectedComponentId === comp._id;
+                        return (
+                          <button
+                            key={comp._id}
+                            type="button"
+                            onClick={() => handleComponentSelect(comp._id)}
+                            className={cn(
+                              "flex items-center gap-2 rounded-lg border-2 p-2.5 text-left transition-colors text-sm",
+                              isSelected
+                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-100"
+                                : isLow
+                                  ? "border-amber-700/50 bg-amber-900/10 hover:border-amber-600/70"
+                                  : "border-slate-700 hover:border-slate-500"
+                            )}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{comp.name}</div>
+                              <div className="text-xs text-slate-400">
+                                {comp.category}
+                              </div>
+                            </div>
+                            {isLow && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 bg-red-500/20 text-red-300 border-red-600"
+                              >
+                                LOW
+                              </Badge>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400 text-center py-4">
+                    Loading components...
+                  </div>
                 )}
               </div>
 
