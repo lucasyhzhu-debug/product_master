@@ -505,6 +505,10 @@ export interface OrderDetail {
   total_margin: number;
   total_discount: number;
   margin_pct: number | null;
+  // Voucher tracking
+  voucher_code: string | null;
+  voucher_discount_value: number | null;
+  final_total: number | null;
   channel: string | null;
   sold_by: string | null;
   notes: string | null;
