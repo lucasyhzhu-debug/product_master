@@ -4,6 +4,7 @@
  */
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
+import { statusValidator, channelValidator } from "../validators";
 
 // Ctx-dependent helpers
 import {
@@ -58,21 +59,7 @@ interface OrderDetailsUpdate {
 export const updateStatus = mutation({
   args: {
     orderId: v.id("orders"),
-    status: v.union(
-      v.literal("Draft"),
-      v.literal("AwaitingPayment"),
-      v.literal("Confirmed"),
-      v.literal("InProduction"),
-      v.literal("ProductionComplete"),
-      v.literal("Boxed"),
-      v.literal("Labeled"),
-      v.literal("Packaging"),
-      v.literal("WaitingShipment"),
-      v.literal("CompleteShipped"),
-      v.literal("WaitingPickup"),
-      v.literal("PickedUp"),
-      v.literal("Cancelled")
-    ),
+    status: statusValidator,
     locationId: v.optional(v.id("storageLocations")),
   },
   handler: async (ctx, args) => {
@@ -227,19 +214,7 @@ export const updateDetails = mutation({
     deliveryAddress: v.optional(v.string()),
     contactWa: v.optional(v.string()),
     contactIg: v.optional(v.string()),
-    channel: v.optional(v.union(
-      v.literal("whatsapp"),
-      v.literal("instagram"),
-      v.literal("shopee"),
-      v.literal("tiktok"),
-      v.literal("tokopedia"),
-      v.literal("grabfood"),
-      v.literal("k3mart_gf"),
-      v.literal("legato_tamtem"),
-      v.literal("legato_goldfinch"),
-      v.literal("bazaar"),
-      v.literal("other")
-    )),
+    channel: v.optional(channelValidator),
     soldBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

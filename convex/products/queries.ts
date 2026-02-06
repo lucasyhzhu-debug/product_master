@@ -6,7 +6,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 // Helper Types
 // ============================================
 
-interface COGSBreakdown {
+export interface COGSBreakdown {
   totalGrams: number;
   recipeCogs: number | null;
   packagingCogs: number | null;

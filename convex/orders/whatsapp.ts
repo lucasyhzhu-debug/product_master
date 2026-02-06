@@ -1,16 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-
-// ============================================
-// WhatsApp Template Generators
-// ============================================
-
-interface OrderWithItems extends Doc<"orders"> {
-  items: Doc<"orderItems">[];
-  customer: Doc<"customers"> | null;
-}
+import type { OrderWithItems } from "./types";
 
 // ============================================
 // Template Variable Substitution
