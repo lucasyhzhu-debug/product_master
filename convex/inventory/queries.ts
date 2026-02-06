@@ -395,6 +395,63 @@ export const getLocationTransactions = query({
 });
 
 /**
+ * Get packaging stock summary for Kitchen V2 sidebar
+ *
+ * Returns all packaging components with stock levels across all locations,
+ * aggregated for a quick overview. Used in KitchenViewV2 to replace mock data.
+ */
+export const getPackagingStockSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    // Get all packaging component types (those that track inventory)
+    const componentTypes = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_track_inventory", (q) => q.eq("trackInventory", true))
+      .collect();
+
+    // Filter to active packaging components only
+    const packagingComponents = componentTypes.filter(
+      (c) => c.isActive && c.category !== "production"
+    );
+
+    // For each component, get aggregated stock across all locations
+    const summary = await Promise.all(
+      packagingComponents.map(async (component) => {
+        const stockRecords = await ctx.db
+          .query("componentStock")
+          .withIndex("by_component", (q) => q.eq("componentTypeId", component._id))
+          .collect();
+
+        const totalStock = stockRecords.reduce((sum, s) => sum + s.totalStock, 0);
+        const totalReserved = stockRecords.reduce((sum, s) => sum + s.totalReserved, 0);
+        const available = totalStock - totalReserved;
+
+        const isLow = component.reorderPoint != null && available < component.reorderPoint;
+        const isCritical = component.reorderPoint != null && available < component.reorderPoint * 0.5;
+
+        return {
+          name: component.name,
+          available,
+          reserved: totalReserved,
+          reorderPoint: component.reorderPoint ?? 0,
+          isLow,
+          isCritical,
+        };
+      })
+    );
+
+    // Sort: critical first, then low, then by name
+    summary.sort((a, b) => {
+      if (a.isCritical !== b.isCritical) return a.isCritical ? -1 : 1;
+      if (a.isLow !== b.isLow) return a.isLow ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return summary;
+  },
+});
+
+/**
  * Get latest batch for a component at a location
  *
  * Returns the most recent batch by purchase date.

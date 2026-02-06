@@ -164,6 +164,7 @@ export interface PosProduct {
   posSlot: 1 | 2 | 3 | 4;
   isFixed?: boolean;
   productType?: "food" | "packaging";
+  cachedProductionSummary?: string;
 }
 
 export interface PackagingPosProduct {
@@ -193,6 +194,7 @@ export function useConvexPosProducts() {
     posSlot: p.posSlot as 1 | 2 | 3 | 4,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
+    cachedProductionSummary: p.cachedProductionSummary,
   }));
 
   return {
@@ -216,6 +218,7 @@ export interface LegacyProduct {
   productionUnits?: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
+  cachedProductionSummary?: string;
 }
 
 export function useConvexLegacyProducts() {
@@ -234,6 +237,7 @@ export function useConvexLegacyProducts() {
     productionUnits: p.productionUnits,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
+    cachedProductionSummary: p.cachedProductionSummary,
   }));
 
   return {
