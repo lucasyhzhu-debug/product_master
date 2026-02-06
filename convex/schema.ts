@@ -111,7 +111,7 @@ export default defineSchema({
 
   menuProductComponents: defineTable({
     menuProductId: v.id("menuProducts"),
-    componentTypeId: v.id("componentTypes"), // Unified BOM: production + packaging (REQUIRED after migration)
+    componentTypeId: v.optional(v.id("componentTypes")), // Unified BOM: production + packaging (optional during migration)
     quantity: v.number(), // How many of this component per product
     sortOrder: v.number(), // Display ordering
     // Legacy field (kept for backward compatibility, can be removed in future)

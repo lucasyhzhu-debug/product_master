@@ -196,7 +196,9 @@ async function updateCachedProductionSummary(
   // Build summary string from componentTypes
   const summaryParts = await Promise.all(
     components.map(async (component) => {
-      const componentType = await ctx.db.get(component.componentTypeId);
+      const componentType = component.componentTypeId
+        ? await ctx.db.get(component.componentTypeId)
+        : null;
       const name = componentType?.name ?? "Unknown";
       return `${component.quantity} ${name}`;
     })

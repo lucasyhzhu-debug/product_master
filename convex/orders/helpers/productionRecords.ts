@@ -166,7 +166,8 @@ export async function createProductionRecordsForItem(
 
   // Create production records for each component
   for (const component of components) {
-    // Get componentType
+    // Get componentType (skip if not set - legacy records without componentTypeId)
+    if (!component.componentTypeId) continue;
     const componentType = await ctx.db.get(component.componentTypeId);
     if (!componentType) continue;
 
@@ -221,6 +222,7 @@ export async function updateProductionRecordsForQuantityChange(
   // We need to map componentType → productionUnitType to match orderItemProduction records
   const componentMap = new Map<string, number>();
   for (const comp of components) {
+    if (!comp.componentTypeId) continue;
     const componentType = await ctx.db.get(comp.componentTypeId);
     if (!componentType || componentType.category !== "production") continue;
 
