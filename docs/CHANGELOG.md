@@ -13,6 +13,96 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-06 - BOM Improvements: 25 Issues Across 7 Waves
+
+**Major UX overhaul of the unified BOM system based on manual testing and live user feedback.**
+
+### Summary
+Implemented 25 BOM improvements across 7 waves: critical bug fixes, category migration (3-deployment), dynamic POS slots, ProductForm redesign, Menu Products page overhaul, page deletions, inventory UI improvements, order form packaging section, and summary UX.
+
+### Wave 0: Critical Bug Fixes
+- Fixed `Array.some(async)` bug in menu product CREATE mutation (always returned "food")
+- Removed duplicate "Voucher" label in OrderFormPOS
+- Fixed POS card production summary to use `cachedProductionSummary`
+- Replaced Kitchen V2 mock packaging inventory with real Convex query
+
+### Wave 1A: Category Simplification (3-deployment migration)
+- Merged `direct_packaging` + `indirect_packaging` into single `packaging` category
+- `costCalculator.ts` now returns `{production, packaging, total}` (total = production + packaging)
+- Added `consumptionStage` field to `menuProductComponents` and `orderComponentReservations`
+- Updated all backend and frontend files (17 files total)
+- All 7+ COGS test cases updated
+
+### Wave 1B: Dynamic POS Slots
+- Changed `posSlot`/`packagingPosSlot` from `v.union(v.literal(1)..4)` to `v.optional(v.number())`
+- Runtime validation (positive integer) in mutations
+- No hardcoded upper limit
+
+### Wave 2A: ProductForm Structural Changes
+- Converted Sheet to Dialog (`max-w-2xl max-h-[90vh]`)
+- Added Food/Packaging type toggle at top
+- Added active/inactive Switch
+- Food path: production + packaging components + weight + food POS
+- Packaging path: only packaging components + packaging POS
+
+### Wave 2B: ProductForm Behavioral Changes
+- Auto-generate product code from name
+- Duplicate name warning with amber highlight
+- Consumption stage selector (Boxing/Labeling/None) per packaging component
+- Auto-inherit consumption stage from componentType default
+- Quick-create dialog for new packaging components
+
+### Wave 3: Menu Products Page Overhaul
+- Dynamic slot rendering (occupied slots + "+" card)
+- Packaging empty slots now clickable
+- Renamed "Legacy Products" to "Available Products"
+- `listAvailableProducts` query excludes both food and packaging POS products
+- Type-aware "Add to POS" buttons
+
+### Wave 4: Production Components + Page Deletions
+- Auto-generate code from name, native color picker
+- Removed `ComponentTypesManager.tsx` and `PackagingComponentsManager.tsx` pages
+- Added URL redirects for bookmarked links
+- Removed nav links for deleted pages
+
+### Wave 5: Inventory UI + Receive Stock Redesign
+- Improved stat card readability
+- Stock level progress bars (color-coded by threshold)
+- Category filter pills (All/Production/Packaging)
+- Receive Stock: button grid for ALL components (sorted by low stock)
+- Auto-populate supplier info from latest batch
+
+### Wave 6: Order Form Packaging + Summary UX
+- Added packaging products section below food products in OrderFormPOS
+- ProductButtons component generalized (optional label, flexible columns, generic product type)
+- Unit price shown for qty > 1 items (e.g., "@ Rp 80.000")
+- Subtotal row hidden when no voucher (shows only Total)
+
+### Wave 7: Verification + Documentation
+- Fixed stale `direct_packaging`/`indirect_packaging` type in `useInventory.ts`
+- Updated `SCHEMA.md` (menuProducts section with dynamic POS slots, product types)
+- All 256 tests passing, build clean
+
+### Files Modified (significant)
+- `convex/schema.ts` - Category simplification, dynamic POS slots, consumptionStage
+- `convex/lib/costCalculator.ts` - New return shape `{production, packaging, total}`
+- `convex/menuProducts/mutations.ts` - Fixed async bug, dynamic slots, consumptionStage
+- `convex/menuProducts/queries.ts` - `listAvailableProducts`, `listPackagingPosProducts`
+- `src/components/menuProducts/ProductForm.tsx` - Full redesign (Dialog, type toggle, BOM)
+- `src/components/menuProducts/PackagingComponentsSection.tsx` - Consumption stage, quick-create
+- `src/pages/MenuProductsManager.tsx` - Dynamic slots, available products
+- `src/pages/ProductionComponentsManager.tsx` - Auto-code, color picker
+- `src/pages/InventoryManager.tsx` - Category filter, stat cards
+- `src/components/inventory/ReceiveStockDialog.tsx` - Button grid, auto-supplier
+- `src/components/orders/OrderFormPOS.tsx` - Packaging section, summary UX
+- `src/components/orders/ProductButtons.tsx` - Generalized interface
+
+### Pages Removed
+- `ComponentTypesManager.tsx` (redirects to `/components/production`)
+- `PackagingComponentsManager.tsx` (redirects to `/inventory`)
+
+---
+
 ## 2026-02-06 - Cleanup: Make componentTypeId Required, Remove Legacy productionUnitTypeId
 
 **Post-migration cleanup: Removed optional/legacy workarounds from menuProductComponents after FK migration completed in production.**

@@ -100,35 +100,32 @@ tags: defineTable({
 ### 4. `menuProducts` - Predefined Menu Products
 ```typescript
 menuProducts: defineTable({
-  code: v.string(),                           // e.g., "ORIGINAL"
+  code: v.string(),                           // e.g., "ORIGINAL" (auto-generated from name)
   name: v.string(),                           // e.g., "Original"
-  grams: v.number(),                          // 80
+  grams: v.optional(v.number()),              // Weight in grams (food products only)
   defaultPrice: v.number(),                   // IDR 50000
-  productionType: v.string(),                 // "original" or "bite_sized" (DEPRECATED)
-  productionUnits: v.number(),                // Balls per item (DEPRECATED)
-  isActive: v.boolean(),
-  // PRD-0 additions:
+  productionType: v.optional(v.string()),     // DEPRECATED - use BOM components
+  productionUnits: v.optional(v.number()),    // DEPRECATED - use BOM components
+  isActive: v.optional(v.boolean()),          // Active/inactive toggle
   isFixed: v.optional(v.boolean()),           // Prevents deletion when true
-  unitCost: v.optional(v.number()),           // COGS in IDR
-  // PRD-5 additions:
-  cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
-  // PRD-8 additions (POS Slot System):
-  posSlot: v.optional(v.union(1, 2, 3, 4)),   // POS slot (1-4), null = legacy/not on POS
+  unitCost: v.optional(v.number()),           // COGS in IDR (cached from BOM)
+  cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big Ball, 2 Mid Ball"
+  // POS Slot System (dynamic, no upper limit):
+  posSlot: v.optional(v.number()),            // Food POS slot (1, 2, 3, ...), null = not on POS
+  packagingPosSlot: v.optional(v.number()),   // Packaging POS slot, null = not on POS
+  productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
 })
   .index("by_code", ["code"])
   .index("by_active", ["isActive"])
-  .index("by_pos_slot", ["posSlot"])          // PRD-8: Query products by slot
+  .index("by_pos_slot", ["posSlot"])
+  .index("by_packaging_pos_slot", ["packagingPosSlot"])
 ```
 
-**Fixed Products (isFixed === true):**
-| Code | Name | Grams | Price | COGS | Units | POS Slot |
-|------|------|-------|-------|------|-------|----------|
-| ORIGINAL | Original | 80g | Rp 50k | Rp 19,231 | 1 | 1 |
-| BITE_SINGLE | Bite Sized Single | 45g | Rp 35k | Rp 12,422 | 1 | 2 |
-| BITE_DOUBLE | Bite Sized Double | 90g | Rp 70k | Rp 24,843 | 2 | 3 |
-| BITE_TRIPLE | Bite Sized Triple | 135g | Rp 99k | Rp 36,765 | 3 | 4 |
+**POS Slots:** Dynamic numbering (v.number, no hardcoded limit). Products can be assigned to food POS or packaging POS. Runtime validation ensures positive integers.
 
-**Note:** Initial slot assignments set via `migrateFixedProductsToSlots()` migration.
+**Product Types:**
+- `food` - Has production components (balls) + packaging components, shown on food POS
+- `packaging` - Has only packaging components, shown on packaging POS in order form
 
 ### 5. `recipes` - Recipe Parent Entity
 ```typescript
