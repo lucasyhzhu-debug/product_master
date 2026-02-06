@@ -11,35 +11,41 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/utils';
 
-interface ProductButtonsProps {
-  products: Array<{
-    _id: string;
-    code: string;
-    name: string;
-    grams: number;
-    defaultPrice: number;
-    unitCost?: number;
-    posSlot: number;
-    productionType?: string;
-    productionUnits?: number;
-  }>;
-  onAddProduct: (
-    product: ProductButtonsProps['products'][0],
-    quantity: number
-  ) => void;
+export interface ProductButtonProduct {
+  _id: string;
+  code: string;
+  name: string;
+  grams?: number;
+  defaultPrice: number;
+  unitCost?: number;
+  posSlot?: number;
+  productionType?: string;
+  productionUnits?: number;
 }
 
-export function ProductButtons({ products, onAddProduct }: ProductButtonsProps) {
+interface ProductButtonsProps {
+  products: ProductButtonProduct[];
+  onAddProduct: (
+    product: ProductButtonProduct,
+    quantity: number
+  ) => void;
+  /** Optional label shown above the grid */
+  label?: string;
+  /** Number of grid columns (default 2) */
+  columns?: 2 | 3;
+}
+
+export function ProductButtons({ products, onAddProduct, label, columns = 2 }: ProductButtonsProps) {
   const [quantityDialogOpen, setQuantityDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<
-    ProductButtonsProps['products'][0] | null
+    ProductButtonProduct | null
   >(null);
   const [quantity, setQuantity] = useState('1');
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
 
-  const handlePressStart = (product: ProductButtonsProps['products'][0]) => {
+  const handlePressStart = (product: ProductButtonProduct) => {
     isLongPress.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
@@ -49,7 +55,7 @@ export function ProductButtons({ products, onAddProduct }: ProductButtonsProps) 
     }, 500);
   };
 
-  const handlePressEnd = (product: ProductButtonsProps['products'][0]) => {
+  const handlePressEnd = (product: ProductButtonProduct) => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -83,7 +89,10 @@ export function ProductButtons({ products, onAddProduct }: ProductButtonsProps) 
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
+      {label && (
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{label}</p>
+      )}
+      <div className={`grid gap-3 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {products.map((product) => (
           <button
             key={product._id}
@@ -96,9 +105,11 @@ export function ProductButtons({ products, onAddProduct }: ProductButtonsProps) 
             onContextMenu={(e) => e.preventDefault()}
           >
             <span className="font-semibold">{product.name}</span>
-            <span className="text-sm text-muted-foreground">
-              {product.grams}g
-            </span>
+            {product.grams != null && product.grams > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {product.grams}g
+              </span>
+            )}
             <span className="text-sm font-medium">
               {formatCurrency(product.defaultPrice)}
             </span>
