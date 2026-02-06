@@ -6,8 +6,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Package, Plus, AlertTriangle, Settings } from "lucide-react";
+import { Package, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +25,7 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { StatCard } from "@/components/inventory/StatCard";
 
 export function InventoryManager() {
-  const navigate = useNavigate();
+
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
   >("all");
@@ -107,20 +106,10 @@ export function InventoryManager() {
       <PageHeader
         title="Inventory"
         action={
-          <div className="flex gap-3">
-            <Button
-              onClick={() => navigate("/inventory/components")}
-              variant="outline"
-              size="lg"
-            >
-              <Settings className="h-5 w-5 mr-2" />
-              Manage Components
-            </Button>
-            <Button onClick={() => setReceiveDialogOpen(true)} size="lg">
-              <Plus className="h-5 w-5 mr-2" />
-              Receive Stock
-            </Button>
-          </div>
+          <Button onClick={() => setReceiveDialogOpen(true)} size="lg">
+            <Plus className="h-5 w-5 mr-2" />
+            Receive Stock
+          </Button>
         }
       />
 

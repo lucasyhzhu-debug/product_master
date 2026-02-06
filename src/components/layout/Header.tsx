@@ -16,7 +16,6 @@ import {
   MessageSquare,
   Ticket,
   Warehouse,
-  Boxes,
   Circle,
   Tag,
 } from 'lucide-react';
@@ -34,7 +33,6 @@ const allNavItems = [
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' as const },
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' as const },
-  { path: '/components/packaging', label: 'Packaging', icon: Boxes, permission: 'canAccessInventory' as const },
   // Admin section
   { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' as const },
