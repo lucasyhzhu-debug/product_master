@@ -206,10 +206,10 @@ export function useConvexPosProducts() {
 }
 
 /**
- * PRD-8 Phase 2: List legacy products (not on POS).
- * Returns products with posSlot undefined.
+ * List available products (not assigned to any POS slot).
+ * Returns products without posSlot or packagingPosSlot.
  */
-export interface LegacyProduct {
+export interface AvailableProduct {
   _id: string;
   code: string;
   name: string;
@@ -223,12 +223,14 @@ export interface LegacyProduct {
   cachedProductionSummary?: string;
 }
 
-export function useConvexLegacyProducts() {
-  const data = useQuery(api.menuProducts.queries.listLegacyProducts);
+/** @deprecated Use AvailableProduct instead */
+export type LegacyProduct = AvailableProduct;
+
+export function useConvexAvailableProducts() {
+  const data = useQuery(api.menuProducts.queries.listAvailableProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
 
-  // Transform to POS-compatible format
-  const legacyProducts = data.map((p): LegacyProduct => ({
+  const availableProducts = data.map((p): AvailableProduct => ({
     _id: p._id as unknown as string,
     code: p.code,
     name: p.name,
@@ -243,9 +245,14 @@ export function useConvexLegacyProducts() {
   }));
 
   return {
-    data: legacyProducts,
+    data: availableProducts,
     isLoading: false,
   };
+}
+
+/** @deprecated Use useConvexAvailableProducts instead */
+export function useConvexLegacyProducts() {
+  return useConvexAvailableProducts();
 }
 
 // ============================================
