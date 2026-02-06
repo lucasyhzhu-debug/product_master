@@ -26,6 +26,7 @@ import {
   useConvexUpdateMenuProduct,
   useConvexAssignToSlot,
   useConvexPosProducts,
+  useConvexMenuProducts,
   useConvexMenuProductComponents,
   useConvexComponentsByCategory,
   type PosProduct,
@@ -53,6 +54,7 @@ interface ComponentRow {
   id: string; // Temporary ID for UI
   componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
+  consumptionStage?: "boxing" | "labeling" | "none";
 }
 
 export function ProductForm({
@@ -76,6 +78,9 @@ export function ProductForm({
   const packagingComponents = useConvexComponentsByCategory("packaging", true);
   const allComponentsLoaded = productionComponents !== undefined &&
                                packagingComponents !== undefined;
+
+  // Query all products for duplicate name detection
+  const { data: allProducts } = useConvexMenuProducts();
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -125,6 +130,7 @@ export function ProductForm({
               id: Math.random().toString(36).substr(2, 9),
               componentTypeId: comp.componentTypeId ?? null,
               quantity: comp.quantity,
+              consumptionStage: comp.consumptionStage ?? undefined,
             };
 
             if (comp.componentType.category === 'production') {
@@ -255,6 +261,7 @@ export function ProductForm({
         ? allComponents.map((c) => ({
             componentTypeId: c.componentTypeId as Id<"componentTypes">,
             quantity: c.quantity,
+            ...(c.consumptionStage ? { consumptionStage: c.consumptionStage } : {}),
           }))
         : undefined;
 
@@ -338,6 +345,16 @@ export function ProductForm({
       setIsSubmitting(false);
     }
   };
+
+  // Check for duplicate product name
+  const duplicateProduct = useMemo(() => {
+    if (!name.trim() || !allProducts) return null;
+    const trimmedName = name.trim().toLowerCase();
+    const existing = allProducts.find(
+      (p) => p.name.toLowerCase() === trimmedName && p.id !== (product?._id as unknown as number)
+    );
+    return existing || null;
+  }, [name, allProducts, product]);
 
   // Calculate margin
   const cogs = calculatedValues.totalCost;
@@ -425,7 +442,13 @@ export function ProductForm({
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Pistachio Crunch"
                   required
+                  className={duplicateProduct ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
                 />
+                {duplicateProduct && (
+                  <p className="text-xs text-amber-600 font-medium">
+                    A product named "{duplicateProduct.name}" already exists. Consider using a different name.
+                  </p>
+                )}
               </div>
 
               {/* Production Components (Food only) */}

@@ -25,6 +25,7 @@ export interface MenuProductCreateInput {
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
     quantity: number;
+    consumptionStage?: "boxing" | "labeling" | "none";
   }>;
 }
 
@@ -40,6 +41,7 @@ export interface MenuProductUpdateInput {
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
     quantity: number;
+    consumptionStage?: "boxing" | "labeling" | "none";
   }>;
 }
 
