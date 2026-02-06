@@ -115,18 +115,15 @@ async function getPackagingComponentsForOrder(
 
 /**
  * Get default storage location (Office)
+ * Returns null if no default location is configured.
  */
-async function getDefaultLocation(ctx: MutationCtx): Promise<Id<"storageLocations">> {
+async function getDefaultLocation(ctx: MutationCtx): Promise<Id<"storageLocations"> | null> {
   const defaultLocation = await ctx.db
     .query("storageLocations")
     .withIndex("by_default", (q) => q.eq("isDefault", true))
     .first();
 
-  if (!defaultLocation) {
-    throw new Error("Default storage location not found. Please configure an Office location.");
-  }
-
-  return defaultLocation._id;
+  return defaultLocation?._id ?? null;
 }
 
 // ============================================
@@ -150,7 +147,15 @@ export async function reserveStockForOrderInternal(
   }
 
   // Get location (use default if not specified)
-  const locationId = args.locationId ?? await getDefaultLocation(ctx);
+  const resolvedLocationId = args.locationId ?? await getDefaultLocation(ctx);
+
+  // Skip reservation if no location configured (inventory not set up yet)
+  if (!resolvedLocationId) {
+    console.warn("No default storage location configured. Skipping stock reservation for order:", args.orderId);
+    return { reserved: 0, shortages: [] };
+  }
+
+  const locationId = resolvedLocationId;
 
   // Get packaging components to reserve
   const componentsToReserve = await getPackagingComponentsForOrder(ctx, args.orderId);
