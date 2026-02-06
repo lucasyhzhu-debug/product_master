@@ -13,6 +13,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-06 - Inventory Overhaul v2
+
+**Backend fixes, thermometer bars, sorting controls, and per-component receive.**
+
+### Backend Fixes
+- `adjustStock`: Now updates `quantityPurchased` and recalculates `totalCostIdr` when adjusting up (fixes "150/100" display showing negative consumed%)
+- `transferStock`: Creates per-source-batch copies at destination preserving original supplier name, brand, purchase URL, expiry date, and unit cost (previously merged into one batch)
+- `getInventoryReport`: Enriched with `latestSupplierName`, `latestPurchaseUrl`, `latestUnitCostIdr` per location
+
+### Frontend Changes
+- **StatCard**: Clean dark background (`bg-slate-900`) with white text and colored borders per variant (replaces gradient backgrounds)
+- **BatchCard**: Fixed negative consumed% using `Math.max(quantityPurchased, quantityRemaining)` guard; removed Expire button (use Adjust/Wastage with "Expired" reason instead)
+- **ComponentRow**: Always-visible thermometer bar (h-4 capsule) with reorder point marker at 50%, color gradient (red/amber/emerald/blue); supplier info + weighted avg cost on collapsed row; per-component "Receive" button
+- **ReceiveStockDialog**: Added `preselectedComponentId` (skips component grid) and `forceCreateMode` (starts in create-new mode) props; `lowStockComponents` now optional
+- **InventoryManager**: Top button renamed to "Receive New Stock Type" with `forceCreateMode`; sorting controls (Name, % Lowest, # Lowest, Priciest) with `Infinity` fallback for missing reorder points
+
+### Files Modified
+- `convex/inventory/mutations.ts` - adjustStock fix, transferStock per-batch split
+- `convex/inventory/queries.ts` - Supplier fields in inventory report
+- `src/components/inventory/StatCard.tsx` - Dark bg + white text
+- `src/components/inventory/BatchCard.tsx` - Consumed% fix, expire button removed
+- `src/components/inventory/ComponentRow.tsx` - Thermometer, supplier info, receive button
+- `src/components/inventory/ReceiveStockDialog.tsx` - Preselected + force-create props
+- `src/pages/InventoryManager.tsx` - Sorting, button rename
+
+---
+
 ## 2026-02-06 - BOM Improvements: 25 Issues Across 7 Waves
 
 **Major UX overhaul of the unified BOM system based on manual testing and live user feedback.**
