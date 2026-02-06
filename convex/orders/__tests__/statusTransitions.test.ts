@@ -38,6 +38,8 @@ describe("ALL_ORDER_STATUSES", () => {
       "AwaitingPayment",
       "Confirmed",
       "InProduction",
+      "Boxed",
+      "Labeled",
       "Packaging",
       "WaitingShipment",
       "WaitingPickup",
@@ -51,8 +53,8 @@ describe("ALL_ORDER_STATUSES", () => {
     }
   });
 
-  it("should have exactly 10 statuses", () => {
-    expect(ALL_ORDER_STATUSES.length).toBe(10);
+  it("should have exactly 12 statuses", () => {
+    expect(ALL_ORDER_STATUSES.length).toBe(12);
   });
 });
 

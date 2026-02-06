@@ -507,6 +507,28 @@ export async function setupRecipeWithLinkedComponent(
 }
 
 /**
+ * Creates a default storage location (required for order confirmation).
+ */
+export async function createDefaultStorageLocation(
+  t: TestContext,
+  overrides: {
+    name?: string;
+    locationType?: string;
+  } = {}
+): Promise<Id<'storageLocations'>> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('storageLocations', {
+      name: overrides.name ?? 'Office',
+      locationType: overrides.locationType ?? 'office',
+      isDefault: true,
+      isActive: true,
+      createdBy: 'test',
+      createdAt: Date.now(),
+    });
+  });
+}
+
+/**
  * Creates a customer for order tests.
  */
 export async function createCustomer(
