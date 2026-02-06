@@ -552,17 +552,22 @@ export const getOrderTemplate = query({
     let template = "Halo! Mau pesan Dubai Chewy Cookie yang mana nih?\n\n";
 
     posProducts.forEach((p, i) => {
-      // Format grams description
-      let gramsDesc = `${p.grams}g`;
-      if (p.productionUnits > 1) {
-        const perUnit = p.grams / p.productionUnits;
-        gramsDesc = `${p.grams}g = ${p.productionUnits}x${perUnit}g`;
-      }
-
       // Format price
       const priceK = (p.defaultPrice / 1000).toFixed(0);
 
-      template += `${i + 1}. ${p.name} (${gramsDesc}) - Rp ${priceK}.000 [  ]\n`;
+      // Only append grammage if name doesn't already contain it
+      const nameAlreadyHasGrams = p.name.includes(`${p.grams}g`);
+      let displayName = p.name;
+      if (!nameAlreadyHasGrams) {
+        let gramsDesc = `${p.grams}g`;
+        if (p.productionUnits > 1) {
+          const perUnit = p.grams / p.productionUnits;
+          gramsDesc = `${p.grams}g = ${p.productionUnits}x${perUnit}g`;
+        }
+        displayName = `${p.name} (${gramsDesc})`;
+      }
+
+      template += `${i + 1}. ${displayName} - Rp ${priceK}.000 [  ]\n`;
     });
 
     template += `
