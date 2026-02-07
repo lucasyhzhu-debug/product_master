@@ -1,6 +1,6 @@
 /**
  * Convex hooks for orders.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for order management.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation } from "convex/react";

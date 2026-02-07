@@ -1,6 +1,6 @@
 /**
  * Convex hooks for packaging materials.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for packaging material management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";

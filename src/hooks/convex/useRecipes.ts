@@ -1,6 +1,6 @@
 /**
  * Convex hooks for recipes.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for recipe management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";

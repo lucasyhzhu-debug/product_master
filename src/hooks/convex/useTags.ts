@@ -1,6 +1,6 @@
 /**
  * Convex hooks for tags.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for tag management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
