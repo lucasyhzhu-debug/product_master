@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals } from "../helpers";
+import { calculateLineTotals, generateOrderNumber as formatOrderNumber } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -25,19 +25,8 @@ import {
   validateFinalPrice,
 } from "../helpers/index";
 
-// ============================================
-// Input Types
-// ============================================
-
-const orderItemInput = v.object({
-  productName: v.string(),
-  productVariant: v.optional(v.string()),
-  quantity: v.number(),
-  unitPrice: v.number(),
-  unitCost: v.number(),
-  discountAmount: v.optional(v.number()),
-  menuProductId: v.optional(v.id("menuProducts")),
-});
+// Shared validators
+import { orderItemInput, channelValidator } from "../validators";
 
 // ============================================
 // Helper Functions
@@ -70,9 +59,8 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
     }
   }
 
-  // Generate next sequence
-  const nextSequence = maxSequence + 1;
-  const orderNumber = `${prefix}${String(nextSequence).padStart(3, "0")}`;
+  // Use pure helper for format string generation
+  const orderNumber = formatOrderNumber(now, maxSequence);
 
   // Verify uniqueness (handles race condition)
   const existing = await ctx.db
@@ -82,8 +70,7 @@ async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
 
   if (existing) {
     // Rare race condition - retry with incremented sequence
-    const retrySequence = nextSequence + 1;
-    return `${prefix}${String(retrySequence).padStart(3, "0")}`;
+    return formatOrderNumber(now, maxSequence + 1);
   }
 
   return orderNumber;
@@ -108,19 +95,7 @@ export const create = mutation({
       })
     ),
     // Order details
-    channel: v.optional(v.union(
-      v.literal("whatsapp"),
-      v.literal("instagram"),
-      v.literal("shopee"),
-      v.literal("tiktok"),
-      v.literal("tokopedia"),
-      v.literal("grabfood"),
-      v.literal("k3mart_gf"),
-      v.literal("legato_tamtem"),
-      v.literal("legato_goldfinch"),
-      v.literal("bazaar"),
-      v.literal("other")
-    )),
+    channel: v.optional(channelValidator),
     soldBy: v.optional(v.string()),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),

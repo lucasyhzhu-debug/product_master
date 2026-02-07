@@ -1,6 +1,6 @@
 /**
  * Convex hooks for customers.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for customer management.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation } from "convex/react";
@@ -8,6 +8,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import type { Customer } from "@/lib/types";
+import { getErrorMessage } from "@/lib/utils";
 
 // ============================================
 // Types
@@ -117,30 +118,18 @@ export function useConvexCustomerByPhone(phone: string | undefined) {
 export function useConvexCreateCustomer() {
   const mutation = useMutation(api.customers.mutations.create);
 
-  return {
-    mutate: async (data: CustomerCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Customer created");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to create customer";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: CustomerCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Customer created");
-        return id;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to create customer";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: CustomerCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Customer created");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create customer"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -149,28 +138,17 @@ export function useConvexCreateCustomer() {
 export function useConvexUpdateCustomer() {
   const mutation = useMutation(api.customers.mutations.update);
 
-  return {
-    mutate: async (data: { id: Id<"customers">; updates: CustomerUpdateInput }) => {
-      try {
-        await mutation({ id: data.id, ...data.updates });
-        toast.success("Customer updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update customer";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { id: Id<"customers">; updates: CustomerUpdateInput }) => {
-      try {
-        await mutation({ id: data.id, ...data.updates });
-        toast.success("Customer updated");
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to update customer";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (data: { id: Id<"customers">; updates: CustomerUpdateInput }) => {
+    try {
+      await mutation({ id: data.id, ...data.updates });
+      toast.success("Customer updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update customer"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -179,28 +157,16 @@ export function useConvexUpdateCustomer() {
 export function useConvexDeleteCustomer() {
   const mutation = useMutation(api.customers.mutations.remove);
 
-  return {
-    mutate: async (id: Id<"customers">) => {
-      try {
-        await mutation({ id });
-        toast.success("Customer deleted");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to delete customer";
-        toast.error(message);
-        throw error;
-      }
-    },
-    mutateAsync: async (id: Id<"customers">) => {
-      try {
-        await mutation({ id });
-        toast.success("Customer deleted");
-        return true;
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to delete customer";
-        toast.error(message);
-        throw error;
-      }
-    },
+  const execute = async (id: Id<"customers">) => {
+    try {
+      await mutation({ id });
+      toast.success("Customer deleted");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete customer"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }

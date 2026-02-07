@@ -5,6 +5,8 @@
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 
+// Pure helpers
+import { calculatePackageStatus } from "../helpers";
 // Ctx-dependent helpers
 import { logOrderEvent, transitionToBoxed, transitionToInProduction } from "../helpers/index";
 
@@ -63,18 +65,9 @@ export const markPackagePacked = mutation({
 
     // Add this package to packed list
     const newPackedIndices = [...packedIndices, packageIndex].sort((a, b) => a - b);
-
-    // Determine overall packageStatus
-    const totalBallsRequired = quantity * ballsPerPackage;
-    const allPackagesFilled = ballsFilled >= totalBallsRequired;
     const allPackagesPacked = newPackedIndices.length >= quantity;
 
-    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-    if (allPackagesPacked) {
-      newPackageStatus = "packed";
-    } else if (allPackagesFilled) {
-      newPackageStatus = "filled";
-    }
+    const newPackageStatus = calculatePackageStatus(ballsFilled, quantity, ballsPerPackage, newPackedIndices.length);
 
     await ctx.db.patch(args.orderItemId, {
       packedPackageIndices: newPackedIndices,
@@ -274,18 +267,9 @@ export const markAllItemPackagesPacked = mutation({
 
     // Merge indices
     const newPackedIndices = [...new Set([...currentPackedIndices, ...validIndices])].sort((a, b) => a - b);
-
-    // Determine status
-    const totalBallsRequired = quantity * ballsPerPackage;
-    const allPackagesFilled = ballsFilled >= totalBallsRequired;
     const allPackagesPacked = newPackedIndices.length >= quantity;
 
-    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-    if (allPackagesPacked) {
-      newPackageStatus = "packed";
-    } else if (allPackagesFilled) {
-      newPackageStatus = "filled";
-    }
+    const newPackageStatus = calculatePackageStatus(ballsFilled, quantity, ballsPerPackage, newPackedIndices.length);
 
     await ctx.db.patch(args.orderItemId, {
       packedPackageIndices: newPackedIndices,
@@ -329,19 +313,11 @@ export const unmarkPackagePacked = mutation({
     // Remove this package from packed list
     const newPackedIndices = packedIndices.filter((i) => i !== packageIndex);
 
-    // Determine new packageStatus
     const quantity = item.quantity ?? 1;
     const ballsPerPackage = item.productionUnits ?? 1;
     const ballsFilled = item.ballsFilled ?? 0;
-    const totalBallsRequired = quantity * ballsPerPackage;
-    const allPackagesFilled = ballsFilled >= totalBallsRequired;
 
-    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-    if (newPackedIndices.length >= quantity) {
-      newPackageStatus = "packed";
-    } else if (allPackagesFilled) {
-      newPackageStatus = "filled";
-    }
+    const newPackageStatus = calculatePackageStatus(ballsFilled, quantity, ballsPerPackage, newPackedIndices.length);
 
     await ctx.db.patch(args.orderItemId, {
       packedPackageIndices: newPackedIndices,
@@ -383,19 +359,8 @@ export const fillPackage = mutation({
     const newBallsFilled = Math.min(currentBallsFilled + ballsToAdd, totalBallsRequired);
 
     // Determine packageStatus
-    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
     const packedIndices = item.packedPackageIndices ?? [];
-    const allPackagesPacked = packedIndices.length >= quantity;
-
-    if (allPackagesPacked) {
-      newPackageStatus = "packed";
-    } else if (newBallsFilled >= totalBallsRequired) {
-      newPackageStatus = "filled";
-    } else if (newBallsFilled > 0) {
-      newPackageStatus = "filling";
-    } else {
-      newPackageStatus = "empty";
-    }
+    const newPackageStatus = calculatePackageStatus(newBallsFilled, quantity, ballsPerPackage, packedIndices.length);
 
     // Update item
     await ctx.db.patch(args.orderItemId, {
@@ -412,7 +377,7 @@ export const fillPackage = mutation({
     }
 
     // Check if all packages are now filled (auto-transition to Boxed)
-    if (newBallsFilled >= totalBallsRequired && !allPackagesPacked) {
+    if (newBallsFilled >= totalBallsRequired && newPackageStatus !== "packed") {
       const order = await ctx.db.get(item.orderId);
       if (!order) {
         throw new Error("Order not found");
@@ -479,21 +444,8 @@ export const unfillPackage = mutation({
     // Determine packageStatus
     const ballsPerPackage = item.productionUnits ?? 1;
     const quantity = item.quantity ?? 1;
-    const totalBallsRequired = quantity * ballsPerPackage;
     const packedIndices = item.packedPackageIndices ?? [];
-    const allPackagesPacked = packedIndices.length >= quantity;
-
-    let newPackageStatus: "empty" | "filling" | "filled" | "packed" = "filling";
-
-    if (allPackagesPacked) {
-      newPackageStatus = "packed";
-    } else if (newBallsFilled >= totalBallsRequired) {
-      newPackageStatus = "filled";
-    } else if (newBallsFilled > 0) {
-      newPackageStatus = "filling";
-    } else {
-      newPackageStatus = "empty";
-    }
+    const newPackageStatus = calculatePackageStatus(newBallsFilled, quantity, ballsPerPackage, packedIndices.length);
 
     // Update item
     await ctx.db.patch(args.orderItemId, {

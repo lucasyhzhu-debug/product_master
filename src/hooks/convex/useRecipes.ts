@@ -1,6 +1,6 @@
 /**
  * Convex hooks for recipes.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for recipe management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -110,28 +110,18 @@ export function useConvexRecipeSearch(query: string, limit?: number) {
 export function useConvexCreateRecipe() {
   const mutation = useMutation(api.recipes.mutations.create);
 
-  return {
-    mutate: async (data: RecipeCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Recipe created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create recipe"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: RecipeCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Recipe created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create recipe"));
-        throw error;
-      }
-    },
+  const execute = async (data: RecipeCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Recipe created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create recipe"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -140,38 +130,23 @@ export function useConvexCreateRecipe() {
 export function useConvexCopyRecipeVersion() {
   const mutation = useMutation(api.recipes.mutations.copyVersion);
 
-  return {
-    mutate: async (data: {
-      recipeId: Id<"recipes">;
-      copyFromVersionId: Id<"recipeVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      recipeId: Id<"recipes">;
-      copyFromVersionId: Id<"recipeVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    recipeId: Id<"recipes">;
+    copyFromVersionId: Id<"recipeVersions">;
+    versionName: string;
+    description?: string;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version copied successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to copy version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -180,34 +155,21 @@ export function useConvexCopyRecipeVersion() {
 export function useConvexCreateRecipeVersion() {
   const mutation = useMutation(api.recipes.mutations.createVersion);
 
-  return {
-    mutate: async (data: {
-      recipeId: Id<"recipes">;
-      versionData: RecipeVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      recipeId: Id<"recipes">;
-      versionData: RecipeVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    recipeId: Id<"recipes">;
+    versionData: RecipeVersionInput;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -216,29 +178,17 @@ export function useConvexCreateRecipeVersion() {
 export function useConvexUpdateRecipeTags() {
   const mutation = useMutation(api.recipes.mutations.updateTags);
 
-  return {
-    mutate: async (data: { recipeId: Id<"recipes">; tagIds: Id<"tags">[] }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      recipeId: Id<"recipes">;
-      tagIds: Id<"tags">[];
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
+  const execute = async (data: { recipeId: Id<"recipes">; tagIds: Id<"tags">[] }) => {
+    try {
+      await mutation(data);
+      toast.success("Tags updated successfully");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update tags"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -247,26 +197,17 @@ export function useConvexUpdateRecipeTags() {
 export function useConvexUpdateRecipeName() {
   const mutation = useMutation(api.recipes.mutations.updateName);
 
-  return {
-    mutate: async (data: { recipeId: Id<"recipes">; name: string }) => {
-      try {
-        await mutation(data);
-        toast.success("Recipe name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { recipeId: Id<"recipes">; name: string }) => {
-      try {
-        await mutation(data);
-        toast.success("Recipe name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
+  const execute = async (data: { recipeId: Id<"recipes">; name: string }) => {
+    try {
+      await mutation(data);
+      toast.success("Recipe name updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update name"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -275,28 +216,18 @@ export function useConvexUpdateRecipeName() {
 export function useConvexDeleteRecipe() {
   const mutation = useMutation(api.recipes.mutations.remove);
 
-  return {
-    mutate: async (recipeId: Id<"recipes">) => {
-      try {
-        await mutation({ recipeId });
-        toast.success("Recipe deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete recipe"));
-        throw error;
-      }
-    },
-    mutateAsync: async (recipeId: Id<"recipes">) => {
-      try {
-        await mutation({ recipeId });
-        toast.success("Recipe deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete recipe"));
-        throw error;
-      }
-    },
+  const execute = async (recipeId: Id<"recipes">) => {
+    try {
+      await mutation({ recipeId });
+      toast.success("Recipe deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete recipe"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
