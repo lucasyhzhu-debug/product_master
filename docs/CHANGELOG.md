@@ -13,6 +13,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-07 - Fix: ProductForm Crash on Undefined posSlot (Hotfix)
+
+**Fixed production crash when editing menu products with undefined `posSlot` values.**
+
+### Root Cause
+In `ProductForm.tsx`, the slot initialization logic used the `in` operator to check for `posSlot`, which returns `true` even when the value is `undefined` (since the key exists). Calling `.toString()` on `undefined` caused a TypeError crash.
+
+Additionally, the truthiness check for `packagingPosSlot` would incorrectly treat slot `0` as `'none'`.
+
+### Fix
+- Changed both slot checks to use `!= null` (nullish check) which correctly handles `undefined` while preserving valid slot `0`
+- Added missing `DialogDescription` for accessibility compliance
+
+### Files Modified
+- `src/components/menuProducts/ProductForm.tsx` - Fixed slot initialization logic, added DialogDescription
+
+---
+
 ## 2026-02-07 - Feat: Consumption Stage Selector + Production Stage
 
 **Added consumption stage selector UI and new "production" stage for components consumed at InProduction transition.**
