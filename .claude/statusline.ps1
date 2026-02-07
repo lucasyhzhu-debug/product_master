@@ -71,8 +71,8 @@ $barWidth = 20
 $filled = [math]::Floor($percent * $barWidth / 100)
 if ($filled -gt $barWidth) { $filled = $barWidth }
 $empty = $barWidth - $filled
-$barFilled = ([string][char]0x2588) * $filled
-$barEmpty = ([string][char]0x2591) * $empty
+$barFilled = "#" * $filled
+$barEmpty = "-" * $empty
 $line2 = "${ctxColor}${barFilled}${dim}${barEmpty}${reset} ${ctxColor}${percent}%${reset} ${dim}(${tokensK}k/${ctxSizeK}k)${reset}"
 
 # --- Output both lines ---

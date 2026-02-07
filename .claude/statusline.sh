@@ -78,8 +78,8 @@ EMPTY=$(( BAR_WIDTH - FILLED ))
 
 BAR_FILLED=""
 BAR_EMPTY=""
-[ "$FILLED" -gt 0 ] && BAR_FILLED=$(printf "%${FILLED}s" | tr ' ' '█')
-[ "$EMPTY" -gt 0 ] && BAR_EMPTY=$(printf "%${EMPTY}s" | tr ' ' '░')
+[ "$FILLED" -gt 0 ] && BAR_FILLED=$(printf "%${FILLED}s" | tr ' ' '#')
+[ "$EMPTY" -gt 0 ] && BAR_EMPTY=$(printf "%${EMPTY}s" | tr ' ' '-')
 
 LINE2="${CTX_COLOR}${BAR_FILLED}${DIM}${BAR_EMPTY}${RESET} ${CTX_COLOR}${PERCENT_INT}%${RESET} ${DIM}(${TOKENS_K}k/${CTX_SIZE_K}k)${RESET}"
 
