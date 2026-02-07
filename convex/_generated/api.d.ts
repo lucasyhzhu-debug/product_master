@@ -59,6 +59,8 @@ import type * as orders_mutations_orderCrud from "../orders/mutations/orderCrud.
 import type * as orders_mutations_packaging from "../orders/mutations/packaging.js";
 import type * as orders_mutations_statusUpdates from "../orders/mutations/statusUpdates.js";
 import type * as orders_queries from "../orders/queries.js";
+import type * as orders_types from "../orders/types.js";
+import type * as orders_validators from "../orders/validators.js";
 import type * as orders_whatsapp from "../orders/whatsapp.js";
 import type * as orders_whatsappHelpers from "../orders/whatsappHelpers.js";
 import type * as packaging_mutations from "../packaging/mutations.js";
@@ -138,6 +140,8 @@ declare const fullApi: ApiFromModules<{
   "orders/mutations/packaging": typeof orders_mutations_packaging;
   "orders/mutations/statusUpdates": typeof orders_mutations_statusUpdates;
   "orders/queries": typeof orders_queries;
+  "orders/types": typeof orders_types;
+  "orders/validators": typeof orders_validators;
   "orders/whatsapp": typeof orders_whatsapp;
   "orders/whatsappHelpers": typeof orders_whatsappHelpers;
   "packaging/mutations": typeof packaging_mutations;
