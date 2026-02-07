@@ -22,7 +22,9 @@ export const createComponentAndReceiveStock = mutation({
     code: v.string(),
     name: v.string(),
     category: v.union(
-      v.literal("packaging")
+      v.literal("packaging"),
+      v.literal("direct_packaging"),   // Legacy compat
+      v.literal("indirect_packaging")  // Legacy compat
     ),
     unit: v.string(),
     reorderPoint: v.optional(v.number()),
@@ -61,11 +63,14 @@ export const createComponentAndReceiveStock = mutation({
     const allComponents = await ctx.db.query("componentTypes").collect();
     const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
 
+    // Map legacy category values to canonical value
+    const category: "packaging" = "packaging";
+
     // Create component type (NO unitCostIdr - comes from batches!)
     const componentId = await ctx.db.insert("componentTypes", {
       code: args.code,
       name: args.name,
-      category: args.category,
+      category,
       unitCostIdr: 0, // Placeholder - will be calculated from batches
       unit: args.unit,
       gramsPerUnit: undefined, // Packaging doesn't need grams

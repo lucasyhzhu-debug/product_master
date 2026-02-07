@@ -289,7 +289,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 7. **Order numbers**: Format `MMDD-NNN` (e.g., 0129-001) for bank transfer reference.
 8. **Kitchen production**: Balls accumulate in trays and auto-allocate to pending orders. Production tracking uses `orderItemProduction.unitsRemaining` (source of truth) and `orderItems.ballsFilled/packageStatus` (UI display).
 9. **Order status workflow**: Draft -> AwaitingPayment -> Confirmed -> InProduction -> Boxed -> Labeled -> WaitingShipment/WaitingPickup -> CompleteShipped/PickedUp. Any non-terminal -> Cancelled.
-10. **Unified BOM**: `componentTypes` table unifies production units (balls) and packaging items (boxes, stickers) into a single Bill of Materials system. Three categories: `production`, `direct_packaging`, `indirect_packaging`.
+10. **Unified BOM**: `componentTypes` table unifies production units (balls) and packaging items (boxes, stickers) into a single Bill of Materials system. Two categories: `production`, `packaging`. Backend validators accept legacy `direct_packaging`/`indirect_packaging` for backwards compatibility.
 11. **Inventory FIFO**: Packaging inventory uses FIFO batch tracking. Stock is reserved on order confirmation and consumed on fulfillment.
 
 ---

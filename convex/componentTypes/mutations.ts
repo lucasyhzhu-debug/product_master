@@ -16,7 +16,9 @@ export const create = mutation({
     name: v.string(),
     category: v.union(
       v.literal("production"),
-      v.literal("packaging")
+      v.literal("packaging"),
+      v.literal("direct_packaging"),   // Legacy compat
+      v.literal("indirect_packaging")  // Legacy compat
     ),
     unitCostIdr: v.number(),
     unit: v.string(),
@@ -47,18 +49,24 @@ export const create = mutation({
       throw new Error(`Component code "${args.code}" already exists`);
     }
 
+    // Map legacy category values to canonical values
+    const resolvedCategory: "production" | "packaging" =
+      args.category === "direct_packaging" || args.category === "indirect_packaging"
+        ? "packaging"
+        : args.category;
+
     // Validate: production components must have gramsPerUnit
-    if (args.category === "production" && !args.gramsPerUnit) {
+    if (resolvedCategory === "production" && !args.gramsPerUnit) {
       throw new Error("Production components must have gramsPerUnit");
     }
 
     // Validate: packaging components must track inventory
-    if (args.category === "packaging" && !args.trackInventory) {
+    if (resolvedCategory === "packaging" && !args.trackInventory) {
       throw new Error("Packaging components must track inventory");
     }
 
     // Validate: production components should NOT track inventory
-    if (args.category === "production" && args.trackInventory) {
+    if (resolvedCategory === "production" && args.trackInventory) {
       throw new Error("Production components should not track inventory (made to order)");
     }
 
@@ -72,12 +80,12 @@ export const create = mutation({
 
     // Default consumptionStage based on category
     const consumptionStage = args.consumptionStage ??
-      (args.category === "packaging" ? "boxing" : "none");
+      (resolvedCategory === "packaging" ? "boxing" : "none");
 
     const componentId = await ctx.db.insert("componentTypes", {
       code: args.code,
       name: args.name,
-      category: args.category,
+      category: resolvedCategory,
       description: args.description,
       unitCostIdr: args.unitCostIdr,
       unit: args.unit,
@@ -210,7 +218,11 @@ export const remove = mutation({
 export const createPackagingQuick = mutation({
   args: {
     name: v.string(),
-    category: v.optional(v.literal("packaging")),
+    category: v.optional(v.union(
+      v.literal("packaging"),
+      v.literal("direct_packaging"),   // Legacy compat
+      v.literal("indirect_packaging")  // Legacy compat
+    )),
     consumptionStage: v.optional(v.union(
       v.literal("boxing"),
       v.literal("labeling"),
@@ -219,7 +231,8 @@ export const createPackagingQuick = mutation({
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
-    const category = args.category ?? "packaging";
+    // Always resolve to "packaging" (this function only creates packaging components)
+    const category: "packaging" = "packaging";
 
     // Auto-generate code from name
     const baseCode = `PKG_${args.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30)}`;

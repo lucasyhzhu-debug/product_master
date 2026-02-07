@@ -149,14 +149,21 @@ export const getByCategory = query({
   args: {
     category: v.union(
       v.literal("production"),
-      v.literal("packaging")
+      v.literal("packaging"),
+      v.literal("direct_packaging"),   // Legacy compat
+      v.literal("indirect_packaging")  // Legacy compat
     ),
     activeOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const resolvedCategory: "production" | "packaging" =
+      args.category === "direct_packaging" || args.category === "indirect_packaging"
+        ? "packaging"
+        : args.category;
+
     let components = await ctx.db
       .query("componentTypes")
-      .withIndex("by_category", (q) => q.eq("category", args.category))
+      .withIndex("by_category", (q) => q.eq("category", resolvedCategory))
       .collect();
 
     if (args.activeOnly) {
