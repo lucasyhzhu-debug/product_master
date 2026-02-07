@@ -1,6 +1,6 @@
 /**
  * Convex hooks for dashboard.
- * These replace the React Query + Axios hooks.
+ * Convex query hooks for dashboard aggregation.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery } from "convex/react";

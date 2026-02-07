@@ -36,7 +36,7 @@ After merging any code change, add a new entry with:
 - **Removed deprecated aliases**: `useConvexLegacyProducts`, `LegacyProduct`
 
 ### Files Changed
-- 31 files changed, 1,026 insertions, 1,858 deletions (net -832 lines)
+- 32 files changed, 1,063 insertions, 1,869 deletions (net -806 lines)
 - 3 new shared files: `convex/orders/validators.ts`, `convex/orders/types.ts`, `src/lib/transforms.ts`
 
 ---
