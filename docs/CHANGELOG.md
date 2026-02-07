@@ -13,6 +13,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-07 - Fix: Legacy Category Validator (Hotfix)
+
+**Fixed production crash when stale browser clients send legacy `direct_packaging`/`indirect_packaging` category values.**
+
+### Root Cause
+After the category simplification migration (commit `2fdf009`), backend validators were tightened to only accept `"production" | "packaging"`. Users with cached browser tabs still had old JS sending the pre-migration values, causing validator rejection errors.
+
+### Fix
+Expanded argument validators on all 4 affected Convex functions to accept legacy values, then map them to canonical `"packaging"` at the top of each handler. No schema changes -- only query/mutation arg validators were widened.
+
+### Files Modified
+- `convex/componentTypes/queries.ts` - `getByCategory` accepts legacy categories
+- `convex/componentTypes/mutations.ts` - `create` and `createPackagingQuick` accept legacy categories
+- `convex/inventory/mutations.ts` - `createComponentAndReceiveStock` accepts legacy categories
+- `CLAUDE.md` - Updated business rule #10 (two categories, not three)
+
+---
+
 ## 2026-02-07 - Inventory Dialogs (PR #28)
 
 **Added stock adjustment and inter-location transfer dialogs to the inventory system.**
