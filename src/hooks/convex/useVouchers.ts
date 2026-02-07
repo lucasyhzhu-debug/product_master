@@ -9,6 +9,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { useAuth } from "../../contexts/AuthContext";
+import { getErrorMessage } from "../../lib/utils";
 import { toast } from "sonner";
 
 // Type assertion for vouchers API (will be properly typed after `npx convex dev`)
@@ -177,12 +178,11 @@ export function useCreateVoucher() {
         toast.success("Voucher created successfully");
         return id;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to create voucher";
+        const message = getErrorMessage(error, "Failed to create voucher");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
 
@@ -207,12 +207,11 @@ export function useUpdateVoucher() {
         toast.success("Voucher updated successfully");
         return id;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to update voucher";
+        const message = getErrorMessage(error, "Failed to update voucher");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
 
@@ -236,12 +235,11 @@ export function useToggleVoucherActive() {
         toast.success(isNowActive ? "Voucher activated" : "Voucher deactivated");
         return isNowActive;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to toggle voucher status";
+        const message = getErrorMessage(error, "Failed to toggle voucher status");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
 
@@ -265,12 +263,11 @@ export function useDeleteVoucher() {
         toast.success("Voucher deleted");
         return true;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete voucher";
+        const message = getErrorMessage(error, "Failed to delete voucher");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
 
@@ -294,12 +291,11 @@ export function useCreateManagerOverride() {
         toast.success(`Override voucher created: ${result.code}`);
         return result;
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to create override voucher";
+        const message = getErrorMessage(error, "Failed to create override voucher");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
 
@@ -321,11 +317,10 @@ export function useGenerateVoucherCode() {
       try {
         return await mutation({ prefix, token: user.token });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to generate code";
+        const message = getErrorMessage(error, "Failed to generate code");
         toast.error(message);
         throw error;
       }
     },
-    isLoading: false,
   };
 }
