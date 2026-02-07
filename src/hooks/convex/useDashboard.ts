@@ -12,10 +12,10 @@ import type {
   OrderStatsNeedsAttention,
   OrderStatsPipeline,
   UrgentOrder,
-  OrderSummary,
   OrderStatus,
-  PaymentStatus,
 } from "@/lib/types";
+import { transformToOrderSummary } from "@/lib/transforms";
+import type { ConvexOrderBase } from "@/lib/transforms";
 
 // ============================================
 // Transform Functions (Internal)
@@ -40,53 +40,7 @@ interface ConvexDashboardSummary {
   materialCount: number;
 }
 
-interface ConvexOrder {
-  _id: string;
-  _creationTime: number;
-  orderNumber: string;
-  customerName: string;
-  customerPhone?: string;
-  status: string;
-  paymentStatus: string;
-  dueDate?: number;
-  totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
-  itemCount: number;
-  channel?: string;
-  soldBy?: string;
-  deliveryType?: string;
-  shippingAgency?: string;
-  awaitingPaymentSince?: number;
-  orderLevelDiscount?: number;
-}
-
-function transformToOrderSummary(order: ConvexOrder): OrderSummary {
-  return {
-    id: order._id as unknown as number,
-    order_number: order.orderNumber,
-    customer_name: order.customerName,
-    customer_phone: order.customerPhone ?? null,
-    status: order.status as OrderStatus,
-    awaiting_payment_since: order.awaitingPaymentSince
-      ? new Date(order.awaitingPaymentSince).toISOString()
-      : null,
-    payment_status: order.paymentStatus as PaymentStatus,
-    channel: order.channel ?? null,
-    sold_by: order.soldBy ?? null,
-    due_date: order.dueDate ? new Date(order.dueDate).toISOString() : null,
-    total_amount: order.totalAmount,
-    total_cost: order.totalCost,
-    total_margin: order.totalMargin,
-    total_discount: order.orderLevelDiscount ?? 0,
-    item_count: order.itemCount,
-    delivery_type: order.deliveryType ?? null,
-    shipping_agency: order.shippingAgency ?? null,
-    created_at: new Date(order._creationTime).toISOString(),
-  };
-}
-
-function transformUrgentOrder(order: ConvexOrder): UrgentOrder {
+function transformUrgentOrder(order: ConvexOrderBase): UrgentOrder {
   const now = Date.now();
   return {
     id: order._id as unknown as number,
@@ -103,7 +57,7 @@ function transformUrgentOrder(order: ConvexOrder): UrgentOrder {
 
 function transformDashboardStats(
   summary: ConvexDashboardSummary,
-  urgentOrders: ConvexOrder[]
+  urgentOrders: ConvexOrderBase[]
 ): OrderStats {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -191,7 +145,7 @@ export function useConvexRecentOrders() {
   const data = useQuery(api.dashboard.queries.getRecentOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
-    data: (data as ConvexOrder[]).map(transformToOrderSummary),
+    data: (data as ConvexOrderBase[]).map(transformToOrderSummary),
     isLoading: false,
   };
 }
@@ -203,7 +157,7 @@ export function useConvexUpcomingDue() {
   const data = useQuery(api.dashboard.queries.getUpcomingDue, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
-    data: (data as ConvexOrder[]).map(transformUrgentOrder),
+    data: (data as ConvexOrderBase[]).map(transformUrgentOrder),
     isLoading: false,
   };
 }
@@ -225,7 +179,7 @@ export function useConvexOrderStats() {
   // Transform and combine the data
   const stats = transformDashboardStats(
     summary as ConvexDashboardSummary,
-    (upcomingDue ?? []) as ConvexOrder[]
+    (upcomingDue ?? []) as ConvexOrderBase[]
   );
 
   return {
