@@ -604,6 +604,43 @@ export const removeFromPackagingSlot = mutation({
 });
 
 /**
+ * Reorder food POS slots.
+ * Takes an ordered array of product IDs and assigns posSlot 1, 2, 3...
+ * Products not in the array are unaffected.
+ */
+export const reorderSlots = mutation({
+  args: {
+    token: v.string(),
+    orderedProductIds: v.array(v.id("menuProducts")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    for (let i = 0; i < args.orderedProductIds.length; i++) {
+      await ctx.db.patch(args.orderedProductIds[i], { posSlot: i + 1 });
+    }
+  },
+});
+
+/**
+ * Reorder packaging POS slots.
+ * Takes an ordered array of product IDs and assigns packagingPosSlot 1, 2, 3...
+ */
+export const reorderPackagingSlots = mutation({
+  args: {
+    token: v.string(),
+    orderedProductIds: v.array(v.id("menuProducts")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    for (let i = 0; i < args.orderedProductIds.length; i++) {
+      await ctx.db.patch(args.orderedProductIds[i], { packagingPosSlot: i + 1 });
+    }
+  },
+});
+
+/**
  * PRD-8: Migration - Set initial posSlot for existing fixed products.
  * Run from Convex dashboard Functions tab: menuProducts:migrateFixedProductsToSlots
  *
