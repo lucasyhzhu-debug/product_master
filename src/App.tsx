@@ -20,6 +20,7 @@ import {
   InventoryManager,
   LocationsManager,
   ProductionComponentsManager,
+  SalesAnalytics,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -220,6 +221,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessInventory">
                   <ProductionComponentsManager />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Sales Analytics - Manager and Admin */}
+            <Route
+              path="sales"
+              element={
+                <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
+                  <SalesAnalytics />
                 </ProtectedRoute>
               }
             />

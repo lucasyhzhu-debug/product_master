@@ -632,6 +632,113 @@ try {
 }
 ```
 
+---
+
+## External Data (Multi-Platform Sales Integration)
+
+### Actions (Node.js Runtime)
+
+#### `integrations.k3mart.adapter.syncK3MartStock`
+Syncs stock data from all active K3Mart outlets.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync (e.g., "dashboard", "settings") |
+
+**Returns:** `{ success, syncLogId, totalProducts, totalSalesInferred, outletsProcessed, errors, durationMs }`
+
+**Flow:** Fetches paginated stock data per outlet, stores raw snapshots, calculates stock deltas from previous snapshot, writes inferred revenue records with `confidence: "inferred"`.
+
+#### `integrations.gobiz.adapter.syncGoBizRevenue`
+Syncs revenue data from GoBiz (GoFood).
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| periodStart | number? | Period start (defaults to today) |
+| periodEnd | number? | Period end (defaults to end of today) |
+| triggeredBy | string? | Who triggered the sync |
+
+**Returns:** `{ success, syncLogId, revenueGross, revenueNet, transactionCount, period, durationMs }`
+
+**Flow:** Queries proxy/44 for gross revenue + transaction count, proxy/4 for net revenue (merchant share). Amounts divided by 100 (cents to IDR). Stores with `confidence: "exact"`.
+
+### Queries
+
+#### `externalData.queries.listOutlets`
+Lists all external outlets, optionally filtered by source.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+
+#### `externalData.queries.getLatestSnapshots`
+Gets latest stock snapshot batch for an outlet.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| outletId | Id<"externalOutlets"> | Outlet to query |
+
+#### `externalData.queries.getRevenue`
+Gets revenue records with optional filters.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+| periodStart | number? | Period start filter |
+| periodEnd | number? | Period end filter |
+
+#### `externalData.queries.getSyncLogs`
+Gets sync operation history.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+| limit | number? | Max results (default 50) |
+
+#### `externalData.queries.getDashboardSummary`
+Aggregated dashboard data: outlet counts, recent revenue totals, last sync per platform.
+
+### Mutations (Auth Required: manager, admin)
+
+#### `externalData.mutations.upsertOutlet`
+Creates or updates an external outlet.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| source | `"k3mart" \| "gobiz"` | Platform |
+| externalId | string | Platform outlet ID |
+| name | string | Display name |
+| address | string? | Address |
+| isActive | boolean | Active status |
+
+#### `externalData.mutations.toggleOutletActive`
+Toggles outlet active status.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| outletId | Id<"externalOutlets"> | Outlet ID |
+| isActive | boolean | New active state |
+
+#### `externalData.mutations.linkProductMapping`
+Links an external product to an internal menu product.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| mappingId | Id<"externalProductMappings"> | Mapping ID |
+| menuProductId | Id<"menuProducts">? | Internal product (null to unlink) |
+
+### Environment Variables
+
+| Variable | Description | Lifespan |
+|----------|-------------|----------|
+| `K3MART_API_TOKEN` | K3 Mart JWT token | ~1 year |
+| `GOBIZ_API_TOKEN` | GoBiz access token (session cookie) | ~hours |
+
+---
+
 ### Common Error Cases
 
 | Scenario | Error Message |

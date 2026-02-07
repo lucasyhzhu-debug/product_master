@@ -5,7 +5,8 @@
 
 ## Table of Contents
 - [System Architecture Overview](#system-architecture-overview)
-- [Complete Database Schema (22 Tables)](#complete-database-schema-22-tables)
+- [Complete Database Schema](#complete-database-schema)
+- [External Integration Tables (5 Tables)](#external-integration-tables-5-tables)
 - [Order Status Workflow](#order-status-workflow)
 - [Visual Schema Diagram](#visual-schema-diagram)
 - [Data Flow Patterns](#data-flow-patterns)
@@ -740,6 +741,105 @@ export const createRecipeWithVersion = mutation({
   },
 });
 ```
+
+---
+
+## External Integration Tables (5 Tables)
+
+### externalOutlets
+Platform outlet/store definitions with sync tracking.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| externalId | string | Platform-specific outlet ID |
+| name | string | Outlet display name |
+| address | string? | Optional address |
+| isActive | boolean | Whether to include in syncs |
+| lastSyncAt | number? | Last sync timestamp |
+| lastSyncStatus | `"success" \| "error" \| "partial"` | Last sync result |
+| lastSyncError | string? | Error message if failed |
+| createdBy | string | Who created the outlet |
+| createdAt | number | Creation timestamp |
+
+**Indexes:** `by_source`, `by_source_external_id`, `by_active`
+
+### externalStockSnapshots
+Raw stock data snapshots from K3Mart outlets.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| outletId | Id<"externalOutlets"> | Reference to outlet |
+| snapshotBatchId | string | Groups snapshots from same sync |
+| snapshotAt | number | When snapshot was taken |
+| externalProductId | string | Platform product ID |
+| externalProductCode | string | Platform product code |
+| productName | string | Product display name |
+| quantity | number | Current stock quantity |
+| price | number | Selling price |
+| priceGrabfoodGofood | number? | GoFood/GrabFood price |
+| priceGrabmart | number? | GrabMart price |
+| priceShopee | number? | Shopee price |
+| capital | number? | Cost price |
+
+**Indexes:** `by_outlet`, `by_batch`, `by_outlet_product`, `by_outlet_snapshot`, `by_snapshot_time`
+
+### externalRevenue
+Unified revenue records from all platforms with confidence tracking.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| outletId | Id<"externalOutlets">? | Optional outlet reference |
+| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| externalProductCode | string? | Platform product code |
+| productName | string? | Product display name |
+| quantitySold | number? | Units sold |
+| transactionCount | number? | Number of transactions (GoBiz) |
+| revenueGross | number? | Gross revenue in IDR |
+| revenueNet | number? | Net revenue in IDR |
+| costOfGoods | number? | COGS if available |
+| periodStart | number | Period start timestamp |
+| periodEnd | number | Period end timestamp |
+| dataOrigin | `"stock_delta" \| "api_revenue" \| "manual_entry" \| "csv_upload"` | How data was obtained |
+| confidence | `"exact" \| "inferred" \| "manual"` | Data reliability level |
+| syncLogId | Id<"externalSyncLogs">? | Reference to sync operation |
+| linkedMenuProductId | Id<"menuProducts">? | Mapped internal product |
+
+**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`
+
+### externalSyncLogs
+Sync operation logs with timing and error details.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| outletId | Id<"externalOutlets">? | Optional outlet reference |
+| snapshotBatchId | string? | Batch ID for stock syncs |
+| syncType | `"manual"` | Sync trigger type |
+| status | `"started" \| "success" \| "error"` | Sync status |
+| productsCount | number? | Products processed |
+| errorMessage | string? | Error details |
+| durationMs | number? | Sync duration in ms |
+| triggeredBy | string? | Who triggered the sync |
+| timestamp | number | When sync started |
+
+**Indexes:** `by_source`, `by_timestamp`, `by_outlet`
+
+### externalProductMappings
+Maps external product codes to internal menu products.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| externalProductCode | string | Platform product code |
+| externalProductName | string | Platform product name |
+| menuProductId | Id<"menuProducts">? | Linked internal product |
+| isAutoMapped | boolean | Whether mapping was automatic |
+| createdAt | number | Creation timestamp |
+
+**Indexes:** `by_source_code`, `by_menu_product`
+
+---
 
 ### Querying Patterns
 ```typescript
