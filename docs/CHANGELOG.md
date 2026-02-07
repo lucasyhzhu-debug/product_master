@@ -13,6 +13,34 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-07 - Code Simplification
+
+**Removed ~830 lines of duplication across backend and frontend. Zero behavior changes.**
+
+### Backend (Waves 1-2)
+- **Shared validators** (`convex/orders/validators.ts`): Extracted `orderItemInput`, `channelValidator`, `statusValidator` used across 5 order files
+- **Shared types** (`convex/orders/types.ts`): Unified `OrderWithItems` for queries.ts and whatsapp.ts
+- **Merged inventory consumption**: `consumeBoxingMaterialsInternal` + `consumeStickerMaterialsInternal` → parameterized `consumeMaterialsByStageInternal(ctx, args, stage)`
+- **Extracted `calculatePackageStatus()`**: Pure function replacing 5 inline status calculations in packaging.ts
+- **Extracted helpers in componentTypes/queries.ts**: `sortBySortOrderThenName` comparator + `enrichWithCostInsights` helper
+- **Deduplicated `listLegacyProducts`**: Now delegates to `listAvailableProducts`
+
+### Frontend (Waves 3-5)
+- **Deduplicated 56 mutation hooks**: Applied `const execute = ...; return { mutate: execute, mutateAsync: execute }` pattern across 12 hook files
+- **Standardized error handling**: Replaced inline `error instanceof Error` patterns with `getErrorMessage()` utility
+- **Improved `useProtectedMutation`**: Added proper `FunctionReference` generics for automatic type inference
+- **Adopted `useProtectedMutation`**: 13 hooks in useMenuProducts.ts and useVouchers.ts now use it (removes manual auth check + token injection)
+- **Extracted shared transforms** (`src/lib/transforms.ts`): `transformToOrderSummary()`, `calculateTotalDiscount()`, `ConvexOrderBase` type
+- **Merged kitchen transforms**: `transformKitchenOrder` + `transformCompletedOrder` → unified `transformOrderToKitchenOrder`
+- **Removed stale comments**: "React Query" references cleaned from 10 hook files
+- **Removed deprecated aliases**: `useConvexLegacyProducts`, `LegacyProduct`
+
+### Files Changed
+- 31 files changed, 1,026 insertions, 1,858 deletions (net -832 lines)
+- 3 new shared files: `convex/orders/validators.ts`, `convex/orders/types.ts`, `src/lib/transforms.ts`
+
+---
+
 ## 2026-02-06 - Inventory Overhaul v2
 
 **Backend fixes, thermometer bars, sorting controls, and per-component receive.**
