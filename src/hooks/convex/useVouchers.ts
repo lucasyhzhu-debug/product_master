@@ -5,12 +5,12 @@
  * NOTE: The vouchers API types are generated when `npx convex dev` runs.
  * If you see type errors, run `npx convex dev` to regenerate the types.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
-import { useAuth } from "../../contexts/AuthContext";
 import { getErrorMessage } from "../../lib/utils";
 import { toast } from "sonner";
+import { useProtectedMutation } from "./useProtectedMutation";
 
 // Type assertion for vouchers API (will be properly typed after `npx convex dev`)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,22 +164,18 @@ export function useVoucherStats(id: Id<"vouchers"> | undefined) {
  */
 export function useCreateVoucher() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.create as any);
-  const { user } = useAuth();
+  const protectedCreate = useProtectedMutation(vouchersApi.mutations.create as any);
 
   return {
     createVoucher: async (data: VoucherCreateInput) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        const id = await mutation({ ...data, token: user.token });
+        const id = await protectedCreate({ ...data });
         toast.success("Voucher created successfully");
         return id;
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to create voucher");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to create voucher"));
+        }
         throw error;
       }
     },
@@ -192,23 +188,19 @@ export function useCreateVoucher() {
  */
 export function useUpdateVoucher() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.update as any);
-  const { user } = useAuth();
+  const protectedUpdate = useProtectedMutation(vouchersApi.mutations.update as any);
 
   return {
     updateVoucher: async (data: VoucherUpdateInput) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
         const { id, ...updates } = data;
-        await mutation({ id, ...updates, token: user.token });
+        await protectedUpdate({ id, ...updates });
         toast.success("Voucher updated successfully");
         return id;
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to update voucher");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to update voucher"));
+        }
         throw error;
       }
     },
@@ -221,22 +213,18 @@ export function useUpdateVoucher() {
  */
 export function useToggleVoucherActive() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.toggleActive as any);
-  const { user } = useAuth();
+  const protectedToggle = useProtectedMutation(vouchersApi.mutations.toggleActive as any);
 
   return {
     toggleActive: async (id: Id<"vouchers">) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        const isNowActive = await mutation({ id, token: user.token });
+        const isNowActive = await protectedToggle({ id });
         toast.success(isNowActive ? "Voucher activated" : "Voucher deactivated");
         return isNowActive;
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to toggle voucher status");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to toggle voucher status"));
+        }
         throw error;
       }
     },
@@ -249,22 +237,18 @@ export function useToggleVoucherActive() {
  */
 export function useDeleteVoucher() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.remove as any);
-  const { user } = useAuth();
+  const protectedRemove = useProtectedMutation(vouchersApi.mutations.remove as any);
 
   return {
     deleteVoucher: async (id: Id<"vouchers">) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        await mutation({ id, token: user.token });
+        await protectedRemove({ id });
         toast.success("Voucher deleted");
         return true;
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to delete voucher");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to delete voucher"));
+        }
         throw error;
       }
     },
@@ -277,22 +261,18 @@ export function useDeleteVoucher() {
  */
 export function useCreateManagerOverride() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.createManagerOverride as any);
-  const { user } = useAuth();
+  const protectedCreateOverride = useProtectedMutation(vouchersApi.mutations.createManagerOverride as any);
 
   return {
     createOverride: async (data: ManagerOverrideInput) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        const result = await mutation({ ...data, token: user.token });
+        const result = await protectedCreateOverride({ ...data });
         toast.success(`Override voucher created: ${result.code}`);
         return result;
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to create override voucher");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to create override voucher"));
+        }
         throw error;
       }
     },
@@ -305,20 +285,16 @@ export function useCreateManagerOverride() {
  */
 export function useGenerateVoucherCode() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mutation = useMutation(vouchersApi.mutations.generateCode as any);
-  const { user } = useAuth();
+  const protectedGenerate = useProtectedMutation(vouchersApi.mutations.generateCode as any);
 
   return {
     generateCode: async (prefix?: string) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        return await mutation({ prefix, token: user.token });
+        return await protectedGenerate({ prefix });
       } catch (error) {
-        const message = getErrorMessage(error, "Failed to generate code");
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to generate code"));
+        }
         throw error;
       }
     },
