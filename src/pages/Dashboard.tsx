@@ -25,6 +25,7 @@ import {
   ProductionQueueTable,
   ProductionQueueTableSkeleton,
   LowStockAlert,
+  SalesWidget,
 } from '@/components/dashboard';
 import {
   useConvexRecipes,
@@ -163,6 +164,9 @@ export function Dashboard() {
 
       {/* Low Stock Alerts Widget */}
       <LowStockAlert />
+
+      {/* Sales Integration Widget */}
+      {hasPermission('canAccessSalesAnalytics') && <SalesWidget />}
 
       {/* Section Divider - Orders & Production */}
       <div className="flex items-center gap-4 pt-4" data-tour-step="orders">

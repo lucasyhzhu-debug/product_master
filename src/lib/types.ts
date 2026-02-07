@@ -729,6 +729,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessVouchers: boolean;  // Vouchers Manager (admin-only)
   canCreateOverrideVoucher: boolean;  // Manager override during checkout (manager + admin)
   canAccessInventory: boolean;  // Inventory Manager (manager + admin)
+  canAccessSalesAnalytics: boolean;  // Sales Analytics (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -747,6 +748,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessVouchers: false,
     canCreateOverrideVoucher: false,
     canAccessInventory: false,
+    canAccessSalesAnalytics: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -765,6 +767,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessVouchers: false,
     canCreateOverrideVoucher: false,
     canAccessInventory: false,
+    canAccessSalesAnalytics: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -783,6 +786,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessVouchers: false,  // Manager cannot access VouchersManager page
     canCreateOverrideVoucher: true,  // Manager can create override during checkout
     canAccessInventory: true,  // Manager can access inventory
+    canAccessSalesAnalytics: true,  // Manager can access sales analytics
   },
   admin: {
     canAccessDashboard: true,
@@ -801,6 +805,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessVouchers: true,  // Admin-only
     canCreateOverrideVoucher: true,  // Admin can create override during checkout
     canAccessInventory: true,  // Admin can access inventory
+    canAccessSalesAnalytics: true,  // Admin can access sales analytics
   },
 };
 

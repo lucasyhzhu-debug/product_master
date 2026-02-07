@@ -857,4 +857,108 @@ export default defineSchema({
     .index("by_order", ["orderId"])
     .index("by_component", ["componentTypeId"])
     .index("by_status", ["status"]),
+
+  // ============================================
+  // EXTERNAL INTEGRATION TABLES
+  // Multi-platform sales data (K3 Mart, GoBiz, etc.)
+  // ============================================
+
+  externalOutlets: defineTable({
+    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    externalId: v.string(),
+    name: v.string(),
+    address: v.optional(v.string()),
+    isActive: v.boolean(),
+    lastSyncAt: v.optional(v.number()),
+    lastSyncStatus: v.optional(v.union(
+      v.literal("success"), v.literal("error"), v.literal("partial")
+    )),
+    lastSyncError: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_source", ["source"])
+    .index("by_source_external_id", ["source", "externalId"])
+    .index("by_active", ["isActive"]),
+
+  externalStockSnapshots: defineTable({
+    outletId: v.id("externalOutlets"),
+    snapshotBatchId: v.string(),
+    snapshotAt: v.number(),
+    externalProductId: v.string(),
+    externalProductCode: v.string(),
+    productName: v.string(),
+    quantity: v.number(),
+    price: v.number(),
+    priceGrabfoodGofood: v.optional(v.number()),
+    priceGrabmart: v.optional(v.number()),
+    priceShopee: v.optional(v.number()),
+    capital: v.optional(v.number()),
+  })
+    .index("by_outlet", ["outletId"])
+    .index("by_batch", ["snapshotBatchId"])
+    .index("by_outlet_product", ["outletId", "externalProductId"])
+    .index("by_outlet_snapshot", ["outletId", "snapshotAt"])
+    .index("by_snapshot_time", ["snapshotAt"]),
+
+  externalRevenue: defineTable({
+    outletId: v.optional(v.id("externalOutlets")),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    externalProductCode: v.optional(v.string()),
+    productName: v.optional(v.string()),
+    quantitySold: v.optional(v.number()),
+    transactionCount: v.optional(v.number()),
+    revenueGross: v.optional(v.number()),
+    revenueNet: v.optional(v.number()),
+    costOfGoods: v.optional(v.number()),
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    dataOrigin: v.union(
+      v.literal("stock_delta"),
+      v.literal("api_revenue"),
+      v.literal("manual_entry"),
+      v.literal("csv_upload")
+    ),
+    confidence: v.union(
+      v.literal("exact"),
+      v.literal("inferred"),
+      v.literal("manual")
+    ),
+    syncLogId: v.optional(v.id("externalSyncLogs")),
+    linkedMenuProductId: v.optional(v.id("menuProducts")),
+  })
+    .index("by_source", ["source"])
+    .index("by_outlet", ["outletId"])
+    .index("by_period", ["periodStart"])
+    .index("by_source_period", ["source", "periodStart"])
+    .index("by_product", ["linkedMenuProductId"]),
+
+  externalSyncLogs: defineTable({
+    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    outletId: v.optional(v.id("externalOutlets")),
+    snapshotBatchId: v.optional(v.string()),
+    syncType: v.union(v.literal("manual")),
+    status: v.union(
+      v.literal("started"), v.literal("success"), v.literal("error")
+    ),
+    productsCount: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    triggeredBy: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_source", ["source"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_outlet", ["outletId"]),
+
+  externalProductMappings: defineTable({
+    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    externalProductCode: v.string(),
+    externalProductName: v.string(),
+    menuProductId: v.optional(v.id("menuProducts")),
+    isAutoMapped: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_source_code", ["source", "externalProductCode"])
+    .index("by_menu_product", ["menuProductId"]),
 });
