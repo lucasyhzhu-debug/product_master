@@ -440,6 +440,56 @@ export function useConvexAssignToPackagingSlot() {
  * Remove a packaging product from its packaging POS slot.
  * Requires admin authentication.
  */
+/**
+ * Reorder food POS slots.
+ * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
+ */
+export function useConvexReorderSlots() {
+  const mutation = useMutation(api.menuProducts.mutations.reorderSlots);
+  const { user } = useAuth();
+
+  return {
+    mutate: async (orderedProductIds: Id<"menuProducts">[]) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      try {
+        await mutation({ orderedProductIds, token: user.token });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to reorder slots";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * Reorder packaging POS slots.
+ * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
+ */
+export function useConvexReorderPackagingSlots() {
+  const mutation = useMutation(api.menuProducts.mutations.reorderPackagingSlots);
+  const { user } = useAuth();
+
+  return {
+    mutate: async (orderedProductIds: Id<"menuProducts">[]) => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      try {
+        await mutation({ orderedProductIds, token: user.token });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Failed to reorder packaging slots";
+        toast.error(message);
+        throw error;
+      }
+    },
+  };
+}
+
 export function useConvexRemoveFromPackagingSlot() {
   const protectedRemove = useProtectedMutation(api.menuProducts.mutations.removeFromPackagingSlot);
 
