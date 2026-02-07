@@ -31,6 +31,7 @@ export const create = mutation({
     isActive: v.optional(v.boolean()),
     description: v.optional(v.string()),
     consumptionStage: v.optional(v.union(
+      v.literal("production"),
       v.literal("boxing"),
       v.literal("labeling"),
       v.literal("none")
@@ -123,6 +124,7 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
     description: v.optional(v.string()),
     consumptionStage: v.optional(v.union(
+      v.literal("production"),
       v.literal("boxing"),
       v.literal("labeling"),
       v.literal("none")
@@ -224,6 +226,7 @@ export const createPackagingQuick = mutation({
       v.literal("indirect_packaging")  // Legacy compat
     )),
     consumptionStage: v.optional(v.union(
+      v.literal("production"),
       v.literal("boxing"),
       v.literal("labeling"),
       v.literal("none")

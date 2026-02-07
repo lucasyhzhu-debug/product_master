@@ -13,6 +13,37 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-07 - Feat: Consumption Stage Selector + Production Stage
+
+**Added consumption stage selector UI and new "production" stage for components consumed at InProduction transition.**
+
+### Changes
+- **New "production" consumption stage**: Components like tulip paper are auto-consumed when order enters InProduction. Added `consumeProductionMaterialsInternal` helper and InProduction trigger in `statusUpdates.ts`.
+- **Consumption stage selector in ComponentTypeDialog**: 3-button selector (Production / Packaging / Labelling) when creating new component types. Default = Packaging (boxing).
+- **Consumption stage selector in ReceiveStockDialog**: Same 3-button selector appears in create-new-component mode.
+- **PackagingComponentsSection updated**: Stage buttons now show 3 options (Production / Packaging / Labelling) instead of old (Boxing / Labeling / None). Labels fixed ("labeling" displays as "Labelling", "boxing" as "Packaging").
+- **Shared constants**: `CONSUMPTION_STAGE_LABELS` and `SELECTABLE_STAGES` added to `src/lib/utils.ts` for consistent label mapping across UI.
+- **"none" hidden from UI**: Legacy `none` value kept in DB for backwards compat but no longer selectable in any UI.
+
+### Files Modified
+- `convex/schema.ts` - Added `production` to consumptionStage union (componentTypes + menuProductComponents)
+- `convex/componentTypes/mutations.ts` - Added `production` to 3 validators
+- `convex/menuProducts/mutations.ts` - Added `production` to 2 validators
+- `convex/inventory/mutations.ts` - Added `consumptionStage` passthrough in createComponentAndReceiveStock
+- `convex/orders/mutations/inventoryIntegration.ts` - Added `consumeProductionMaterialsInternal`
+- `convex/orders/mutations/statusUpdates.ts` - Added InProduction consumption trigger
+- `src/lib/utils.ts` - Added stage label constants
+- `src/components/inventory/ComponentTypeDialog.tsx` - Added stage selector
+- `src/components/inventory/ReceiveStockDialog.tsx` - Added stage selector in create mode
+- `src/components/menuProducts/PackagingComponentsSection.tsx` - Updated stage options + labels
+- `src/components/menuProducts/ProductForm.tsx` - Updated ComponentRow type
+- `src/hooks/convex/useComponentTypes.ts` - Added "production" to types
+- `src/hooks/convex/useMenuProducts.ts` - Added "production" to types
+- `tests/convex/componentTypes.test.ts` - Added production stage test
+- `tests/convex/inventory.test.ts` - Updated type
+
+---
+
 ## 2026-02-07 - Fix: Legacy Category Validator (Hotfix)
 
 **Fixed production crash when stale browser clients send legacy `direct_packaging`/`indirect_packaging` category values.**

@@ -25,7 +25,7 @@ async function createComponentType(
     unit?: string;
     gramsPerUnit?: number;
     trackInventory?: boolean;
-    consumptionStage?: "boxing" | "labeling" | "none";
+    consumptionStage?: "production" | "boxing" | "labeling" | "none";
   } = {}
 ) {
   return await t.run(async (ctx) => {
@@ -89,6 +89,23 @@ describe("Component Types CRUD", () => {
     expect(component?.category).toBe("packaging");
     expect(component?.trackInventory).toBe(true);
     expect(component?.consumptionStage).toBe("boxing");
+  });
+
+  test("can create a packaging component with production stage", async () => {
+    const t = convexTest(schema);
+
+    const id = await createComponentType(t, {
+      code: "TULIP_PAPER",
+      name: "Tulip Paper",
+      category: "packaging",
+      unitCostIdr: 150,
+      consumptionStage: "production",
+    });
+
+    const component = await t.run(async (ctx) => ctx.db.get(id));
+
+    expect(component?.category).toBe("packaging");
+    expect(component?.consumptionStage).toBe("production");
   });
 
   test("can create a packaging component with labeling stage", async () => {

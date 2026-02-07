@@ -114,7 +114,7 @@ export type ComponentTypeCreateInput = {
   sortOrder?: number;
   isActive?: boolean;
   description?: string;
-  consumptionStage?: "boxing" | "labeling" | "none";
+  consumptionStage?: "production" | "boxing" | "labeling" | "none";
   alarmPercentage?: number;
   createdBy: string;
 };
@@ -131,7 +131,7 @@ export type ComponentTypeUpdateInput = {
   sortOrder?: number;
   isActive?: boolean;
   description?: string;
-  consumptionStage?: "boxing" | "labeling" | "none";
+  consumptionStage?: "production" | "boxing" | "labeling" | "none";
   alarmPercentage?: number;
 };
 
@@ -152,7 +152,7 @@ export type ComponentType = {
   createdBy: string;
   createdAt: number;
   description?: string;
-  consumptionStage?: "boxing" | "labeling" | "none";
+  consumptionStage?: "production" | "boxing" | "labeling" | "none";
   alarmPercentage?: number;
   // Cost insights (calculated from batches for packaging components)
   costInsights?: {

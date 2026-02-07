@@ -106,9 +106,10 @@ export default defineSchema({
     sortOrder: v.number(), // Display ordering
     // Per-product override for consumption stage (overrides componentTypes.consumptionStage)
     consumptionStage: v.optional(v.union(
-      v.literal("boxing"),    // Consumed at Boxed transition
-      v.literal("labeling"),  // Consumed at Labeled transition
-      v.literal("none")       // Not tracked (production/manual)
+      v.literal("production"), // Consumed at InProduction transition
+      v.literal("boxing"),     // Consumed at Boxed transition
+      v.literal("labeling"),   // Consumed at Labeled transition
+      v.literal("none")        // Legacy - not tracked
     )),
   })
     .index("by_menu_product", ["menuProductId"])
@@ -691,9 +692,10 @@ export default defineSchema({
 
     // Consumption stage: when inventory is consumed during order lifecycle
     consumptionStage: v.optional(v.union(
-      v.literal("boxing"),    // Consumed at Boxed transition
-      v.literal("labeling"),  // Consumed at Labeled transition
-      v.literal("none")       // Not tracked (production/manual)
+      v.literal("production"), // Consumed at InProduction transition
+      v.literal("boxing"),     // Consumed at Boxed transition
+      v.literal("labeling"),   // Consumed at Labeled transition
+      v.literal("none")        // Legacy - not tracked
     )),
 
     // Alarm percentage: alert when stock drops below this % of last restock

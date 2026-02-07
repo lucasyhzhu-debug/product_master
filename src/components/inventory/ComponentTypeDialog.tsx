@@ -25,6 +25,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useConvexCreateComponentType } from "@/hooks/convex";
 import { toast } from "sonner";
+import { SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS, cn } from "@/lib/utils";
+import type { SelectableStage } from "@/lib/utils";
 
 interface ComponentTypeDialogProps {
   open: boolean;
@@ -45,6 +47,7 @@ export function ComponentTypeDialog({
   const [gramsPerUnit, setGramsPerUnit] = useState("");
   const [reorderPoint, setReorderPoint] = useState("");
   const [trackInventory, setTrackInventory] = useState(true);
+  const [consumptionStage, setConsumptionStage] = useState<SelectableStage>("boxing");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createComponentType = useConvexCreateComponentType();
@@ -59,6 +62,7 @@ export function ComponentTypeDialog({
       setGramsPerUnit("");
       setReorderPoint("");
       setTrackInventory(defaultCategory !== "production");
+      setConsumptionStage("boxing");
     }
   }, [open, defaultCategory]);
 
@@ -83,6 +87,7 @@ export function ComponentTypeDialog({
         gramsPerUnit: gramsPerUnit ? Number(gramsPerUnit) : undefined,
         trackInventory,
         reorderPoint: reorderPoint ? Number(reorderPoint) : undefined,
+        consumptionStage,
         createdBy: "current-user", // TODO: Replace with actual user
       });
       toast.success("Component type created");
@@ -227,6 +232,28 @@ export function ComponentTypeDialog({
               Track Inventory
               {category !== "production" && " (required for packaging)"}
             </label>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Consumed During</Label>
+            <div className="flex gap-2">
+              {SELECTABLE_STAGES.map((stage) => (
+                <Button
+                  key={stage}
+                  type="button"
+                  variant={consumptionStage === stage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setConsumptionStage(stage)}
+                  className={cn(
+                    "flex-1",
+                    consumptionStage === stage &&
+                      "bg-[#E07856] hover:bg-[#D66A4A] text-white"
+                  )}
+                >
+                  {CONSUMPTION_STAGE_LABELS[stage]}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 

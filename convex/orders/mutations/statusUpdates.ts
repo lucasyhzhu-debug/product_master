@@ -17,6 +17,7 @@ import {
 // Inventory integration (internal helpers)
 import {
   reserveStockForOrderInternal,
+  consumeProductionMaterialsInternal,
   consumeBoxingMaterialsInternal,
   consumeStickerMaterialsInternal,
   releaseReservationInternal,
@@ -92,6 +93,17 @@ export const updateStatus = mutation({
           orderId: args.orderId,
           locationId: args.locationId,
         });
+      } catch (error) {
+        // Revert status on failure
+        await ctx.db.patch(args.orderId, { status: oldStatus });
+        throw error;
+      }
+    }
+
+    // Consume production materials when entering production
+    if (newStatus === "InProduction" && oldStatus !== "InProduction") {
+      try {
+        await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
         await ctx.db.patch(args.orderId, { status: oldStatus });
