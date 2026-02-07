@@ -1,6 +1,5 @@
 /**
  * Convex hooks for menu products.
- * These replace the React Query + Axios hooks.
  */
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -224,9 +223,6 @@ export interface AvailableProduct {
   cachedProductionSummary?: string;
 }
 
-/** @deprecated Use AvailableProduct instead */
-export type LegacyProduct = AvailableProduct;
-
 export function useConvexAvailableProducts() {
   const data = useQuery(api.menuProducts.queries.listAvailableProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
@@ -249,11 +245,6 @@ export function useConvexAvailableProducts() {
     data: availableProducts,
     isLoading: false,
   };
-}
-
-/** @deprecated Use useConvexAvailableProducts instead */
-export function useConvexLegacyProducts() {
-  return useConvexAvailableProducts();
 }
 
 // ============================================
