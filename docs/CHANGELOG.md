@@ -13,7 +13,47 @@ After merging any code change, add a new entry with:
 
 ---
 
-## 2026-02-07 - Code Simplification
+## 2026-02-07 - Inventory Dialogs (PR #28)
+
+**Added stock adjustment and inter-location transfer dialogs to the inventory system.**
+
+### New Components
+- **`AdjustStockDialog.tsx`**: Stock adjustment dialog with two modes -- wastage recording (categorized reasons: Expired, Damaged, Quality Issue, Shrinkage, Other) and count correction. Updates batch quantities via existing `adjustStock` mutation.
+- **`TransferStockDialog.tsx`**: FIFO-based inter-location stock transfer. Selects source location, destination location, and quantity. Respects batch ordering for correct FIFO consumption.
+- **Barrel exports**: Both dialogs exported from `src/components/inventory/index.ts`
+
+### Files Added
+- `src/components/inventory/AdjustStockDialog.tsx`
+- `src/components/inventory/TransferStockDialog.tsx`
+
+### Files Modified
+- `src/components/inventory/index.ts` - Added barrel exports for new dialogs
+
+---
+
+## 2026-02-07 - POS Preview Panel + Drag-and-Drop Slot Management (PR #27)
+
+**POS preview panel with drag-and-drop reordering for food and packaging product slots.**
+
+### Summary
+Added a live POS preview panel to the Menu Products Manager page. Food and packaging slots can be reordered via drag-and-drop with sortable behavior. During rebase onto the code-simplified main branch, two reorder hooks (`useConvexReorderSlots`, `useConvexReorderPackagingSlots`) were refactored from raw `useMutation`/`useAuth` to the `useProtectedMutation` pattern established in the code simplification work.
+
+### Notes
+- Merged as PR #27 after rebasing onto post-code-simplification main
+- Rebase conflict fix: reorder hooks migrated to `useProtectedMutation`
+
+---
+
+## 2026-02-07 - Production Deployments
+
+**Two Convex production deploys to `decisive-wombat-7` covering code simplification and POS preview changes.**
+
+- All 256 tests passing
+- Build clean with zero errors
+
+---
+
+## 2026-02-07 - Code Simplification (PR #26)
 
 **Removed ~830 lines of duplication across backend and frontend. Zero behavior changes.**
 
@@ -32,6 +72,7 @@ After merging any code change, add a new entry with:
 - **Adopted `useProtectedMutation`**: 13 hooks in useMenuProducts.ts and useVouchers.ts now use it (removes manual auth check + token injection)
 - **Extracted shared transforms** (`src/lib/transforms.ts`): `transformToOrderSummary()`, `calculateTotalDiscount()`, `ConvexOrderBase` type
 - **Merged kitchen transforms**: `transformKitchenOrder` + `transformCompletedOrder` → unified `transformOrderToKitchenOrder`
+- **Fixed latent bug**: Dashboard percentage discounts were displayed as raw numbers instead of formatted percentages (discovered during transform extraction)
 - **Removed stale comments**: "React Query" references cleaned from 10 hook files
 - **Removed deprecated aliases**: `useConvexLegacyProducts`, `LegacyProduct`
 
