@@ -28,6 +28,12 @@ export const createComponentAndReceiveStock = mutation({
     ),
     unit: v.string(),
     reorderPoint: v.optional(v.number()),
+    consumptionStage: v.optional(v.union(
+      v.literal("production"),
+      v.literal("boxing"),
+      v.literal("labeling"),
+      v.literal("none")
+    )),
     color: v.optional(v.string()),
     // Receipt details (same as receiveStock)
     locationId: v.id("storageLocations"),
@@ -77,6 +83,7 @@ export const createComponentAndReceiveStock = mutation({
       trackInventory: true, // Always true for packaging
       reorderPoint: args.reorderPoint,
       reorderQuantity: undefined,
+      consumptionStage: args.consumptionStage ?? "boxing",
       color: args.color,
       sortOrder: maxSort + 1,
       isActive: true,

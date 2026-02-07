@@ -58,7 +58,7 @@ interface ComponentRow {
   id: string; // Temporary ID for UI
   componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
-  consumptionStage?: "boxing" | "labeling" | "none";
+  consumptionStage?: "production" | "boxing" | "labeling" | "none";
 }
 
 export function ProductForm({

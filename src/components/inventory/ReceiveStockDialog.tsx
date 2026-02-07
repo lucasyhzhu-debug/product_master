@@ -31,7 +31,8 @@ import {
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ComponentType } from "@/hooks/convex";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS } from "@/lib/utils";
+import type { SelectableStage } from "@/lib/utils";
 
 interface ReceiveStockDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ export function ReceiveStockDialog({
   >("packaging");
   const [newComponentUnit, setNewComponentUnit] = useState("");
   const [newComponentReorderPoint, setNewComponentReorderPoint] = useState("");
+  const [newComponentStage, setNewComponentStage] = useState<SelectableStage>("boxing");
 
   // Common fields (batch details)
   const [selectedLocationId, setSelectedLocationId] = useState<
@@ -125,6 +127,7 @@ export function ReceiveStockDialog({
       setNewComponentCategory("packaging");
       setNewComponentUnit("");
       setNewComponentReorderPoint("");
+      setNewComponentStage("boxing");
       setQuantity("");
       setTotalCost("");
       setSupplierName("");
@@ -202,6 +205,7 @@ export function ReceiveStockDialog({
           category: newComponentCategory,
           unit: newComponentUnit.trim(),
           reorderPoint: newComponentReorderPoint ? Number(newComponentReorderPoint) : undefined,
+          consumptionStage: newComponentStage,
           locationId: selectedLocationId,
           purchaseDate: Date.now(),
           supplierName: supplierName.trim(),
@@ -403,6 +407,28 @@ export function ReceiveStockDialog({
                       onChange={(e) => setNewComponentReorderPoint(e.target.value)}
                       placeholder="50"
                     />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Consumed During</Label>
+                  <div className="flex gap-2">
+                    {SELECTABLE_STAGES.map((stage) => (
+                      <Button
+                        key={stage}
+                        type="button"
+                        variant={newComponentStage === stage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setNewComponentStage(stage)}
+                        className={cn(
+                          "flex-1",
+                          newComponentStage === stage &&
+                            "bg-[#E07856] hover:bg-[#D66A4A] text-white"
+                        )}
+                      >
+                        {CONSUMPTION_STAGE_LABELS[stage]}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               </div>

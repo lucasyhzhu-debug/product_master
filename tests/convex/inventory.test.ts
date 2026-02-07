@@ -24,7 +24,7 @@ async function createComponentType(
     category?: "production" | "packaging" | "direct_packaging" | "indirect_packaging";
     unitCostIdr?: number;
     trackInventory?: boolean;
-    consumptionStage?: "boxing" | "labeling" | "none";
+    consumptionStage?: "production" | "boxing" | "labeling" | "none";
   } = {}
 ): Promise<Id<"componentTypes">> {
   return await t.run(async (ctx) => {

@@ -299,13 +299,13 @@ export const reserveStockForOrder = mutation({
 });
 
 /**
- * Internal helper: Consume materials by stage (boxing or labeling).
- * Parameterized to eliminate duplication between boxing and labeling consumption.
+ * Internal helper: Consume materials by stage.
+ * Parameterized to eliminate duplication between stage consumption.
  */
 async function consumeMaterialsByStageInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> },
-  stage: "boxing" | "labeling"
+  stage: "production" | "boxing" | "labeling"
 ): Promise<{ consumed: number }> {
   const order = await ctx.db.get(args.orderId);
   if (!order) {
@@ -371,6 +371,16 @@ async function consumeMaterialsByStageInternal(
   }
 
   return { consumed: consumedCount };
+}
+
+/**
+ * Internal helper: Consume production materials when order transitions to "InProduction"
+ */
+export async function consumeProductionMaterialsInternal(
+  ctx: MutationCtx,
+  args: { orderId: Id<"orders"> }
+): Promise<{ consumed: number }> {
+  return await consumeMaterialsByStageInternal(ctx, args, "production");
 }
 
 /**

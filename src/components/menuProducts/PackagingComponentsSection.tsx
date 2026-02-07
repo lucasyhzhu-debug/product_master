@@ -24,7 +24,8 @@ import {
   useConvexCreatePackagingQuick,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS } from '@/lib/utils';
+import type { SelectableStage } from '@/lib/utils';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
 
@@ -32,7 +33,7 @@ interface ComponentRow {
   id: string; // Temporary UI-only ID
   componentTypeId: Id<"componentTypes"> | null;
   quantity: number;
-  consumptionStage?: "boxing" | "labeling" | "none";
+  consumptionStage?: "production" | "boxing" | "labeling" | "none";
 }
 
 interface PackagingComponentsSectionProps {
@@ -61,7 +62,7 @@ export function PackagingComponentsSection({
   // Quick create state
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newComponentName, setNewComponentName] = useState('');
-  const [newComponentStage, setNewComponentStage] = useState<"boxing" | "labeling" | "none">("boxing");
+  const [newComponentStage, setNewComponentStage] = useState<SelectableStage>("boxing");
   const [isCreating, setIsCreating] = useState(false);
   const createPackagingQuick = useConvexCreatePackagingQuick();
 
@@ -95,7 +96,7 @@ export function PackagingComponentsSection({
         if (field === 'componentTypeId' && !c.consumptionStage) {
           const selectedComp = allPackagingComponents.find((ct) => ct._id === value);
           if (selectedComp?.consumptionStage) {
-            updated.consumptionStage = selectedComp.consumptionStage as "boxing" | "labeling" | "none";
+            updated.consumptionStage = selectedComp.consumptionStage as ComponentRow["consumptionStage"];
           }
         }
 
@@ -248,7 +249,7 @@ export function PackagingComponentsSection({
                     <div className="flex items-center gap-1.5 ml-1">
                       <span className="text-xs text-muted-foreground whitespace-nowrap">Consumed at:</span>
                       <div className="flex gap-1">
-                        {(["boxing", "labeling", "none"] as const).map((stage) => (
+                        {SELECTABLE_STAGES.map((stage) => (
                           <button
                             key={stage}
                             type="button"
@@ -256,15 +257,15 @@ export function PackagingComponentsSection({
                             disabled={disabled}
                             className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                               (component.consumptionStage ?? 'boxing') === stage
-                                ? stage === 'boxing'
-                                  ? 'bg-blue-100 border-blue-300 text-blue-700'
-                                  : stage === 'labeling'
-                                    ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                    : 'bg-gray-100 border-gray-300 text-gray-600'
+                                ? stage === 'production'
+                                  ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                  : stage === 'boxing'
+                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                    : 'bg-purple-100 border-purple-300 text-purple-700'
                                 : 'bg-transparent border-muted text-muted-foreground hover:border-muted-foreground/50'
                             }`}
                           >
-                            {stage === 'boxing' ? 'Boxing' : stage === 'labeling' ? 'Labeling' : 'None'}
+                            {CONSUMPTION_STAGE_LABELS[stage]}
                           </button>
                         ))}
                       </div>
@@ -306,22 +307,22 @@ export function PackagingComponentsSection({
             <div className="space-y-2">
               <Label>Consumed At</Label>
               <div className="flex gap-2">
-                {(["boxing", "labeling", "none"] as const).map((stage) => (
+                {SELECTABLE_STAGES.map((stage) => (
                   <button
                     key={stage}
                     type="button"
                     onClick={() => setNewComponentStage(stage)}
                     className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-colors ${
                       newComponentStage === stage
-                        ? stage === 'boxing'
-                          ? 'border-blue-400 bg-blue-50 text-blue-700'
-                          : stage === 'labeling'
-                            ? 'border-purple-400 bg-purple-50 text-purple-700'
-                            : 'border-gray-400 bg-gray-50 text-gray-600'
+                        ? stage === 'production'
+                          ? 'border-orange-400 bg-orange-50 text-orange-700'
+                          : stage === 'boxing'
+                            ? 'border-blue-400 bg-blue-50 text-blue-700'
+                            : 'border-purple-400 bg-purple-50 text-purple-700'
                         : 'border-muted hover:border-muted-foreground/30'
                     }`}
                   >
-                    {stage === 'boxing' ? 'Boxing' : stage === 'labeling' ? 'Labeling' : 'None'}
+                    {CONSUMPTION_STAGE_LABELS[stage]}
                   </button>
                 ))}
               </div>

@@ -33,3 +33,15 @@ export function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === "string") return error
   return fallback
 }
+
+// Consumption stage: DB value -> UI label mapping
+export const CONSUMPTION_STAGE_LABELS: Record<string, string> = {
+  production: "Production",
+  boxing: "Packaging",
+  labeling: "Labelling",
+  none: "None",
+}
+
+// Selectable stages (excludes legacy "none")
+export const SELECTABLE_STAGES = ["production", "boxing", "labeling"] as const
+export type SelectableStage = typeof SELECTABLE_STAGES[number]

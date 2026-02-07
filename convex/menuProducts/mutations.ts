@@ -130,6 +130,7 @@ export const create = mutation({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
           consumptionStage: v.optional(v.union(
+            v.literal("production"),
             v.literal("boxing"),
             v.literal("labeling"),
             v.literal("none")
@@ -236,6 +237,7 @@ export const update = mutation({
           componentTypeId: v.id("componentTypes"),
           quantity: v.number(),
           consumptionStage: v.optional(v.union(
+            v.literal("production"),
             v.literal("boxing"),
             v.literal("labeling"),
             v.literal("none")
