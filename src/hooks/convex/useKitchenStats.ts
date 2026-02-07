@@ -160,42 +160,9 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
   };
 }
 
-function transformKitchenOrder(order: ConvexKitchenOrder): KitchenOrder {
-  return {
-    id: order._id as unknown as number,
-    order_number: order.orderNumber,
-    customer_name: order.customerName,
-    customer_phone: order.customerPhone ?? null,
-    status: order.status as OrderStatus,
-    awaiting_payment_since: order.awaitingPaymentSince
-      ? new Date(order.awaitingPaymentSince).toISOString()
-      : null,
-    payment_status: order.paymentStatus as PaymentStatus,
-    channel: order.channel ?? null,
-    sold_by: order.soldBy ?? null,
-    due_date: order.dueDate ? new Date(order.dueDate).toISOString() : null,
-    total_amount: order.totalAmount,
-    total_cost: order.totalCost,
-    total_margin: order.totalMargin,
-    total_discount: order.orderLevelDiscount ?? 0,
-    item_count: order.itemCount,
-    delivery_type: order.deliveryType ?? null,
-    shipping_agency: order.shippingAgency ?? null,
-    created_at: new Date(order._creationTime).toISOString(),
-    items: order.items.map(transformKitchenOrderItem),
-    big_balls_needed: order.bigBallsNeeded,
-    mid_balls_needed: order.midBallsNeeded,
-    // PRD-5: Transform dynamic production by type
-    production_by_type: order.productionByType?.map((p) => ({
-      code: p.code,
-      name: p.name,
-      color: p.color,
-      units_needed: p.unitsNeeded,
-    })),
-  };
-}
+function transformOrderToKitchenOrder(order: ConvexKitchenOrder | ConvexCompletedOrder): KitchenOrder {
+  const isKitchenOrder = "bigBallsNeeded" in order;
 
-function transformCompletedOrder(order: ConvexCompletedOrder): KitchenOrder {
   return {
     id: order._id as unknown as number,
     order_number: order.orderNumber,
@@ -218,8 +185,16 @@ function transformCompletedOrder(order: ConvexCompletedOrder): KitchenOrder {
     shipping_agency: order.shippingAgency ?? null,
     created_at: new Date(order._creationTime).toISOString(),
     items: order.items.map(transformKitchenOrderItem),
-    big_balls_needed: order.bigBalls,
-    mid_balls_needed: order.midBalls,
+    big_balls_needed: isKitchenOrder ? order.bigBallsNeeded : order.bigBalls,
+    mid_balls_needed: isKitchenOrder ? order.midBallsNeeded : order.midBalls,
+    production_by_type: isKitchenOrder
+      ? order.productionByType?.map((p) => ({
+          code: p.code,
+          name: p.name,
+          color: p.color,
+          units_needed: p.unitsNeeded,
+        }))
+      : undefined,
   };
 }
 
@@ -248,7 +223,7 @@ export function useConvexKitchenOrdersWithBalls() {
   const data = useQuery(api.orders.queries.getKitchenOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
-    data: (data as ConvexKitchenOrder[]).map(transformKitchenOrder),
+    data: (data as ConvexKitchenOrder[]).map(transformOrderToKitchenOrder),
     isLoading: false,
   };
 }
@@ -261,7 +236,7 @@ export function useConvexCompletedToday() {
   const data = useQuery(api.orders.queries.getCompletedToday, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
-    data: (data as ConvexCompletedOrder[]).map(transformCompletedOrder),
+    data: (data as ConvexCompletedOrder[]).map(transformOrderToKitchenOrder),
     isLoading: false,
   };
 }

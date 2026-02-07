@@ -8,13 +8,17 @@ import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import type {
-  OrderSummary,
   OrderDetail,
   OrderItem,
   OrderStatus,
   PaymentStatus,
   ProductSuggestion,
 } from "@/lib/types";
+import {
+  calculateTotalDiscount,
+  transformToOrderSummary,
+} from "@/lib/transforms";
+import type { ConvexOrderBase } from "@/lib/transforms";
 import { getErrorMessage } from "@/lib/utils";
 
 // ============================================
@@ -121,45 +125,25 @@ interface ConvexOrderItem {
   lineMargin: number;
 }
 
-interface ConvexOrder {
+interface ConvexOrderDetail extends ConvexOrderBase {
   _id: Id<"orders">;
-  _creationTime: number;
-  orderNumber: string;
   customerId: Id<"customers">;
-  customerName: string;
-  customerPhone?: string;
-  status: string;
-  awaitingPaymentSince?: number;
-  paymentStatus: string;
   paymentMethod?: string;
   orderDate: number;
-  dueDate?: number;
-  totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
-  // Order-level discount
-  orderLevelDiscount?: number;
-  orderLevelDiscountType?: "amount" | "percentage";
   finalTotal?: number;
-  // Voucher tracking
   voucherCode?: string;
   voucherDiscountValue?: number;
-  itemCount: number;
-  channel?: string;
-  soldBy?: string;
   notes?: string;
-  deliveryType?: string;
   pickupLocation?: string;
   deliveryAddress?: string;
   contactWa?: string;
   contactIg?: string;
-  shippingAgency?: string;
   shippingNumber?: string;
   cancellationReason?: string;
   createdBy?: string;
 }
 
-interface ConvexOrderWithItems extends ConvexOrder {
+interface ConvexOrderWithItems extends ConvexOrderDetail {
   items: ConvexOrderItem[];
   customer: Doc<"customers"> | null;
 }
@@ -180,51 +164,12 @@ function transformOrderItem(item: ConvexOrderItem): OrderItem {
   };
 }
 
-function transformToOrderSummary(order: ConvexOrder | ConvexOrderWithItems): OrderSummary {
-  // Calculate order-level discount amount
-  let totalDiscount = 0;
-  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
-    if (order.orderLevelDiscountType === "percentage") {
-      totalDiscount = order.totalAmount * (order.orderLevelDiscount / 100);
-    } else {
-      totalDiscount = order.orderLevelDiscount;
-    }
-  }
-
-  return {
-    id: order._id as unknown as number,
-    order_number: order.orderNumber,
-    customer_name: order.customerName,
-    customer_phone: order.customerPhone ?? null,
-    status: order.status as OrderStatus,
-    awaiting_payment_since: order.awaitingPaymentSince
-      ? new Date(order.awaitingPaymentSince).toISOString()
-      : null,
-    payment_status: order.paymentStatus as PaymentStatus,
-    channel: order.channel ?? null,
-    sold_by: order.soldBy ?? null,
-    due_date: order.dueDate ? new Date(order.dueDate).toISOString() : null,
-    total_amount: order.totalAmount,
-    total_cost: order.totalCost,
-    total_margin: order.totalMargin,
-    total_discount: totalDiscount,
-    item_count: order.itemCount,
-    delivery_type: order.deliveryType ?? null,
-    shipping_agency: order.shippingAgency ?? null,
-    created_at: new Date(order._creationTime).toISOString(),
-  };
-}
-
 function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
-  // Calculate order-level discount amount
-  let totalDiscount = 0;
-  if (order.orderLevelDiscount && order.orderLevelDiscountType) {
-    if (order.orderLevelDiscountType === "percentage") {
-      totalDiscount = order.totalAmount * (order.orderLevelDiscount / 100);
-    } else {
-      totalDiscount = order.orderLevelDiscount;
-    }
-  }
+  const totalDiscount = calculateTotalDiscount(
+    order.totalAmount,
+    order.orderLevelDiscount,
+    order.orderLevelDiscountType
+  );
 
   return {
     id: order._id as unknown as number,
