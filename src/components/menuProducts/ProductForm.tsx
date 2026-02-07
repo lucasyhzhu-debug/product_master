@@ -3,6 +3,7 @@ import { Save, UtensilsCrossed, Package } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -123,10 +124,11 @@ export function ProductForm({
       setProductType(existingProductType);
 
       // Read correct slot based on product type
+      // Use != null to handle both undefined and null, while preserving slot 0 as valid
       if (existingProductType === 'packaging' && 'packagingPosSlot' in product) {
-        setPosSlot(product.packagingPosSlot ? product.packagingPosSlot.toString() : 'none');
+        setPosSlot(product.packagingPosSlot != null ? product.packagingPosSlot.toString() : 'none');
       } else {
-        setPosSlot('posSlot' in product ? product.posSlot.toString() : 'none');
+        setPosSlot('posSlot' in product && product.posSlot != null ? product.posSlot.toString() : 'none');
       }
 
       // Determine active state (check for isActive on the raw product data)
@@ -406,6 +408,9 @@ export function ProductForm({
           <DialogTitle className="text-lg">
             {isEditing ? 'Edit Product' : 'New Product'}
           </DialogTitle>
+          <DialogDescription>
+            {isEditing ? 'Update product details and component configuration.' : 'Create a new menu product with pricing and components.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden min-h-0">
