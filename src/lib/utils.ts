@@ -39,9 +39,9 @@ export const CONSUMPTION_STAGE_LABELS: Record<string, string> = {
   production: "Production",
   boxing: "Packaging",
   labeling: "Labelling",
-  none: "None",
+  none: "Non-Production Component",
 }
 
 // Selectable stages (excludes legacy "none")
-export const SELECTABLE_STAGES = ["production", "boxing", "labeling"] as const
+export const SELECTABLE_STAGES = ["production", "boxing", "labeling", "none"] as const
 export type SelectableStage = typeof SELECTABLE_STAGES[number]
