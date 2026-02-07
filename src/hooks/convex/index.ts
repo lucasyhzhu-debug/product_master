@@ -108,7 +108,6 @@ export {
   useConvexFixedProducts,
   useConvexPosProducts,
   useConvexAvailableProducts,
-  useConvexLegacyProducts,
   useConvexPackagingPosProducts,
   // Mutation hooks
   useConvexCreateMenuProduct,
@@ -125,7 +124,6 @@ export {
   type PosProduct,
   type PackagingPosProduct,
   type AvailableProduct,
-  type LegacyProduct,
 } from "./useMenuProducts";
 
 // Orders
@@ -306,3 +304,6 @@ export {
   type StorageLocationUpdateInput,
   type StorageLocation,
 } from "./useStorageLocations";
+
+// Protected Mutation Wrapper
+export { useProtectedMutation } from "./useProtectedMutation";

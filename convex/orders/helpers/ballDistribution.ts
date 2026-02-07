@@ -10,6 +10,7 @@
 import type { MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { logAutoTransition } from "./statusTransitions";
+import type { ItemWithProduction } from "./productionRecords";
 
 // ============================================
 // Types
@@ -27,10 +28,6 @@ export interface BallDistributionOptions {
   ballType: "big" | "mid" | "original" | "bite_sized";
   count: number;
   trackFilledPackages: boolean;  // true for addBallsToTray, false for completeBalls
-}
-
-interface ItemWithProduction extends Doc<"orderItems"> {
-  productionRecords: Doc<"orderItemProduction">[];
 }
 
 interface OrderWithItems {

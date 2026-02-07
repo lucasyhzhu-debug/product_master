@@ -299,12 +299,13 @@ export const reserveStockForOrder = mutation({
 });
 
 /**
- * Internal helper: Consume boxing materials when order transitions to "Boxed"
- * Used by statusUpdates.ts and other ctx-dependent code
+ * Internal helper: Consume materials by stage (boxing or labeling).
+ * Parameterized to eliminate duplication between boxing and labeling consumption.
  */
-export async function consumeBoxingMaterialsInternal(
+async function consumeMaterialsByStageInternal(
   ctx: MutationCtx,
-  args: { orderId: Id<"orders"> }
+  args: { orderId: Id<"orders"> },
+  stage: "boxing" | "labeling"
 ): Promise<{ consumed: number }> {
   const order = await ctx.db.get(args.orderId);
   if (!order) {
@@ -319,7 +320,6 @@ export async function consumeBoxingMaterialsInternal(
     .collect();
 
   if (reservations.length === 0) {
-    // No reservations (production-only order)
     return { consumed: 0 };
   }
 
@@ -329,8 +329,8 @@ export async function consumeBoxingMaterialsInternal(
     const componentType = await ctx.db.get(reservation.componentTypeId);
     if (!componentType) continue;
 
-    // Only consume boxing materials (consumptionStage === "boxing")
-    if (componentType.consumptionStage !== "boxing") {
+    // Only consume materials matching the specified stage
+    if (componentType.consumptionStage !== stage) {
       continue;
     }
 
@@ -349,7 +349,7 @@ export async function consumeBoxingMaterialsInternal(
       reservation.componentTypeId,
       reservation.locationId,
       args.orderId,
-      `Consumed for boxing order ${order.orderNumber}`,
+      `Consumed for ${stage} order ${order.orderNumber}`,
       "system"
     );
 
@@ -374,10 +374,17 @@ export async function consumeBoxingMaterialsInternal(
 }
 
 /**
+ * Internal helper: Consume boxing materials when order transitions to "Boxed"
+ */
+export async function consumeBoxingMaterialsInternal(
+  ctx: MutationCtx,
+  args: { orderId: Id<"orders"> }
+): Promise<{ consumed: number }> {
+  return await consumeMaterialsByStageInternal(ctx, args, "boxing");
+}
+
+/**
  * Consume boxing materials when order transitions to "Boxed"
- *
- * Consumes boxes, wrappers, ball paper (direct packaging).
- * Uses FIFO consumption from reserved batches.
  */
 export const consumeBoxingMaterials = mutation({
   args: {
@@ -390,84 +397,16 @@ export const consumeBoxingMaterials = mutation({
 
 /**
  * Internal helper: Consume sticker materials when order transitions to "Labeled"
- * Used by statusUpdates.ts and other ctx-dependent code
  */
 export async function consumeStickerMaterialsInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> }
 ): Promise<{ consumed: number }> {
-  const order = await ctx.db.get(args.orderId);
-  if (!order) {
-    throw new Error("Order not found");
-  }
-
-  // Get reserved components for this order
-  const reservations = await ctx.db
-    .query("orderComponentReservations")
-    .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-    .filter((q) => q.eq(q.field("status"), "reserved"))
-    .collect();
-
-  if (reservations.length === 0) {
-    // No reservations
-    return { consumed: 0 };
-  }
-
-  let consumedCount = 0;
-
-  for (const reservation of reservations) {
-    const componentType = await ctx.db.get(reservation.componentTypeId);
-    if (!componentType) continue;
-
-    // Only consume sticker materials (consumptionStage === "labeling")
-    if (componentType.consumptionStage !== "labeling") {
-      continue;
-    }
-
-    // Consume using FIFO
-    const fifoResult = await consumeFromFIFO(
-      ctx,
-      reservation.componentTypeId,
-      reservation.locationId,
-      reservation.quantityReserved
-    );
-
-    // Apply consumption to batches and create transactions
-    await applyFIFOConsumption(
-      ctx,
-      fifoResult,
-      reservation.componentTypeId,
-      reservation.locationId,
-      args.orderId,
-      `Consumed for labeling order ${order.orderNumber}`,
-      "system"
-    );
-
-    // Update reservation status
-    await ctx.db.patch(reservation._id, {
-      quantityConsumed: reservation.quantityReserved,
-      status: "consumed",
-      consumedAt: Date.now(),
-    });
-
-    // Update component stock aggregates
-    await updateComponentStock(
-      ctx,
-      reservation.componentTypeId,
-      reservation.locationId
-    );
-
-    consumedCount++;
-  }
-
-  return { consumed: consumedCount };
+  return await consumeMaterialsByStageInternal(ctx, args, "labeling");
 }
 
 /**
  * Consume sticker materials when order transitions to "Labeled"
- *
- * Consumes product stickers, QR stickers (applied at labeling step).
- * Uses FIFO consumption from reserved batches.
  */
 export const consumeStickerMaterials = mutation({
   args: {

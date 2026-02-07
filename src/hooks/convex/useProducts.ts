@@ -1,6 +1,6 @@
 /**
  * Convex hooks for products.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for product management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -103,28 +103,18 @@ export function useConvexProductSearch(query: string, limit?: number) {
 export function useConvexCreateProduct() {
   const mutation = useMutation(api.products.mutations.create);
 
-  return {
-    mutate: async (data: ProductCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Product created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create product"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: ProductCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Product created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create product"));
-        throw error;
-      }
-    },
+  const execute = async (data: ProductCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Product created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create product"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -133,38 +123,23 @@ export function useConvexCreateProduct() {
 export function useConvexCopyProductVersion() {
   const mutation = useMutation(api.products.mutations.copyVersion);
 
-  return {
-    mutate: async (data: {
-      productId: Id<"products">;
-      copyFromVersionId: Id<"productVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      productId: Id<"products">;
-      copyFromVersionId: Id<"productVersions">;
-      versionName: string;
-      description?: string;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version copied successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to copy version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    productId: Id<"products">;
+    copyFromVersionId: Id<"productVersions">;
+    versionName: string;
+    description?: string;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version copied successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to copy version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -173,34 +148,21 @@ export function useConvexCopyProductVersion() {
 export function useConvexCreateProductVersion() {
   const mutation = useMutation(api.products.mutations.createVersion);
 
-  return {
-    mutate: async (data: {
-      productId: Id<"products">;
-      versionData: ProductVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      productId: Id<"products">;
-      versionData: ProductVersionInput;
-    }) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Version created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create version"));
-        throw error;
-      }
-    },
+  const execute = async (data: {
+    productId: Id<"products">;
+    versionData: ProductVersionInput;
+  }) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Version created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create version"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -209,29 +171,17 @@ export function useConvexCreateProductVersion() {
 export function useConvexUpdateProductTags() {
   const mutation = useMutation(api.products.mutations.updateTags);
 
-  return {
-    mutate: async (data: { productId: Id<"products">; tagIds: Id<"tags">[] }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: {
-      productId: Id<"products">;
-      tagIds: Id<"tags">[];
-    }) => {
-      try {
-        await mutation(data);
-        toast.success("Tags updated successfully");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update tags"));
-        throw error;
-      }
-    },
+  const execute = async (data: { productId: Id<"products">; tagIds: Id<"tags">[] }) => {
+    try {
+      await mutation(data);
+      toast.success("Tags updated successfully");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update tags"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -240,26 +190,17 @@ export function useConvexUpdateProductTags() {
 export function useConvexUpdateProductName() {
   const mutation = useMutation(api.products.mutations.updateName);
 
-  return {
-    mutate: async (data: { productId: Id<"products">; name: string }) => {
-      try {
-        await mutation(data);
-        toast.success("Product name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { productId: Id<"products">; name: string }) => {
-      try {
-        await mutation(data);
-        toast.success("Product name updated");
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update name"));
-        throw error;
-      }
-    },
+  const execute = async (data: { productId: Id<"products">; name: string }) => {
+    try {
+      await mutation(data);
+      toast.success("Product name updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update name"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -268,28 +209,18 @@ export function useConvexUpdateProductName() {
 export function useConvexDeleteProduct() {
   const mutation = useMutation(api.products.mutations.remove);
 
-  return {
-    mutate: async (productId: Id<"products">) => {
-      try {
-        await mutation({ productId });
-        toast.success("Product deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete product"));
-        throw error;
-      }
-    },
-    mutateAsync: async (productId: Id<"products">) => {
-      try {
-        await mutation({ productId });
-        toast.success("Product deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete product"));
-        throw error;
-      }
-    },
+  const execute = async (productId: Id<"products">) => {
+    try {
+      await mutation({ productId });
+      toast.success("Product deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete product"));
+      throw error;
+    }
   };
+
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**

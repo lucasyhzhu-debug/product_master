@@ -209,6 +209,46 @@ vouchers.validateVoucher({             // Validate and calculate discount
 - Order total meets minimum (`orderTotal >= minimumOrderAmount` if set)
 - Final price after discount must be > 0
 
+### Inventory
+```typescript
+// convex/inventory/queries.ts
+inventory.getLowStockAlerts()              // Components below reorder point or alarm %
+inventory.getComponentInventory({          // Stock across all locations for one component
+  componentTypeId, includeTransactions?, transactionLimit?
+})
+inventory.getLocationInventory({           // All components at one location
+  locationId, activeOnly?
+})
+inventory.getInventoryReport({             // Full matrix: components × locations
+  activeComponentsOnly?
+})
+inventory.getComponentBatches({            // FIFO-ordered batches at location
+  componentTypeId, locationId, includeExpired?
+})
+inventory.getLocationTransactions({        // Recent movements at location
+  locationId, limit?
+})
+inventory.getPackagingStockSummary()        // Aggregated packaging stock for Kitchen V2
+inventory.getLatestBatch({                 // Most recent batch (for supplier pre-fill)
+  componentTypeId, locationId
+})
+```
+
+**getInventoryReport stockByLocation fields:**
+```typescript
+{
+  locationId: Id<"storageLocations">;
+  locationName: string;
+  totalStock: number;
+  totalReserved: number;
+  available: number;
+  weightedUnitCostIdr: number;
+  latestSupplierName?: string;    // From componentStock aggregate
+  latestPurchaseUrl?: string;     // From componentStock aggregate
+  latestUnitCostIdr?: number;     // From componentStock aggregate
+}
+```
+
 ---
 
 ## Mutations (Write Operations)
@@ -426,6 +466,42 @@ vouchers.createManagerOverride({    // Generate single-use override code
 **Authorization:**
 - All voucher CRUD mutations require admin role
 - Manager override creation allowed for managers and admins (but only accessible during checkout, not via VouchersManager page)
+
+### Inventory
+```typescript
+// convex/inventory/mutations.ts
+inventory.receiveStock({                   // Create new batch with supplier info
+  componentTypeId, locationId, purchaseDate, supplierName,
+  supplierBrand?, purchaseReference?, purchaseUrl?,
+  quantityPurchased, totalCostIdr, expiryDate?,
+  referenceNote?, createdBy, copyFromBatchId?
+})
+inventory.createComponentAndReceiveStock({ // Create component + first batch
+  code, name, category, unit, reorderPoint?, color?,
+  locationId, purchaseDate, supplierName, ...batchFields
+})
+inventory.transferStock({                  // Transfer between locations (FIFO, per-batch copies)
+  componentTypeId, fromLocationId, toLocationId,
+  quantity, referenceNote?, createdBy
+})
+inventory.adjustStock({                    // Physical count adjustment
+  batchId, newQuantity, reason, createdBy
+})
+inventory.deleteBatch({ batchId })         // Delete (blocked if reserved)
+inventory.expireBatch({                    // Mark expired (blocked if reserved)
+  batchId, reason?, createdBy
+})
+```
+
+**adjustStock behavior:**
+- Updates `quantityRemaining` to `newQuantity`
+- If `newQuantity > quantityPurchased`: also updates `quantityPurchased` and recalculates `totalCostIdr` at same unit cost
+- Sets status to `"depleted"` if `newQuantity === 0`
+
+**transferStock behavior:**
+- Consumes from source using FIFO
+- Creates per-source-batch copies at destination preserving original supplier name, brand, purchase URL, expiry date, and unit cost
+- Links all batches/transactions via `transferId`
 
 ---
 

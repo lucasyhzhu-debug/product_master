@@ -1,6 +1,6 @@
 /**
  * Convex hooks for ingredients.
- * These replace the React Query + Axios hooks.
+ * Convex query/mutation hooks for ingredient management.
  */
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -64,29 +64,17 @@ export function useConvexIngredientSearch(query: string, limit?: number) {
  */
 export function useConvexCreateIngredient() {
   const mutation = useMutation(api.ingredients.mutations.create);
-
-  return {
-    mutate: async (data: IngredientCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Ingredient created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create ingredient"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: IngredientCreateInput) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Ingredient created successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to create ingredient"));
-        throw error;
-      }
-    },
+  const execute = async (data: IngredientCreateInput) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Ingredient created successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create ingredient"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -94,29 +82,17 @@ export function useConvexCreateIngredient() {
  */
 export function useConvexUpdateIngredient() {
   const mutation = useMutation(api.ingredients.mutations.update);
-
-  return {
-    mutate: async (data: { id: Id<"ingredients"> } & Partial<IngredientCreateInput>) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Ingredient updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update ingredient"));
-        throw error;
-      }
-    },
-    mutateAsync: async (data: { id: Id<"ingredients"> } & Partial<IngredientCreateInput>) => {
-      try {
-        const id = await mutation(data);
-        toast.success("Ingredient updated successfully");
-        return id;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to update ingredient"));
-        throw error;
-      }
-    },
+  const execute = async (data: { id: Id<"ingredients"> } & Partial<IngredientCreateInput>) => {
+    try {
+      const id = await mutation(data);
+      toast.success("Ingredient updated successfully");
+      return id;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update ingredient"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }
 
 /**
@@ -124,27 +100,15 @@ export function useConvexUpdateIngredient() {
  */
 export function useConvexDeleteIngredient() {
   const mutation = useMutation(api.ingredients.mutations.remove);
-
-  return {
-    mutate: async (id: Id<"ingredients">) => {
-      try {
-        await mutation({ id });
-        toast.success("Ingredient deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete ingredient"));
-        throw error;
-      }
-    },
-    mutateAsync: async (id: Id<"ingredients">) => {
-      try {
-        await mutation({ id });
-        toast.success("Ingredient deleted successfully");
-        return true;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, "Failed to delete ingredient"));
-        throw error;
-      }
-    },
+  const execute = async (id: Id<"ingredients">) => {
+    try {
+      await mutation({ id });
+      toast.success("Ingredient deleted successfully");
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to delete ingredient"));
+      throw error;
+    }
   };
+  return { mutate: execute, mutateAsync: execute };
 }

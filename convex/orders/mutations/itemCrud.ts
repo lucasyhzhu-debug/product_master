@@ -16,19 +16,8 @@ import {
   clearVoucherFromOrder,
 } from "../helpers/index";
 
-// ============================================
-// Input Types
-// ============================================
-
-const orderItemInput = v.object({
-  productName: v.string(),
-  productVariant: v.optional(v.string()),
-  quantity: v.number(),
-  unitPrice: v.number(),
-  unitCost: v.number(),
-  discountAmount: v.optional(v.number()),
-  menuProductId: v.optional(v.id("menuProducts")),
-});
+// Shared validators
+import { orderItemInput } from "../validators";
 
 // ============================================
 // Mutations

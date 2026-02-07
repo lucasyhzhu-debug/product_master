@@ -20,6 +20,10 @@ const productVersionInput = v.object({
 // Helper Functions
 // ============================================
 
+/**
+ * COGSBreakdown for DB storage (uses undefined per Convex schema v.optional).
+ * Note: queries.ts has its own COGSBreakdown that uses null for frontend consumption.
+ */
 interface COGSBreakdown {
   totalGrams: number;
   recipeCogs: number | undefined;
