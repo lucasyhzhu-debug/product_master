@@ -306,3 +306,6 @@ export {
   type StorageLocationUpdateInput,
   type StorageLocation,
 } from "./useStorageLocations";
+
+// Protected Mutation Wrapper
+export { useProtectedMutation } from "./useProtectedMutation";
