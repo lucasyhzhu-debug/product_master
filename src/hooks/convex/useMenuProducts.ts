@@ -445,20 +445,16 @@ export function useConvexAssignToPackagingSlot() {
  * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
  */
 export function useConvexReorderSlots() {
-  const mutation = useMutation(api.menuProducts.mutations.reorderSlots);
-  const { user } = useAuth();
+  const protectedReorder = useProtectedMutation(api.menuProducts.mutations.reorderSlots);
 
   return {
     mutate: async (orderedProductIds: Id<"menuProducts">[]) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        await mutation({ orderedProductIds, token: user.token });
+        await protectedReorder({ orderedProductIds });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to reorder slots";
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to reorder slots"));
+        }
         throw error;
       }
     },
@@ -470,20 +466,16 @@ export function useConvexReorderSlots() {
  * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
  */
 export function useConvexReorderPackagingSlots() {
-  const mutation = useMutation(api.menuProducts.mutations.reorderPackagingSlots);
-  const { user } = useAuth();
+  const protectedReorder = useProtectedMutation(api.menuProducts.mutations.reorderPackagingSlots);
 
   return {
     mutate: async (orderedProductIds: Id<"menuProducts">[]) => {
-      if (!user?.token) {
-        toast.error("Session expired. Please log in again.");
-        throw new Error("Not authenticated");
-      }
       try {
-        await mutation({ orderedProductIds, token: user.token });
+        await protectedReorder({ orderedProductIds });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : "Failed to reorder packaging slots";
-        toast.error(message);
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to reorder packaging slots"));
+        }
         throw error;
       }
     },
