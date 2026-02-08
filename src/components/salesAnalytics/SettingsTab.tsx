@@ -41,10 +41,11 @@ export function SettingsTab() {
   const { data: syncLogs, isLoading: loadingSyncLogs } =
     useConvexExternalSyncLogs(undefined, 50);
 
-  // K3Mart credential status (admin-only)
+  // K3Mart credential status (admin-only — skip for non-admin to avoid auth error)
+  const isAdmin = user?.role === "admin";
   const { data: k3CredStatus } = useConvexCredentialStatus(
     "k3mart",
-    user?.token
+    isAdmin ? user?.token : undefined
   );
 
   // Mutations
@@ -187,17 +188,19 @@ export function SettingsTab() {
                 onSecondarySync={handleDiscoverK3MartOutlets}
                 secondarySyncLabel="Refresh Stores"
                 isSecondarySyncing={discoveringK3Mart}
-                hasCredentials={k3CredStatus?.hasCredentials}
-                tokenExpiresAt={k3CredStatus?.tokenExpiresAt}
-                lastRefreshStatus={k3CredStatus?.lastRefreshStatus}
-                onConfigure={() => setCredDialogOpen(true)}
+                hasCredentials={isAdmin ? k3CredStatus?.hasCredentials : undefined}
+                tokenExpiresAt={isAdmin ? k3CredStatus?.tokenExpiresAt : undefined}
+                lastRefreshStatus={isAdmin ? k3CredStatus?.lastRefreshStatus : undefined}
+                onConfigure={isAdmin ? () => setCredDialogOpen(true) : undefined}
               />
 
-              <K3MartCredentialsDialog
-                open={credDialogOpen}
-                onOpenChange={setCredDialogOpen}
-                currentEmail={k3CredStatus?.email}
-              />
+              {isAdmin && (
+                <K3MartCredentialsDialog
+                  open={credDialogOpen}
+                  onOpenChange={setCredDialogOpen}
+                  currentEmail={k3CredStatus?.email}
+                />
+              )}
 
               {/* GoBiz */}
               <ConnectionGuide
