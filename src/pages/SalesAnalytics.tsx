@@ -8,7 +8,7 @@ export function SalesAnalytics() {
     <div className="p-6">
       <PageHeader
         title="Sales Analytics"
-        description="Track revenue from K3 Mart and GoBiz, manage API connections"
+        description="Track revenue across K3 Mart, GoBiz, and Internal Orders"
       />
       <Tabs defaultValue="overview" className="mt-6">
         <TabsList>

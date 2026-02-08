@@ -315,8 +315,10 @@ export {
   useConvexExternalProductMappings,
   useConvexDashboardSalesSummary,
   // Action hooks
-  useConvexSyncK3Mart,
+  useConvexDiscoverK3MartOutlets,
+  useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
+  useConvexSyncInternalOrders,
 } from "./useExternalData";
 
 // Protected Mutation Wrapper

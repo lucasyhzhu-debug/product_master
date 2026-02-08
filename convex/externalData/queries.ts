@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
 
-const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"));
+const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"));
 
 // ─── INTERNAL QUERIES (called by platform adapter actions) ───
 
@@ -32,6 +32,19 @@ export const getLatestSnapshotBatch = internalQuery({
       .query("externalStockSnapshots")
       .withIndex("by_batch", (q) => q.eq("snapshotBatchId", latest.snapshotBatchId))
       .collect();
+  },
+});
+
+export const getLatestSyncTimestamp = internalQuery({
+  args: { source: sourceValidator },
+  handler: async (ctx, args) => {
+    const latest = await ctx.db
+      .query("externalSyncLogs")
+      .withIndex("by_source", (q) => q.eq("source", args.source))
+      .filter((q) => q.eq(q.field("status"), "success"))
+      .order("desc")
+      .first();
+    return latest?.timestamp ?? null;
   },
 });
 
@@ -162,6 +175,12 @@ export const getDashboardSummary = query({
       .order("desc")
       .take(1);
 
+    const internalLogs = await ctx.db
+      .query("externalSyncLogs")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .order("desc")
+      .take(1);
+
     // Get recent revenue (last 24 hours)
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const recentRevenue = await ctx.db
@@ -185,6 +204,11 @@ export const getDashboardSummary = query({
           outletCount: outlets.filter((o) => o.source === "gobiz").length,
           activeOutlets: outlets.filter((o) => o.source === "gobiz" && o.isActive).length,
           lastSync: gobizLogs[0] ?? null,
+        },
+        internal: {
+          outletCount: 0,
+          activeOutlets: 0,
+          lastSync: internalLogs[0] ?? null,
         },
       },
       recentRevenue: {

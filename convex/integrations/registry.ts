@@ -10,7 +10,7 @@
  * 3. Create convex/integrations/newplatform/adapter.ts + config.ts
  */
 
-export type PlatformId = "k3mart" | "gobiz";
+export type PlatformId = "k3mart" | "gobiz" | "internal";
 
 export interface PlatformMeta {
   id: PlatformId;
@@ -26,9 +26,9 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
   k3mart: {
     id: "k3mart",
     name: "K3 Mart",
-    description: "Consignment outlet stock tracking",
+    description: "Consignment outlet stock & sales tracking",
     envVarName: "K3MART_API_TOKEN",
-    dataTypes: ["stock"],
+    dataTypes: ["stock", "revenue"],
     tokenLifespan: "~1 year (JWT)",
     reconnectSteps: [
       "Open https://umkm.k3mart.id and log in",
@@ -56,6 +56,15 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
       "Update GOBIZ_API_TOKEN with the new token",
       "Come back here and click 'Sync Now' to test",
     ],
+  },
+  internal: {
+    id: "internal",
+    name: "Internal Orders",
+    description: "Revenue from direct orders (WhatsApp, Instagram, etc.)",
+    envVarName: "",
+    dataTypes: ["revenue"],
+    tokenLifespan: "N/A (own database)",
+    reconnectSteps: [],
   },
 };
 
