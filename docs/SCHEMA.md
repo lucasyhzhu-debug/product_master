@@ -751,7 +751,7 @@ Platform outlet/store definitions with sync tracking.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
 | externalId | string | Platform-specific outlet ID |
 | name | string | Outlet display name |
 | address | string? | Optional address |
@@ -790,29 +790,33 @@ Unified revenue records from all platforms with confidence tracking.
 | Field | Type | Description |
 |-------|------|-------------|
 | outletId | Id<"externalOutlets">? | Optional outlet reference |
-| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
 | externalProductCode | string? | Platform product code |
 | productName | string? | Product display name |
 | quantitySold | number? | Units sold |
-| transactionCount | number? | Number of transactions (GoBiz) |
+| transactionCount | number? | Number of transactions |
 | revenueGross | number? | Gross revenue in IDR |
 | revenueNet | number? | Net revenue in IDR |
 | costOfGoods | number? | COGS if available |
 | periodStart | number | Period start timestamp |
 | periodEnd | number | Period end timestamp |
-| dataOrigin | `"stock_delta" \| "api_revenue" \| "manual_entry" \| "csv_upload"` | How data was obtained |
+| dataOrigin | `"stock_delta" \| "api_revenue" \| "manual_entry" \| "csv_upload" \| "db_query"` | How data was obtained |
 | confidence | `"exact" \| "inferred" \| "manual"` | Data reliability level |
 | syncLogId | Id<"externalSyncLogs">? | Reference to sync operation |
 | linkedMenuProductId | Id<"menuProducts">? | Mapped internal product |
+| externalTransactionId | string? | Platform transaction ID (used for deduplication) |
+| transactionDate | number? | Transaction timestamp |
+| transactionType | `"sales" \| "return" \| "delta_inferred"`? | Transaction category |
+| commission | number? | Platform commission amount |
 
-**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`
+**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`, `by_source_txn`
 
 ### externalSyncLogs
 Sync operation logs with timing and error details.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
 | outletId | Id<"externalOutlets">? | Optional outlet reference |
 | snapshotBatchId | string? | Batch ID for stock syncs |
 | syncType | `"manual"` | Sync trigger type |
@@ -830,7 +834,7 @@ Maps external product codes to internal menu products.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"k3mart" \| "gobiz"` | Platform identifier |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
 | externalProductCode | string | Platform product code |
 | externalProductName | string | Platform product name |
 | menuProductId | Id<"menuProducts">? | Linked internal product |

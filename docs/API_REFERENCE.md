@@ -662,6 +662,41 @@ Syncs revenue data from GoBiz (GoFood).
 
 **Flow:** Queries proxy/44 for gross revenue + transaction count, proxy/4 for net revenue (merchant share). Amounts divided by 100 (cents to IDR). Stores with `confidence: "exact"`.
 
+#### `integrations.internal.adapter.syncInternalOrders`
+Syncs revenue from own Convex orders database. No external API calls or tokens required.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync (e.g., "dashboard", "settings") |
+
+**Returns (success):** `{ success: true, syncLogId, totalOrders, newTransactions, skippedDuplicates, totalGross, totalNet, durationMs }`
+
+**Returns (failure):** `{ success: false, error, syncLogId, durationMs }`
+
+**Flow:**
+1. Creates sync log with status `"started"`
+2. Gets last successful sync timestamp for incremental sync (via `getLatestSyncTimestamp`)
+3. Fetches revenue-countable orders since last sync (via `getRevenueOrders` internalQuery)
+4. Maps orders to revenue records in batches of 100, deduplicates by `orderNumber` using `by_source_txn` index
+5. Updates sync log with `"success"` or `"error"`
+
+**Revenue-countable statuses:** Confirmed, InProduction, Boxed, Labeled, WaitingShipment, WaitingPickup, CompleteShipped, PickedUp
+
+**Revenue record mapping:**
+- `revenueGross` = order's `finalTotal` (or `totalAmount` if no voucher discount)
+- `revenueNet` = order's `totalMargin`
+- `costOfGoods` = order's `totalCost`
+- `dataOrigin` = `"db_query"`, `confidence` = `"exact"`
+
+#### `integrations.internal.queries.getRevenueOrders` (internalQuery)
+Fetches orders that qualify as revenue. Used internally by `syncInternalOrders`.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| sinceTimestamp | number? | Only return orders created after this timestamp |
+
+**Returns:** Array of order documents filtered by revenue-countable statuses.
+
 ### Queries
 
 #### `externalData.queries.listOutlets`
@@ -669,7 +704,7 @@ Lists all external outlets, optionally filtered by source.
 
 | Arg | Type | Description |
 |-----|------|-------------|
-| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
 
 #### `externalData.queries.getLatestSnapshots`
 Gets latest stock snapshot batch for an outlet.
@@ -683,7 +718,7 @@ Gets revenue records with optional filters.
 
 | Arg | Type | Description |
 |-----|------|-------------|
-| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
 | periodStart | number? | Period start filter |
 | periodEnd | number? | Period end filter |
 
@@ -692,7 +727,7 @@ Gets sync operation history.
 
 | Arg | Type | Description |
 |-----|------|-------------|
-| source | `"k3mart" \| "gobiz"`? | Filter by platform |
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
 | limit | number? | Max results (default 50) |
 
 #### `externalData.queries.getDashboardSummary`
@@ -706,7 +741,7 @@ Creates or updates an external outlet.
 | Arg | Type | Description |
 |-----|------|-------------|
 | token | string | Auth token |
-| source | `"k3mart" \| "gobiz"` | Platform |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform |
 | externalId | string | Platform outlet ID |
 | name | string | Display name |
 | address | string? | Address |
