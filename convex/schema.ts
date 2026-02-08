@@ -864,7 +864,7 @@ export default defineSchema({
   // ============================================
 
   externalOutlets: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
     externalId: v.string(),
     name: v.string(),
     address: v.optional(v.string()),
@@ -903,7 +903,7 @@ export default defineSchema({
 
   externalRevenue: defineTable({
     outletId: v.optional(v.id("externalOutlets")),
-    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
     externalProductCode: v.optional(v.string()),
     productName: v.optional(v.string()),
     quantitySold: v.optional(v.number()),
@@ -917,7 +917,8 @@ export default defineSchema({
       v.literal("stock_delta"),
       v.literal("api_revenue"),
       v.literal("manual_entry"),
-      v.literal("csv_upload")
+      v.literal("csv_upload"),
+      v.literal("db_query")
     ),
     confidence: v.union(
       v.literal("exact"),
@@ -926,15 +927,24 @@ export default defineSchema({
     ),
     syncLogId: v.optional(v.id("externalSyncLogs")),
     linkedMenuProductId: v.optional(v.id("menuProducts")),
+    externalTransactionId: v.optional(v.string()),
+    transactionDate: v.optional(v.number()),
+    transactionType: v.optional(v.union(
+      v.literal("sales"),
+      v.literal("return"),
+      v.literal("delta_inferred")
+    )),
+    commission: v.optional(v.number()),
   })
     .index("by_source", ["source"])
     .index("by_outlet", ["outletId"])
     .index("by_period", ["periodStart"])
     .index("by_source_period", ["source", "periodStart"])
-    .index("by_product", ["linkedMenuProductId"]),
+    .index("by_product", ["linkedMenuProductId"])
+    .index("by_source_txn", ["source", "externalTransactionId"]),
 
   externalSyncLogs: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
     syncType: v.union(v.literal("manual")),
@@ -952,7 +962,7 @@ export default defineSchema({
     .index("by_outlet", ["outletId"]),
 
   externalProductMappings: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz")),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
     externalProductCode: v.string(),
     externalProductName: v.string(),
     menuProductId: v.optional(v.id("menuProducts")),

@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, Component, type ErrorInfo, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, Loader2, RefreshCw } from "lucide-react";
+import { TrendingUp, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   useConvexDashboardSalesSummary,
-  useConvexSyncK3Mart,
+  useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
+  useConvexSyncInternalOrders,
 } from "@/hooks/convex";
 import { formatCurrency } from "@/lib/utils";
 
@@ -38,20 +39,27 @@ function PlatformRow({
   onSync,
   isSyncing,
 }: PlatformRowProps) {
+  // More visible status colors and indicators
   const statusColor = lastSyncError
     ? "bg-red-500"
     : isActive
     ? "bg-green-500"
-    : "bg-gray-400";
+    : "bg-amber-500"; // Changed from gray-400 to amber for better visibility
+
+  const statusText = lastSyncError
+    ? "Error"
+    : lastSyncAt
+    ? formatRelativeTime(lastSyncAt)
+    : "Not synced yet"; // More explicit than "Never synced"
 
   return (
     <div className="flex items-center justify-between gap-2 p-2 rounded border bg-muted/30">
       <div className="flex items-center gap-2 min-w-0">
-        <span className={`w-2 h-2 rounded-full ${statusColor} flex-shrink-0`} />
+        <span className={`w-2.5 h-2.5 rounded-full ${statusColor} flex-shrink-0`} />
         <div className="min-w-0 flex-1">
           <div className="font-medium text-sm truncate">{name}</div>
-          <div className="text-xs text-muted-foreground">
-            {lastSyncAt ? formatRelativeTime(lastSyncAt) : "Never synced"}
+          <div className={`text-xs ${lastSyncError ? "text-red-600 font-medium" : !lastSyncAt ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+            {statusText}
           </div>
           {lastSyncError && (
             <Badge variant="destructive" className="text-xs mt-1">
@@ -79,11 +87,13 @@ function PlatformRow({
 
 export function SalesWidget() {
   const { data, isLoading } = useConvexDashboardSalesSummary();
-  const syncK3Mart = useConvexSyncK3Mart();
+  const syncK3MartSales = useConvexSyncK3MartSales();
   const syncGoBiz = useConvexSyncGoBiz();
+  const syncInternal = useConvexSyncInternalOrders();
 
   const [isSyncingK3, setIsSyncingK3] = useState(false);
   const [isSyncingGoBiz, setIsSyncingGoBiz] = useState(false);
+  const [isSyncingInternal, setIsSyncingInternal] = useState(false);
 
   if (isLoading || !data) {
     return <SalesWidgetSkeleton />;
@@ -92,11 +102,11 @@ export function SalesWidget() {
   const handleSyncK3Mart = async () => {
     setIsSyncingK3(true);
     try {
-      const result = await syncK3Mart({ triggeredBy: "dashboard" });
+      const result = await syncK3MartSales({ triggeredBy: "dashboard" });
       if (result.success) {
-        toast.success(`K3 Mart sync complete: ${result.totalProducts ?? 0} products`);
+        toast.success(`K3 Mart: ${result.newTransactions} new sales synced`);
       } else {
-        toast.error(`K3 Mart sync failed: ${result.errors?.join(", ") || "Unknown error"}`);
+        toast.error(`K3 Mart sync failed: ${result.error || "Unknown error"}`);
       }
     } catch (error) {
       console.error("K3 Mart sync error:", error);
@@ -127,11 +137,31 @@ export function SalesWidget() {
     }
   };
 
+  const handleSyncInternal = async () => {
+    setIsSyncingInternal(true);
+    try {
+      const result = await syncInternal({ triggeredBy: "dashboard" });
+      if (result.success) {
+        toast.success(`Internal: ${result.newTransactions} new orders synced`);
+      } else {
+        toast.error(`Internal sync failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Internal sync error:", error);
+      toast.error(
+        `Internal sync failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setIsSyncingInternal(false);
+    }
+  };
+
   const { platforms, recentRevenue } = data;
 
   // Extract platform status from last sync logs
   const k3LastSync = platforms.k3mart.lastSync;
   const gobizLastSync = platforms.gobiz.lastSync;
+  const internalLastSync = platforms.internal.lastSync;
 
   return (
     <Card>
@@ -140,15 +170,31 @@ export function SalesWidget() {
         <TrendingUp className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <div className="text-sm text-muted-foreground">
-            {formatCurrency(recentRevenue.totalGross)} gross · {formatCurrency(recentRevenue.totalNet)} net ·{" "}
-            {recentRevenue.totalTransactions} transactions
+        {/* Revenue Summary - Prominent Display for Cofounder */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Gross Revenue</div>
+            <div className="text-xl font-bold text-foreground">
+              {formatCurrency(recentRevenue.totalGross)}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground mt-1">{recentRevenue.periodLabel}</div>
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Net Revenue</div>
+            <div className="text-xl font-bold text-emerald-600">
+              {formatCurrency(recentRevenue.totalNet)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Transactions</div>
+            <div className="text-xl font-bold text-foreground">
+              {recentRevenue.totalTransactions}
+            </div>
+          </div>
         </div>
+        <div className="text-xs text-muted-foreground">{recentRevenue.periodLabel}</div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {/* Platform Status Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <PlatformRow
             name="K3 Mart"
             lastSyncAt={k3LastSync?.timestamp ?? null}
@@ -165,9 +211,65 @@ export function SalesWidget() {
             onSync={handleSyncGoBiz}
             isSyncing={isSyncingGoBiz}
           />
+          <PlatformRow
+            name="Internal"
+            lastSyncAt={internalLastSync?.timestamp ?? null}
+            lastSyncError={internalLastSync?.status === "error" ? (internalLastSync.errorMessage ?? "Sync failed") : null}
+            isActive={internalLastSync?.status === "success"}
+            onSync={handleSyncInternal}
+            isSyncing={isSyncingInternal}
+          />
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Error boundary that prevents SalesWidget crashes from taking down the whole dashboard.
+ */
+class SalesWidgetErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("SalesWidget error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sales Integration</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Sales data temporarily unavailable. Try refreshing the page.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function SafeSalesWidget() {
+  return (
+    <SalesWidgetErrorBoundary>
+      <SalesWidget />
+    </SalesWidgetErrorBoundary>
   );
 }
 
@@ -183,7 +285,8 @@ export function SalesWidgetSkeleton() {
           <div className="h-4 w-full bg-muted animate-pulse rounded" />
           <div className="h-3 w-24 bg-muted animate-pulse rounded" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="h-16 bg-muted animate-pulse rounded" />
           <div className="h-16 bg-muted animate-pulse rounded" />
           <div className="h-16 bg-muted animate-pulse rounded" />
         </div>

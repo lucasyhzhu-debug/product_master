@@ -1,7 +1,7 @@
 /**
  * K3 Mart API Configuration
  *
- * Consignment outlet stock tracking via REST API.
+ * Consignment outlet stock & sales tracking via REST API.
  * Base URL: https://consapi.k3mart.id/api/v1
  * Auth: JWT token stored in K3MART_API_TOKEN env var
  */
@@ -10,6 +10,7 @@ export const K3MART_CONFIG = {
   baseUrl: "https://consapi.k3mart.id/api/v1",
   endpoints: {
     dashboard: "/vendor-stock/get-dashboard",
+    sales: "/vendor-sales/get-all",
   },
   headers: {
     Origin: "https://umkm.k3mart.id",
@@ -22,6 +23,16 @@ export const K3MART_CONFIG = {
   rateLimit: {
     betweenPagesMs: 500,
     betweenOutletsMs: 2000,
+  },
+  discovery: {
+    maxOutletId: 200,
+    delayBetweenOutletsMs: 300,
+    pageSize: 100,
+    productFilter: "dubai",
+  },
+  sales: {
+    defaultStartDate: "2026-01-01",
+    overlapDays: 1,
   },
 } as const;
 
@@ -52,4 +63,22 @@ export interface K3MartDashboardResponse {
       totalCount: number;
     };
   };
+}
+
+/** Shape of a sales transaction from K3 Mart sales API */
+export interface K3MartSalesTransaction {
+  transDate: string;    // "07 Feb 2026, 09:45"
+  outletName: string;
+  productCode: string;
+  productName: string;
+  qty: number;          // Negative for returns
+  total: number;        // Gross in IDR, negative for returns
+  commission: number;   // K3Mart 35% commission
+  profit: number;       // Net to vendor
+  type: string;         // "sales" or "return"
+}
+
+export interface K3MartSalesResponse {
+  success: boolean;
+  data: K3MartSalesTransaction[];
 }

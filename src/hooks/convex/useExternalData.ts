@@ -1,5 +1,5 @@
 /**
- * Convex hooks for external platform data (K3 Mart, GoBiz).
+ * Convex hooks for external platform data (K3 Mart, GoBiz, Internal).
  * Query hooks for outlets, snapshots, revenue, sync logs.
  * Action hooks for triggering platform syncs.
  */
@@ -14,7 +14,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 /**
  * List all external outlets, optionally filtered by source.
  */
-export function useConvexExternalOutlets(source?: "k3mart" | "gobiz") {
+export function useConvexExternalOutlets(source?: "k3mart" | "gobiz" | "internal") {
   const data = useQuery(api.externalData.queries.listOutlets, { source });
   return { data, isLoading: data === undefined };
 }
@@ -34,7 +34,7 @@ export function useConvexExternalSnapshots(outletId?: Id<"externalOutlets">) {
  * Get revenue records, optionally filtered by source and period.
  */
 export function useConvexExternalRevenue(
-  source?: "k3mart" | "gobiz",
+  source?: "k3mart" | "gobiz" | "internal",
   periodStart?: number,
   periodEnd?: number
 ) {
@@ -50,7 +50,7 @@ export function useConvexExternalRevenue(
  * Get sync logs, optionally filtered by source.
  */
 export function useConvexExternalSyncLogs(
-  source?: "k3mart" | "gobiz",
+  source?: "k3mart" | "gobiz" | "internal",
   limit?: number
 ) {
   const data = useQuery(api.externalData.queries.getSyncLogs, {
@@ -64,7 +64,7 @@ export function useConvexExternalSyncLogs(
  * Get product mappings, optionally filtered by source.
  */
 export function useConvexExternalProductMappings(
-  source?: "k3mart" | "gobiz"
+  source?: "k3mart" | "gobiz" | "internal"
 ) {
   const data = useQuery(api.externalData.queries.getProductMappings, {
     source,
@@ -85,10 +85,17 @@ export function useConvexDashboardSalesSummary() {
 // ============================================
 
 /**
- * Trigger K3Mart stock sync action.
+ * Trigger K3Mart outlet discovery action (scans outlets 1-200, ~60s).
  */
-export function useConvexSyncK3Mart() {
-  return useAction(api.integrations.k3mart.adapter.syncK3MartStock);
+export function useConvexDiscoverK3MartOutlets() {
+  return useAction(api.integrations.k3mart.adapter.discoverK3MartOutlets);
+}
+
+/**
+ * Trigger K3Mart sales sync action (incremental, ~2s).
+ */
+export function useConvexSyncK3MartSales() {
+  return useAction(api.integrations.k3mart.adapter.syncK3MartSales);
 }
 
 /**
@@ -98,3 +105,9 @@ export function useConvexSyncGoBiz() {
   return useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
 }
 
+/**
+ * Trigger internal orders sync action.
+ */
+export function useConvexSyncInternalOrders() {
+  return useAction(api.integrations.internal.adapter.syncInternalOrders);
+}

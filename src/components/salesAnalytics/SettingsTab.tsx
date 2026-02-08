@@ -16,8 +16,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useConvexExternalOutlets,
   useConvexExternalSyncLogs,
-  useConvexSyncK3Mart,
+  useConvexDiscoverK3MartOutlets,
+  useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
+  useConvexSyncInternalOrders,
 } from "@/hooks/convex";
 import { ConnectionGuide } from "./ConnectionGuide";
 import { PLATFORMS } from "../../../convex/integrations/registry";
@@ -25,8 +27,10 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 export function SettingsTab() {
   const { user } = useAuth();
-  const [syncingK3Mart, setSyncingK3Mart] = useState(false);
+  const [discoveringK3Mart, setDiscoveringK3Mart] = useState(false);
+  const [syncingK3MartSales, setSyncingK3MartSales] = useState(false);
   const [syncingGoBiz, setSyncingGoBiz] = useState(false);
+  const [syncingInternal, setSyncingInternal] = useState(false);
 
   // Fetch data
   const { data: outlets, isLoading: loadingOutlets } =
@@ -38,8 +42,10 @@ export function SettingsTab() {
   const toggleOutletActive = useMutation(
     api.externalData.mutations.toggleOutletActive
   );
-  const syncK3Mart = useConvexSyncK3Mart();
+  const discoverK3MartOutlets = useConvexDiscoverK3MartOutlets();
+  const syncK3MartSales = useConvexSyncK3MartSales();
   const syncGoBiz = useConvexSyncGoBiz();
+  const syncInternal = useConvexSyncInternalOrders();
 
   // Get latest sync logs per platform
   const k3MartLogs = (syncLogs || []).filter(
@@ -48,22 +54,49 @@ export function SettingsTab() {
   const gobizLogs = (syncLogs || []).filter(
     (log) => log.source === "gobiz"
   );
+  const internalLogs = (syncLogs || []).filter(
+    (log) => log.source === "internal"
+  );
   const latestK3MartLog = k3MartLogs[0];
   const latestGoBizLog = gobizLogs[0];
+  const latestInternalLog = internalLogs[0];
 
   // Handle sync actions
-  const handleSyncK3Mart = async () => {
-    setSyncingK3Mart(true);
+  const handleDiscoverK3MartOutlets = async () => {
+    setDiscoveringK3Mart(true);
     try {
-      await syncK3Mart({ triggeredBy: "settings" });
-      toast.success("K3 Mart sync completed");
+      const result = await discoverK3MartOutlets({ triggeredBy: "settings" });
+      if (result.success) {
+        toast.success(`Discovered ${result.outletsFound} outlets with our products (scanned ${result.outletsScanned})`);
+      } else {
+        toast.error(`Discovery failed: ${result.errors?.join(", ") || "Unknown error"}`);
+      }
     } catch (error) {
-      console.error("K3 Mart sync failed:", error);
+      console.error("K3 Mart discovery failed:", error);
       toast.error(
-        error instanceof Error ? error.message : "K3 Mart sync failed"
+        error instanceof Error ? error.message : "K3 Mart discovery failed"
       );
     } finally {
-      setSyncingK3Mart(false);
+      setDiscoveringK3Mart(false);
+    }
+  };
+
+  const handleSyncK3MartSales = async () => {
+    setSyncingK3MartSales(true);
+    try {
+      const result = await syncK3MartSales({ triggeredBy: "settings" });
+      if (result.success) {
+        toast.success(`Synced ${result.newTransactions} new transactions (${result.skippedDuplicates} duplicates skipped)`);
+      } else {
+        toast.error(`Sales sync failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("K3 Mart sales sync failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "K3 Mart sales sync failed"
+      );
+    } finally {
+      setSyncingK3MartSales(false);
     }
   };
 
@@ -79,6 +112,25 @@ export function SettingsTab() {
       );
     } finally {
       setSyncingGoBiz(false);
+    }
+  };
+
+  const handleSyncInternal = async () => {
+    setSyncingInternal(true);
+    try {
+      const result = await syncInternal({ triggeredBy: "settings" });
+      if (result.success) {
+        toast.success(`Synced ${result.newTransactions} new orders (${result.skippedDuplicates} duplicates skipped)`);
+      } else {
+        toast.error(`Internal sync failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Internal sync failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Internal sync failed"
+      );
+    } finally {
+      setSyncingInternal(false);
     }
   };
 
@@ -106,7 +158,7 @@ export function SettingsTab() {
           <AccordionTrigger>Platform Connections</AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              {/* K3 Mart */}
+              {/* K3 Mart — Primary: Sync Sales (fast), Secondary: Refresh Stores (slow) */}
               <ConnectionGuide
                 platformName={PLATFORMS.k3mart.name}
                 description={PLATFORMS.k3mart.description}
@@ -121,8 +173,11 @@ export function SettingsTab() {
                     : null
                 }
                 lastSyncError={latestK3MartLog?.errorMessage}
-                isSyncing={syncingK3Mart}
-                onSync={handleSyncK3Mart}
+                isSyncing={syncingK3MartSales}
+                onSync={handleSyncK3MartSales}
+                onSecondarySync={handleDiscoverK3MartOutlets}
+                secondarySyncLabel="Refresh Stores"
+                isSecondarySyncing={discoveringK3Mart}
               />
 
               {/* GoBiz */}
@@ -142,6 +197,25 @@ export function SettingsTab() {
                 lastSyncError={latestGoBizLog?.errorMessage}
                 isSyncing={syncingGoBiz}
                 onSync={handleSyncGoBiz}
+              />
+
+              {/* Internal Orders */}
+              <ConnectionGuide
+                platformName={PLATFORMS.internal.name}
+                description={PLATFORMS.internal.description}
+                tokenLifespan={PLATFORMS.internal.tokenLifespan}
+                reconnectSteps={PLATFORMS.internal.reconnectSteps}
+                lastSyncAt={latestInternalLog?.timestamp}
+                lastSyncStatus={
+                  latestInternalLog?.status === "success"
+                    ? "success"
+                    : latestInternalLog?.status === "error"
+                    ? "error"
+                    : null
+                }
+                lastSyncError={latestInternalLog?.errorMessage}
+                isSyncing={syncingInternal}
+                onSync={handleSyncInternal}
               />
             </div>
           </AccordionContent>
@@ -188,10 +262,12 @@ export function SettingsTab() {
                               className={
                                 outlet.source === "k3mart"
                                   ? "border-blue-500 text-blue-700"
+                                  : outlet.source === "internal"
+                                  ? "border-emerald-500 text-emerald-700"
                                   : "border-purple-500 text-purple-700"
                               }
                             >
-                              {outlet.source === "k3mart" ? "K3 Mart" : "GoBiz"}
+                              {outlet.source === "k3mart" ? "K3 Mart" : outlet.source === "internal" ? "Internal" : "GoBiz"}
                             </Badge>
                           </td>
                           <td className="py-3 px-2 font-mono text-xs">
@@ -288,10 +364,12 @@ export function SettingsTab() {
                               className={
                                 log.source === "k3mart"
                                   ? "border-blue-500 text-blue-700"
+                                  : log.source === "internal"
+                                  ? "border-emerald-500 text-emerald-700"
                                   : "border-purple-500 text-purple-700"
                               }
                             >
-                              {log.source === "k3mart" ? "K3 Mart" : "GoBiz"}
+                              {log.source === "k3mart" ? "K3 Mart" : log.source === "internal" ? "Internal" : "GoBiz"}
                             </Badge>
                           </td>
                           <td className="py-3 px-2">

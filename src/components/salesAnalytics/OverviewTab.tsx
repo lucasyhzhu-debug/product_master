@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, TrendingUp, ShoppingCart, Store } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DollarSign, TrendingUp, ShoppingCart, Store, ArrowRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 import {
   useConvexExternalRevenue,
   useConvexDashboardSalesSummary,
 } from "@/hooks/convex";
 
-type PlatformFilter = "all" | "k3mart" | "gobiz";
+type PlatformFilter = "all" | "k3mart" | "gobiz" | "internal";
 type ConfidenceLevel = "exact" | "inferred" | "manual";
 
 function ConfidenceBadge({ confidence }: { confidence: ConfidenceLevel }) {
@@ -33,11 +35,18 @@ function ConfidenceBadge({ confidence }: { confidence: ConfidenceLevel }) {
   }
 }
 
-function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" }) {
+function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" }) {
   if (platform === "k3mart") {
     return (
       <Badge variant="outline" className="border-blue-500 text-blue-700">
         K3 Mart
+      </Badge>
+    );
+  }
+  if (platform === "internal") {
+    return (
+      <Badge variant="outline" className="border-emerald-500 text-emerald-700">
+        Internal
       </Badge>
     );
   }
@@ -50,6 +59,7 @@ function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" }) {
 
 export function OverviewTab() {
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
+  const navigate = useNavigate();
 
   // Fetch data
   const { data: summary, isLoading: loadingSummary } =
@@ -177,6 +187,13 @@ export function OverviewTab() {
               >
                 GoBiz
               </Badge>
+              <Badge
+                variant={platformFilter === "internal" ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => setPlatformFilter("internal")}
+              >
+                Internal
+              </Badge>
             </div>
           </div>
         </CardHeader>
@@ -184,12 +201,23 @@ export function OverviewTab() {
           {loadingRevenue || revenueRecords === undefined ? (
             <Skeleton className="h-64 w-full" />
           ) : revenueRecords.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-              <ShoppingCart className="h-12 w-12 mb-3 opacity-50" />
-              <p className="text-sm">No revenue data available</p>
-              <p className="text-xs mt-1">
-                Sync data from platforms to see revenue records here
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="bg-amber-50 border border-amber-200 rounded-full p-4 mb-4">
+                <ShoppingCart className="h-8 w-8 text-amber-600" />
+              </div>
+              <h3 className="text-base font-semibold mb-2">No Revenue Data Yet</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                Connect your sales platforms and run your first sync to see revenue analytics here.
+                This usually takes less than 2 minutes.
               </p>
+              <Button
+                variant="default"
+                onClick={() => navigate("/sales?tab=settings")}
+                className="gap-2"
+              >
+                Go to Settings & Sync
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">

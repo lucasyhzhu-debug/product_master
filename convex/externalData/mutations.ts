@@ -3,7 +3,7 @@ import { mutation, internalMutation } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 
 // Source validator reused across functions
-const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"));
+const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"));
 
 // ─── INTERNAL MUTATIONS (called by platform adapter actions) ───
 
@@ -57,7 +57,8 @@ export const saveRevenue = internalMutation({
         v.literal("stock_delta"),
         v.literal("api_revenue"),
         v.literal("manual_entry"),
-        v.literal("csv_upload")
+        v.literal("csv_upload"),
+        v.literal("db_query")
       ),
       confidence: v.union(
         v.literal("exact"),
@@ -66,11 +67,30 @@ export const saveRevenue = internalMutation({
       ),
       syncLogId: v.optional(v.id("externalSyncLogs")),
       linkedMenuProductId: v.optional(v.id("menuProducts")),
+      externalTransactionId: v.optional(v.string()),
+      transactionDate: v.optional(v.number()),
+      transactionType: v.optional(v.union(
+        v.literal("sales"),
+        v.literal("return"),
+        v.literal("delta_inferred")
+      )),
+      commission: v.optional(v.number()),
     })),
   },
   handler: async (ctx, args) => {
     const ids = [];
     for (const record of args.records) {
+      // Dedup: skip if transaction already exists
+      if (record.externalTransactionId) {
+        const existing = await ctx.db
+          .query("externalRevenue")
+          .withIndex("by_source_txn", (q) =>
+            q.eq("source", record.source)
+             .eq("externalTransactionId", record.externalTransactionId)
+          )
+          .unique();
+        if (existing) continue;
+      }
       const id = await ctx.db.insert("externalRevenue", record);
       ids.push(id);
     }
@@ -160,6 +180,32 @@ export const saveProductMappings = internalMutation({
         });
       }
     }
+  },
+});
+
+export const internalUpsertOutlet = internalMutation({
+  args: {
+    source: sourceValidator,
+    externalId: v.string(),
+    name: v.string(),
+    isActive: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source_external_id", (q) =>
+        q.eq("source", args.source).eq("externalId", args.externalId)
+      )
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { name: args.name, isActive: args.isActive });
+      return existing._id;
+    }
+    return await ctx.db.insert("externalOutlets", {
+      ...args,
+      createdBy: "system",
+      createdAt: Date.now(),
+    });
   },
 });
 
