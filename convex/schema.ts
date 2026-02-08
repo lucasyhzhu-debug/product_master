@@ -980,8 +980,8 @@ export default defineSchema({
 
   platformCredentials: defineTable({
     platformId: v.string(),
-    email: v.string(),
-    password: v.string(),
+    email: v.optional(v.string()),
+    password: v.optional(v.string()),
     currentToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
     lastRefreshAt: v.optional(v.number()),

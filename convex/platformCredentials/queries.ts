@@ -22,6 +22,7 @@ export const getCredentialStatus = query({
     if (!cred) {
       return {
         hasCredentials: false,
+        hasToken: false,
         email: null,
         tokenExpiresAt: null,
         lastRefreshAt: null,
@@ -32,7 +33,8 @@ export const getCredentialStatus = query({
 
     return {
       hasCredentials: true,
-      email: cred.email,
+      hasToken: !!cred.currentToken,
+      email: cred.email ?? null,
       tokenExpiresAt: cred.tokenExpiresAt ?? null,
       lastRefreshAt: cred.lastRefreshAt ?? null,
       lastRefreshStatus: cred.lastRefreshStatus ?? null,
