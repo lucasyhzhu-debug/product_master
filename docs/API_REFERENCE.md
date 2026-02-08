@@ -765,11 +765,71 @@ Links an external product to an internal menu product.
 | mappingId | Id<"externalProductMappings"> | Mapping ID |
 | menuProductId | Id<"menuProducts">? | Internal product (null to unlink) |
 
+---
+
+## Platform Credentials (Token Auto-Refresh)
+
+### Queries
+
+#### `platformCredentials.queries.getCredentialStatus`
+Get credential status for a platform (admin-only). Never exposes the password.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| platformId | string | Platform ID (e.g., "k3mart") |
+
+**Returns:** `{ hasCredentials, email, tokenExpiresAt, lastRefreshAt, lastRefreshStatus, lastRefreshError }`
+
+### Mutations (Auth Required: admin)
+
+#### `platformCredentials.mutations.saveCredentials`
+Save or update platform credentials. Upserts by platformId.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| platformId | string | Platform ID (e.g., "k3mart") |
+| email | string | Login email |
+| password | string | Login password |
+
+### Actions
+
+#### `platformCredentials.actions.refreshK3MartToken`
+Refresh K3Mart token by logging in via HTTP, validating the JWT, and storing it in DB. Admin-only.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+
+**Returns:** `{ success, tokenExpiresAt?, error? }`
+
+**Flow:**
+1. Read credentials from `platformCredentials` table
+2. HTTP POST to `https://umkm.k3mart.id/api/auth/login` with email/password
+3. Extract JWT from response (checks `token`, `access_token`, `data.token`)
+4. Decode JWT payload to read `exp` claim (expiry)
+5. Validate token via test fetch to K3Mart dashboard API
+6. Store token + expiry in DB via `updateToken` internal mutation
+
+#### `platformCredentials.actions.refreshK3MartTokenCron` (internal)
+Same as above but called by the 12-hour cron job. No auth check (system-level).
+
+### Cron Jobs
+
+| Schedule | Function | Description |
+|----------|----------|-------------|
+| Every 12 hours | `refreshK3MartTokenCron` | Auto-refresh K3Mart JWT token |
+
+Defined in `convex/crons.ts`.
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |
 |----------|-------------|----------|
-| `K3MART_API_TOKEN` | K3 Mart JWT token | ~1 year |
+| `K3MART_API_TOKEN` | K3 Mart JWT token (fallback if DB token unavailable) | ~24h |
 | `GOBIZ_API_TOKEN` | GoBiz access token (session cookie) | ~hours |
 
 ---
