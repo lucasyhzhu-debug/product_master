@@ -13,6 +13,20 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Fix: Guard K3Mart Credential Queries for Admin-Only Access
+
+**The `getCredentialStatus` query requires admin role, but the Sales Analytics page is accessible to managers too. Managers opening the Settings tab triggered an auth error crash.**
+
+### Bug Fix
+- Skip credential status query for non-admin users (pass `undefined` token to trigger Convex `"skip"`)
+- Hide credential UI (Configure button, auto-refresh badge, token expiry) for non-admin users
+- Guard `K3MartCredentialsDialog` render behind `isAdmin` check
+
+### Modified Files
+- `src/components/salesAnalytics/SettingsTab.tsx` - Added `isAdmin` guard for credential queries and UI
+
+---
+
 ## 2026-02-08 - Feat: K3Mart Token Auto-Refresh System
 
 **K3Mart JWT tokens expire in ~24 hours (not ~1 year as documented). Added a self-contained auto-refresh system: admin enters K3Mart login credentials once via Settings UI, and a 12-hour cron job automatically refreshes the token.**
