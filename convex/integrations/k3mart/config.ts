@@ -9,6 +9,7 @@
 export const K3MART_CONFIG = {
   baseUrl: "https://consapi.k3mart.id/api/v1",
   endpoints: {
+    login: "/vendor/login",
     dashboard: "/vendor-stock/get-dashboard",
     sales: "/vendor-sales/get-all",
   },
