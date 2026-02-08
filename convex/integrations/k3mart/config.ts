@@ -83,3 +83,14 @@ export interface K3MartSalesResponse {
   success: boolean;
   data: K3MartSalesTransaction[];
 }
+
+/** Known K3Mart outlet ID -> name mapping (discovered 2026-02-08) */
+export const K3MART_OUTLET_NAMES: Record<number, string> = {
+  44: "JKT-SCBD",
+  45: "JKT-GADING SERPONG",
+  47: "JKT-BINTARO",
+  48: "JKT-KOTA KASABLANKA",
+  57: "JKT-LIPPO PURI",
+  78: "JKT-LM NUSANTARA",
+  81: "JKT-TAMTEM",
+};

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseK3MartDate, formatDate, buildDedupKey } from "../helpers";
+import { parseK3MartDate, formatDate, buildDedupKey, resolveOutletName } from "../helpers";
 
 // ============================================
 // parseK3MartDate() Tests - 8 tests
@@ -159,5 +159,29 @@ describe("buildDedupKey", () => {
     const key1 = buildDedupKey("07 Feb 2026, 14:23", "Outlet A", "PROD-001", 5, 75000);
     const key2 = buildDedupKey("07 Feb 2026, 14:23", "Outlet B", "PROD-001", 5, 75000);
     expect(key1).not.toBe(key2);
+  });
+});
+
+// ============================================
+// resolveOutletName() Tests - 3 tests
+// ============================================
+describe("resolveOutletName", () => {
+  const nameMap: Record<number, string> = {
+    44: "JKT-SCBD",
+    45: "JKT-GADING SERPONG",
+  };
+
+  it("should return mapped name for known outlet", () => {
+    expect(resolveOutletName(44, nameMap)).toBe("JKT-SCBD");
+    expect(resolveOutletName(45, nameMap)).toBe("JKT-GADING SERPONG");
+  });
+
+  it("should return placeholder for unknown outlet", () => {
+    expect(resolveOutletName(99, nameMap)).toBe("K3 Mart #99");
+    expect(resolveOutletName(1, nameMap)).toBe("K3 Mart #1");
+  });
+
+  it("should handle empty map", () => {
+    expect(resolveOutletName(44, {})).toBe("K3 Mart #44");
   });
 });
