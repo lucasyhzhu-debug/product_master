@@ -24,6 +24,7 @@ import {
 } from "@/hooks/convex";
 import { ConnectionGuide } from "./ConnectionGuide";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
+import { GoBizTokenDialog } from "./GoBizTokenDialog";
 import { PLATFORMS } from "../../../convex/integrations/registry";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -34,6 +35,7 @@ export function SettingsTab() {
   const [syncingGoBiz, setSyncingGoBiz] = useState(false);
   const [syncingInternal, setSyncingInternal] = useState(false);
   const [credDialogOpen, setCredDialogOpen] = useState(false);
+  const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
 
   // Fetch data
   const { data: outlets, isLoading: loadingOutlets } =
@@ -41,10 +43,14 @@ export function SettingsTab() {
   const { data: syncLogs, isLoading: loadingSyncLogs } =
     useConvexExternalSyncLogs(undefined, 50);
 
-  // K3Mart credential status (admin-only — skip for non-admin to avoid auth error)
+  // Credential status (admin-only — skip for non-admin to avoid auth error)
   const isAdmin = user?.role === "admin";
   const { data: k3CredStatus } = useConvexCredentialStatus(
     "k3mart",
+    isAdmin ? user?.token : undefined
+  );
+  const { data: gobizCredStatus } = useConvexCredentialStatus(
+    "gobiz",
     isAdmin ? user?.token : undefined
   );
 
@@ -219,7 +225,19 @@ export function SettingsTab() {
                 lastSyncError={latestGoBizLog?.errorMessage}
                 isSyncing={syncingGoBiz}
                 onSync={handleSyncGoBiz}
+                hasCredentials={isAdmin ? (gobizCredStatus?.hasToken ?? gobizCredStatus?.hasCredentials) : undefined}
+                tokenExpiresAt={isAdmin ? gobizCredStatus?.tokenExpiresAt : undefined}
+                lastRefreshStatus={isAdmin ? gobizCredStatus?.lastRefreshStatus : undefined}
+                onConfigure={isAdmin ? () => setGobizDialogOpen(true) : undefined}
               />
+
+              {isAdmin && (
+                <GoBizTokenDialog
+                  open={gobizDialogOpen}
+                  onOpenChange={setGobizDialogOpen}
+                  hasExistingToken={gobizCredStatus?.hasToken}
+                />
+              )}
 
               {/* Internal Orders */}
               <ConnectionGuide

@@ -48,6 +48,21 @@ export const getLatestSyncTimestamp = internalQuery({
   },
 });
 
+export const getOutletNameToIdMap = internalQuery({
+  args: { source: sourceValidator },
+  handler: async (ctx, args) => {
+    const outlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", args.source))
+      .collect();
+    const map: Record<string, string> = {};
+    for (const outlet of outlets) {
+      map[outlet.name] = outlet._id;
+    }
+    return map;
+  },
+});
+
 // ─── PUBLIC QUERIES (called from frontend) ───
 
 export const listOutlets = query({

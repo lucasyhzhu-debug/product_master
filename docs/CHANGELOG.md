@@ -13,6 +13,55 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Feature: K3Mart Outlet Name Resolution + Sales Location Linking
+
+**K3Mart outlets previously saved as "K3 Mart #44" (placeholders). Sales transactions had no outlet link, making location-based analysis impossible.**
+
+### Changes
+- **Outlet name mapping**: 7 known K3Mart outlets mapped to real location names (JKT-SCBD, JKT-GADING SERPONG, etc.) via `K3MART_OUTLET_NAMES` config constant.
+- **Discover uses real names**: `discoverK3MartOutlets` now saves outlets with actual location names instead of `"K3 Mart #N"` placeholders.
+- **Sales linked to outlets**: `syncK3MartSales` now attaches `outletId` to each revenue record by looking up outlet name in DB, enabling per-location sales analysis.
+- **Migration mutations**: `seedK3MartOutletNames` (updates existing outlet placeholders to real names) and `backfillRevenueOutletIds` (patches existing revenue records with outlet links). Run from Convex dashboard in that order.
+- **New internal query**: `getOutletNameToIdMap` returns outlet name -> doc ID mapping for a platform source.
+
+### Modified Files
+- `convex/integrations/k3mart/config.ts` - added `K3MART_OUTLET_NAMES` map
+- `convex/integrations/k3mart/helpers.ts` - added `resolveOutletName()` pure function
+- `convex/integrations/k3mart/adapter.ts` - wired real names into discover + outlet linking into sync
+- `convex/externalData/queries.ts` - added `getOutletNameToIdMap` internal query
+- `convex/externalData/mutations.ts` - added `seedK3MartOutletNames` + `backfillRevenueOutletIds` migrations
+- `convex/integrations/k3mart/__tests__/helpers.test.ts` - added `resolveOutletName` tests
+
+### Post-Deploy Steps
+1. Run `externalData:seedK3MartOutletNames` from Convex dashboard Functions tab
+2. Run `externalData:backfillRevenueOutletIds` from Convex dashboard Functions tab
+
+---
+
+## 2026-02-08 - Feature: GoBiz Token UI + K3Mart Auto-Credentials
+
+**GoBiz tokens required manual env var updates in Convex Dashboard. K3Mart required a Configure step before syncing.**
+
+### Changes
+- **GoBiz token dialog**: Admin can paste Bearer token from browser DevTools into a UI dialog in Settings. Token stored in DB, adapter reads from DB first (falls back to env var).
+- **GoBiz auto-sync cron**: Revenue syncs every 3 hours while token is valid. On 401, marks token as expired in DB so UI shows status.
+- **K3Mart auto-seed**: Default credentials (`malostudio.id@gmail.com`) auto-seed on first sync attempt. No manual Configure step needed.
+- **Schema**: `platformCredentials.email` and `password` now optional (supports token-only platforms).
+- **New mutations**: `saveDirectToken` (paste token), `seedDefaultCredentials` (internal auto-seed).
+
+### Modified Files
+- `convex/schema.ts` - optional email/password on platformCredentials
+- `convex/platformCredentials/mutations.ts` - saveDirectToken, seedDefaultCredentials
+- `convex/platformCredentials/queries.ts` - hasToken field
+- `convex/platformCredentials/actions.ts` - K3Mart auto-seed defaults
+- `convex/integrations/gobiz/adapter.ts` - DB-first token, shared logic, cron action
+- `convex/integrations/registry.ts` - updated reconnect steps
+- `convex/crons.ts` - GoBiz 3h revenue sync cron
+- `src/components/salesAnalytics/GoBizTokenDialog.tsx` (new)
+- `src/components/salesAnalytics/SettingsTab.tsx` - GoBiz Configure button + credential status
+
+---
+
 ## 2026-02-08 - Fix: Revenue Details sort newest-first + date filter
 
 **Revenue Details table showed rows in insertion order (oldest first) and had no way to filter by date range.**

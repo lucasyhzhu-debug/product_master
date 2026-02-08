@@ -16,6 +16,7 @@ import type * as channels_queries from "../channels/queries.js";
 import type * as componentTypes_mutations from "../componentTypes/mutations.js";
 import type * as componentTypes_queries from "../componentTypes/queries.js";
 import type * as componentTypes_seed from "../componentTypes/seed.js";
+import type * as crons from "../crons.js";
 import type * as customers_mutations from "../customers/mutations.js";
 import type * as customers_queries from "../customers/queries.js";
 import type * as dashboard_queries from "../dashboard/queries.js";
@@ -112,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   "componentTypes/mutations": typeof componentTypes_mutations;
   "componentTypes/queries": typeof componentTypes_queries;
   "componentTypes/seed": typeof componentTypes_seed;
+  crons: typeof crons;
   "customers/mutations": typeof customers_mutations;
   "customers/queries": typeof customers_queries;
   "dashboard/queries": typeof dashboard_queries;

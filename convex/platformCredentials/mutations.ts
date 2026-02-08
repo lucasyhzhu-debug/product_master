@@ -2,6 +2,12 @@ import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 
+// Default K3Mart credentials for auto-seeding
+const K3MART_DEFAULTS = {
+  email: "malostudio.id@gmail.com",
+  password: "12345678",
+} as const;
+
 /**
  * Save or update platform credentials (admin-only).
  * Upserts: creates if not found, updates if exists.
@@ -74,5 +80,80 @@ export const updateToken = internalMutation({
       lastRefreshError: args.lastRefreshError,
       updatedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * Save a pasted bearer token directly (admin-only).
+ * Used for platforms like GoBiz where tokens come from browser DevTools,
+ * not from a programmatic login.
+ */
+export const saveDirectToken = mutation({
+  args: {
+    token: v.string(),
+    platformId: v.string(),
+    bearerToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+
+    const existing = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+
+    const now = Date.now();
+    // Conservative estimate: GoBiz tokens last ~4-8h, use 6h
+    const estimatedExpiry = now + 6 * 60 * 60 * 1000;
+
+    const data = {
+      currentToken: args.bearerToken,
+      tokenExpiresAt: estimatedExpiry,
+      lastRefreshAt: now,
+      lastRefreshStatus: "success" as const,
+      lastRefreshError: undefined,
+      updatedBy: user.name,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, data);
+      return existing._id;
+    }
+
+    return await ctx.db.insert("platformCredentials", {
+      platformId: args.platformId,
+      ...data,
+    });
+  },
+});
+
+/**
+ * Internal: Seed default credentials for a platform.
+ * Used by K3Mart auto-seed when no credentials exist.
+ */
+export const seedDefaultCredentials = internalMutation({
+  args: {
+    platformId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+
+    if (existing) return existing._id;
+
+    if (args.platformId === "k3mart") {
+      return await ctx.db.insert("platformCredentials", {
+        platformId: args.platformId,
+        email: K3MART_DEFAULTS.email,
+        password: K3MART_DEFAULTS.password,
+        updatedBy: "system",
+        updatedAt: Date.now(),
+      });
+    }
+
+    throw new Error(`No default credentials defined for platform: ${args.platformId}`);
   },
 });
