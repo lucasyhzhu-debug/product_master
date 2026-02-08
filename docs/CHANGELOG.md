@@ -13,6 +13,22 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Fix: Revenue Details sort newest-first + date filter
+
+**Revenue Details table showed rows in insertion order (oldest first) and had no way to filter by date range.**
+
+### Changes
+- Backend: Added `.order("desc")` to all three query branches in `getRevenue` so results return newest-first
+- Frontend: Added From/To date inputs with a Clear button for client-side date range filtering
+- Extracted `RevenueTable` component for cleaner separation of filtering logic
+- Empty date-filter state shows a friendly "No records match" message
+
+### Modified Files
+- `convex/externalData/queries.ts` - `.order("desc")` on all `getRevenue` branches
+- `src/components/salesAnalytics/OverviewTab.tsx` - Date filter UI + `RevenueTable` component
+
+---
+
 ## 2026-02-08 - Fix: "Go to Settings & Sync" button not switching tabs
 
 **The button in the Sales Analytics empty state navigated to `/sales?tab=settings` but the Tabs component ignored the URL parameter, always showing the Overview tab.**
