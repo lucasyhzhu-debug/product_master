@@ -98,13 +98,15 @@ export const getRevenue = query({
         .query("externalRevenue")
         .withIndex("by_source_period", (idx) =>
           idx.eq("source", args.source!).gte("periodStart", args.periodStart!)
-        );
+        )
+        .order("desc");
     } else if (args.source) {
       q = ctx.db
         .query("externalRevenue")
-        .withIndex("by_source", (idx) => idx.eq("source", args.source!));
+        .withIndex("by_source", (idx) => idx.eq("source", args.source!))
+        .order("desc");
     } else {
-      q = ctx.db.query("externalRevenue").withIndex("by_period");
+      q = ctx.db.query("externalRevenue").withIndex("by_period").order("desc");
     }
 
     let results = await q.collect();
