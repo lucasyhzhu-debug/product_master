@@ -31,13 +31,25 @@ type ActionCtx = {
 async function performK3MartRefresh(
   ctx: ActionCtx
 ): Promise<{ success: boolean; tokenExpiresAt?: number; error?: string }> {
-  const cred = await ctx.runQuery(
+  let cred = await ctx.runQuery(
     internal.platformCredentials.queries.getCredentialsInternal,
     { platformId: "k3mart" }
   );
 
   if (!cred) {
-    return { success: false, error: "No K3Mart credentials configured. Go to Settings > K3 Mart > Configure." };
+    // Auto-seed default K3Mart credentials
+    await ctx.runMutation(
+      internal.platformCredentials.mutations.seedDefaultCredentials,
+      { platformId: "k3mart" }
+    );
+    cred = await ctx.runQuery(
+      internal.platformCredentials.queries.getCredentialsInternal,
+      { platformId: "k3mart" }
+    );
+  }
+
+  if (!cred) {
+    return { success: false, error: "Failed to initialize K3Mart credentials." };
   }
 
   try {
