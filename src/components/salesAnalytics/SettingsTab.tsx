@@ -20,8 +20,10 @@ import {
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
+  useConvexCredentialStatus,
 } from "@/hooks/convex";
 import { ConnectionGuide } from "./ConnectionGuide";
+import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { PLATFORMS } from "../../../convex/integrations/registry";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -31,12 +33,19 @@ export function SettingsTab() {
   const [syncingK3MartSales, setSyncingK3MartSales] = useState(false);
   const [syncingGoBiz, setSyncingGoBiz] = useState(false);
   const [syncingInternal, setSyncingInternal] = useState(false);
+  const [credDialogOpen, setCredDialogOpen] = useState(false);
 
   // Fetch data
   const { data: outlets, isLoading: loadingOutlets } =
     useConvexExternalOutlets();
   const { data: syncLogs, isLoading: loadingSyncLogs } =
     useConvexExternalSyncLogs(undefined, 50);
+
+  // K3Mart credential status (admin-only)
+  const { data: k3CredStatus } = useConvexCredentialStatus(
+    "k3mart",
+    user?.token
+  );
 
   // Mutations
   const toggleOutletActive = useMutation(
@@ -178,6 +187,16 @@ export function SettingsTab() {
                 onSecondarySync={handleDiscoverK3MartOutlets}
                 secondarySyncLabel="Refresh Stores"
                 isSecondarySyncing={discoveringK3Mart}
+                hasCredentials={k3CredStatus?.hasCredentials}
+                tokenExpiresAt={k3CredStatus?.tokenExpiresAt}
+                lastRefreshStatus={k3CredStatus?.lastRefreshStatus}
+                onConfigure={() => setCredDialogOpen(true)}
+              />
+
+              <K3MartCredentialsDialog
+                open={credDialogOpen}
+                onOpenChange={setCredDialogOpen}
+                currentEmail={k3CredStatus?.email}
               />
 
               {/* GoBiz */}
