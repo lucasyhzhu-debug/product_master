@@ -103,7 +103,7 @@ export const createSyncLog = internalMutation({
     source: sourceValidator,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual")),
+    syncType: v.union(v.literal("manual"), v.literal("cron")),
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),

@@ -947,7 +947,7 @@ export default defineSchema({
     source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual")),
+    syncType: v.union(v.literal("manual"), v.literal("cron")),
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),
