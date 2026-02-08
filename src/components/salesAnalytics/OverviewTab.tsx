@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DollarSign, TrendingUp, ShoppingCart, Store, ArrowRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -57,8 +58,96 @@ function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal"
   );
 }
 
+function RevenueTable({
+  records,
+  dateFrom,
+  dateTo,
+}: {
+  records: Array<{
+    _id: string;
+    periodStart: number;
+    source: "k3mart" | "gobiz" | "internal";
+    productName?: string;
+    quantitySold?: number;
+    revenueGross?: number;
+    revenueNet?: number;
+    confidence: ConfidenceLevel;
+  }>;
+  dateFrom: string;
+  dateTo: string;
+}) {
+  const filtered = records.filter((r) => {
+    if (dateFrom && r.periodStart < new Date(dateFrom).getTime()) return false;
+    if (dateTo && r.periodStart > new Date(dateTo + "T23:59:59").getTime()) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm text-muted-foreground">No records match the selected date range.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-3 px-2 font-medium">Date</th>
+            <th className="text-left py-3 px-2 font-medium">Platform</th>
+            <th className="text-left py-3 px-2 font-medium">Product</th>
+            <th className="text-right py-3 px-2 font-medium">Qty</th>
+            <th className="text-right py-3 px-2 font-medium">Gross</th>
+            <th className="text-right py-3 px-2 font-medium">Net</th>
+            <th className="text-left py-3 px-2 font-medium">Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((record) => (
+            <tr key={record._id} className="border-b hover:bg-muted/50">
+              <td className="py-3 px-2">
+                {new Date(record.periodStart).toLocaleDateString("id-ID", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </td>
+              <td className="py-3 px-2">
+                <PlatformBadge platform={record.source} />
+              </td>
+              <td className="py-3 px-2">
+                {record.productName || "(all)"}
+              </td>
+              <td className="py-3 px-2 text-right">
+                {record.quantitySold || "\u2014"}
+              </td>
+              <td className="py-3 px-2 text-right font-medium">
+                {record.revenueGross
+                  ? formatCurrency(record.revenueGross)
+                  : "\u2014"}
+              </td>
+              <td className="py-3 px-2 text-right">
+                {record.revenueNet
+                  ? formatCurrency(record.revenueNet)
+                  : "\u2014"}
+              </td>
+              <td className="py-3 px-2">
+                <ConfidenceBadge confidence={record.confidence} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function OverviewTab() {
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const navigate = useNavigate();
 
   // Fetch data
@@ -162,7 +251,7 @@ export function OverviewTab() {
 
       {/* Revenue Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-3">
           <div className="flex items-center justify-between">
             <CardTitle>Revenue Details</CardTitle>
             <div className="flex gap-2">
@@ -196,6 +285,31 @@ export function OverviewTab() {
               </Badge>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">From</span>
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-40"
+            />
+            <span className="text-sm text-muted-foreground whitespace-nowrap">To</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-40"
+            />
+            {(dateFrom || dateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setDateFrom(""); setDateTo(""); }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loadingRevenue || revenueRecords === undefined ? (
@@ -220,56 +334,7 @@ export function OverviewTab() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2 font-medium">Date</th>
-                    <th className="text-left py-3 px-2 font-medium">Platform</th>
-                    <th className="text-left py-3 px-2 font-medium">Product</th>
-                    <th className="text-right py-3 px-2 font-medium">Qty</th>
-                    <th className="text-right py-3 px-2 font-medium">Gross</th>
-                    <th className="text-right py-3 px-2 font-medium">Net</th>
-                    <th className="text-left py-3 px-2 font-medium">Confidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {revenueRecords.map((record) => (
-                    <tr key={record._id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-2">
-                        {new Date(record.periodStart).toLocaleDateString("id-ID", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </td>
-                      <td className="py-3 px-2">
-                        <PlatformBadge platform={record.source} />
-                      </td>
-                      <td className="py-3 px-2">
-                        {record.productName || "(all)"}
-                      </td>
-                      <td className="py-3 px-2 text-right">
-                        {record.quantitySold || "\u2014"}
-                      </td>
-                      <td className="py-3 px-2 text-right font-medium">
-                        {record.revenueGross
-                          ? formatCurrency(record.revenueGross)
-                          : "\u2014"}
-                      </td>
-                      <td className="py-3 px-2 text-right">
-                        {record.revenueNet
-                          ? formatCurrency(record.revenueNet)
-                          : "\u2014"}
-                      </td>
-                      <td className="py-3 px-2">
-                        <ConfidenceBadge confidence={record.confidence} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <RevenueTable records={revenueRecords} dateFrom={dateFrom} dateTo={dateTo} />
           )}
         </CardContent>
       </Card>
