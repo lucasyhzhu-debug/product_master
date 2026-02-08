@@ -61,10 +61,15 @@ export const discoverK3MartOutlets = action({
     triggeredBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const token = process.env.K3MART_API_TOKEN;
+    // Check DB for auto-refreshed token first, fall back to env var
+    const dbCred = await ctx.runQuery(
+      internal.platformCredentials.queries.getTokenInternal,
+      { platformId: "k3mart" }
+    );
+    const token = dbCred?.currentToken ?? process.env.K3MART_API_TOKEN;
     if (!token) {
       throw new Error(
-        "K3MART_API_TOKEN environment variable is not set. Go to Convex Dashboard → Settings → Environment Variables to set it."
+        "K3MART_API_TOKEN not set. Configure credentials in Settings or set the environment variable."
       );
     }
 
@@ -253,10 +258,15 @@ export const syncK3MartSales = action({
     toDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const token = process.env.K3MART_API_TOKEN;
+    // Check DB for auto-refreshed token first, fall back to env var
+    const dbCred = await ctx.runQuery(
+      internal.platformCredentials.queries.getTokenInternal,
+      { platformId: "k3mart" }
+    );
+    const token = dbCred?.currentToken ?? process.env.K3MART_API_TOKEN;
     if (!token) {
       throw new Error(
-        "K3MART_API_TOKEN environment variable is not set. Go to Convex Dashboard → Settings → Environment Variables to set it."
+        "K3MART_API_TOKEN not set. Configure credentials in Settings or set the environment variable."
       );
     }
 

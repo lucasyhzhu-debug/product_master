@@ -81,6 +81,31 @@ export function useConvexDashboardSalesSummary() {
 }
 
 // ============================================
+// Platform Credentials Hooks
+// ============================================
+
+/**
+ * Get credential status for a platform (admin-only).
+ */
+export function useConvexCredentialStatus(
+  platformId: string,
+  token?: string
+) {
+  const data = useQuery(
+    api.platformCredentials.queries.getCredentialStatus,
+    token ? { token, platformId } : "skip"
+  );
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Get the refreshK3MartToken action reference.
+ */
+export function useConvexRefreshK3MartToken() {
+  return useAction(api.platformCredentials.actions.refreshK3MartToken);
+}
+
+// ============================================
 // Action Hooks (Sync Triggers)
 // ============================================
 

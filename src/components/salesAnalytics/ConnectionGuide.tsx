@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertCircle, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ConnectionGuideProps {
@@ -23,6 +23,10 @@ interface ConnectionGuideProps {
   onSecondarySync?: () => void;
   secondarySyncLabel?: string;
   isSecondarySyncing?: boolean;
+  hasCredentials?: boolean;
+  tokenExpiresAt?: number | null;
+  lastRefreshStatus?: 'success' | 'error' | null;
+  onConfigure?: () => void;
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -68,6 +72,9 @@ export function ConnectionGuide({
   onSecondarySync,
   secondarySyncLabel = 'Secondary Action',
   isSecondarySyncing = false,
+  hasCredentials,
+  tokenExpiresAt,
+  onConfigure,
 }: ConnectionGuideProps) {
   // Determine status badge
   const getStatusBadge = () => {
@@ -159,6 +166,37 @@ export function ConnectionGuide({
               {getLastSyncMessage()}
             </span>
           </div>
+          {hasCredentials !== undefined && (
+            <div className="flex items-center gap-2">
+              <span>Auto-refresh:</span>
+              {hasCredentials ? (
+                <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 text-[10px] px-1.5 py-0">
+                  Active
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 text-[10px] px-1.5 py-0">
+                  Not configured
+                </Badge>
+              )}
+            </div>
+          )}
+          {tokenExpiresAt && (
+            <div>
+              Token valid until:{' '}
+              <span className={cn(
+                tokenExpiresAt < Date.now() ? 'text-red-600 font-medium' : 'text-green-700'
+              )}>
+                {tokenExpiresAt < Date.now()
+                  ? 'Expired'
+                  : new Date(tokenExpiresAt).toLocaleString('id-ID', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
 
@@ -188,6 +226,16 @@ export function ConnectionGuide({
         )}
 
         <div className="space-y-2">
+          {onConfigure && (
+            <Button
+              onClick={onConfigure}
+              className="w-full min-h-[44px]"
+              variant="outline"
+            >
+              <Settings2 className="h-4 w-4" />
+              Configure
+            </Button>
+          )}
           {onSecondarySync && (
             <Button
               onClick={onSecondarySync}
