@@ -845,6 +845,36 @@ Maps external product codes to internal menu products.
 
 ---
 
+---
+
+## Platform Credentials (1 Table)
+
+### platformCredentials
+Stores login credentials for external platforms (K3Mart, etc.) for automatic token refresh via cron jobs. Admin-only access; password never exposed in query responses.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| platformId | string | Platform identifier (e.g., "k3mart") |
+| email | string | Login email |
+| password | string | Login password (never returned in queries) |
+| currentToken | string? | Active JWT token |
+| tokenExpiresAt | number? | Token expiry timestamp (decoded from JWT `exp` claim) |
+| lastRefreshAt | number? | Last refresh attempt timestamp |
+| lastRefreshStatus | `"success" \| "error"`? | Result of last refresh |
+| lastRefreshError | string? | Error message if last refresh failed |
+| updatedBy | string | User who last updated credentials |
+| updatedAt | number | Last update timestamp |
+
+**Indexes:** `by_platform`
+
+**Token Refresh Flow:**
+1. Admin enters credentials via Settings UI (`saveCredentials` mutation)
+2. `refreshK3MartToken` action: HTTP POST to K3Mart login -> extract JWT -> decode expiry -> validate via test API call -> store in DB
+3. 12-hour cron job (`convex/crons.ts`) calls `refreshK3MartTokenCron` to keep token fresh
+4. K3Mart adapter reads token from `platformCredentials` first, falls back to `K3MART_API_TOKEN` env var
+
+---
+
 ### Querying Patterns
 ```typescript
 // Get by ID

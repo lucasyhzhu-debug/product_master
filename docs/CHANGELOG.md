@@ -13,6 +13,56 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Feat: K3Mart Token Auto-Refresh System
+
+**K3Mart JWT tokens expire in ~24 hours (not ~1 year as documented). Added a self-contained auto-refresh system: admin enters K3Mart login credentials once via Settings UI, and a 12-hour cron job automatically refreshes the token.**
+
+### New Features
+- **Credentials UI**: Admin-only dialog in Settings > K3 Mart > Configure for entering K3Mart login email/password
+- **Auto Token Refresh**: Convex action performs HTTP login to K3Mart, captures JWT, decodes expiry, validates via test API call, stores in DB
+- **12-Hour Cron Job**: `convex/crons.ts` runs `refreshK3MartTokenCron` every 12 hours to keep token fresh
+- **DB Token Fallback**: K3Mart adapter reads token from `platformCredentials` table first, falls back to `K3MART_API_TOKEN` env var
+- **Token Status Display**: ConnectionGuide shows auto-refresh badge (Active/Not configured), token expiry date, and Configure button
+- **Playwright Fallback**: Browser-based token capture script for cases where HTTP login doesn't work
+- **GitHub Actions Cron**: Daily workflow at 03:00 WIB for Playwright-based token refresh as backup
+
+### Schema Changes
+- New table: `platformCredentials` (stores platform login credentials, current token, expiry, refresh status)
+  - Fields: `platformId`, `email`, `password`, `currentToken`, `tokenExpiresAt`, `lastRefreshAt`, `lastRefreshStatus`, `lastRefreshError`, `updatedBy`, `updatedAt`
+  - Index: `by_platform`
+
+### New Backend Files
+- `convex/platformCredentials/queries.ts` - `getCredentialStatus` (admin), `getTokenInternal`, `getCredentialsInternal`, `validateAdminToken`
+- `convex/platformCredentials/mutations.ts` - `saveCredentials` (admin upsert), `updateToken` (internal)
+- `convex/platformCredentials/actions.ts` - `refreshK3MartToken` (public, admin), `refreshK3MartTokenCron` (internal)
+- `convex/crons.ts` - 12-hour interval cron for token refresh
+
+### New Frontend Files
+- `src/components/salesAnalytics/K3MartCredentialsDialog.tsx` - Email/password form with "Save & Refresh Now"
+
+### Modified Files
+- `convex/schema.ts` - Added `platformCredentials` table
+- `convex/integrations/k3mart/adapter.ts` - DB token lookup with env var fallback in both `discoverK3MartOutlets` and `syncK3MartSales`
+- `convex/integrations/registry.ts` - Updated `tokenLifespan` to `"~24h (auto-refreshed every 12h)"`, simplified reconnect steps
+- `src/components/salesAnalytics/ConnectionGuide.tsx` - Added Configure button, auto-refresh badge, token expiry display
+- `src/components/salesAnalytics/SettingsTab.tsx` - Wired credential status query and dialog
+- `src/hooks/convex/useExternalData.ts` - Added `useConvexCredentialStatus`, `useConvexRefreshK3MartToken`
+- `src/hooks/convex/index.ts` - Barrel exports for new hooks
+- `package.json` - Added `refresh-k3mart-token` script
+- `.gitignore` - Added `scripts/debug-screenshots/`
+
+### New CI/Scripts
+- `scripts/refresh-k3mart-token.ts` - Playwright browser-based token capture fallback
+- `.github/workflows/refresh-k3mart-token.yml` - Daily cron + manual dispatch workflow
+
+### Security Notes
+- Credentials protected by `requireRole(ctx, token, ["admin"])`
+- Password never returned in any query response
+- Token validated before storage via test API call
+- Playwright script pipes token via stdin (not in process args)
+
+---
+
 ## 2026-02-08 - Feat: Internal Orders Integration + E2E Visual Tests + UX Improvements
 
 **Added third sales platform "Internal Orders" that pulls revenue from our own Convex orders database, plus comprehensive E2E visual tests and UX polish across the Sales Analytics module.**
