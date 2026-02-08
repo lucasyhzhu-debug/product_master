@@ -103,7 +103,7 @@ export const createSyncLog = internalMutation({
     source: sourceValidator,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual")),
+    syncType: v.union(v.literal("manual"), v.literal("cron")),
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),
@@ -206,6 +206,99 @@ export const internalUpsertOutlet = internalMutation({
       createdBy: "system",
       createdAt: Date.now(),
     });
+  },
+});
+
+// ─── MIGRATION MUTATIONS (one-time, run from Convex dashboard) ───
+
+/**
+ * Seed/update K3Mart outlets with real location names.
+ * Run BEFORE backfillRevenueOutletIds.
+ * Safe to run multiple times (upserts by source + externalId).
+ */
+export const seedK3MartOutletNames = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const outlets: Record<string, string> = {
+      "44": "JKT-SCBD",
+      "45": "JKT-GADING SERPONG",
+      "47": "JKT-BINTARO",
+      "48": "JKT-KOTA KASABLANKA",
+      "57": "JKT-LIPPO PURI",
+      "78": "JKT-LM NUSANTARA",
+      "81": "JKT-TAMTEM",
+    };
+    let updated = 0;
+    let created = 0;
+    for (const [id, name] of Object.entries(outlets)) {
+      const existing = await ctx.db
+        .query("externalOutlets")
+        .withIndex("by_source_external_id", (q) =>
+          q.eq("source", "k3mart").eq("externalId", id)
+        )
+        .unique();
+      if (existing) {
+        await ctx.db.patch(existing._id, { name, isActive: true });
+        updated++;
+      } else {
+        await ctx.db.insert("externalOutlets", {
+          source: "k3mart",
+          externalId: id,
+          name,
+          isActive: true,
+          createdBy: "system",
+          createdAt: Date.now(),
+        });
+        created++;
+      }
+    }
+    return { updated, created };
+  },
+});
+
+/**
+ * Backfill existing K3Mart revenue records with outletId.
+ * Extracts outletName from externalTransactionId dedup key (field index 1).
+ * Must run AFTER seedK3MartOutletNames so outlet docs have correct names.
+ * Safe to run multiple times (skips records that already have outletId).
+ */
+export const backfillRevenueOutletIds = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Build name -> docId map from current outlet docs
+    const outlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .collect();
+    const nameToId: Record<string, string> = {};
+    for (const o of outlets) {
+      nameToId[o.name] = o._id;
+    }
+
+    // Find k3mart revenue missing outletId
+    const revenue = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .collect();
+
+    let patched = 0;
+    let skipped = 0;
+    for (const r of revenue) {
+      if (r.outletId) { skipped++; continue; }
+      if (!r.externalTransactionId) continue;
+
+      // Parse outlet name from dedup key: "date|outletName|code|qty|total"
+      const parts = r.externalTransactionId.split("|");
+      if (parts.length < 2) continue;
+      const outletName = parts[1];
+
+      const outletDocId = nameToId[outletName];
+      if (outletDocId) {
+        await ctx.db.patch(r._id, { outletId: outletDocId as any });
+        patched++;
+      }
+    }
+    return { patched, skipped, total: revenue.length };
   },
 });
 

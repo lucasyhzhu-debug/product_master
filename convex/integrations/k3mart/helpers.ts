@@ -51,3 +51,14 @@ export function buildDedupKey(
 ): string {
   return `${transDate}|${outletName}|${productCode}|${qty}|${total}`;
 }
+
+/**
+ * Resolve outlet numeric ID to human-readable name.
+ * Falls back to "K3 Mart #{id}" for unknown outlets.
+ */
+export function resolveOutletName(
+  outletId: number,
+  nameMap: Record<number, string>
+): string {
+  return nameMap[outletId] ?? `K3 Mart #${outletId}`;
+}
