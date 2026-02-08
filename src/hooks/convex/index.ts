@@ -305,5 +305,21 @@ export {
   type StorageLocation,
 } from "./useStorageLocations";
 
+// External Data (Multi-Platform Sales Integration)
+export {
+  // Query hooks
+  useConvexExternalOutlets,
+  useConvexExternalSnapshots,
+  useConvexExternalRevenue,
+  useConvexExternalSyncLogs,
+  useConvexExternalProductMappings,
+  useConvexDashboardSalesSummary,
+  // Action hooks
+  useConvexDiscoverK3MartOutlets,
+  useConvexSyncK3MartSales,
+  useConvexSyncGoBiz,
+  useConvexSyncInternalOrders,
+} from "./useExternalData";
+
 // Protected Mutation Wrapper
 export { useProtectedMutation } from "./useProtectedMutation";

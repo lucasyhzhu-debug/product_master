@@ -126,9 +126,13 @@
 
 ### Priority 5: Data & Reporting
 - [ ] CSV/Excel export for reports
-- [ ] Sales analytics dashboard
+- [x] Sales analytics dashboard (K3Mart stock sync + GoBiz revenue sync)
 - [ ] Cost trend analysis
 - [ ] Inventory forecasting based on orders
+- [ ] Shopee Open Platform adapter (Phase 2)
+- [ ] Consignment manual entry + CSV upload (Phase 2)
+- [ ] Scheduled cron sync (Phase 2)
+- [ ] 90-day snapshot retention cleanup (Phase 2)
 
 ---
 
@@ -136,6 +140,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 3.3 | 2026-02-07 | Multi-platform sales integration (K3Mart + GoBiz) |
 | 3.2 | 2026-02-02 | Production tracking refactor, UX improvements |
 | 3.1 | 2026-02-02 | Order System V2 (PRD-0 through PRD-7), Testing suite |
 | 3.0 | 2026-01-30 | Convex migration complete |

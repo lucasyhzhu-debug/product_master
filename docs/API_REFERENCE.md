@@ -632,6 +632,148 @@ try {
 }
 ```
 
+---
+
+## External Data (Multi-Platform Sales Integration)
+
+### Actions (Node.js Runtime)
+
+#### `integrations.k3mart.adapter.syncK3MartStock`
+Syncs stock data from all active K3Mart outlets.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync (e.g., "dashboard", "settings") |
+
+**Returns:** `{ success, syncLogId, totalProducts, totalSalesInferred, outletsProcessed, errors, durationMs }`
+
+**Flow:** Fetches paginated stock data per outlet, stores raw snapshots, calculates stock deltas from previous snapshot, writes inferred revenue records with `confidence: "inferred"`.
+
+#### `integrations.gobiz.adapter.syncGoBizRevenue`
+Syncs revenue data from GoBiz (GoFood).
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| periodStart | number? | Period start (defaults to today) |
+| periodEnd | number? | Period end (defaults to end of today) |
+| triggeredBy | string? | Who triggered the sync |
+
+**Returns:** `{ success, syncLogId, revenueGross, revenueNet, transactionCount, period, durationMs }`
+
+**Flow:** Queries proxy/44 for gross revenue + transaction count, proxy/4 for net revenue (merchant share). Amounts divided by 100 (cents to IDR). Stores with `confidence: "exact"`.
+
+#### `integrations.internal.adapter.syncInternalOrders`
+Syncs revenue from own Convex orders database. No external API calls or tokens required.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync (e.g., "dashboard", "settings") |
+
+**Returns (success):** `{ success: true, syncLogId, totalOrders, newTransactions, skippedDuplicates, totalGross, totalNet, durationMs }`
+
+**Returns (failure):** `{ success: false, error, syncLogId, durationMs }`
+
+**Flow:**
+1. Creates sync log with status `"started"`
+2. Gets last successful sync timestamp for incremental sync (via `getLatestSyncTimestamp`)
+3. Fetches revenue-countable orders since last sync (via `getRevenueOrders` internalQuery)
+4. Maps orders to revenue records in batches of 100, deduplicates by `orderNumber` using `by_source_txn` index
+5. Updates sync log with `"success"` or `"error"`
+
+**Revenue-countable statuses:** Confirmed, InProduction, Boxed, Labeled, WaitingShipment, WaitingPickup, CompleteShipped, PickedUp
+
+**Revenue record mapping:**
+- `revenueGross` = order's `finalTotal` (or `totalAmount` if no voucher discount)
+- `revenueNet` = order's `totalMargin`
+- `costOfGoods` = order's `totalCost`
+- `dataOrigin` = `"db_query"`, `confidence` = `"exact"`
+
+#### `integrations.internal.queries.getRevenueOrders` (internalQuery)
+Fetches orders that qualify as revenue. Used internally by `syncInternalOrders`.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| sinceTimestamp | number? | Only return orders created after this timestamp |
+
+**Returns:** Array of order documents filtered by revenue-countable statuses.
+
+### Queries
+
+#### `externalData.queries.listOutlets`
+Lists all external outlets, optionally filtered by source.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
+
+#### `externalData.queries.getLatestSnapshots`
+Gets latest stock snapshot batch for an outlet.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| outletId | Id<"externalOutlets"> | Outlet to query |
+
+#### `externalData.queries.getRevenue`
+Gets revenue records with optional filters.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
+| periodStart | number? | Period start filter |
+| periodEnd | number? | Period end filter |
+
+#### `externalData.queries.getSyncLogs`
+Gets sync operation history.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
+| limit | number? | Max results (default 50) |
+
+#### `externalData.queries.getDashboardSummary`
+Aggregated dashboard data: outlet counts, recent revenue totals, last sync per platform.
+
+### Mutations (Auth Required: manager, admin)
+
+#### `externalData.mutations.upsertOutlet`
+Creates or updates an external outlet.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform |
+| externalId | string | Platform outlet ID |
+| name | string | Display name |
+| address | string? | Address |
+| isActive | boolean | Active status |
+
+#### `externalData.mutations.toggleOutletActive`
+Toggles outlet active status.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| outletId | Id<"externalOutlets"> | Outlet ID |
+| isActive | boolean | New active state |
+
+#### `externalData.mutations.linkProductMapping`
+Links an external product to an internal menu product.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| mappingId | Id<"externalProductMappings"> | Mapping ID |
+| menuProductId | Id<"menuProducts">? | Internal product (null to unlink) |
+
+### Environment Variables
+
+| Variable | Description | Lifespan |
+|----------|-------------|----------|
+| `K3MART_API_TOKEN` | K3 Mart JWT token | ~1 year |
+| `GOBIZ_API_TOKEN` | GoBiz access token (session cookie) | ~hours |
+
+---
+
 ### Common Error Cases
 
 | Scenario | Error Message |
