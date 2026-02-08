@@ -41,13 +41,13 @@ async function performK3MartRefresh(
   }
 
   try {
-    // Login to K3Mart
-    const loginResponse = await fetch("https://umkm.k3mart.id/api/auth/login", {
+    // Login to K3Mart via consapi backend
+    const loginUrl = `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.login}`;
+    const loginResponse = await fetch(loginUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Origin: "https://umkm.k3mart.id",
-        Referer: "https://umkm.k3mart.id/",
+        ...K3MART_CONFIG.headers,
       },
       body: JSON.stringify({
         email: cred.email,
@@ -60,7 +60,25 @@ async function performK3MartRefresh(
       throw new Error(`Login failed (${loginResponse.status}): ${errorText}`);
     }
 
-    const loginData = await loginResponse.json() as Record<string, unknown>;
+    // Guard against non-JSON responses (API down, Cloudflare challenge)
+    const contentType = loginResponse.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      const bodyPreview = await loginResponse.text().catch(() => "");
+      throw new Error(
+        `K3Mart returned non-JSON response (${contentType || "no content-type"}, ` +
+        `status ${loginResponse.status}). The API may be temporarily unavailable. ` +
+        `Preview: ${bodyPreview.substring(0, 150)}`
+      );
+    }
+
+    let loginData: Record<string, unknown>;
+    try {
+      loginData = await loginResponse.json() as Record<string, unknown>;
+    } catch {
+      throw new Error(
+        "Failed to parse K3Mart login response as JSON. The API may be temporarily unavailable."
+      );
+    }
 
     // Extract JWT - check common response shapes
     let k3Token: string | undefined;

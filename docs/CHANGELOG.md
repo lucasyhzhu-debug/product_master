@@ -13,6 +13,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Fix: K3Mart Token Refresh Wrong Login Endpoint
+
+**Clicking "Save & Refresh Now" in K3Mart credentials dialog failed with `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.**
+
+### Root Cause
+Login URL pointed at the Next.js frontend SPA (`umkm.k3mart.id/api/auth/login`) which returns HTML for all routes. The actual backend login endpoint is `consapi.k3mart.id/api/v1/vendor/login`.
+
+### Fix
+- Changed login URL to use `K3MART_CONFIG.baseUrl + endpoints.login` (correct `consapi` backend)
+- Added `login` endpoint to K3Mart config for consistency with other endpoints
+- Added Content-Type validation before JSON parsing to prevent raw parse errors
+- Added try-catch around `.json()` with user-friendly error messages
+
+### Modified Files
+- `convex/integrations/k3mart/config.ts` - Added `login: "/vendor/login"` endpoint
+- `convex/platformCredentials/actions.ts` - Fixed login URL, added JSON response guards
+
+---
+
 ## 2026-02-08 - Fix: Guard K3Mart Credential Queries for Admin-Only Access
 
 **The `getCredentialStatus` query requires admin role, but the Sales Analytics page is accessible to managers too. Managers opening the Settings tab triggered an auth error crash.**
