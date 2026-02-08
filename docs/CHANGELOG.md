@@ -13,6 +13,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Fix: "Go to Settings & Sync" button not switching tabs
+
+**The button in the Sales Analytics empty state navigated to `/sales?tab=settings` but the Tabs component ignored the URL parameter, always showing the Overview tab.**
+
+### Fix
+- Made Tabs controlled via `useSearchParams` so `?tab=settings` switches to the Settings tab
+- Tab changes now sync back to the URL for bookmarkability
+
+### Modified Files
+- `src/pages/SalesAnalytics.tsx` - Controlled Tabs with URL param support
+
+---
+
 ## 2026-02-08 - Fix: K3Mart Token Refresh Wrong Login Endpoint
 
 **Clicking "Save & Refresh Now" in K3Mart credentials dialog failed with `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.**
