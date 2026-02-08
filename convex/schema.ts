@@ -971,4 +971,24 @@ export default defineSchema({
   })
     .index("by_source_code", ["source", "externalProductCode"])
     .index("by_menu_product", ["menuProductId"]),
+
+  // ============================================
+  // PLATFORM CREDENTIALS
+  // Stores login credentials for external platforms (K3Mart, etc.)
+  // Used for automatic token refresh via cron jobs
+  // ============================================
+
+  platformCredentials: defineTable({
+    platformId: v.string(),
+    email: v.string(),
+    password: v.string(),
+    currentToken: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
+    lastRefreshAt: v.optional(v.number()),
+    lastRefreshStatus: v.optional(v.union(v.literal("success"), v.literal("error"))),
+    lastRefreshError: v.optional(v.string()),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_platform", ["platformId"]),
 });
