@@ -8,11 +8,12 @@ import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import {
   K3MART_CONFIG,
+  K3MART_OUTLET_NAMES,
   type K3MartProduct,
   type K3MartDashboardResponse,
   type K3MartSalesResponse,
 } from "./config";
-import { parseK3MartDate, formatDate, buildDedupKey } from "./helpers";
+import { parseK3MartDate, formatDate, buildDedupKey, resolveOutletName } from "./helpers";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -147,7 +148,7 @@ export const discoverK3MartOutlets = action({
           {
             source: "k3mart",
             externalId: String(outletId),
-            name: `K3 Mart #${outletId}`,
+            name: resolveOutletName(outletId, K3MART_OUTLET_NAMES),
             isActive: true,
           }
         );
@@ -357,6 +358,12 @@ export const syncK3MartSales = action({
       let newTransactions = 0;
       let skippedDuplicates = 0;
 
+      // Look up outlet name -> doc ID mapping (graceful: empty map if no outlets exist yet)
+      const outletNameMap = await ctx.runQuery(
+        internal.externalData.queries.getOutletNameToIdMap,
+        { source: "k3mart" }
+      ) as Record<string, string>;
+
       // Process transactions in batches of 100
       for (let i = 0; i < transactions.length; i += 100) {
         const batch = transactions.slice(i, i + 100);
@@ -369,7 +376,11 @@ export const syncK3MartSales = action({
           totalCommission += txn.commission;
           netProfit += txn.profit;
 
+          // Link to outlet doc if mapping exists
+          const outletDocId = outletNameMap[txn.outletName];
+
           return {
+            outletId: outletDocId ? (outletDocId as Id<"externalOutlets">) : undefined,
             source: "k3mart" as const,
             externalProductCode: txn.productCode,
             productName: txn.productName,
