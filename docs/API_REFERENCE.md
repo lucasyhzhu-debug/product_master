@@ -638,16 +638,33 @@ try {
 
 ### Actions (Node.js Runtime)
 
-#### `integrations.k3mart.adapter.syncK3MartStock`
-Syncs stock data from all active K3Mart outlets.
+#### `integrations.k3mart.adapter.discoverK3MartOutlets`
+Scans K3Mart outlet IDs 1 through maxOutletId, saves matching outlets with real location names, and stores filtered stock snapshots.
 
 | Arg | Type | Description |
 |-----|------|-------------|
 | triggeredBy | string? | Who triggered the sync (e.g., "dashboard", "settings") |
 
-**Returns:** `{ success, syncLogId, totalProducts, totalSalesInferred, outletsProcessed, errors, durationMs }`
+**Returns:** `{ success, syncLogId, outletsScanned, outletsFound, totalStockUnits, errors, durationMs }`
 
-**Flow:** Fetches paginated stock data per outlet, stores raw snapshots, calculates stock deltas from previous snapshot, writes inferred revenue records with `confidence: "inferred"`.
+**Flow:** Loops outlet IDs, fetches page 1 for each, filters products by configured keyword, upserts outlets with resolved names (e.g., "JKT-SCBD" for outlet #44), saves stock snapshots and product mappings.
+
+**Outlet Name Resolution:** Uses `K3MART_OUTLET_NAMES` config map (7 known outlets) via `resolveOutletName()` helper. Unknown outlets fall back to `"K3 Mart #N"`.
+
+#### `integrations.k3mart.adapter.syncK3MartSales`
+Syncs K3Mart sales transactions with incremental date range and outlet linking.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync |
+| fromDate | string? | Start date (YYYY-MM-DD). Defaults to last sync - overlap days |
+| toDate | string? | End date (YYYY-MM-DD). Defaults to tomorrow |
+
+**Returns:** `{ success, syncLogId, fromDate, toDate, totalTransactions, newTransactions, skippedDuplicates, totalUnits, grossSales, totalCommission, netProfit, durationMs }`
+
+**Flow:** Determines incremental date range, fetches from `/vendor-sales/get-all`, deduplicates via `externalTransactionId`, links each transaction to its outlet doc via `getOutletNameToIdMap`. Revenue records stored with `confidence: "exact"`, `dataOrigin: "api_revenue"`.
+
+**Outlet Linking:** Looks up `outletNameMap[txn.outletName]` to attach `outletId` to each revenue record. Gracefully handles missing outlets (outletId stays undefined).
 
 #### `integrations.gobiz.adapter.syncGoBizRevenue`
 Syncs revenue data from GoBiz (GoFood).
@@ -696,6 +713,35 @@ Fetches orders that qualify as revenue. Used internally by `syncInternalOrders`.
 | sinceTimestamp | number? | Only return orders created after this timestamp |
 
 **Returns:** Array of order documents filtered by revenue-countable statuses.
+
+### Internal Queries (used by adapters)
+
+#### `externalData.queries.getOutletNameToIdMap`
+Returns a map of outlet display name to document ID for a given platform source.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform source |
+
+**Returns:** `Record<string, string>` — e.g., `{ "JKT-SCBD": "jd7abc...", "JKT-BINTARO": "kx9def..." }`
+
+Used by `syncK3MartSales` to link revenue records to outlet docs by matching `txn.outletName`.
+
+### Migration Mutations (one-time, run from dashboard)
+
+#### `externalData.mutations.seedK3MartOutletNames`
+Upserts 7 known K3Mart outlets with real location names. Safe to run multiple times.
+
+**Returns:** `{ updated, created }`
+
+**Run order:** Must run BEFORE `backfillRevenueOutletIds`.
+
+#### `externalData.mutations.backfillRevenueOutletIds`
+Patches existing K3Mart revenue records with `outletId` by parsing the outlet name from the dedup key (`externalTransactionId`). Skips records that already have `outletId`.
+
+**Returns:** `{ patched, skipped, total }`
+
+**Run order:** Must run AFTER `seedK3MartOutletNames`.
 
 ### Queries
 
