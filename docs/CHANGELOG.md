@@ -13,6 +13,98 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-08 - Feat: Internal Orders Integration + E2E Visual Tests + UX Improvements
+
+**Added third sales platform "Internal Orders" that pulls revenue from our own Convex orders database, plus comprehensive E2E visual tests and UX polish across the Sales Analytics module.**
+
+### New Features
+- **Internal Orders Integration**: Third sales platform that queries the Convex `orders` table directly. Syncs revenue from confirmed/shipped/picked-up orders with `confidence: "exact"` and `dataOrigin: "db_query"`. No external API calls or tokens required
+- **Incremental Sync**: Only fetches orders created since the last successful sync, using `getLatestSyncTimestamp` internal query. Deduplicates by `orderNumber` via `by_source_txn` index
+- **Error Boundary on SalesWidget**: Dashboard widget now catches render errors gracefully instead of crashing the entire dashboard
+- **3-Column Revenue Grid**: Overview tab revenue cards now display in a responsive 3-column grid (K3Mart, GoBiz, Internal Orders)
+- **Internal Orders Settings Card**: New platform connection card in Settings tab with sync button and status display
+- **Actionable Empty States**: Empty state cards now include primary-variant "Sync Now" buttons to encourage first sync
+- **Amber "Not Synced" Status**: Platforms that have never been synced show amber status instead of neutral gray
+- **44px Touch Targets**: All sync buttons meet 44px minimum touch target for mobile usability
+
+### Schema Changes
+- `externalOutlets.source`: Added `"internal"` to union (`"k3mart" | "gobiz" | "internal"`)
+- `externalRevenue.source`: Added `"internal"` to union
+- `externalRevenue.dataOrigin`: Added `"db_query"` to union (for database-queried revenue)
+- `externalSyncLogs.source`: Added `"internal"` to union
+- `externalProductMappings.source`: Added `"internal"` to union
+- `externalRevenue`: Added `externalTransactionId`, `transactionDate`, `transactionType`, `commission` fields
+- `externalRevenue`: Added `by_source_txn` index for deduplication
+
+### New Backend Files
+- `convex/integrations/internal/adapter.ts` - `syncInternalOrders` action (batch-processes orders into revenue records)
+- `convex/integrations/internal/config.ts` - Revenue-countable statuses and batch size config
+- `convex/integrations/internal/queries.ts` - `getRevenueOrders` internalQuery (filters orders by status and timestamp)
+
+### New Frontend Changes
+- `src/components/dashboard/SalesWidget.tsx` - Added error boundary wrapper
+- `src/components/salesAnalytics/ConnectionGuide.tsx` - Updated for 3-platform support
+- `src/components/salesAnalytics/SettingsTab.tsx` - Added Internal Orders card, amber status, 44px touch targets
+
+### New Test Files
+- `tests/e2e/` - 19 Playwright E2E tests for cofounder persona visual testing
+
+### Modified Files
+- `convex/schema.ts` - Updated 4 external integration tables with `"internal"` source
+- `convex/externalData/mutations.ts` - Updated source validators to include `"internal"`
+- `convex/externalData/queries.ts` - Updated source validators to include `"internal"`
+- `convex/integrations/registry.ts` - Registered Internal Orders platform metadata
+- `src/hooks/convex/index.ts` - Updated barrel exports
+- `src/hooks/convex/useExternalData.ts` - Added `useSyncInternalOrders` hook
+
+---
+
+## 2026-02-07 - Feat: Multi-Platform Sales Integration (K3Mart + GoBiz)
+
+**Added external platform integration for stock tracking and revenue analytics across K3 Mart and GoBiz (GoFood).**
+
+### New Features
+- **K3Mart Stock Sync**: Fetches real-time stock snapshots from K3 Mart consignment outlets, calculates stock deltas to infer sales with `confidence: "inferred"`
+- **GoBiz Revenue Sync**: Queries GoBiz/GoFood analytics for gross (proxy/44) and net (proxy/4) revenue with `confidence: "exact"` and transaction counts
+- **Sales Analytics Page** (`/sales`): 2-tab page with Overview (stats cards + revenue data table with confidence badges) and Settings (platform connections, outlet management, sync history)
+- **Dashboard Sales Widget**: Compact card showing per-platform sync status, last sync time, and "Sync Now" buttons. Permission-gated to `canAccessSalesAnalytics`
+- **ConnectionGuide Component**: Step-by-step API token reconnection instructions per platform. Auto-expands accordion when token errors are detected. Numbered steps with clickable URLs
+- **Modular Adapter Pattern**: Static registry (`convex/integrations/registry.ts`) with platform metadata. Adding a new platform = add to registry, add schema literal, create adapter files
+
+### Schema Changes (5 new tables)
+- `externalOutlets` - Platform outlet/store definitions with sync status
+- `externalStockSnapshots` - Raw stock data snapshots per outlet per product
+- `externalRevenue` - Unified revenue records from all platforms with confidence tracking
+- `externalSyncLogs` - Sync operation logs with timing and error details
+- `externalProductMappings` - Maps external product codes to internal menu products
+
+### New Backend Files
+- `convex/integrations/registry.ts` - Platform metadata and reconnection step definitions
+- `convex/integrations/k3mart/adapter.ts` + `config.ts` - K3Mart `"use node"` action
+- `convex/integrations/gobiz/adapter.ts` + `config.ts` - GoBiz `"use node"` action
+- `convex/externalData/mutations.ts` - Internal + public mutations for external data
+- `convex/externalData/queries.ts` - Internal + public queries for external data
+- `convex/lib/stockDelta.ts` - Pure stock delta calculation functions
+
+### New Frontend Files
+- `src/pages/SalesAnalytics.tsx` - Sales Analytics page
+- `src/components/salesAnalytics/` - OverviewTab, SettingsTab, ConnectionGuide, barrel export
+- `src/components/dashboard/SalesWidget.tsx` - Dashboard widget
+- `src/hooks/convex/useExternalData.ts` - Query/action hooks for external data
+
+### Modified Files
+- `convex/schema.ts` - Added 5 new external integration tables
+- `src/lib/types.ts` - Added `canAccessSalesAnalytics` permission (manager + admin)
+- `src/App.tsx` - Added `/sales` route
+- `src/components/layout/Header.tsx` - Added Sales nav item
+- `src/pages/index.ts` + `src/hooks/convex/index.ts` + `src/components/dashboard/index.ts` - Barrel exports
+
+### Environment Variables
+- `K3MART_API_TOKEN` - K3 Mart JWT token (~1yr lifespan)
+- `GOBIZ_API_TOKEN` - GoBiz access token (~hours lifespan)
+
+---
+
 ## 2026-02-07 - Fix: ProductForm Crash on Undefined posSlot (Hotfix)
 
 **Fixed production crash when editing menu products with undefined `posSlot` values.**

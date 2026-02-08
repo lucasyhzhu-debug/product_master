@@ -15,3 +15,4 @@ export { VouchersManager } from './VouchersManager';
 export { InventoryManager } from './InventoryManager';
 export { LocationsManager } from './LocationsManager';
 export { ProductionComponentsManager } from './ProductionComponentsManager';
+export { SalesAnalytics } from './SalesAnalytics';
