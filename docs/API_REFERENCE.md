@@ -376,6 +376,12 @@ orders.updatePayment({ id, paymentStatus, paymentMethod? })
 orders.updateShipping({ id, shippingAgency, shippingNumber })
 
 orders.remove({ id })                   // Only Draft status allowed
+
+// Item CRUD (convex/orders/mutations/itemCrud.ts)
+orders.addItem({ orderId, item: { productName, quantity, unitPrice, unitCost, menuProductId? } })
+orders.removeItem({ itemId })
+orders.updateItemQuantity({ itemId, quantity })
+orders.replaceItems({ orderId, items: [...] })  // Atomic bulk replace (Draft/AwaitingPayment only)
 ```
 
 ### Kitchen Mutations (PRD-1, PRD-2)

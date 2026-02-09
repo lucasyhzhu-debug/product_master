@@ -13,6 +13,40 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Fix: Order QoL Improvements (5 Fixes)
+
+### Subtotal Display (Fix 1)
+- "Subtotal" and "Discount" rows only appear when a manual discount exists
+- Voucher-only orders no longer show a redundant subtotal line
+
+### WA Templates in Completed Steps (Fix 2)
+- WhatsApp templates (payment request, shipping, pickup ready) now remain visible when revisiting completed accordion steps
+- Action buttons (mark as shipped, etc.) still only show for the current status
+
+### Edit Order Items (Fix 3)
+- "Edit Order Items" button on order detail for Draft/AwaitingPayment orders
+- Navigates to the order form pre-filled with existing items, customer, and delivery info
+- "Save Order" replaces all items atomically via new `replaceItems` backend mutation
+- After saving, navigates back to order detail
+
+### Channel Buttons (Fix 4)
+- Removed custom channel input from the dropdown
+- Only predefined channels are available for selection
+
+### Navigate After Create (Fix 5)
+- Creating a new order now navigates directly to the order detail page
+
+### Files Modified
+- `src/components/orders/OrderItems.tsx` — subtotal condition
+- `src/components/orders/ChannelButtons.tsx` — removed custom input
+- `src/components/orders/OrderFormPOS.tsx` — edit mode support
+- `src/pages/OrderDetail.tsx` — WA templates + edit button
+- `src/pages/OrderManager.tsx` — navigate after create + edit param
+- `src/hooks/convex/useOrders.ts` — `useConvexReplaceOrderItems` hook
+- `convex/orders/mutations/itemCrud.ts` — `replaceItems` mutation
+
+---
+
 ## 2026-02-09 - Feature: Sales Analytics Quick Filters & Channel Breakdown
 
 ### Period Presets & Growth Indicators
