@@ -12,6 +12,7 @@ import {
 import {
   useConvexRestockOverview,
   useConvexChannelSellThrough,
+  useConvexDiscoverK3MartOutlets,
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
@@ -55,6 +56,7 @@ export function RestockPlanner() {
   const updateManualStockMut = useProtectedMutation(api.restock.mutations.updateManualStock);
 
   // Sync actions (take triggeredBy, not token)
+  const discoverK3Mart = useConvexDiscoverK3MartOutlets();
   const syncK3Mart = useConvexSyncK3MartSales();
   const syncGoBiz = useConvexSyncGoBiz();
   const syncInternal = useConvexSyncInternalOrders();
@@ -64,6 +66,7 @@ export function RestockPlanner() {
     setSyncing(true);
     try {
       await Promise.allSettled([
+        discoverK3Mart({ triggeredBy: user.name }),
         syncK3Mart({ triggeredBy: user.name }),
         syncGoBiz({ triggeredBy: user.name }),
         syncInternal({ triggeredBy: user.name }),
@@ -74,7 +77,7 @@ export function RestockPlanner() {
     } finally {
       setSyncing(false);
     }
-  }, [user, syncK3Mart, syncGoBiz, syncInternal]);
+  }, [user, discoverK3Mart, syncK3Mart, syncGoBiz, syncInternal]);
 
   const handleSaveTarget = useCallback(
     async (
