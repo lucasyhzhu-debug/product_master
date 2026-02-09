@@ -150,6 +150,7 @@ export {
   useConvexAddOrderItem,
   useConvexRemoveOrderItem,
   useConvexUpdateOrderItemQuantity,
+  useConvexReplaceOrderItems,
   useConvexUpdateOrderDiscount,
   // Types
   type OrderItemInput,

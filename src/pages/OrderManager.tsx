@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Search, ShoppingCart, SearchX, ChevronDown, FileEdit, List } from 'lucide-react';
@@ -348,6 +348,8 @@ function OrdersQueue({ orders, activeFilter, onOrderClick }: OrdersQueueProps) {
 export function OrderManager() {
   useDocumentTitle('Orders');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const editOrderId = searchParams.get('edit') || undefined;
   const [activeFilter, setActiveFilter] = useState<FilterButtonValue>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'queue'>('form');
@@ -407,8 +409,12 @@ export function OrderManager() {
     navigate(`/orders/${orderId}`);
   };
 
-  const handleOrderCreated = () => {
-    // Form will handle success toast, just refresh will happen automatically
+  const handleOrderCreated = (orderId: string) => {
+    // Clear edit param if present
+    if (editOrderId) {
+      setSearchParams({});
+    }
+    navigate(`/orders/${orderId}`);
   };
 
   return (
@@ -487,6 +493,7 @@ export function OrderManager() {
               <OrderFormPOS
                 onSuccess={handleOrderCreated}
                 onCancel={() => {}}
+                editOrderId={editOrderId}
               />
             </motion.div>
           ) : (
@@ -532,6 +539,7 @@ export function OrderManager() {
             <OrderFormPOS
               onSuccess={handleOrderCreated}
               onCancel={() => {}}
+              editOrderId={editOrderId}
             />
           </div>
 
