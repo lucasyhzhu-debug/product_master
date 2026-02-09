@@ -324,6 +324,7 @@ export {
   // Action hooks
   useConvexDiscoverK3MartOutlets,
   useConvexSyncK3MartSales,
+  useConvexSyncK3MartStock,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
   // Restock planner hooks
