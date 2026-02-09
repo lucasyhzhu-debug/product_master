@@ -175,13 +175,16 @@ export const getKitchenOrders = query({
   handler: async (ctx) => {
     // Fetch orders by status (consolidated from 6 duplicate queries to 1 helper call)
     // Priority 0: Confirmed, InProduction, Packaging (active orders)
-    // Priority 1: Draft (de-prioritized)
-    // Priority 2: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
+    // Priority 1: Boxed, Labeled (post-production workflow)
+    // Priority 2: Draft (de-prioritized)
+    // Priority 3: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
     const orders = await fetchOrdersByStatuses(ctx, [
       "Draft",
       "Confirmed",
       "InProduction",
       "Packaging",
+      "Boxed",
+      "Labeled",
       "WaitingShipment",
       "WaitingPickup",
     ]);
@@ -299,8 +302,9 @@ function calculateProductionStatsByType(
 /**
  * Sort orders by priority level, then by due date, then by creation time.
  * Priority 0: Confirmed, InProduction, Packaging (active orders)
- * Priority 1: Draft (de-prioritized)
- * Priority 2: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
+ * Priority 1: Boxed, Labeled (post-production workflow)
+ * Priority 2: Draft (de-prioritized)
+ * Priority 3: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
  */
 function sortOrdersByPriority<T extends Doc<"orders">>(orders: T[]): T[] {
   return orders.sort((a, b) => {
@@ -308,12 +312,14 @@ function sortOrdersByPriority<T extends Doc<"orders">>(orders: T[]): T[] {
     const getPriority = (status: string): number => {
       if (status === "Confirmed" || status === "InProduction" || status === "Packaging") {
         return 0;
-      } else if (status === "Draft") {
+      } else if (status === "Boxed" || status === "Labeled") {
         return 1;
-      } else if (status === "WaitingShipment" || status === "WaitingPickup") {
+      } else if (status === "Draft") {
         return 2;
+      } else if (status === "WaitingShipment" || status === "WaitingPickup") {
+        return 3;
       }
-      return 3; // Fallback
+      return 4; // Fallback
     };
 
     const aPriority = getPriority(a.status);

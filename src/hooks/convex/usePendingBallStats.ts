@@ -11,13 +11,17 @@ export interface PendingBallStats {
 }
 
 /**
- * Order item with production data (from useOrders hook)
+ * Order item with production data.
+ * Supports both snake_case (V1/KitchenView) and camelCase (V2/Convex) field names.
  */
 interface OrderItemWithProduction {
   production_type?: string;
+  productionType?: string;
   quantity?: number;
   production_units?: number;
+  productionUnits?: number;
   balls_filled?: number;
+  ballsFilled?: number;
 }
 
 /**
@@ -60,30 +64,35 @@ export function usePendingBallStats(orders: OrderWithBalls[] | undefined): Pendi
     let biteSizedBalls = 0;
 
     for (const order of orders) {
+      // Helper to get production type from either field name convention
+      const getType = (item: OrderItemWithProduction) => item.production_type ?? item.productionType;
+      const getUnits = (item: OrderItemWithProduction) => item.production_units ?? item.productionUnits ?? 0;
+      const getFilled = (item: OrderItemWithProduction) => item.balls_filled ?? item.ballsFilled ?? 0;
+
       // Original balls calculation
       const originalItems = order.items?.filter(
-        (item) => item.production_type === "original"
+        (item) => getType(item) === "original"
       ) ?? [];
 
       if (originalItems.length > 0) {
         originalCount++;
         for (const item of originalItems) {
-          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
-          const needed = totalRequired - (item.balls_filled ?? 0);
+          const totalRequired = (item.quantity ?? 0) * getUnits(item);
+          const needed = totalRequired - getFilled(item);
           if (needed > 0) originalBalls += needed;
         }
       }
 
       // Bite-sized balls calculation
       const biteSizedItems = order.items?.filter(
-        (item) => item.production_type === "bite_sized"
+        (item) => getType(item) === "bite_sized"
       ) ?? [];
 
       if (biteSizedItems.length > 0) {
         biteSizedCount++;
         for (const item of biteSizedItems) {
-          const totalRequired = (item.quantity ?? 0) * (item.production_units ?? 0);
-          const needed = totalRequired - (item.balls_filled ?? 0);
+          const totalRequired = (item.quantity ?? 0) * getUnits(item);
+          const needed = totalRequired - getFilled(item);
           if (needed > 0) biteSizedBalls += needed;
         }
       }
