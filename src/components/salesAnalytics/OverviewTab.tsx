@@ -107,7 +107,7 @@ function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> 
   if (isLoading) {
     return (
       <tr>
-        <td colSpan={7} className="py-3 px-2">
+        <td colSpan={9} className="py-3 px-2">
           <Skeleton className="h-16 w-full" />
         </td>
       </tr>
@@ -117,7 +117,7 @@ function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> 
   if (!items || items.length === 0) {
     return (
       <tr>
-        <td colSpan={7} className="py-3 px-6 text-sm text-muted-foreground">
+        <td colSpan={9} className="py-3 px-6 text-sm text-muted-foreground">
           No item details available.
         </td>
       </tr>
@@ -126,7 +126,7 @@ function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> 
 
   return (
     <tr>
-      <td colSpan={7} className="p-0">
+      <td colSpan={9} className="p-0">
         <div className="bg-muted/30 px-6 py-3">
           <table className="w-full text-xs">
             <thead>
@@ -186,6 +186,7 @@ function RevenueTable({
     revenueNet?: number;
     confidence: ConfidenceLevel;
     gobizOrderNumber?: string;
+    customerStoreName?: string;
   }>;
   dateFrom: string;
   dateTo: string;
@@ -214,6 +215,7 @@ function RevenueTable({
             <th className="w-8 py-3 px-1"></th>
             <th className="text-left py-3 px-2 font-medium">Date</th>
             <th className="text-left py-3 px-2 font-medium">Platform</th>
+            <th className="text-left py-3 px-2 font-medium">Customer/Store</th>
             <th className="text-left py-3 px-2 font-medium">Product</th>
             <th className="text-right py-3 px-2 font-medium">Qty</th>
             <th className="text-right py-3 px-2 font-medium">Gross</th>
@@ -249,6 +251,9 @@ function RevenueTable({
                   </td>
                   <td className="py-3 px-2">
                     <PlatformBadge platform={record.source} />
+                  </td>
+                  <td className="py-3 px-2 text-muted-foreground text-xs">
+                    {record.customerStoreName || "\u2014"}
                   </td>
                   <td className="py-3 px-2">
                     {record.productName || "(all)"}
