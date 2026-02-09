@@ -89,3 +89,4 @@ nul
 # PLAYWRIGHT / SCRIPTS
 # =============================================================================
 scripts/debug-screenshots/
+scripts/.gobiz_creds.json

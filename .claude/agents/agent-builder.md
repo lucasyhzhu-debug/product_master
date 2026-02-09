@@ -40,7 +40,7 @@ Build production-ready Claude Code agents by:
 
 Read the existing agent roster and check for overlap.
 
-**Current Roster (as of 2026-02-06):**
+**Current Roster (as of 2026-02-09):**
 
 | Agent | Domain | Model | Key Capabilities |
 |-------|--------|-------|------------------|
@@ -48,6 +48,7 @@ Read the existing agent roster and check for overlap.
 | `cto-orchestrator` | Orchestration | opus | Multi-agent coordination, architectural decisions, end-to-end delivery |
 | `convex-backend` | Backend | sonnet | Convex schema, queries, mutations, cost logic, 30+ table schema |
 | `react-ui-builder` | Frontend | sonnet | React 19, shadcn/ui, Tailwind CSS 4, Framer Motion, Convex hooks |
+| `tdd-test-architect` | Testing | sonnet | TDD enforcement, test-first development, test plans, gate checks, Vitest + convex-test |
 | `code-auditor` | Quality | haiku | READ-ONLY type safety, pattern compliance, quality gates |
 | `schema-architect` | Database | opus | Schema design, migration planning, normalization, index optimization |
 | `refactor-architect` | Refactoring | opus | Code smell detection, refactoring plans, dependency cleanup |

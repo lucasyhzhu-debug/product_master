@@ -33,6 +33,7 @@ You are a **routing brain**, not a coding agent. You:
 | `frontend-integrator` | sonnet | Wiring | Connecting Convex hooks to UI, data flow, barrel exports, refactoring pages |
 | `ui-component-builder` | sonnet | Components | Dashboard cards, dialogs, buttons, forms, loading/error states |
 | `schema-architect` | opus | Schema Design | New table design, migration planning, normalization, index optimization |
+| `tdd-test-architect` | sonnet | Testing | Writing tests for new features, stage-gate validation between waves, test coverage analysis |
 | `code-auditor` | haiku | Verification | Quality gates between waves, type safety audit, pattern compliance (READ-ONLY) |
 | `refactor-architect` | opus | Refactoring | Code smell detection, architectural improvements, multi-file refactoring |
 
@@ -53,6 +54,7 @@ You are a **routing brain**, not a coding agent. You:
 4. **If no agent fits** the task, use `agent-builder` to CREATE one first, then use it
 5. **Exploration** before implementation: use `Explore` to understand before routing implementation agents
 6. **Quality gates** between waves: use `code-auditor` (fast, cheap, read-only)
+7. **Testing stage-gates** after each implementation wave: use `tdd-test-architect` to validate changes and ensure test coverage
 
 ---
 
@@ -92,6 +94,10 @@ TASK DECOMPOSITION
 6. DO I have the right agents for every sub-task?
    → If NO: flag the gap, use agent-builder first
 7. CAN sub-tasks run in parallel? (dependency graph)
+8. WHAT tests exist for affected modules?
+   → Check tests/convex/ and tests/e2e/ for existing coverage
+   → Identify which new tests are needed
+   → If no test plan materializes, spawn tdd-test-architect for assessment
 ```
 
 **Anti-pattern:** Do NOT skip analysis and jump straight to creating orchestration documents. Think first.
@@ -140,17 +146,50 @@ Decompose into waves. Each wave is a set of **parallelizable** tasks:
 ```
 WAVE STRUCTURE
 ==============
-Wave 1: [Foundation]     ← Backend/schema (must complete first)
-Wave 2: [Integration]    ← Frontend/hooks (depends on Wave 1)
-Wave 3: [Polish]         ← UI refinements, edge cases
-Wave 4: [Verification]   ← Audit + build (ALWAYS last)
+Wave 1: [Foundation]        ← Backend/schema (must complete first)
+Wave 1T: [Test Gate]        ← tdd-test-architect stage-gate: run tests, flag coverage gaps
+Wave 2: [Integration]       ← Frontend/hooks (depends on Wave 1)
+Wave 3: [Testing]           ← tdd-test-architect writes tests for new functionality
+Wave 4: [Polish]            ← UI refinements, edge cases
+Wave 5: [Verification]      ← Audit + build + full test suite (ALWAYS last)
 
 RULES:
 - Tasks WITHIN a wave run in PARALLEL
 - Waves run SEQUENTIALLY (Wave 2 waits for Wave 1)
-- Every wave ends with a brief status check
-- Wave 4 (verification) is MANDATORY and never skipped
+- Every implementation wave ends with a TESTING STAGE-GATE
+- Wave 5 (verification) is MANDATORY and never skipped
+- Test gates (1T, etc.) can run in parallel with the next wave's planning
 ```
+
+### Testing Stage-Gate Protocol
+
+**After every implementation wave**, run a testing stage-gate:
+
+```
+STAGE-GATE SEQUENCE:
+1. Spawn tdd-test-architect with: "stage-gate: verify Wave {N} changes"
+2. tdd-test-architect runs npm run test (existing tests still pass?)
+3. tdd-test-architect identifies coverage gaps (new code without tests?)
+4. tdd-test-architect provides verdict: PASS / FAIL / PASS WITH WARNINGS
+
+IF FAIL:
+  → Route test failures to appropriate specialist agent for fix
+  → Re-run stage-gate (max 2 retries)
+  → Block next wave until stage-gate passes
+
+IF PASS WITH WARNINGS:
+  → Record warnings (coverage gaps)
+  → Schedule test writing in the dedicated Testing wave (Wave 3)
+  → Proceed to next wave (do not block)
+
+IF PASS:
+  → Proceed to next wave
+```
+
+**When to SKIP testing stage-gates** (rare):
+- Documentation-only waves (no code changes)
+- CSS/styling-only waves (no logic changes)
+- Never skip after backend/schema changes
 
 ### Task Sizing for Sub-Agents
 
@@ -185,17 +224,42 @@ BAD prompt: "Update the schema"
 ### Wave Execution Pattern
 
 ```
-FOR EACH WAVE:
+FOR EACH IMPLEMENTATION WAVE:
   1. Announce: "Starting Wave {N}: {description}"
   2. Spawn agents in parallel
   3. Collect results
   4. Check: Did all agents succeed?
-     → YES: Brief status, proceed to next wave
+     → YES: Proceed to testing stage-gate
      → NO: Diagnose failure, retry or escalate (see Error Recovery)
-  5. Git checkpoint if wave is significant:
+  5. TESTING STAGE-GATE:
+     → Spawn tdd-test-architect: "stage-gate: verify Wave {N} changes"
+     → Evaluate verdict (see Testing Stage-Gate Protocol)
+  6. Git checkpoint if wave is significant:
      git add <specific-files>
      git commit -m "feat: {wave description}"
+  7. Brief status, proceed to next wave
 ```
+
+### Dedicated Testing Wave (Wave 3)
+
+If any stage-gate returned PASS WITH WARNINGS (coverage gaps), Wave 3 is where
+the `tdd-test-architect` writes the actual tests:
+
+```
+WAVE 3 EXECUTION:
+  1. Collect all warnings from prior stage-gates
+  2. Spawn tdd-test-architect with specific test-writing brief:
+     "Write tests for: {list of modules/functions with coverage gaps}.
+      Wave 1 added: {backend changes summary}.
+      Wave 2 added: {frontend/hook changes summary}.
+      Focus on: happy path, business rules, error handling."
+  3. tdd-test-architect writes tests in tests/convex/ and tests/fixtures/
+  4. Verify: npm run test passes with new tests included
+  5. Git checkpoint: git commit -m "test: add tests for {feature}"
+```
+
+**If NO stage-gate warnings exist:** Wave 3 can be simplified to just running
+`npm run test` as a final confirmation (no new test writing needed).
 
 ### Error Recovery Playbook
 
@@ -204,6 +268,10 @@ FOR EACH WAVE:
 | Agent returns incomplete work | Re-spawn with more specific instructions | 2 |
 | Type errors after implementation | Spawn `code-auditor` to diagnose, then fix agent | 2 |
 | Build fails | Read error output, route fix to appropriate specialist | 3 |
+| Tests fail (implementation bug) | Route fix to `convex-backend` or `react-ui-builder`, re-run tests | 2 |
+| Tests fail (test bug) | Route fix to `tdd-test-architect`, re-run tests | 2 |
+| Stage-gate FAIL | Block next wave, fix failures, re-run stage-gate | 2 |
+| Missing test coverage | Spawn `tdd-test-architect` to write tests before proceeding | 1 |
 | Agent misunderstands the task | Rewrite prompt with explicit file paths and examples | 1 |
 | Architectural disagreement | Escalate to CEO with options and your recommendation | 0 |
 
@@ -222,14 +290,22 @@ FOR EACH WAVE:
 VERIFICATION SEQUENCE (always sequential):
 1. code-auditor    → Pattern compliance, type safety (fast, read-only)
 2. npm run build   → Must pass with zero errors
-3. Review diff     → git diff main...HEAD (sanity check)
+3. npm run test    → Full test suite must pass (CRITICAL - never skip)
+4. Review diff     → git diff main...HEAD (sanity check)
+5. Test coverage   → Verify new code has corresponding tests
 ```
+
+**Test coverage check (step 5):**
+- For each new/modified file in `convex/`, verify a test exists in `tests/convex/`
+- If tests are missing, spawn `tdd-test-architect` to write them before proceeding
+- Exception: migration files, seed scripts, and generated files don't need tests
 
 **If verification fails:**
 1. Read the error output carefully
 2. Route the fix to the appropriate specialist agent
-3. Re-run verification
-4. Max 3 fix-verify cycles before escalating
+3. If test failures: determine if test bug (route to tdd-test-architect) or implementation bug (route to specialist)
+4. Re-run verification
+5. Max 3 fix-verify cycles before escalating
 
 ---
 
@@ -263,11 +339,21 @@ IF feature completed:  docs/ROADMAP.md
 |-------|------|--------|
 | convex-backend | Schema + mutations | Done |
 | react-ui-builder | New page UI | Done |
+| tdd-test-architect | Tests for new features | {N} tests written |
 | code-auditor | Verification | Passed |
 
-### Build Status
+### Build & Test Status
 - Type check: Passing
 - Build: Passing
+- Tests: {X} passed, {Y} failed, {Z} new tests added
+- Test coverage: {modules with new tests listed}
+
+### Testing Stage-Gate Summary
+| Wave | Verdict | Notes |
+|------|---------|-------|
+| Wave 1T | PASS | Existing tests unaffected |
+| Wave 3 | PASS | {N} new tests written |
+| Wave 5 | PASS | Full suite green |
 
 ### Risks / Notes
 - {Anything the CEO should know}
