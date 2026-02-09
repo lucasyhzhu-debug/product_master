@@ -130,7 +130,39 @@ export const getRevenue = query({
       results = results.filter((r) => r.periodEnd <= args.periodEnd!);
     }
 
-    return results;
+    // Enrich with Customer/Store name
+    // Build lookup maps to avoid N+1 queries
+    const outletIds = new Set(
+      results.filter((r) => r.outletId).map((r) => r.outletId!)
+    );
+    const outletNameMap = new Map<string, string>();
+    for (const outletId of outletIds) {
+      const outlet = await ctx.db.get(outletId);
+      if (outlet) outletNameMap.set(outletId, outlet.name);
+    }
+
+    const internalOrderNumbers = results
+      .filter((r) => r.source === "internal" && r.externalTransactionId)
+      .map((r) => r.externalTransactionId!);
+    const customerNameMap = new Map<string, string>();
+    if (internalOrderNumbers.length > 0) {
+      const orders = await ctx.db.query("orders").collect();
+      for (const order of orders) {
+        if (internalOrderNumbers.includes(order.orderNumber)) {
+          customerNameMap.set(order.orderNumber, order.customerName);
+        }
+      }
+    }
+
+    return results.map((r) => {
+      let customerStoreName: string | undefined;
+      if (r.source === "k3mart" && r.outletId) {
+        customerStoreName = outletNameMap.get(r.outletId);
+      } else if (r.source === "internal" && r.externalTransactionId) {
+        customerStoreName = customerNameMap.get(r.externalTransactionId);
+      }
+      return { ...r, customerStoreName };
+    });
   },
 });
 
