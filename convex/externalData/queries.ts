@@ -729,7 +729,7 @@ export const getRestockOverview = query({
 
     const gobizTotalDemand = gobizProducts.reduce((sum, p) => sum + p.dailyRate, 0);
 
-    // 4. Internal channel
+    // 4. Internal channel - look up actual order items for product-level data
     const internalRevenue = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source_period", (q) =>
@@ -739,8 +739,26 @@ export const getRestockOverview = query({
 
     const internalDemandMap = new Map<string, number>();
     for (const r of internalRevenue) {
-      const name = r.productName ?? "Other";
-      internalDemandMap.set(name, (internalDemandMap.get(name) ?? 0) + (r.quantitySold ?? 1));
+      // Each internal revenue record has externalTransactionId = orderNumber
+      const orderNumber = r.externalTransactionId;
+      if (!orderNumber) continue;
+
+      const order = await ctx.db
+        .query("orders")
+        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+        .first();
+      if (!order) continue;
+
+      const items = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", order._id))
+        .collect();
+
+      for (const item of items) {
+        if (item.isCancelled) continue;
+        const name = item.productName;
+        internalDemandMap.set(name, (internalDemandMap.get(name) ?? 0) + item.quantity);
+      }
     }
 
     // Manual stock for internal
@@ -978,7 +996,7 @@ export const getChannelSellThrough = query({
         }
       }
     } else {
-      // Internal: use externalRevenue
+      // Internal: look up actual order items for product-level data
       const revenue = await ctx.db
         .query("externalRevenue")
         .withIndex("by_source_period", (q) =>
@@ -987,24 +1005,43 @@ export const getChannelSellThrough = query({
         .collect();
 
       for (const r of revenue) {
-        const key = r.productName ?? "Other";
-        const entry = getOrCreate(key, key);
-        const qty = r.quantitySold ?? 1;
+        const orderNumber = r.externalTransactionId;
+        if (!orderNumber) continue;
         const txnDate = r.transactionDate ?? r.periodStart;
 
-        if (isWeekend(txnDate)) {
-          entry.weekendSalesTotal += qty;
-        } else {
-          entry.weekdaySalesTotal += qty;
-        }
+        const order = await ctx.db
+          .query("orders")
+          .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+          .first();
+        if (!order) continue;
 
-        if (txnDate >= sevenDaysAgo) {
-          entry.last7dSales += qty;
-        } else if (txnDate >= fourteenDaysAgo) {
-          entry.prev7dSales += qty;
-        }
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
 
-        entry.transactionCount += r.transactionCount ?? 1;
+        for (const item of items) {
+          if (item.isCancelled) continue;
+          const entry = getOrCreate(
+            item.productName,
+            item.productName,
+            item.menuProductId as string | undefined
+          );
+
+          if (isWeekend(txnDate)) {
+            entry.weekendSalesTotal += item.quantity;
+          } else {
+            entry.weekdaySalesTotal += item.quantity;
+          }
+
+          if (txnDate >= sevenDaysAgo) {
+            entry.last7dSales += item.quantity;
+          } else if (txnDate >= fourteenDaysAgo) {
+            entry.prev7dSales += item.quantity;
+          }
+
+          entry.transactionCount += 1;
+        }
       }
     }
 
