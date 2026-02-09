@@ -9,6 +9,7 @@ import { expect, test, describe } from "vitest";
 import { internal } from "../../convex/_generated/api";
 import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
+import { createMenuProduct, createExternalRevenue } from "./helpers";
 
 // ============================================
 // Helper: create a test outlet
@@ -631,5 +632,300 @@ describe("updateOutletSyncStatus", () => {
 
     expect(outlet!.lastSyncStatus).toBe("error");
     expect(outlet!.lastSyncError).toBe("API timeout");
+  });
+});
+
+// ============================================
+// saveRevenueItems Tests - 3 tests
+// ============================================
+describe("saveRevenueItems", () => {
+  test("inserts items for a revenue record", async () => {
+    const t = convexTest(schema);
+    const revenueId = await createExternalRevenue(t, { source: "gobiz" });
+
+    const ids = await t.mutation(internal.externalData.mutations.saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "item-1",
+          productName: "Frollie Original",
+          unitPrice: 25000,
+          quantity: 2,
+          totalPrice: 50000,
+          isAutoMatched: false,
+        },
+        {
+          externalItemId: "item-2",
+          productName: "Frollie Bite",
+          unitPrice: 15000,
+          quantity: 3,
+          totalPrice: 45000,
+          isAutoMatched: false,
+        },
+      ],
+    });
+
+    expect(ids).toHaveLength(2);
+
+    const items = await t.run(async (ctx) => {
+      return await ctx.db.query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
+        .collect();
+    });
+
+    expect(items).toHaveLength(2);
+    expect(items[0].productName).toBe("Frollie Original");
+    expect(items[1].productName).toBe("Frollie Bite");
+  });
+
+  test("skips duplicate items (same revenueId + externalItemId)", async () => {
+    const t = convexTest(schema);
+    const revenueId = await createExternalRevenue(t, { source: "gobiz" });
+
+    // Insert first time
+    const ids1 = await t.mutation(internal.externalData.mutations.saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "item-1",
+          productName: "Frollie Original",
+          unitPrice: 25000,
+          quantity: 2,
+          totalPrice: 50000,
+          isAutoMatched: false,
+        },
+      ],
+    });
+    expect(ids1).toHaveLength(1);
+
+    // Insert same item again — should be skipped
+    const ids2 = await t.mutation(internal.externalData.mutations.saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "item-1",
+          productName: "Frollie Original",
+          unitPrice: 25000,
+          quantity: 2,
+          totalPrice: 50000,
+          isAutoMatched: false,
+        },
+      ],
+    });
+    expect(ids2).toHaveLength(0);
+
+    // Verify only 1 item in DB
+    const items = await t.run(async (ctx) => {
+      return await ctx.db.query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
+        .collect();
+    });
+    expect(items).toHaveLength(1);
+  });
+
+  test("handles multiple items per revenue", async () => {
+    const t = convexTest(schema);
+    const revenueId = await createExternalRevenue(t, { source: "gobiz" });
+
+    const ids = await t.mutation(internal.externalData.mutations.saveRevenueItems, {
+      revenueId,
+      items: [
+        { externalItemId: "1", productName: "Product A", unitPrice: 10000, quantity: 1, totalPrice: 10000, isAutoMatched: false },
+        { externalItemId: "2", productName: "Product B", unitPrice: 20000, quantity: 2, totalPrice: 40000, isAutoMatched: false },
+        { externalItemId: "3", productName: "Product C", unitPrice: 30000, quantity: 1, totalPrice: 30000, isAutoMatched: false },
+      ],
+    });
+
+    expect(ids).toHaveLength(3);
+  });
+});
+
+// ============================================
+// autoMatchMenuProduct Tests - 4 tests
+// ============================================
+describe("autoMatchMenuProduct", () => {
+  test("matches by exact price + name (exact confidence)", async () => {
+    const t = convexTest(schema);
+    await createMenuProduct(t, { name: "Frollie Original", defaultPrice: 25000 });
+
+    const result = await t.mutation(internal.externalData.mutations.autoMatchMenuProduct, {
+      productName: "Frollie Original",
+      unitPrice: 25000,
+      source: "gobiz",
+    });
+
+    expect(result.linkedMenuProductId).toBeDefined();
+    expect(result.matchConfidence).toBe("exact");
+  });
+
+  test("matches by price only (price_only confidence)", async () => {
+    const t = convexTest(schema);
+    await createMenuProduct(t, { name: "Frollie Original", defaultPrice: 25000 });
+
+    const result = await t.mutation(internal.externalData.mutations.autoMatchMenuProduct, {
+      productName: "Different Name",
+      unitPrice: 25000,
+      source: "gobiz",
+    });
+
+    expect(result.linkedMenuProductId).toBeDefined();
+    expect(result.matchConfidence).toBe("price_only");
+  });
+
+  test("matches by name only (name_only confidence)", async () => {
+    const t = convexTest(schema);
+    await createMenuProduct(t, { name: "Frollie Original", defaultPrice: 25000 });
+
+    const result = await t.mutation(internal.externalData.mutations.autoMatchMenuProduct, {
+      productName: "Frollie Original",
+      unitPrice: 30000, // Different price
+      source: "gobiz",
+    });
+
+    expect(result.linkedMenuProductId).toBeDefined();
+    expect(result.matchConfidence).toBe("name_only");
+  });
+
+  test("returns none when no match found", async () => {
+    const t = convexTest(schema);
+    await createMenuProduct(t, { name: "Frollie Original", defaultPrice: 25000 });
+
+    const result = await t.mutation(internal.externalData.mutations.autoMatchMenuProduct, {
+      productName: "Completely Different Product",
+      unitPrice: 99999,
+      source: "gobiz",
+    });
+
+    expect(result.linkedMenuProductId).toBeUndefined();
+    expect(result.matchConfidence).toBe("none");
+  });
+});
+
+// ============================================
+// getRevenueItems Tests - 2 tests
+// ============================================
+describe("getRevenueItems", () => {
+  test("returns empty array for revenue with no items", async () => {
+    const t = convexTest(schema);
+    const revenueId = await createExternalRevenue(t, { source: "gobiz" });
+
+    const items = await t.query(api.externalData.queries.getRevenueItems, {
+      revenueId,
+    });
+
+    expect(items).toHaveLength(0);
+  });
+
+  test("returns items enriched with menu product name", async () => {
+    const t = convexTest(schema);
+    const revenueId = await createExternalRevenue(t, { source: "gobiz" });
+    const menuProductId = await createMenuProduct(t, { name: "Frollie Original" });
+
+    await t.mutation(internal.externalData.mutations.saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "item-1",
+          productName: "Frollie Original",
+          unitPrice: 25000,
+          quantity: 2,
+          totalPrice: 50000,
+          linkedMenuProductId: menuProductId,
+          isAutoMatched: true,
+          matchConfidence: "exact",
+        },
+      ],
+    });
+
+    const items = await t.query(api.externalData.queries.getRevenueItems, {
+      revenueId,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].menuProductName).toBe("Frollie Original");
+    expect(items[0].matchConfidence).toBe("exact");
+  });
+});
+
+// ============================================
+// getDashboardSummary commission fields - 1 test
+// ============================================
+describe("getDashboardSummary commission fields", () => {
+  test("includes totalCommission, totalAdBurn, totalPromoBurn", async () => {
+    const t = convexTest(schema);
+    const now = Date.now();
+
+    await createExternalRevenue(t, {
+      source: "gobiz",
+      revenueGross: 100000,
+      revenueNet: 80000,
+      commission: 5000,
+      adBurn: 2000,
+      promoBurn: 3000,
+      periodStart: now - 3600000,
+      periodEnd: now,
+    });
+
+    await createExternalRevenue(t, {
+      source: "k3mart",
+      revenueGross: 200000,
+      revenueNet: 160000,
+      commission: 10000,
+      adBurn: 4000,
+      promoBurn: 6000,
+      periodStart: now - 3600000,
+      periodEnd: now,
+    });
+
+    const result = await t.query(api.externalData.queries.getDashboardSummary, {});
+
+    expect(result.recentRevenue.totalCommission).toBe(15000); // 5k + 10k
+    expect(result.recentRevenue.totalAdBurn).toBe(6000); // 2k + 4k
+    expect(result.recentRevenue.totalPromoBurn).toBe(9000); // 3k + 6k
+  });
+});
+
+// ============================================
+// saveDirectToken refresh token - 1 test
+// ============================================
+describe("saveDirectToken refresh token", () => {
+  test("stores refresh token alongside bearer token", async () => {
+    const t = convexTest(schema);
+
+    // Create an admin user and session
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "Admin",
+        pinHash: "salt:hash",
+        role: "admin",
+        isActive: true,
+        failedAttempts: 0,
+        createdAt: Date.now(),
+      });
+    });
+
+    const token = await t.run(async (ctx) => {
+      const session = await ctx.db.insert("sessions", {
+        userId,
+        token: "test-token",
+        expiresAt: Date.now() + 3600000,
+        createdAt: Date.now(),
+      });
+      return "test-token";
+    });
+
+    const credId = await t.mutation(api.platformCredentials.mutations.saveDirectToken, {
+      token,
+      platformId: "gobiz",
+      bearerToken: "bearer-abc123",
+      refreshToken: "refresh-xyz789",
+    });
+
+    const cred = await t.run(async (ctx) => {
+      return await ctx.db.get(credId);
+    });
+
+    expect(cred!.currentToken).toBe("bearer-abc123");
+    expect(cred!.refreshToken).toBe("refresh-xyz789");
   });
 });

@@ -93,6 +93,7 @@ export const saveDirectToken = mutation({
     token: v.string(),
     platformId: v.string(),
     bearerToken: v.string(),
+    refreshToken: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin"]);
@@ -109,6 +110,7 @@ export const saveDirectToken = mutation({
     const data = {
       currentToken: args.bearerToken,
       tokenExpiresAt: estimatedExpiry,
+      refreshToken: args.refreshToken,
       lastRefreshAt: now,
       lastRefreshStatus: "success" as const,
       lastRefreshError: undefined,

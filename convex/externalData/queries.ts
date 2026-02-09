@@ -209,6 +209,9 @@ export const getDashboardSummary = query({
     const totalGross = recentRevenue.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
     const totalNet = recentRevenue.reduce((sum, r) => sum + (r.revenueNet ?? 0), 0);
     const totalTransactions = recentRevenue.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
+    const totalCommission = recentRevenue.reduce((sum, r) => sum + (r.commission ?? 0), 0);
+    const totalAdBurn = recentRevenue.reduce((sum, r) => sum + (r.adBurn ?? 0), 0);
+    const totalPromoBurn = recentRevenue.reduce((sum, r) => sum + (r.promoBurn ?? 0), 0);
 
     return {
       platforms: {
@@ -232,8 +235,42 @@ export const getDashboardSummary = query({
         totalGross,
         totalNet,
         totalTransactions,
+        totalCommission,
+        totalAdBurn,
+        totalPromoBurn,
         periodLabel: "Last 24 hours",
       },
     };
+  },
+});
+
+// ─── REVENUE ITEMS QUERIES ───
+
+export const getRevenueItems = query({
+  args: {
+    revenueId: v.id("externalRevenue"),
+  },
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+      .collect();
+
+    // Enrich with menu product names
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        let menuProductName: string | undefined;
+        if (item.linkedMenuProductId) {
+          const product = await ctx.db.get(item.linkedMenuProductId);
+          menuProductName = product?.name;
+        }
+        return {
+          ...item,
+          menuProductName,
+        };
+      })
+    );
+
+    return enrichedItems;
   },
 });
