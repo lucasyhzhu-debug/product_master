@@ -13,13 +13,18 @@ import {
   ChevronDown,
   ChevronRight,
   Percent,
+  RefreshCw,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   useConvexExternalRevenue,
   useConvexDashboardSalesSummary,
   useConvexRevenueItems,
+  useConvexSyncK3MartSales,
+  useConvexSyncGoBiz,
+  useConvexSyncInternalOrders,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -294,6 +299,7 @@ export function OverviewTab() {
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
   // Fetch data
@@ -303,6 +309,35 @@ export function OverviewTab() {
     useConvexExternalRevenue(
       platformFilter === "all" ? undefined : platformFilter
     );
+
+  // Sync actions
+  const syncK3Mart = useConvexSyncK3MartSales();
+  const syncGoBiz = useConvexSyncGoBiz();
+  const syncInternal = useConvexSyncInternalOrders();
+
+  const handleRefreshAll = async () => {
+    setRefreshing(true);
+    try {
+      const results = await Promise.allSettled([
+        syncK3Mart({ triggeredBy: "refresh-all" }),
+        syncGoBiz({ triggeredBy: "refresh-all" }),
+        syncInternal({ triggeredBy: "refresh-all" }),
+      ]);
+
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      if (failed === 0) {
+        toast.success(`All 3 sources refreshed successfully`);
+      } else {
+        toast.warning(`${succeeded}/3 sources refreshed (${failed} failed)`);
+      }
+    } catch {
+      toast.error("Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Loading state
   if (loadingSummary || summary === undefined) {
@@ -343,6 +378,20 @@ export function OverviewTab() {
 
   return (
     <div className="space-y-6">
+      {/* Refresh All Button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefreshAll}
+          disabled={refreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing..." : "Refresh All"}
+        </Button>
+      </div>
+
       {/* Stats Cards */}
       <div className={`grid gap-4 md:grid-cols-2 ${hasCommission ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <Card>
