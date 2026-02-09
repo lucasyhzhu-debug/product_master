@@ -658,6 +658,63 @@ Scans K3Mart outlet IDs 1 through maxOutletId, saves matching outlets with real 
 
 **Outlet Name Resolution:** Uses `K3MART_OUTLET_NAMES` config map (7 known outlets) via `resolveOutletName()` helper. Unknown outlets fall back to `"K3 Mart #N"`.
 
+#### `integrations.k3mart.adapter.syncK3MartStock`
+Fast stock refresh for active K3 Mart outlets only (no discovery scan). Polls each outlet's current stock and saves snapshots.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| triggeredBy | string? | Who triggered the sync |
+
+**Returns:** `{ success, syncLogId, outletsPolled, totalStockUnits, errors, durationMs }`
+
+**Flow:**
+1. Read API token from DB (`platformCredentials`) or env var `K3MART_API_TOKEN`
+2. Fetch active outlets from `externalOutlets` (source="k3mart", isActive=true)
+3. For each outlet: GET `/vendor-stock/get-dashboard?outletId={externalId}`
+4. Filter products by keyword ("dubai"), transform, and save as `externalStockSnapshots`
+5. Update outlet `lastSyncAt` / `lastSyncStatus` on success
+6. 300ms delay between outlets for rate limiting
+
+**K3 Mart Stock Dashboard API:**
+```
+GET https://consapi.k3mart.id/api/v1/vendor-stock/get-dashboard
+  ?outletId={numericId}
+  &page=1
+  &pageSize=100
+  &order=-quantity
+Headers:
+  Authorization: JWT {token}
+  Origin: https://umkm.k3mart.id
+  Referer: https://umkm.k3mart.id/
+```
+
+**Response format:** `{ data: { data: K3MartProduct[], meta: { totalPages, currentPage, pageSize, totalCount } } }`
+
+**IMPORTANT — API returns flat dotted keys (as of 2026-02-09):**
+The K3 Mart dashboard API returns product fields with dot-notation keys at the top level, NOT as a nested `product` object. Example raw response item:
+```json
+{
+  "id": 115433,
+  "outlet_id": 44,
+  "product_id": 47069,
+  "price": 45000,
+  "quantity": 14,
+  "price_grabfood_gofood": 0,
+  "price_grabmart": 0,
+  "price_shopee": 0,
+  "created_at": "2026-02-07T07:48:26.000Z",
+  "updated_at": "2026-02-08T07:44:18.000Z",
+  "product.capital": 0,
+  "product.vendor_id": 3131,
+  "product.photo": null,
+  "product.product_code": "F03131-P00002",
+  "product.product_name": "Dubai Chewy Cookie",
+  "product.productImage": "uploads/consignmentproducts/Jan2026/xyz.jpeg"
+}
+```
+
+Helper functions `getProductName()`, `getProductCode()`, `getProductCapital()` handle both flat-dotted and nested formats for forward compatibility.
+
 #### `integrations.k3mart.adapter.syncK3MartSales`
 Syncs K3Mart sales transactions with incremental date range and outlet linking.
 
@@ -859,6 +916,95 @@ Links an external product to an internal menu product.
 | token | string | Auth token |
 | mappingId | Id<"externalProductMappings"> | Mapping ID |
 | menuProductId | Id<"menuProducts">? | Internal product (null to unlink) |
+
+### Restock Planner Queries
+
+#### `externalData.queries.getRestockOverview`
+Returns all active channels/outlets with current stock + demand summary. Powers the main restock grid.
+
+**Args:** None
+
+**Returns:**
+```typescript
+{
+  summary: { activeChannels: number, lowStockAlerts: number, lastSyncAt: number | null },
+  channels: [{
+    type: "k3mart" | "gobiz" | "internal",
+    outletId?: Id<"externalOutlets">,
+    outletName?: string,
+    lastSnapshotAt?: number,        // K3 Mart only
+    products: [{
+      productKey: string,
+      productName: string,
+      currentStock?: number,         // K3 Mart: from snapshots; GoBiz/Internal: from manual entries
+      dailyRate: number,
+      daysRemaining?: number,        // K3 Mart only
+      status?: "critical" | "warning" | "ok",  // K3 Mart only
+    }],
+    criticalCount?: number,          // K3 Mart only
+    warningCount?: number,           // K3 Mart only
+    totalDailyDemand: number,
+  }]
+}
+```
+
+**Logic:** Aggregates stock snapshots (K3 Mart), manual stock entries (GoBiz/Internal), and 14-day revenue data across all channels. Status thresholds: critical < 1 day, warning < 2 days, ok >= 2 days.
+
+#### `externalData.queries.getChannelSellThrough`
+Detailed per-channel sell-through analysis with weekday/weekend split and restock suggestions.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| channel | `"k3mart" \| "gobiz" \| "internal"` | Channel to analyze |
+| outletId | Id<"externalOutlets">? | Specific outlet (K3 Mart) |
+
+**Returns:**
+```typescript
+{
+  channel: { type, outletId?, outletName?, lastSnapshotAt? },
+  products: [{
+    productKey, productName, menuProductId?,
+    currentStock?,
+    weekdaySalesTotal, weekendSalesTotal, totalSold30d,
+    weekdayDailyRate, weekendDailyRate, overallDailyRate,
+    daysRemaining?, status?,
+    suggestedWeekday, suggestedWeekend,      // computed: rate × days × 1.2 buffer
+    targetWeekday?, targetWeekend?,           // user-saved overrides
+    last7dSales, prev7dSales,
+    trendDirection: "up" | "down" | "flat",
+    transactionCount,
+    confidence: "high" | "medium" | "low",
+  }]
+}
+```
+
+**Logic:** 30-day sales window. Weekday/weekend split using WIB timezone. Suggestions: weekday = ceil(weekdayRate × 5 × 1.2), weekend = ceil(weekendRate × 2 × 1.2). Products with stock but no sales are included. Sorted by daysRemaining asc (K3 Mart) or demand desc (others).
+
+### Restock Planner Mutations (Auth Required: manager, admin)
+
+#### `restock.mutations.saveRestockTarget`
+Upserts a restock target for a channel/outlet/product combination.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| channel | string | Channel type |
+| outletId | Id<"externalOutlets">? | Outlet (K3 Mart only) |
+| productKey | string | Product identifier |
+| menuProductId | Id<"menuProducts">? | Linked menu product |
+| weekdayTarget | number | Weekday restock quantity |
+| weekendTarget | number | Weekend restock quantity |
+
+#### `restock.mutations.updateManualStock`
+Updates manual stock entry for GoBiz/Internal channels.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token |
+| channel | string | Channel type (not "k3mart") |
+| productKey | string | Product identifier |
+| menuProductId | Id<"menuProducts">? | Linked menu product |
+| quantity | number | Current stock count |
 
 ---
 
