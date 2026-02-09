@@ -171,6 +171,116 @@ export const removeItem = mutation({
 });
 
 /**
+ * Replace all items in an order.
+ * Used by the "Edit Order" flow to update items in bulk.
+ * Only allowed for Draft and AwaitingPayment orders.
+ */
+export const replaceItems = mutation({
+  args: {
+    orderId: v.id("orders"),
+    items: v.array(orderItemInput),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    if (!["Draft", "AwaitingPayment"].includes(order.status)) {
+      throw new Error("Can only edit items for Draft or AwaitingPayment orders");
+    }
+
+    if (args.items.length === 0) {
+      throw new Error("Order must have at least one item");
+    }
+
+    // Auto-release voucher when order is modified
+    await clearVoucherFromOrder(ctx, args.orderId);
+
+    // Delete all existing items and their production records
+    const existingItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    for (const item of existingItems) {
+      await deleteProductionRecordsForItem(ctx, item._id);
+      await ctx.db.delete(item._id);
+    }
+
+    // Insert new items and calculate totals
+    let totalAmount = 0;
+    let totalCost = 0;
+    let totalMargin = 0;
+
+    for (const itemInput of args.items) {
+      const discount = itemInput.discountAmount ?? 0;
+      const { lineTotal, lineCost, lineMargin } = calculateLineTotals(
+        itemInput.quantity,
+        itemInput.unitPrice,
+        itemInput.unitCost,
+        discount
+      );
+
+      // Fetch menu product data for production fields
+      let productionType: string | undefined;
+      let productionUnits: number | undefined;
+
+      if (itemInput.menuProductId) {
+        const menuProduct = await ctx.db.get(itemInput.menuProductId);
+        if (menuProduct) {
+          productionType = menuProduct.productionType;
+          productionUnits = menuProduct.productionUnits;
+        }
+      }
+
+      const itemId = await ctx.db.insert("orderItems", {
+        orderId: args.orderId,
+        productName: itemInput.productName,
+        productVariant: itemInput.productVariant,
+        quantity: itemInput.quantity,
+        unitPrice: itemInput.unitPrice,
+        unitCost: itemInput.unitCost,
+        discountAmount: discount,
+        lineTotal,
+        lineCost,
+        lineMargin,
+        menuProductId: itemInput.menuProductId,
+        productionType,
+        productionUnits,
+      });
+
+      // Create production records
+      if (itemInput.menuProductId) {
+        await createProductionRecordsForItem(ctx, itemId, itemInput.menuProductId, itemInput.quantity);
+      }
+
+      totalAmount += lineTotal;
+      totalCost += lineCost;
+      totalMargin += lineMargin;
+    }
+
+    // Recalculate finalTotal with order-level discount (voucher already cleared)
+    const newFinalTotal = recalculateFinalTotal(
+      totalAmount,
+      order.orderLevelDiscount,
+      order.orderLevelDiscountType
+    );
+
+    // Update order totals
+    await ctx.db.patch(args.orderId, {
+      totalAmount,
+      totalCost,
+      totalMargin,
+      itemCount: args.items.length,
+      finalTotal: newFinalTotal,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Update order item quantity.
  */
 export const updateItemQuantity = mutation({

@@ -37,6 +37,8 @@ import {
   useConvexPosProducts,
   useConvexPackagingPosProducts,
   useConvexCreateOrder,
+  useConvexReplaceOrderItems,
+  useConvexOrder,
   useConvexCustomerSearch,
   useConvexOrderTemplate,
   type OrderCreateInput,
@@ -54,6 +56,7 @@ const LOW_PRICE_THRESHOLD = 20000;
 interface OrderFormPOSProps {
   onSuccess?: (orderId: string) => void;
   onCancel?: () => void;
+  editOrderId?: string;
 }
 
 // Animation variants
@@ -75,13 +78,16 @@ const scaleIn = {
   exit: { opacity: 0, scale: 0.95 },
 };
 
-export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
+export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
+  const isEditMode = !!editOrderId;
+
   // ============================================
   // State Management
   // ============================================
 
   // Items
   const [items, setItems] = useState<OrderLineItem[]>([]);
+  const [editInitialized, setEditInitialized] = useState(false);
 
   // Customer
   const [selectedCustomerId, setSelectedCustomerId] = useState<Id<"customers"> | null>(null);
@@ -134,6 +140,72 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   const { data: orderTemplate, isLoading: templateLoading } = useConvexOrderTemplate();
 
   const createOrder = useConvexCreateOrder();
+  const replaceOrderItems = useConvexReplaceOrderItems();
+
+  // Edit mode: load existing order
+  const { data: editOrder } = useConvexOrder(
+    editOrderId ? editOrderId as Id<"orders"> : undefined
+  );
+
+  // Pre-fill form from existing order (once)
+  if (isEditMode && editOrder && !editInitialized && posProducts.length > 0) {
+    const orderItems: OrderLineItem[] = editOrder.items.map((item) => {
+      // Try to match with a POS product for the productId
+      const matchedProduct = posProducts.find(
+        (p) => p.name.toLowerCase() === item.product_name.toLowerCase()
+      );
+      return {
+        productId: matchedProduct?._id ?? String(item.id),
+        productCode: matchedProduct?.code ?? '',
+        productName: item.product_name,
+        grams: matchedProduct?.grams ?? 0,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        unitCost: item.unit_cost || 0,
+        lineTotal: item.line_total,
+      };
+    });
+    setItems(orderItems);
+
+    // Pre-fill customer: try as existing customer first, fall back to new
+    if (editOrder.customer_id) {
+      // customer_id is actually a Convex Id<"customers"> cast to number
+      setSelectedCustomerId(editOrder.customer_id as unknown as Id<"customers">);
+      setCustomerSearch(editOrder.customer_name || '');
+      setIsNewCustomer(false);
+    } else if (editOrder.customer_name) {
+      setCustomerName(editOrder.customer_name);
+      setCustomerSearch(editOrder.customer_name);
+      setIsNewCustomer(true);
+    }
+    if (editOrder.customer_phone) {
+      setCustomerPhone(editOrder.customer_phone);
+    }
+    if (editOrder.delivery_type === 'Delivery') {
+      setDeliveryType('Delivery');
+      setDeliveryAddress(editOrder.delivery_address || '');
+    }
+    if (editOrder.due_date) {
+      setDueDate(new Date(editOrder.due_date).toISOString().split('T')[0]);
+    }
+    if (editOrder.notes) {
+      setNotes(editOrder.notes);
+    }
+
+    // Pre-fill voucher if one was applied
+    if (editOrder.voucher_code && editOrder.voucher_discount_value) {
+      setAppliedVoucher({
+        id: '',
+        code: editOrder.voucher_code,
+        name: editOrder.voucher_code,
+        discountType: 'amount',
+        discountValue: editOrder.voucher_discount_value,
+        calculatedDiscount: editOrder.voucher_discount_value,
+      });
+    }
+
+    setEditInitialized(true);
+  }
 
   const { hasPermission } = useAuth();
   const canCreateOverride = hasPermission("canCreateOverrideVoucher");
@@ -373,37 +445,50 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
   const executeSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const orderData: OrderCreateInput = {
-        customerId: !isNewCustomer ? selectedCustomerId ?? undefined : undefined,
-        newCustomer:
-          isNewCustomer || (!selectedCustomerId && customerName)
-            ? { name: customerName || customerSearch, phone: customerPhone || undefined }
-            : undefined,
-        deliveryType,
-        deliveryAddress: deliveryType === 'Delivery' ? deliveryAddress : undefined,
-        dueDate: new Date(dueDate).getTime(),
-        notes: notes || undefined,
-        // Include voucher code if applied (vouchers are the only discount method)
-        voucherCode: appliedVoucher?.code,
-        // Include low price confirmation flag
-        lowPriceConfirmed: lowPriceConfirmed || undefined,
-        items: items.map((item) => ({
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          unitCost: item.unitCost || 0,
-          // Include menuProductId for Kitchen View ball tracking
-          menuProductId: item.productId as Id<"menuProducts">,
-        })),
-      };
+      if (isEditMode && editOrderId) {
+        // Edit mode: replace items on existing order
+        await replaceOrderItems.mutate({
+          orderId: editOrderId as Id<"orders">,
+          items: items.map((item) => ({
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            unitCost: item.unitCost || 0,
+            menuProductId: item.productId as Id<"menuProducts">,
+          })),
+        });
+        toast.success('Order updated successfully!');
+        onSuccess?.(editOrderId);
+      } else {
+        // Create mode
+        const orderData: OrderCreateInput = {
+          customerId: !isNewCustomer ? selectedCustomerId ?? undefined : undefined,
+          newCustomer:
+            isNewCustomer || (!selectedCustomerId && customerName)
+              ? { name: customerName || customerSearch, phone: customerPhone || undefined }
+              : undefined,
+          deliveryType,
+          deliveryAddress: deliveryType === 'Delivery' ? deliveryAddress : undefined,
+          dueDate: new Date(dueDate).getTime(),
+          notes: notes || undefined,
+          voucherCode: appliedVoucher?.code,
+          lowPriceConfirmed: lowPriceConfirmed || undefined,
+          items: items.map((item) => ({
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            unitCost: item.unitCost || 0,
+            menuProductId: item.productId as Id<"menuProducts">,
+          })),
+        };
 
-      const orderId = await createOrder.mutateAsync(orderData);
-      toast.success('Order created successfully!');
-
-      onSuccess?.(orderId as unknown as string);
+        const orderId = await createOrder.mutateAsync(orderData);
+        toast.success('Order created successfully!');
+        onSuccess?.(orderId as unknown as string);
+      }
     } catch (error) {
-      console.error('Failed to create order:', error);
-      const message = error instanceof Error ? error.message : 'Failed to create order';
+      console.error(`Failed to ${isEditMode ? 'update' : 'create'} order:`, error);
+      const message = error instanceof Error ? error.message : `Failed to ${isEditMode ? 'update' : 'create'} order`;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -446,7 +531,11 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
       >
         <div className="flex items-center justify-between">
           <h2 className="order-form-heading text-3xl font-bold text-[#2D3748]">
-            New Order
+            {isEditMode && editOrder
+              ? `Editing - Order for ${editOrder.customer_name} ${editOrder.order_number}`
+              : isEditMode
+                ? 'Loading Order...'
+                : 'New Order'}
           </h2>
           <div className="flex items-center gap-2">
             {completionSteps.map((step, index) => (
@@ -953,12 +1042,12 @@ export function OrderFormPOS({ onSuccess }: OrderFormPOSProps) {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      Creating Order...
+                      {isEditMode ? 'Saving...' : 'Creating Order...'}
                     </>
                   ) : (
                     <>
                       <Send className="h-5 w-5 mr-2" />
-                      Create Order
+                      {isEditMode ? 'Save Order' : 'Create Order'}
                     </>
                   )}
                 </Button>

@@ -6,11 +6,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ============================================
@@ -58,7 +56,7 @@ export function ChannelButtons({
   className,
 }: ChannelButtonsProps) {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
-  const [customChannel, setCustomChannel] = React.useState('');
+
 
   // Fetch top channels from usage tracking
   const topChannels = useQuery(api.channels.queries.getTopChannels, { limit: 4 });
@@ -93,14 +91,6 @@ export function ChannelButtons({
     return CHANNEL_DISPLAY[channel] || { short: channel.slice(0, 3).toUpperCase(), full: channel };
   };
 
-  // Handle custom channel submission
-  const handleAddCustom = React.useCallback(() => {
-    if (customChannel.trim()) {
-      onChange(customChannel.trim().toLowerCase() as Channel);
-      setCustomChannel('');
-      setDropdownOpen(false);
-    }
-  }, [customChannel, onChange]);
 
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
@@ -172,34 +162,6 @@ export function ChannelButtons({
             );
           })}
 
-          {dropdownChannels.length > 0 && <DropdownMenuSeparator />}
-
-          {/* Custom channel input */}
-          <div className="p-2">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Custom channel..."
-                value={customChannel}
-                onChange={(e) => setCustomChannel(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddCustom();
-                  }
-                }}
-                className="h-10 sm:h-8 text-base sm:text-sm"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleAddCustom}
-                disabled={!customChannel.trim()}
-                className="h-10 w-10 sm:h-8 sm:w-8 p-0"
-              >
-                <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
-              </Button>
-            </div>
-          </div>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

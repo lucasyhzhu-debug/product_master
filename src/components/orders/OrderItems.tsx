@@ -70,7 +70,7 @@ export function OrderItems({
           <Separator />
 
           <div className="space-y-2">
-            {hasAnyDiscount && (
+            {hasManualDiscount && (
               <>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
