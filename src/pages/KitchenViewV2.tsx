@@ -20,6 +20,7 @@ import {
   DailySummaryWidget,
   BatchConfirmDialog,
 } from '@/components/kitchen';
+import { usePendingBallStats } from '@/hooks/convex/usePendingBallStats';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -36,6 +37,7 @@ export function KitchenViewV2() {
   const kitchenOrders = useQuery(api.orders.queries.getKitchenOrders, {});
   const trayInventory = useQuery(api.orders.queries.getTrayInventory, {});
   const packagingStockData = useQuery(api.inventory.queries.getPackagingStockSummary, {});
+  const kitchenStats = useQuery(api.orders.queries.getKitchenStats, {});
 
   // Mutations
   const fillPackageMutation = useMutation(api.orders.mutations.fillPackage);
@@ -111,6 +113,7 @@ export function KitchenViewV2() {
         _id: order._id as unknown as Id<'orders'>,
         orderNumber: order.orderNumber,
         customerName: order.customerName ?? 'Unknown',
+        orderStatus: order.status,
         items: orderItems,
         totalPackages,
         totalPackagesFilled,
@@ -164,6 +167,16 @@ export function KitchenViewV2() {
     }
   };
 
+  const handleMarkBoxed = async (orderId: Id<'orders'>) => {
+    try {
+      await updateOrderStatus({ orderId, status: 'Boxed' });
+      toast.success('Order marked as boxed');
+    } catch (error) {
+      console.error('Failed to mark boxed:', error);
+      toast.error('Failed to mark as boxed');
+    }
+  };
+
   const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number) => {
     try {
       await addBallsToTray({ ballType, count });
@@ -202,61 +215,62 @@ export function KitchenViewV2() {
   };
 
   const handleConfirmBatch = async () => {
-    try {
-      for (const orderId of batchDialog.orderIds) {
+    const succeeded: string[] = [];
+    const failed: string[] = [];
+
+    for (const orderId of batchDialog.orderIds) {
+      try {
         await updateOrderStatus({ orderId, status: 'Labeled' });
+        succeeded.push(orderId);
+      } catch (error) {
+        console.error(`Failed to label order ${orderId}:`, error);
+        // Find the order number for the error message
+        const order = stickeringOrders.find((o) => o._id === orderId);
+        failed.push(order?.orderNumber ?? orderId);
       }
-      toast.success(`${batchDialog.orderIds.length} orders labeled`);
-      setBatchDialog({ ...batchDialog, open: false });
-    } catch (error) {
-      console.error('Failed to batch sticker:', error);
-      toast.error('Failed to apply stickers');
+    }
+
+    setBatchDialog({ ...batchDialog, open: false });
+
+    if (failed.length === 0) {
+      toast.success(`${succeeded.length} orders labeled`);
+    } else if (succeeded.length === 0) {
+      toast.error('Failed to label all orders');
+    } else {
+      toast.warning(
+        `${succeeded.length} of ${batchDialog.orderIds.length} orders labeled. Failed: ${failed.join(', ')}`
+      );
     }
   };
 
-  const handleMarkShipped = async (orderId: Id<'orders'>) => {
+  const handleMarkShipped = async (orderId: Id<'orders'>, deliveryType?: string) => {
     try {
-      await updateOrderStatus({ orderId, status: 'CompleteShipped' });
-      toast.success('Order marked as shipped');
+      const isPickup = deliveryType?.toLowerCase().includes('pickup');
+      const status = isPickup ? 'WaitingPickup' : 'WaitingShipment';
+      await updateOrderStatus({ orderId, status });
+      toast.success(isPickup ? 'Order ready for pickup' : 'Order marked for shipping');
     } catch (error) {
       console.error('Failed to mark shipped:', error);
-      toast.error('Failed to mark shipped');
+      toast.error('Failed to update order status');
     }
   };
 
   const isLoading = kitchenOrders === undefined;
 
-  // Mock daily stats
+  // Daily stats from real kitchen data
   const dailyStats = {
-    ballsProduced: 0,
-    ordersCompleted: 0,
+    ballsProduced: (kitchenStats?.bigBallsCompleted ?? 0) + (kitchenStats?.midBallsCompleted ?? 0),
+    ordersCompleted: kitchenStats?.ordersCompletedToday ?? 0,
     packagesBoxed: 0,
     stickersApplied: 0,
-    inventoryConsumed: [],
+    inventoryConsumed: [] as { name: string; quantity: number }[],
   };
 
   // Real packaging inventory from Convex
   const packagingInventory = packagingStockData ?? [];
 
-  // Calculate pending ball stats
-  const pendingBallStats = useMemo(() => {
-    let originalCount = 0;
-    let originalBalls = 0;
-    let biteSizedCount = 0;
-    let biteSizedBalls = 0;
-
-    for (const order of transformedBoxingOrders) {
-      for (const item of order.items) {
-        const remaining = item.quantity - item.filled;
-        if (remaining > 0) {
-          originalCount++;
-          originalBalls += remaining * item.ballsPerPackage;
-        }
-      }
-    }
-
-    return { originalCount, originalBalls, biteSizedCount, biteSizedBalls };
-  }, [transformedBoxingOrders]);
+  // Calculate pending ball stats using shared hook (supports both original and bite-sized)
+  const pendingBallStats = usePendingBallStats(boxingOrders);
 
   if (isLoading) {
     return <LoadingCards count={4} />;
@@ -335,8 +349,10 @@ export function KitchenViewV2() {
                   <BoxingOrderCard
                     key={order._id}
                     order={order}
+                    orderStatus={order.orderStatus}
                     onFillPackage={handleFillPackage}
                     onUnfillPackage={handleUnfillPackage}
+                    onMarkBoxed={() => handleMarkBoxed(order._id)}
                     disabled={!canEditKitchen}
                   />
                 ))}
@@ -402,7 +418,7 @@ export function KitchenViewV2() {
                   <ReadyToShipCard
                     key={order._id}
                     order={order}
-                    onMarkShipped={() => handleMarkShipped(order._id)}
+                    onMarkShipped={() => handleMarkShipped(order._id, order.deliveryType)}
                     disabled={!canEditKitchen}
                   />
                 ))}
@@ -435,14 +451,12 @@ export function KitchenViewV2() {
         summary={{
           orderCount: batchDialog.orderIds.length,
           packageCount: batchDialog.orderIds.length,
-          consumables: [
-            {
-              name: 'Box Sticker',
-              quantity: batchDialog.orderIds.length,
-              available: 150,
-              isLow: false,
-            },
-          ],
+          consumables: (packagingStockData ?? []).map((item) => ({
+            name: item.name,
+            quantity: batchDialog.orderIds.length,
+            available: item.available,
+            isLow: item.isLow,
+          })),
           totalCOGS: 0,
         }}
         onConfirm={handleConfirmBatch}
