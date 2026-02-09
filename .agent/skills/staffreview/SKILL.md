@@ -133,10 +133,49 @@ Identify specific opportunities:
 - Are there blocking dependencies that could cause delays?
 - Is the scope realistic for the stated timeline (if any)?
 
-#### 3.6 Testing Strategy
-- Are test checkpoints included at each phase?
-- Is there a clear verification strategy?
-- Are edge cases considered in testing?
+#### 3.6 Testing Plan Review
+
+Critically evaluate the plan's testing approach. **Inadequate testing is a Critical issue, not a Refinement.**
+
+##### 3.6.1 Test Coverage Assessment
+- Does the plan specify **what** will be tested (unit, integration, e2e)?
+- Are **all new backend functions** (queries, mutations, helpers) covered by tests?
+- Are **all new frontend components** covered by at least smoke tests?
+- Is the test-to-code ratio reasonable? (Rule of thumb: every new module needs tests)
+- Does the plan mention running `npm run test` or `npx vitest` at any point?
+
+##### 3.6.2 Backend Testing (Convex)
+- Are there `convex-test` tests planned for new mutations and queries?
+- Do mutation tests cover: valid input, invalid input, auth rejection, edge cases?
+- Do query tests verify correct filtering, sorting, and empty-state returns?
+- Are helper/utility functions tested independently?
+- If cost calculations are involved, are there tests with known expected outputs?
+
+##### 3.6.3 Frontend Testing
+- Are React component tests planned (render, user interaction, loading/error states)?
+- Are custom hooks tested with mock Convex data?
+- For form-heavy features: are validation rules tested?
+- Are conditional renders tested (empty states, permission-based visibility)?
+
+##### 3.6.4 Integration & Manual Testing
+- Is there a manual test plan for UI flows that can't be fully automated?
+- Are real-time subscription behaviors verified (data appears without refresh)?
+- Are cross-role scenarios tested (admin vs kitchen vs order_staff see different things)?
+- Are destructive actions tested with confirmation dialogs?
+
+##### 3.6.5 Edge Case & Regression Testing
+- Are boundary values tested (zero, negative, max, null, undefined)?
+- Are concurrent user scenarios considered?
+- Does the plan identify which existing tests might break and need updating?
+- Are there regression tests to ensure existing functionality isn't broken?
+
+##### 3.6.6 Testing Verdict
+Rate the testing plan:
+- **Adequate**: Tests cover happy path + error cases + edge cases for all new code
+- **Insufficient**: Tests exist but miss significant paths or components
+- **Missing**: No testing plan or only "run build" as verification
+
+**If Insufficient or Missing, raise as a Critical Issue with specific recommendations for what tests to add.**
 
 #### 3.7 Git Workflow Compliance
 Check that the plan includes proper version control practices:
@@ -389,7 +428,37 @@ The plan should commit at these natural boundaries:
 
 ---
 
-## 10. Edge Cases to Address
+## 10. Testing Plan Assessment
+
+**Overall Testing Verdict:** {Adequate / Insufficient / Missing}
+
+### Planned Tests
+| Layer | What's Tested | Test Type | Status |
+|-------|---------------|-----------|--------|
+| Backend | {mutation/query} | convex-test | {Planned / Missing} |
+| Frontend | {component/hook} | Vitest + RTL | {Planned / Missing} |
+| Integration | {flow description} | Manual / E2E | {Planned / Missing} |
+
+### Missing Test Coverage (Must Add)
+Tests that MUST be included for this plan to be approved:
+
+| # | Missing Test | Why It Matters | Suggested Approach |
+|---|--------------|----------------|-------------------|
+| 1 | {e.g., "Unit tests for new cost calculation helper"} | {e.g., "Financial calculations must be verified"} | {e.g., "convex-test with known input/output pairs"} |
+
+### Test Execution Checkpoints
+The plan should run tests at these points:
+1. After backend implementation: `npm run test` (all existing + new backend tests pass)
+2. After frontend implementation: `npm run test` (all existing + new frontend tests pass)
+3. Before merge: Full `npm run test && npm run build` verification
+
+### Regression Risk
+- {List any existing tests that may be affected by these changes}
+- {List any existing features that should be manually smoke-tested}
+
+---
+
+## 11. Edge Cases to Address
 
 The plan should explicitly handle:
 
@@ -399,7 +468,7 @@ The plan should explicitly handle:
 
 ---
 
-## 11. Approval Conditions
+## 12. Approval Conditions
 
 **For Approval, address:**
 1. {Critical issue 1}
@@ -489,6 +558,8 @@ Claude:
 - "Will this be easy to maintain?"
 - "Where are the natural commit boundaries?"
 - "Can I commit and verify incrementally?"
+- "Where are the tests? What's NOT being tested?"
+- "Would I approve a PR with this level of test coverage?"
 
 **Principal Developer thinks:**
 - "Does this fit our architecture?"
@@ -497,6 +568,7 @@ Claude:
 - "Will future developers understand this?"
 - "Can we safely roll this back if it fails?"
 - "Is the deployment sequence correct?"
+- "If this breaks in production, will we know? Will tests catch regressions?"
 
 ## Common Issues to Watch For
 
@@ -518,6 +590,15 @@ Claude:
 - Creating tight coupling
 - Ignoring real-time implications
 - Missing authorization checks
+
+### Testing Issues
+- No tests planned at all ("just run build" is NOT a test plan)
+- Tests only cover happy path, no error/edge cases
+- Backend mutations tested without auth rejection cases
+- No regression test strategy for affected existing features
+- Missing manual test plan for UI-heavy changes
+- No test execution checkpoint between implementation phases
+- Cost/financial calculations without known-value test cases
 
 ### Documentation Issues
 - No test verification steps
