@@ -2,13 +2,8 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
   ShoppingCart,
   UtensilsCrossed,
-  Apple,
-  PackageOpen,
-  BookOpen,
-  Package,
   Users,
   LogOut,
   User,
@@ -20,34 +15,51 @@ import {
   Tag,
   TrendingUp,
   Store,
+  Settings,
+  Shield,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getRoleDisplayName } from '@/lib/types';
+import { getRoleDisplayName, ROLE_PERMISSIONS } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-// Define all navigation items with permission requirements
-// Items with hidden: true are temporarily disabled for all users
-const allNavItems = [
-  { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' as const },
-  { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' as const },
-  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' as const },
-  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' as const },
-  { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' as const },
-  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' as const },
-  { path: '/restock', label: 'Restock', icon: Store, permission: 'canAccessSalesAnalytics' as const },
-  // Admin section
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'canAccessDashboard' as const },
-  { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' as const },
-  { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' as const },
-  { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' as const },
-  // Hidden legacy pages
-  { path: '/recipes', label: 'Recipes', icon: BookOpen, permission: 'canAccessRecipes' as const, hidden: true },
-  { path: '/packaging', label: 'Packaging', icon: Package, permission: 'canAccessRecipes' as const, hidden: true },
-  { path: '/products', label: 'Products', icon: Package, permission: 'canAccessProducts' as const, hidden: true },
-  { path: '/ingredients', label: 'Ingredients', icon: Apple, permission: 'canAccessIngredients' as const, hidden: true },
-  { path: '/materials', label: 'Materials', icon: PackageOpen, permission: 'canAccessMaterials' as const, hidden: true },
+type PermissionKey = keyof (typeof ROLE_PERMISSIONS)["admin"];
+
+type NavItem = {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission: PermissionKey;
+};
+
+// Main nav items - visible based on individual permissions
+const mainNavItems: NavItem[] = [
+  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
+  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
+  { path: '/restock', label: 'Restock', icon: Store, permission: 'canAccessSalesAnalytics' },
+];
+
+// Configurations dropdown - Manager + Admin
+const configItems: NavItem[] = [
+  { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
+  { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
+];
+
+// Admin dropdown - Admin only
+const adminItems: NavItem[] = [
+  { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
+  { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
+  { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
 ];
 
 export function Header() {
@@ -55,17 +67,30 @@ export function Header() {
   const { user, logout, hasPermission } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Filter navigation items based on user permissions and hidden flag
-  const navItems = user
-    ? allNavItems.filter(item => !item.hidden && hasPermission(item.permission))
+  const visibleMainItems = user
+    ? mainNavItems.filter(item => hasPermission(item.permission))
     : [];
+
+  const visibleConfigItems = user
+    ? configItems.filter(item => hasPermission(item.permission))
+    : [];
+
+  const visibleAdminItems = user
+    ? adminItems.filter(item => hasPermission(item.permission))
+    : [];
+
+  const isActive = (path: string) =>
+    location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
+
+  const isDropdownActive = (items: NavItem[]) =>
+    items.some(item => isActive(item.path));
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         {/* Logo and brand */}
         <div className="flex items-center space-x-4">
-          {/* Mobile menu button - only show if user is authenticated */}
+          {/* Mobile menu button */}
           {user && (
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -80,12 +105,10 @@ export function Header() {
                     Menu
                   </SheetTitle>
                 </SheetHeader>
-                <nav className="flex flex-col space-y-3 mt-6">
-                  {navItems.map((item) => {
+                <nav className="flex flex-col space-y-1 mt-6">
+                  {/* Main items */}
+                  {visibleMainItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.pathname === item.path ||
-                      (item.path !== '/' && location.pathname.startsWith(item.path));
-
                     return (
                       <Link
                         key={item.path}
@@ -93,7 +116,7 @@ export function Header() {
                         onClick={() => setMobileMenuOpen(false)}
                         className={cn(
                           "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                          isActive ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                          isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
                         )}
                       >
                         <Icon className="h-5 w-5" />
@@ -101,6 +124,58 @@ export function Header() {
                       </Link>
                     );
                   })}
+
+                  {/* Configurations section */}
+                  {visibleConfigItems.length > 0 && (
+                    <>
+                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                        Configurations
+                      </div>
+                      {visibleConfigItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Admin section */}
+                  {visibleAdminItems.length > 0 && (
+                    <>
+                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                        Admin
+                      </div>
+                      {visibleAdminItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
                 </nav>
               </SheetContent>
             </Sheet>
@@ -113,21 +188,19 @@ export function Header() {
             </span>
           </div>
 
-          {/* Desktop Navigation - only show if user is authenticated */}
+          {/* Desktop Navigation */}
           {user && (
-            <nav className="hidden md:flex items-center space-x-6 text-sm font-medium ml-4">
-              {navItems.map((item) => {
+            <nav className="hidden md:flex items-center space-x-5 text-sm font-medium ml-4">
+              {/* Main nav items */}
+              {visibleMainItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.pathname === item.path ||
-                  (item.path !== '/' && location.pathname.startsWith(item.path));
-
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
                     className={cn(
-                      "flex items-center space-x-2 transition-colors hover:text-foreground/80",
-                      isActive ? "text-foreground" : "text-foreground/60"
+                      "flex items-center space-x-1.5 transition-colors hover:text-foreground/80",
+                      isActive(item.path) ? "text-foreground" : "text-foreground/60"
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -135,6 +208,80 @@ export function Header() {
                   </Link>
                 );
               })}
+
+              {/* Configurations dropdown */}
+              {visibleConfigItems.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
+                        isDropdownActive(visibleConfigItems) ? "text-foreground" : "text-foreground/60"
+                      )}
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Config</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {visibleConfigItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link
+                            to={item.path}
+                            className={cn(
+                              "flex items-center space-x-2 w-full",
+                              isActive(item.path) && "font-medium"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Admin dropdown */}
+              {visibleAdminItems.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
+                        isDropdownActive(visibleAdminItems) ? "text-foreground" : "text-foreground/60"
+                      )}
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span>Admin</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {visibleAdminItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link
+                            to={item.path}
+                            className={cn(
+                              "flex items-center space-x-2 w-full",
+                              isActive(item.path) && "font-medium"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </nav>
           )}
         </div>
@@ -142,7 +289,6 @@ export function Header() {
         {/* User info section */}
         {user && (
           <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* User avatar */}
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -155,7 +301,6 @@ export function Header() {
               </div>
             )}
 
-            {/* User name and role */}
             <div className="hidden sm:flex sm:flex-col sm:items-start">
               <div className="text-sm font-medium">{user.name}</div>
               <Badge variant="secondary" className="text-xs px-1.5 py-0">
@@ -163,7 +308,6 @@ export function Header() {
               </Badge>
             </div>
 
-            {/* Logout button */}
             <Button
               variant="ghost"
               size="icon"

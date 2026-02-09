@@ -105,6 +105,9 @@ export const list = query({
       })
     );
 
+    // Sort by orderDate ascending (earliest transaction first)
+    result.sort((a, b) => a.orderDate - b.orderDate);
+
     return result;
   },
 });
