@@ -314,6 +314,8 @@ export {
   useConvexExternalSyncLogs,
   useConvexExternalProductMappings,
   useConvexDashboardSalesSummary,
+  useConvexDashboardSalesSummaryByPeriod,
+  useConvexOrderDetailsByOrderNumber,
   useConvexRevenueItems,
   // Platform credentials hooks
   useConvexCredentialStatus,
@@ -323,6 +325,8 @@ export {
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
+  // Types
+  type PeriodPreset,
 } from "./useExternalData";
 
 // Protected Mutation Wrapper
