@@ -2,8 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/layout";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  Dashboard,
   RecipeEditor,
   PackagingEditor,
   ProductEditor,
@@ -47,14 +47,10 @@ function App() {
 
           {/* Protected routes with Layout */}
           <Route path="/" element={<Layout />}>
-            {/* Dashboard - Manager and Admin only */}
+            {/* Role-based landing page */}
             <Route
               index
-              element={
-                <ProtectedRoute requiredPermission="canAccessDashboard">
-                  <Dashboard />
-                </ProtectedRoute>
-              }
+              element={<RoleBasedRedirect />}
             />
 
             {/* Kitchen V2 - Primary kitchen view */}
@@ -258,6 +254,16 @@ function App() {
       <Toaster />
     </TooltipProvider>
   );
+}
+
+/** Redirects to the appropriate landing page based on user role */
+function RoleBasedRedirect() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === "kitchen") return <Navigate to="/kitchen" replace />;
+  if (user.role === "order_staff") return <Navigate to="/orders" replace />;
+  // Manager and Admin → Sales
+  return <Navigate to="/sales" replace />;
 }
 
 export default App;
