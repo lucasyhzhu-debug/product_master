@@ -13,6 +13,31 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Fix: Navigation Restructure, Order Sorting & Role-Based Landing Pages
+
+### Navigation Restructure
+- Reorganized nav into three tiers:
+  - **Main nav**: Sales, Orders, Kitchen, Inventory, Restock (permission-based visibility)
+  - **Config dropdown** (Manager + Admin): Production, WhatsApp
+  - **Admin dropdown** (Admin only): Products, Vouchers, Users
+- Dashboard page hidden from nav (temporarily disabled)
+- Mobile sidebar uses section headers for the same grouping
+
+### Role-Based Landing Pages
+- Kitchen staff → `/kitchen`
+- Order staff → `/orders`
+- Manager / Admin → `/sales`
+
+### Order List Sorting
+- Orders now sort by `orderDate` ascending (earliest transaction first) instead of newest-first by creation time
+
+### Files Modified
+- `src/components/layout/Header.tsx` — Full nav restructure with DropdownMenu components
+- `src/App.tsx` — Role-based redirect component, removed Dashboard import
+- `convex/orders/queries.ts` — Added orderDate ascending sort to list query
+
+---
+
 ## 2026-02-09 - Feat: Restock Planner (Stock Dashboard + Dispatch Planning)
 
 ### New Feature: Restock Planner (`/restock`)
