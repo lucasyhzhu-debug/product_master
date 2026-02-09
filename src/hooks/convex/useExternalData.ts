@@ -80,6 +80,31 @@ export function useConvexDashboardSalesSummary() {
   return { data, isLoading: data === undefined };
 }
 
+/**
+ * Period preset type for sales analytics time filters.
+ */
+export type PeriodPreset = "today" | "yesterday" | "last7days" | "last30days" | "thisMonth";
+
+/**
+ * Get dashboard sales summary by period preset (with current vs previous comparison).
+ */
+export function useConvexDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
+  const data = useQuery(api.externalData.queries.getDashboardSummaryByPeriod, { preset });
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Get order details by order number (for expanding internal order rows).
+ * Uses skip pattern - pass undefined to skip the query.
+ */
+export function useConvexOrderDetailsByOrderNumber(orderNumber?: string) {
+  const data = useQuery(
+    api.externalData.queries.getOrderDetailsByOrderNumber,
+    orderNumber ? { orderNumber } : "skip"
+  );
+  return { data, isLoading: data === undefined };
+}
+
 // ============================================
 // Platform Credentials Hooks
 // ============================================

@@ -215,6 +215,51 @@ export const internalUpsertOutlet = internalMutation({
 // ─── MIGRATION MUTATIONS (one-time, run from Convex dashboard) ───
 
 /**
+ * Fix internal revenue records: update revenueGross/revenueNet from real order data.
+ * Run once to correct historical data where gross=finalTotal and net=totalMargin.
+ * Safe to run multiple times (idempotent).
+ */
+export const fixInternalRevenueValues = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const internalRevenue = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .collect();
+
+    let fixed = 0;
+    let skipped = 0;
+    let notFound = 0;
+
+    for (const rev of internalRevenue) {
+      if (!rev.externalTransactionId) { skipped++; continue; }
+
+      const order = await ctx.db
+        .query("orders")
+        .withIndex("by_order_number", (q) => q.eq("orderNumber", rev.externalTransactionId!))
+        .first();
+
+      if (!order) { notFound++; continue; }
+
+      const correctGross = order.totalAmount;
+      const correctNet = order.finalTotal ?? order.totalAmount;
+
+      if (rev.revenueGross !== correctGross || rev.revenueNet !== correctNet) {
+        await ctx.db.patch(rev._id, {
+          revenueGross: correctGross,
+          revenueNet: correctNet,
+        });
+        fixed++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { total: internalRevenue.length, fixed, skipped, notFound };
+  },
+});
+
+/**
  * Seed/update K3Mart outlets with real location names.
  * Run BEFORE backfillRevenueOutletIds.
  * Safe to run multiple times (upserts by source + externalId).

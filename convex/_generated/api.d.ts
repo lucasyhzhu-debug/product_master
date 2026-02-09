@@ -42,6 +42,7 @@ import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_costCalculator from "../lib/costCalculator.js";
+import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
 import type * as materials_mutations from "../materials/mutations.js";
 import type * as materials_queries from "../materials/queries.js";
@@ -141,6 +142,7 @@ declare const fullApi: ApiFromModules<{
   "inventory/queries": typeof inventory_queries;
   "lib/auth": typeof lib_auth;
   "lib/costCalculator": typeof lib_costCalculator;
+  "lib/periodRange": typeof lib_periodRange;
   "lib/stockDelta": typeof lib_stockDelta;
   "materials/mutations": typeof materials_mutations;
   "materials/queries": typeof materials_queries;
