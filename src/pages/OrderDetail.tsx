@@ -35,6 +35,9 @@ import {
   useConvexUpdateOrderShipping,
   useConvexUpdateOrderDetails,
   useConvexCancelOrder,
+  useConvexAddOrderItem,
+  useConvexRemoveOrderItem,
+  useConvexUpdateOrderItemQuantity,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus, CancellationCategory, OrderItem } from '@/lib/types';
@@ -88,6 +91,9 @@ export function OrderDetail() {
   const updateDetails = useConvexUpdateOrderDetails();
   const cancelOrder = useConvexCancelOrder();
   const deleteOrder = useConvexDeleteOrder();
+  const addOrderItem = useConvexAddOrderItem();
+  const removeOrderItem = useConvexRemoveOrderItem();
+  const updateItemQty = useConvexUpdateOrderItemQuantity();
 
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -560,6 +566,11 @@ export function OrderDetail() {
             voucherCode={order.voucher_code}
             voucherDiscountValue={order.voucher_discount_value}
             finalTotal={order.final_total}
+            editable={['Draft', 'AwaitingPayment'].includes(order.status)}
+            orderId={orderId as Id<"orders">}
+            onItemQuantityChange={(itemId, qty) => updateItemQty.mutate({ itemId, quantity: qty })}
+            onItemRemove={(itemId) => removeOrderItem.mutate(itemId)}
+            onItemAdd={(item) => addOrderItem.mutate({ orderId: orderId as Id<"orders">, item })}
           />
 
           {/* Delivery Info (for delivery orders) */}
