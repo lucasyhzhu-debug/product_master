@@ -90,6 +90,8 @@ import type * as products_mutations from "../products/mutations.js";
 import type * as products_queries from "../products/queries.js";
 import type * as recipes_mutations from "../recipes/mutations.js";
 import type * as recipes_queries from "../recipes/queries.js";
+import type * as restock_mutations from "../restock/mutations.js";
+import type * as restock_queries from "../restock/queries.js";
 import type * as shipping_mutations from "../shipping/mutations.js";
 import type * as shipping_queries from "../shipping/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
@@ -190,6 +192,8 @@ declare const fullApi: ApiFromModules<{
   "products/queries": typeof products_queries;
   "recipes/mutations": typeof recipes_mutations;
   "recipes/queries": typeof recipes_queries;
+  "restock/mutations": typeof restock_mutations;
+  "restock/queries": typeof restock_queries;
   "shipping/mutations": typeof shipping_mutations;
   "shipping/queries": typeof shipping_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;

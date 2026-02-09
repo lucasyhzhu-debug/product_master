@@ -3,7 +3,7 @@
  * Query hooks for outlets, snapshots, revenue, sync logs.
  * Action hooks for triggering platform syncs.
  */
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -149,6 +149,13 @@ export function useConvexSyncK3MartSales() {
 }
 
 /**
+ * Trigger fast K3Mart stock refresh (active outlets only, ~3s).
+ */
+export function useConvexSyncK3MartStock() {
+  return useAction(api.integrations.k3mart.adapter.syncK3MartStock);
+}
+
+/**
  * Trigger GoBiz revenue sync action.
  */
 export function useConvexSyncGoBiz() {
@@ -172,4 +179,45 @@ export function useConvexRevenueItems(revenueId?: Id<"externalRevenue">) {
     revenueId ? { revenueId } : "skip"
   );
   return { data, isLoading: data === undefined };
+}
+
+// ============================================
+// Restock Planner Hooks
+// ============================================
+
+/**
+ * Get restock overview (all channels with stock + demand summary).
+ */
+export function useConvexRestockOverview() {
+  const data = useQuery(api.externalData.queries.getRestockOverview, {});
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Get detailed sell-through analysis for a channel/outlet.
+ * Uses skip pattern when channel is null.
+ */
+export function useConvexChannelSellThrough(
+  channel?: "k3mart" | "gobiz" | "internal",
+  outletId?: Id<"externalOutlets">
+) {
+  const data = useQuery(
+    api.externalData.queries.getChannelSellThrough,
+    channel ? { channel, outletId } : "skip"
+  );
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Save a restock target mutation.
+ */
+export function useConvexSaveRestockTarget() {
+  return useMutation(api.restock.mutations.saveRestockTarget);
+}
+
+/**
+ * Update manual stock entry mutation.
+ */
+export function useConvexUpdateManualStock() {
+  return useMutation(api.restock.mutations.updateManualStock);
 }
