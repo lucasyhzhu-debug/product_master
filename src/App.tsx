@@ -56,22 +56,22 @@ function App() {
               }
             />
 
-            {/* Kitchen - All roles can access */}
+            {/* Kitchen V2 - Primary kitchen view */}
             <Route
               path="kitchen"
               element={
                 <ProtectedRoute requiredPermission="canAccessKitchen">
-                  <KitchenView />
+                  <KitchenViewV2 />
                 </ProtectedRoute>
               }
             />
 
-            {/* Kitchen V2 - Wave 5 Implementation (Testing) */}
+            {/* Kitchen V1 - Legacy rollback route */}
             <Route
-              path="kitchen-v2"
+              path="kitchen-legacy"
               element={
                 <ProtectedRoute requiredPermission="canAccessKitchen">
-                  <KitchenViewV2 />
+                  <KitchenView />
                 </ProtectedRoute>
               }
             />
