@@ -139,7 +139,11 @@
       "Bash(powershell:*)",
       "Bash(Select-String \"error TS\")",
       "Bash(del:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(xargs git branch:*)",
+      "Bash(pip install:*)",
+      "Bash(npm ls:*)",
+      "Bash(python:*)"
     ],
     "deny": [
       "Bash(rm -rf *)",
