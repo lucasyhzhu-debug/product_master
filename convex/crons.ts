@@ -9,10 +9,4 @@ crons.interval(
   internal.platformCredentials.actions.refreshK3MartTokenCron
 );
 
-crons.interval(
-  "sync gobiz revenue",
-  { hours: 3 },
-  internal.integrations.gobiz.adapter.syncGoBizRevenueCron
-);
-
 export default crons;

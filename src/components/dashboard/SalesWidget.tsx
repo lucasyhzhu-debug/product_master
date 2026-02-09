@@ -123,7 +123,7 @@ export function SalesWidget() {
     try {
       const result = await syncGoBiz({ triggeredBy: "dashboard" });
       if (result.success) {
-        toast.success(`GoBiz sync complete: ${result.transactionCount ?? 0} transactions`);
+        toast.success(`GoBiz sync complete: ${result.totalTransactions ?? 0} transactions`);
       } else {
         toast.error(`GoBiz sync failed: ${result.error || "Unknown error"}`);
       }
