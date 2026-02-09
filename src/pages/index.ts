@@ -16,3 +16,4 @@ export { InventoryManager } from './InventoryManager';
 export { LocationsManager } from './LocationsManager';
 export { ProductionComponentsManager } from './ProductionComponentsManager';
 export { SalesAnalytics } from './SalesAnalytics';
+export { RestockPlanner } from './RestockPlanner';
