@@ -13,6 +13,59 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Feat: Restock Planner (Stock Dashboard + Dispatch Planning)
+
+### New Feature: Restock Planner (`/restock`)
+Full stock dashboard and dispatch planning page for managing inventory across all sales channels.
+
+**Three channels supported:**
+- **K3 Mart** (7 retail outlets) — Real API stock data from `consapi.k3mart.id`, auto-synced
+- **GoBiz** (GoFood) — Manual stock entry, sales synced from GoBiz API
+- **Internal** (Direct orders) — Manual stock entry, sales synced from own orders
+
+**Key capabilities:**
+- Flat, scrollable layout: Channel → Store → Products (no click-to-expand)
+- Per-product view: current stock, avg daily sales, weekday/weekend split, trend indicator
+- Editable "Prep Tomorrow" restock targets (weekday vs weekend aware) with save/reset
+- K3 Mart stock status badges: critical (< 1 day), warning (< 2 days), ok (>= 2 days)
+- Manual stock entry for GoBiz/Internal channels (click to edit inline)
+- Summary strip: total outlets, low stock alerts, total daily demand
+- Sync All button triggers K3 Mart stock + sales, GoBiz, and Internal syncs
+
+### Backend: New Tables
+- `restockTargets` — Persisted user-edited restock quantities per channel/outlet/product
+- `manualStockEntries` — Manual stock entries for GoBiz/Internal channels
+
+### Backend: New Queries & Mutations
+- `getRestockOverview` — Aggregates stock + 14-day demand across all channels
+- `getChannelSellThrough` — 30-day sell-through with weekday/weekend split, suggestions, trends
+- `saveRestockTarget` — Upsert restock target (Manager/Admin)
+- `updateManualStock` — Upsert manual stock entry (Manager/Admin)
+- `syncK3MartStock` — Fast stock refresh for active K3 Mart outlets only
+
+### Bug Fixes
+- **K3 Mart API flat dotted keys**: API returns `"product.product_name"` as flat keys instead of nested `product.product_name`. Added defensive helpers (`getProductName`, `getProductCode`, `getProductCapital`) that handle both formats.
+- **Cross-outlet stock contamination**: Batch queries for stock snapshots now filter by outletId (previously returned products from ALL outlets sharing a batchId)
+- **Stock-only products missing**: Products with stock but no recent sales now appear in the detail view
+- **Silent sync failures**: `Promise.allSettled` now reports individual sync failures via toast
+
+### Files Modified
+- `convex/schema.ts` — Added `restockTargets` + `manualStockEntries` tables
+- `convex/externalData/queries.ts` — Added `getRestockOverview`, `getChannelSellThrough` + batch query fixes
+- `convex/restock/queries.ts` — New: `getRestockTargets`
+- `convex/restock/mutations.ts` — New: `saveRestockTarget`, `updateManualStock`
+- `convex/integrations/k3mart/adapter.ts` — New: `syncK3MartStock` action + flat-dotted key parsing
+- `src/pages/RestockPlanner.tsx` — New page with flat layout design
+- `src/components/restock/` — `SummaryCards.tsx`, `StockStatusBadge.tsx`
+- `src/hooks/convex/useExternalData.ts` — Added restock hooks
+- `src/hooks/convex/index.ts` — Added exports
+- `src/App.tsx` — Added `/restock` route
+- `src/components/layout/Header.tsx` — Added "Restock" nav item
+- `docs/API_REFERENCE.md` — K3 Mart API format + restock queries/mutations
+- `docs/SCHEMA.md` — `restockTargets` + `manualStockEntries` tables
+
+---
+
 ## 2026-02-09 - Fix: Order QoL Improvements (5 Fixes)
 
 ### Subtotal Display (Fix 1)

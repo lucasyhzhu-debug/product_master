@@ -592,11 +592,13 @@ export const getRestockOverview = query({
 
         let stockProducts: Doc<"externalStockSnapshots">[] = [];
         if (latestSnapshot) {
+          // Filter by batch AND outlet to avoid cross-outlet contamination
           stockProducts = await ctx.db
             .query("externalStockSnapshots")
             .withIndex("by_batch", (q) =>
               q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
             )
+            .filter((q) => q.eq(q.field("outletId"), outlet._id))
             .collect();
         }
 
@@ -872,11 +874,13 @@ export const getChannelSellThrough = query({
 
       if (latestSnapshot) {
         lastSnapshotAt = latestSnapshot.snapshotAt;
+        // Filter by batch AND outlet to avoid cross-outlet contamination
         const batch = await ctx.db
           .query("externalStockSnapshots")
           .withIndex("by_batch", (q) =>
             q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
           )
+          .filter((q) => q.eq(q.field("outletId"), args.outletId!))
           .collect();
         for (const s of batch) {
           currentStockMap.set(s.externalProductCode, s.quantity);
@@ -1059,6 +1063,21 @@ export const getChannelSellThrough = query({
         .collect();
     }
     const targetMap = new Map(targets.map((t) => [t.productKey, t]));
+
+    // Add stock-only products (have stock but no sales in 30 days)
+    for (const key of currentStockMap.keys()) {
+      if (!productMap.has(key)) {
+        productMap.set(key, {
+          productKey: key,
+          productName: key,
+          weekdaySalesTotal: 0,
+          weekendSalesTotal: 0,
+          last7dSales: 0,
+          prev7dSales: 0,
+          transactionCount: 0,
+        });
+      }
+    }
 
     // Build final product list
     const products = Array.from(productMap.values()).map((p) => {
