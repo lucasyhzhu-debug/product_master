@@ -779,13 +779,18 @@ Gets latest stock snapshot batch for an outlet.
 | outletId | Id<"externalOutlets"> | Outlet to query |
 
 #### `externalData.queries.getRevenue`
-Gets revenue records with optional filters.
+Gets revenue records with optional filters. Each record is enriched with `customerStoreName`:
+- **K3Mart**: outlet location name from `externalOutlets` (e.g., "JKT-SCBD")
+- **Internal**: customer name from linked order
+- **GoBiz**: undefined (no store concept)
 
 | Arg | Type | Description |
 |-----|------|-------------|
 | source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
 | periodStart | number? | Period start filter |
 | periodEnd | number? | Period end filter |
+
+**Returns:** `Array<externalRevenue & { customerStoreName?: string }>`
 
 #### `externalData.queries.getSyncLogs`
 Gets sync operation history.
