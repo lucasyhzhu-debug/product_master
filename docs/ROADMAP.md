@@ -127,6 +127,7 @@
 ### Priority 5: Data & Reporting
 - [ ] CSV/Excel export for reports
 - [x] Sales analytics dashboard (K3Mart stock sync + GoBiz revenue sync)
+- [x] GoBiz journal-level sync (5-metric revenue: gross, net, commission, ad burn, promo burn)
 - [ ] Cost trend analysis
 - [ ] Inventory forecasting based on orders
 - [ ] Shopee Open Platform adapter (Phase 2)
@@ -140,6 +141,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 3.4 | 2026-02-09 | GoBiz journal-level integration (5-metric revenue + item details) |
 | 3.3 | 2026-02-07 | Multi-platform sales integration (K3Mart + GoBiz) |
 | 3.2 | 2026-02-02 | Production tracking refactor, UX improvements |
 | 3.1 | 2026-02-02 | Order System V2 (PRD-0 through PRD-7), Testing suite |

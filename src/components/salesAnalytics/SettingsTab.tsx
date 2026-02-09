@@ -225,7 +225,9 @@ export function SettingsTab() {
                 lastSyncError={latestGoBizLog?.errorMessage}
                 isSyncing={syncingGoBiz}
                 onSync={handleSyncGoBiz}
+                syncLabel="Sync Journals"
                 hasCredentials={isAdmin ? (gobizCredStatus?.hasToken ?? gobizCredStatus?.hasCredentials) : undefined}
+                hasRefreshToken={isAdmin ? gobizCredStatus?.hasRefreshToken : undefined}
                 tokenExpiresAt={isAdmin ? gobizCredStatus?.tokenExpiresAt : undefined}
                 lastRefreshStatus={isAdmin ? gobizCredStatus?.lastRefreshStatus : undefined}
                 onConfigure={isAdmin ? () => setGobizDialogOpen(true) : undefined}
