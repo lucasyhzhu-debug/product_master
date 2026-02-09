@@ -119,7 +119,7 @@ orders.getSellerSuggestions()           // Distinct sold_by from history
 ### Kitchen View Queries (PRD-1)
 ```typescript
 // convex/orders/queries.ts
-orders.getKitchenOrders()               // Confirmed orders with ball counts, priority sorted
+orders.getKitchenOrders()               // Active orders (Confirmed→Labeled) with ball counts, priority sorted
 orders.getKitchenStats()                // Dashboard stats: balls needed/completed, order counts
 orders.getCompletedToday()              // Orders completed since midnight
 ```
@@ -131,12 +131,13 @@ orders.getCompletedToday()              // Orders completed since midnight
   orderNumber: string;
   customerName: string;
   dueDate: number | null;
-  status: "Confirmed";
+  status: "Draft" | "Confirmed" | "InProduction" | "Packaging" | "Boxed" | "Labeled" | "WaitingShipment" | "WaitingPickup";
   items: Doc<"orderItems">[];
   bigBallsNeeded: number;    // Sum of productionUnits for original type
   midBallsNeeded: number;    // Sum of productionUnits for bite_sized type
 }[]
-// Sorted by: dueDate ASC → totalUnits DESC → orderDate ASC
+// Priority: Active (Confirmed/InProduction/Packaging) → Post-production (Boxed/Labeled) → Draft → Waiting
+// Within priority: dueDate ASC → creationTime ASC
 ```
 
 **getKitchenStats Response:**
