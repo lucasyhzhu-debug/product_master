@@ -745,7 +745,7 @@ export const createRecipeWithVersion = mutation({
 
 ---
 
-## External Integration Tables (6 Tables)
+## External Integration Tables (6 Tables + 2 Restock Tables)
 
 ### externalOutlets
 Platform outlet/store definitions with sync tracking.
@@ -872,6 +872,36 @@ Maps external product codes to internal menu products.
 | createdAt | number | Creation timestamp |
 
 **Indexes:** `by_source_code`, `by_menu_product`
+
+### restockTargets
+User-edited restock quantities per channel/outlet per product. Persisted overrides for the computed suggestions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| outletId | Id<"externalOutlets">? | For K3 Mart outlets |
+| channel | string | `"k3mart" \| "gobiz" \| "internal"` |
+| productKey | string | externalProductCode (K3 Mart) or productName (GoBiz/internal) |
+| menuProductId | Id<"menuProducts">? | Linked menu product if mapped |
+| weekdayTarget | number | Dispatch target for weekdays |
+| weekendTarget | number | Dispatch target for weekends |
+| updatedBy | string | Who last edited |
+| updatedAt | number | Last edit timestamp |
+
+**Indexes:** `by_outlet`, `by_channel`, `by_outlet_product`
+
+### manualStockEntries
+For channels without automatic stock sync (GoBiz, Internal, future channels). Manual stock entry by staff.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| channel | string | `"gobiz" \| "internal"` (or future channels) |
+| productKey | string | Product identifier |
+| menuProductId | Id<"menuProducts">? | Linked menu product |
+| quantity | number | Current stock count |
+| enteredBy | string | Who entered the data |
+| enteredAt | number | Entry timestamp |
+
+**Indexes:** `by_channel`, `by_channel_product`
 
 ---
 

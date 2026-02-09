@@ -21,6 +21,7 @@ import {
   LocationsManager,
   ProductionComponentsManager,
   SalesAnalytics,
+  RestockPlanner,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -231,6 +232,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
                   <SalesAnalytics />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Restock Planner - Manager and Admin */}
+            <Route
+              path="restock"
+              element={
+                <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
+                  <RestockPlanner />
                 </ProtectedRoute>
               }
             />
