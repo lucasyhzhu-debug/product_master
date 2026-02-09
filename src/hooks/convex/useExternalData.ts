@@ -136,3 +136,15 @@ export function useConvexSyncGoBiz() {
 export function useConvexSyncInternalOrders() {
   return useAction(api.integrations.internal.adapter.syncInternalOrders);
 }
+
+/**
+ * Get revenue line items for a specific revenue record.
+ * Uses skip pattern for conditional fetching (only when expanded).
+ */
+export function useConvexRevenueItems(revenueId?: Id<"externalRevenue">) {
+  const data = useQuery(
+    api.externalData.queries.getRevenueItems,
+    revenueId ? { revenueId } : "skip"
+  );
+  return { data, isLoading: data === undefined };
+}

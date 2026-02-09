@@ -27,6 +27,7 @@ export function GoBizTokenDialog({
   hasExistingToken,
 }: GoBizTokenDialogProps) {
   const [bearerToken, setBearerToken] = useState("");
+  const [refreshToken, setRefreshToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +39,7 @@ export function GoBizTokenDialog({
   const handleSaveAndSync = async () => {
     const trimmed = bearerToken.trim();
     if (!trimmed) {
-      setError("Token is required");
+      setError("Access token is required");
       return;
     }
 
@@ -46,10 +47,11 @@ export function GoBizTokenDialog({
     setError(null);
 
     try {
-      // 1. Save token to DB
+      // 1. Save token(s) to DB
       await saveDirectToken({
         platformId: "gobiz",
         bearerToken: trimmed,
+        ...(refreshToken.trim() ? { refreshToken: refreshToken.trim() } : {}),
       });
 
       // 2. Trigger immediate sync to validate token
@@ -58,14 +60,16 @@ export function GoBizTokenDialog({
       if (result.success) {
         toast.success("GoBiz token saved and sync completed");
         setBearerToken("");
+        setRefreshToken("");
         onOpenChange(false);
       } else if (result.error?.includes("401") || result.error?.includes("expired")) {
         setError("Token appears to be expired or invalid. Please get a fresh token.");
         toast.error("Token saved but sync failed — token may be expired");
       } else {
         // Token saved, but sync had other issues
-        toast.success("GoBiz token saved (sync had issues, will retry on next cron)");
+        toast.success("GoBiz token saved (sync had issues, try again later)");
         setBearerToken("");
+        setRefreshToken("");
         onOpenChange(false);
       }
     } catch (err) {
@@ -83,25 +87,40 @@ export function GoBizTokenDialog({
         <DialogHeader>
           <DialogTitle>GoBiz (GoFood) Token</DialogTitle>
           <DialogDescription>
-            Paste the access_token cookie from your GoBiz browser session.
-            Token expires in ~4-8 hours. Revenue auto-syncs every 3 hours.
+            Paste both the access_token and refresh_token cookies from your GoBiz
+            browser session. Access token expires in ~1 hour; refresh token lasts
+            days/weeks and enables auto-renewal.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label htmlFor="gobiz-token">Bearer Token</Label>
+            <Label htmlFor="gobiz-token">Access Token (required)</Label>
             <Textarea
               id="gobiz-token"
               placeholder="Paste your GoBiz access_token here..."
               value={bearerToken}
               onChange={(e) => setBearerToken(e.target.value)}
               disabled={saving}
-              rows={4}
+              rows={3}
+              className="font-mono text-xs"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gobiz-refresh-token">Refresh Token (recommended)</Label>
+            <Textarea
+              id="gobiz-refresh-token"
+              placeholder="Paste your GoBiz refresh_token here..."
+              value={refreshToken}
+              onChange={(e) => setRefreshToken(e.target.value)}
+              disabled={saving}
+              rows={3}
               className="font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground">
-              Open https://app.gobiz.co.id → DevTools (F12) → Application → Cookies → copy access_token
+              Open https://portal.gofoodmerchant.co.id → DevTools (F12) → Application
+              → Cookies → copy both access_token and refresh_token values
             </p>
           </div>
 
@@ -123,10 +142,10 @@ export function GoBizTokenDialog({
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Saving & Validating...
+                Saving & Syncing...
               </>
             ) : (
-              "Save Token & Sync Now"
+              "Save & Sync Journals"
             )}
           </Button>
         </div>
