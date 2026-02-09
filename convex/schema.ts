@@ -1004,6 +1004,36 @@ export default defineSchema({
   // Used for automatic token refresh via cron jobs
   // ============================================
 
+  // ============================================
+  // RESTOCK PLANNER
+  // Persisted restock targets + manual stock entries
+  // ============================================
+
+  restockTargets: defineTable({
+    outletId: v.optional(v.id("externalOutlets")),
+    channel: v.string(),
+    productKey: v.string(),
+    menuProductId: v.optional(v.id("menuProducts")),
+    weekdayTarget: v.number(),
+    weekendTarget: v.number(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_outlet", ["outletId"])
+    .index("by_channel", ["channel"])
+    .index("by_outlet_product", ["outletId", "productKey"]),
+
+  manualStockEntries: defineTable({
+    channel: v.string(),
+    productKey: v.string(),
+    menuProductId: v.optional(v.id("menuProducts")),
+    quantity: v.number(),
+    enteredBy: v.string(),
+    enteredAt: v.number(),
+  })
+    .index("by_channel", ["channel"])
+    .index("by_channel_product", ["channel", "productKey"]),
+
   platformCredentials: defineTable({
     platformId: v.string(),
     email: v.optional(v.string()),

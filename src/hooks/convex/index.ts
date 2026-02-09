@@ -326,6 +326,11 @@ export {
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
+  // Restock planner hooks
+  useConvexRestockOverview,
+  useConvexChannelSellThrough,
+  useConvexSaveRestockTarget,
+  useConvexUpdateManualStock,
   // Types
   type PeriodPreset,
 } from "./useExternalData";

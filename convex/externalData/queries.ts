@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
 import { calculatePeriodRange } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
+import type { Doc } from "../_generated/dataModel";
 
 const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"));
 
@@ -547,6 +548,560 @@ export const getOrderDetailsByOrderNumber = query({
           unitPrice: item.unitPrice,
           totalPrice: item.lineTotal,
         })),
+    };
+  },
+});
+
+// ─── RESTOCK PLANNER QUERIES ───
+
+const WIB_OFFSET_HOURS = 7;
+
+/** Check if a WIB-adjusted timestamp falls on a weekend (Sat=6, Sun=0) */
+function isWeekend(utcMs: number): boolean {
+  const wibDate = new Date(utcMs + WIB_OFFSET_HOURS * 60 * 60 * 1000);
+  const day = wibDate.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/**
+ * Restock overview: returns all channels/outlets with current stock + demand summary.
+ * Powers the main grid view of the Restock Planner.
+ */
+export const getRestockOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+
+    // 1. Fetch all active K3 Mart outlets
+    const k3martOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // 2. Build K3 Mart channel entries
+    const k3martChannels = await Promise.all(
+      k3martOutlets.map(async (outlet) => {
+        // Get latest snapshot batch for current stock
+        const latestSnapshot = await ctx.db
+          .query("externalStockSnapshots")
+          .withIndex("by_outlet_snapshot", (q) => q.eq("outletId", outlet._id))
+          .order("desc")
+          .first();
+
+        let stockProducts: Doc<"externalStockSnapshots">[] = [];
+        if (latestSnapshot) {
+          stockProducts = await ctx.db
+            .query("externalStockSnapshots")
+            .withIndex("by_batch", (q) =>
+              q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+            )
+            .collect();
+        }
+
+        // Get revenue for past 14 days
+        const revenue = await ctx.db
+          .query("externalRevenue")
+          .withIndex("by_source_period", (q) =>
+            q.eq("source", "k3mart").gte("periodStart", fourteenDaysAgo)
+          )
+          .filter((q) => q.eq(q.field("outletId"), outlet._id))
+          .collect();
+
+        // Aggregate demand by product
+        const demandMap = new Map<string, { totalSold: number; productName: string }>();
+        for (const r of revenue) {
+          const key = r.externalProductCode ?? r.productName ?? "unknown";
+          const existing = demandMap.get(key);
+          const qty = r.quantitySold ?? 0;
+          if (existing) {
+            existing.totalSold += qty;
+          } else {
+            demandMap.set(key, {
+              totalSold: qty,
+              productName: r.productName ?? key,
+            });
+          }
+        }
+
+        const products = stockProducts.map((sp) => {
+          const demand = demandMap.get(sp.externalProductCode);
+          const dailyRate = demand ? demand.totalSold / 14 : 0;
+          const daysRemaining = dailyRate > 0 ? sp.quantity / dailyRate : sp.quantity > 0 ? 999 : 0;
+          const status: "critical" | "warning" | "ok" =
+            daysRemaining < 1 ? "critical" : daysRemaining < 2 ? "warning" : "ok";
+
+          return {
+            productKey: sp.externalProductCode,
+            productName: sp.productName,
+            currentStock: sp.quantity,
+            dailyRate: Math.round(dailyRate * 10) / 10,
+            daysRemaining: Math.round(daysRemaining * 10) / 10,
+            status,
+          };
+        });
+
+        // Also add products with demand but no stock data
+        for (const [key, demand] of demandMap) {
+          if (!products.some((p) => p.productKey === key)) {
+            products.push({
+              productKey: key,
+              productName: demand.productName,
+              currentStock: 0,
+              dailyRate: Math.round((demand.totalSold / 14) * 10) / 10,
+              daysRemaining: 0,
+              status: "critical" as const,
+            });
+          }
+        }
+
+        const criticalCount = products.filter((p) => p.status === "critical").length;
+        const warningCount = products.filter((p) => p.status === "warning").length;
+        const totalDailyDemand = products.reduce((sum, p) => sum + p.dailyRate, 0);
+
+        return {
+          type: "k3mart" as const,
+          outletId: outlet._id,
+          outletName: outlet.name,
+          lastSnapshotAt: latestSnapshot?.snapshotAt,
+          products,
+          criticalCount,
+          warningCount,
+          totalDailyDemand: Math.round(totalDailyDemand * 10) / 10,
+        };
+      })
+    );
+
+    // 3. GoBiz channel - aggregate from externalRevenueItems
+    const gobizRevenue = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source_period", (q) =>
+        q.eq("source", "gobiz").gte("periodStart", fourteenDaysAgo)
+      )
+      .collect();
+
+    const gobizDemandMap = new Map<string, { totalSold: number; menuProductId?: string }>();
+    for (const r of gobizRevenue) {
+      const items = await ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+        .collect();
+      for (const item of items) {
+        const existing = gobizDemandMap.get(item.productName);
+        if (existing) {
+          existing.totalSold += item.quantity;
+        } else {
+          gobizDemandMap.set(item.productName, {
+            totalSold: item.quantity,
+            menuProductId: item.linkedMenuProductId as string | undefined,
+          });
+        }
+      }
+    }
+
+    // Get manual stock for gobiz
+    const gobizManualStock = await ctx.db
+      .query("manualStockEntries")
+      .withIndex("by_channel", (q) => q.eq("channel", "gobiz"))
+      .collect();
+    const gobizStockMap = new Map(gobizManualStock.map((s) => [s.productKey, s]));
+
+    const gobizProducts = Array.from(gobizDemandMap.entries()).map(([name, demand]) => {
+      const dailyRate = demand.totalSold / 14;
+      const manualStock = gobizStockMap.get(name);
+      const currentStock = manualStock?.quantity;
+      const daysRemaining = currentStock !== undefined && dailyRate > 0
+        ? currentStock / dailyRate
+        : undefined;
+      const status = daysRemaining !== undefined
+        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
+        : undefined;
+      return {
+        productKey: name,
+        productName: name,
+        currentStock,
+        dailyRate: Math.round(dailyRate * 10) / 10,
+        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
+        status,
+      };
+    });
+
+    const gobizTotalDemand = gobizProducts.reduce((sum, p) => sum + p.dailyRate, 0);
+
+    // 4. Internal channel
+    const internalRevenue = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source_period", (q) =>
+        q.eq("source", "internal").gte("periodStart", fourteenDaysAgo)
+      )
+      .collect();
+
+    const internalDemandMap = new Map<string, number>();
+    for (const r of internalRevenue) {
+      const name = r.productName ?? "Other";
+      internalDemandMap.set(name, (internalDemandMap.get(name) ?? 0) + (r.quantitySold ?? 1));
+    }
+
+    // Manual stock for internal
+    const internalManualStock = await ctx.db
+      .query("manualStockEntries")
+      .withIndex("by_channel", (q) => q.eq("channel", "internal"))
+      .collect();
+    const internalStockMap = new Map(internalManualStock.map((s) => [s.productKey, s]));
+
+    const internalProducts = Array.from(internalDemandMap.entries()).map(([name, totalSold]) => {
+      const dailyRate = totalSold / 14;
+      const manualStock = internalStockMap.get(name);
+      const currentStock = manualStock?.quantity;
+      const daysRemaining = currentStock !== undefined && dailyRate > 0
+        ? currentStock / dailyRate
+        : undefined;
+      const status = daysRemaining !== undefined
+        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
+        : undefined;
+      return {
+        productKey: name,
+        productName: name,
+        currentStock,
+        dailyRate: Math.round(dailyRate * 10) / 10,
+        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
+        status,
+      };
+    });
+
+    const internalTotalDemand = internalProducts.reduce((sum, p) => sum + p.dailyRate, 0);
+
+    // 5. Summary
+    const lowStockAlerts = k3martChannels.reduce(
+      (sum, c) => sum + c.criticalCount + c.warningCount,
+      0
+    );
+
+    // Latest sync across all sources
+    const allSyncLogs = await ctx.db
+      .query("externalSyncLogs")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .take(1);
+
+    return {
+      summary: {
+        activeChannels: k3martChannels.length + (gobizProducts.length > 0 ? 1 : 0) + (internalProducts.length > 0 ? 1 : 0),
+        lowStockAlerts,
+        lastSyncAt: allSyncLogs[0]?.timestamp ?? null,
+      },
+      channels: [
+        ...k3martChannels,
+        {
+          type: "gobiz" as const,
+          products: gobizProducts,
+          totalDailyDemand: Math.round(gobizTotalDemand * 10) / 10,
+        },
+        {
+          type: "internal" as const,
+          products: internalProducts,
+          totalDailyDemand: Math.round(internalTotalDemand * 10) / 10,
+        },
+      ],
+    };
+  },
+});
+
+/**
+ * Detailed per-channel sell-through analysis with weekday/weekend split.
+ * Called when user drills into a channel/outlet.
+ */
+export const getChannelSellThrough = query({
+  args: {
+    channel: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    outletId: v.optional(v.id("externalOutlets")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+
+    // Count weekdays and weekend days in 30-day window
+    let numWeekdays = 0;
+    let numWeekendDays = 0;
+    for (let d = thirtyDaysAgo; d < now; d += 24 * 60 * 60 * 1000) {
+      if (isWeekend(d)) numWeekendDays++;
+      else numWeekdays++;
+    }
+    // Ensure at least 1 to avoid division by zero
+    numWeekdays = Math.max(numWeekdays, 1);
+    numWeekendDays = Math.max(numWeekendDays, 1);
+
+    // Fetch outlet info if K3 Mart
+    let outletName: string | undefined;
+    let lastSnapshotAt: number | undefined;
+
+    if (args.channel === "k3mart" && args.outletId) {
+      const outlet = await ctx.db.get(args.outletId);
+      outletName = outlet?.name;
+    }
+
+    // Get current stock for K3 Mart
+    let currentStockMap = new Map<string, number>();
+    if (args.channel === "k3mart" && args.outletId) {
+      const latestSnapshot = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_outlet_snapshot", (q) => q.eq("outletId", args.outletId!))
+        .order("desc")
+        .first();
+
+      if (latestSnapshot) {
+        lastSnapshotAt = latestSnapshot.snapshotAt;
+        const batch = await ctx.db
+          .query("externalStockSnapshots")
+          .withIndex("by_batch", (q) =>
+            q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+          )
+          .collect();
+        for (const s of batch) {
+          currentStockMap.set(s.externalProductCode, s.quantity);
+        }
+      }
+    }
+
+    // Get manual stock for non-K3 channels
+    if (args.channel !== "k3mart") {
+      const manualStock = await ctx.db
+        .query("manualStockEntries")
+        .withIndex("by_channel", (q) => q.eq("channel", args.channel))
+        .collect();
+      for (const s of manualStock) {
+        currentStockMap.set(s.productKey, s.quantity);
+      }
+    }
+
+    // Build product-level sell-through analysis
+    type ProductAnalysis = {
+      productKey: string;
+      productName: string;
+      menuProductId?: string;
+      weekdaySalesTotal: number;
+      weekendSalesTotal: number;
+      last7dSales: number;
+      prev7dSales: number;
+      transactionCount: number;
+    };
+
+    const productMap = new Map<string, ProductAnalysis>();
+
+    function getOrCreate(key: string, name: string, menuProductId?: string): ProductAnalysis {
+      let entry = productMap.get(key);
+      if (!entry) {
+        entry = {
+          productKey: key,
+          productName: name,
+          menuProductId,
+          weekdaySalesTotal: 0,
+          weekendSalesTotal: 0,
+          last7dSales: 0,
+          prev7dSales: 0,
+          transactionCount: 0,
+        };
+        productMap.set(key, entry);
+      }
+      return entry;
+    }
+
+    if (args.channel === "k3mart" && args.outletId) {
+      // K3 Mart: use externalRevenue per outlet
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "k3mart").gte("periodStart", thirtyDaysAgo)
+        )
+        .filter((q) => q.eq(q.field("outletId"), args.outletId!))
+        .collect();
+
+      for (const r of revenue) {
+        const key = r.externalProductCode ?? r.productName ?? "unknown";
+        const entry = getOrCreate(key, r.productName ?? key);
+        const qty = r.quantitySold ?? 0;
+        const txnDate = r.transactionDate ?? r.periodStart;
+
+        if (isWeekend(txnDate)) {
+          entry.weekendSalesTotal += qty;
+        } else {
+          entry.weekdaySalesTotal += qty;
+        }
+
+        if (txnDate >= sevenDaysAgo) {
+          entry.last7dSales += qty;
+        } else if (txnDate >= fourteenDaysAgo) {
+          entry.prev7dSales += qty;
+        }
+
+        entry.transactionCount += r.transactionCount ?? 1;
+      }
+    } else if (args.channel === "gobiz") {
+      // GoBiz: use externalRevenueItems
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "gobiz").gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const items = await ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+          .collect();
+
+        const txnDate = r.transactionDate ?? r.periodStart;
+
+        for (const item of items) {
+          const entry = getOrCreate(
+            item.productName,
+            item.productName,
+            item.linkedMenuProductId as string | undefined
+          );
+          if (isWeekend(txnDate)) {
+            entry.weekendSalesTotal += item.quantity;
+          } else {
+            entry.weekdaySalesTotal += item.quantity;
+          }
+
+          if (txnDate >= sevenDaysAgo) {
+            entry.last7dSales += item.quantity;
+          } else if (txnDate >= fourteenDaysAgo) {
+            entry.prev7dSales += item.quantity;
+          }
+
+          entry.transactionCount += 1;
+        }
+      }
+    } else {
+      // Internal: use externalRevenue
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "internal").gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const key = r.productName ?? "Other";
+        const entry = getOrCreate(key, key);
+        const qty = r.quantitySold ?? 1;
+        const txnDate = r.transactionDate ?? r.periodStart;
+
+        if (isWeekend(txnDate)) {
+          entry.weekendSalesTotal += qty;
+        } else {
+          entry.weekdaySalesTotal += qty;
+        }
+
+        if (txnDate >= sevenDaysAgo) {
+          entry.last7dSales += qty;
+        } else if (txnDate >= fourteenDaysAgo) {
+          entry.prev7dSales += qty;
+        }
+
+        entry.transactionCount += r.transactionCount ?? 1;
+      }
+    }
+
+    // Fetch persisted restock targets
+    let targets: Doc<"restockTargets">[];
+    if (args.outletId) {
+      targets = await ctx.db
+        .query("restockTargets")
+        .withIndex("by_outlet_product", (q) => q.eq("outletId", args.outletId!))
+        .collect();
+    } else {
+      targets = await ctx.db
+        .query("restockTargets")
+        .withIndex("by_channel", (q) => q.eq("channel", args.channel))
+        .collect();
+    }
+    const targetMap = new Map(targets.map((t) => [t.productKey, t]));
+
+    // Build final product list
+    const products = Array.from(productMap.values()).map((p) => {
+      const weekdayDailyRate = p.weekdaySalesTotal / numWeekdays;
+      const weekendDailyRate = p.weekendSalesTotal / numWeekendDays;
+      const totalSold30d = p.weekdaySalesTotal + p.weekendSalesTotal;
+      const overallDailyRate = totalSold30d / 30;
+
+      const currentStock = currentStockMap.get(p.productKey);
+      const daysRemaining =
+        currentStock !== undefined && overallDailyRate > 0
+          ? currentStock / overallDailyRate
+          : undefined;
+      const status =
+        daysRemaining !== undefined
+          ? daysRemaining < 1
+            ? ("critical" as const)
+            : daysRemaining < 2
+              ? ("warning" as const)
+              : ("ok" as const)
+          : undefined;
+
+      // Suggestions: cover weekday (5 days) or weekend (2 days) + 20% buffer
+      const suggestedWeekday = Math.ceil(weekdayDailyRate * 5 * 1.2);
+      const suggestedWeekend = Math.ceil(weekendDailyRate * 2 * 1.2);
+
+      const target = targetMap.get(p.productKey);
+
+      // Trend
+      const trendDirection: "up" | "down" | "flat" =
+        p.last7dSales > p.prev7dSales * 1.1
+          ? "up"
+          : p.last7dSales < p.prev7dSales * 0.9
+            ? "down"
+            : "flat";
+
+      // Confidence
+      const confidence: "high" | "medium" | "low" =
+        p.transactionCount >= 20 ? "high" : p.transactionCount >= 5 ? "medium" : "low";
+
+      return {
+        productKey: p.productKey,
+        productName: p.productName,
+        menuProductId: p.menuProductId,
+        currentStock,
+        weekdaySalesTotal: p.weekdaySalesTotal,
+        weekendSalesTotal: p.weekendSalesTotal,
+        totalSold30d,
+        weekdayDailyRate: Math.round(weekdayDailyRate * 10) / 10,
+        weekendDailyRate: Math.round(weekendDailyRate * 10) / 10,
+        overallDailyRate: Math.round(overallDailyRate * 10) / 10,
+        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
+        status,
+        suggestedWeekday,
+        suggestedWeekend,
+        targetWeekday: target?.weekdayTarget,
+        targetWeekend: target?.weekendTarget,
+        last7dSales: p.last7dSales,
+        prev7dSales: p.prev7dSales,
+        trendDirection,
+        transactionCount: p.transactionCount,
+        confidence,
+      };
+    });
+
+    // Sort: K3 Mart by days remaining asc, others by daily demand desc
+    if (args.channel === "k3mart") {
+      products.sort((a, b) => (a.daysRemaining ?? 0) - (b.daysRemaining ?? 0));
+    } else {
+      products.sort((a, b) => b.overallDailyRate - a.overallDailyRate);
+    }
+
+    return {
+      channel: {
+        type: args.channel,
+        outletId: args.outletId,
+        outletName,
+        lastSnapshotAt,
+      },
+      products,
     };
   },
 });
