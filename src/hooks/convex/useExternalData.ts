@@ -149,6 +149,13 @@ export function useConvexSyncK3MartSales() {
 }
 
 /**
+ * Trigger fast K3Mart stock refresh (active outlets only, ~3s).
+ */
+export function useConvexSyncK3MartStock() {
+  return useAction(api.integrations.k3mart.adapter.syncK3MartStock);
+}
+
+/**
  * Trigger GoBiz revenue sync action.
  */
 export function useConvexSyncGoBiz() {

@@ -244,6 +244,194 @@ export const discoverK3MartOutlets = action({
 });
 
 /**
+ * Fast stock refresh for known active K3 Mart outlets.
+ * Only polls outlets already saved in externalOutlets (typically 7),
+ * instead of scanning 1-200. Completes in ~3s instead of ~60s.
+ */
+export const syncK3MartStock = action({
+  args: {
+    triggeredBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    syncLogId: Id<"externalSyncLogs">;
+    outletsPolled: number;
+    totalStockUnits: number;
+    errors: string[];
+    durationMs: number;
+  }> => {
+    const dbCred = await ctx.runQuery(
+      internal.platformCredentials.queries.getTokenInternal,
+      { platformId: "k3mart" }
+    );
+    const token = dbCred?.currentToken ?? process.env.K3MART_API_TOKEN;
+    if (!token) {
+      throw new Error(
+        "K3MART_API_TOKEN not set. Configure credentials in Settings or set the environment variable."
+      );
+    }
+
+    const startTime = Date.now();
+    const batchId = generateBatchId();
+    const { discovery } = K3MART_CONFIG;
+
+    // Create sync log
+    const syncLogId: Id<"externalSyncLogs"> = await ctx.runMutation(
+      internal.externalData.mutations.createSyncLog,
+      {
+        source: "k3mart",
+        snapshotBatchId: batchId,
+        syncType: "manual",
+        status: "started",
+        triggeredBy: args.triggeredBy ?? "manual",
+        timestamp: startTime,
+      }
+    );
+
+    // Only fetch active K3 Mart outlets from DB
+    const activeOutlets = await ctx.runQuery(
+      internal.externalData.queries.getActiveOutlets,
+      { source: "k3mart" }
+    );
+
+    if (activeOutlets.length === 0) {
+      await ctx.runMutation(
+        internal.externalData.mutations.updateSyncLog,
+        {
+          logId: syncLogId,
+          status: "success",
+          productsCount: 0,
+          durationMs: Date.now() - startTime,
+        }
+      );
+      return {
+        success: true,
+        syncLogId,
+        outletsPolled: 0,
+        totalStockUnits: 0,
+        errors: [] as string[],
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    let totalStockUnits = 0;
+    const errors: string[] = [];
+
+    for (const outlet of activeOutlets) {
+      const numericId = outlet.externalId;
+
+      try {
+        const url = new URL(
+          `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.dashboard}`
+        );
+        url.searchParams.set("outletId", numericId);
+        url.searchParams.set("page", "1");
+        url.searchParams.set("pageSize", String(discovery.pageSize));
+        url.searchParams.set("order", "-quantity");
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            Authorization: `JWT ${token}`,
+            ...K3MART_CONFIG.headers,
+          },
+        });
+
+        if (response.status === 401) {
+          errors.push("TOKEN_EXPIRED: K3Mart API token expired");
+          break;
+        }
+
+        if (!response.ok) {
+          errors.push(`Outlet ${outlet.name}: HTTP ${response.status}`);
+          continue;
+        }
+
+        const json = (await response.json()) as K3MartDashboardResponse;
+        const rawProducts = json.data?.data;
+        if (!rawProducts || rawProducts.length === 0) continue;
+
+        // Filter products
+        const filter = discovery.productFilter.toLowerCase();
+        const matchingProducts = rawProducts.filter((p) =>
+          p.product.product_name.toLowerCase().includes(filter)
+        );
+
+        if (matchingProducts.length === 0) continue;
+
+        const transformed = matchingProducts.map(transformProduct);
+        totalStockUnits += transformed.reduce((sum, p) => sum + p.quantity, 0);
+
+        // Save stock snapshots
+        const snapshotAt = Date.now();
+        for (let j = 0; j < transformed.length; j += 200) {
+          const batch = transformed.slice(j, j + 200);
+          await ctx.runMutation(
+            internal.externalData.mutations.saveSnapshots,
+            {
+              outletId: outlet._id,
+              snapshotBatchId: batchId,
+              snapshotAt,
+              products: batch.map((p) => ({
+                externalProductId: p.externalProductId,
+                externalProductCode: p.externalProductCode,
+                productName: p.productName,
+                quantity: p.quantity,
+                price: p.price,
+                priceGrabfoodGofood: p.priceGrabfoodGofood,
+                priceGrabmart: p.priceGrabmart,
+                priceShopee: p.priceShopee,
+                capital: p.capital,
+              })),
+            }
+          );
+        }
+
+        // Update outlet sync status
+        await ctx.runMutation(
+          internal.externalData.mutations.updateOutletSyncStatus,
+          {
+            outletId: outlet._id,
+            lastSyncAt: snapshotAt,
+            lastSyncStatus: "success",
+          }
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        errors.push(`Outlet ${outlet.name}: ${errorMsg}`);
+        if (errorMsg.includes("TOKEN_EXPIRED")) break;
+      }
+
+      // Brief rate limit between outlets
+      await sleep(discovery.delayBetweenOutletsMs);
+    }
+
+    const finalStatus = errors.some((e) => e.includes("TOKEN_EXPIRED"))
+      ? "error"
+      : "success";
+
+    await ctx.runMutation(
+      internal.externalData.mutations.updateSyncLog,
+      {
+        logId: syncLogId,
+        status: finalStatus as "success" | "error",
+        productsCount: totalStockUnits,
+        errorMessage: errors.length > 0 ? errors.join("; ") : undefined,
+        durationMs: Date.now() - startTime,
+      }
+    );
+
+    return {
+      success: !errors.some((e) => e.includes("TOKEN_EXPIRED")),
+      syncLogId,
+      outletsPolled: activeOutlets.length,
+      totalStockUnits,
+      errors,
+      durationMs: Date.now() - startTime,
+    };
+  },
+});
+
+/**
  * Sync K3 Mart sales transactions.
  *
  * Flow:
