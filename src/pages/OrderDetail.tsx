@@ -213,7 +213,7 @@ export function OrderDetail() {
       title: 'Payment',
       description: order.payment_status === 'Paid' ? 'Payment received' : 'Awaiting payment',
       status: getStepStatus('AwaitingPayment', order.status as OrderStatus),
-      content: ['AwaitingPayment', 'Draft'].includes(order.status) ? (
+      content: getStepStatus('AwaitingPayment', order.status as OrderStatus) !== 'pending' ? (
         <div className="space-y-4">
           <div>
             <Label className="text-sm text-muted-foreground">Payment Method</Label>

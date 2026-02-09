@@ -166,7 +166,14 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
       };
     });
     setItems(orderItems);
-    if (editOrder.customer_name) {
+
+    // Pre-fill customer: try as existing customer first, fall back to new
+    if (editOrder.customer_id) {
+      // customer_id is actually a Convex Id<"customers"> cast to number
+      setSelectedCustomerId(editOrder.customer_id as unknown as Id<"customers">);
+      setCustomerSearch(editOrder.customer_name || '');
+      setIsNewCustomer(false);
+    } else if (editOrder.customer_name) {
       setCustomerName(editOrder.customer_name);
       setCustomerSearch(editOrder.customer_name);
       setIsNewCustomer(true);
@@ -184,6 +191,19 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     if (editOrder.notes) {
       setNotes(editOrder.notes);
     }
+
+    // Pre-fill voucher if one was applied
+    if (editOrder.voucher_code && editOrder.voucher_discount_value) {
+      setAppliedVoucher({
+        id: '',
+        code: editOrder.voucher_code,
+        name: editOrder.voucher_code,
+        discountType: 'amount',
+        discountValue: editOrder.voucher_discount_value,
+        calculatedDiscount: editOrder.voucher_discount_value,
+      });
+    }
+
     setEditInitialized(true);
   }
 
@@ -511,7 +531,11 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
       >
         <div className="flex items-center justify-between">
           <h2 className="order-form-heading text-3xl font-bold text-[#2D3748]">
-            {isEditMode ? 'Edit Order' : 'New Order'}
+            {isEditMode && editOrder
+              ? `Editing - Order for ${editOrder.customer_name} ${editOrder.order_number}`
+              : isEditMode
+                ? 'Loading Order...'
+                : 'New Order'}
           </h2>
           <div className="flex items-center gap-2">
             {completionSteps.map((step, index) => (

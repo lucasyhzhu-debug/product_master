@@ -19,13 +19,16 @@ After merging any code change, add a new entry with:
 - "Subtotal" and "Discount" rows only appear when a manual discount exists
 - Voucher-only orders no longer show a redundant subtotal line
 
-### WA Templates in Completed Steps (Fix 2)
+### WA Templates & Payment in Completed Steps (Fix 2)
 - WhatsApp templates (payment request, shipping, pickup ready) now remain visible when revisiting completed accordion steps
-- Action buttons (mark as shipped, etc.) still only show for the current status
+- Payment step accordion can be expanded after moving past it (to view/change payment method)
+- Action buttons (mark as shipped, confirm payment, etc.) still only show for the current status
 
 ### Edit Order Items (Fix 3)
 - "Edit Order Items" button on order detail for Draft/AwaitingPayment orders
-- Navigates to the order form pre-filled with existing items, customer, and delivery info
+- Navigates to the order form pre-filled with existing items, customer, delivery info, and voucher
+- Title shows "Editing - Order for {customer} {order_number}" for clarity
+- Customer pre-fills as existing customer (not new), preserving the link
 - "Save Order" replaces all items atomically via new `replaceItems` backend mutation
 - After saving, navigates back to order detail
 

@@ -539,6 +539,7 @@ export function OrderManager() {
             <OrderFormPOS
               onSuccess={handleOrderCreated}
               onCancel={() => {}}
+              editOrderId={editOrderId}
             />
           </div>
 
