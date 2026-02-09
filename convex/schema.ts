@@ -74,7 +74,8 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
     .index("by_pos_slot", ["posSlot"])
-    .index("by_packaging_pos_slot", ["packagingPosSlot"]),
+    .index("by_packaging_pos_slot", ["packagingPosSlot"])
+    .index("by_default_price", ["defaultPrice"]),
 
   // ============================================
   // PRD-5: PRODUCTION UNIT TYPES
@@ -935,6 +936,9 @@ export default defineSchema({
       v.literal("delta_inferred")
     )),
     commission: v.optional(v.number()),
+    adBurn: v.optional(v.number()),
+    promoBurn: v.optional(v.number()),
+    gobizOrderNumber: v.optional(v.string()),
   })
     .index("by_source", ["source"])
     .index("by_outlet", ["outletId"])
@@ -942,6 +946,28 @@ export default defineSchema({
     .index("by_source_period", ["source", "periodStart"])
     .index("by_product", ["linkedMenuProductId"])
     .index("by_source_txn", ["source", "externalTransactionId"]),
+
+  externalRevenueItems: defineTable({
+    revenueId: v.id("externalRevenue"),
+    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    externalItemId: v.optional(v.string()),
+    productName: v.string(),
+    unitPrice: v.number(),
+    quantity: v.number(),
+    totalPrice: v.number(),
+    variants: v.optional(v.string()),
+    linkedMenuProductId: v.optional(v.id("menuProducts")),
+    isAutoMatched: v.boolean(),
+    matchConfidence: v.optional(v.union(
+      v.literal("exact"), v.literal("price_only"),
+      v.literal("name_only"), v.literal("none")
+    )),
+    createdAt: v.number(),
+  })
+    .index("by_revenue", ["revenueId"])
+    .index("by_source", ["source"])
+    .index("by_menu_product", ["linkedMenuProductId"])
+    .index("by_product_name", ["source", "productName"]),
 
   externalSyncLogs: defineTable({
     source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
@@ -984,6 +1010,7 @@ export default defineSchema({
     password: v.optional(v.string()),
     currentToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
+    refreshToken: v.optional(v.string()),
     lastRefreshAt: v.optional(v.number()),
     lastRefreshStatus: v.optional(v.union(v.literal("success"), v.literal("error"))),
     lastRefreshError: v.optional(v.string()),

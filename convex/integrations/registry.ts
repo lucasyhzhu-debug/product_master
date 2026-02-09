@@ -39,17 +39,17 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
   gobiz: {
     id: "gobiz",
     name: "GoBiz (GoFood)",
-    description: "GoFood gross & net revenue tracking",
+    description: "GoFood 5-metric revenue tracking (gross, net, commission, ad burn, promo burn)",
     envVarName: "GOBIZ_API_TOKEN",
     dataTypes: ["revenue"],
-    tokenLifespan: "~4-8h (browser session cookie)",
+    tokenLifespan: "~1h access token, days/weeks refresh token",
     reconnectSteps: [
       "Click 'Configure' below to open the token input dialog",
-      "Open https://app.gobiz.co.id and log in with your account",
+      "Open https://portal.gofoodmerchant.co.id and log in with your account",
       "Open browser DevTools (F12) → Application tab → Cookies",
-      "Copy the 'access_token' cookie value",
-      "Paste the token in the dialog and click 'Save Token'",
-      "Revenue auto-syncs every 3 hours while the token is valid",
+      "Copy BOTH 'access_token' and 'refresh_token' cookie values",
+      "Paste both tokens in the dialog and click 'Save Token'",
+      "Click 'Sync Now' to manually sync revenue data (cron removed, manual sync only)",
     ],
   },
   internal: {

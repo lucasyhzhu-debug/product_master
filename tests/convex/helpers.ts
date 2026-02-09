@@ -560,3 +560,60 @@ export async function createTag(
     return await ctx.db.insert('tags', { name });
   });
 }
+
+/**
+ * Creates a menu product for testing.
+ */
+export async function createMenuProduct(
+  t: TestContext,
+  overrides: {
+    code?: string;
+    name?: string;
+    defaultPrice?: number;
+    isActive?: boolean;
+  } = {}
+): Promise<Id<'menuProducts'>> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('menuProducts', {
+      code: overrides.code ?? 'TEST-001',
+      name: overrides.name ?? 'Test Product',
+      grams: 100,
+      defaultPrice: overrides.defaultPrice ?? 25000,
+      productionType: 'original',
+      productionUnits: 1,
+      isActive: overrides.isActive ?? true,
+    });
+  });
+}
+
+/**
+ * Creates an external revenue record for testing.
+ */
+export async function createExternalRevenue(
+  t: TestContext,
+  overrides: {
+    source?: 'k3mart' | 'gobiz' | 'internal';
+    revenueGross?: number;
+    revenueNet?: number;
+    commission?: number;
+    adBurn?: number;
+    promoBurn?: number;
+    periodStart?: number;
+    periodEnd?: number;
+  } = {}
+): Promise<Id<'externalRevenue'>> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('externalRevenue', {
+      source: overrides.source ?? 'gobiz',
+      periodStart: overrides.periodStart ?? Date.now(),
+      periodEnd: overrides.periodEnd ?? Date.now(),
+      dataOrigin: 'api_revenue',
+      confidence: 'exact',
+      revenueGross: overrides.revenueGross ?? 100000,
+      revenueNet: overrides.revenueNet ?? 80000,
+      commission: overrides.commission,
+      adBurn: overrides.adBurn,
+      promoBurn: overrides.promoBurn,
+    });
+  });
+}

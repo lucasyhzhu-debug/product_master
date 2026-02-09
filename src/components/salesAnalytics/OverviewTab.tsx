@@ -4,16 +4,28 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DollarSign, TrendingUp, ShoppingCart, Store, ArrowRight } from "lucide-react";
+import {
+  DollarSign,
+  TrendingUp,
+  ShoppingCart,
+  Store,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Percent,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import {
   useConvexExternalRevenue,
   useConvexDashboardSalesSummary,
+  useConvexRevenueItems,
 } from "@/hooks/convex";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 type PlatformFilter = "all" | "k3mart" | "gobiz" | "internal";
 type ConfidenceLevel = "exact" | "inferred" | "manual";
+type MatchConfidence = "exact" | "price_only" | "name_only" | "none";
 
 function ConfidenceBadge({ confidence }: { confidence: ConfidenceLevel }) {
   switch (confidence) {
@@ -31,6 +43,37 @@ function ConfidenceBadge({ confidence }: { confidence: ConfidenceLevel }) {
       );
     case "manual":
       return <Badge variant="outline">Manual</Badge>;
+    default:
+      return null;
+  }
+}
+
+function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
+  switch (status) {
+    case "exact":
+      return (
+        <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
+          Matched
+        </Badge>
+      );
+    case "price_only":
+      return (
+        <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50">
+          Price Match
+        </Badge>
+      );
+    case "name_only":
+      return (
+        <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">
+          Name Match
+        </Badge>
+      );
+    case "none":
+      return (
+        <Badge variant="outline" className="border-gray-400 text-gray-600 bg-gray-50">
+          Unmatched
+        </Badge>
+      );
     default:
       return null;
   }
@@ -58,6 +101,76 @@ function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal"
   );
 }
 
+function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> }) {
+  const { data: items, isLoading } = useConvexRevenueItems(revenueId);
+
+  if (isLoading) {
+    return (
+      <tr>
+        <td colSpan={9} className="py-3 px-2">
+          <Skeleton className="h-16 w-full" />
+        </td>
+      </tr>
+    );
+  }
+
+  if (!items || items.length === 0) {
+    return (
+      <tr>
+        <td colSpan={9} className="py-3 px-6 text-sm text-muted-foreground">
+          No item details available.
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr>
+      <td colSpan={9} className="p-0">
+        <div className="bg-muted/30 px-6 py-3">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 px-2 font-medium">Product</th>
+                <th className="text-right py-2 px-2 font-medium">Qty</th>
+                <th className="text-right py-2 px-2 font-medium">Unit Price</th>
+                <th className="text-right py-2 px-2 font-medium">Total</th>
+                <th className="text-left py-2 px-2 font-medium">Match</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item._id} className="border-b border-muted">
+                  <td className="py-2 px-2">
+                    {item.menuProductName ? (
+                      <span>
+                        {item.productName}
+                        <span className="text-muted-foreground ml-1">
+                          → {item.menuProductName}
+                        </span>
+                      </span>
+                    ) : (
+                      item.productName
+                    )}
+                  </td>
+                  <td className="py-2 px-2 text-right">{item.quantity}</td>
+                  <td className="py-2 px-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                  <td className="py-2 px-2 text-right font-medium">
+                    {formatCurrency(item.totalPrice)}
+                  </td>
+                  <td className="py-2 px-2">
+                    <MatchStatusBadge status={item.matchConfidence} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function RevenueTable({
   records,
   dateFrom,
@@ -72,10 +185,14 @@ function RevenueTable({
     revenueGross?: number;
     revenueNet?: number;
     confidence: ConfidenceLevel;
+    gobizOrderNumber?: string;
+    customerStoreName?: string;
   }>;
   dateFrom: string;
   dateTo: string;
 }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   const filtered = records.filter((r) => {
     if (dateFrom && r.periodStart < new Date(dateFrom).getTime()) return false;
     if (dateTo && r.periodStart > new Date(dateTo + "T23:59:59").getTime()) return false;
@@ -95,8 +212,10 @@ function RevenueTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b">
+            <th className="w-8 py-3 px-1"></th>
             <th className="text-left py-3 px-2 font-medium">Date</th>
             <th className="text-left py-3 px-2 font-medium">Platform</th>
+            <th className="text-left py-3 px-2 font-medium">Customer/Store</th>
             <th className="text-left py-3 px-2 font-medium">Product</th>
             <th className="text-right py-3 px-2 font-medium">Qty</th>
             <th className="text-right py-3 px-2 font-medium">Gross</th>
@@ -105,39 +224,66 @@ function RevenueTable({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((record) => (
-            <tr key={record._id} className="border-b hover:bg-muted/50">
-              <td className="py-3 px-2">
-                {new Date(record.periodStart).toLocaleDateString("id-ID", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </td>
-              <td className="py-3 px-2">
-                <PlatformBadge platform={record.source} />
-              </td>
-              <td className="py-3 px-2">
-                {record.productName || "(all)"}
-              </td>
-              <td className="py-3 px-2 text-right">
-                {record.quantitySold || "\u2014"}
-              </td>
-              <td className="py-3 px-2 text-right font-medium">
-                {record.revenueGross
-                  ? formatCurrency(record.revenueGross)
-                  : "\u2014"}
-              </td>
-              <td className="py-3 px-2 text-right">
-                {record.revenueNet
-                  ? formatCurrency(record.revenueNet)
-                  : "\u2014"}
-              </td>
-              <td className="py-3 px-2">
-                <ConfidenceBadge confidence={record.confidence} />
-              </td>
-            </tr>
-          ))}
+          {filtered.map((record) => {
+            const isExpandable = record.source === "gobiz" && !!record.gobizOrderNumber;
+            const isExpanded = expandedId === record._id;
+
+            return (
+              <>
+                <tr
+                  key={record._id}
+                  className={`border-b hover:bg-muted/50 ${isExpandable ? "cursor-pointer" : ""}`}
+                  onClick={isExpandable ? () => setExpandedId(isExpanded ? null : record._id) : undefined}
+                >
+                  <td className="py-3 px-1">
+                    {isExpandable && (
+                      isExpanded
+                        ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </td>
+                  <td className="py-3 px-2">
+                    {new Date(record.periodStart).toLocaleDateString("id-ID", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </td>
+                  <td className="py-3 px-2">
+                    <PlatformBadge platform={record.source} />
+                  </td>
+                  <td className="py-3 px-2 text-muted-foreground text-xs">
+                    {record.customerStoreName || "\u2014"}
+                  </td>
+                  <td className="py-3 px-2">
+                    {record.productName || "(all)"}
+                  </td>
+                  <td className="py-3 px-2 text-right">
+                    {record.quantitySold || "\u2014"}
+                  </td>
+                  <td className="py-3 px-2 text-right font-medium">
+                    {record.revenueGross
+                      ? formatCurrency(record.revenueGross)
+                      : "\u2014"}
+                  </td>
+                  <td className="py-3 px-2 text-right">
+                    {record.revenueNet
+                      ? formatCurrency(record.revenueNet)
+                      : "\u2014"}
+                  </td>
+                  <td className="py-3 px-2">
+                    <ConfidenceBadge confidence={record.confidence} />
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <ExpandedRevenueItems
+                    key={`${record._id}-items`}
+                    revenueId={record._id as Id<"externalRevenue">}
+                  />
+                )}
+              </>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -193,11 +339,12 @@ export function OverviewTab() {
     summary.platforms.k3mart.activeOutlets + summary.platforms.gobiz.activeOutlets;
   const totalOutlets =
     summary.platforms.k3mart.outletCount + summary.platforms.gobiz.outletCount;
+  const hasCommission = (summary.recentRevenue.totalCommission ?? 0) > 0;
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 md:grid-cols-2 ${hasCommission ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
@@ -223,6 +370,35 @@ export function OverviewTab() {
             <p className="text-xs text-muted-foreground">{summary.recentRevenue.periodLabel}</p>
           </CardContent>
         </Card>
+
+        {hasCommission && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Commission</CardTitle>
+              <Percent className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(summary.recentRevenue.totalCommission ?? 0)}
+              </div>
+              <div className="space-y-0.5">
+                {(summary.recentRevenue.totalAdBurn ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Ad burn: {formatCurrency(summary.recentRevenue.totalAdBurn ?? 0)}
+                  </p>
+                )}
+                {(summary.recentRevenue.totalPromoBurn ?? 0) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Promo burn: {formatCurrency(summary.recentRevenue.totalPromoBurn ?? 0)}
+                  </p>
+                )}
+                {(summary.recentRevenue.totalAdBurn ?? 0) === 0 && (summary.recentRevenue.totalPromoBurn ?? 0) === 0 && (
+                  <p className="text-xs text-muted-foreground">{summary.recentRevenue.periodLabel}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

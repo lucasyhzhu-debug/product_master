@@ -6,7 +6,7 @@
 ## Table of Contents
 - [System Architecture Overview](#system-architecture-overview)
 - [Complete Database Schema](#complete-database-schema)
-- [External Integration Tables (5 Tables)](#external-integration-tables-5-tables)
+- [External Integration Tables (6 Tables)](#external-integration-tables-6-tables)
 - [Order Status Workflow](#order-status-workflow)
 - [Visual Schema Diagram](#visual-schema-diagram)
 - [Data Flow Patterns](#data-flow-patterns)
@@ -120,6 +120,7 @@ menuProducts: defineTable({
   .index("by_active", ["isActive"])
   .index("by_pos_slot", ["posSlot"])
   .index("by_packaging_pos_slot", ["packagingPosSlot"])
+  .index("by_default_price", ["defaultPrice"]) // For GoBiz auto-matching
 ```
 
 **POS Slots:** Dynamic numbering (v.number, no hardcoded limit). Products can be assigned to food POS or packaging POS. Runtime validation ensures positive integers.
@@ -744,7 +745,7 @@ export const createRecipeWithVersion = mutation({
 
 ---
 
-## External Integration Tables (5 Tables)
+## External Integration Tables (6 Tables)
 
 ### externalOutlets
 Platform outlet/store definitions with sync tracking.
@@ -808,8 +809,37 @@ Unified revenue records from all platforms with confidence tracking.
 | transactionDate | number? | Transaction timestamp |
 | transactionType | `"sales" \| "return" \| "delta_inferred"`? | Transaction category |
 | commission | number? | Platform commission amount |
+| adBurn | number? | GoBiz: Ad campaign costs |
+| promoBurn | number? | GoBiz: Promotional discount costs |
+| gobizOrderNumber | number? | GoBiz: Order number for reference |
 
 **Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`, `by_source_txn`
+
+### externalRevenueItems
+Journal-level line items for external revenue transactions. Used by GoBiz to store per-product detail within a journal entry.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| revenueId | Id<"externalRevenue"> | Parent revenue record |
+| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
+| externalItemId | string? | Platform item ID (for dedup) |
+| productName | string | Product name from platform |
+| unitPrice | number | Price per unit |
+| quantity | number | Units sold |
+| totalPrice | number | unitPrice × quantity |
+| variants | string? | JSON string for variant details |
+| linkedMenuProductId | Id<"menuProducts">? | Auto-matched menu product |
+| isAutoMatched | boolean | Whether link was automatic |
+| matchConfidence | `"exact" \| "price_only" \| "name_only" \| "none"`? | Confidence level of auto-match |
+| createdAt | number | Creation timestamp |
+
+**Indexes:** `by_revenue`, `by_source`, `by_menu_product`, `by_product_name`
+
+**Auto-Matching Algorithm:**
+1. **Exact**: Price + name match (case-insensitive)
+2. **Price Only**: Price matches, name doesn't
+3. **Name Only**: Name contains/is-contained-by (case-insensitive), price doesn't match
+4. **None**: No match found
 
 ### externalSyncLogs
 Sync operation logs with timing and error details.
@@ -854,11 +884,12 @@ Stores login credentials for external platforms (K3Mart, etc.) for automatic tok
 
 | Field | Type | Description |
 |-------|------|-------------|
-| platformId | string | Platform identifier (e.g., "k3mart") |
-| email | string | Login email |
-| password | string | Login password (never returned in queries) |
-| currentToken | string? | Active JWT token |
-| tokenExpiresAt | number? | Token expiry timestamp (decoded from JWT `exp` claim) |
+| platformId | string | Platform identifier (e.g., "k3mart", "gobiz") |
+| email | string? | Login email (for platforms with programmatic login) |
+| password | string? | Login password (never returned in queries) |
+| currentToken | string? | Active JWT/Bearer token |
+| tokenExpiresAt | number? | Token expiry timestamp |
+| refreshToken | string? | OAuth refresh token (GoBiz) |
 | lastRefreshAt | number? | Last refresh attempt timestamp |
 | lastRefreshStatus | `"success" \| "error"`? | Result of last refresh |
 | lastRefreshError | string? | Error message if last refresh failed |

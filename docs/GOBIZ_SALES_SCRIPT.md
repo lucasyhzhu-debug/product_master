@@ -211,10 +211,26 @@ Fetching data for 2026-02-03 to 2026-02-07 (WIB)...
 
 ---
 
+## App Integration (Frollie Recipe Master)
+
+The GoBiz revenue sync is now integrated into the Frollie Recipe Master app:
+
+1. Go to **Sales Analytics > Settings** in the app
+2. Click **Configure** under GoBiz (GoFood)
+3. Paste both your **access_token** and **refresh_token** (recommended) from browser cookies
+4. Click **Save & Sync Journals** -- this saves tokens to the database and triggers an immediate sync
+5. The app fetches 5 metrics per day: gross, net, commission, ad burn, promo burn
+6. If the access token expires, the app attempts a 3-method token refresh cascade using the refresh token
+7. Sync is manual only (no cron) -- click **Sync Journals** in Settings to pull latest data
+
+### Token input in the app
+- **Access Token** (required): The `access_token` cookie value
+- **Refresh Token** (recommended): The `refresh_token` cookie value -- enables auto-renewal when access token expires
+
 ## Future Improvements (TODO)
 
 - [ ] Add CSV export option for the data
 - [ ] Support custom date ranges (e.g., `--from 2026-01-01 --to 2026-01-31`)
-- [ ] Integrate with Frollie Recipe Master to auto-sync GoFood revenue data
+- [x] ~~Integrate with Frollie Recipe Master to auto-sync GoFood revenue data~~ (Done - v3.4)
 - [ ] Add scheduled/cron job support for daily automated pulls
 - [ ] Test and verify the auto-refresh mechanism when the access token actually expires
