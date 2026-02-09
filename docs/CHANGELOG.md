@@ -13,6 +13,36 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Feature: Customer/Store Column + GoBiz API Validation
+
+### Revenue Table: Customer/Store Column
+- **New column** "Customer/Store" added after "Platform" in the Revenue Details table
+- **K3Mart**: shows outlet location name (e.g., "JKT-SCBD", "JKT-BINTARO")
+- **Internal**: shows customer name from the linked order
+- **GoBiz**: shows dash (no store concept)
+- Backend `getRevenue` query enriches records with `customerStoreName` via outlet + order lookups
+
+### GoBiz Adapter: Real API Validation
+- Rewrote `helpers.ts` (11 pure functions) to match real GoBiz API format validated against live responses
+- Journal API uses `clauses/op/field/value` query format (not Elasticsearch DSL)
+- Journal amounts are centesimal IDR (÷100), Order API amounts are raw IDR
+- Updated all 35 helper tests to match real API response structures
+
+### Legacy Data Cleanup
+- **New migration:** `convex/migrations/gobizCleanupLegacySummaries.ts` - removes old daily aggregate GoBiz rows (those lacking `externalTransactionId` and `gobizOrderNumber`)
+- Includes `preview` (dry run) and `cleanup` (delete) functions
+- Successfully cleaned 21 legacy rows, preserved 24 journal rows and 48 K3Mart rows
+
+### Modified Files
+- `convex/externalData/queries.ts` - `getRevenue` enriched with customerStoreName
+- `convex/integrations/gobiz/helpers.ts` - rewritten to match real API format
+- `convex/integrations/gobiz/adapter.ts` - rewritten to match real API format
+- `convex/integrations/gobiz/__tests__/helpers.test.ts` - 35 tests updated
+- `convex/migrations/gobizCleanupLegacySummaries.ts` (NEW)
+- `src/components/salesAnalytics/OverviewTab.tsx` - Customer/Store column
+
+---
+
 ## 2026-02-09 - Feature: GoBiz Journal-Level Integration (5-Metric Revenue + Item Details)
 
 **GoBiz adapter previously only fetched daily aggregate net/gross via two Elasticsearch proxies. No per-transaction data, no commission/ad/promo tracking, no refresh token support.**
