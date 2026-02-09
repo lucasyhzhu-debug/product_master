@@ -1,4 +1,4 @@
-import { Clock } from 'lucide-react';
+import { Clock, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PackageCounter } from './PackageCounter';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -21,12 +21,14 @@ interface BoxingOrderCardProps {
     totalPackagesFilled: number;
     confirmedAt: number;
   };
+  orderStatus?: string;
   onFillPackage: (itemId: Id<'orderItems'>) => void;
   onUnfillPackage: (itemId: Id<'orderItems'>) => void;
+  onMarkBoxed?: () => void;
   disabled?: boolean;
 }
 
-export function BoxingOrderCard({ order, onFillPackage, onUnfillPackage, disabled = false }: BoxingOrderCardProps) {
+export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPackage, onMarkBoxed, disabled = false }: BoxingOrderCardProps) {
   const minutesAgo = Math.floor((Date.now() - order.confirmedAt) / 60000);
   const isUrgent = minutesAgo > 30;
   const isComplete = order.totalPackagesFilled === order.totalPackages;
@@ -100,6 +102,20 @@ export function BoxingOrderCard({ order, onFillPackage, onUnfillPackage, disable
           />
         ))}
       </div>
+
+      {/* Mark as Boxed button - shown when all packages filled and order is in Packaging status */}
+      {isComplete && orderStatus === 'Packaging' && onMarkBoxed && (
+        <div className="p-3 bg-green-50 border-t border-green-200">
+          <button
+            onClick={onMarkBoxed}
+            disabled={disabled}
+            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          >
+            <Package className="h-3.5 w-3.5 inline mr-1.5" />
+            Mark as Boxed
+          </button>
+        </div>
+      )}
     </div>
   );
 }

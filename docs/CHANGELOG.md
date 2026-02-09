@@ -13,6 +13,34 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Fix: Kitchen V2 Bug Fixes + Route Swap
+
+### Bug Fixes (6 total, 2 critical)
+- **CRITICAL: Columns 2 & 3 always empty** — `getKitchenOrders` now fetches Boxed and Labeled statuses, populating the Stickering and Ready to Ship columns
+- **CRITICAL: No "Mark Boxed" button** — BoxingOrderCard now shows a "Mark as Boxed" button when all packages are filled and order is in Packaging status
+- **Bite-sized ball stats always 0** — Replaced inline calculation with `usePendingBallStats` hook that supports both original and bite-sized production types
+- **BatchConfirmDialog mock data** — Now shows real packaging inventory from `getPackagingStockSummary` instead of hardcoded values
+- **DailySummaryWidget all zeros** — Connected to `getKitchenStats` query for real balls produced and orders completed counts
+- **"Mark Shipped" skipped intermediate status** — Now correctly transitions to WaitingShipment (delivery) or WaitingPickup (pickup) instead of jumping to CompleteShipped
+
+### Improvements
+- Batch sticker operation now reports partial failures (e.g., "3 of 5 orders labeled. Failed: #0209-003")
+- `usePendingBallStats` hook updated to accept both snake_case (V1) and camelCase (V2) field names
+- Sort priorities updated: Active → Boxed/Labeled → Draft → Waiting
+
+### Route Swap
+- `/kitchen` now serves KitchenViewV2 (primary)
+- `/kitchen-legacy` serves KitchenView V1 (rollback safety)
+
+### Modified Files
+- `convex/orders/queries.ts` — Added Boxed/Labeled to fetched statuses + updated sort priorities
+- `src/components/kitchen/BoxingOrderCard.tsx` — Added onMarkBoxed + orderStatus props
+- `src/hooks/convex/usePendingBallStats.ts` — Dual field name support (snake_case + camelCase)
+- `src/pages/KitchenViewV2.tsx` — All 6 bug fixes + batch error recovery
+- `src/App.tsx` — Route swap (V2 → /kitchen, V1 → /kitchen-legacy)
+
+---
+
 ## 2026-02-09 - Feature: Customer/Store Column + GoBiz API Validation
 
 ### Revenue Table: Customer/Store Column
