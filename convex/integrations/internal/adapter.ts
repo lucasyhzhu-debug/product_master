@@ -72,9 +72,10 @@ export const syncInternalOrders = action({
         const batch = orders.slice(i, i + BATCH_SIZE);
 
         const records = batch.map((order) => {
-          const gross = order.finalTotal ?? order.totalAmount;
+          const gross = order.totalAmount;
+          const net = order.finalTotal ?? order.totalAmount;
           totalGross += gross;
-          totalNet += order.totalMargin;
+          totalNet += net;
 
           return {
             source: "internal" as const,
@@ -82,7 +83,7 @@ export const syncInternalOrders = action({
             quantitySold: order.itemCount,
             transactionCount: 1,
             revenueGross: gross,
-            revenueNet: order.totalMargin,
+            revenueNet: net,
             costOfGoods: order.totalCost,
             periodStart: order.orderDate,
             periodEnd: order.orderDate,

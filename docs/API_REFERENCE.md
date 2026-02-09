@@ -801,7 +801,25 @@ Gets sync operation history.
 | limit | number? | Max results (default 50) |
 
 #### `externalData.queries.getDashboardSummary`
-Aggregated dashboard data: outlet counts, recent revenue totals, last sync per platform.
+Aggregated dashboard data: outlet counts, recent revenue totals (last 24h), last sync per platform. Used by main Dashboard SalesWidget.
+
+#### `externalData.queries.getDashboardSummaryByPeriod`
+Period-based dashboard summary with current vs previous period comparison and per-channel breakdowns. Active outlets derived from actual sales in period.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| preset | `"today" \| "yesterday" \| "last7days" \| "last30days" \| "thisMonth"` | Period preset |
+
+**Returns:** `{ platforms, currentPeriod: { totalGross, totalNet, totalTransactions, totalCommission, totalAdBurn, totalPromoBurn, totalDiscounts, platformGross, internalGross, channels: { k3mart, gobiz, internal }, periodLabel, comparisonLabel, periodStart, periodEnd }, previousPeriod: { same fields } }`
+
+#### `externalData.queries.getOrderDetailsByOrderNumber`
+Fetches order header and non-cancelled items for expanding internal revenue rows.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| orderNumber | string | Order number (e.g. "0202-001") |
+
+**Returns:** `{ orderId, orderNumber, customerName, channel, status, deliveryType, totalAmount, finalTotal, orderLevelDiscount, orderLevelDiscountType, voucherCode, voucherDiscountValue, items: [{ productName, productVariant, quantity, unitPrice, totalPrice }] }` or `null`
 
 ### Mutations (Auth Required: manager, admin)
 

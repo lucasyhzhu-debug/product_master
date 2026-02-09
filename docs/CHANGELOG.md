@@ -13,6 +13,54 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Feature: Sales Analytics Quick Filters & Channel Breakdown
+
+### Period Presets & Growth Indicators
+- **Period filter bar** with 5 presets: Today, Yesterday, Last 7 Days, Last 30 Days, This Month
+- Period stored in URL `?period=` param (default Last 7 Days omits param for clean URLs)
+- **Growth indicators** on all summary cards comparing current vs previous period (green/red arrows with %)
+- **Inverted colors** for Commissions Paid and Discounts Given (lower = green = good)
+- **AOV card** added (Average Order Value = gross / transactions)
+
+### Channel Breakdown (Driver Tree)
+- New second row showing per-channel metrics: All Channels, K3 Mart, GoBiz, Local/Direct
+- Each channel shows Gross Sales, Net Sales (with % of gross), Transactions, AOV in a vertical driver tree
+- Growth indicators per metric per channel
+- Active outlet count next to channel name (derived from actual sales in period, not static flags)
+- Share-of-gross percentage on each non-All channel
+
+### Revenue Fixes
+- **Internal orders gross/net bug**: Fixed adapter storing `finalTotal` as gross and `totalMargin` as net. Now correctly stores `totalAmount` as gross and `finalTotal` as net
+- **WIB timezone filtering**: "Today" filter now correctly uses WIB midnight boundaries, not UTC
+- **Commission/Discount denominators**: Commissions use platform-only gross, discounts use internal-only gross
+- **Data migration**: `fixInternalRevenueValues` corrected existing records (5 dev, 9 production)
+- **Safety net**: `getRevenue` query overrides internal order gross/net from real order data
+
+### Sales Details Table Enhancements
+- **Time column** (HH:MM WIB) added next to Date column
+- **Expandable internal orders**: Click to see customer, items, discounts, vouchers, and "View Full Order" link
+- **K3 Mart store grouping**: Collapsible groups by outlet when K3 Mart filter active
+- **Platform color scheme**: K3 Mart = purple, GoBiz = red, Local = blue (consistent across badges, filters, channel summary)
+- Platform filter badges use colored outlines with filled state when active
+
+### Backend
+- **New query**: `getDashboardSummaryByPeriod(preset)` - aggregates revenue with current/previous period comparison, per-channel breakdowns, platform vs internal gross split
+- **New query**: `getOrderDetailsByOrderNumber(orderNumber)` - returns order header + items for expanded internal rows
+- **New pure function**: `calculatePeriodRange(preset)` in `convex/lib/periodRange.ts` with WIB timezone support
+- **Active outlets** now derived from distinct outlet IDs with sales in the selected period (not static `isActive` flag)
+
+### Modified Files
+- `convex/lib/periodRange.ts` (NEW) - Period range calculation with WIB timezone
+- `convex/lib/__tests__/periodRange.test.ts` (NEW) - Unit tests for all 5 presets
+- `convex/externalData/queries.ts` - 2 new queries + per-channel aggregation + period-aware active outlets
+- `convex/externalData/mutations.ts` - `fixInternalRevenueValues` migration
+- `convex/integrations/internal/adapter.ts` - Fixed gross/net field mapping
+- `src/hooks/convex/useExternalData.ts` - 3 new hooks + PeriodPreset type
+- `src/hooks/convex/index.ts` - New exports
+- `src/components/salesAnalytics/OverviewTab.tsx` - Complete enhancement (~+900 lines)
+
+---
+
 ## 2026-02-09 - Feature: Customer/Store Column + GoBiz API Validation
 
 ### Revenue Table: Customer/Store Column
