@@ -595,6 +595,26 @@ export function useConvexUpdateOrderItemQuantity() {
 }
 
 /**
+ * Replace all items in an order.
+ * Used by the "Edit Order" flow.
+ */
+export function useConvexReplaceOrderItems() {
+  const mutation = useMutation(api.orders.mutations.replaceItems);
+
+  const execute = async (data: { orderId: Id<"orders">; items: OrderItemInput[] }) => {
+    try {
+      await mutation(data);
+      toast.success("Order items updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update order items"));
+      throw error;
+    }
+  };
+
+  return { mutate: execute, mutateAsync: execute };
+}
+
+/**
  * Update order-level discount.
  * PRD-5: Order System V2 - Wave 1.
  */

@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat } from 'lucide-react';
+import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat, Pencil } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
@@ -35,9 +35,6 @@ import {
   useConvexUpdateOrderShipping,
   useConvexUpdateOrderDetails,
   useConvexCancelOrder,
-  useConvexAddOrderItem,
-  useConvexRemoveOrderItem,
-  useConvexUpdateOrderItemQuantity,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { OrderStatus, CancellationCategory, OrderItem } from '@/lib/types';
@@ -91,9 +88,6 @@ export function OrderDetail() {
   const updateDetails = useConvexUpdateOrderDetails();
   const cancelOrder = useConvexCancelOrder();
   const deleteOrder = useConvexDeleteOrder();
-  const addOrderItem = useConvexAddOrderItem();
-  const removeOrderItem = useConvexRemoveOrderItem();
-  const updateItemQty = useConvexUpdateOrderItemQuantity();
 
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -566,12 +560,19 @@ export function OrderDetail() {
             voucherCode={order.voucher_code}
             voucherDiscountValue={order.voucher_discount_value}
             finalTotal={order.final_total}
-            editable={['Draft', 'AwaitingPayment'].includes(order.status)}
-            orderId={orderId as Id<"orders">}
-            onItemQuantityChange={(itemId, qty) => updateItemQty.mutate({ itemId, quantity: qty })}
-            onItemRemove={(itemId) => removeOrderItem.mutate(itemId)}
-            onItemAdd={(item) => addOrderItem.mutate({ orderId: orderId as Id<"orders">, item })}
           />
+
+          {/* Edit Order Items Button */}
+          {['Draft', 'AwaitingPayment'].includes(order.status) && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate(`/orders?edit=${orderId}`)}
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Order Items
+            </Button>
+          )}
 
           {/* Delivery Info (for delivery orders) */}
           {order.delivery_type === 'Delivery' && (
