@@ -407,8 +407,8 @@ export function OrderManager() {
     navigate(`/orders/${orderId}`);
   };
 
-  const handleOrderCreated = () => {
-    // Form will handle success toast, just refresh will happen automatically
+  const handleOrderCreated = (orderId: string) => {
+    navigate(`/orders/${orderId}`);
   };
 
   return (
