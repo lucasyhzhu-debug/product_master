@@ -188,19 +188,21 @@ export function OrderDetail() {
       description: 'Draft order ready for payment request',
       status: getStepStatus('Draft', order.status as OrderStatus),
       completedAt: order.status !== 'Draft' ? new Date(order.created_at) : undefined,
-      content: order.status === 'Draft' ? (
+      content: getStepStatus('Draft', order.status as OrderStatus) !== 'pending' ? (
         <div className="space-y-4">
           <StepWhatsAppTemplate
             orderId={orderId!}
             templateType="payment_request"
             customerPhone={order.customer_phone}
           />
-          <Button
-            onClick={() => handleStatusChange('AwaitingPayment')}
-            className="w-full"
-          >
-            Confirmation invoice sent to customer for payment
-          </Button>
+          {order.status === 'Draft' && (
+            <Button
+              onClick={() => handleStatusChange('AwaitingPayment')}
+              className="w-full"
+            >
+              Confirmation invoice sent to customer for payment
+            </Button>
+          )}
         </div>
       ) : null,
     });
@@ -290,34 +292,38 @@ export function OrderDetail() {
         title: 'Shipping',
         description: order.shipping_agency ? `Via ${order.shipping_agency}` : 'Enter shipping details',
         status: getStepStatus('WaitingShipment', order.status as OrderStatus),
-        content: ['Packaging', 'WaitingShipment'].includes(order.status) ? (
+        content: getStepStatus('WaitingShipment', order.status as OrderStatus) !== 'pending' ? (
           <div className="space-y-4">
-            <div>
-              <Label className="text-sm text-muted-foreground">Shipping Agency</Label>
-              <ShippingAgencyButtons
-                value={shippingAgency || order.shipping_agency}
-                onChange={(agency) => {
-                  setShippingAgency(agency);
-                }}
-              />
-            </div>
-            <div>
-              <Label className="text-sm text-muted-foreground">Tracking Number</Label>
-              <Input
-                placeholder="Enter tracking number"
-                value={shippingNumber || order.shipping_number || ''}
-                onChange={(e) => setShippingNumber(e.target.value)}
-              />
-            </div>
-            <Button
-              onClick={handleShippingUpdate}
-              variant="outline"
-              className="w-full"
-            >
-              <Truck className="h-4 w-4 mr-2" />
-              Save Shipping Info
-            </Button>
-            {order.status === 'WaitingShipment' && (
+            {['Packaging', 'WaitingShipment'].includes(order.status) && (
+              <>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Shipping Agency</Label>
+                  <ShippingAgencyButtons
+                    value={shippingAgency || order.shipping_agency}
+                    onChange={(agency) => {
+                      setShippingAgency(agency);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-muted-foreground">Tracking Number</Label>
+                  <Input
+                    placeholder="Enter tracking number"
+                    value={shippingNumber || order.shipping_number || ''}
+                    onChange={(e) => setShippingNumber(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleShippingUpdate}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  Save Shipping Info
+                </Button>
+              </>
+            )}
+            {(order.status === 'WaitingShipment' || getStepStatus('WaitingShipment', order.status as OrderStatus) === 'completed') && (
               <>
                 <Separator />
                 <StepWhatsAppTemplate
@@ -325,12 +331,14 @@ export function OrderDetail() {
                   templateType="shipping"
                   customerPhone={order.customer_phone}
                 />
-                <Button
-                  onClick={() => handleStatusChange('CompleteShipped')}
-                  className="w-full"
-                >
-                  Mark as Shipped
-                </Button>
+                {order.status === 'WaitingShipment' && (
+                  <Button
+                    onClick={() => handleStatusChange('CompleteShipped')}
+                    className="w-full"
+                  >
+                    Mark as Shipped
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -360,20 +368,22 @@ export function OrderDetail() {
         title: 'Ready for Pickup',
         description: order.pickup_location || 'Customer pickup',
         status: getStepStatus('WaitingPickup', order.status as OrderStatus),
-        content: order.status === 'WaitingPickup' ? (
+        content: getStepStatus('WaitingPickup', order.status as OrderStatus) !== 'pending' ? (
           <div className="space-y-4">
             <StepWhatsAppTemplate
               orderId={orderId!}
               templateType="pickup_ready"
               customerPhone={order.customer_phone}
             />
-            <Button
-              onClick={() => handleStatusChange('PickedUp')}
-              className="w-full"
-            >
-              <Package className="h-4 w-4 mr-2" />
-              Mark as Picked Up
-            </Button>
+            {order.status === 'WaitingPickup' && (
+              <Button
+                onClick={() => handleStatusChange('PickedUp')}
+                className="w-full"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Mark as Picked Up
+              </Button>
+            )}
           </div>
         ) : null,
       });
