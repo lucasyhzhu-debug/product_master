@@ -667,17 +667,36 @@ Syncs K3Mart sales transactions with incremental date range and outlet linking.
 **Outlet Linking:** Looks up `outletNameMap[txn.outletName]` to attach `outletId` to each revenue record. Gracefully handles missing outlets (outletId stays undefined).
 
 #### `integrations.gobiz.adapter.syncGoBizRevenue`
-Syncs revenue data from GoBiz (GoFood).
+Syncs revenue data from GoBiz (GoFood) using dashboard API with 5 metrics.
 
 | Arg | Type | Description |
 |-----|------|-------------|
-| periodStart | number? | Period start (defaults to today) |
-| periodEnd | number? | Period end (defaults to end of today) |
+| daysBack | number? | Number of days to sync (default: 7) |
 | triggeredBy | string? | Who triggered the sync |
 
-**Returns:** `{ success, syncLogId, revenueGross, revenueNet, transactionCount, period, durationMs }`
+**Returns (success):** `{ success: true, syncLogId, daysProcessed, totalGross, totalNet, totalTransactions, period: { from, to }, durationMs }`
 
-**Flow:** Queries proxy/44 for gross revenue + transaction count, proxy/4 for net revenue (merchant share). Amounts divided by 100 (cents to IDR). Stores with `confidence: "exact"`.
+**Returns (failure):** `{ success: false, syncLogId, error, durationMs }`
+
+**Flow:**
+1. Resolves both access_token and refresh_token from DB (or env vars)
+2. Generates WIB date range (default: last 7 days)
+3. For each day: queries dashboard API (proxy/63) to extract 5 metrics:
+   - Net sales (bottomline)
+   - Gross sales (topline)
+   - Commission
+   - Ad burn
+   - Promo burn
+4. On 401 error: attempts 3-method token refresh cascade:
+   - Method 1: Cookie refresh (GET /micro-app/auth)
+   - Method 2: Token rotate (POST /analytics-backend/api/auth/token/rotate)
+   - Method 3: API refresh (POST api.gobiz.co.id/auth/token/refresh)
+5. Stores each day as separate `externalRevenue` record with all 5 metrics
+6. Updates sync log with final status
+
+**Token Refresh:** Auto-refreshes expired tokens using refresh_token. On success, updates DB with new access_token. On failure after all 3 methods, marks token expired and returns error.
+
+**Note:** No auto-sync cron. Manual sync only via dashboard or settings.
 
 #### `integrations.internal.adapter.syncInternalOrders`
 Syncs revenue from own Convex orders database. No external API calls or tokens required.
@@ -760,13 +779,18 @@ Gets latest stock snapshot batch for an outlet.
 | outletId | Id<"externalOutlets"> | Outlet to query |
 
 #### `externalData.queries.getRevenue`
-Gets revenue records with optional filters.
+Gets revenue records with optional filters. Each record is enriched with `customerStoreName`:
+- **K3Mart**: outlet location name from `externalOutlets` (e.g., "JKT-SCBD")
+- **Internal**: customer name from linked order
+- **GoBiz**: undefined (no store concept)
 
 | Arg | Type | Description |
 |-----|------|-------------|
 | source | `"k3mart" \| "gobiz" \| "internal"`? | Filter by platform |
 | periodStart | number? | Period start filter |
 | periodEnd | number? | Period end filter |
+
+**Returns:** `Array<externalRevenue & { customerStoreName?: string }>`
 
 #### `externalData.queries.getSyncLogs`
 Gets sync operation history.
@@ -867,6 +891,8 @@ Same as above but called by the 12-hour cron job. No auth check (system-level).
 |----------|----------|-------------|
 | Every 12 hours | `refreshK3MartTokenCron` | Auto-refresh K3Mart JWT token |
 
+**Note:** GoBiz cron removed in Phase 2. GoBiz sync is now manual-only (trigger via dashboard or settings).
+
 Defined in `convex/crons.ts`.
 
 ---
@@ -876,7 +902,8 @@ Defined in `convex/crons.ts`.
 | Variable | Description | Lifespan |
 |----------|-------------|----------|
 | `K3MART_API_TOKEN` | K3 Mart JWT token (fallback if DB token unavailable) | ~24h |
-| `GOBIZ_API_TOKEN` | GoBiz access token (session cookie) | ~hours |
+| `GOBIZ_API_TOKEN` | GoBiz access token (Bearer token, fallback if DB token unavailable) | ~1h |
+| `GOBIZ_REFRESH_TOKEN` | GoBiz refresh token (fallback if DB token unavailable) | days/weeks |
 
 ---
 

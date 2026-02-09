@@ -75,6 +75,9 @@ export const saveRevenue = internalMutation({
         v.literal("delta_inferred")
       )),
       commission: v.optional(v.number()),
+      adBurn: v.optional(v.number()),
+      promoBurn: v.optional(v.number()),
+      gobizOrderNumber: v.optional(v.string()),
     })),
   },
   handler: async (ctx, args) => {
@@ -365,5 +368,123 @@ export const linkProductMapping = mutation({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin", "manager"]);
     await ctx.db.patch(args.mappingId, { menuProductId: args.menuProductId });
+  },
+});
+
+// ─── REVENUE ITEMS MUTATIONS (journal-level data) ───
+
+export const saveRevenueItems = internalMutation({
+  args: {
+    revenueId: v.id("externalRevenue"),
+    items: v.array(v.object({
+      externalItemId: v.optional(v.string()),
+      productName: v.string(),
+      unitPrice: v.number(),
+      quantity: v.number(),
+      totalPrice: v.number(),
+      variants: v.optional(v.string()),
+      linkedMenuProductId: v.optional(v.id("menuProducts")),
+      isAutoMatched: v.boolean(),
+      matchConfidence: v.optional(v.union(
+        v.literal("exact"), v.literal("price_only"),
+        v.literal("name_only"), v.literal("none")
+      )),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const ids = [];
+
+    // Get source from parent revenue record
+    const revenue = await ctx.db.get(args.revenueId);
+    if (!revenue) {
+      throw new Error(`Revenue record not found: ${args.revenueId}`);
+    }
+
+    for (const item of args.items) {
+      // Dedup: skip if same revenueId + externalItemId exists
+      if (item.externalItemId) {
+        const existing = await ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+          .filter((q) => q.eq(q.field("externalItemId"), item.externalItemId))
+          .first();
+        if (existing) continue;
+      }
+
+      const id = await ctx.db.insert("externalRevenueItems", {
+        revenueId: args.revenueId,
+        source: revenue.source,
+        externalItemId: item.externalItemId,
+        productName: item.productName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        variants: item.variants,
+        linkedMenuProductId: item.linkedMenuProductId,
+        isAutoMatched: item.isAutoMatched,
+        matchConfidence: item.matchConfidence,
+        createdAt: Date.now(),
+      });
+      ids.push(id);
+    }
+
+    return ids;
+  },
+});
+
+export const autoMatchMenuProduct = internalMutation({
+  args: {
+    productName: v.string(),
+    unitPrice: v.number(),
+    source: sourceValidator,
+  },
+  handler: async (ctx, args) => {
+    // Step 1: Try exact price match
+    const priceMatches = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_default_price", (q) => q.eq("defaultPrice", args.unitPrice))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    if (priceMatches.length > 0) {
+      // Check if any price match also matches name (case-insensitive)
+      const nameLower = args.productName.toLowerCase();
+      for (const product of priceMatches) {
+        if (product.name.toLowerCase() === nameLower) {
+          return {
+            linkedMenuProductId: product._id,
+            matchConfidence: "exact" as const,
+          };
+        }
+      }
+      // Price match but no name match
+      return {
+        linkedMenuProductId: priceMatches[0]._id,
+        matchConfidence: "price_only" as const,
+      };
+    }
+
+    // Step 2: Try name-only match (case-insensitive contains)
+    const allProducts = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    const nameLower = args.productName.toLowerCase();
+    for (const product of allProducts) {
+      const productNameLower = product.name.toLowerCase();
+      if (productNameLower.includes(nameLower) || nameLower.includes(productNameLower)) {
+        return {
+          linkedMenuProductId: product._id,
+          matchConfidence: "name_only" as const,
+        };
+      }
+    }
+
+    // Step 3: No match found
+    return {
+      linkedMenuProductId: undefined,
+      matchConfidence: "none" as const,
+    };
   },
 });

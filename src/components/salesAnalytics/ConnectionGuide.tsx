@@ -20,10 +20,12 @@ interface ConnectionGuideProps {
   lastSyncError?: string;
   isSyncing: boolean;
   onSync: () => void;
+  syncLabel?: string;
   onSecondarySync?: () => void;
   secondarySyncLabel?: string;
   isSecondarySyncing?: boolean;
   hasCredentials?: boolean;
+  hasRefreshToken?: boolean;
   tokenExpiresAt?: number | null;
   lastRefreshStatus?: 'success' | 'error' | null;
   onConfigure?: () => void;
@@ -69,10 +71,12 @@ export function ConnectionGuide({
   lastSyncError,
   isSyncing,
   onSync,
+  syncLabel = 'Sync Now',
   onSecondarySync,
   secondarySyncLabel = 'Secondary Action',
   isSecondarySyncing = false,
   hasCredentials,
+  hasRefreshToken,
   tokenExpiresAt,
   onConfigure,
 }: ConnectionGuideProps) {
@@ -180,6 +184,14 @@ export function ConnectionGuide({
               )}
             </div>
           )}
+          {hasRefreshToken && (
+            <div className="flex items-center gap-2">
+              <span>Refresh token:</span>
+              <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 text-[10px] px-1.5 py-0">
+                Saved
+              </Badge>
+            </div>
+          )}
           {tokenExpiresAt && (
             <div>
               Token valid until:{' '}
@@ -265,7 +277,7 @@ export function ConnectionGuide({
                 Syncing...
               </>
             ) : (
-              'Sync Now'
+              syncLabel
             )}
           </Button>
         </div>

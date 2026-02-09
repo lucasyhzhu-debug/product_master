@@ -314,6 +314,7 @@ export {
   useConvexExternalSyncLogs,
   useConvexExternalProductMappings,
   useConvexDashboardSalesSummary,
+  useConvexRevenueItems,
   // Platform credentials hooks
   useConvexCredentialStatus,
   useConvexRefreshK3MartToken,

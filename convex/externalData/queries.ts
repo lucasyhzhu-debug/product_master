@@ -130,7 +130,39 @@ export const getRevenue = query({
       results = results.filter((r) => r.periodEnd <= args.periodEnd!);
     }
 
-    return results;
+    // Enrich with Customer/Store name
+    // Build lookup maps to avoid N+1 queries
+    const outletIds = new Set(
+      results.filter((r) => r.outletId).map((r) => r.outletId!)
+    );
+    const outletNameMap = new Map<string, string>();
+    for (const outletId of outletIds) {
+      const outlet = await ctx.db.get(outletId);
+      if (outlet) outletNameMap.set(outletId, outlet.name);
+    }
+
+    const internalOrderNumbers = results
+      .filter((r) => r.source === "internal" && r.externalTransactionId)
+      .map((r) => r.externalTransactionId!);
+    const customerNameMap = new Map<string, string>();
+    if (internalOrderNumbers.length > 0) {
+      const orders = await ctx.db.query("orders").collect();
+      for (const order of orders) {
+        if (internalOrderNumbers.includes(order.orderNumber)) {
+          customerNameMap.set(order.orderNumber, order.customerName);
+        }
+      }
+    }
+
+    return results.map((r) => {
+      let customerStoreName: string | undefined;
+      if (r.source === "k3mart" && r.outletId) {
+        customerStoreName = outletNameMap.get(r.outletId);
+      } else if (r.source === "internal" && r.externalTransactionId) {
+        customerStoreName = customerNameMap.get(r.externalTransactionId);
+      }
+      return { ...r, customerStoreName };
+    });
   },
 });
 
@@ -209,6 +241,9 @@ export const getDashboardSummary = query({
     const totalGross = recentRevenue.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
     const totalNet = recentRevenue.reduce((sum, r) => sum + (r.revenueNet ?? 0), 0);
     const totalTransactions = recentRevenue.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
+    const totalCommission = recentRevenue.reduce((sum, r) => sum + (r.commission ?? 0), 0);
+    const totalAdBurn = recentRevenue.reduce((sum, r) => sum + (r.adBurn ?? 0), 0);
+    const totalPromoBurn = recentRevenue.reduce((sum, r) => sum + (r.promoBurn ?? 0), 0);
 
     return {
       platforms: {
@@ -232,8 +267,42 @@ export const getDashboardSummary = query({
         totalGross,
         totalNet,
         totalTransactions,
+        totalCommission,
+        totalAdBurn,
+        totalPromoBurn,
         periodLabel: "Last 24 hours",
       },
     };
+  },
+});
+
+// ─── REVENUE ITEMS QUERIES ───
+
+export const getRevenueItems = query({
+  args: {
+    revenueId: v.id("externalRevenue"),
+  },
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+      .collect();
+
+    // Enrich with menu product names
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        let menuProductName: string | undefined;
+        if (item.linkedMenuProductId) {
+          const product = await ctx.db.get(item.linkedMenuProductId);
+          menuProductName = product?.name;
+        }
+        return {
+          ...item,
+          menuProductName,
+        };
+      })
+    );
+
+    return enrichedItems;
   },
 });

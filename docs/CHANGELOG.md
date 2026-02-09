@@ -13,6 +13,93 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-09 - Feature: Customer/Store Column + GoBiz API Validation
+
+### Revenue Table: Customer/Store Column
+- **New column** "Customer/Store" added after "Platform" in the Revenue Details table
+- **K3Mart**: shows outlet location name (e.g., "JKT-SCBD", "JKT-BINTARO")
+- **Internal**: shows customer name from the linked order
+- **GoBiz**: shows dash (no store concept)
+- Backend `getRevenue` query enriches records with `customerStoreName` via outlet + order lookups
+
+### GoBiz Adapter: Real API Validation
+- Rewrote `helpers.ts` (11 pure functions) to match real GoBiz API format validated against live responses
+- Journal API uses `clauses/op/field/value` query format (not Elasticsearch DSL)
+- Journal amounts are centesimal IDR (÷100), Order API amounts are raw IDR
+- Updated all 35 helper tests to match real API response structures
+
+### Legacy Data Cleanup
+- **New migration:** `convex/migrations/gobizCleanupLegacySummaries.ts` - removes old daily aggregate GoBiz rows (those lacking `externalTransactionId` and `gobizOrderNumber`)
+- Includes `preview` (dry run) and `cleanup` (delete) functions
+- Successfully cleaned 21 legacy rows, preserved 24 journal rows and 48 K3Mart rows
+
+### Modified Files
+- `convex/externalData/queries.ts` - `getRevenue` enriched with customerStoreName
+- `convex/integrations/gobiz/helpers.ts` - rewritten to match real API format
+- `convex/integrations/gobiz/adapter.ts` - rewritten to match real API format
+- `convex/integrations/gobiz/__tests__/helpers.test.ts` - 35 tests updated
+- `convex/migrations/gobizCleanupLegacySummaries.ts` (NEW)
+- `src/components/salesAnalytics/OverviewTab.tsx` - Customer/Store column
+
+---
+
+## 2026-02-09 - Feature: GoBiz Journal-Level Integration (5-Metric Revenue + Item Details)
+
+**GoBiz adapter previously only fetched daily aggregate net/gross via two Elasticsearch proxies. No per-transaction data, no commission/ad/promo tracking, no refresh token support.**
+
+### Changes
+
+**Phase 1 - Backend Foundation:**
+- **New table:** `externalRevenueItems` - stores per-order item details (product name, qty, unit price, total, linked menu product, match confidence)
+- **New fields:** `externalRevenue` gains `adBurn`, `promoBurn`, `gobizOrderNumber` (all optional)
+- **New field:** `platformCredentials` gains `refreshToken` (optional)
+- **New index:** `menuProducts.by_default_price` for auto-matching
+- **New mutations:** `saveRevenueItems` (batch insert with dedup), `autoMatchMenuProduct` (3-tier: exact/price_only/name_only/none)
+- **New query:** `getRevenueItems` (enriches items with menu product names)
+- **Updated query:** `getDashboardSummary` now aggregates commission, ad burn, promo burn
+- **Updated mutations:** `saveDirectToken` accepts `refreshToken`, `getCredentialStatus` returns `hasRefreshToken`
+
+**Phase 2 - Adapter Rewrite:**
+- **New file:** `convex/integrations/gobiz/helpers.ts` - 7 pure functions (WIB date conversion, dashboard headers, journal/order body builders, dedup keys, metric extraction)
+- **Rewritten:** `convex/integrations/gobiz/config.ts` - 3-API config (dashboard, journal, order) + token refresh endpoints
+- **Rewritten:** `convex/integrations/gobiz/adapter.ts` - Dashboard-based 5-metric sync per WIB day, 3-method token refresh cascade (cookie, rotate, API)
+- **Removed:** GoBiz cron from `convex/crons.ts` (K3Mart token refresh cron kept)
+- **Updated:** GoBiz registry entry with 5-metric description and manual sync instructions
+
+**Phase 3 - Frontend Integration:**
+- **Updated:** GoBiz token dialog - now accepts both access token and refresh token
+- **New:** Commission stats card in Overview (visible when commission > 0, shows ad/promo burn sub-metrics)
+- **New:** Expandable revenue rows - click chevron to see item details with match status badges
+- **New:** Match status badges (Matched/Price Match/Name Match/Unmatched)
+- **Updated:** Settings tab - GoBiz sync button says "Sync Journals", shows refresh token status badge
+- **New hook:** `useConvexRevenueItems` with skip pattern for conditional fetching
+
+### Test Coverage
+- 14 new Phase 1 tests (saveRevenueItems, autoMatchMenuProduct, getRevenueItems, getDashboardSummary)
+- 17 new Phase 2 helper unit tests (all 7 pure functions)
+- 5 new Phase 2 adapter integration tests
+- All 334 existing tests pass (no regressions)
+
+### Modified Files
+- `convex/schema.ts` - new table + field additions
+- `convex/externalData/mutations.ts` - saveRevenueItems, autoMatchMenuProduct
+- `convex/externalData/queries.ts` - getRevenueItems, updated getDashboardSummary
+- `convex/platformCredentials/mutations.ts` - refreshToken support
+- `convex/platformCredentials/queries.ts` - hasRefreshToken
+- `convex/integrations/gobiz/helpers.ts` (NEW)
+- `convex/integrations/gobiz/config.ts` (REWRITTEN)
+- `convex/integrations/gobiz/adapter.ts` (REWRITTEN)
+- `convex/crons.ts` - GoBiz cron removed
+- `convex/integrations/registry.ts` - updated GoBiz metadata
+- `src/components/salesAnalytics/GoBizTokenDialog.tsx` - refresh token field
+- `src/components/salesAnalytics/OverviewTab.tsx` - commission card + expandable rows
+- `src/components/salesAnalytics/SettingsTab.tsx` - sync label + refresh token badge
+- `src/components/salesAnalytics/ConnectionGuide.tsx` - syncLabel + hasRefreshToken props
+- `src/hooks/convex/useExternalData.ts` - useConvexRevenueItems hook
+- `src/hooks/convex/index.ts` - barrel export
+
+---
+
 ## 2026-02-08 - Feature: K3Mart Outlet Name Resolution + Sales Location Linking
 
 **K3Mart outlets previously saved as "K3 Mart #44" (placeholders). Sales transactions had no outlet link, making location-based analysis impossible.**
