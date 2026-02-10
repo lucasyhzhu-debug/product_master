@@ -584,6 +584,7 @@ export default defineSchema({
     boxed: v.number(), // Total boxed since last reset
     stickered: v.number(), // Total stickered since last reset
     packed: v.number(), // Total packed since last reset
+    shippedToGoldfinch: v.optional(v.number()), // Boxes shipped to Goldfinch depot since last reset
     lastResetAt: v.optional(v.number()), // When counts were last reset
     lastResetBy: v.optional(v.string()), // Who reset the counts
   })
@@ -1125,4 +1126,30 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_platform", ["platformId"]),
+
+  // ============================================
+  // GOFOOD DEPOT (GOLDFINCH) TRACKING
+  // Per-product stock at Goldfinch depot + shipment audit log
+  // ============================================
+
+  // Per-product running stock at Goldfinch depot (source of truth)
+  gofoodDepotStock: defineTable({
+    menuProductId: v.id("menuProducts"), // Which product
+    quantity: v.number(), // Current boxes at Goldfinch (can go negative = debt)
+    stickerDeficit: v.optional(v.number()), // Cumulative sticker shortfall
+    lastUpdated: v.number(), // Timestamp of last change
+  })
+    .index("by_menuProduct", ["menuProductId"]),
+
+  // Audit log of every shipment from Office to Goldfinch
+  gofoodDepotShipments: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    menuProductId: v.id("menuProducts"), // Which product
+    quantity: v.number(), // How many boxes shipped
+    stickersTransferred: v.number(), // How many stickers transferred alongside
+    shippedBy: v.string(), // Who confirmed the shipment
+    timestamp: v.number(), // When confirmed
+  })
+    .index("by_date", ["date"])
+    .index("by_product_date", ["menuProductId", "date"]),
 });
