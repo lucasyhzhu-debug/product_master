@@ -18,6 +18,11 @@ interface KitchenProductionData {
     | Array<{
         menuProductId: string;
         menuProductName: string;
+        menuProductCode?: string;
+        posSlot?: number;
+        productType?: string;
+        ballType?: 'big' | 'mid';
+        ballCount?: number;
         boxed: number;
         stickered: number;
         packed: number;
@@ -88,6 +93,26 @@ interface KitchenProductionData {
         effectiveTarget: number;
       }>
     | undefined;
+
+  // Per-product manual targets for today (consignment + gofood)
+  productTargets:
+    | Array<{
+        menuProductId: string;
+        source: string;
+        quantity: number;
+      }>
+    | undefined;
+
+  // Per-product demand from orders due today/tomorrow (auto-calculated)
+  orderProductDemand:
+    | Array<{
+        menuProductId: string;
+        quantity: number;
+      }>
+    | undefined;
+
+  // Today's date string (YYYY-MM-DD)
+  today: string;
 }
 
 // ============================================
@@ -112,6 +137,12 @@ export function useKitchenProduction(): KitchenProductionData {
   const productionTargets = useQuery(api.productionTargets.queries.getProductionSummary, {
     date: today,
   });
+  const productTargets = useQuery(api.productionTargets.queries.getProductTargets, {
+    date: today,
+  });
+  const orderProductDemand = useQuery(api.productionTargets.queries.getOrderProductDemand, {
+    date: today,
+  });
 
   const isLoading =
     productionCounts === undefined ||
@@ -126,5 +157,8 @@ export function useKitchenProduction(): KitchenProductionData {
     trayInventory,
     kitchenStats,
     productionTargets,
+    productTargets,
+    orderProductDemand,
+    today,
   };
 }

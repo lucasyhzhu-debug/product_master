@@ -69,29 +69,30 @@ export const addBallsToTray = mutation({
     count: v.number(),
   },
   handler: async (ctx, args) => {
-    if (args.count <= 0) {
-      throw new Error("Count must be positive");
+    if (args.count === 0) {
+      throw new Error("Count cannot be zero");
     }
 
     // Get or create today's inventory
     const inventory = await getOrCreateTodayInventory(ctx);
 
-    // Add balls to tray (NO auto-distribution)
+    // Add (or remove) balls from tray (NO auto-distribution)
     // "original" → originalBallCount (45g, MID_BALL)
     // "bite_sized" / "jumbo" → biteSizedBallCount (80g, BIG_BALL)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
-    const newCount = currentCount + args.count;
+    // Clamp to 0 — can't go below zero
+    const newCount = Math.max(0, currentCount + args.count);
 
     await ctx.db.patch(inventory._id, {
       [fieldName]: newCount,
       lastUpdated: Date.now(),
     });
 
-    // Return new count only - NO distribution
+    // Return actual change (may be less than requested if clamped)
     return {
       trayCount: newCount,
-      ballsAdded: args.count,
+      ballsAdded: newCount - currentCount,
       ballType: args.ballType,
     };
   },

@@ -52,8 +52,8 @@ export default defineSchema({
     name: v.string(),
     grams: v.number(),
     defaultPrice: v.number(),
-    productionType: v.string(), // "original" or "bite_sized" (DEPRECATED - use productionUnitTypes)
-    productionUnits: v.number(), // (DEPRECATED - use menuProductComponents)
+    productionType: v.string(), // DEPRECATED: Do NOT use. Ball composition is derived from BOM (menuProductComponents + componentTypes). Kept for legacy data only.
+    productionUnits: v.number(), // DEPRECATED: Do NOT use. Ball count per product is derived from BOM. Kept for legacy data only.
     isActive: v.boolean(),
     // PRD-0: Fixed products and COGS tracking
     isFixed: v.optional(v.boolean()), // Cannot be deleted if true
@@ -399,9 +399,10 @@ export default defineSchema({
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
-    // PRD-0: Ball tracking for Kitchen View
-    productionType: v.optional(v.string()), // "original" or "bite_sized"
-    productionUnits: v.optional(v.number()), // balls per unit
+    // DEPRECATED: Legacy ball tracking. New code must use BOM (menuProductComponents + componentTypes) for ball composition.
+    // These fields are stamped at order creation for historical orders but should NOT be read by new features.
+    productionType: v.optional(v.string()), // DEPRECATED: was "original" or "bite_sized"
+    productionUnits: v.optional(v.number()), // DEPRECATED: was balls per unit
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
     // PRD-7: Cancellation flag for soft delete
@@ -561,6 +562,22 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_type_date", ["productionUnitTypeId", "date"]),
 
+  // Per-product production targets by source
+  // source: "consignment" (K3 Mart / retail) or "gofood" (GoFood / online)
+  // Orders are auto-calculated from active orders, not stored here
+  productionProductTargets: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    source: v.string(), // "consignment" | "gofood"
+    menuProductId: v.id("menuProducts"),
+    quantity: v.number(), // How many of this product to produce
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_date_product", ["date", "menuProductId"])
+    .index("by_date_source", ["date", "source"])
+    .index("by_date_source_product", ["date", "source", "menuProductId"]),
+
   // Running production tallies per menu product (carries over, manager can reset)
   productionCounts: defineTable({
     menuProductId: v.id("menuProducts"),
@@ -571,6 +588,18 @@ export default defineSchema({
     lastResetBy: v.optional(v.string()), // Who reset the counts
   })
     .index("by_menu_product", ["menuProductId"]),
+
+  // Audit log for production target changes (daily target history)
+  productionTargetLogs: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    timestamp: v.number(), // Date.now()
+    source: v.string(), // "consignment" | "gofood"
+    menuProductId: v.id("menuProducts"),
+    previousQuantity: v.number(),
+    newQuantity: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_date_timestamp", ["date", "timestamp"]),
 
   // Audit log for every production action
   productionLog: defineTable({

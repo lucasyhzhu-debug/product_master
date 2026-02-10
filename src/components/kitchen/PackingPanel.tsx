@@ -37,8 +37,8 @@ interface PackingOrder {
 
 interface PackingPanelProps {
   packingOrders: PackingOrder[] | undefined;
-  onTogglePack: (orderId: string, orderItemId: string) => Promise<void>;
-  onMarkOrderReady: (orderId: string) => Promise<void>;
+  onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => Promise<void>;
+  onMarkOrderReady: (orderId: string, event?: React.MouseEvent) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -98,8 +98,8 @@ export function PackingPanel({
 
 interface PackingOrderCardProps {
   order: PackingOrder;
-  onTogglePack: (orderId: string, orderItemId: string) => Promise<void>;
-  onMarkOrderReady: (orderId: string) => Promise<void>;
+  onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => Promise<void>;
+  onMarkOrderReady: (orderId: string, event?: React.MouseEvent) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -122,17 +122,17 @@ function PackingOrderCard({
     }
   }, [confirmingReady]);
 
-  const handleTogglePack = async (orderItemId: string) => {
+  const handleTogglePack = async (orderItemId: string, event?: React.MouseEvent) => {
     if (disabled || isProcessing) return;
     setIsProcessing(true);
     try {
-      await onTogglePack(order._id, orderItemId);
+      await onTogglePack(order._id, orderItemId, event);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleMarkReady = async () => {
+  const handleMarkReady = async (event?: React.MouseEvent) => {
     if (disabled || isProcessing || !order.canMarkReady) return;
 
     if (!confirmingReady) {
@@ -142,7 +142,7 @@ function PackingOrderCard({
 
     setIsProcessing(true);
     try {
-      await onMarkOrderReady(order._id);
+      await onMarkOrderReady(order._id, event);
       setConfirmingReady(false);
     } finally {
       setIsProcessing(false);
@@ -182,7 +182,7 @@ function PackingOrderCard({
           {order.productItems.map((item) => (
             <button
               key={item._id}
-              onClick={() => handleTogglePack(item._id)}
+              onClick={(e) => handleTogglePack(item._id, e)}
               disabled={disabled || isProcessing || !item.canPack}
               className={cn(
                 'w-full min-h-[56px] px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors touch-manipulation',
@@ -286,7 +286,7 @@ function PackingOrderCard({
       {/* Footer - ORDER READY button */}
       <div className="px-4 py-3 bg-[#FEF2EE] border-t border-[#E8E2DB]">
         <button
-          onClick={handleMarkReady}
+          onClick={(e) => handleMarkReady(e)}
           disabled={disabled || isProcessing || !order.canMarkReady}
           className={cn(
             'w-full min-h-[56px] rounded-xl font-bold text-lg transition-colors touch-manipulation',

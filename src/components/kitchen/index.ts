@@ -14,3 +14,4 @@ export { ProductionLogPanel } from './ProductionLogPanel';
 export { BoxingPanel } from './BoxingPanel';
 export { StickeringPanel } from './StickeringPanel';
 export { PackingPanel } from './PackingPanel';
+export { FlipNumber, FlowChevrons } from './FlipNumber';

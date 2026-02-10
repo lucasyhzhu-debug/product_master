@@ -13,6 +13,99 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-10 - Kitchen V3.3: BOM Source of Truth + Action Toast Positioning
+
+### Overview
+Eliminated `productionType`/`productionUnits` tech debt — ball composition is now derived exclusively from BOM (menuProductComponents + componentTypes). Toast notifications repositioned to appear near the clicked button for better mobile UX.
+
+### Changes
+- **BOM as sole source of truth**: `productionCounts.getAll()` no longer falls back to deprecated `menuProducts.productionType`/`productionUnits` fields. Ball type and count are derived exclusively from the BOM (menuProductComponents + componentTypes tables). Products without BOM entries default to 0 ball count.
+- **Action Toast utility**: New `actionToast()` function shows lightweight floating feedback near the clicked button instead of a fixed corner. Dark pill UI, auto-positioned above/below the button, fades out after 1.2s.
+- **Sonner position**: Global Sonner moved from `bottom-right` to `top-center` for better visibility as fallback.
+- **Event threading**: All kitchen handler signatures updated to accept `React.MouseEvent` — threaded from button onClick through panel components to KitchenViewV2 handlers.
+- **Documentation**: New decision doc (`docs/decisions/bom-source-of-truth.md`), updated CLAUDE.md pitfall #11 (never use productionType), updated CODE_STYLE.md toast pattern section.
+
+### Files Modified
+- `convex/productionCounts/queries.ts` — removed productionType fallback, BOM-only derivation
+- `convex/schema.ts` — enhanced deprecation comments on menuProducts and orderItems productionType/productionUnits
+- `src/lib/actionToast.ts` — NEW: position-aware inline toast utility
+- `src/index.css` — action-toast-in/out CSS animations
+- `src/components/ui/sonner.tsx` — position changed to top-center
+- `src/pages/KitchenViewV2.tsx` — handlers accept events, use actionToast for success
+- `src/components/kitchen/ProductionLogPanel.tsx` — removed unused imports (Info, FlowChevrons), updated comment, event threading
+- `src/components/kitchen/BoxingPanel.tsx` — event threading on submit/undo
+- `src/components/kitchen/StickeringPanel.tsx` — event threading on submit/undo
+- `src/components/kitchen/PackingPanel.tsx` — event threading on toggle/mark ready
+- `CLAUDE.md` — updated business rule #10, added pitfall #11
+- `docs/CODE_STYLE.md` — new "Toast & Action Feedback" section
+- `docs/decisions/bom-source-of-truth.md` — NEW: decision record
+
+---
+
+## 2026-02-10 - Kitchen V3.2: Animations, Target Logging, and Reactive Fixes
+
+### Overview
+Split-flap display animations for all kitchen counters, target change logging, ball tray delta indicators, and reactive target computation fix.
+
+### Changes
+- **Split-flap number animation**: All numeric counters use a Solari/airport board animation (`FlipNumber` component). Each digit sits on a dark panel and scrolls vertically when the value changes, with staggered timing from right to left. Applied to: ball tray counts, ball target totals, boxing "Awaiting Sticker" counts, stickering "Stickered" counts, order summary counts.
+- **Flow chevrons on action buttons**: "Add", "Box", and "Sticker" buttons show animated flowing chevrons (›››) when a valid quantity is entered, suggesting material flows to the next station.
+- **Target change logging**: New `productionTargetLogs` table records every target change (date, source, product, previous/new quantity, timestamp). Automatically logged in `setProductTarget` mutation.
+- **Ball tray delta indicators**: Each ball tray counter shows a color-coded delta vs target:
+  - Amber: "Need X more (target: Y)" when under target
+  - Green: "On target (Y)" when exactly matching
+  - Blue: "+X surplus (target: Y)" when over target
+- **3-source target system**: Split product targets by source ("consignment" for K3 Mart, "gofood" for GoFood). Table shows Ord (auto from orders) | K3M (editable) | GoF (editable) | Tot columns with ball totals.
+- **Reactive target fix**: Removed `useMemo` for ball total computation. Now computed inline on every render to guarantee Convex reactive updates propagate immediately when K3M/GoF targets are edited.
+- **Animated pipeline arrows**: Hover/touch on any section triggers flowing dots on the arrow below it, showing material flow direction.
+- **StickeringPanel POS filter**: Only shows food POS products sorted by POS slot (matching BoxingPanel).
+
+### Files Modified
+- `convex/schema.ts` — new `productionTargetLogs` table with by_date and by_date_timestamp indexes; `productionProductTargets` gained source field + by_date_source and by_date_source_product indexes
+- `convex/productionTargets/mutations.ts` — target change logging in setProductTarget; source parameter for per-product targets
+- `convex/productionTargets/queries.ts` — getProductTargets returns source; new getOrderProductDemand query
+- `src/components/kitchen/FlipNumber.tsx` — NEW: FlipNumber split-flap component + FlowChevrons button animation
+- `src/components/kitchen/ProductionLogPanel.tsx` — 3-source target table, inline ball computation, FlipNumber, delta display, FlowChevrons, animated arrows
+- `src/components/kitchen/BoxingPanel.tsx` — FlipNumber on counts, FlowChevrons on Box button
+- `src/components/kitchen/StickeringPanel.tsx` — FlipNumber on counts, FlowChevrons on Sticker button, POS filter fix
+- `src/components/kitchen/index.ts` — export FlipNumber, FlowChevrons
+- `src/hooks/convex/useKitchenProduction.ts` — added orderProductDemand query, updated types
+- `src/pages/KitchenViewV2.tsx` — wired 3-source targets, orderProductDemand, fixed desktop panel props
+
+---
+
+## 2026-02-10 - Kitchen V3.1: UI Refinements + Per-Product Targets
+
+### Overview
+UX improvements to Kitchen V3 panels based on production testing. Fixed layout overflow on narrow desktop panels, added order demand visibility, improved undo flow, negative-number tooltip, and per-product manual production targets with automatic ball conversion.
+
+### Changes
+- **Per-product production targets**: Tap a product in Today's Targets to set a manual target (e.g., 20 Singles). Automatically converts to ball totals via `menuProductComponents` lookup and upserts into `productionTargets.manualOverride`. Shows ball conversion inline (e.g., "20 mid").
+- **New table**: `productionProductTargets` stores per-product manual targets keyed by date + menuProductId.
+- **New query**: `productionTargets.queries.getProductTargets` returns per-product targets for a date.
+- **New mutation**: `productionTargets.mutations.setProductTarget` saves per-product target and recomputes ball totals from all product targets for that date.
+- **Compact layout**: Reduced element sizes (h-11 inputs, h-9 undo buttons) to fit within 4-column desktop grid (~230px per panel). Input + action button on row 1, full-width undo on row 2.
+- **Text input controls**: All quantity controls accept any number (including negatives for revert). Placeholder shows "Qty to add".
+- **Negative number tooltip**: Info icon on each input with tooltip: "If you want to revert, you can also use negative numbers"
+- **Undo simplified**: Single-tap undo button (removed double-tap confirmation). Clearly labeled "Undo last (-1)" / "Undo last (+1)".
+- **Packages needed from orders**: Boxing and Stickering cards show "Need: X" from pending orders (aggregated from packingOrders per menuProductId).
+- **Boxing panel filter**: Only shows food POS products (posSlot set), sorted by POS slot number. Header shows "Awaiting Sticker" count.
+- **Production Log pipeline**: 4-section dashboard with flow arrows (Targets → Ball Tray → Finished Products → Orders). All sections always render.
+- **Backend**: Added `posSlot` and `productType` fields to `productionCounts.getAll()` query.
+
+### Files Modified
+- `convex/schema.ts` — new `productionProductTargets` table with by_date and by_date_product indexes
+- `convex/productionTargets/queries.ts` — new `getProductTargets` query
+- `convex/productionTargets/mutations.ts` — new `setProductTarget` mutation with ball recomputation
+- `convex/productionCounts/queries.ts` — added posSlot/productType to return
+- `src/components/kitchen/ProductionLogPanel.tsx` — per-product target inputs with ball conversion, pipeline dashboard
+- `src/components/kitchen/BoxingPanel.tsx` — stacked layout, text input, POS filter, order demand, undo
+- `src/components/kitchen/StickeringPanel.tsx` — stacked layout, text input, order demand, undo
+- `src/pages/KitchenViewV2.tsx` — wired setProductTarget mutation, compute neededFromOrders, pass new props
+- `src/hooks/convex/useKitchenProduction.ts` — added productTargets query, today date, updated types
+
+---
+
 ## 2026-02-10 - Kitchen Production Page: Complete Redesign (V3)
 
 ### Overview
