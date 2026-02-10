@@ -275,9 +275,9 @@ export function ReceiveStockDialog({
             <>
               {/* Component Selection - Button Grid (skip when preselected) */}
               {preselectedComponentId ? (
-                <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
-                  <div className="text-sm text-slate-400">Receiving stock for:</div>
-                  <div className="font-semibold text-slate-100">
+                <div className="bg-muted/50 rounded-lg p-3 border">
+                  <div className="text-sm text-muted-foreground">Receiving stock for:</div>
+                  <div className="font-semibold text-foreground">
                     {allComponents?.find(c => c._id === preselectedComponentId)?.name ?? "Loading..."}
                   </div>
                 </div>
@@ -306,22 +306,22 @@ export function ReceiveStockDialog({
                             className={cn(
                               "flex items-center gap-2 rounded-lg border-2 p-2.5 text-left transition-colors text-sm",
                               isSelected
-                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-100"
+                                ? "border-emerald-500 bg-emerald-500/10 text-emerald-900"
                                 : isLow
-                                  ? "border-amber-700/50 bg-amber-900/10 hover:border-amber-600/70"
-                                  : "border-slate-700 hover:border-slate-500"
+                                  ? "border-amber-400 bg-amber-50 hover:border-amber-500"
+                                  : "border-border hover:border-border/80"
                             )}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">{comp.name}</div>
-                              <div className="text-xs text-slate-400">
+                              <div className="text-xs text-muted-foreground">
                                 {comp.category}
                               </div>
                             </div>
                             {isLow && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] shrink-0 bg-red-500/20 text-red-300 border-red-600"
+                                className="text-[10px] shrink-0 bg-red-50 text-red-600 border-red-300"
                               >
                                 LOW
                               </Badge>
@@ -331,7 +331,7 @@ export function ReceiveStockDialog({
                       })}
                   </div>
                 ) : (
-                  <div className="text-sm text-slate-400 text-center py-4">
+                  <div className="text-sm text-muted-foreground text-center py-4">
                     Loading components...
                   </div>
                 )}
@@ -363,17 +363,17 @@ export function ReceiveStockDialog({
               </Button>
 
               {/* New Component Form - Clean White Design */}
-              <div className="space-y-5 rounded-xl p-6 bg-white/5 border border-white/10">
+              <div className="space-y-5 rounded-xl p-6 bg-muted/30 border">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-lg bg-emerald-500/10">
-                    <Boxes className="h-5 w-5 text-emerald-400" />
+                    <Boxes className="h-5 w-5 text-emerald-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-100">New Component Details</h3>
+                  <h3 className="text-lg font-semibold text-foreground">New Component Details</h3>
                 </div>
 
                 {/* Name Field - Full Width */}
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-slate-200">
+                  <Label htmlFor="name" className="text-sm font-medium text-foreground">
                     Component Name *
                   </Label>
                   <Input
@@ -383,14 +383,14 @@ export function ReceiveStockDialog({
                     placeholder="e.g., Long Box, Sticker Sheet, Inner Bag"
                     className="h-11 text-base"
                   />
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     Code will be auto-generated from name
                   </p>
                 </div>
 
                 {/* Unit Selection - Quick Buttons + Custom */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-200">
+                  <Label className="text-sm font-medium text-foreground">
                     Unit of Measurement *
                   </Label>
                   <div className="flex flex-wrap gap-2">
@@ -439,7 +439,7 @@ export function ReceiveStockDialog({
 
                 {/* Reorder Point - Units OR Percentage */}
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium text-slate-200">
+                  <Label className="text-sm font-medium text-foreground">
                     Reorder Alert Threshold (Optional)
                   </Label>
 
@@ -486,7 +486,7 @@ export function ReceiveStockDialog({
                         placeholder="50"
                         className="font-mono"
                       />
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         Alert when stock falls below this quantity
                       </p>
                     </div>
@@ -501,7 +501,7 @@ export function ReceiveStockDialog({
                         placeholder="20"
                         className="font-mono"
                       />
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         Alert when stock falls below this % of last restock
                       </p>
                     </div>
@@ -510,7 +510,7 @@ export function ReceiveStockDialog({
 
                 {/* Consumption Stage */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-200">Consumed During</Label>
+                  <Label className="text-sm font-medium text-foreground">Consumed During</Label>
                   <div className="flex gap-2">
                     {SELECTABLE_STAGES.map((stage) => (
                       <Button
@@ -559,15 +559,15 @@ export function ReceiveStockDialog({
             </div>
           </div>
 
-          <div className="border-t border-slate-700 pt-4" />
+          <div className="border-t border-border pt-4" />
 
           {/* Batch Details */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-slate-50">Batch Details (This Receipt)</h3>
+            <h3 className="text-base font-bold text-foreground">Batch Details (This Receipt)</h3>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="quantity" className="text-sm font-medium text-slate-200">
+                <Label htmlFor="quantity" className="text-sm font-medium text-foreground">
                   <Package className="inline h-4 w-4 mr-1.5" />
                   Quantity Received *
                 </Label>
@@ -583,7 +583,7 @@ export function ReceiveStockDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="totalCost" className="text-sm font-medium text-slate-200">
+                <Label htmlFor="totalCost" className="text-sm font-medium text-foreground">
                   <DollarSign className="inline h-4 w-4 mr-1.5" />
                   Total Cost (IDR) *
                 </Label>
@@ -604,18 +604,18 @@ export function ReceiveStockDialog({
               <div className="rounded-xl p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <div className="text-xs font-medium text-emerald-300/70 uppercase tracking-wide">
+                    <div className="text-xs font-medium text-emerald-700 uppercase tracking-wide">
                       Cost per Unit
                     </div>
-                    <div className="text-sm text-slate-300">
+                    <div className="text-sm text-muted-foreground">
                       FIFO will use this rate
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">
+                    <div className="text-2xl font-bold text-emerald-600 font-mono tracking-tight">
                       {formatCurrency(unitCost)}
                     </div>
-                    <div className="text-xs text-slate-400 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       per {mode === 'create-new'
                         ? (newComponentUnit === 'custom' ? (customUnit || 'unit') : newComponentUnit)
                         : 'unit'}
@@ -626,14 +626,14 @@ export function ReceiveStockDialog({
             )}
           </div>
 
-          <div className="border-t border-slate-700 pt-4" />
+          <div className="border-t border-border pt-4" />
 
           {/* Supplier Info */}
           <div className="space-y-4">
-            <h3 className="text-base font-bold text-slate-50">Supplier Information</h3>
+            <h3 className="text-base font-bold text-foreground">Supplier Information</h3>
 
             <div className="space-y-2">
-              <Label htmlFor="supplierName" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="supplierName" className="text-sm font-medium text-foreground">
                 <Truck className="inline h-4 w-4 mr-1.5" />
                 Supplier Name *
               </Label>
@@ -646,7 +646,7 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="supplierBrand" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="supplierBrand" className="text-sm font-medium text-foreground">
                 Brand (Optional)
               </Label>
               <Input
@@ -658,7 +658,7 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purchaseReference" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="purchaseReference" className="text-sm font-medium text-foreground">
                 <Calendar className="inline h-4 w-4 mr-1.5" />
                 PO/Invoice # (Optional)
               </Label>
@@ -671,7 +671,7 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purchaseUrl" className="text-sm font-medium text-slate-200">
+              <Label htmlFor="purchaseUrl" className="text-sm font-medium text-foreground">
                 Reorder URL (Optional)
               </Label>
               <Input

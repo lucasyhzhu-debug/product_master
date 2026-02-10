@@ -154,7 +154,7 @@ export function EditComponentDialog({
         <div className="space-y-5 py-4">
           {/* Name */}
           <div className="space-y-2">
-            <Label htmlFor="edit-name" className="text-sm font-medium">
+            <Label htmlFor="edit-name" className="text-sm font-medium text-foreground">
               Component Name *
             </Label>
             <Input
@@ -169,7 +169,7 @@ export function EditComponentDialog({
 
           {/* Unit */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">
+            <Label className="text-sm font-medium text-foreground">
               Unit of Measurement *
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ export function EditComponentDialog({
 
           {/* Reorder Point */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium">
+            <Label className="text-sm font-medium text-foreground">
               Reorder Alert Threshold
             </Label>
             <div className="flex gap-2">
@@ -285,7 +285,7 @@ export function EditComponentDialog({
 
           {/* Consumption Stage */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Consumed During</Label>
+            <Label className="text-sm font-medium text-foreground">Consumed During</Label>
             <div className="flex flex-wrap gap-2">
               {SELECTABLE_STAGES.map((stage) => (
                 <Button
@@ -308,7 +308,7 @@ export function EditComponentDialog({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="edit-description" className="text-sm font-medium">
+            <Label htmlFor="edit-description" className="text-sm font-medium text-foreground">
               Description (Optional)
             </Label>
             <Input
