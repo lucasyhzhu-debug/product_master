@@ -372,6 +372,7 @@ export const adjustStock = mutation({
   args: {
     batchId: v.id("inventoryBatches"),
     newQuantity: v.number(),
+    newTotalCost: v.optional(v.number()),
     reason: v.string(),
     createdBy: v.string(),
   },
@@ -399,16 +400,31 @@ export const adjustStock = mutation({
       ? args.newQuantity
       : batch.quantityPurchased;
 
-    // Scale totalCostIdr proportionally at same unit cost when adjusting up
-    const totalCostIdr = args.newQuantity > batch.quantityPurchased
-      ? batch.unitCostIdr * args.newQuantity
-      : batch.totalCostIdr;
+    // Determine totalCostIdr and unitCostIdr
+    let totalCostIdr: number;
+    let unitCostIdr: number;
+
+    if (args.newTotalCost !== undefined) {
+      // Price correction: use the new total cost
+      totalCostIdr = args.newTotalCost;
+      unitCostIdr = newQuantityPurchased > 0
+        ? args.newTotalCost / newQuantityPurchased
+        : 0;
+    } else if (args.newQuantity > batch.quantityPurchased) {
+      // Scale totalCostIdr proportionally at same unit cost when adjusting up
+      totalCostIdr = batch.unitCostIdr * args.newQuantity;
+      unitCostIdr = batch.unitCostIdr;
+    } else {
+      totalCostIdr = batch.totalCostIdr;
+      unitCostIdr = batch.unitCostIdr;
+    }
 
     // Update batch
     await ctx.db.patch(args.batchId, {
       quantityRemaining: args.newQuantity,
       quantityPurchased: newQuantityPurchased,
       totalCostIdr,
+      unitCostIdr,
       status: args.newQuantity === 0 ? "depleted" : "active",
     });
 
@@ -419,7 +435,7 @@ export const adjustStock = mutation({
       batchId: args.batchId,
       transactionType: "adjust",
       quantity: quantityDelta,
-      unitCostAtTime: batch.unitCostIdr,
+      unitCostAtTime: unitCostIdr,
       referenceNote: args.reason,
       createdBy: args.createdBy,
       createdAt: Date.now(),

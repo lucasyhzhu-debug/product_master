@@ -1,16 +1,17 @@
 /**
- * AdjustStockDialog - Record wastage or correct inventory counts
+ * AdjustStockDialog - Record wastage, correct inventory counts, or fix pricing
  *
- * Two modes:
+ * Three modes:
  * - Wastage: Subtract quantity with categorized reason
  * - Count Correction: Set new absolute quantity with explanation
+ * - Price Correction: Fix total cost for the batch (recalculates unit cost)
  *
- * Both use useConvexAdjustStock hook. Reason is stored in referenceNote
- * prefixed with [WASTAGE] or [COUNT] for reporting.
+ * All use useConvexAdjustStock hook. Reason is stored in referenceNote
+ * prefixed with [WASTAGE], [COUNT], or [PRICE] for reporting.
  */
 
 import { useState, useEffect } from "react";
-import { Trash2, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { Trash2, ClipboardCheck, AlertTriangle, DollarSign } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +27,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useConvexAdjustStock } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
-type AdjustMode = "wastage" | "correction";
+type AdjustMode = "wastage" | "correction" | "price";
 
 const WASTAGE_REASONS = [
   { value: "damaged", label: "Damaged" },
@@ -45,6 +46,9 @@ interface AdjustStockDialogProps {
   componentName: string;
   currentQuantity: number;
   reservedQuantity: number;
+  currentTotalCost: number;
+  currentUnitCost: number;
+  quantityPurchased: number;
 }
 
 export function AdjustStockDialog({
@@ -54,6 +58,9 @@ export function AdjustStockDialog({
   componentName,
   currentQuantity,
   reservedQuantity,
+  currentTotalCost,
+  currentUnitCost,
+  quantityPurchased,
 }: AdjustStockDialogProps) {
   const [mode, setMode] = useState<AdjustMode>("wastage");
   const [wasteQuantity, setWasteQuantity] = useState("");
@@ -61,6 +68,8 @@ export function AdjustStockDialog({
   const [wastageReason, setWastageReason] = useState<string>("damaged");
   const [customReason, setCustomReason] = useState("");
   const [correctionReason, setCorrectionReason] = useState("");
+  const [newTotalCost, setNewTotalCost] = useState("");
+  const [priceReason, setPriceReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const adjustStock = useConvexAdjustStock();
@@ -76,12 +85,19 @@ export function AdjustStockDialog({
       setWastageReason("damaged");
       setCustomReason("");
       setCorrectionReason("");
+      setNewTotalCost(String(currentTotalCost));
+      setPriceReason("");
     }
-  }, [open]);
+  }, [open, currentTotalCost]);
+
+  const newUnitCost = newTotalCost && quantityPurchased > 0
+    ? Number(newTotalCost) / quantityPurchased
+    : null;
 
   const handleSubmit = async () => {
     let newQuantity: number;
     let reason: string;
+    let newCost: number | undefined;
 
     if (mode === "wastage") {
       const waste = Number(wasteQuantity);
@@ -100,7 +116,7 @@ export function AdjustStockDialog({
           ? customReason.trim() || "Unspecified"
           : WASTAGE_REASONS.find((r) => r.value === wastageReason)?.label || wastageReason;
       reason = `[WASTAGE] ${reasonLabel}: ${waste} units removed`;
-    } else {
+    } else if (mode === "correction") {
       const count = Number(newCount);
       if (count < 0) {
         toast.error("Count cannot be negative");
@@ -116,6 +132,20 @@ export function AdjustStockDialog({
       }
       newQuantity = count;
       reason = `[COUNT] ${correctionReason.trim()}: ${currentQuantity} → ${count}`;
+    } else {
+      // Price correction
+      const cost = Number(newTotalCost);
+      if (!cost || cost <= 0) {
+        toast.error("Total cost must be greater than 0");
+        return;
+      }
+      if (!priceReason.trim()) {
+        toast.error("Please provide a reason for the price correction");
+        return;
+      }
+      newQuantity = currentQuantity; // No quantity change
+      newCost = cost;
+      reason = `[PRICE] ${priceReason.trim()}: ${formatCurrency(currentTotalCost)} → ${formatCurrency(cost)}`;
     }
 
     setIsSubmitting(true);
@@ -123,10 +153,14 @@ export function AdjustStockDialog({
       await adjustStock({
         batchId,
         newQuantity,
+        newTotalCost: newCost,
         reason,
         createdBy: "current-user",
       });
-      const actionLabel = mode === "wastage" ? "Wastage recorded" : "Count corrected";
+      const actionLabel =
+        mode === "wastage" ? "Wastage recorded" :
+        mode === "correction" ? "Count corrected" :
+        "Price corrected";
       toast.success(`${actionLabel} for ${componentName}`);
       onOpenChange(false);
     } catch (error) {
@@ -143,14 +177,16 @@ export function AdjustStockDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === "wastage" ? (
-              <Trash2 className="h-5 w-5 text-red-400" />
+              <Trash2 className="h-5 w-5 text-red-500" />
+            ) : mode === "correction" ? (
+              <ClipboardCheck className="h-5 w-5 text-blue-500" />
             ) : (
-              <ClipboardCheck className="h-5 w-5 text-blue-400" />
+              <DollarSign className="h-5 w-5 text-amber-500" />
             )}
             Adjust Stock
           </DialogTitle>
           <DialogDescription>
-            <span className="font-semibold text-slate-200">{componentName}</span>
+            <span className="font-semibold text-foreground">{componentName}</span>
             {" — "}
             Current: {currentQuantity} ({reservedQuantity} reserved)
           </DialogDescription>
@@ -168,8 +204,8 @@ export function AdjustStockDialog({
                 mode === "wastage" && "bg-red-600 hover:bg-red-700 text-white"
               )}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Record Wastage
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+              Wastage
             </Button>
             <Button
               variant={mode === "correction" ? "default" : "outline"}
@@ -180,8 +216,20 @@ export function AdjustStockDialog({
                 mode === "correction" && "bg-blue-600 hover:bg-blue-700 text-white"
               )}
             >
-              <ClipboardCheck className="h-4 w-4 mr-2" />
-              Count Correction
+              <ClipboardCheck className="h-3.5 w-3.5 mr-1.5" />
+              Count
+            </Button>
+            <Button
+              variant={mode === "price" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setMode("price")}
+              className={cn(
+                "flex-1",
+                mode === "price" && "bg-amber-600 hover:bg-amber-700 text-white"
+              )}
+            >
+              <DollarSign className="h-3.5 w-3.5 mr-1.5" />
+              Price
             </Button>
           </div>
 
@@ -189,22 +237,20 @@ export function AdjustStockDialog({
             <>
               {/* Wastage Quantity */}
               <div className="space-y-2">
-                <Label htmlFor="waste-qty">Quantity Wasted</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="waste-qty"
-                    type="number"
-                    min="1"
-                    max={maxWastage}
-                    value={wasteQuantity}
-                    onChange={(e) => setWasteQuantity(e.target.value)}
-                    placeholder={`Max ${maxWastage}`}
-                    className="font-mono"
-                  />
-                </div>
+                <Label htmlFor="waste-qty" className="text-foreground">Quantity Wasted</Label>
+                <Input
+                  id="waste-qty"
+                  type="number"
+                  min="1"
+                  max={maxWastage}
+                  value={wasteQuantity}
+                  onChange={(e) => setWasteQuantity(e.target.value)}
+                  placeholder={`Max ${maxWastage}`}
+                  className="font-mono"
+                />
                 {wasteQuantity && Number(wasteQuantity) > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <AlertTriangle className="h-3 w-3 text-amber-400" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <AlertTriangle className="h-3 w-3 text-amber-500" />
                     Remaining after: {currentQuantity - Number(wasteQuantity)}
                   </div>
                 )}
@@ -212,7 +258,7 @@ export function AdjustStockDialog({
 
               {/* Wastage Reason */}
               <div className="space-y-2">
-                <Label>Reason</Label>
+                <Label className="text-foreground">Reason</Label>
                 <div className="flex flex-wrap gap-2">
                   {WASTAGE_REASONS.map((r) => (
                     <Badge
@@ -222,7 +268,7 @@ export function AdjustStockDialog({
                         "cursor-pointer text-xs px-3 py-1.5 transition-colors",
                         wastageReason === r.value
                           ? "bg-red-600 text-white border-red-600"
-                          : "bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-600/50"
+                          : "hover:bg-muted"
                       )}
                       onClick={() => setWastageReason(r.value)}
                     >
@@ -240,11 +286,11 @@ export function AdjustStockDialog({
                 )}
               </div>
             </>
-          ) : (
+          ) : mode === "correction" ? (
             <>
               {/* Actual Count */}
               <div className="space-y-2">
-                <Label htmlFor="new-count">Actual Count</Label>
+                <Label htmlFor="new-count" className="text-foreground">Actual Count</Label>
                 <Input
                   id="new-count"
                   type="number"
@@ -255,7 +301,7 @@ export function AdjustStockDialog({
                   className="font-mono"
                 />
                 {newCount && (
-                  <div className="text-sm text-slate-400">
+                  <div className="text-sm text-muted-foreground">
                     Difference: {Number(newCount) - currentQuantity >= 0 ? "+" : ""}
                     {Number(newCount) - currentQuantity}
                   </div>
@@ -264,12 +310,63 @@ export function AdjustStockDialog({
 
               {/* Correction Reason */}
               <div className="space-y-2">
-                <Label htmlFor="correction-reason">Reason for Correction *</Label>
+                <Label htmlFor="correction-reason" className="text-foreground">Reason for Correction *</Label>
                 <Input
                   id="correction-reason"
                   value={correctionReason}
                   onChange={(e) => setCorrectionReason(e.target.value)}
                   placeholder="Physical count audit, recount, etc."
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Current Price Info */}
+              <div className="rounded-lg p-3 bg-muted/50 border text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Batch total</span>
+                  <span className="font-mono font-medium">{formatCurrency(currentTotalCost)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Unit cost</span>
+                  <span className="font-mono font-medium">{formatCurrency(currentUnitCost)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Qty purchased</span>
+                  <span className="font-mono font-medium">{quantityPurchased}</span>
+                </div>
+              </div>
+
+              {/* New Total Cost */}
+              <div className="space-y-2">
+                <Label htmlFor="new-total-cost" className="text-foreground">
+                  Corrected Total Cost (IDR) *
+                </Label>
+                <Input
+                  id="new-total-cost"
+                  type="number"
+                  min="1"
+                  value={newTotalCost}
+                  onChange={(e) => setNewTotalCost(e.target.value)}
+                  placeholder={String(currentTotalCost)}
+                  className="font-mono"
+                />
+                {newUnitCost !== null && Number(newTotalCost) !== currentTotalCost && (
+                  <div className="text-sm text-muted-foreground">
+                    New unit cost: {formatCurrency(newUnitCost)}
+                    {" "}(was {formatCurrency(currentUnitCost)})
+                  </div>
+                )}
+              </div>
+
+              {/* Price Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="price-reason" className="text-foreground">Reason for Price Correction *</Label>
+                <Input
+                  id="price-reason"
+                  value={priceReason}
+                  onChange={(e) => setPriceReason(e.target.value)}
+                  placeholder="Wrong invoice amount, supplier correction, etc."
                 />
               </div>
             </>
@@ -293,7 +390,9 @@ export function AdjustStockDialog({
               ? "Saving..."
               : mode === "wastage"
                 ? "Record Wastage"
-                : "Update Count"}
+                : mode === "correction"
+                  ? "Update Count"
+                  : "Update Price"}
           </Button>
         </DialogFooter>
       </DialogContent>
