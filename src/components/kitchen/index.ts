@@ -15,3 +15,5 @@ export { BoxingPanel } from './BoxingPanel';
 export { StickeringPanel } from './StickeringPanel';
 export { PackingPanel } from './PackingPanel';
 export { FlipNumber, FlowChevrons } from './FlipNumber';
+export { GoFoodStickerCard } from './GoFoodStickerCard';
+export { GoFoodPackingCard } from './GoFoodPackingCard';

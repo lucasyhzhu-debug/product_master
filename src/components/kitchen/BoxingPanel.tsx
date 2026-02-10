@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Undo2, Info } from 'lucide-react';
+import { CheckCircle2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FlipNumber, FlowChevrons } from './FlipNumber';
@@ -79,10 +79,6 @@ export function BoxingPanel({
       await onBoxProducts(menuProductId, val, event);
       setInputValues(prev => ({ ...prev, [menuProductId]: '' }));
     }
-  };
-
-  const handleUndo = async (menuProductId: string, event?: React.MouseEvent) => {
-    await onBoxProducts(menuProductId, -1, event);
   };
 
   const getAvailableBalls = (productName: string): number => {
@@ -178,23 +174,6 @@ export function BoxingPanel({
                     )}
                   </button>
                 </div>
-
-                {/* Row 2: Undo button */}
-                <button
-                  onClick={(e) => handleUndo(product.menuProductId, e)}
-                  disabled={disabled || product.boxed === 0}
-                  className={cn(
-                    'w-full h-9 rounded-lg text-sm font-medium',
-                    'border border-gray-200 bg-gray-50 text-gray-600',
-                    'hover:bg-gray-100 active:bg-gray-200',
-                    'touch-manipulation active:scale-[0.98] transition-all duration-100',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                    'flex items-center justify-center gap-1.5'
-                  )}
-                >
-                  <Undo2 className="h-3.5 w-3.5" />
-                  Undo last (+1)
-                </button>
               </div>
             </div>
           );

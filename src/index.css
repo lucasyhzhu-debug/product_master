@@ -66,6 +66,13 @@
   --color-station-packing-medium: #F5D5C8;
   --color-station-packing-accent: #C55A3A;
 
+  /* GoFood / Goldfinch Depot - Jade Green */
+  --color-gofood: #2D8A6E;
+  --color-gofood-light: #EDF7F3;
+  --color-gofood-medium: #C4E5D8;
+  --color-gofood-accent: #1B6B52;
+  --color-gofood-badge: #15803D;
+
   /* Kitchen Shared Status Colors */
   --color-kitchen-success: #3D7A4A;
   --color-kitchen-success-bg: #E8F5EA;

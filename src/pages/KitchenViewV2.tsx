@@ -26,7 +26,7 @@ import {
 import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
 import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMutation } from 'convex/react';
+import { useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
@@ -51,6 +51,9 @@ export function KitchenViewV2() {
     productionTargets,
     productTargets,
     orderProductDemand,
+    goFoodDailyOrder,
+    depotStock,
+    goldfinchStickerInventory,
     today,
   } = useKitchenProduction();
 
@@ -65,6 +68,12 @@ export function KitchenViewV2() {
   const stickerProducts = useProtectedMutation(api.orders.mutations.stickerProducts);
   const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.togglePackOrderLineItem);
   const markOrderReady = useProtectedMutation(api.orders.mutations.markOrderReady);
+
+  // GoFood depot mutations
+  const recordShipment = useProtectedMutation(api.gofoodDepot.mutations.recordShipment);
+
+  // GoBiz sync action
+  const syncGoBizAction = useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
 
   // Wake lock to prevent phone sleep
   useEffect(() => {
@@ -178,6 +187,127 @@ export function KitchenViewV2() {
     }
   };
 
+  // Handler - Ship to Goldfinch
+  const handleShipToGoldfinch = async (
+    selectedItems: Array<{
+      menuProductId: string;
+      quantity: number;
+      stickerTransfers: Array<{ componentTypeId: string; quantity: number }>;
+    }>
+  ) => {
+    try {
+      const items = selectedItems.map((item) => ({
+        menuProductId: item.menuProductId as Id<'menuProducts'>,
+        quantity: item.quantity,
+        stickerTransfers: item.stickerTransfers.map((s) => ({
+          componentTypeId: s.componentTypeId as Id<'componentTypes'>,
+          quantity: s.quantity,
+        })),
+      }));
+
+      const result = await recordShipment({ items });
+      actionToast(
+        `Shipped ${result.totalBoxes} boxes + ${result.totalStickers} stickers to Goldfinch`
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to ship to Goldfinch';
+      toast.error(msg);
+    }
+  };
+
+  // Handler - GoBiz Sync Now
+  const handleSyncNow = async () => {
+    try {
+      toast.info('Syncing GoBiz data...');
+      await syncGoBizAction({ triggeredBy: 'kitchen_manual' });
+      toast.success('GoBiz sync complete');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Sync failed';
+      toast.error(msg);
+    }
+  };
+
+  // Build depot stock map for ProductionLogPanel
+  const depotStockMap = useMemo(() => {
+    if (!depotStock) return undefined;
+    const map = new Map<string, number>();
+    for (const s of depotStock) {
+      if (s.quantity > 0) {
+        map.set(s.menuProductId, s.quantity);
+      }
+    }
+    return map;
+  }, [depotStock]);
+
+  // Build GoFood sticker card data for StickeringPanel
+  const goFoodDepotData = useMemo(() => {
+    if (!goFoodDailyOrder?.items) return undefined;
+    return goFoodDailyOrder.items.map((item: any) => {
+      return {
+        menuProductId: item.menuProductId,
+        depotStock: item.currentDepotStock,
+        soldToday: item.soldToday,
+        shippedToday: item.shippedToday,
+        stickerDeficit: item.stickerDeficit,
+        stickersAtGoldfinch: goldfinchStickerInventory?.reduce(
+          (sum: number, s: any) => sum + s.available, 0
+        ) ?? 0,
+        freshness: 'fresh' as const, // Simplified for now
+      };
+    });
+  }, [goFoodDailyOrder, goldfinchStickerInventory]);
+
+  // Build GoFood packing card data for PackingPanel
+  const goFoodPackingData = useMemo(() => {
+    if (!goFoodDailyOrder?.items || goFoodDailyOrder.items.length === 0) return null;
+
+    // Find if already shipped today
+    const shippedItems = goFoodDailyOrder.items.filter((i: any) => i.shippedToday > 0);
+    const shippedAt = shippedItems.length > 0 ? undefined : undefined; // Will be set from shipments query
+
+    // Build items with boxed counts from productionCounts
+    const pcMap = new Map(
+      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
+    );
+
+    const items = goFoodDailyOrder.items.map((item: any) => ({
+      menuProductId: item.menuProductId,
+      productName: item.productName,
+      targetQty: item.targetQty,
+      existingAtDepot: item.existingAtDepot,
+      toShipToday: item.toShipToday,
+      shippedToday: item.shippedToday,
+      freshness: 'fresh' as const,
+      boxedCount: pcMap.get(item.menuProductId)?.boxed ?? 0,
+    }));
+
+    // Build sticker transfer suggestions
+    const totalToShip = items.reduce((sum: number, i: any) => sum + i.toShipToday, 0);
+    const stickerTransfers = goldfinchStickerInventory?.map((s: any) => ({
+      componentTypeId: s.componentTypeId,
+      componentName: s.componentName,
+      quantity: totalToShip, // 1:1 sticker per box
+      officeStock: s.totalStock,
+    })) ?? [];
+
+    // Build current depot stock display
+    const depotCurrentStock = goFoodDailyOrder.items.map((item: any) => ({
+      productName: item.productName,
+      boxes: item.currentDepotStock,
+      stickers: 0, // Simplified
+      freshness: 'fresh' as const,
+    }));
+
+    return {
+      orderNumber: goFoodDailyOrder.orderNumber,
+      date: goFoodDailyOrder.date,
+      items,
+      stickerTransfers,
+      depotCurrentStock,
+      shippedAt,
+    };
+  }, [goFoodDailyOrder, productionCounts, goldfinchStickerInventory]);
+
   // Aggregate "packages needed from orders" per menuProductId
   const neededFromOrders = useMemo(() => {
     if (!packingOrders) return {};
@@ -243,6 +373,7 @@ export function KitchenViewV2() {
           productionCounts={productionCounts}
           productTargets={productTargets}
           orderProductDemand={orderProductDemand}
+          depotStockMap={depotStockMap}
           onAddBalls={handleAddBalls}
 
           onSetProductTarget={handleSetProductTarget}
@@ -258,13 +389,18 @@ export function KitchenViewV2() {
         <StickeringPanel
           productionCounts={productionCounts}
           neededFromOrders={neededFromOrders}
+          goFoodDepotData={goFoodDepotData}
+          lastSyncAt={goFoodDailyOrder?.lastSyncAt}
           onStickerProducts={handleStickerProducts}
+          onSyncNow={handleSyncNow}
           disabled={!canEditKitchen}
         />
         <PackingPanel
           packingOrders={packingOrders}
+          goFoodPackingData={goFoodPackingData}
           onTogglePack={handleTogglePack}
           onMarkOrderReady={handleMarkOrderReady}
+          onShipToGoldfinch={handleShipToGoldfinch}
           disabled={!canEditKitchen}
         />
       </SwipeableKitchenLayout>
@@ -283,8 +419,9 @@ export function KitchenViewV2() {
               productionCounts={productionCounts}
               productTargets={productTargets}
               orderProductDemand={orderProductDemand}
+              depotStockMap={depotStockMap}
               onAddBalls={handleAddBalls}
-    
+
               onSetProductTarget={handleSetProductTarget}
               disabled={!canEditKitchen}
             />
@@ -306,7 +443,10 @@ export function KitchenViewV2() {
             </h2>
             <StickeringPanel
               productionCounts={productionCounts}
+              goFoodDepotData={goFoodDepotData}
+              lastSyncAt={goFoodDailyOrder?.lastSyncAt}
               onStickerProducts={handleStickerProducts}
+              onSyncNow={handleSyncNow}
               disabled={!canEditKitchen}
             />
           </div>
@@ -316,8 +456,10 @@ export function KitchenViewV2() {
             </h2>
             <PackingPanel
               packingOrders={packingOrders}
+              goFoodPackingData={goFoodPackingData}
               onTogglePack={handleTogglePack}
               onMarkOrderReady={handleMarkOrderReady}
+              onShipToGoldfinch={handleShipToGoldfinch}
               disabled={!canEditKitchen}
             />
           </div>

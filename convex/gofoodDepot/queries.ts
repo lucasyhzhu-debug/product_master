@@ -79,8 +79,6 @@ export const getGoFoodDailyOrder = query({
     }
 
     // 4. Get today's sales (externalRevenueItems from gobiz for today)
-    // We need to find revenues for today's date range
-    const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
     const todayStart = new Date(args.date + "T00:00:00+07:00").getTime();
     const todayEnd = todayStart + 24 * 60 * 60 * 1000;
 

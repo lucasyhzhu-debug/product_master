@@ -26,6 +26,7 @@ interface KitchenProductionData {
         boxed: number;
         stickered: number;
         packed: number;
+        shippedToGoldfinch: number;
         availableForStickering: number;
         availableForPacking: number;
       }>
@@ -111,6 +112,11 @@ interface KitchenProductionData {
       }>
     | undefined;
 
+  // GoFood depot data
+  goFoodDailyOrder: any;
+  depotStock: any;
+  goldfinchStickerInventory: any;
+
   // Today's date string (YYYY-MM-DD)
   today: string;
 }
@@ -124,8 +130,10 @@ interface KitchenProductionData {
  * Aggregates multiple queries for the kitchen page.
  */
 export function useKitchenProduction(): KitchenProductionData {
-  // Get today's date as YYYY-MM-DD
-  const today = new Date().toISOString().slice(0, 10);
+  // Get today's date as YYYY-MM-DD (WIB)
+  const now = new Date();
+  const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const today = wibNow.toISOString().slice(0, 10);
 
   const productionCounts = useQuery(api.productionCounts.queries.getAll, {});
   const packingOrders = useQuery(
@@ -144,6 +152,16 @@ export function useKitchenProduction(): KitchenProductionData {
     date: today,
   });
 
+  // GoFood depot queries
+  const goFoodDailyOrder = useQuery(api.gofoodDepot.queries.getGoFoodDailyOrder, {
+    date: today,
+  });
+  const depotStock = useQuery(api.gofoodDepot.queries.getDepotStock, {});
+  const goldfinchStickerInventory = useQuery(
+    api.gofoodDepot.queries.getGoldfinchStickerInventory,
+    {}
+  );
+
   const isLoading =
     productionCounts === undefined ||
     packingOrders === undefined ||
@@ -159,6 +177,9 @@ export function useKitchenProduction(): KitchenProductionData {
     productionTargets,
     productTargets,
     orderProductDemand,
+    goFoodDailyOrder,
+    depotStock,
+    goldfinchStickerInventory,
     today,
   };
 }

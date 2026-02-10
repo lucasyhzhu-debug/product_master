@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { GoFoodPackingCard } from './GoFoodPackingCard';
 
 interface PackingProductItem {
   _id: string;
@@ -35,17 +36,53 @@ interface PackingOrder {
   canMarkReady: boolean;
 }
 
+interface GoFoodPackingData {
+  orderNumber: string;
+  date: string;
+  items: Array<{
+    menuProductId: string;
+    productName: string;
+    targetQty: number;
+    existingAtDepot: number;
+    toShipToday: number;
+    shippedToday: number;
+    freshness: 'fresh' | 'day_old' | 'aging';
+    boxedCount: number;
+  }>;
+  stickerTransfers: Array<{
+    componentTypeId: string;
+    componentName: string;
+    quantity: number;
+    officeStock: number;
+  }>;
+  depotCurrentStock: Array<{
+    productName: string;
+    boxes: number;
+    stickers: number;
+    freshness: 'fresh' | 'day_old' | 'aging';
+  }>;
+  shippedAt?: number;
+}
+
 interface PackingPanelProps {
   packingOrders: PackingOrder[] | undefined;
+  goFoodPackingData?: GoFoodPackingData | null;
   onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => Promise<void>;
   onMarkOrderReady: (orderId: string, event?: React.MouseEvent) => Promise<void>;
+  onShipToGoldfinch?: (items: Array<{
+    menuProductId: string;
+    quantity: number;
+    stickerTransfers: Array<{ componentTypeId: string; quantity: number }>;
+  }>) => Promise<void>;
   disabled?: boolean;
 }
 
 export function PackingPanel({
   packingOrders,
+  goFoodPackingData,
   onTogglePack,
   onMarkOrderReady,
+  onShipToGoldfinch,
   disabled = false,
 }: PackingPanelProps) {
   // Loading state
@@ -83,6 +120,21 @@ export function PackingPanel({
 
   return (
     <div className="px-4 py-4 space-y-4 bg-[#F8F6F3]">
+      {/* GoFood packing card at top */}
+      {goFoodPackingData && onShipToGoldfinch && (
+        <GoFoodPackingCard
+          orderNumber={goFoodPackingData.orderNumber}
+          date={goFoodPackingData.date}
+          items={goFoodPackingData.items}
+          stickerTransfers={goFoodPackingData.stickerTransfers}
+          depotCurrentStock={goFoodPackingData.depotCurrentStock}
+          shippedAt={goFoodPackingData.shippedAt}
+          onShipToGoldfinch={onShipToGoldfinch}
+          disabled={disabled}
+        />
+      )}
+
+      {/* Regular order packing cards */}
       {packingOrders.map((order) => (
         <PackingOrderCard
           key={order._id}
