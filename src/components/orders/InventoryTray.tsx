@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import { Package, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { BALL_CONFIG, type BallType } from '@/lib/ballTypes';
 
 // Ball character - using circle emoji for visual representation
 const BALL_CHAR = '🟢';
 const BALLS_PER_LINE = 10;
 
 interface InventoryTrayProps {
-  ballType: 'original' | 'bite_sized';
+  ballType: BallType;
   count: number;
   maxVisible?: number;
   className?: string;
@@ -31,7 +32,7 @@ export const InventoryTray = forwardRef<HTMLDivElement, InventoryTrayProps>(
     pendingBallsNeeded,
     isFillingOrders,
   }, ref) {
-    const label = ballType === 'original' ? 'ORIGINAL' : 'BITE-SIZED';
+    const label = BALL_CONFIG[ballType].displayName.toUpperCase();
     const visibleCount = Math.min(count, maxVisible);
     const overflow = Math.max(0, count - maxVisible);
 
