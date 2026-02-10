@@ -16,7 +16,7 @@ import { PLATFORMS } from "../../convex/integrations/registry";
 // Cron Configuration Tests - 1 test
 // ============================================
 describe("Cron configuration", () => {
-  test("crons file still has K3Mart cron, no GoBiz cron", () => {
+  test("crons file has K3Mart cron and GoBiz auto-sync cron", () => {
     const cronsPath = join(__dirname, "../../convex/crons.ts");
     const cronsContent = readFileSync(cronsPath, "utf-8");
 
@@ -24,9 +24,9 @@ describe("Cron configuration", () => {
     expect(cronsContent).toContain("refresh k3mart token");
     expect(cronsContent).toContain("platformCredentials.actions.refreshK3MartTokenCron");
 
-    // Should NOT have GoBiz cron
-    expect(cronsContent).not.toContain("sync gobiz revenue");
-    expect(cronsContent).not.toContain("syncGoBizRevenueCron");
+    // Should have GoBiz auto-sync cron (added in GoFood Depot integration)
+    expect(cronsContent).toContain("sync gobiz revenue");
+    expect(cronsContent).toContain("autoSyncGoBizRevenue");
   });
 });
 
