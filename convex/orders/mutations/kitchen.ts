@@ -58,7 +58,7 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
  */
 export const addBallsToTray = mutation({
   args: {
-    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+    ballType: v.union(v.literal("original"), v.literal("bite_sized"), v.literal("jumbo")),
     count: v.number(),
   },
   handler: async (ctx, args) => {
@@ -70,6 +70,8 @@ export const addBallsToTray = mutation({
     const inventory = await getOrCreateTodayInventory(ctx);
 
     // Add balls to tray (NO auto-distribution)
+    // "original" → originalBallCount (45g, MID_BALL)
+    // "bite_sized" / "jumbo" → biteSizedBallCount (80g, BIG_BALL)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
     const newCount = currentCount + args.count;
@@ -100,7 +102,7 @@ export const addBallsToTray = mutation({
  */
 export const fillPendingOrders = mutation({
   args: {
-    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+    ballType: v.union(v.literal("original"), v.literal("bite_sized"), v.literal("jumbo")),
   },
   handler: async (ctx, args) => {
     const today = new Date().toISOString().split("T")[0];
@@ -183,7 +185,7 @@ export const fillPendingOrders = mutation({
  */
 export const removeBallFromTray = mutation({
   args: {
-    ballType: v.union(v.literal("original"), v.literal("bite_sized")),
+    ballType: v.union(v.literal("original"), v.literal("bite_sized"), v.literal("jumbo")),
   },
   handler: async (ctx, args) => {
     // Get today's inventory
@@ -197,6 +199,8 @@ export const removeBallFromTray = mutation({
       throw new Error("No inventory for today");
     }
 
+    // "original" → originalBallCount (45g, MID_BALL)
+    // "bite_sized" / "jumbo" → biteSizedBallCount (80g, BIG_BALL)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
 
