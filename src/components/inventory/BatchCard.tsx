@@ -192,6 +192,9 @@ export function BatchCard({ batch, isFifoNext, componentName }: BatchCardProps) 
         componentName={componentName}
         currentQuantity={batch.quantityRemaining}
         reservedQuantity={batch.quantityReserved}
+        currentTotalCost={batch.totalCostIdr}
+        currentUnitCost={batch.unitCostIdr}
+        quantityPurchased={batch.quantityPurchased}
       />
     </Card>
   );
