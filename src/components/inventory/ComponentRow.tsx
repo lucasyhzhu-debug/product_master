@@ -21,7 +21,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { BatchCard } from "./BatchCard";
 import { TransferStockDialog } from "./TransferStockDialog";
 import { ReceiveStockDialog } from "./ReceiveStockDialog";
-import { RenameComponentDialog } from "./RenameComponentDialog";
+import { EditComponentDialog } from "./EditComponentDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useConvexComponentBatches, useConvexUpdateComponentType, useConvexDeleteComponentType } from "@/hooks/convex";
 import { toast } from "sonner";
@@ -83,7 +83,7 @@ export function ComponentRow({
   const updateComponentType = useConvexUpdateComponentType();
   const deleteComponentType = useConvexDeleteComponentType();
 
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -275,9 +275,9 @@ export function ComponentRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setRenameDialogOpen(true)}>
+              <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
                 <Pencil className="h-4 w-4 mr-2" />
-                Rename
+                Edit
               </DropdownMenuItem>
               {component.isActive !== false ? (
                 <DropdownMenuItem onClick={handleArchiveToggle}>
@@ -343,12 +343,11 @@ export function ComponentRow({
         preselectedComponentId={component._id}
       />
 
-      {/* Rename Dialog */}
-      <RenameComponentDialog
-        open={renameDialogOpen}
-        onOpenChange={setRenameDialogOpen}
-        componentId={component._id}
-        currentName={component.name}
+      {/* Edit Dialog */}
+      <EditComponentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        component={component}
       />
 
       {/* Delete Confirmation */}
