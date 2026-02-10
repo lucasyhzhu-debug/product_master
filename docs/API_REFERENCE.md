@@ -646,7 +646,7 @@ try {
 ### Actions (Node.js Runtime)
 
 #### `integrations.k3mart.adapter.discoverK3MartOutlets`
-Scans K3Mart outlet IDs 1 through maxOutletId, saves matching outlets with real location names, and stores filtered stock snapshots.
+Discovers K3Mart outlets by fetching product detail for each configured product ID. Each call returns ALL outlets for that product, making exactly N API calls for N products.
 
 | Arg | Type | Description |
 |-----|------|-------------|
@@ -654,12 +654,12 @@ Scans K3Mart outlet IDs 1 through maxOutletId, saves matching outlets with real 
 
 **Returns:** `{ success, syncLogId, outletsScanned, outletsFound, totalStockUnits, errors, durationMs }`
 
-**Flow:** Loops outlet IDs, fetches page 1 for each, filters products by configured keyword, upserts outlets with resolved names (e.g., "JKT-SCBD" for outlet #44), saves stock snapshots and product mappings.
+**Flow:** For each product ID in `K3MART_CONFIG.products.ids`, calls `GET /vendor-stock/detail/{productId}`. Groups entries by `outlet_name`, upserts outlets with resolved external IDs, saves stock snapshots and product mappings.
 
-**Outlet Name Resolution:** Uses `K3MART_OUTLET_NAMES` config map (7 known outlets) via `resolveOutletName()` helper. Unknown outlets fall back to `"K3 Mart #N"`.
+**Outlet ID Resolution:** Uses `K3MART_OUTLET_NAME_TO_ID` reverse map (name -> numeric ID). Unknown outlets get synthetic `"name:{outletName}"` IDs via `resolveOutletExternalId()`.
 
 #### `integrations.k3mart.adapter.syncK3MartStock`
-Fast stock refresh for active K3 Mart outlets only (no discovery scan). Polls each outlet's current stock and saves snapshots.
+Fast stock refresh using product detail API. Fetches all outlets per product in a single call. Makes exactly N API calls for N configured product IDs.
 
 | Arg | Type | Description |
 |-----|------|-------------|
@@ -670,50 +670,38 @@ Fast stock refresh for active K3 Mart outlets only (no discovery scan). Polls ea
 **Flow:**
 1. Read API token from DB (`platformCredentials`) or env var `K3MART_API_TOKEN`
 2. Fetch active outlets from `externalOutlets` (source="k3mart", isActive=true)
-3. For each outlet: GET `/vendor-stock/get-dashboard?outletId={externalId}`
-4. Filter products by keyword ("dubai"), transform, and save as `externalStockSnapshots`
-5. Update outlet `lastSyncAt` / `lastSyncStatus` on success
-6. 300ms delay between outlets for rate limiting
+3. For each product ID: `GET /vendor-stock/detail/{productId}` (returns all outlets)
+4. Match entries to active outlets by `outlet_name`, group products per outlet
+5. Save `externalStockSnapshots`, update outlet `lastSyncAt` / `lastSyncStatus`
 
-**K3 Mart Stock Dashboard API:**
+**K3 Mart Product Detail API:**
 ```
-GET https://consapi.k3mart.id/api/v1/vendor-stock/get-dashboard
-  ?outletId={numericId}
-  &page=1
-  &pageSize=100
-  &order=-quantity
+GET https://consapi.k3mart.id/api/v1/vendor-stock/detail/{productId}
 Headers:
   Authorization: JWT {token}
   Origin: https://umkm.k3mart.id
   Referer: https://umkm.k3mart.id/
 ```
 
-**Response format:** `{ data: { data: K3MartProduct[], meta: { totalPages, currentPage, pageSize, totalCount } } }`
-
-**IMPORTANT — API returns flat dotted keys (as of 2026-02-09):**
-The K3 Mart dashboard API returns product fields with dot-notation keys at the top level, NOT as a nested `product` object. Example raw response item:
+**Response format:**
 ```json
 {
-  "id": 115433,
-  "outlet_id": 44,
-  "product_id": 47069,
-  "price": 45000,
-  "quantity": 14,
-  "price_grabfood_gofood": 0,
-  "price_grabmart": 0,
-  "price_shopee": 0,
-  "created_at": "2026-02-07T07:48:26.000Z",
-  "updated_at": "2026-02-08T07:44:18.000Z",
-  "product.capital": 0,
-  "product.vendor_id": 3131,
-  "product.photo": null,
-  "product.product_code": "F03131-P00002",
-  "product.product_name": "Dubai Chewy Cookie",
-  "product.productImage": "uploads/consignmentproducts/Jan2026/xyz.jpeg"
+  "success": true,
+  "meta": { "success": true },
+  "data": [
+    {
+      "price": 45000,
+      "quantity": 1,
+      "outlet_name": "JKT-GADING SERPONG",
+      "product_name": "Dubai Chewy Cookie",
+      "product_code": "F03131-P00002",
+      "capital": 0
+    }
+  ]
 }
 ```
 
-Helper functions `getProductName()`, `getProductCode()`, `getProductCapital()` handle both flat-dotted and nested formats for forward compatibility.
+**Types:** `K3MartProductDetailEntry` (single outlet entry) and `K3MartProductDetailResponse` (full response).
 
 #### `integrations.k3mart.adapter.syncK3MartSales`
 Syncs K3Mart sales transactions with incremental date range and outlet linking.

@@ -124,15 +124,9 @@ async function performK3MartRefresh(
     }
 
     // Validate token with a test API call
-    const testUrl = new URL(
-      `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.dashboard}`
-    );
-    testUrl.searchParams.set("outletId", "1");
-    testUrl.searchParams.set("page", "1");
-    testUrl.searchParams.set("pageSize", "1");
-    testUrl.searchParams.set("order", "asc");
+    const testUrl = `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.productDetail}/${K3MART_CONFIG.products.ids[0]}`;
 
-    const testResponse = await fetch(testUrl.toString(), {
+    const testResponse = await fetch(testUrl, {
       headers: {
         Authorization: `JWT ${k3Token}`,
         ...K3MART_CONFIG.headers,
