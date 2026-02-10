@@ -71,8 +71,17 @@ The code has a **graceful fallback** -- if `convexUrl` is falsy, it sets the cli
 - Also setting these in Vercel dashboard as belt-and-suspenders
 
 **PR #47** (`fix/env-quoted-values`):
-- PR #46 didn't fully resolve the issue. Vite inlines unquoted `.env` values as template literals, preserving the trailing newline character from the file. This caused `ConvexReactClient` to receive `"https://decisive-wombat-7.convex.cloud\n"` (with a trailing LF), which silently failed to establish a WebSocket connection.
-- Fix: wrapped `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` values in double quotes in `.env`, matching the format used in `.env.local`. Quoted values are inlined as regular strings without trailing newlines.
+- Wrapped `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` values in double quotes in `.env`, matching the format used in `.env.local`. This is a best-practice improvement -- Vite inlines unquoted values as template literals (which can include trailing whitespace), while quoted values are inlined as clean strings.
+- Note: PR #46 already restored the Convex connection via the Vercel dashboard env var (which takes priority over `.env` files). The quoted values in PR #47 are a defensive measure for `.env`-only build scenarios.
+
+---
+
+## Resolution Verification
+
+After PR #46 merged, the Convex connection was restored. Verification on 2026-02-10:
+- **Orders page**: Shows live order data (10 orders, Rp 7,690,000 today) -- confirms Convex WebSocket is connected.
+- **Ingredients page**: Shows "No ingredients yet" -- confirms Convex responds with empty results (prod database has no ingredients).
+- **Inventory page**: Shows component types with 0 stock -- this is **expected behavior**, not a bug. The production database has component type definitions (from seeding) but no inventory batches have been entered yet. The dev database has test data, which is why localhost shows non-zero values.
 
 ---
 

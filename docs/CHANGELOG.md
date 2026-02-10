@@ -13,6 +13,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-10 - Fix: Production Convex Connection Restored
+
+### Overview
+Production site (`frollie-product.vercel.app`) was not connecting to the Convex backend since the CI/CD migration on 2026-02-03. The `VITE_CONVEX_URL` environment variable was missing from `.env`, causing `ConvexReactClient` to be `null` and the app to run without a backend.
+
+### Changes
+- **PR #46** (`fix/production-convex-url`): Added `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to `.env` file. Also set in Vercel dashboard env vars.
+- **PR #47** (`fix/env-quoted-values`): Wrapped `VITE_*` values in double quotes for clean Vite string inlining.
+- **RCA report**: Full root cause analysis at `docs/reports/RCA-2026-02-10-production-no-convex-connection.md`.
+
+### Root Cause
+Commit `bcfb0da` (CI/CD migration) replaced `VITE_API_URL` with `CONVEX_DEPLOYMENT` in `.env` but omitted the `VITE_CONVEX_URL` that Vite needs at build time. The `null` client fallback in `main.tsx` silently degraded the app instead of failing.
+
+### Files Modified
+- `.env` — Added `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` (quoted)
+- `docs/reports/RCA-2026-02-10-production-no-convex-connection.md` — NEW: Full RCA report
+
+---
+
 ## 2026-02-10 - Kitchen V3.3: BOM Source of Truth + Action Toast Positioning
 
 ### Overview
