@@ -17,23 +17,23 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
   );
 
   return (
-    <Card className="border-amber-800/50 bg-gradient-to-r from-amber-900/30 to-amber-800/20 shadow-lg">
+    <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-amber-50/50">
       <div className="flex items-center gap-4 p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-amber-500/20">
-            <AlertTriangle className="h-5 w-5 text-amber-400" />
+          <div className="p-2 rounded-lg bg-amber-100">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
           </div>
           <div>
-            <p className="font-semibold text-amber-100">
+            <p className="font-semibold text-amber-900">
               {alerts.length} component{alerts.length === 1 ? "" : "s"} below reorder point
             </p>
-            <p className="text-sm text-amber-200/70">
+            <p className="text-sm text-amber-700/80">
               {criticalAlerts.length > 0 && (
                 <>
-                  <span className="font-medium text-red-400">
+                  <span className="font-medium text-red-600">
                     {criticalAlerts.length} critical
                   </span>
-                  {" • "}
+                  {" \u2022 "}
                 </>
               )}
               {alerts.slice(0, 3).map((a, i) => (
@@ -50,19 +50,19 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
         <div className="ml-auto flex items-center gap-2">
           <Badge
             variant="outline"
-            className="bg-amber-500/10 text-amber-300 border-amber-600"
+            className="bg-amber-100 text-amber-700 border-amber-300"
           >
             {alerts.length} low
           </Badge>
           {criticalAlerts.length > 0 && (
             <Badge
               variant="outline"
-              className="bg-red-500/10 text-red-300 border-red-600"
+              className="bg-red-100 text-red-700 border-red-300"
             >
               {criticalAlerts.length} critical
             </Badge>
           )}
-          <ChevronRight className="h-5 w-5 text-amber-400" />
+          <ChevronRight className="h-5 w-5 text-amber-500" />
         </div>
       </div>
     </Card>
