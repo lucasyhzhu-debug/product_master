@@ -304,6 +304,100 @@ productionCounts.mutations.resetCounts({ token, menuProductId? })
 { reset: number }  // Number of products reset
 ```
 
+### GoFood Depot (Goldfinch)
+
+#### Queries
+```typescript
+// convex/gofoodDepot/queries.ts
+gofoodDepot.queries.getDepotStock()               // All depot stock records, enriched with product names
+gofoodDepot.queries.getGoFoodDailyOrder({ date })  // Virtual daily order assembled from targets + depot + shipments + sales
+gofoodDepot.queries.getTodayShipments({ date })    // Today's shipments, enriched with product names
+gofoodDepot.queries.getGoldfinchStickerInventory() // Labeling-stage sticker inventory at Goldfinch
+gofoodDepot.queries.getDepotFreshness({            // Freshness info for a product's depot stock
+  menuProductId, lookbackDays?
+})
+```
+
+**getGoFoodDailyOrder Response:**
+```typescript
+{
+  orderNumber: string;      // "GF-MMDD" format
+  customerName: "GoFood Depot";
+  date: string;
+  items: Array<{
+    menuProductId: Id<"menuProducts">;
+    productName: string;
+    productCode: string;
+    targetQty: number;       // From productionProductTargets (source="gofood")
+    existingAtDepot: number; // Current boxes at Goldfinch
+    toShipToday: number;     // max(0, target - existing)
+    shippedToday: number;    // Already shipped today
+    soldToday: number;       // Sold via GoFood today
+    currentDepotStock: number;
+    stickerDeficit: number;
+  }>;
+  lastSyncAt?: number;
+  lastSyncStatus?: string;
+} | null  // null when no GoFood targets for the date
+```
+
+**getDepotFreshness Response:**
+```typescript
+{
+  currentQuantity: number;
+  ageBreakdown: Array<{ date: string; quantity: number; ageDays: number }>;
+  freshness: "fresh" | "day_old" | "aging";
+  maxAgeDays: number;
+  today: string;
+}
+```
+
+#### Mutations (Auth Required: kitchen, order_staff, manager, admin)
+```typescript
+// convex/gofoodDepot/mutations.ts
+gofoodDepot.mutations.recordShipment({
+  token, items: Array<{
+    menuProductId: Id<"menuProducts">,
+    quantity: number,
+    stickerTransfers?: Array<{ componentTypeId: Id<"componentTypes">, quantity: number }>
+  }>
+})
+  // Records shipment from Office to Goldfinch
+  // 1. Increments gofoodDepotStock.quantity
+  // 2. Inserts gofoodDepotShipments audit record
+  // 3. Increments productionCounts.shippedToGoldfinch
+  // 4. Transfers stickers from Office to Goldfinch via FIFO (if stickerTransfers provided)
+  // Returns: { totalBoxes, totalStickers }
+```
+
+#### Mutations (Auth Required: manager, admin)
+```typescript
+gofoodDepot.mutations.adjustDepotStock({
+  token, menuProductId, newQuantity: number, reason: string
+})
+  // Manual depot stock adjustment for physical count corrections
+  // Returns: { success: true }
+```
+
+#### Internal Mutations (server-only, not callable from frontend)
+```typescript
+gofoodDepot.mutations.processSyncSales({
+  items: Array<{ menuProductId: Id<"menuProducts">, quantity: number }>
+})
+  // Batch sale processing from GoBiz sync (Phase C)
+  // 1. Decrements gofoodDepotStock.quantity (can go negative = debt)
+  // 2. Consumes labeling-stage stickers from Goldfinch FIFO (deficit-tolerant)
+  // 3. Increments productionCounts.stickered
+  // 4. Writes productionLog entries (action="sticker", note="auto:gobiz-sale")
+  // Returns: { processed, deficits }
+
+gofoodDepot.mutations.recordSale({
+  menuProductId, quantity: number
+})
+  // Single sale for manual testing/debugging
+  // Returns: { success: true }
+```
+
 ### Vouchers
 ```typescript
 // convex/vouchers/queries.ts
@@ -1175,8 +1269,9 @@ Same as above but called by the 12-hour cron job. No auth check (system-level).
 | Schedule | Function | Description |
 |----------|----------|-------------|
 | Every 12 hours | `refreshK3MartTokenCron` | Auto-refresh K3Mart JWT token |
+| `0 1,3,5,7,9,11,13 * * *` | `autoSyncGoBizRevenue` | Auto-sync GoBiz revenue at WIB business hours (8,10,12,14,16,18,20 WIB) |
 
-**Note:** GoBiz cron removed in Phase 2. GoBiz sync is now manual-only (trigger via dashboard or settings).
+**Note:** GoBiz auto-sync added in GoFood Depot integration. Runs at WIB business hours, includes Phase C (auto sticker deduction on GoFood sales). Falls back gracefully if no valid token.
 
 Defined in `convex/crons.ts`.
 

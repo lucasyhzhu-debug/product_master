@@ -468,13 +468,14 @@ productionCounts: defineTable({
   boxed: v.number(),                            // Total boxed since last reset
   stickered: v.number(),                        // Total stickered since last reset
   packed: v.number(),                           // Total packed since last reset
+  shippedToGoldfinch: v.optional(v.number()),   // Boxes shipped to Goldfinch depot since last reset
   lastResetAt: v.optional(v.number()),          // When counts were last reset
   lastResetBy: v.optional(v.string()),          // Who reset the counts
 })
   .index("by_menu_product", ["menuProductId"])
 ```
 
-**Purpose:** Running totals per menu product tracking progression through the production pipeline: boxing → stickering → packing. Derived availability: `availableForStickering = boxed - stickered`, `availableForPacking = stickered - packed`. Manager/admin can reset counts to zero via `resetCounts` mutation.
+**Purpose:** Running totals per menu product tracking progression through the production pipeline: boxing → stickering → packing. Derived availability: `availableForStickering = boxed - stickered`, `availableForPacking = stickered - packed`. Manager/admin can reset counts to zero via `resetCounts` mutation. `shippedToGoldfinch` tracks boxes shipped to the Goldfinch GoFood depot.
 
 ### 21. `productionLog` - Production Audit Log (Kitchen V3)
 ```typescript
@@ -500,7 +501,36 @@ productionLog: defineTable({
 
 **Purpose:** Immutable audit trail for every production action. Every `boxProducts`, `stickerProducts`, `togglePackOrderLineItem`, and `markOrderReady` call writes a log entry. Supports daily summaries via compound `by_menu_product_timestamp` index.
 
-### 22. `vouchers` - Discount Voucher Codes
+### 22. `gofoodDepotStock` - GoFood Depot Running Stock (Goldfinch)
+```typescript
+gofoodDepotStock: defineTable({
+  menuProductId: v.id("menuProducts"),     // Which product
+  quantity: v.number(),                    // Current boxes at Goldfinch (can go negative = debt)
+  stickerDeficit: v.optional(v.number()), // Cumulative sticker shortfall
+  lastUpdated: v.number(),                // Timestamp of last change
+})
+  .index("by_menuProduct", ["menuProductId"])
+```
+
+**Purpose:** Per-product running stock at the Goldfinch GoFood depot. Source of truth for "what's at Goldfinch." Incremented by `recordShipment` (ship to depot), decremented by `processSyncSales` (GoFood sale detected). Quantity can go negative (= debt when sales exceed shipments). `stickerDeficit` tracks cumulative sticker shortfall when stickers are insufficient at Goldfinch during sale processing.
+
+### 23. `gofoodDepotShipments` - Depot Shipment Audit Log
+```typescript
+gofoodDepotShipments: defineTable({
+  date: v.string(),                          // YYYY-MM-DD
+  menuProductId: v.id("menuProducts"),       // Which product
+  quantity: v.number(),                      // How many boxes shipped
+  stickersTransferred: v.number(),           // How many stickers transferred alongside
+  shippedBy: v.string(),                     // Who confirmed the shipment
+  timestamp: v.number(),                     // When confirmed
+})
+  .index("by_date", ["date"])
+  .index("by_product_date", ["menuProductId", "date"])
+```
+
+**Purpose:** Audit log of every shipment from Office to Goldfinch. Enables freshness tracking (product age at depot calculated from shipment dates using FIFO assumption). Multiple shipments per day are supported (e.g., morning + emergency restock).
+
+### 24. `vouchers` - Discount Voucher Codes
 ```typescript
 vouchers: defineTable({
   // Core identification

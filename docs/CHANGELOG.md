@@ -13,6 +13,53 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-11 - GoFood Kitchen + Goldfinch Depot Integration
+
+### Overview
+Full integration for tracking GoFood depot stock at Legato Goldfinch, ship-to-depot workflows, and automatic sticker deduction on GoBiz sales. GoFood now appears as a virtual "order" in the Kitchen View alongside regular orders.
+
+### New Tables
+- **`gofoodDepotStock`** -- Per-product running stock at Goldfinch (quantity, stickerDeficit, lastUpdated). Index: `by_menuProduct`
+- **`gofoodDepotShipments`** -- Audit log of every shipment from Office to Goldfinch (date, quantity, stickers, who). Indexes: `by_date`, `by_product_date`
+
+### Modified Tables
+- **`productionCounts`** -- Added `shippedToGoldfinch: v.optional(v.number())` field
+
+### New Backend Module: `convex/gofoodDepot/`
+- **Mutations:** `recordShipment` (auth-protected, FIFO sticker transfer), `processSyncSales` (internalMutation, batch sale processing), `recordSale` (internalMutation, single sale), `adjustDepotStock` (manager/admin manual correction)
+- **Queries:** `getDepotStock`, `getGoFoodDailyOrder` (virtual order assembly), `getTodayShipments`, `getGoldfinchStickerInventory`, `getDepotFreshness`
+
+### GoBiz Integration
+- **Phase C** added to GoBiz sync: after saving revenue items, auto-consumes stickers from Goldfinch FIFO via `processSyncSales`
+- **Auto-sync cron** added: `autoSyncGoBizRevenue` runs at WIB business hours (8, 10, 12, 14, 16, 18, 20)
+
+### Frontend Changes
+- **New CSS variables:** Jade green GoFood color set (`--color-gofood`, `-light`, `-medium`, `-accent`, `-badge`)
+- **New components:** `GoFoodStickerCard` (read-only depot info for Sticker panel), `GoFoodPackingCard` (ship-to-depot for Pack panel with double-tap confirm)
+- **Updated panels:** StickeringPanel (GoFood cards above manual cards, removed Undo button), PackingPanel (GoFoodPackingCard at top), BoxingPanel (removed Undo button), ProductionLogPanel (jade "GF depot: N" annotation)
+- **Updated hooks:** `useKitchenProduction` now fetches GoFood depot data
+- **Updated page:** `KitchenViewV2.tsx` wires all depot data, shipment mutations, and sync actions
+
+### Tests
+- 53 new backend tests across `gofoodDepot.test.ts` (35) and `gofoodDepot-edge.test.ts` (18)
+- Fixed `gobizAdapter.test.ts` cron assertion (now validates GoBiz cron exists)
+
+### Files Created
+- `convex/gofoodDepot/mutations.ts`, `convex/gofoodDepot/queries.ts`
+- `src/components/kitchen/GoFoodStickerCard.tsx`, `src/components/kitchen/GoFoodPackingCard.tsx`
+- `tests/convex/gofoodDepot.test.ts`, `tests/convex/gofoodDepot-edge.test.ts`
+
+### Files Modified
+- `convex/schema.ts`, `convex/crons.ts`, `convex/productionCounts/queries.ts`
+- `convex/integrations/gobiz/adapter.ts`
+- `src/index.css`, `src/pages/KitchenViewV2.tsx`, `src/hooks/convex/useKitchenProduction.ts`
+- `src/components/kitchen/StickeringPanel.tsx`, `src/components/kitchen/PackingPanel.tsx`
+- `src/components/kitchen/BoxingPanel.tsx`, `src/components/kitchen/ProductionLogPanel.tsx`
+- `src/components/kitchen/index.ts`
+- `tests/convex/gobizAdapter.test.ts`
+
+---
+
 ## 2026-02-10 - Inventory: Component Rename & Delete Actions
 
 ### Overview
