@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Package, Plus, DollarSign, Truck, Calendar, Boxes, ArrowLeft } from "lucide-react";
+import { Package, Plus, DollarSign, Truck, Calendar, Boxes, ArrowLeft, Percent } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-// Select imports removed - replaced with button grid in Wave 5
+// Select/RadioGroup imports removed - replaced with button grid in Wave 5
 import { toast } from "sonner";
 import {
   useConvexReceiveStock,
@@ -62,13 +61,13 @@ export function ReceiveStockDialog({
   >(null);
 
   // New component fields
-  const [newComponentCode, setNewComponentCode] = useState("");
   const [newComponentName, setNewComponentName] = useState("");
-  const [newComponentCategory, setNewComponentCategory] = useState<
-    "packaging"
-  >("packaging");
+  const [newComponentCategory] = useState<"packaging">("packaging"); // Always packaging
   const [newComponentUnit, setNewComponentUnit] = useState("");
-  const [newComponentReorderPoint, setNewComponentReorderPoint] = useState("");
+  const [customUnit, setCustomUnit] = useState(""); // For custom unit input
+  const [reorderPointType, setReorderPointType] = useState<"units" | "percentage">("units");
+  const [reorderPointUnits, setReorderPointUnits] = useState("");
+  const [reorderPointPercentage, setReorderPointPercentage] = useState("");
   const [newComponentStage, setNewComponentStage] = useState<SelectableStage>("boxing");
 
   // Common fields (batch details)
@@ -107,26 +106,38 @@ export function ReceiveStockDialog({
     }
   }, [locations, selectedLocationId]);
 
-  // Auto-populate supplier info from latest batch
+  // Auto-populate supplier info and batch details from latest batch
   useEffect(() => {
     if (latestBatch && selectedComponentId) {
       // Only auto-populate if fields are currently empty (don't overwrite user edits)
       if (!supplierName) setSupplierName(latestBatch.supplierName ?? "");
       if (!supplierBrand) setSupplierBrand(latestBatch.supplierBrand ?? "");
       if (!purchaseUrl) setPurchaseUrl(latestBatch.purchaseUrl ?? "");
+      // Pre-fill batch details from previous batch
+      if (!quantity) setQuantity(String(latestBatch.quantityPurchased));
+      if (!totalCost) setTotalCost(String(latestBatch.totalCostIdr));
     }
   }, [latestBatch, selectedComponentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Set default batch values for new components
+  useEffect(() => {
+    if (open && mode === 'create-new' && !quantity && !totalCost) {
+      setQuantity("100");
+      setTotalCost("10000");
+    }
+  }, [open, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       setMode(forceCreateMode ? 'create-new' : 'select');
       setSelectedComponentId(preselectedComponentId ?? null);
-      setNewComponentCode("");
       setNewComponentName("");
-      setNewComponentCategory("packaging");
-      setNewComponentUnit("");
-      setNewComponentReorderPoint("");
+      setNewComponentUnit("pcs"); // Default to pieces
+      setCustomUnit("");
+      setReorderPointType("units");
+      setReorderPointUnits("");
+      setReorderPointPercentage("");
       setNewComponentStage("boxing");
       setQuantity("");
       setTotalCost("");
@@ -186,25 +197,39 @@ export function ReceiveStockDialog({
         toast.success("Stock received successfully");
       } else {
         // Create new component - validate additional fields
-        if (!newComponentCode.trim()) {
-          toast.error("Component code is required");
-          return;
-        }
         if (!newComponentName.trim()) {
           toast.error("Component name is required");
           return;
         }
-        if (!newComponentUnit.trim()) {
+
+        // Determine the final unit (either selected or custom)
+        const finalUnit = newComponentUnit === "custom"
+          ? customUnit.trim()
+          : newComponentUnit;
+
+        if (!finalUnit) {
           toast.error("Unit is required");
           return;
         }
 
+        // Auto-generate code from name (uppercase, replace spaces with underscores)
+        const generatedCode = newComponentName.trim().toUpperCase().replace(/\s+/g, '_');
+
+        // Calculate reorder point based on type
+        let reorderPoint: number | undefined;
+        if (reorderPointType === "units" && reorderPointUnits) {
+          reorderPoint = Number(reorderPointUnits);
+        } else if (reorderPointType === "percentage" && reorderPointPercentage) {
+          // Store as negative to indicate percentage (backend will interpret)
+          reorderPoint = -Number(reorderPointPercentage);
+        }
+
         await createAndReceive({
-          code: newComponentCode.trim().toUpperCase(),
+          code: generatedCode,
           name: newComponentName.trim(),
           category: newComponentCategory,
-          unit: newComponentUnit.trim(),
-          reorderPoint: newComponentReorderPoint ? Number(newComponentReorderPoint) : undefined,
+          unit: finalUnit,
+          reorderPoint,
           consumptionStage: newComponentStage,
           locationId: selectedLocationId,
           purchaseDate: Date.now(),
@@ -337,81 +362,155 @@ export function ReceiveStockDialog({
                 Back to Select Existing
               </Button>
 
-              {/* New Component Form */}
-              <div className="space-y-4 border-2 border-dashed border-emerald-600/30 rounded-lg p-4 bg-emerald-950/20">
-                <div className="flex items-center gap-2 text-emerald-400 font-medium">
-                  <Boxes className="h-4 w-4" />
-                  New Component Details
+              {/* New Component Form - Clean White Design */}
+              <div className="space-y-5 rounded-xl p-6 bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-500/10">
+                    <Boxes className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-100">New Component Details</h3>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="code">
-                      Code * <span className="text-xs text-slate-400">(e.g., LONG_BOX)</span>
-                    </Label>
-                    <Input
-                      id="code"
-                      value={newComponentCode}
-                      onChange={(e) => setNewComponentCode(e.target.value.toUpperCase())}
-                      placeholder="LONG_BOX"
-                      className="font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      value={newComponentName}
-                      onChange={(e) => setNewComponentName(e.target.value)}
-                      placeholder="Long Box"
-                    />
-                  </div>
-                </div>
-
+                {/* Name Field - Full Width */}
                 <div className="space-y-2">
-                  <Label>Category *</Label>
-                  <RadioGroup
-                    value={newComponentCategory}
-                    onValueChange={(value) =>
-                      setNewComponentCategory(value as typeof newComponentCategory)
-                    }
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="packaging" id="packaging" />
-                      <Label htmlFor="packaging" className="font-normal cursor-pointer">
-                        Packaging <span className="text-xs text-slate-400">(boxes, stickers, etc.)</span>
-                      </Label>
+                  <Label htmlFor="name" className="text-sm font-medium text-slate-200">
+                    Component Name *
+                  </Label>
+                  <Input
+                    id="name"
+                    value={newComponentName}
+                    onChange={(e) => setNewComponentName(e.target.value)}
+                    placeholder="e.g., Long Box, Sticker Sheet, Inner Bag"
+                    className="h-11 text-base"
+                  />
+                  <p className="text-xs text-slate-400">
+                    Code will be auto-generated from name
+                  </p>
+                </div>
+
+                {/* Unit Selection - Quick Buttons + Custom */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-200">
+                    Unit of Measurement *
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {["pcs", "box", "sheet", "roll"].map((unitOption) => (
+                      <Button
+                        key={unitOption}
+                        type="button"
+                        variant={newComponentUnit === unitOption ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setNewComponentUnit(unitOption);
+                          setCustomUnit("");
+                        }}
+                        className={cn(
+                          "px-4",
+                          newComponentUnit === unitOption &&
+                            "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                        )}
+                      >
+                        {unitOption}
+                      </Button>
+                    ))}
+                    <Button
+                      type="button"
+                      variant={newComponentUnit === "custom" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setNewComponentUnit("custom")}
+                      className={cn(
+                        "px-4",
+                        newComponentUnit === "custom" &&
+                          "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                      )}
+                    >
+                      Other...
+                    </Button>
+                  </div>
+                  {newComponentUnit === "custom" && (
+                    <Input
+                      value={customUnit}
+                      onChange={(e) => setCustomUnit(e.target.value)}
+                      placeholder="Enter custom unit (e.g., kg, meter)"
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+
+                {/* Reorder Point - Units OR Percentage */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-slate-200">
+                    Reorder Alert Threshold (Optional)
+                  </Label>
+
+                  {/* Type Toggle */}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={reorderPointType === "units" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReorderPointType("units")}
+                      className={cn(
+                        "flex-1",
+                        reorderPointType === "units" &&
+                          "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                      )}
+                    >
+                      <Package className="h-3.5 w-3.5 mr-1.5" />
+                      By Units
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={reorderPointType === "percentage" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReorderPointType("percentage")}
+                      className={cn(
+                        "flex-1",
+                        reorderPointType === "percentage" &&
+                          "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                      )}
+                    >
+                      <Percent className="h-3.5 w-3.5 mr-1.5" />
+                      By Percentage
+                    </Button>
+                  </div>
+
+                  {/* Input based on type */}
+                  {reorderPointType === "units" ? (
+                    <div className="space-y-1.5">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={reorderPointUnits}
+                        onChange={(e) => setReorderPointUnits(e.target.value)}
+                        placeholder="50"
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Alert when stock falls below this quantity
+                      </p>
                     </div>
-                  </RadioGroup>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={reorderPointPercentage}
+                        onChange={(e) => setReorderPointPercentage(e.target.value)}
+                        placeholder="20"
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-slate-400">
+                        Alert when stock falls below this % of last restock
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="unit">Unit * <span className="text-xs text-slate-400">(pcs, kg, box)</span></Label>
-                    <Input
-                      id="unit"
-                      value={newComponentUnit}
-                      onChange={(e) => setNewComponentUnit(e.target.value)}
-                      placeholder="pcs"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="reorderPoint">Reorder Point (Optional)</Label>
-                    <Input
-                      id="reorderPoint"
-                      type="number"
-                      min="0"
-                      value={newComponentReorderPoint}
-                      onChange={(e) => setNewComponentReorderPoint(e.target.value)}
-                      placeholder="50"
-                    />
-                  </div>
-                </div>
-
+                {/* Consumption Stage */}
                 <div className="space-y-2">
-                  <Label>Consumed During</Label>
+                  <Label className="text-sm font-medium text-slate-200">Consumed During</Label>
                   <div className="flex gap-2">
                     {SELECTABLE_STAGES.map((stage) => (
                       <Button
@@ -464,12 +563,12 @@ export function ReceiveStockDialog({
 
           {/* Batch Details */}
           <div className="space-y-4">
-            <div className="font-medium text-slate-200">Batch Details (This Receipt)</div>
+            <h3 className="text-base font-bold text-slate-50">Batch Details (This Receipt)</h3>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="quantity">
-                  <Package className="inline h-4 w-4 mr-1" />
+                <Label htmlFor="quantity" className="text-sm font-medium text-slate-200">
+                  <Package className="inline h-4 w-4 mr-1.5" />
                   Quantity Received *
                 </Label>
                 <Input
@@ -479,13 +578,13 @@ export function ReceiveStockDialog({
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   placeholder="100"
-                  className="font-mono"
+                  className="font-mono h-11 text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="totalCost">
-                  <DollarSign className="inline h-4 w-4 mr-1" />
+                <Label htmlFor="totalCost" className="text-sm font-medium text-slate-200">
+                  <DollarSign className="inline h-4 w-4 mr-1.5" />
                   Total Cost (IDR) *
                 </Label>
                 <Input
@@ -494,20 +593,34 @@ export function ReceiveStockDialog({
                   min="0"
                   value={totalCost}
                   onChange={(e) => setTotalCost(e.target.value)}
-                  placeholder="50000"
-                  className="font-mono"
+                  placeholder="10000"
+                  className="font-mono h-11 text-base"
                 />
               </div>
             </div>
 
-            {/* Unit Cost Display */}
+            {/* Live Unit Cost Display */}
             {unitCost !== null && (
-              <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+              <div className="rounded-xl p-4 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">Unit Cost (FIFO will use this):</span>
-                  <span className="text-lg font-mono font-bold text-emerald-400">
-                    {formatCurrency(unitCost)}
-                  </span>
+                  <div className="space-y-1">
+                    <div className="text-xs font-medium text-emerald-300/70 uppercase tracking-wide">
+                      Cost per Unit
+                    </div>
+                    <div className="text-sm text-slate-300">
+                      FIFO will use this rate
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight">
+                      {formatCurrency(unitCost)}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      per {mode === 'create-new'
+                        ? (newComponentUnit === 'custom' ? (customUnit || 'unit') : newComponentUnit)
+                        : 'unit'}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -517,11 +630,11 @@ export function ReceiveStockDialog({
 
           {/* Supplier Info */}
           <div className="space-y-4">
-            <div className="font-medium text-slate-200">Supplier Information</div>
+            <h3 className="text-base font-bold text-slate-50">Supplier Information</h3>
 
             <div className="space-y-2">
-              <Label htmlFor="supplierName">
-                <Truck className="inline h-4 w-4 mr-1" />
+              <Label htmlFor="supplierName" className="text-sm font-medium text-slate-200">
+                <Truck className="inline h-4 w-4 mr-1.5" />
                 Supplier Name *
               </Label>
               <Input
@@ -533,7 +646,9 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="supplierBrand">Brand (Optional)</Label>
+              <Label htmlFor="supplierBrand" className="text-sm font-medium text-slate-200">
+                Brand (Optional)
+              </Label>
               <Input
                 id="supplierBrand"
                 value={supplierBrand}
@@ -543,8 +658,8 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purchaseReference">
-                <Calendar className="inline h-4 w-4 mr-1" />
+              <Label htmlFor="purchaseReference" className="text-sm font-medium text-slate-200">
+                <Calendar className="inline h-4 w-4 mr-1.5" />
                 PO/Invoice # (Optional)
               </Label>
               <Input
@@ -556,7 +671,9 @@ export function ReceiveStockDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="purchaseUrl">Reorder URL (Optional)</Label>
+              <Label htmlFor="purchaseUrl" className="text-sm font-medium text-slate-200">
+                Reorder URL (Optional)
+              </Label>
               <Input
                 id="purchaseUrl"
                 type="url"
