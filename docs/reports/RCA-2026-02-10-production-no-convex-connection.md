@@ -70,6 +70,10 @@ The code has a **graceful fallback** -- if `convexUrl` is falsy, it sets the cli
 - Added `VITE_CONVEX_SITE_URL=https://decisive-wombat-7.convex.site` to `.env`
 - Also setting these in Vercel dashboard as belt-and-suspenders
 
+**PR #47** (`fix/env-quoted-values`):
+- PR #46 didn't fully resolve the issue. Vite inlines unquoted `.env` values as template literals, preserving the trailing newline character from the file. This caused `ConvexReactClient` to receive `"https://decisive-wombat-7.convex.cloud\n"` (with a trailing LF), which silently failed to establish a WebSocket connection.
+- Fix: wrapped `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` values in double quotes in `.env`, matching the format used in `.env.local`. Quoted values are inlined as regular strings without trailing newlines.
+
 ---
 
 ## Action Items
@@ -77,6 +81,7 @@ The code has a **graceful fallback** -- if `convexUrl` is falsy, it sets the cli
 ### Immediate (done)
 - [x] Add `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to `.env`
 - [x] Set same variables in Vercel Project Environment Variables
+- [x] Quote `VITE_*` values in `.env` to prevent trailing newline injection
 - [x] Verify production site connects to Convex after merge
 
 ### Short-term (recommended)
