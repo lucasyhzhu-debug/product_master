@@ -1,11 +1,21 @@
 import { useState } from 'react';
-import { CheckCircle2, Minus } from 'lucide-react';
+import { CheckCircle2, Undo2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FlipNumber, FlowChevrons } from './FlipNumber';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ProductionCount {
   menuProductId: string;
   menuProductName: string;
+  menuProductCode?: string;
+  posSlot?: number;
+  productType?: string;
   boxed: number;
   stickered: number;
   packed: number;
@@ -19,17 +29,19 @@ interface BoxingPanelProps {
     originalBallCount: number;
     biteSizedBallCount: number;
   } | undefined;
-  onBoxProducts: (menuProductId: string, quantity: number) => Promise<void>;
+  neededFromOrders?: Record<string, number>;
+  onBoxProducts: (menuProductId: string, quantity: number, event?: React.MouseEvent) => Promise<void>;
   disabled?: boolean;
 }
 
 export function BoxingPanel({
   productionCounts,
   trayInventory,
+  neededFromOrders,
   onBoxProducts,
   disabled = false,
 }: BoxingPanelProps) {
-  const [undoStates, setUndoStates] = useState<Record<string, boolean>>({});
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   // Loading state
   if (productionCounts === undefined) {
@@ -42,10 +54,10 @@ export function BoxingPanel({
     );
   }
 
-  // Sort products alphabetically
-  const sortedProducts = [...productionCounts].sort((a, b) =>
-    a.menuProductName.localeCompare(b.menuProductName)
-  );
+  // Filter to food POS products only (posSlot set), sort by posSlot
+  const sortedProducts = [...productionCounts]
+    .filter((p) => p.posSlot != null)
+    .sort((a, b) => (a.posSlot ?? 0) - (b.posSlot ?? 0));
 
   // Empty state
   if (sortedProducts.length === 0) {
@@ -61,155 +73,133 @@ export function BoxingPanel({
     );
   }
 
-  const handleBoxClick = async (menuProductId: string, quantity: number) => {
-    // Handle undo confirmation flow
-    if (quantity === -1) {
-      const isInUndoMode = undoStates[menuProductId];
-
-      if (!isInUndoMode) {
-        // First click: enter undo mode
-        setUndoStates(prev => ({ ...prev, [menuProductId]: true }));
-
-        // Auto-exit undo mode after 3 seconds
-        setTimeout(() => {
-          setUndoStates(prev => {
-            const newStates = { ...prev };
-            delete newStates[menuProductId];
-            return newStates;
-          });
-        }, 3000);
-        return;
-      }
-
-      // Second click within 3s: actually perform undo
-      setUndoStates(prev => {
-        const newStates = { ...prev };
-        delete newStates[menuProductId];
-        return newStates;
-      });
+  const handleSubmit = async (menuProductId: string, event?: React.MouseEvent) => {
+    const val = parseInt(inputValues[menuProductId] || '', 10);
+    if (!isNaN(val) && val !== 0) {
+      await onBoxProducts(menuProductId, val, event);
+      setInputValues(prev => ({ ...prev, [menuProductId]: '' }));
     }
+  };
 
-    await onBoxProducts(menuProductId, quantity);
+  const handleUndo = async (menuProductId: string, event?: React.MouseEvent) => {
+    await onBoxProducts(menuProductId, -1, event);
   };
 
   const getAvailableBalls = (productName: string): number => {
     if (!trayInventory) return 0;
-
-    // Determine which ball type based on product name
-    // This is a simple heuristic - adjust based on actual business logic
     const isBiteSized = productName.toLowerCase().includes('bite');
-
     return isBiteSized
       ? trayInventory.biteSizedBallCount
       : trayInventory.originalBallCount;
   };
 
   return (
-    <div className="bg-[#F8F6F3] px-4 py-4 space-y-4 min-h-screen">
-      {sortedProducts.map((product) => {
-        const isUndoMode = undoStates[product.menuProductId];
-        const canUndo = product.boxed > 0;
-        const availableBalls = getAvailableBalls(product.menuProductName);
+    <TooltipProvider delayDuration={300}>
+      <div className="bg-[#F8F6F3] px-3 py-3 space-y-3 min-h-screen">
+        {sortedProducts.map((product) => {
+          const availableBalls = getAvailableBalls(product.menuProductName);
+          const awaitingSticker = product.availableForStickering;
+          const needed = neededFromOrders?.[product.menuProductId] ?? 0;
+          const inputVal = inputValues[product.menuProductId] || '';
 
-        return (
-          <div
-            key={product.menuProductId}
-            className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 overflow-hidden"
-            style={{ borderLeftColor: '#C4845C' }}
-          >
-            {/* Header */}
-            <div className="bg-[#FDF5EF] px-4 py-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {product.menuProductName}
-              </h3>
-              <div className="text-3xl font-bold tabular-nums text-[#1A202C]">
-                {product.boxed}
+          return (
+            <div
+              key={product.menuProductId}
+              className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 overflow-hidden"
+              style={{ borderLeftColor: '#C4845C' }}
+            >
+              {/* Header */}
+              <div className="bg-[#FDF5EF] px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-gray-900 truncate">
+                      {product.menuProductName}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                      <span>Balls: <span className="font-bold text-gray-700">{availableBalls}</span></span>
+                      {needed > 0 && (
+                        <span>Need: <span className="font-bold text-amber-700">{needed}</span></span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    <div className="text-2xl font-bold text-[#1A202C] flex items-center justify-end">
+                      <FlipNumber value={awaitingSticker} size="md" />
+                    </div>
+                    <div className="text-[10px] text-gray-500 leading-tight">Awaiting<br />Sticker</div>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Content */}
-            <div className="bg-white px-4 py-3 space-y-3">
-              {/* Increment buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Plus buttons */}
-                <button
-                  onClick={() => handleBoxClick(product.menuProductId, 1)}
-                  disabled={disabled}
-                  className={cn(
-                    'min-h-[56px] min-w-[56px] rounded-xl font-bold text-lg',
-                    'bg-[#C4845C] hover:bg-[#B4744C] text-white',
-                    'touch-manipulation active:scale-95 transition-transform duration-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  +1
-                </button>
-                <button
-                  onClick={() => handleBoxClick(product.menuProductId, 3)}
-                  disabled={disabled}
-                  className={cn(
-                    'min-h-[56px] min-w-[56px] rounded-xl font-bold text-lg',
-                    'bg-[#C4845C] hover:bg-[#B4744C] text-white',
-                    'touch-manipulation active:scale-95 transition-transform duration-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  +3
-                </button>
-                <button
-                  onClick={() => handleBoxClick(product.menuProductId, 5)}
-                  disabled={disabled}
-                  className={cn(
-                    'min-h-[56px] min-w-[56px] rounded-xl font-bold text-lg',
-                    'bg-[#C4845C] hover:bg-[#B4744C] text-white',
-                    'touch-manipulation active:scale-95 transition-transform duration-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  +5
-                </button>
-                <button
-                  onClick={() => handleBoxClick(product.menuProductId, 10)}
-                  disabled={disabled}
-                  className={cn(
-                    'min-h-[56px] min-w-[56px] rounded-xl font-bold text-lg',
-                    'bg-[#C4845C] hover:bg-[#B4744C] text-white',
-                    'touch-manipulation active:scale-95 transition-transform duration-100',
-                    'disabled:opacity-50 disabled:cursor-not-allowed'
-                  )}
-                >
-                  +10
-                </button>
+              {/* Content */}
+              <div className="px-3 py-2.5 space-y-2">
+                {/* Row 1: Input + Box button */}
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative flex-1">
+                        <input
+                          type="number"
+                          value={inputVal}
+                          onChange={(e) =>
+                            setInputValues(prev => ({ ...prev, [product.menuProductId]: e.target.value }))
+                          }
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(product.menuProductId); }}
+                          placeholder="Qty to add"
+                          disabled={disabled}
+                          className={cn(
+                            'w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-center text-base font-bold',
+                            'focus:border-[#C4845C] focus:outline-none focus:ring-1 focus:ring-[#C4845C]',
+                            'disabled:opacity-50 disabled:cursor-not-allowed',
+                            '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+                          )}
+                        />
+                        <Info className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-center">
+                      <p>If you want to revert, you can also use negative numbers</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <button
+                    onClick={(e) => handleSubmit(product.menuProductId, e)}
+                    disabled={disabled || !inputVal || parseInt(inputVal, 10) === 0 || isNaN(parseInt(inputVal, 10))}
+                    className={cn(
+                      'h-11 px-5 rounded-lg font-bold text-base shrink-0',
+                      'bg-[#C4845C] hover:bg-[#B4744C] text-white',
+                      'touch-manipulation active:scale-95 transition-transform duration-100',
+                      'disabled:opacity-50 disabled:cursor-not-allowed',
+                      'flex items-center'
+                    )}
+                  >
+                    Box
+                    {inputVal && !isNaN(parseInt(inputVal, 10)) && parseInt(inputVal, 10) !== 0 && (
+                      <FlowChevrons color="rgba(255,255,255,0.8)" />
+                    )}
+                  </button>
+                </div>
 
-                {/* Minus/Undo button */}
+                {/* Row 2: Undo button */}
                 <button
-                  onClick={() => handleBoxClick(product.menuProductId, -1)}
-                  disabled={disabled || !canUndo}
+                  onClick={(e) => handleUndo(product.menuProductId, e)}
+                  disabled={disabled || product.boxed === 0}
                   className={cn(
-                    'min-h-[56px] min-w-[56px] rounded-xl font-bold text-lg',
-                    'border-2 border-gray-300 bg-white text-gray-700',
-                    'hover:bg-gray-50',
-                    'touch-manipulation active:scale-95 transition-transform duration-100',
+                    'w-full h-9 rounded-lg text-sm font-medium',
+                    'border border-gray-200 bg-gray-50 text-gray-600',
+                    'hover:bg-gray-100 active:bg-gray-200',
+                    'touch-manipulation active:scale-[0.98] transition-all duration-100',
                     'disabled:opacity-40 disabled:cursor-not-allowed',
-                    'flex items-center justify-center'
+                    'flex items-center justify-center gap-1.5'
                   )}
                 >
-                  {isUndoMode ? (
-                    <span className="text-sm">Undo?</span>
-                  ) : (
-                    <Minus className="h-5 w-5" />
-                  )}
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Undo last (+1)
                 </button>
               </div>
-
-              {/* Available balls info */}
-              <div className="text-sm text-gray-600 font-medium">
-                Available balls: <span className="font-bold">{availableBalls}</span>
-              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }

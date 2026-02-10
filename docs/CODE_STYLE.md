@@ -718,6 +718,77 @@ async function handleSave() {
 
 ---
 
+### Toast & Action Feedback
+
+**Pattern:** Use `actionToast()` for quick success confirmations. Use `toast.error()` for errors.
+
+```typescript
+import { actionToast } from '@/lib/actionToast';
+import { toast } from 'sonner';
+
+// SUCCESS: Use actionToast - appears near the button that was clicked
+const handleBox = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
+  try {
+    await boxProducts({ menuProductId, quantity });
+    actionToast(`Boxed +${quantity}`, event);  // floating pill near the click
+  } catch {
+    toast.error('Failed to box');  // prominent Sonner toast at top-center
+  }
+};
+
+// ERROR: Always use toast.error() - persistent, top-center via Sonner
+toast.error('Failed to save');
+```
+
+**Why:** Mobile-first kitchen staff tap buttons repeatedly. Feedback near the button is instantly visible without scanning to a corner.
+
+**Rules:**
+- `actionToast(message, event)` -- for all success/confirmation feedback after actions
+- `toast.error(message)` -- for all error feedback (top-center, persistent via Sonner)
+- `toast.info(message)` -- for informational messages (top-center via Sonner)
+- Never use `toast.success()` -- use `actionToast()` instead
+- Thread `React.MouseEvent` through handler signatures so the toast can position itself near the button
+
+**Implementation:** `src/lib/actionToast.ts` creates a lightweight floating DOM element near the clicked button, no React rendering overhead.
+
+### Toast & Action Feedback
+
+**Pattern:** Use `actionToast()` for quick success confirmations. Use `toast.error()` for errors.
+
+```typescript
+import { actionToast } from '@/lib/actionToast';
+import { toast } from 'sonner';
+
+// SUCCESS: Use actionToast — appears near the button
+const handleBox = async (id: string, qty: number, e?: React.MouseEvent) => {
+  try {
+    await boxProducts({ menuProductId: id, quantity: qty });
+    actionToast(`Boxed +${qty}`, e);  // appears near the click
+  } catch {
+    toast.error('Failed to box');  // appears at top-center via Sonner
+  }
+};
+
+// ERROR: Always use toast.error() — prominent, persistent
+toast.error('Failed to save');
+```
+
+**Why:** Mobile-first kitchen staff tap buttons repeatedly. Feedback near the button is instantly visible without scanning to a corner.
+
+**Rules:**
+- `actionToast(message, event)` — for all success/confirmation feedback (floats near the clicked button, fades after 1.2s)
+- `toast.error(message)` — for all error feedback (top-center via Sonner, persistent with close button)
+- `toast.info(message)` — for informational messages (top-center via Sonner)
+- Never use `toast.success()` — use `actionToast()` instead
+- Thread the `React.MouseEvent` through handler callbacks so `actionToast` can position near the button
+
+**Files:**
+- `src/lib/actionToast.ts` — The utility (creates a floating DOM element near click target)
+- `src/index.css` — Animation keyframes (`action-toast-in`, `action-toast-out`)
+- `src/components/ui/sonner.tsx` — Global Sonner config (`position="top-center"`)
+
+---
+
 ## Business Logic Examples
 
 ### Cost Calculations (convex/lib/costCalculator.ts)

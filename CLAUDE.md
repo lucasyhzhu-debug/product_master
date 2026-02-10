@@ -289,7 +289,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 7. **Order numbers**: Format `MMDD-NNN` (e.g., 0129-001) for bank transfer reference.
 8. **Kitchen production**: Balls accumulate in trays and auto-allocate to pending orders. Production tracking uses `orderItemProduction.unitsRemaining` (source of truth) and `orderItems.ballsFilled/packageStatus` (UI display).
 9. **Order status workflow**: Draft -> AwaitingPayment -> Confirmed -> InProduction -> Boxed -> Labeled -> WaitingShipment/WaitingPickup -> CompleteShipped/PickedUp. Any non-terminal -> Cancelled.
-10. **Unified BOM**: `componentTypes` table unifies production units (balls) and packaging items (boxes, stickers) into a single Bill of Materials system. Two categories: `production`, `packaging`. Backend validators accept legacy `direct_packaging`/`indirect_packaging` for backwards compatibility.
+10. **Unified BOM (source of truth for product composition)**: `componentTypes` table unifies production units (balls) and packaging items (boxes, stickers) into a single Bill of Materials system. Two categories: `production`, `packaging`. **All ball type/count information MUST be derived from BOM** (`menuProductComponents` + `componentTypes`), NOT from the deprecated `menuProducts.productionType`/`productionUnits` or `orderItems.productionType`/`productionUnits` fields. BOM codes: `BIG_BALL` = 80g/Jumbo, `MID_BALL` = 45g/Original.
 11. **Inventory FIFO**: Packaging inventory uses FIFO batch tracking. Stock is reserved on order confirmation and consumed on fulfillment.
 
 ---
@@ -306,6 +306,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 8. **No dynamic imports in Convex** -- Static imports only. Dynamic `import()` works locally but fails silently in production (204 No Content).
 9. **React hooks order** -- All hooks must be called before any conditional returns. No hooks after early returns.
 10. **Auth token in mutations** -- Protected mutations require `token: v.string()` arg. Extract token before passing to db operations.
+11. **NEVER use productionType/productionUnits** -- These deprecated fields on `menuProducts` and `orderItems` cause confusion (e.g., `productionType="original"` maps to BIG_BALL/80g, not what you'd expect). Always derive ball composition from BOM: `menuProductComponents` joined with `componentTypes` (filter `category="production"`, read `code` for `BIG_BALL`/`MID_BALL`).
 
 ---
 

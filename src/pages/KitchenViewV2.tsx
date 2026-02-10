@@ -11,7 +11,7 @@
  * Mobile (<768px): swipeable panels with station pill bar
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { toast } from 'sonner';
+import { actionToast } from '@/lib/actionToast';
 import type { Id } from '../../convex/_generated/dataModel';
 
 export function KitchenViewV2() {
@@ -48,11 +49,16 @@ export function KitchenViewV2() {
     trayInventory,
     kitchenStats,
     productionTargets,
+    productTargets,
+    orderProductDemand,
+    today,
   } = useKitchenProduction();
 
   // Mutations - ball tray (legacy, no auth)
   const addBallsToTray = useMutation(api.orders.mutations.addBallsToTray);
-  const removeBallFromTray = useMutation(api.orders.mutations.removeBallFromTray);
+
+  // Mutations - production targets (protected with auth)
+  const setProductTarget = useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 
   // Mutations - new kitchen V3 (protected with auth)
   const boxProducts = useProtectedMutation(api.orders.mutations.boxProducts);
@@ -91,32 +97,25 @@ export function KitchenViewV2() {
   }, []);
 
   // Handlers - Ball tray
-  const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number) => {
+  const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => {
     try {
       await addBallsToTray({ ballType, count });
-      toast.success(`+${count} balls added`);
+      const message = count > 0 ? `+${count} balls added` : `${count} balls removed`;
+      actionToast(message, event);
     } catch {
-      toast.error('Failed to add balls');
-    }
-  };
-
-  const handleRemoveBall = async (ballType: 'original' | 'bite_sized') => {
-    try {
-      await removeBallFromTray({ ballType });
-    } catch {
-      toast.error('Failed to remove ball');
+      toast.error(count > 0 ? 'Failed to add balls' : 'Failed to remove balls');
     }
   };
 
   // Handlers - Boxing
-  const handleBoxProducts = async (menuProductId: string, quantity: number) => {
+  const handleBoxProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
     try {
       await boxProducts({
         menuProductId: menuProductId as Id<'menuProducts'>,
         quantity,
       });
       const action = quantity > 0 ? 'Boxed' : 'Unboxed';
-      toast.success(`${action} ${Math.abs(quantity)}`);
+      actionToast(`${action} ${Math.abs(quantity)}`, event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to box products';
       toast.error(msg);
@@ -124,14 +123,14 @@ export function KitchenViewV2() {
   };
 
   // Handlers - Stickering
-  const handleStickerProducts = async (menuProductId: string, quantity: number) => {
+  const handleStickerProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
     try {
       await stickerProducts({
         menuProductId: menuProductId as Id<'menuProducts'>,
         quantity,
       });
       const action = quantity > 0 ? 'Stickered' : 'Unstickered';
-      toast.success(`${action} ${Math.abs(quantity)}`);
+      actionToast(`${action} ${Math.abs(quantity)}`, event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to sticker products';
       toast.error(msg);
@@ -139,29 +138,59 @@ export function KitchenViewV2() {
   };
 
   // Handlers - Packing
-  const handleTogglePack = async (orderId: string, orderItemId: string) => {
+  const handleTogglePack = async (orderId: string, orderItemId: string, event?: React.MouseEvent) => {
     try {
       await togglePackOrderLineItem({
         orderId: orderId as Id<'orders'>,
         orderItemId: orderItemId as Id<'orderItems'>,
       });
+      actionToast('Packed', event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to toggle pack';
       toast.error(msg);
     }
   };
 
-  const handleMarkOrderReady = async (orderId: string) => {
+  const handleMarkOrderReady = async (orderId: string, event?: React.MouseEvent) => {
     try {
       await markOrderReady({
         orderId: orderId as Id<'orders'>,
       });
-      toast.success('Order marked as ready!');
+      actionToast('Order marked as ready!', event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to mark order ready';
       toast.error(msg);
     }
   };
+
+  // Handler - Set product target (source: "consignment" | "gofood")
+  const handleSetProductTarget = async (menuProductId: string, source: string, quantity: number) => {
+    try {
+      await setProductTarget({
+        date: today,
+        source,
+        menuProductId: menuProductId as Id<'menuProducts'>,
+        quantity,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to set target';
+      toast.error(msg);
+    }
+  };
+
+  // Aggregate "packages needed from orders" per menuProductId
+  const neededFromOrders = useMemo(() => {
+    if (!packingOrders) return {};
+    const map: Record<string, number> = {};
+    for (const order of packingOrders) {
+      for (const item of order.productItems) {
+        if (item.menuProductId && !item.isPacked) {
+          map[item.menuProductId] = (map[item.menuProductId] ?? 0) + item.quantity;
+        }
+      }
+    }
+    return map;
+  }, [packingOrders]);
 
   // Station counts for pill bar badges
   const stationCounts: [number, number, number, number] = [
@@ -211,18 +240,24 @@ export function KitchenViewV2() {
           trayInventory={trayInventory}
           kitchenStats={kitchenStats}
           productionTargets={productionTargets}
+          productionCounts={productionCounts}
+          productTargets={productTargets}
+          orderProductDemand={orderProductDemand}
           onAddBalls={handleAddBalls}
-          onRemoveBall={handleRemoveBall}
+
+          onSetProductTarget={handleSetProductTarget}
           disabled={!canEditKitchen}
         />
         <BoxingPanel
           productionCounts={productionCounts}
           trayInventory={trayInventory}
+          neededFromOrders={neededFromOrders}
           onBoxProducts={handleBoxProducts}
           disabled={!canEditKitchen}
         />
         <StickeringPanel
           productionCounts={productionCounts}
+          neededFromOrders={neededFromOrders}
           onStickerProducts={handleStickerProducts}
           disabled={!canEditKitchen}
         />
@@ -245,8 +280,12 @@ export function KitchenViewV2() {
               trayInventory={trayInventory}
               kitchenStats={kitchenStats}
               productionTargets={productionTargets}
+              productionCounts={productionCounts}
+              productTargets={productTargets}
+              orderProductDemand={orderProductDemand}
               onAddBalls={handleAddBalls}
-              onRemoveBall={handleRemoveBall}
+    
+              onSetProductTarget={handleSetProductTarget}
               disabled={!canEditKitchen}
             />
           </div>
