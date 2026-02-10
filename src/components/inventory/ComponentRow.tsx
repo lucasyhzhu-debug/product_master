@@ -128,17 +128,11 @@ export function ComponentRow({
   };
 
   // Bar color based on percentage remaining
+  // 50%+ green, 30-49% orange, below 30% red
   const getBarColor = (pct: number) => {
-    if (pct <= 15) return "bg-red-500";
-    if (pct <= 40) return "bg-amber-500";
-    if (pct <= 75) return "bg-emerald-500";
+    if (pct < 30) return "bg-red-500";
+    if (pct < 50) return "bg-amber-500";
     return "bg-emerald-500";
-  };
-
-  const getBarBg = () => {
-    if (isCritical) return "bg-red-100";
-    if (isLowStock) return "bg-amber-50";
-    return "bg-muted/40";
   };
 
   return (
@@ -156,73 +150,56 @@ export function ComponentRow({
       )}
     >
       {/* Collapsed Row */}
-      <div className="flex items-center">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex-1 px-4 py-3 flex items-center gap-4 hover:bg-muted/30 transition-colors rounded-l-lg"
-        >
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform flex-shrink-0",
-              expanded && "rotate-180"
-            )}
-          />
+      <div>
+        <div className="flex items-center">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex-1 px-4 py-3 flex items-center gap-4 hover:bg-muted/30 transition-colors rounded-l-lg"
+          >
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform flex-shrink-0",
+                expanded && "rotate-180"
+              )}
+            />
 
-          {/* Component Name & Category */}
-          <div className="flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-2">
-              <span className={cn(
-                "font-medium truncate",
-                isLegacy ? "text-muted-foreground line-through" : "text-foreground"
-              )}>
-                {component.name}
-              </span>
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0"
-              >
-                {component.category.replace("_", " ")}
-              </Badge>
-              {isLegacy && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  Legacy
+            {/* Component Name & Category */}
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "font-medium truncate",
+                  isLegacy ? "text-muted-foreground line-through" : "text-foreground"
+                )}>
+                  {component.name}
+                </span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0"
+                >
+                  {component.category.replace("_", " ")}
                 </Badge>
-              )}
-              {isLowStock && !isLegacy && (
-                <AlertTriangle
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    isCritical ? "text-red-500" : "text-amber-500"
-                  )}
-                />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {component.unit} &middot; {formatCurrency(component.unitCostIdr)}/unit
-              {component.reorderPoint ? ` \u00B7 Reorder at ${component.reorderPoint}` : ""}
-            </p>
-          </div>
-
-          {/* %Used Bar + Stock Numbers */}
-          <div className="flex items-center gap-5 flex-shrink-0">
-            {/* %Used progress bar */}
-            {hasUsedBar && percentRemaining !== null && (
-              <div className="w-28 flex-shrink-0">
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-0.5">
-                  <span>{percentRemaining}% left</span>
-                  <span>{totalAvailable}/{totalLastRestock}</span>
-                </div>
-                <div className={cn("h-2 rounded-full overflow-hidden", getBarBg())}>
-                  <div
-                    className={cn("h-full rounded-full transition-all duration-500", getBarColor(percentRemaining))}
-                    style={{ width: `${percentRemaining}%` }}
+                {isLegacy && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    Legacy
+                  </Badge>
+                )}
+                {isLowStock && !isLegacy && (
+                  <AlertTriangle
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      isCritical ? "text-red-500" : "text-amber-500"
+                    )}
                   />
-                </div>
+                )}
               </div>
-            )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {component.unit} &middot; {formatCurrency(component.unitCostIdr)}/unit
+                {component.reorderPoint ? ` \u00B7 Reorder at ${component.reorderPoint}` : ""}
+              </p>
+            </div>
 
             {/* Stock counts */}
-            <div className="flex items-center gap-4 tabular-nums text-sm">
+            <div className="flex items-center gap-4 tabular-nums text-sm flex-shrink-0">
               <div className="text-right">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avail</div>
                 <div
@@ -255,11 +232,10 @@ export function ComponentRow({
                 </div>
               </div>
             </div>
-          </div>
-        </button>
+          </button>
 
-        {/* Receive Button + Kebab */}
-        <div className="pr-3 flex items-center gap-1.5">
+          {/* Receive Button + Kebab */}
+          <div className="pr-3 flex items-center gap-1.5">
           {locations.length > 0 && !isLegacy && (
             <Button
               size="sm"
@@ -291,7 +267,25 @@ export function ComponentRow({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
+
+        {/* %Remaining Bar - full width below the row */}
+        {hasUsedBar && percentRemaining !== null && (
+          <div className="px-4 pb-3 pt-0">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2.5 bg-muted/50 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", getBarColor(percentRemaining))}
+                  style={{ width: `${percentRemaining}%` }}
+                />
+              </div>
+              <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+                {percentRemaining}% &middot; {totalAvailable}/{totalLastRestock}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transfer Stock Dialog */}
