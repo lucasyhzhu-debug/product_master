@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, CONSUMPTION_STAGE_LABELS } from "@/lib/utils";
 import { BatchCard } from "./BatchCard";
 import { TransferStockDialog } from "./TransferStockDialog";
 import { ReceiveStockDialog } from "./ReceiveStockDialog";
@@ -197,7 +197,7 @@ export function ComponentRow({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0"
                 >
-                  {component.category.replace("_", " ")}
+                  {CONSUMPTION_STAGE_LABELS[(component as Record<string, unknown>).consumptionStage as string] ?? component.category.replace("_", " ")}
                 </Badge>
                 {isLegacy && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
