@@ -126,6 +126,85 @@ async function getDefaultLocation(ctx: MutationCtx): Promise<Id<"storageLocation
   return defaultLocation?._id ?? null;
 }
 
+/**
+ * Consume materials by stage for batch (non-order) operations.
+ * Used by kitchen boxing/stickering mutations.
+ *
+ * Unlike consumeMaterialsByStageInternal which works per-order with reservations,
+ * this directly consumes from FIFO inventory batches for batch production.
+ */
+export async function consumeBatchMaterials(
+  ctx: MutationCtx,
+  args: {
+    menuProductId: Id<"menuProducts">;
+    quantity: number;
+    stage: "boxing" | "labeling";
+    locationId?: Id<"storageLocations">;
+  }
+): Promise<{ consumed: number; totalCost: number }> {
+  if (args.quantity <= 0) {
+    return { consumed: 0, totalCost: 0 };
+  }
+
+  // Resolve location
+  const locationId = args.locationId ?? await getDefaultLocation(ctx);
+  if (!locationId) {
+    console.warn("No default storage location configured. Skipping batch material consumption.");
+    return { consumed: 0, totalCost: 0 };
+  }
+
+  // Get menu product components
+  const components = await ctx.db
+    .query("menuProductComponents")
+    .withIndex("by_menu_product", (q) => q.eq("menuProductId", args.menuProductId))
+    .collect();
+
+  let consumedCount = 0;
+  let totalCost = 0;
+
+  for (const comp of components) {
+    const componentType = await ctx.db.get(comp.componentTypeId);
+    if (!componentType) continue;
+
+    // Skip production components — only consume packaging
+    if (!componentType.trackInventory) continue;
+
+    // Resolve effective consumption stage: per-product override > component type default
+    const effectiveStage = comp.consumptionStage ?? componentType.consumptionStage;
+    if (effectiveStage !== args.stage) continue;
+
+    // Calculate total quantity needed
+    const totalNeeded = comp.quantity * args.quantity;
+
+    // Consume using FIFO
+    const fifoResult = await consumeFromFIFO(
+      ctx,
+      comp.componentTypeId,
+      locationId,
+      totalNeeded
+    );
+
+    // Apply consumption to batches and create transactions
+    await applyFIFOConsumption(
+      ctx,
+      fifoResult,
+      comp.componentTypeId,
+      locationId,
+      undefined, // orderId: batch consumption, not tied to an order
+      `batch-${args.stage}:${args.menuProductId}:qty:${args.quantity}`,
+      "system"
+    );
+
+    // Update component stock aggregates
+    await updateComponentStock(ctx, comp.componentTypeId, locationId);
+
+    consumedCount++;
+    totalCost += fifoResult.totalCost;
+  }
+
+  return { consumed: consumedCount, totalCost };
+}
+
 // ============================================
 // Internal Helper Functions (accept ctx)
 // ============================================
@@ -329,8 +408,11 @@ async function consumeMaterialsByStageInternal(
     const componentType = await ctx.db.get(reservation.componentTypeId);
     if (!componentType) continue;
 
-    // Only consume materials matching the specified stage
-    if (componentType.consumptionStage !== stage) {
+    // Resolve effective consumption stage:
+    // 1. Use reservation's snapshotted consumptionStage if available (captures per-product overrides)
+    // 2. Fall back to componentType.consumptionStage
+    const effectiveStage = reservation.consumptionStage ?? componentType.consumptionStage;
+    if (effectiveStage !== stage) {
       continue;
     }
 
