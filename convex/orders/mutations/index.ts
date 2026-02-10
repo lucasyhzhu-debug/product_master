@@ -35,6 +35,10 @@ export {
   addBallsToTray,
   fillPendingOrders,
   removeBallFromTray,
+  boxProducts,
+  stickerProducts,
+  togglePackOrderLineItem,
+  markOrderReady,
 } from "./kitchen";
 
 // Packaging Operations

@@ -7,3 +7,10 @@ export { BallTrayCounter } from './BallTrayCounter';
 export { PackagingStockItem } from './PackagingStockItem';
 export { DailySummaryWidget } from './DailySummaryWidget';
 export { BatchConfirmDialog } from './BatchConfirmDialog';
+
+// Kitchen V3 Redesign
+export { SwipeableKitchenLayout } from './SwipeableKitchenLayout';
+export { ProductionLogPanel } from './ProductionLogPanel';
+export { BoxingPanel } from './BoxingPanel';
+export { StickeringPanel } from './StickeringPanel';
+export { PackingPanel } from './PackingPanel';

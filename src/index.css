@@ -41,6 +41,47 @@
   --color-input: hsl(214.3 31.8% 91.4%);
   --color-ring: hsl(222.2 84% 4.9%);
 
+  /* Kitchen Station Colors (Brand-Derived) */
+  /* Production Log - Sage Green */
+  --color-station-production: #5B7A5E;
+  --color-station-production-light: #EEF2EE;
+  --color-station-production-medium: #D4DED5;
+  --color-station-production-accent: #3D5A3F;
+
+  /* Boxing - Peach Amber */
+  --color-station-boxing: #C4845C;
+  --color-station-boxing-light: #FDF5EF;
+  --color-station-boxing-medium: #F5E0CE;
+  --color-station-boxing-accent: #8B5E3C;
+
+  /* Stickering - Chocolate Brown */
+  --color-station-stickering: #6B4C3B;
+  --color-station-stickering-light: #F7F0EB;
+  --color-station-stickering-medium: #E8D8CC;
+  --color-station-stickering-accent: #4A3428;
+
+  /* Packing - Terracotta */
+  --color-station-packing: #E07856;
+  --color-station-packing-light: #FEF2EE;
+  --color-station-packing-medium: #F5D5C8;
+  --color-station-packing-accent: #C55A3A;
+
+  /* Kitchen Shared Status Colors */
+  --color-kitchen-success: #3D7A4A;
+  --color-kitchen-success-bg: #E8F5EA;
+  --color-kitchen-warning: #D4772C;
+  --color-kitchen-warning-bg: #FFF3E0;
+  --color-kitchen-critical: #C0392B;
+  --color-kitchen-critical-bg: #FDEDEC;
+  --color-kitchen-neutral: #718096;
+  --color-kitchen-neutral-bg: #F7FAFC;
+
+  /* Kitchen Surfaces */
+  --color-kitchen-page-bg: #F8F6F3;
+  --color-kitchen-card-border: #E8E2DB;
+  --color-kitchen-counter: #1A202C;
+  --color-kitchen-counter-complete: #3D7A4A;
+
   --radius-lg: 0.5rem;
   --radius-md: calc(var(--radius-lg) - 2px);
   --radius-sm: calc(var(--radius-lg) - 4px);
