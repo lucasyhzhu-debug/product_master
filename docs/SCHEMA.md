@@ -48,7 +48,7 @@ Convex Database (automatic)
 
 ---
 
-## Complete Database Schema (22 Tables)
+## Complete Database Schema (25 Tables)
 
 Schema defined in `convex/schema.ts` using Convex's type-safe schema definition.
 
@@ -445,7 +445,62 @@ orderMessages: defineTable({
 - `shipping` - Shipping notification
 - `pickup_ready` - Pickup notification
 
-### 19. `vouchers` - Discount Voucher Codes
+### 19. `productionTargets` - Daily Production Goals (Kitchen V3)
+```typescript
+productionTargets: defineTable({
+  date: v.string(),                             // YYYY-MM-DD
+  productionUnitTypeId: v.id("productionUnitTypes"),
+  autoTargetQuantity: v.number(),               // Calculated from confirmed orders
+  manualOverride: v.optional(v.number()),       // Manager addition
+  createdBy: v.optional(v.string()),
+  createdAt: v.number(),
+})
+  .index("by_date", ["date"])
+  .index("by_type_date", ["productionUnitTypeId", "date"])
+```
+
+**Purpose:** Daily ball production goals per unit type (Big Ball / Mid Ball). Auto-calculated from confirmed order requirements, with optional manager override. `effectiveTarget = autoTargetQuantity + (manualOverride ?? 0)`.
+
+### 20. `productionCounts` - Running Production Tallies (Kitchen V3)
+```typescript
+productionCounts: defineTable({
+  menuProductId: v.id("menuProducts"),
+  boxed: v.number(),                            // Total boxed since last reset
+  stickered: v.number(),                        // Total stickered since last reset
+  packed: v.number(),                           // Total packed since last reset
+  lastResetAt: v.optional(v.number()),          // When counts were last reset
+  lastResetBy: v.optional(v.string()),          // Who reset the counts
+})
+  .index("by_menu_product", ["menuProductId"])
+```
+
+**Purpose:** Running totals per menu product tracking progression through the production pipeline: boxing → stickering → packing. Derived availability: `availableForStickering = boxed - stickered`, `availableForPacking = stickered - packed`. Manager/admin can reset counts to zero via `resetCounts` mutation.
+
+### 21. `productionLog` - Production Audit Log (Kitchen V3)
+```typescript
+productionLog: defineTable({
+  menuProductId: v.id("menuProducts"),
+  action: v.union(
+    v.literal("box"), v.literal("unbox"),
+    v.literal("sticker"), v.literal("unsticker"),
+    v.literal("pack"), v.literal("unpack")
+  ),
+  quantity: v.number(),                         // Always positive
+  timestamp: v.number(),                        // Date.now()
+  performedBy: v.string(),                      // Username from token
+  orderId: v.optional(v.id("orders")),          // For pack/unpack actions
+  orderItemId: v.optional(v.id("orderItems")),  // For pack/unpack actions
+  note: v.optional(v.string()),                 // e.g., "correction"
+})
+  .index("by_menu_product", ["menuProductId"])
+  .index("by_menu_product_timestamp", ["menuProductId", "timestamp"])
+  .index("by_action", ["action"])
+  .index("by_timestamp", ["timestamp"])
+```
+
+**Purpose:** Immutable audit trail for every production action. Every `boxProducts`, `stickerProducts`, `togglePackOrderLineItem`, and `markOrderReady` call writes a log entry. Supports daily summaries via compound `by_menu_product_timestamp` index.
+
+### 22. `vouchers` - Discount Voucher Codes
 ```typescript
 vouchers: defineTable({
   // Core identification
@@ -500,7 +555,7 @@ vouchers: defineTable({
 - Final price after discount must be > 0 (hard block)
 - Final price < Rp 20,000 triggers confirmation dialog
 
-### 20. `voucherUsage` - Per-Customer Voucher Usage Tracking
+### 23. `voucherUsage` - Per-Customer Voucher Usage Tracking
 ```typescript
 voucherUsage: defineTable({
   voucherId: v.id("vouchers"),
@@ -619,6 +674,19 @@ Gojek, GrabSend, JNE, J&T, SiCepat, AnterAja, Paxel, Lalamove, Other
      │                                         │
      │                                         │
      └────────────────────────────────────────┴──> VoucherUsage (M:N tracking)
+
+┌──────────────────┐      ┌──────────────────┐
+│ ProductionTarget │─────>│ProductionUnitType│ (Big Ball, Mid Ball)
+│  (daily goals)   │      └──────────────────┘
+└──────────────────┘
+
+┌──────────────────┐      ┌─────────────┐
+│ ProductionCounts │─────>│ MenuProduct │ (running tallies: boxed/stickered/packed)
+└──────────────────┘      └─────────────┘
+
+┌────────────────┐
+│ ProductionLog  │─────> MenuProduct + optional Order/OrderItem (audit trail)
+└────────────────┘
 ```
 
 ---

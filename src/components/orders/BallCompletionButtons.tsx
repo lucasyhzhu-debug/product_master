@@ -3,14 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-// Ball colors from design spec
-const BALL_COLORS = {
-  fill: '#93C572',      // Pistachio green
-  stroke: '#7B3F00',    // Chocolate brown
-} as const;
-
-type BallType = 'original' | 'bite_sized';
+import { BALL_CONFIG, type BallType } from '@/lib/ballTypes';
 
 interface BallCompletionButtonsProps {
   onComplete: (ballType: BallType, count: number) => void;
@@ -35,7 +28,9 @@ interface BallZoneProps {
 
 // Ball icon SVG
 function BallIcon({ size = 20, type }: { size?: number; type: BallType }) {
-  const displaySize = type === 'original' ? size : size * 0.7;
+  const config = BALL_CONFIG[type];
+  // Jumbo (80g) = full size, Original (45g) = 70% size
+  const displaySize = config.grams >= 80 ? size : size * 0.7;
   return (
     <svg
       width={displaySize}
@@ -48,8 +43,8 @@ function BallIcon({ size = 20, type }: { size?: number; type: BallType }) {
         cy={(displaySize * 0.94) / 2}
         rx={displaySize / 2 - 1.5}
         ry={(displaySize * 0.94) / 2 - 1.5}
-        fill={BALL_COLORS.fill}
-        stroke={BALL_COLORS.stroke}
+        fill={config.fill}
+        stroke={config.stroke}
         strokeWidth={2}
       />
       <ellipse
@@ -66,7 +61,7 @@ function BallIcon({ size = 20, type }: { size?: number; type: BallType }) {
 function BallZone({ ballType, onAdd, onUndo, trayCount, disabled, hideLabel }: BallZoneProps) {
   const [showUndo, setShowUndo] = useState(false);
 
-  const label = ballType === 'original' ? 'Original' : 'Bite-sized';
+  const label = BALL_CONFIG[ballType].displayName;
   const canUndo = trayCount > 0 && onUndo;
 
   return (

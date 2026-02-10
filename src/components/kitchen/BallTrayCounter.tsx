@@ -1,8 +1,9 @@
 import { Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BALL_CONFIG, type BallType } from '@/lib/ballTypes';
 
 interface BallTrayCounterProps {
-  ballType: 'original' | 'bite_sized';
+  ballType: BallType;
   count: number;
   pendingOrders: number;
   pendingBalls: number;
@@ -10,19 +11,6 @@ interface BallTrayCounterProps {
   onRemove: () => void;
   disabled?: boolean;
 }
-
-const BALL_COLORS = {
-  original: {
-    fill: '#93C572',
-    stroke: '#7B3F00',
-    name: 'Original Balls',
-  },
-  bite_sized: {
-    fill: '#93C572',
-    stroke: '#7B3F00',
-    name: 'Bite-Sized Balls',
-  },
-};
 
 export function BallTrayCounter({
   ballType,
@@ -33,7 +21,7 @@ export function BallTrayCounter({
   onRemove,
   disabled = false,
 }: BallTrayCounterProps) {
-  const config = BALL_COLORS[ballType];
+  const config = BALL_CONFIG[ballType];
   const isLow = count < pendingBalls;
 
   return (
@@ -45,17 +33,17 @@ export function BallTrayCounter({
             <ellipse
               cx="14"
               cy="13"
-              rx={ballType === 'original' ? '12' : '9'}
-              ry={ballType === 'original' ? '11' : '8.5'}
+              rx={config.svgRx}
+              ry={config.svgRy}
               fill={config.fill}
               stroke={config.stroke}
               strokeWidth="2.5"
             />
             <ellipse
-              cx={ballType === 'original' ? '9' : '10'}
-              cy={ballType === 'original' ? '8' : '7'}
-              rx={ballType === 'original' ? '3.5' : '2.5'}
-              ry={ballType === 'original' ? '2.5' : '2'}
+              cx={config.highlightCx}
+              cy={config.highlightCy}
+              rx={config.highlightRx}
+              ry={config.highlightRy}
               fill="rgba(255,255,255,0.4)"
             />
           </svg>

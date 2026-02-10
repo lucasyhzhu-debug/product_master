@@ -352,7 +352,7 @@ export function OrderBox({
             )}
             {biteSizedNeeded > 0 && (
               <span className={cn(biteSizedFilled >= biteSizedNeeded && 'text-green-600 font-medium')}>
-                Bite-sized {biteSizedFilled}/{biteSizedNeeded}
+                Jumbo {biteSizedFilled}/{biteSizedNeeded}
                 {biteSizedFilled >= biteSizedNeeded && ' ✓'}
               </span>
             )}

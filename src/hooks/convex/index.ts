@@ -336,5 +336,8 @@ export {
   type PeriodPreset,
 } from "./useExternalData";
 
+// Kitchen Production (Kitchen V3 Redesign)
+export { useKitchenProduction } from "./useKitchenProduction";
+
 // Protected Mutation Wrapper
 export { useProtectedMutation } from "./useProtectedMutation";

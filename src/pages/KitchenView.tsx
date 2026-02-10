@@ -170,7 +170,7 @@ export function KitchenView() {
       playClunk();
 
       // Simple toast - no flying animation on add
-      const typeName = ballType === 'original' ? 'Original' : 'Bite-sized';
+      const typeName = ballType === 'original' ? 'Original' : 'Jumbo';
       toast.success(`+${count} ${typeName} (${result.trayCount} in tray)`);
     } catch (error) {
       toast.error('Failed to add balls');
@@ -222,7 +222,7 @@ export function KitchenView() {
       }
 
       // Success toast
-      const typeName = ballType === 'original' ? 'Original' : 'Bite-sized';
+      const typeName = ballType === 'original' ? 'Original' : 'Jumbo';
       let message = `${result.ballsUsed} ${typeName} → ${result.ordersUpdated} order${result.ordersUpdated !== 1 ? 's' : ''}`;
       if (result.overflow > 0) {
         message += ` (${result.overflow} remaining)`;
@@ -333,7 +333,7 @@ export function KitchenView() {
           </CardContent>
         </Card>
 
-        {/* Bite-sized Zone */}
+        {/* Jumbo Zone */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -341,7 +341,7 @@ export function KitchenView() {
                 <ellipse cx="9" cy="8.5" rx="7.5" ry="7" fill="#93C572" stroke="#7B3F00" strokeWidth="2" />
                 <ellipse cx="6" cy="5" rx="2" ry="1.5" fill="rgba(255,255,255,0.35)" />
               </svg>
-              Bite-sized
+              Jumbo
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
