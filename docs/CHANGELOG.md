@@ -13,6 +13,29 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-10 - Fix: Replace K3 Mart Stock Sync with Product Detail API
+
+### Performance Improvement
+- **Before:** Stock sync made 7 API calls (one per outlet, 300ms rate limiting, ~3s). Discovery scanned 200 outlets (~60s).
+- **After:** Both use `/vendor-stock/detail/{productId}` which returns ALL outlets per product. With 1 product ID = 1 API call total (<1s).
+
+### Changes
+- **`config.ts`:** Added `productDetail` endpoint, `products.ids` array (47068 Jumbo, 47069 Original), `K3MartProductDetailEntry`/`K3MartProductDetailResponse` types, `K3MART_OUTLET_NAME_TO_ID` reverse map. Removed `dashboard` endpoint, `pagination`, `rateLimit`, `discovery` blocks, `K3MartProduct`/`K3MartDashboardResponse` types.
+- **`helpers.ts`:** Added `resolveOutletExternalId()` and `transformProductDetailEntry()` pure functions.
+- **`adapter.ts`:** Rewrote `syncK3MartStock` and `discoverK3MartOutlets` to use product detail API. Removed dead code: `sleep`, `getProductName`, `getProductCode`, `getProductCapital`, `transformProduct`.
+- **`platformCredentials/actions.ts`:** Updated token validation test call to use product detail endpoint.
+- **`useExternalData.ts`:** Updated hook comments to reflect new performance.
+- **DB migration:** Linked K3 Mart product mappings to menu products: F03131-P00001 (Dubai Chewy Cookie Big) -> Jumbo Size (80g), F03131-P00002 (Dubai Chewy Cookie) -> Original - Single (45g).
+
+### Files Modified
+- `convex/integrations/k3mart/config.ts`
+- `convex/integrations/k3mart/helpers.ts`
+- `convex/integrations/k3mart/adapter.ts`
+- `convex/platformCredentials/actions.ts`
+- `src/hooks/convex/useExternalData.ts`
+
+---
+
 ## 2026-02-09 - Fix: Navigation Restructure, Order Sorting & Role-Based Landing Pages
 
 ### Navigation Restructure
