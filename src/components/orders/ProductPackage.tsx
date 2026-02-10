@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { playSoftClick } from '@/lib/kitchenSounds';
+import { BALL_CONFIG, type BallType } from '@/lib/ballTypes';
 import {
   Tooltip,
   TooltipContent,
@@ -8,17 +9,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-// Ball colors from design spec
-const BALL_COLORS = {
-  fill: '#93C572',      // Pistachio green
-  stroke: '#7B3F00',    // Chocolate brown
-} as const;
-
 type PackageStatus = 'empty' | 'filling' | 'filled' | 'packed';
 
 interface ProductPackageProps {
   productName: string;
-  ballType: 'original' | 'bite_sized';
+  ballType: BallType;
   ballsRequired: number;
   ballsFilled: number;
   status: PackageStatus;
@@ -37,14 +32,10 @@ const statusStyles: Record<PackageStatus, { border: string; bg: string }> = {
   packed: { border: 'border-green-500', bg: 'bg-green-100 dark:bg-green-800/30' },
 };
 
-// Ball sizes for display (smaller than tray for package view)
-const ballDisplaySizes = {
-  original: 20,
-  bite_sized: 14,
-};
-
-function BallIcon({ filled, type }: { filled: boolean; type: 'original' | 'bite_sized' }) {
-  const size = ballDisplaySizes[type];
+function BallIcon({ filled, type }: { filled: boolean; type: BallType }) {
+  const config = BALL_CONFIG[type];
+  // Original (45g) = smaller ball = 14px, Jumbo (80g) = larger ball = 20px
+  const size = config.grams >= 80 ? 20 : 14;
 
   return (
     <svg
@@ -58,8 +49,8 @@ function BallIcon({ filled, type }: { filled: boolean; type: 'original' | 'bite_
         cy={(size * 0.94) / 2}
         rx={size / 2 - 1.5}
         ry={(size * 0.94) / 2 - 1.5}
-        fill={filled ? BALL_COLORS.fill : 'transparent'}
-        stroke={BALL_COLORS.stroke}
+        fill={filled ? config.fill : 'transparent'}
+        stroke={config.stroke}
         strokeWidth={2}
         opacity={filled ? 1 : 0.15}
       />

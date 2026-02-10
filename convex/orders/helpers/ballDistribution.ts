@@ -25,7 +25,7 @@ export interface BallDistributionResult {
 }
 
 export interface BallDistributionOptions {
-  ballType: "big" | "mid" | "original" | "bite_sized";
+  ballType: "big" | "mid" | "original" | "bite_sized" | "jumbo";
   count: number;
   trackFilledPackages: boolean;  // true for addBallsToTray, false for completeBalls
 }
@@ -171,8 +171,11 @@ export async function distributeBallsToOrders(
   }
 
   // Normalize ball type
-  const normalizedBallType = options.ballType === "original" ? "big" :
-                             options.ballType === "bite_sized" ? "mid" :
+  // "original" = Original (45g) → MID_BALL
+  // "bite_sized" / "jumbo" = Jumbo (80g) → BIG_BALL
+  const normalizedBallType = options.ballType === "original" ? "mid" :
+                             options.ballType === "bite_sized" ? "big" :
+                             options.ballType === "jumbo" ? "big" :
                              options.ballType;
   const productionUnitCode = normalizedBallType === "big" ? "BIG_BALL" : "MID_BALL";
 

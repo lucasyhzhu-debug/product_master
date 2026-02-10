@@ -1,22 +1,11 @@
 import { motion } from 'framer-motion';
-
-// Ball colors from design spec (matches InventoryTray and ProductPackage)
-const BALL_COLORS = {
-  fill: '#93C572', // Pistachio green
-  stroke: '#7B3F00', // Chocolate brown
-} as const;
-
-// Ball sizes matching ProductPackage display
-const BALL_SIZES = {
-  original: 24,
-  bite_sized: 16,
-} as const;
+import { BALL_CONFIG, type BallType } from '@/lib/ballTypes';
 
 interface FlyingBallProps {
   id: string;
   startPosition: { x: number; y: number };
   endPosition: { x: number; y: number };
-  ballType: 'original' | 'bite_sized';
+  ballType: BallType;
   delay?: number;
   onComplete: () => void;
 }
@@ -29,7 +18,9 @@ export function FlyingBall({
   delay = 0,
   onComplete,
 }: FlyingBallProps) {
-  const size = BALL_SIZES[ballType];
+  const config = BALL_CONFIG[ballType];
+  // Original (45g) = smaller ball = 16px, Jumbo (80g) = larger ball = 24px
+  const size = config.grams >= 80 ? 24 : 16;
 
   // Calculate arc height based on distance (larger distance = higher arc)
   const dx = endPosition.x - startPosition.x;
@@ -101,8 +92,8 @@ export function FlyingBall({
           cy={(size * 0.94) / 2}
           rx={size / 2 - 2}
           ry={(size * 0.94) / 2 - 2}
-          fill={BALL_COLORS.fill}
-          stroke={BALL_COLORS.stroke}
+          fill={config.fill}
+          stroke={config.stroke}
           strokeWidth={2.5}
         />
         <ellipse

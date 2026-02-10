@@ -1,7 +1,9 @@
 import { useMemo } from 'react';
 
 /**
- * Pending ball statistics interface
+ * Pending ball statistics interface.
+ * Note: "biteSized" fields track jumbo/bite_sized balls (80g, BIG_BALL).
+ * Field names kept for backwards compatibility; display labels use BALL_CONFIG.
  */
 export interface PendingBallStats {
   originalCount: number;
@@ -83,9 +85,9 @@ export function usePendingBallStats(orders: OrderWithBalls[] | undefined): Pendi
         }
       }
 
-      // Bite-sized balls calculation
+      // Jumbo/bite-sized balls calculation (80g, BIG_BALL)
       const biteSizedItems = order.items?.filter(
-        (item) => getType(item) === "bite_sized"
+        (item) => getType(item) === "bite_sized" || getType(item) === "jumbo"
       ) ?? [];
 
       if (biteSizedItems.length > 0) {

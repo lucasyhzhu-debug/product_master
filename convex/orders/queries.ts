@@ -257,10 +257,12 @@ function calculateOldSystemBallStats(items: Doc<"orderItems">[]): {
   let midBallsNeeded = 0;
 
   for (const item of items) {
+    // "original" = Original (45g) → MID_BALL (midBallsNeeded)
+    // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsNeeded)
     if (item.productionType === "original" && item.productionUnits) {
-      bigBallsNeeded += item.productionUnits * item.quantity;
-    } else if (item.productionType === "bite_sized" && item.productionUnits) {
       midBallsNeeded += item.productionUnits * item.quantity;
+    } else if (item.productionType === "bite_sized" && item.productionUnits) {
+      bigBallsNeeded += item.productionUnits * item.quantity;
     }
   }
 
@@ -509,10 +511,12 @@ export const getKitchenStats = query({
         const totalRequired = (item.quantity ?? 0) * (item.productionUnits ?? 0);
         const remaining = Math.max(0, totalRequired - ballsFilled);
 
+        // "original" = Original (45g) → MID_BALL (midBallsNeeded)
+        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsNeeded)
         if (item.productionType === "original") {
-          bigBallsNeeded += remaining;
-        } else if (item.productionType === "bite_sized") {
           midBallsNeeded += remaining;
+        } else if (item.productionType === "bite_sized") {
+          bigBallsNeeded += remaining;
         }
       }
     }
@@ -524,10 +528,12 @@ export const getKitchenStats = query({
     for (const order of completedTodayOrders) {
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       for (const item of items) {
+        // "original" = Original (45g) → MID_BALL (midBallsCompleted)
+        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsCompleted)
         if (item.productionType === "original" && item.productionUnits) {
-          bigBallsCompleted += item.productionUnits * item.quantity;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
           midBallsCompleted += item.productionUnits * item.quantity;
+        } else if (item.productionType === "bite_sized" && item.productionUnits) {
+          bigBallsCompleted += item.productionUnits * item.quantity;
         }
       }
     }
@@ -861,10 +867,12 @@ export const getCompletedToday = query({
       let midBalls = 0;
 
       for (const item of items) {
+        // "original" = Original (45g) → MID_BALL (midBalls)
+        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBalls)
         if (item.productionType === "original" && item.productionUnits) {
-          bigBalls += item.productionUnits * item.quantity;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
           midBalls += item.productionUnits * item.quantity;
+        } else if (item.productionType === "bite_sized" && item.productionUnits) {
+          bigBalls += item.productionUnits * item.quantity;
         }
       }
 
