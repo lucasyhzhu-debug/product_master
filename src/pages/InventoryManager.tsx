@@ -1,16 +1,17 @@
 /**
  * Inventory Manager Page
  *
- * Industrial warehouse aesthetic with location tabs,
- * component rows, and low stock alerts.
+ * Clean, warm inventory management with stock levels,
+ * per-item receive buttons, and %used progress bars.
  */
 
 import { useState, useMemo } from "react";
-import { Package, Plus, AlertTriangle, Archive } from "lucide-react";
+import { Package, Plus, Archive, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout";
 import {
@@ -19,11 +20,10 @@ import {
   useConvexLowStockAlerts,
 } from "@/hooks/convex";
 import type { Id } from "../../convex/_generated/dataModel";
-import { formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { LowStockAlertsBanner } from "@/components/inventory/LowStockAlertsBanner";
 import { ComponentRow } from "@/components/inventory/ComponentRow";
 import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
-import { StatCard } from "@/components/inventory/StatCard";
 
 export function InventoryManager() {
 
@@ -34,18 +34,28 @@ export function InventoryManager() {
   const [sortBy, setSortBy] = useState<"name" | "percent_lowest" | "count_lowest" | "most_expensive">("name");
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Queries - get ALL components (active + legacy) so we can split client-side
   const locations = useConvexStorageLocations(true);
   const report = useConvexInventoryReport(false);
   const lowStockAlerts = useConvexLowStockAlerts();
 
-  // Split matrix into active and legacy, then filter by location and category
+  // Split matrix into active and legacy, then filter by location, category, and search
   const { activeMatrix, legacyMatrix } = useMemo(() => {
     if (!report) return { activeMatrix: [], legacyMatrix: [] };
 
     const applyFilters = (matrix: typeof report.matrix) => {
       let filtered = matrix;
+
+      // Apply search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter((row) =>
+          row.component.name.toLowerCase().includes(q) ||
+          row.component.code.toLowerCase().includes(q)
+        );
+      }
 
       // Apply category filter
       if (categoryFilter !== "all") {
@@ -110,7 +120,7 @@ export function InventoryManager() {
       activeMatrix: applySorting(applyFilters(active)),
       legacyMatrix: applySorting(applyFilters(legacy)),
     };
-  }, [report, selectedLocation, categoryFilter, sortBy]);
+  }, [report, selectedLocation, categoryFilter, sortBy, searchQuery]);
 
   // Loading state
   if (
@@ -119,51 +129,34 @@ export function InventoryManager() {
     lowStockAlerts === undefined
   ) {
     return (
-      <div className="space-y-6">
+      <div className="p-6 space-y-6">
         <Skeleton className="h-12 w-64" />
-        <div className="grid gap-4 lg:grid-cols-4">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
+        <Skeleton className="h-12 w-full" />
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
         </div>
-        <Skeleton className="h-96" />
       </div>
     );
   }
 
-  // Calculate stats from active components only
-  const activeRows = report.matrix.filter((row) => row.component.isActive !== false);
-  const legacyCount = report.matrix.length - activeRows.length;
-  const totalComponents = activeRows.length;
-  const totalStockValue = activeRows.reduce((sum, row) => {
-    return (
-      sum +
-      row.stockByLocation.reduce(
-        (locSum, loc) => locSum + loc.totalStock * loc.weightedUnitCostIdr,
-        0
-      )
-    );
-  }, 0);
-  const totalReserved = activeRows.reduce(
-    (sum, row) => sum + row.totalReservedAcrossLocations,
-    0
-  );
-  const lowStockCount = lowStockAlerts.length;
+  const legacyCount = report.matrix.filter((row) => row.component.isActive === false).length;
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <PageHeader
         title="Inventory"
+        description="Stock levels and receiving"
         action={
           <Button
             onClick={() => setReceiveDialogOpen(true)}
-            size="lg"
-            className="bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            className="bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] text-white shadow-md hover:shadow-lg transition-all duration-300"
           >
-            <Plus className="h-5 w-5 mr-2" />
-            Receive New Stock Type
+            <Plus className="h-4 w-4 mr-2" />
+            New Stock Type
           </Button>
         }
       />
@@ -173,61 +166,44 @@ export function InventoryManager() {
         <LowStockAlertsBanner alerts={lowStockAlerts} />
       )}
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 lg:grid-cols-4">
-        <StatCard
-          title="Total Components"
-          value={totalComponents}
-          icon={<Package className="h-5 w-5" />}
-          variant="terracotta"
-        />
-        <StatCard
-          title="Stock Value"
-          value={formatCurrency(totalStockValue)}
-          icon={<Package className="h-5 w-5" />}
-          variant="success"
-        />
-        <StatCard
-          title="Reserved Units"
-          value={totalReserved}
-          icon={<Package className="h-5 w-5" />}
-          variant="warning"
-        />
-        <StatCard
-          title="Low Stock Items"
-          value={lowStockCount}
-          icon={<AlertTriangle className="h-5 w-5" />}
-          variant={lowStockCount > 0 ? "danger" : "default"}
-        />
-      </div>
+      {/* Main Stock Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-4">
+            {/* Search + Filters Row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search components..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
 
-      {/* Location Tabs */}
-      <Card className="border-slate-700 bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80">
-        <CardHeader className="border-b border-slate-700 border-b-[#E07856]/20">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <CardTitle className="text-xl font-mono tracking-tight text-slate-100">
-              Stock Levels by Location
-            </CardTitle>
-            <div className="flex flex-wrap gap-3">
               {/* Category Filter */}
               <div className="flex gap-1.5">
                 {(["all", "production", "packaging"] as const).map((cat) => (
                   <Badge
                     key={cat}
                     variant={categoryFilter === cat ? "default" : "outline"}
-                    className={`cursor-pointer text-xs px-3 py-1 transition-colors ${
+                    className={cn(
+                      "cursor-pointer text-xs px-3 py-1 transition-colors",
                       categoryFilter === cat
                         ? "bg-[#E07856] text-white border-[#E07856] hover:bg-[#D66A4A]"
-                        : "bg-slate-700/50 text-slate-300 border-slate-600 hover:bg-slate-600/50"
-                    }`}
+                        : "hover:bg-muted"
+                    )}
                     onClick={() => setCategoryFilter(cat)}
                   >
                     {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
                   </Badge>
                 ))}
               </div>
+
               {/* Sort Controls */}
-              <div className="flex gap-1.5 border-l border-slate-700 pl-3">
+              <div className="flex gap-1.5 border-l pl-3">
                 {([
                   { key: "name", label: "Name" },
                   { key: "percent_lowest", label: "% Lowest" },
@@ -237,11 +213,12 @@ export function InventoryManager() {
                   <Badge
                     key={key}
                     variant={sortBy === key ? "default" : "outline"}
-                    className={`cursor-pointer text-xs px-3 py-1 transition-colors ${
+                    className={cn(
+                      "cursor-pointer text-xs px-3 py-1 transition-colors",
                       sortBy === key
-                        ? "bg-slate-600 text-white border-slate-500 hover:bg-slate-500"
-                        : "bg-slate-700/50 text-slate-400 border-slate-600 hover:bg-slate-600/50"
-                    }`}
+                        ? "bg-foreground text-background"
+                        : "hover:bg-muted"
+                    )}
                     onClick={() => setSortBy(key)}
                   >
                     {label}
@@ -251,22 +228,21 @@ export function InventoryManager() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="pt-0">
           <Tabs
             value={selectedLocation}
             onValueChange={(value) =>
               setSelectedLocation(value as Id<"storageLocations"> | "all")
             }
           >
-            <TabsList className="mb-6 bg-slate-700/50">
-              <TabsTrigger value="all" className="font-mono">
+            <TabsList className="mb-4">
+              <TabsTrigger value="all">
                 All Locations
               </TabsTrigger>
               {locations.map((loc) => (
                 <TabsTrigger
                   key={loc._id}
                   value={loc._id}
-                  className="font-mono"
                 >
                   {loc.name}
                 </TabsTrigger>
@@ -276,11 +252,13 @@ export function InventoryManager() {
             <TabsContent value={selectedLocation} className="mt-0">
               {/* Active Components */}
               {activeMatrix.length === 0 ? (
-                <div className="py-12 text-center text-slate-400">
-                  <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">No inventory yet</p>
-                  <p className="text-sm">
-                    Click "Receive Stock" to add components
+                <div className="py-16 text-center">
+                  <div className="bg-muted/50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <Package className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-base font-medium mb-1">No inventory yet</p>
+                  <p className="text-sm text-muted-foreground">
+                    Click "New Stock Type" to add components
                   </p>
                 </div>
               ) : (
@@ -301,12 +279,12 @@ export function InventoryManager() {
 
               {/* Legacy Components Section */}
               {legacyCount > 0 && (
-                <div className="mt-6 pt-4 border-t border-slate-700/50">
+                <div className="mt-6 pt-4 border-t">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowLegacy(!showLegacy)}
-                    className="mb-3 text-slate-400 hover:text-slate-200"
+                    className="mb-3 text-muted-foreground"
                   >
                     <Archive className="h-4 w-4 mr-2" />
                     {showLegacy ? "Hide" : "Show"} Legacy Inventory ({legacyCount})
