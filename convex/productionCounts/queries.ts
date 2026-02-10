@@ -75,6 +75,7 @@ export const getAll = query({
       const boxed = count?.boxed ?? 0;
       const stickered = count?.stickered ?? 0;
       const packed = count?.packed ?? 0;
+      const shippedToGoldfinch = count?.shippedToGoldfinch ?? 0;
 
       // Ball info from BOM only (menuProductComponents + componentTypes)
       const bomInfo = ballInfoMap.get(mp._id as unknown as string);
@@ -92,6 +93,7 @@ export const getAll = query({
         boxed,
         stickered,
         packed,
+        shippedToGoldfinch,
         availableForStickering: boxed - stickered,
         availableForPacking: stickered - packed,
         lastResetAt: count?.lastResetAt,
