@@ -1,14 +1,25 @@
 import { useState } from 'react';
-import { Undo2, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FlipNumber, FlowChevrons } from './FlipNumber';
+import { GoFoodStickerCard } from './GoFoodStickerCard';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+
+interface GoFoodDepotInfo {
+  menuProductId: string;
+  depotStock: number;
+  soldToday: number;
+  shippedToday: number;
+  stickerDeficit: number;
+  stickersAtGoldfinch: number;
+  freshness: 'fresh' | 'day_old' | 'aging';
+}
 
 interface StickeringPanelProps {
   productionCounts: Array<{
@@ -23,11 +34,14 @@ interface StickeringPanelProps {
     availableForPacking: number;
   }> | undefined;
   neededFromOrders?: Record<string, number>;
+  goFoodDepotData?: GoFoodDepotInfo[];
+  lastSyncAt?: number;
   onStickerProducts: (menuProductId: string, quantity: number, event?: React.MouseEvent) => Promise<void>;
+  onSyncNow?: () => void;
   disabled?: boolean;
 }
 
-export function StickeringPanel({ productionCounts, neededFromOrders, onStickerProducts, disabled = false }: StickeringPanelProps) {
+export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepotData, lastSyncAt, onStickerProducts, onSyncNow, disabled = false }: StickeringPanelProps) {
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   // Loading state
@@ -55,9 +69,35 @@ export function StickeringPanel({ productionCounts, neededFromOrders, onStickerP
     );
   }
 
+  // Build GoFood depot lookup
+  const goFoodMap = new Map(
+    goFoodDepotData?.map((d) => [d.menuProductId, d]) ?? []
+  );
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="px-3 py-3 space-y-3 bg-[#F8F6F3]">
+        {/* GoFood sticker cards (read-only) rendered above manual cards */}
+        {visibleProducts.map((product) => {
+          const gf = goFoodMap.get(product.menuProductId);
+          if (!gf) return null;
+          return (
+            <GoFoodStickerCard
+              key={`gf-${product.menuProductId}`}
+              productName={product.menuProductName}
+              depotStock={gf.depotStock}
+              soldToday={gf.soldToday}
+              shippedToday={gf.shippedToday}
+              stickerDeficit={gf.stickerDeficit}
+              stickersAtGoldfinch={gf.stickersAtGoldfinch}
+              freshness={gf.freshness}
+              lastSyncAt={lastSyncAt}
+              onSyncNow={onSyncNow}
+            />
+          );
+        })}
+
+        {/* Manual sticker cards */}
         {visibleProducts.map((product) => (
           <ProductCard
             key={product.menuProductId}
@@ -102,12 +142,7 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
     }
   };
 
-  const handleUndo = async (event?: React.MouseEvent) => {
-    await onStickerProducts(product.menuProductId, -1, event);
-  };
-
   const canIncrement = product.availableForStickering > 0 && !disabled;
-  const canDecrement = product.stickered > 0 && !disabled;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 border-l-[#6B4C3B] overflow-hidden">
@@ -180,22 +215,6 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
           </button>
         </div>
 
-        {/* Row 2: Undo button */}
-        <button
-          onClick={(e) => handleUndo(e)}
-          disabled={!canDecrement}
-          className={cn(
-            'w-full h-9 rounded-lg text-sm font-medium',
-            'border border-gray-200 bg-gray-50 text-gray-600',
-            'hover:bg-gray-100 active:bg-gray-200',
-            'touch-manipulation active:scale-[0.98] transition-all duration-100',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-            'flex items-center justify-center gap-1.5'
-          )}
-        >
-          <Undo2 className="h-3.5 w-3.5" />
-          Undo last (-1)
-        </button>
       </div>
     </div>
   );

@@ -7,9 +7,6 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 import { consumeFromFIFO, applyFIFOConsumption } from "../inventory/fifo";
 import { updateComponentStock } from "../inventory/helpers";

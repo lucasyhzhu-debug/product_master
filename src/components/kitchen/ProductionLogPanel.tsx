@@ -57,6 +57,7 @@ interface ProductionLogPanelProps {
     menuProductId: string;
     quantity: number;
   }>;
+  depotStockMap?: Map<string, number>; // menuProductId -> depot quantity
   onAddBalls: (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => void;
   onSetProductTarget?: (menuProductId: string, source: string, quantity: number) => void;
   disabled?: boolean;
@@ -288,6 +289,7 @@ export function ProductionLogPanel({
   productionCounts,
   productTargets,
   orderProductDemand,
+  depotStockMap,
   onAddBalls,
   onSetProductTarget,
   disabled = false,
@@ -539,14 +541,24 @@ export function ProductionLogPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {foodPosProducts.map((p) => (
-                    <tr key={p.menuProductId} className="border-b border-[#E8E2DB] last:border-b-0">
-                      <td className="px-2.5 py-1.5 font-medium text-gray-900">{p.menuProductName}</td>
-                      <td className="text-center px-1.5 py-1.5 tabular-nums">{p.boxed}</td>
-                      <td className="text-center px-1.5 py-1.5 tabular-nums">{p.stickered}</td>
-                      <td className="text-center px-1.5 py-1.5 tabular-nums">{p.packed}</td>
-                    </tr>
-                  ))}
+                  {foodPosProducts.map((p) => {
+                    const depotQty = depotStockMap?.get(p.menuProductId);
+                    return (
+                      <tr key={p.menuProductId} className="border-b border-[#E8E2DB] last:border-b-0">
+                        <td className="px-2.5 py-1.5">
+                          <div className="font-medium text-gray-900">{p.menuProductName}</div>
+                          {depotQty != null && depotQty > 0 && (
+                            <div className="text-[9px] font-semibold mt-0.5" style={{ color: 'var(--color-gofood)' }}>
+                              GF depot: {depotQty}
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-center px-1.5 py-1.5 tabular-nums">{p.boxed}</td>
+                        <td className="text-center px-1.5 py-1.5 tabular-nums">{p.stickered}</td>
+                        <td className="text-center px-1.5 py-1.5 tabular-nums">{p.packed}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
