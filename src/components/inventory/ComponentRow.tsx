@@ -7,20 +7,23 @@
  */
 
 import { useState } from "react";
-import { ChevronDown, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus } from "lucide-react";
+import { ChevronDown, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn, formatCurrency } from "@/lib/utils";
 import { BatchCard } from "./BatchCard";
 import { TransferStockDialog } from "./TransferStockDialog";
 import { ReceiveStockDialog } from "./ReceiveStockDialog";
-import { useConvexComponentBatches, useConvexUpdateComponentType } from "@/hooks/convex";
+import { RenameComponentDialog } from "./RenameComponentDialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { useConvexComponentBatches, useConvexUpdateComponentType, useConvexDeleteComponentType } from "@/hooks/convex";
 import { toast } from "sonner";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ComponentType } from "@/hooks/convex";
@@ -78,6 +81,24 @@ export function ComponentRow({
   );
 
   const updateComponentType = useConvexUpdateComponentType();
+  const deleteComponentType = useConvexDeleteComponentType();
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteComponentType({ id: component._id });
+      toast.success(`${component.name} deleted`);
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete component");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const isCritical =
     isLowStock &&
@@ -254,6 +275,10 @@ export function ComponentRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setRenameDialogOpen(true)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Rename
+              </DropdownMenuItem>
               {component.isActive !== false ? (
                 <DropdownMenuItem onClick={handleArchiveToggle}>
                   <Archive className="h-4 w-4 mr-2" />
@@ -265,6 +290,14 @@ export function ComponentRow({
                   Restore to Active
                 </DropdownMenuItem>
               )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setDeleteDialogOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           </div>
@@ -308,6 +341,26 @@ export function ComponentRow({
         onOpenChange={setReceiveDialogOpen}
         locations={locations}
         preselectedComponentId={component._id}
+      />
+
+      {/* Rename Dialog */}
+      <RenameComponentDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        componentId={component._id}
+        currentName={component.name}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Component"
+        description={`Are you sure you want to delete "${component.name}"? This cannot be undone. Components with inventory or BOM links cannot be deleted.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+        variant="destructive"
+        loading={isDeleting}
       />
 
       {/* Expanded Details */}
