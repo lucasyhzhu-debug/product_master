@@ -135,7 +135,7 @@ export function useConvexRefreshK3MartToken() {
 // ============================================
 
 /**
- * Trigger K3Mart outlet discovery action (scans outlets 1-200, ~60s).
+ * Trigger K3Mart outlet discovery via product detail API (<1s).
  */
 export function useConvexDiscoverK3MartOutlets() {
   return useAction(api.integrations.k3mart.adapter.discoverK3MartOutlets);
@@ -149,7 +149,7 @@ export function useConvexSyncK3MartSales() {
 }
 
 /**
- * Trigger fast K3Mart stock refresh (active outlets only, ~3s).
+ * Trigger K3Mart stock refresh via product detail API (<1s).
  */
 export function useConvexSyncK3MartStock() {
   return useAction(api.integrations.k3mart.adapter.syncK3MartStock);

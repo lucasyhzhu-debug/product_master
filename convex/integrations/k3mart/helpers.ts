@@ -3,6 +3,8 @@
  * Extracted from adapter for testability.
  */
 
+import type { K3MartProductDetailEntry } from "./config";
+
 /**
  * Parse K3Mart date format "07 Feb 2026, 14:23" to epoch ms.
  */
@@ -61,4 +63,41 @@ export function resolveOutletName(
   nameMap: Record<number, string>
 ): string {
   return nameMap[outletId] ?? `K3 Mart #${outletId}`;
+}
+
+/**
+ * Resolve outlet name to its numeric externalId string.
+ * Uses the reverse name->ID map from K3MART_OUTLET_NAME_TO_ID.
+ * Falls back to "name:{outletName}" for unknown outlets.
+ */
+export function resolveOutletExternalId(
+  outletName: string,
+  nameToIdMap: Record<string, string>
+): string {
+  return nameToIdMap[outletName] ?? `name:${outletName}`;
+}
+
+/**
+ * Transform a product detail entry from the /vendor-stock/detail/{productId} API
+ * into the shape expected by saveSnapshots.
+ */
+export function transformProductDetailEntry(
+  entry: K3MartProductDetailEntry,
+  productId: number
+): {
+  externalProductId: string;
+  externalProductCode: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  capital: number;
+} {
+  return {
+    externalProductId: String(productId),
+    externalProductCode: entry.product_code,
+    productName: entry.product_name,
+    quantity: entry.quantity ?? 0,
+    price: entry.price ?? 0,
+    capital: entry.capital ?? 0,
+  };
 }
