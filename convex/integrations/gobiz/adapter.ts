@@ -3,8 +3,8 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action } from "../../_generated/server";
-import { internal } from "../../_generated/api";
+import { action, internalAction } from "../../_generated/server";
+import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GOBIZ_CONFIG } from "./config";
 import {
@@ -529,6 +529,64 @@ export const syncGoBizRevenue = action({
         console.log(`  Match results: ${JSON.stringify(orderResults.matchResults)}`);
       }
 
+      // ── Phase C: Auto-consume stickers for GoFood sales ──
+      try {
+        // Collect all NEW revenue items with linkedMenuProductId from gobiz
+        const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
+
+        for (const { revenueId } of allNewRecords) {
+          const items: Array<{
+            linkedMenuProductId?: string;
+            quantity: number;
+            source: string;
+          }> = await ctx.runQuery(
+            api.externalData.queries.getRevenueItems,
+            { revenueId }
+          );
+
+          for (const item of items) {
+            if (item.linkedMenuProductId && item.source === "gobiz") {
+              gofoodSaleItems.push({
+                menuProductId: item.linkedMenuProductId,
+                quantity: item.quantity,
+              });
+            }
+          }
+        }
+
+        if (gofoodSaleItems.length > 0) {
+          console.log(`Phase C: Processing ${gofoodSaleItems.length} GoFood sale items for sticker deduction...`);
+
+          // Aggregate by menuProductId
+          const aggregated = new Map<string, number>();
+          for (const item of gofoodSaleItems) {
+            aggregated.set(
+              item.menuProductId,
+              (aggregated.get(item.menuProductId) ?? 0) + item.quantity
+            );
+          }
+
+          const batchItems = Array.from(aggregated.entries()).map(
+            ([menuProductId, quantity]) => ({ menuProductId, quantity })
+          );
+
+          const phaseC = await ctx.runMutation(
+            internal.gofoodDepot.mutations.processSyncSales,
+            { items: batchItems as any }
+          );
+
+          console.log(
+            `Phase C complete: ${phaseC.processed} products processed, ${phaseC.deficits} deficits`
+          );
+        }
+      } catch (phaseCError) {
+        // Phase C failure should NOT fail the overall sync
+        console.log(
+          "Phase C (sticker deduction) failed:",
+          phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
+        );
+      }
+
       // Update sync log
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId,
@@ -570,6 +628,147 @@ export const syncGoBizRevenue = action({
         error: errorMsg,
         durationMs: Date.now() - startTime,
       };
+    }
+  },
+});
+
+/**
+ * Auto-sync GoBiz revenue via cron job.
+ * Runs at WIB business hours (8, 10, 12, 14, 16, 18, 20 WIB).
+ *
+ * Checks for valid GoBiz token before running sync.
+ * Logs as syncType: "cron" in externalSyncLogs.
+ */
+export const autoSyncGoBizRevenue = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const startTime = Date.now();
+
+    // Check for valid GoBiz token
+    const { accessToken } = await resolveGoBizToken(ctx);
+
+    if (!accessToken) {
+      // Log as skipped — no valid token
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz",
+        syncType: "cron",
+        status: "success",
+        triggeredBy: "cron",
+        timestamp: startTime,
+      });
+      console.log("GoBiz auto-sync skipped: no valid token");
+      return { success: false, reason: "no_token" };
+    }
+
+    // Run the sync (reuse existing action logic would require duplication,
+    // so we create a sync log and run phases inline)
+    const syncLogId: Id<"externalSyncLogs"> = await ctx.runMutation(
+      internal.externalData.mutations.createSyncLog,
+      {
+        source: "gobiz",
+        syncType: "cron",
+        status: "started",
+        triggeredBy: "cron",
+        timestamp: startTime,
+      }
+    );
+
+    try {
+      const daysBack = GOBIZ_CONFIG.sync.defaultDaysBack;
+      const dates = generateWibDateRange(daysBack);
+      const { refreshToken } = await resolveGoBizToken(ctx);
+
+      let currentToken = accessToken;
+      let totalTransactions = 0;
+      const allNewRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }> = [];
+
+      // Phase A
+      for (const dateStr of dates) {
+        const { hits, usedToken } = await fetchDayJournals(
+          ctx, dateStr, currentToken, refreshToken
+        );
+        currentToken = usedToken;
+        const dayMetrics = aggregateJournalMetrics(hits);
+        const newRecords = await saveJournalTransactions(ctx, dateStr, dayMetrics.transactions, syncLogId);
+        allNewRecords.push(...newRecords);
+        totalTransactions += dayMetrics.transactionCount;
+      }
+
+      // Phase B
+      if (allNewRecords.length > 0) {
+        await fetchAndSaveOrderDetails(ctx, allNewRecords, currentToken, refreshToken);
+      }
+
+      // Phase C: Auto-consume stickers for GoFood sales
+      try {
+        const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
+
+        for (const { revenueId } of allNewRecords) {
+          const items: Array<{
+            linkedMenuProductId?: string;
+            quantity: number;
+            source: string;
+          }> = await ctx.runQuery(
+            api.externalData.queries.getRevenueItems,
+            { revenueId }
+          );
+
+          for (const item of items) {
+            if (item.linkedMenuProductId && item.source === "gobiz") {
+              gofoodSaleItems.push({
+                menuProductId: item.linkedMenuProductId,
+                quantity: item.quantity,
+              });
+            }
+          }
+        }
+
+        if (gofoodSaleItems.length > 0) {
+          const aggregated = new Map<string, number>();
+          for (const item of gofoodSaleItems) {
+            aggregated.set(
+              item.menuProductId,
+              (aggregated.get(item.menuProductId) ?? 0) + item.quantity
+            );
+          }
+
+          const batchItems = Array.from(aggregated.entries()).map(
+            ([menuProductId, quantity]) => ({ menuProductId, quantity })
+          );
+
+          await ctx.runMutation(
+            internal.gofoodDepot.mutations.processSyncSales,
+            { items: batchItems as any }
+          );
+        }
+      } catch (phaseCError) {
+        console.log(
+          "Auto-sync Phase C failed:",
+          phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
+        );
+      }
+
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "success",
+        productsCount: totalTransactions,
+        durationMs: Date.now() - startTime,
+      });
+
+      console.log(`GoBiz auto-sync complete: ${totalTransactions} txns, ${allNewRecords.length} new`);
+      return { success: true, totalTransactions, newRecords: allNewRecords.length };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "error",
+        errorMessage: errorMsg,
+        durationMs: Date.now() - startTime,
+      });
+
+      console.log("GoBiz auto-sync failed:", errorMsg);
+      return { success: false, error: errorMsg };
     }
   },
 });
