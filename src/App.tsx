@@ -11,7 +11,6 @@ import {
   MaterialsManager,
   OrderManager,
   OrderDetail,
-  KitchenView,
   KitchenViewV2,
   PackagingView,
   MenuProductsManager,
@@ -63,15 +62,8 @@ function App() {
               }
             />
 
-            {/* Kitchen V1 - Legacy rollback route */}
-            <Route
-              path="kitchen-legacy"
-              element={
-                <ProtectedRoute requiredPermission="canAccessKitchen">
-                  <KitchenView />
-                </ProtectedRoute>
-              }
-            />
+            {/* Kitchen V1 - Legacy redirect */}
+            <Route path="kitchen-legacy" element={<Navigate to="/kitchen" replace />} />
 
             {/* Packaging - All roles can access (PRD-5) */}
             <Route
