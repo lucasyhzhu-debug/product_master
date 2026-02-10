@@ -13,6 +13,26 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-10 - Inventory: Component Rename & Delete Actions
+
+### Overview
+Added Rename and Delete actions to the component type kebab menu on the Inventory page, allowing the catalog to be reshaped without requiring direct database access.
+
+### Changes
+- **New file**: `src/components/inventory/RenameComponentDialog.tsx` — Lightweight dialog with pre-filled name input
+- **Modified**: `src/components/inventory/ComponentRow.tsx` — Added Rename, Delete items to kebab dropdown menu with separator; wired up `RenameComponentDialog` and `ConfirmDialog` (destructive variant)
+
+### Behavior
+- **Rename**: Opens dialog pre-filled with current name. Saves via existing `componentTypes.mutations.update`
+- **Delete**: Shows destructive confirmation dialog. Backend `componentTypes.mutations.remove` blocks deletion if the component has BOM links, inventory batches, or stock records — the error message is surfaced in a toast
+- **Existing**: Archive/Restore action unchanged
+
+### Files Modified
+- `src/components/inventory/ComponentRow.tsx`
+- `src/components/inventory/RenameComponentDialog.tsx` (new)
+
+---
+
 ## 2026-02-10 - Fix: Production Convex Connection Restored
 
 ### Overview
