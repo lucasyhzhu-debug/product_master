@@ -13,6 +13,58 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-10 - Kitchen Production Page: Complete Redesign (V3)
+
+### Overview
+Complete rewrite of the kitchen production workflow from a kanban-style per-order view to a batch-oriented 4-panel swipeable interface optimized for mobile use in production environments.
+
+### New Features
+- **4 swipeable panels** with station pill bar navigation (Production Log, To Box, To Sticker, To Pack)
+- **Batch production model**: Boxing and stickering are product-aggregated (not per-order)
+- **Production targets**: Auto-calculated from confirmed orders, with manager overrides
+- **Production counts**: Running tallies per menu product (boxed, stickered, packed)
+- **Production audit log**: Every action tracked (box/unbox/sticker/unsticker/pack/unpack)
+- **Batch FIFO consumption**: Boxing deducts packaging at `consumptionStage="boxing"`, stickering at `"labeling"`, ORDER READY at `"none"`
+- **Undo support**: Negative quantities reverse boxing/stickering/packing operations
+- **Wake lock**: Prevents phone sleep during kitchen use
+- **Brand-derived station colors**: Sage green, peach amber, chocolate brown, terracotta
+
+### Bug Fixes
+- **Ball type normalization**: Fixed reversed mapping. "Original" is now correctly 45g (MID_BALL), "Jumbo" (formerly "Bite-Sized") is 80g (BIG_BALL)
+- **Per-product consumptionStage override**: `consumeMaterialsByStageInternal()` now resolves `menuProductComponents.consumptionStage ?? componentTypes.consumptionStage`
+
+### Schema Changes
+- **New table: `productionTargets`** — Daily production goals per production unit type
+- **New table: `productionCounts`** — Running production tallies per menu product (boxed, stickered, packed) with manager reset
+- **New table: `productionLog`** — Audit trail for all production actions
+
+### New Backend Functions
+- **Queries**: `productionCounts.getAll`, `productionTargets.getByDate`, `productionTargets.getProductionSummary`, `orders.kitchenQueries.getKitchenPackingOrders`, `productionLog.getRecent`, `productionLog.getByMenuProduct`, `productionLog.getDailySummary`
+- **Mutations**: `boxProducts`, `stickerProducts`, `togglePackOrderLineItem`, `markOrderReady`, `productionTargets.upsert`, `productionTargets.autoCalculate`, `productionCounts.resetCounts`
+- **Helper**: `consumeBatchMaterials()` — Batch FIFO consumption not tied to orders
+
+### New Frontend Components
+- `SwipeableKitchenLayout.tsx` — Framer Motion horizontal swipe with station pills
+- `ProductionLogPanel.tsx` — Ball counters, target gauges, order summary
+- `BoxingPanel.tsx` — Per-product boxing with increment buttons
+- `StickeringPanel.tsx` — Per-product stickering with available counts
+- `PackingPanel.tsx` — Per-order packing checklist with ORDER READY
+- `useKitchenProduction.ts` — Combined hook for all kitchen data
+
+### Files Modified
+- `convex/schema.ts` — 3 new tables
+- `convex/orders/mutations/kitchen.ts` — 4 new mutations + jumbo alias
+- `convex/orders/mutations/inventoryIntegration.ts` — `consumeBatchMaterials()` + bug fix
+- `convex/orders/helpers/ballDistribution.ts` — Normalization fix
+- `convex/orders/queries.ts` — Ball type mapping fix
+- `src/pages/KitchenViewV2.tsx` — Complete rewrite
+- `src/App.tsx` — Route cleanup (`/kitchen-legacy` now redirects)
+- `src/index.css` — Kitchen station CSS variables
+- `src/lib/ballTypes.ts` — New shared ball type config
+- 6 frontend components updated for ball type labels
+
+---
+
 ## 2026-02-10 - Fix: Replace K3 Mart Stock Sync with Product Detail API
 
 ### Performance Improvement

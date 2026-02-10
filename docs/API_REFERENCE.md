@@ -152,6 +152,83 @@ orders.getCompletedToday()              // Orders completed since midnight
 }
 ```
 
+### Kitchen V3: Production Pipeline Queries
+```typescript
+// convex/productionCounts/queries.ts
+productionCounts.queries.getAll()                      // All menu products with boxed/stickered/packed + derived availability
+productionCounts.queries.getByMenuProduct({ menuProductId }) // Single product counts
+
+// convex/productionTargets/queries.ts
+productionTargets.queries.getByDate({ date })          // Raw targets for a date (YYYY-MM-DD)
+productionTargets.queries.getProductionSummary({ date }) // Enriched targets with unit type names + effectiveTarget
+
+// convex/productionLog/queries.ts
+productionLog.queries.getRecent({ limit })             // Recent log entries (desc), enriched with product name
+productionLog.queries.getByMenuProduct({ menuProductId }) // Log entries for a specific product
+productionLog.queries.getDailySummary({ date })        // Aggregated totals by product × action for a date
+
+// convex/orders/kitchenQueries.ts
+orders.kitchenQueries.getKitchenPackingOrders()        // Packing-ready orders with product items + packaging materials
+```
+
+**getAll Response (productionCounts):**
+```typescript
+[{
+  menuProductId: Id<"menuProducts">;
+  menuProductName: string;
+  menuProductCode: string;
+  boxed: number;
+  stickered: number;
+  packed: number;
+  availableForStickering: number;  // boxed - stickered
+  availableForPacking: number;     // stickered - packed
+  lastResetAt?: number;
+  lastResetBy?: string;
+}]
+```
+
+**getProductionSummary Response:**
+```typescript
+[{
+  ...productionTargets fields,
+  unitTypeName: string;        // e.g., "Big Ball (80g)"
+  unitTypeCode: string;        // e.g., "BIG_BALL"
+  effectiveTarget: number;     // autoTargetQuantity + (manualOverride ?? 0)
+}]
+```
+
+**getKitchenPackingOrders Response:**
+```typescript
+[{
+  _id: Id<"orders">;
+  orderNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  status: string;
+  deliveryType?: string;
+  dueDate?: number;
+  productItems: [{
+    _id: Id<"orderItems">;
+    productName: string;
+    productVariant?: string;
+    quantity: number;
+    menuProductId?: Id<"menuProducts">;
+    packageStatus: string;       // "empty" | "filling" | "filled" | "packed"
+    isPacked: boolean;
+    canPack: boolean;            // availableForPacking >= quantity
+    availableForPacking: number;
+  }];
+  packagingMaterials: [{
+    componentTypeId: string;
+    componentName: string;
+    quantityNeeded: number;
+  }];
+  allProductsPacked: boolean;
+  canMarkReady: boolean;         // true when allProductsPacked
+}]
+// Sorted by dueDate ASC, then orderDate ASC
+```
+
 ### WhatsApp Templates (PRD-0)
 ```typescript
 // convex/orders/whatsapp.ts
@@ -176,6 +253,55 @@ orders.whatsapp.getMessageHistory({ orderId })       // Sent message audit trail
   lastSentAt?: number;        // Timestamp of last send
   lastSentBy?: string;        // User who last sent
 }
+```
+
+### Kitchen V3: Production Pipeline Mutations (Auth Required: kitchen, manager, admin)
+```typescript
+// convex/orders/mutations/kitchen.ts
+orders.mutations.boxProducts({ token, menuProductId, quantity })
+  // Box products: deduct balls from tray, consume boxing-stage FIFO, increment boxed count
+  // quantity > 0 = box, quantity < 0 = undo (unbox)
+
+orders.mutations.stickerProducts({ token, menuProductId, quantity })
+  // Sticker products: validate vs boxed count, consume labeling-stage FIFO, increment stickered
+  // quantity > 0 = sticker, quantity < 0 = undo (unsticker)
+
+orders.mutations.togglePackOrderLineItem({ token, orderId, orderItemId })
+  // Toggle pack/unpack on a single order line item
+  // Pack: validates availableForPacking >= item.quantity, sets packageStatus="packed"
+  // Unpack: reverts to "filled", decrements packed count
+
+orders.mutations.markOrderReady({ token, orderId })
+  // Validates all product items are packed
+  // Consumes "none"-stage packaging (outer boxes, inserts) from FIFO
+  // Transitions order to WaitingPickup (pickup) or WaitingShipment (delivery)
+```
+
+**boxProducts Behavior:**
+1. Looks up menu product's production components (balls)
+2. Deducts `comp.quantity × args.quantity` balls from kitchen tray
+3. Consumes boxing-stage packaging from FIFO inventory
+4. Increments `productionCounts.boxed`
+5. Logs to `productionLog` (action: "box" or "unbox")
+
+**togglePackOrderLineItem Response:**
+```typescript
+{ packed: boolean }  // true = just packed, false = just unpacked
+```
+
+### Production Counts Mutations (Auth Required: manager, admin)
+```typescript
+// convex/productionCounts/mutations.ts
+productionCounts.mutations.resetCounts({ token, menuProductId? })
+  // Reset production counts to zero
+  // If menuProductId provided: resets only that product
+  // Otherwise: resets ALL products' counts
+  // Sets lastResetAt and lastResetBy for audit
+```
+
+**resetCounts Response:**
+```typescript
+{ reset: number }  // Number of products reset
 ```
 
 ### Vouchers
