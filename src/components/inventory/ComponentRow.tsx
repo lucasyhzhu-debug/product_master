@@ -1,10 +1,13 @@
 /**
  * ComponentRow - Expandable row showing component with batch details
+ *
+ * Clean light design with prominent receive button and %used progress bar.
+ * %used = available / (existing inventory at last restock).
+ * 100% means stock is full (available == lastRestockTotalStock).
  */
 
 import { useState } from "react";
-import { ChevronDown, Package, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ChevronDown, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +37,7 @@ interface ComponentRowProps {
     latestSupplierName?: string;
     latestPurchaseUrl?: string;
     latestUnitCostIdr?: number;
+    lastRestockTotalStock?: number;
   }>;
   totalAvailable: number;
   totalReserved: number;
@@ -86,6 +90,17 @@ export function ComponentRow({
     setSelectedLocationForBatches(defaultLocation);
   }
 
+  // Calculate %used from lastRestockTotalStock
+  // Sum lastRestockTotalStock across all locations for the aggregate bar
+  const totalLastRestock = stockByLocation.reduce(
+    (sum, loc) => sum + (loc.lastRestockTotalStock ?? 0), 0
+  );
+  const hasUsedBar = totalLastRestock > 0 && !isLegacy;
+  // %remaining: how much of the last restock volume is still available
+  const percentRemaining = hasUsedBar
+    ? Math.min(100, Math.round((totalAvailable / totalLastRestock) * 100))
+    : null;
+
   const handleArchiveToggle = async () => {
     const newActive = !component.isActive;
     try {
@@ -112,143 +127,91 @@ export function ComponentRow({
     setTransferDialogOpen(true);
   };
 
+  // Bar color based on percentage remaining
+  // 50%+ green, 30-49% orange, below 30% red
+  const getBarColor = (pct: number) => {
+    if (pct < 30) return "bg-red-500";
+    if (pct < 50) return "bg-amber-500";
+    return "bg-emerald-500";
+  };
+
   return (
-    <Card
+    <div
       className={cn(
-        "border-slate-700 transition-all",
-        expanded && "bg-slate-800/80",
+        "rounded-lg border transition-all",
+        expanded && "shadow-sm",
         isLegacy
-          ? "border-slate-700/50 bg-slate-800/30"
+          ? "border-border/50 bg-muted/20"
           : isCritical
-            ? "border-red-800/50 bg-red-900/10"
+            ? "border-red-300 bg-red-50/50"
             : isLowStock
-              ? "border-amber-800/50 bg-amber-900/10"
-              : "bg-slate-800/50"
+              ? "border-amber-300 bg-amber-50/30"
+              : "border-border hover:border-border/80 hover:shadow-sm"
       )}
     >
       {/* Collapsed Row */}
-      <div className="flex items-center">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex-1 px-4 py-3 flex items-center gap-4 hover:bg-slate-700/30 transition-colors"
-        >
-          <ChevronDown
-            className={cn(
-              "h-5 w-5 text-slate-400 transition-transform flex-shrink-0",
-              expanded && "rotate-180"
-            )}
-          />
+      <div>
+        <div className="flex items-center">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex-1 px-4 py-3 flex items-center gap-4 hover:bg-muted/30 transition-colors rounded-l-lg"
+          >
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform flex-shrink-0",
+                expanded && "rotate-180"
+              )}
+            />
 
-          {/* Component Name & Category */}
-          <div className="flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-slate-400 flex-shrink-0" />
-              <span className={cn(
-                "font-semibold truncate",
-                isLegacy ? "text-slate-400 line-through" : "text-slate-100"
-              )}>
-                {component.name}
-              </span>
-              <Badge
-                variant="outline"
-                className="text-xs bg-slate-700/50 text-slate-300 border-slate-600"
-              >
-                {component.category.replace("_", " ")}
-              </Badge>
-              {isLegacy && (
-                <Badge variant="outline" className="text-xs bg-slate-700/30 text-slate-500 border-slate-600">
-                  Legacy
+            {/* Component Name & Category */}
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "font-medium truncate",
+                  isLegacy ? "text-muted-foreground line-through" : "text-foreground"
+                )}>
+                  {component.name}
+                </span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0"
+                >
+                  {component.category.replace("_", " ")}
                 </Badge>
-              )}
-              {isLowStock && !isLegacy && (
-                <AlertTriangle
-                  className={cn(
-                    "h-4 w-4",
-                    isCritical ? "text-red-400" : "text-amber-400"
-                  )}
-                />
-              )}
+                {isLegacy && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    Legacy
+                  </Badge>
+                )}
+                {isLowStock && !isLegacy && (
+                  <AlertTriangle
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      isCritical ? "text-red-500" : "text-amber-500"
+                    )}
+                  />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {component.unit} &middot; {formatCurrency(component.unitCostIdr)}/unit
+                {component.reorderPoint ? ` \u00B7 Reorder at ${component.reorderPoint}` : ""}
+              </p>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {component.unit} • {formatCurrency(component.unitCostIdr)}/unit
-              {component.reorderPoint && ` • Reorder at ${component.reorderPoint}`}
-            </p>
-            {/* Supplier info from latest stock */}
-            {(() => {
-              const supplierName = stockByLocation.find(s => s.latestSupplierName)?.latestSupplierName;
-              const avgCosts = stockByLocation.filter(s => s.weightedUnitCostIdr > 0);
-              const weightedAvgCost = avgCosts.length > 0
-                ? avgCosts.reduce((sum, s) => sum + s.weightedUnitCostIdr * s.totalStock, 0) /
-                  avgCosts.reduce((sum, s) => sum + s.totalStock, 0)
-                : null;
-              if (!supplierName && !weightedAvgCost) return null;
-              return (
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {supplierName && <><Truck className="inline h-3 w-3 mr-0.5" />{supplierName}</>}
-                  {supplierName && weightedAvgCost ? " • " : ""}
-                  {weightedAvgCost ? `Avg ${formatCurrency(weightedAvgCost)}/unit` : ""}
-                </p>
-              );
-            })()}
-          </div>
 
-          {/* Stock Summary with Thermometer Bar */}
-          <div className="flex items-center gap-4 font-mono text-sm">
-            {/* Thermometer bar (always visible when reorder point set, not legacy) */}
-            {!isLegacy && component.reorderPoint && component.reorderPoint > 0 ? (
-              <div className="w-28 flex-shrink-0">
-                {(() => {
-                  const reorderPoint = component.reorderPoint!;
-                  const scale = Math.max(reorderPoint * 2, 1);
-                  const fillPercent = Math.min(100, (totalAvailable / scale) * 100);
-                  const reorderPercent = Math.round((totalAvailable / reorderPoint) * 100);
-                  // Color: red (<25%), amber (25-75%), emerald (75-150%), blue (>150%)
-                  const barColor = reorderPercent < 25
-                    ? "bg-red-500"
-                    : reorderPercent < 75
-                      ? "bg-amber-500"
-                      : reorderPercent < 150
-                        ? "bg-emerald-500"
-                        : "bg-blue-500";
-                  return (
-                    <>
-                      <div className="relative h-4 rounded-full bg-slate-700 border border-slate-600 overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full transition-all", barColor)}
-                          style={{ width: `${fillPercent}%` }}
-                        />
-                        {/* Reorder point marker at 50% width */}
-                        <div
-                          className="absolute top-0 bottom-0 w-0.5 bg-white/40"
-                          style={{ left: "50%" }}
-                        />
-                      </div>
-                      <div className="text-xs text-slate-400 text-center mt-0.5">
-                        {reorderPercent}%
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            ) : !isLegacy ? (
-              <div className="w-28 flex-shrink-0 text-center text-xs text-slate-500">
-                {totalAvailable} {component.unit}
-              </div>
-            ) : null}
-
-            <div className="flex items-center gap-6">
+            {/* Stock counts */}
+            <div className="flex items-center gap-4 tabular-nums text-sm flex-shrink-0">
               <div className="text-right">
-                <div className="text-slate-400 text-xs">Available</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avail</div>
                 <div
                   className={cn(
-                    "text-lg font-bold",
+                    "text-lg font-bold leading-none",
                     isLegacy
-                      ? "text-slate-500"
+                      ? "text-muted-foreground"
                       : isCritical
-                        ? "text-red-400"
+                        ? "text-red-600"
                         : isLowStock
-                          ? "text-amber-400"
-                          : "text-emerald-400"
+                          ? "text-amber-600"
+                          : "text-emerald-600"
                   )}
                 >
                   {totalAvailable}
@@ -256,31 +219,29 @@ export function ComponentRow({
               </div>
               {totalReserved > 0 && (
                 <div className="text-right">
-                  <div className="text-slate-400 text-xs">Reserved</div>
-                  <div className="text-lg font-bold text-amber-400">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Rsv</div>
+                  <div className="text-lg font-bold leading-none text-amber-600">
                     {totalReserved}
                   </div>
                 </div>
               )}
               <div className="text-right">
-                <div className="text-slate-400 text-xs">Total</div>
-                <div className="text-lg font-bold text-slate-200">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
+                <div className="text-lg font-bold leading-none text-foreground">
                   {totalAvailable + totalReserved}
                 </div>
               </div>
             </div>
-          </div>
-        </button>
+          </button>
 
-        {/* Receive + Kebab Menu */}
-        <div className="pr-3 flex items-center gap-1">
-          {locations.length > 0 && (
+          {/* Receive Button + Kebab */}
+          <div className="pr-3 flex items-center gap-1.5">
+          {locations.length > 0 && !isLegacy && (
             <Button
-              variant="ghost"
               size="sm"
               onClick={() => setReceiveDialogOpen(true)}
-              className="h-8 px-2 text-xs text-slate-400 hover:text-emerald-400"
-              title="Receive stock for this component"
+              className="h-8 px-3 text-xs bg-[#E07856] hover:bg-[#D66A4A] text-white"
+              title={`Receive ${component.name}`}
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Receive
@@ -289,7 +250,7 @@ export function ComponentRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreVertical className="h-4 w-4 text-slate-400" />
+                <MoreVertical className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -306,7 +267,25 @@ export function ComponentRow({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
+
+        {/* %Remaining Bar - full width below the row */}
+        {hasUsedBar && percentRemaining !== null && (
+          <div className="px-4 pb-3 pt-0">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2.5 bg-muted/50 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", getBarColor(percentRemaining))}
+                  style={{ width: `${percentRemaining}%` }}
+                />
+              </div>
+              <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+                {percentRemaining}% &middot; {totalAvailable}/{totalLastRestock}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transfer Stock Dialog */}
@@ -333,11 +312,29 @@ export function ComponentRow({
 
       {/* Expanded Details */}
       {expanded && (
-        <div className="border-t border-slate-700 p-4 space-y-4">
+        <div className="border-t p-4 space-y-4">
+          {/* Supplier info */}
+          {(() => {
+            const supplierName = stockByLocation.find(s => s.latestSupplierName)?.latestSupplierName;
+            const avgCosts = stockByLocation.filter(s => s.weightedUnitCostIdr > 0);
+            const weightedAvgCost = avgCosts.length > 0
+              ? avgCosts.reduce((sum, s) => sum + s.weightedUnitCostIdr * s.totalStock, 0) /
+                avgCosts.reduce((sum, s) => sum + s.totalStock, 0)
+              : null;
+            if (!supplierName && !weightedAvgCost) return null;
+            return (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                {supplierName && <><Truck className="h-3.5 w-3.5" /><span>{supplierName}</span></>}
+                {supplierName && weightedAvgCost ? <span>&middot;</span> : null}
+                {weightedAvgCost ? <span>Avg {formatCurrency(weightedAvgCost)}/unit</span> : null}
+              </div>
+            );
+          })()}
+
           {/* Location Breakdown */}
           <div>
-            <h4 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
+            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
               Stock by Location
             </h4>
             <div className="grid gap-2 lg:grid-cols-3">
@@ -351,16 +348,16 @@ export function ComponentRow({
                     }
                     size="sm"
                     onClick={() => setSelectedLocationForBatches(stock.locationId)}
-                    className="flex-1 justify-start font-mono"
+                    className="flex-1 justify-start text-sm"
                   >
                     <span className="flex-1 text-left truncate">
                       {stock.locationName}
                     </span>
-                    <span className="text-emerald-400 font-bold">
+                    <span className="text-emerald-600 font-bold">
                       {stock.available}
                     </span>
                     {stock.totalReserved > 0 && (
-                      <span className="text-amber-400 text-xs">
+                      <span className="text-amber-600 text-xs">
                         +{stock.totalReserved}
                       </span>
                     )}
@@ -370,7 +367,7 @@ export function ComponentRow({
                       variant="ghost"
                       size="sm"
                       onClick={() => openTransferDialog(stock)}
-                      className="h-8 w-8 p-0 text-slate-400 hover:text-[#E07856]"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-[#E07856]"
                       title="Transfer from this location"
                     >
                       <Truck className="h-4 w-4" />
@@ -384,11 +381,11 @@ export function ComponentRow({
           {/* Batch Details */}
           {selectedLocationForBatches && batches !== undefined && (
             <div>
-              <h4 className="text-sm font-semibold text-slate-300 mb-2">
+              <h4 className="text-sm font-medium mb-2">
                 Batches (FIFO Order)
               </h4>
               {batches === null || batches.batches.length === 0 ? (
-                <div className="text-sm text-slate-400 text-center py-4">
+                <div className="text-sm text-muted-foreground text-center py-4">
                   No active batches at this location
                 </div>
               ) : (
@@ -407,6 +404,6 @@ export function ComponentRow({
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }

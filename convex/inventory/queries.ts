@@ -275,6 +275,7 @@ export const getInventoryReport = query({
               latestSupplierName: stock?.latestSupplierName,
               latestPurchaseUrl: stock?.latestPurchaseUrl,
               latestUnitCostIdr: stock?.latestUnitCostIdr,
+              lastRestockTotalStock: stock?.lastRestockTotalStock,
             };
           })
         );
