@@ -26,6 +26,7 @@ import {
   resolveOutletExternalId,
   transformProductDetailEntry,
 } from "./helpers";
+import { getWeekNumber } from "../../k3martCockpit/helpers";
 
 function generateBatchId(): string {
   return `k3mart-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -797,9 +798,10 @@ export const submitBulkStockIns = action({
   handler: async (ctx, args): Promise<{ success: boolean; error?: string; results: Array<{ outletId: string; success: boolean; error?: string }> }> => {
     // 1. Get confirmed plans for this date
     // Note: queries module uses public query(); cast needed for action access
+    const weekNumber = getWeekNumber(args.date);
     const allPlans: any = await (ctx as any).runQuery(
       (internal as any).k3martCockpit.queries.getWeeklyDispatchPlans,
-      { weekNumber: "2026-W99" }
+      { weekNumber }
     );
 
     const plans: any[] = allPlans.plans.filter(
