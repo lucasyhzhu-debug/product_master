@@ -3,7 +3,7 @@
  * Tray inventory and ball distribution
  */
 import { mutation, type MutationCtx } from "../../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Ctx-dependent helpers
@@ -262,11 +262,11 @@ export const boxProducts = mutation({
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
 
     if (args.quantity === 0) {
-      throw new Error("Quantity cannot be zero");
+      throw new ConvexError("Quantity cannot be zero");
     }
 
     const menuProduct = await ctx.db.get(args.menuProductId);
-    if (!menuProduct) throw new Error("Menu product not found");
+    if (!menuProduct) throw new ConvexError("Menu product not found");
 
     // Get or create production counts
     let counts = await ctx.db
@@ -282,7 +282,7 @@ export const boxProducts = mutation({
         packed: 0,
       });
       counts = await ctx.db.get(id);
-      if (!counts) throw new Error("Failed to create production counts");
+      if (!counts) throw new ConvexError("Failed to create production counts");
     }
 
     let packagingWarning: string | undefined;
@@ -320,11 +320,11 @@ export const boxProducts = mutation({
           .withIndex("by_date", (q) => q.eq("date", today))
           .first();
 
-        if (!inventory) throw new Error("No kitchen inventory for today");
+        if (!inventory) throw new ConvexError("No kitchen inventory for today. Add balls to tray first.");
 
         const available = inventory[ballFieldName] ?? 0;
         if (available < totalBallsNeeded) {
-          throw new Error(`Insufficient balls: need ${totalBallsNeeded}, have ${available}`);
+          throw new ConvexError(`Insufficient balls: need ${totalBallsNeeded}, have ${available}`);
         }
 
         await ctx.db.patch(inventory._id, {
@@ -355,7 +355,7 @@ export const boxProducts = mutation({
 
       // Validate: can't un-box if already stickered
       if (counts.boxed - undoQty < counts.stickered) {
-        throw new Error(`Cannot undo: ${counts.stickered} already stickered. Max undo: ${counts.boxed - counts.stickered}`);
+        throw new ConvexError(`Cannot undo boxing: ${counts.stickered} already stickered. Unsticker first. Max unbox: ${counts.boxed - counts.stickered}`);
       }
 
       // Return balls to kitchen inventory tray
@@ -427,7 +427,7 @@ export const stickerProducts = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
 
-    if (args.quantity === 0) throw new Error("Quantity cannot be zero");
+    if (args.quantity === 0) throw new ConvexError("Quantity cannot be zero");
 
     // Get or create production counts
     let counts = await ctx.db
@@ -443,7 +443,7 @@ export const stickerProducts = mutation({
         packed: 0,
       });
       counts = await ctx.db.get(id);
-      if (!counts) throw new Error("Failed to create production counts");
+      if (!counts) throw new ConvexError("Failed to create production counts");
     }
 
     let packagingWarning: string | undefined;
@@ -452,7 +452,7 @@ export const stickerProducts = mutation({
       // POSITIVE FLOW: Sticker products
       const availableForStickering = counts.boxed - counts.stickered;
       if (availableForStickering < args.quantity) {
-        throw new Error(`Insufficient boxed products: need ${args.quantity}, available ${availableForStickering}`);
+        throw new ConvexError(`Insufficient boxed products: need ${args.quantity}, available ${availableForStickering}`);
       }
 
       // Consume labeling-stage packaging from FIFO (non-fatal — stickering proceeds even if packaging short)
@@ -476,7 +476,7 @@ export const stickerProducts = mutation({
       const undoQty = Math.abs(args.quantity);
 
       if (counts.stickered - undoQty < counts.packed) {
-        throw new Error(`Cannot undo: ${counts.packed} already packed. Max undo: ${counts.stickered - counts.packed}`);
+        throw new ConvexError(`Cannot undo stickering: ${counts.packed} already packed. Unpack first. Max unsticker: ${counts.stickered - counts.packed}`);
       }
 
       // NOTE: No FIFO reversal
@@ -516,10 +516,10 @@ export const togglePackOrderLineItem = mutation({
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
 
     const orderItem = await ctx.db.get(args.orderItemId);
-    if (!orderItem) throw new Error("Order item not found");
-    if (orderItem.orderId !== args.orderId) throw new Error("Order item does not belong to this order");
+    if (!orderItem) throw new ConvexError("Order item not found");
+    if (orderItem.orderId !== args.orderId) throw new ConvexError("Order item does not belong to this order");
 
-    if (!orderItem.menuProductId) throw new Error("Order item has no menu product");
+    if (!orderItem.menuProductId) throw new ConvexError("Order item has no menu product");
 
     // Get or create production counts for this menu product
     let counts = await ctx.db
@@ -535,7 +535,7 @@ export const togglePackOrderLineItem = mutation({
         packed: 0,
       });
       counts = await ctx.db.get(id);
-      if (!counts) throw new Error("Failed to create production counts");
+      if (!counts) throw new ConvexError("Failed to create production counts");
     }
 
     // Determine if packing or unpacking based on current packageStatus
@@ -567,7 +567,7 @@ export const togglePackOrderLineItem = mutation({
       // PACK: validate stickered pool, increment packed, mark line item
       const availableForPacking = counts.stickered - counts.packed;
       if (availableForPacking < neededQty) {
-        throw new Error(`Insufficient stickered products: need ${neededQty}, available ${availableForPacking}`);
+        throw new ConvexError(`Insufficient stickered products: need ${neededQty}, available ${availableForPacking}`);
       }
 
       await ctx.db.patch(counts._id, {
@@ -608,7 +608,7 @@ export const markOrderReady = mutation({
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
 
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new ConvexError("Order not found");
 
     // Validate all product line items are packed
     const orderItems = await ctx.db
@@ -620,7 +620,7 @@ export const markOrderReady = mutation({
 
     for (const item of activeItems) {
       if (item.menuProductId && item.packageStatus !== "packed") {
-        throw new Error(`Item "${item.productName}" is not packed yet`);
+        throw new ConvexError(`Item "${item.productName}" is not packed yet`);
       }
     }
 

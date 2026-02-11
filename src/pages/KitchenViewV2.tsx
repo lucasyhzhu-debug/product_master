@@ -28,9 +28,17 @@ import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { ConvexError } from 'convex/values';
 import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
 import type { Id } from '../../convex/_generated/dataModel';
+
+/** Extract error message from ConvexError or regular Error */
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ConvexError) return String(error.data);
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
 
 /** Map backend error messages to human-friendly copy for kitchen staff */
 function friendlyCopy(msg: string): string {
@@ -144,8 +152,7 @@ export function KitchenViewV2() {
         actionToast(`${action} ${Math.abs(quantity)}`, event);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to box products';
-      actionToast(friendlyCopy(msg), event, 'error');
+      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to box products')), event, 'error');
     }
   };
 
@@ -163,8 +170,7 @@ export function KitchenViewV2() {
         actionToast(`${action} ${Math.abs(quantity)}`, event);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to sticker products';
-      actionToast(friendlyCopy(msg), event, 'error');
+      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to sticker products')), event, 'error');
     }
   };
 
@@ -177,8 +183,7 @@ export function KitchenViewV2() {
       });
       actionToast('Packed', event);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to toggle pack';
-      actionToast(friendlyCopy(msg), event, 'error');
+      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to toggle pack')), event, 'error');
     }
   };
 
@@ -189,8 +194,7 @@ export function KitchenViewV2() {
       });
       actionToast('Order marked as ready!', event);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to mark order ready';
-      actionToast(friendlyCopy(msg), event, 'error');
+      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to mark order ready')), event, 'error');
     }
   };
 
