@@ -40,6 +40,8 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
     date: today,
     originalBallCount: 0,
     biteSizedBallCount: 0,
+    totalProducedOriginal: 0,
+    totalProducedBiteSized: 0,
     lastUpdated: Date.now(),
   });
 
@@ -84,10 +86,22 @@ export const addBallsToTray = mutation({
     // Clamp to 0 — can't go below zero
     const newCount = Math.max(0, currentCount + args.count);
 
-    await ctx.db.patch(inventory._id, {
+    const patchData: Record<string, number> = {
       [fieldName]: newCount,
       lastUpdated: Date.now(),
-    });
+    };
+
+    // Only increment cumulative counter for positive additions (never decrement)
+    if (args.count > 0) {
+      const actualAdded = newCount - currentCount;
+      if (actualAdded > 0) {
+        const cumulativeField = args.ballType === "original" ? "totalProducedOriginal" : "totalProducedBiteSized";
+        const currentCumulative = inventory[cumulativeField] ?? 0;
+        patchData[cumulativeField] = currentCumulative + actualAdded;
+      }
+    }
+
+    await ctx.db.patch(inventory._id, patchData);
 
     // Return actual change (may be less than requested if clamped)
     return {
@@ -271,6 +285,8 @@ export const boxProducts = mutation({
       if (!counts) throw new Error("Failed to create production counts");
     }
 
+    let packagingWarning: string | undefined;
+
     if (args.quantity > 0) {
       // POSITIVE FLOW: Box products
       // Look up production components to find ball type & quantity per unit
@@ -317,12 +333,16 @@ export const boxProducts = mutation({
         });
       }
 
-      // Consume boxing-stage packaging from FIFO
-      await consumeBatchMaterials(ctx, {
-        menuProductId: args.menuProductId,
-        quantity: args.quantity,
-        stage: "boxing",
-      });
+      // Consume boxing-stage packaging from FIFO (non-fatal — boxing proceeds even if packaging short)
+      try {
+        await consumeBatchMaterials(ctx, {
+          menuProductId: args.menuProductId,
+          quantity: args.quantity,
+          stage: "boxing",
+        });
+      } catch (e) {
+        packagingWarning = e instanceof Error ? e.message : "Packaging stock issue";
+      }
 
       // Increment boxed count
       await ctx.db.patch(counts._id, {
@@ -386,9 +406,10 @@ export const boxProducts = mutation({
       quantity: Math.abs(args.quantity),
       timestamp: Date.now(),
       performedBy: user.name,
+      ...(packagingWarning ? { note: `packaging-shortage:${packagingWarning}` } : {}),
     });
 
-    return { success: true };
+    return { success: true as const, warning: packagingWarning };
   },
 });
 
@@ -425,6 +446,8 @@ export const stickerProducts = mutation({
       if (!counts) throw new Error("Failed to create production counts");
     }
 
+    let packagingWarning: string | undefined;
+
     if (args.quantity > 0) {
       // POSITIVE FLOW: Sticker products
       const availableForStickering = counts.boxed - counts.stickered;
@@ -432,12 +455,16 @@ export const stickerProducts = mutation({
         throw new Error(`Insufficient boxed products: need ${args.quantity}, available ${availableForStickering}`);
       }
 
-      // Consume labeling-stage packaging from FIFO
-      await consumeBatchMaterials(ctx, {
-        menuProductId: args.menuProductId,
-        quantity: args.quantity,
-        stage: "labeling",
-      });
+      // Consume labeling-stage packaging from FIFO (non-fatal — stickering proceeds even if packaging short)
+      try {
+        await consumeBatchMaterials(ctx, {
+          menuProductId: args.menuProductId,
+          quantity: args.quantity,
+          stage: "labeling",
+        });
+      } catch (e) {
+        packagingWarning = e instanceof Error ? e.message : "Packaging stock issue";
+      }
 
       // Increment stickered count
       await ctx.db.patch(counts._id, {
@@ -467,9 +494,10 @@ export const stickerProducts = mutation({
       quantity: Math.abs(args.quantity),
       timestamp: Date.now(),
       performedBy: user.name,
+      ...(packagingWarning ? { note: `packaging-shortage:${packagingWarning}` } : {}),
     });
 
-    return { success: true };
+    return { success: true as const, warning: packagingWarning };
   },
 });
 

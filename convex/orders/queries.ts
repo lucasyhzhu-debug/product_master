@@ -798,6 +798,8 @@ export const getTrayInventory = query({
         date: today,
         originalBallCount: 0,
         biteSizedBallCount: 0,
+        totalProducedOriginal: 0,
+        totalProducedBiteSized: 0,
         lastUpdated: null,
         updatedBy: null,
       };
@@ -807,6 +809,8 @@ export const getTrayInventory = query({
       date: inventory.date,
       originalBallCount: inventory.originalBallCount,
       biteSizedBallCount: inventory.biteSizedBallCount,
+      totalProducedOriginal: inventory.totalProducedOriginal ?? 0,
+      totalProducedBiteSized: inventory.totalProducedBiteSized ?? 0,
       lastUpdated: inventory.lastUpdated,
       updatedBy: inventory.updatedBy ?? null,
     };

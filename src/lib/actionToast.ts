@@ -22,11 +22,14 @@ import { toast } from 'sonner';
 
 export function actionToast(
   message: string,
-  event?: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent
+  event?: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent,
+  type: 'success' | 'error' | 'warning' = 'success'
 ): void {
   // Fallback to Sonner if no event provided (programmatic calls)
   if (!event) {
-    toast.success(message);
+    if (type === 'error') toast.error(message);
+    else if (type === 'warning') toast.warning(message);
+    else toast.success(message);
     return;
   }
 
@@ -39,7 +42,9 @@ export function actionToast(
         : null;
 
   if (!target) {
-    toast.success(message);
+    if (type === 'error') toast.error(message);
+    else if (type === 'warning') toast.warning(message);
+    else toast.success(message);
     return;
   }
 
@@ -66,8 +71,13 @@ export function actionToast(
   toastEl.style.zIndex = '9999';
   toastEl.style.pointerEvents = 'none';
 
-  // Styling
-  toastEl.style.background = 'rgba(0, 0, 0, 0.85)';
+  // Styling by type
+  const bgColors = {
+    success: 'rgba(0, 0, 0, 0.85)',
+    error: '#DC2626',
+    warning: '#D97706',
+  };
+  toastEl.style.background = bgColors[type];
   toastEl.style.color = 'white';
   toastEl.style.padding = '6px 14px';
   toastEl.style.borderRadius = '999px';
@@ -76,8 +86,10 @@ export function actionToast(
   toastEl.style.whiteSpace = 'nowrap';
   toastEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
 
-  // Animation
-  toastEl.style.animation = 'action-toast-in 0.15s ease-out, action-toast-out 0.2s ease-in 1.0s forwards';
+  // Animation — errors stay longer for readability
+  const duration = type === 'error' ? 2000 : 1200;
+  const fadeOutDelay = duration - 200;
+  toastEl.style.animation = `action-toast-in 0.15s ease-out, action-toast-out 0.2s ease-in ${fadeOutDelay / 1000}s forwards`;
 
   // Add to DOM
   document.body.appendChild(toastEl);
@@ -87,5 +99,5 @@ export function actionToast(
     if (toastEl.parentNode) {
       toastEl.parentNode.removeChild(toastEl);
     }
-  }, 1200);
+  }, duration);
 }

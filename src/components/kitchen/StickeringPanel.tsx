@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FlipNumber, FlowChevrons } from './FlipNumber';
 import { GoFoodStickerCard } from './GoFoodStickerCard';
+import { K3MartStockCard } from './K3MartStockCard';
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +22,16 @@ interface GoFoodDepotInfo {
   freshness: 'fresh' | 'day_old' | 'aging';
 }
 
+interface K3MartStockItem {
+  menuProductId: string;
+  productName: string;
+  consignmentTarget: number;
+  totalOutletStock: number;
+  totalSoldToday: number;
+  gapToTarget: number;
+  outletBreakdown: Array<{ outletName: string; stock: number; soldToday: number }>;
+}
+
 interface StickeringPanelProps {
   productionCounts: Array<{
     menuProductId: string;
@@ -36,12 +47,15 @@ interface StickeringPanelProps {
   neededFromOrders?: Record<string, number>;
   goFoodDepotData?: GoFoodDepotInfo[];
   lastSyncAt?: number;
+  k3MartData?: K3MartStockItem[];
+  k3MartLastSyncAt?: number;
   onStickerProducts: (menuProductId: string, quantity: number, event?: React.MouseEvent) => Promise<void>;
   onSyncNow?: () => void;
+  onSyncK3Mart?: () => void;
   disabled?: boolean;
 }
 
-export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepotData, lastSyncAt, onStickerProducts, onSyncNow, disabled = false }: StickeringPanelProps) {
+export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepotData, lastSyncAt, k3MartData, k3MartLastSyncAt, onStickerProducts, onSyncNow, onSyncK3Mart, disabled = false }: StickeringPanelProps) {
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   // Loading state
@@ -74,6 +88,11 @@ export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepo
     goFoodDepotData?.map((d) => [d.menuProductId, d]) ?? []
   );
 
+  // Build K3 Mart lookup
+  const k3MartMap = new Map(
+    k3MartData?.map((d) => [d.menuProductId, d]) ?? []
+  );
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="px-3 py-3 space-y-3 bg-[#F8F6F3]">
@@ -93,6 +112,25 @@ export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepo
               freshness={gf.freshness}
               lastSyncAt={lastSyncAt}
               onSyncNow={onSyncNow}
+            />
+          );
+        })}
+
+        {/* K3 Mart stock cards (read-only) */}
+        {visibleProducts.map((product) => {
+          const k3 = k3MartMap.get(product.menuProductId);
+          if (!k3 || k3.consignmentTarget === 0) return null;
+          return (
+            <K3MartStockCard
+              key={`k3-${product.menuProductId}`}
+              productName={product.menuProductName}
+              consignmentTarget={k3.consignmentTarget}
+              totalOutletStock={k3.totalOutletStock}
+              totalSoldToday={k3.totalSoldToday}
+              gapToTarget={k3.gapToTarget}
+              outletBreakdown={k3.outletBreakdown}
+              lastSyncAt={k3MartLastSyncAt}
+              onSyncStock={onSyncK3Mart}
             />
           );
         })}

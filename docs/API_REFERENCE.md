@@ -304,6 +304,18 @@ productionCounts.mutations.resetCounts({ token, menuProductId? })
 { reset: number }  // Number of products reset
 ```
 
+### K3 Mart Kitchen
+
+#### Queries
+```typescript
+// convex/k3martKitchen/queries.ts
+k3martKitchen.queries.getK3MartKitchenSummary({ date })  // Virtual daily summary for kitchen view
+// Combines: consignment targets, outlet stock snapshots, today's K3 Mart sales, product mappings
+// Returns: { items: [{ menuProductId, productName, consignmentTarget, totalOutletStock,
+//   totalSoldToday, gapToTarget, outletBreakdown: [{ outletName, stock, soldToday }] }],
+//   lastSyncAt, totalOutlets, syncStatus }
+```
+
 ### GoFood Depot (Goldfinch)
 
 #### Queries

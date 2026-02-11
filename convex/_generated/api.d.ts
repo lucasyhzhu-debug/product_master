@@ -42,6 +42,7 @@ import type * as inventory_fifo from "../inventory/fifo.js";
 import type * as inventory_helpers from "../inventory/helpers.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
+import type * as k3martKitchen_queries from "../k3martKitchen/queries.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_costCalculator from "../lib/costCalculator.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "inventory/helpers": typeof inventory_helpers;
   "inventory/mutations": typeof inventory_mutations;
   "inventory/queries": typeof inventory_queries;
+  "k3martKitchen/queries": typeof k3martKitchen_queries;
   "lib/auth": typeof lib_auth;
   "lib/costCalculator": typeof lib_costCalculator;
   "lib/periodRange": typeof lib_periodRange;

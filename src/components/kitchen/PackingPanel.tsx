@@ -3,6 +3,7 @@ import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GoFoodPackingCard } from './GoFoodPackingCard';
+import { K3MartPackingCard } from './K3MartPackingCard';
 
 interface PackingProductItem {
   _id: string;
@@ -64,9 +65,22 @@ interface GoFoodPackingData {
   shippedAt?: number;
 }
 
+interface K3MartPackingData {
+  date: string;
+  items: Array<{
+    menuProductId: string;
+    productName: string;
+    consignmentTarget: number;
+    boxed: number;
+    stickered: number;
+    isReady: boolean;
+  }>;
+}
+
 interface PackingPanelProps {
   packingOrders: PackingOrder[] | undefined;
   goFoodPackingData?: GoFoodPackingData | null;
+  k3MartPackingData?: K3MartPackingData | null;
   onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => Promise<void>;
   onMarkOrderReady: (orderId: string, event?: React.MouseEvent) => Promise<void>;
   onShipToGoldfinch?: (items: Array<{
@@ -80,6 +94,7 @@ interface PackingPanelProps {
 export function PackingPanel({
   packingOrders,
   goFoodPackingData,
+  k3MartPackingData,
   onTogglePack,
   onMarkOrderReady,
   onShipToGoldfinch,
@@ -131,6 +146,14 @@ export function PackingPanel({
           shippedAt={goFoodPackingData.shippedAt}
           onShipToGoldfinch={onShipToGoldfinch}
           disabled={disabled}
+        />
+      )}
+
+      {/* K3 Mart packing summary */}
+      {k3MartPackingData && (
+        <K3MartPackingCard
+          date={k3MartPackingData.date}
+          items={k3MartPackingData.items}
         />
       )}
 

@@ -7,9 +7,52 @@
 
 After merging any code change, add a new entry with:
 - Date and descriptive title
+- 1 or 2 liner for humans to understand that is none-techinical - how does it benefit them
 - Summary of what changed
 - Files modified (if significant)
 - Any migration steps or breaking changes
+
+---
+
+## 2026-02-11 - K3 Mart Kitchen Tracker + Kitchen QoL Improvements
+
+### Overview
+Kitchen staff can now see K3 Mart outlet stock, sales, and consignment readiness directly in the Kitchen View — no more switching to the Sales Analytics page to check "do we have enough at outlets?"
+
+Also improves kitchen workflow with non-fatal packaging warnings and cumulative ball production tracking.
+
+### K3 Mart Kitchen Integration
+
+**New Backend Module:** `convex/k3martKitchen/queries.ts`
+- `getK3MartKitchenSummary({ date })` — Combines consignment targets, outlet stock snapshots, today's K3 Mart sales, and product mappings into a per-product summary with outlet breakdown
+
+**New Frontend Components:**
+- `K3MartStockCard` — Read-only outlet stock info card (Sticker panel): aggregate outlet stock, sold today, target, gap-to-target, collapsible per-outlet breakdown, Sync Stock button
+- `K3MartPackingCard` — Consignment readiness summary (Pack panel): target/boxed/stickered per product with ready/warning icons
+
+**New CSS Variables:** Amber K3 Mart color set (`--color-k3mart`, `-light`, `-medium`, `-accent`, `-badge`)
+
+**Updated Panels:**
+- **ProductionLogPanel** — New "Stk" column showing aggregate K3 Mart outlet stock per product
+- **BoxingPanel** — "Outlets: X" metric in product card headers
+- **StickeringPanel** — K3MartStockCard rendered above manual sticker cards for products with consignment targets
+- **PackingPanel** — K3MartPackingCard rendered between GoFood and regular order cards
+
+### Kitchen QoL Improvements
+- **Non-fatal packaging:** Boxing and stickering now succeed even when packaging stock is short — returns a warning instead of blocking
+- **Cumulative ball counters:** `totalProducedOriginal` / `totalProducedBiteSized` track total balls produced today (never decremented on boxing)
+- **ActionToast types:** `actionToast()` now supports `error` and `warning` types with color-coded styling and longer duration for errors
+
+### Files Created
+- `convex/k3martKitchen/queries.ts`
+- `src/components/kitchen/K3MartStockCard.tsx`, `src/components/kitchen/K3MartPackingCard.tsx`
+
+### Files Modified
+- `convex/schema.ts` (cumulative ball fields), `convex/orders/mutations/kitchen.ts` (non-fatal packaging), `convex/orders/queries.ts` (cumulative fields)
+- `src/index.css`, `src/pages/KitchenViewV2.tsx`, `src/hooks/convex/useKitchenProduction.ts`
+- `src/components/kitchen/ProductionLogPanel.tsx`, `src/components/kitchen/BoxingPanel.tsx`
+- `src/components/kitchen/StickeringPanel.tsx`, `src/components/kitchen/PackingPanel.tsx`
+- `src/components/kitchen/index.ts`, `src/lib/actionToast.ts`
 
 ---
 

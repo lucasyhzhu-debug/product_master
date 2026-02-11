@@ -73,6 +73,13 @@
   --color-gofood-accent: #1B6B52;
   --color-gofood-badge: #15803D;
 
+  /* K3 Mart / Consignment - Amber */
+  --color-k3mart: #B45309;
+  --color-k3mart-light: #FEF3C7;
+  --color-k3mart-medium: #FDE68A;
+  --color-k3mart-accent: #92400E;
+  --color-k3mart-badge: #D97706;
+
   /* Kitchen Shared Status Colors */
   --color-kitchen-success: #3D7A4A;
   --color-kitchen-success-bg: #E8F5EA;
