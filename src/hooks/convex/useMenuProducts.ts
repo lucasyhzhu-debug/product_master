@@ -173,6 +173,7 @@ export interface PackagingPosProduct {
   _id: string;
   code: string;
   name: string;
+  grams: number;
   defaultPrice: number;
   unitCost?: number;
   packagingPosSlot: number;
@@ -397,6 +398,7 @@ export function useConvexPackagingPosProducts() {
     _id: p._id as unknown as string,
     code: p.code,
     name: p.name,
+    grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
     packagingPosSlot: p.packagingPosSlot as number,
