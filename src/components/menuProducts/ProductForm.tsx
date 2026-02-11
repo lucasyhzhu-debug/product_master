@@ -114,8 +114,8 @@ export function ProductForm({
   useEffect(() => {
     if (product && !loadingComponents) {
       setName(product.name);
-      setGramsOverride(product.grams.toString());
-      setPrice(product.defaultPrice.toString());
+      setGramsOverride((product.grams ?? 0).toString());
+      setPrice((product.defaultPrice ?? 0).toString());
       setIsFree(product.defaultPrice === 0);
       // Determine product type from existing data
       const existingProductType = 'productType' in product && product.productType
