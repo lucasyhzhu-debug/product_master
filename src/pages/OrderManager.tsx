@@ -98,13 +98,26 @@ function OrderCardCompact({ order, onClick }: OrderCardProps) {
 
           {/* Amount */}
           <div className="text-right flex-shrink-0">
-            <p className="text-sm font-bold text-terracotta">
-              {formatCurrency(order.total_amount)}
-            </p>
-            {order.total_discount > 0 && (
-              <p className="text-xs text-orange-600">
-                -{formatCurrency(order.total_discount)}
+            {order.status === 'Cancelled' ? (
+              <p className="text-sm font-bold text-muted-foreground line-through">
+                {formatCurrency(order.total_amount - order.total_discount)}
               </p>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-terracotta">
+                  {formatCurrency(order.total_amount - order.total_discount)}
+                </p>
+                {order.total_discount > 0 && (
+                  <>
+                    <p className="text-[11px] text-muted-foreground line-through">
+                      {formatCurrency(order.total_amount)}
+                    </p>
+                    <p className="text-[11px] text-orange-600">
+                      -{formatCurrency(order.total_discount)}
+                    </p>
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -185,10 +198,10 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant={activeFilter === 'completed' ? 'default' : 'outline'}
+            variant={activeFilter === 'completed' || activeFilter === 'cancelled' ? 'default' : 'outline'}
             size="sm"
             className={`
-              ${activeFilter === 'completed'
+              ${activeFilter === 'completed' || activeFilter === 'cancelled'
                 ? 'bg-terracotta hover:bg-terracotta-dark text-white'
                 : 'hover:border-terracotta'
               }
@@ -206,6 +219,17 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
               {orderCounts.completed > 0 && (
                 <Badge variant="secondary" className="ml-auto">
                   {orderCounts.completed}
+                </Badge>
+              )}
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onFilterChange('cancelled')}>
+            <span className="flex items-center gap-2">
+              <span>{CATEGORY_INFO.cancelled.emoji}</span>
+              <span>{CATEGORY_INFO.cancelled.label}</span>
+              {orderCounts.cancelled > 0 && (
+                <Badge variant="secondary" className="ml-auto">
+                  {orderCounts.cancelled}
                 </Badge>
               )}
             </span>
@@ -235,6 +259,7 @@ function OrdersQueue({ orders, activeFilter, onOrderClick }: OrdersQueueProps) {
       kitchen: [],
       ready: [],
       completed: [],
+      cancelled: [],
     };
 
     orders.forEach((order) => {
@@ -393,6 +418,7 @@ export function OrderManager() {
       kitchen: 0,
       ready: 0,
       completed: 0,
+      cancelled: 0,
     };
 
     if (!orders) return counts;
