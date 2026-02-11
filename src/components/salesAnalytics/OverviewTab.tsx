@@ -47,6 +47,7 @@ const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
 ];
 
 const DEFAULT_PERIOD: PeriodPreset = "last7days";
+const PERIOD_STORAGE_KEY = "frollie:salesPeriod";
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 /** Convert UTC epoch ms to a WIB date string (YYYY-MM-DD) */
@@ -782,10 +783,12 @@ export function OverviewTab() {
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
-  // Period preset from URL, default to last7days
-  const selectedPeriod = (searchParams.get("period") as PeriodPreset) || DEFAULT_PERIOD;
+  // Period preset from URL, then localStorage, then default
+  const savedPeriod = localStorage.getItem(PERIOD_STORAGE_KEY) as PeriodPreset | null;
+  const selectedPeriod = (searchParams.get("period") as PeriodPreset) || savedPeriod || DEFAULT_PERIOD;
 
   const setPeriod = (preset: PeriodPreset) => {
+    localStorage.setItem(PERIOD_STORAGE_KEY, preset);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (preset === DEFAULT_PERIOD) {
