@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Info } from 'lucide-react';
+import { CheckCircle2, Info, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FlipNumber, FlowChevrons } from './FlipNumber';
@@ -77,10 +77,11 @@ export function BoxingPanel({
     );
   }
 
-  const handleSubmit = async (menuProductId: string, event?: React.MouseEvent) => {
+  const handleAction = async (menuProductId: string, negate: boolean, event?: React.MouseEvent) => {
     const val = parseInt(inputValues[menuProductId] || '', 10);
     if (!isNaN(val) && val !== 0) {
-      await onBoxProducts(menuProductId, val, event);
+      const qty = negate ? -Math.abs(val) : Math.abs(val);
+      await onBoxProducts(menuProductId, qty, event);
       setInputValues(prev => ({ ...prev, [menuProductId]: '' }));
     }
   };
@@ -141,7 +142,7 @@ export function BoxingPanel({
 
               {/* Content */}
               <div className="px-3 py-2.5 space-y-2">
-                {/* Row 1: Input + Box button */}
+                {/* Row 1: Input + Undo + Box buttons */}
                 <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -152,8 +153,8 @@ export function BoxingPanel({
                           onChange={(e) =>
                             setInputValues(prev => ({ ...prev, [product.menuProductId]: e.target.value }))
                           }
-                          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(product.menuProductId); }}
-                          placeholder="Qty to add"
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleAction(product.menuProductId, false); }}
+                          placeholder="Qty"
                           disabled={disabled}
                           className={cn(
                             'w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-center text-base font-bold',
@@ -166,11 +167,24 @@ export function BoxingPanel({
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[200px] text-center">
-                      <p>If you want to revert, you can also use negative numbers</p>
+                      <p>Enter quantity, then tap Box or Undo</p>
                     </TooltipContent>
                   </Tooltip>
                   <button
-                    onClick={(e) => handleSubmit(product.menuProductId, e)}
+                    onClick={(e) => handleAction(product.menuProductId, true, e)}
+                    disabled={disabled || product.boxed === 0 || !inputVal || parseInt(inputVal, 10) === 0 || isNaN(parseInt(inputVal, 10))}
+                    className={cn(
+                      'h-11 px-3 rounded-lg font-bold text-sm shrink-0',
+                      'bg-amber-500 hover:bg-amber-600 text-white',
+                      'touch-manipulation active:scale-95 transition-transform duration-100',
+                      'disabled:opacity-30 disabled:cursor-not-allowed',
+                      'flex items-center gap-1'
+                    )}
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={(e) => handleAction(product.menuProductId, false, e)}
                     disabled={disabled || !inputVal || parseInt(inputVal, 10) === 0 || isNaN(parseInt(inputVal, 10))}
                     className={cn(
                       'h-11 px-5 rounded-lg font-bold text-base shrink-0',
