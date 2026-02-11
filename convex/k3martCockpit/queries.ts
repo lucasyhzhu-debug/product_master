@@ -45,6 +45,18 @@ export const getOutletStockSummary = query({
       .filter((q) => q.lt(q.field("periodStart"), todayEnd))
       .collect();
 
+    // 4b. Fetch product mappings to resolve menuProductId
+    const productMappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .collect();
+    const codeToMenuProduct = new Map<string, string>();
+    for (const m of productMappings) {
+      if (m.menuProductId) {
+        codeToMenuProduct.set(m.externalProductCode, m.menuProductId as string);
+      }
+    }
+
     let latestSyncAt: number | null = null;
 
     // 5. Process each outlet
@@ -119,6 +131,7 @@ export const getOutletStockSummary = query({
             price: sp.price,
             soldToday: todaySales,
             avgDailySales7d,
+            menuProductId: codeToMenuProduct.get(sp.externalProductCode) ?? null,
           };
         });
 
@@ -161,9 +174,43 @@ export const getWeeklyDispatchPlans = query({
       .withIndex("by_channel", (q) => q.eq("channel", "k3mart"))
       .collect();
 
+    // Build unique products and outlets from restock targets
+    const productIds = new Set<string>();
+    const outletIds = new Set<string>();
+    for (const t of targets) {
+      if (t.menuProductId) productIds.add(t.menuProductId as string);
+      if (t.outletId) outletIds.add(t.outletId as string);
+    }
+
+    // Fetch product names and external codes
+    const products = await Promise.all(
+      Array.from(productIds).map(async (id) => {
+        const mp = await ctx.db.get(id as Id<"menuProducts">);
+        const mapping = await ctx.db
+          .query("externalProductMappings")
+          .withIndex("by_menu_product", (q) => q.eq("menuProductId", id as Id<"menuProducts">))
+          .first();
+        return {
+          menuProductId: id,
+          productName: mp?.name ?? "Unknown",
+          externalProductCode: mapping?.externalProductCode ?? "",
+        };
+      })
+    );
+
+    // Fetch outlet names
+    const outlets = await Promise.all(
+      Array.from(outletIds).map(async (id) => {
+        const outlet = await ctx.db.get(id as Id<"externalOutlets">);
+        return { outletId: id, outletName: outlet?.name ?? "Unknown" };
+      })
+    );
+
     return {
       plans,
       targets,
+      products,
+      outlets,
     };
   },
 });

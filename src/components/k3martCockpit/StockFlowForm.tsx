@@ -72,17 +72,20 @@ export function StockFlowForm({
   onSubmit,
   isSubmitting = false,
 }: StockFlowFormProps) {
+  // Filter out products with empty menuProductId (prevents Select crash)
+  const selectableProducts = products.filter(p => p.menuProductId);
+
   // Form state
   const [direction, setDirection] = useState<"stock_in" | "stock_out">("stock_in");
   const [selectedProductId, setSelectedProductId] = useState<string>(
-    products.length === 1 ? products[0].menuProductId : ""
+    selectableProducts.length === 1 ? selectableProducts[0].menuProductId : (selectableProducts[0]?.menuProductId ?? "")
   );
   const [quantity, setQuantity] = useState<number>(1);
   const [source, setSource] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
   const [note, setNote] = useState<string>("");
 
-  // Get selected product
+  // Get selected product (search in original products list for stock info)
   const selectedProduct = products.find((p) => p.menuProductId === selectedProductId);
 
   // Reset source/destination when switching directions
@@ -203,7 +206,7 @@ export function StockFlowForm({
         <TabsContent value="stock_in" className="mt-0">
           <div className="p-3 space-y-3">
             {/* Product Selector (if multiple) */}
-            {products.length > 1 && (
+            {selectableProducts.length > 1 && (
               <div className="space-y-1.5">
                 <Label htmlFor="product-select" className="text-xs text-gray-600">
                   Product
@@ -213,7 +216,7 @@ export function StockFlowForm({
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((p) => (
+                    {selectableProducts.map((p) => (
                       <SelectItem key={p.menuProductId} value={p.menuProductId} className="text-sm">
                         {p.productName}
                       </SelectItem>
@@ -224,8 +227,8 @@ export function StockFlowForm({
             )}
 
             {/* Product Display (if single product) */}
-            {products.length === 1 && (
-              <div className="text-sm font-medium">{products[0].productName}</div>
+            {selectableProducts.length === 1 && (
+              <div className="text-sm font-medium">{selectableProducts[0].productName}</div>
             )}
 
             {/* Quantity Controls */}
@@ -328,7 +331,7 @@ export function StockFlowForm({
         <TabsContent value="stock_out" className="mt-0">
           <div className="p-3 space-y-3">
             {/* Product Selector (if multiple) */}
-            {products.length > 1 && (
+            {selectableProducts.length > 1 && (
               <div className="space-y-1.5">
                 <Label htmlFor="product-select-out" className="text-xs text-gray-600">
                   Product
@@ -338,7 +341,7 @@ export function StockFlowForm({
                     <SelectValue placeholder="Select product" />
                   </SelectTrigger>
                   <SelectContent>
-                    {products.map((p) => (
+                    {selectableProducts.map((p) => (
                       <SelectItem key={p.menuProductId} value={p.menuProductId} className="text-sm">
                         {p.productName} (Stock: {p.currentStock})
                       </SelectItem>
@@ -349,11 +352,11 @@ export function StockFlowForm({
             )}
 
             {/* Product Display (if single product) */}
-            {products.length === 1 && (
+            {selectableProducts.length === 1 && (
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">{products[0].productName}</div>
+                <div className="text-sm font-medium">{selectableProducts[0].productName}</div>
                 <div className="text-xs text-gray-600 tabular-nums">
-                  Stock: {products[0].currentStock}
+                  Stock: {selectableProducts[0].currentStock}
                 </div>
               </div>
             )}

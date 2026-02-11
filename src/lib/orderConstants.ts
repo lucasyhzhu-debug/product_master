@@ -40,9 +40,10 @@ export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
 export const STATUS_CATEGORIES = {
   awaiting: ['Draft', 'AwaitingPayment'] as OrderStatus[],
   paidReady: ['Confirmed'] as OrderStatus[],
-  kitchen: ['InProduction', 'Boxed', 'Labeled', 'Packaging'] as OrderStatus[], // Added Boxed/Labeled
+  kitchen: ['InProduction', 'Boxed', 'Labeled', 'Packaging'] as OrderStatus[],
   ready: ['WaitingShipment', 'WaitingPickup'] as OrderStatus[],
-  completed: ['CompleteShipped', 'PickedUp', 'Cancelled'] as OrderStatus[],
+  completed: ['CompleteShipped', 'PickedUp'] as OrderStatus[],
+  cancelled: ['Cancelled'] as OrderStatus[],
 } as const;
 
 export type StatusCategory = keyof typeof STATUS_CATEGORIES;
@@ -97,10 +98,18 @@ export const CATEGORY_INFO: Record<
   completed: {
     label: 'Completed',
     shortLabel: 'Done',
-    color: 'bg-gray-500',
-    dotColor: '#6B7280',
-    emoji: '⚪',
-    description: 'Completed or archived orders',
+    color: 'bg-green-500',
+    dotColor: '#10B981',
+    emoji: '\u2705',
+    description: 'Successfully shipped or picked up orders',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    shortLabel: 'Cancelled',
+    color: 'bg-red-500',
+    dotColor: '#EF4444',
+    emoji: '\u274C',
+    description: 'Cancelled orders',
   },
 };
 
