@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Info, Undo2 } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FlipNumber, FlowChevrons } from './FlipNumber';
@@ -172,19 +172,13 @@ interface ProductCardProps {
 }
 
 function ProductCard({ product, needed, inputValue, onInputChange, onStickerProducts, disabled = false }: ProductCardProps) {
-  const handleAction = async (negate: boolean, event?: React.MouseEvent) => {
+  const handleSubmit = async (event?: React.MouseEvent) => {
     const val = parseInt(inputValue, 10);
     if (!isNaN(val) && val !== 0) {
-      const qty = negate ? -Math.abs(val) : Math.abs(val);
-      await onStickerProducts(product.menuProductId, qty, event);
+      await onStickerProducts(product.menuProductId, val, event);
       onInputChange('');
     }
   };
-
-  const canSticker = product.availableForStickering > 0 && !disabled;
-  const canUndo = product.stickered > 0 && !disabled;
-  const parsedVal = parseInt(inputValue, 10);
-  const hasValidInput = !isNaN(parsedVal) && parsedVal !== 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 border-l-[#6B4C3B] overflow-hidden">
@@ -213,7 +207,7 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
 
       {/* Content */}
       <div className="px-3 py-2.5 space-y-2">
-        {/* Row 1: Input + Undo + Sticker buttons */}
+        {/* Row 1: Input + Sticker button */}
         <div className="flex items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -222,8 +216,8 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
                   type="number"
                   value={inputValue}
                   onChange={(e) => onInputChange(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && canSticker) handleAction(false); }}
-                  placeholder="Qty"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+                  placeholder="Qty to add"
                   disabled={disabled}
                   className={cn(
                     'w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-center text-base font-bold',
@@ -236,25 +230,12 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[200px] text-center">
-              <p>Enter quantity, then tap Sticker or Undo</p>
+              <p>Use negative numbers to revert (e.g. -5)</p>
             </TooltipContent>
           </Tooltip>
           <button
-            onClick={(e) => handleAction(true, e)}
-            disabled={!canUndo || !hasValidInput}
-            className={cn(
-              'h-11 px-3 rounded-lg font-bold text-sm shrink-0',
-              'bg-amber-500 hover:bg-amber-600 text-white',
-              'touch-manipulation active:scale-95 transition-transform duration-100',
-              'disabled:opacity-30 disabled:cursor-not-allowed',
-              'flex items-center gap-1'
-            )}
-          >
-            <Undo2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => handleAction(false, e)}
-            disabled={!canSticker || !hasValidInput}
+            onClick={(e) => handleSubmit(e)}
+            disabled={disabled || !inputValue || parseInt(inputValue, 10) === 0 || isNaN(parseInt(inputValue, 10))}
             className={cn(
               'h-11 px-4 rounded-lg font-bold text-sm shrink-0',
               'bg-[#6B4C3B] hover:bg-[#5B3C2B] text-white',
@@ -264,7 +245,7 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
             )}
           >
             Sticker
-            {canSticker && hasValidInput && (
+            {inputValue && !isNaN(parseInt(inputValue, 10)) && parseInt(inputValue, 10) !== 0 && (
               <FlowChevrons color="rgba(255,255,255,0.8)" />
             )}
           </button>
