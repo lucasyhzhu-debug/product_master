@@ -17,3 +17,4 @@ export { LocationsManager } from './LocationsManager';
 export { ProductionComponentsManager } from './ProductionComponentsManager';
 export { SalesAnalytics } from './SalesAnalytics';
 export { RestockPlanner } from './RestockPlanner';
+export { K3MartCockpit } from './K3MartCockpit';

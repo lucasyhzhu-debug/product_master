@@ -20,7 +20,7 @@ import {
   LocationsManager,
   ProductionComponentsManager,
   SalesAnalytics,
-  RestockPlanner,
+  K3MartCockpit,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -224,15 +224,18 @@ function App() {
               }
             />
 
-            {/* Restock Planner - Manager and Admin */}
+            {/* K3 Mart Cockpit - Manager and Admin */}
             <Route
-              path="restock"
+              path="k3mart-cockpit"
               element={
                 <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
-                  <RestockPlanner />
+                  <K3MartCockpit />
                 </ProtectedRoute>
               }
             />
+
+            {/* Legacy Restock Planner - redirects to K3 Mart Cockpit */}
+            <Route path="restock" element={<Navigate to="/k3mart-cockpit" replace />} />
 
             {/* Redirects for deleted pages (bookmarked URLs) */}
             <Route path="inventory/components" element={<Navigate to="/components/production" replace />} />
