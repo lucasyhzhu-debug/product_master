@@ -14,6 +14,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-11 - Hotfix: Orders + K3Mart Cockpit Issues
+
+### Overview
+Fixes five issues: revenue sync now captures all qualifying orders (not just recently created ones), order cards show NET amounts prominently, completed/cancelled orders are visually distinct, kitchen filter no longer crashes on Boxed/Labeled statuses, K3Mart outlet selection no longer crashes on empty product IDs, and weekly planner now shows products from restock targets instead of being empty.
+
+### Changes
+- **Revenue sync** — Removed `_creationTime` filter so orders that transition to revenue-countable status after initial sync are captured. Dedup by `orderNumber` already exists downstream.
+- **Order cards** — NET amount (total - discount) shown bold in terracotta; gross amount in small strikethrough when discounted. Cancelled orders display muted strikethrough.
+- **Status categories** — Split `completed` (green) from `cancelled` (red) in order filter dropdown.
+- **Kitchen filter** — Added `Boxed` and `Labeled` to order list query validator (was causing server error).
+- **K3Mart Select crash** — Backend now returns `menuProductId` in outlet stock summary. Frontend filters out products with empty IDs from Select components.
+- **Weekly planner** — Backend query now returns enriched products/outlets from `restockTargets` table. Frontend uses backend data instead of extracting from plans (which was empty for new weeks).
+- **Sync button** — Added "Refresh Data" button to K3Mart Cockpit header that syncs both K3Mart sales and stock data.
+
+### Files Modified
+- `convex/orders/queries.ts` — Added Boxed/Labeled to status validator
+- `convex/integrations/internal/queries.ts` — Removed sinceTimestamp filter
+- `convex/integrations/internal/adapter.ts` — Removed incremental sync logic
+- `convex/k3martCockpit/queries.ts` — Added menuProductId to stock summary, enriched weekly planner
+- `src/lib/orderConstants.ts` — Split completed/cancelled categories
+- `src/hooks/convex/useOrders.ts` — Added Boxed/Labeled/InProduction to OrderStatusType
+- `src/pages/OrderManager.tsx` — NET amount display, cancelled category in dropdown
+- `src/components/k3martCockpit/StockFlowForm.tsx` — Filter empty menuProductId from Select
+- `src/pages/K3MartCockpit.tsx` — Use backend products/outlets, sync button, menuProductId mapping
+
+---
+
 ## 2026-02-11 - K3 Mart Kitchen Tracker + Kitchen QoL Improvements
 
 ### Overview

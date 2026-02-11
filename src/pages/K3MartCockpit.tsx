@@ -14,7 +14,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Calendar, Store, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Store, TrendingUp, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 // UI components
@@ -45,6 +45,8 @@ import {
   useConvexSubmitBulkStockIns,
   useConvexSaveWeeklyDispatchPlan,
   useConvexConfirmDayPlan,
+  useConvexSyncK3MartSales,
+  useConvexSyncK3MartStock,
 } from '@/hooks/convex';
 
 // Utilities
@@ -157,10 +159,29 @@ export function K3MartCockpit() {
   const submitBulkStockIns = useConvexSubmitBulkStockIns();
   const saveWeeklyDispatchPlan = useConvexSaveWeeklyDispatchPlan();
   const confirmDayPlan = useConvexConfirmDayPlan();
+  const syncK3MartSales = useConvexSyncK3MartSales();
+  const syncK3MartStock = useConvexSyncK3MartStock();
+  const [syncing, setSyncing] = useState(false);
 
   // ==========================================
   // HANDLERS
   // ==========================================
+
+  /** Handle sync K3Mart data */
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await Promise.allSettled([
+        syncK3MartSales({ triggeredBy: 'k3mart-cockpit' }),
+        syncK3MartStock({ triggeredBy: 'k3mart-cockpit' }),
+      ]);
+      toast.success('K3Mart data refreshed');
+    } catch {
+      toast.error('Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncK3MartSales, syncK3MartStock]);
 
   /** Handle stock flow submission (from individual outlet panel) */
   const handleStockFlowSubmit = useCallback(
@@ -401,7 +422,7 @@ export function K3MartCockpit() {
         outletId: o._id,
         outletName: o.name,
         products: o.products.map((p: any) => ({
-          menuProductId: '', // TODO: Need product mapping from backend
+          menuProductId: p.menuProductId ?? '',
           productName: p.productName,
           externalProductCode: p.externalProductCode,
           currentStock: p.quantity,
@@ -449,9 +470,7 @@ export function K3MartCockpit() {
       };
     }
 
-    // The query returns { plans: [...], targets: [...] }
-    // plans: k3martDispatchPlans documents
-    // targets: restockTargets documents
+    // The query returns { plans, targets, products, outlets }
 
     const datesInfo = weekDates.map((date) => ({
       date,
@@ -464,17 +483,13 @@ export function K3MartCockpit() {
       isTomorrow: date === tomorrow,
     }));
 
-    // TODO: The current query doesn't return products and outlets lists.
-    // We need to extract unique products/outlets from the plans themselves,
-    // or enhance the backend query to return this data.
+    // Use products and outlets from backend (populated from restockTargets)
+    const products = weeklyPlansData.products ?? [];
+    const outlets = weeklyPlansData.outlets ?? [];
 
-    // For now, extract from plans
-    const productMap = new Map<string, string>();
-    const outletMap = new Map<string, string>();
+    // Build plans map from existing plans
     const plansMap: Record<string, any> = {};
-
     weeklyPlansData.plans.forEach((plan: any) => {
-      // Build plan key
       const key = `${plan.outletId}_${plan.date}_${plan.menuProductId}`;
       plansMap[key] = {
         value: plan.plannedQty,
@@ -482,23 +497,12 @@ export function K3MartCockpit() {
         isStockOut: plan.isStockOut ?? false,
         status: plan.status,
       };
-
-      // Track products and outlets (we don't have names, just IDs)
-      productMap.set(plan.menuProductId, plan.menuProductId); // TODO: Need product name
-      outletMap.set(plan.outletId, plan.outletId); // TODO: Need outlet name
     });
 
     return {
       dates: datesInfo,
-      products: Array.from(productMap.entries()).map(([id, name]) => ({
-        menuProductId: id,
-        productName: name, // TODO: Fetch actual names
-        externalProductCode: '', // TODO: Fetch from mapping
-      })),
-      outlets: Array.from(outletMap.entries()).map(([id, name]) => ({
-        outletId: id,
-        outletName: name, // TODO: Fetch actual names
-      })),
+      products,
+      outlets,
       plans: plansMap,
     };
   }, [weeklyPlansData, weekDates, today, tomorrow]);
@@ -524,7 +528,19 @@ export function K3MartCockpit() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <PageHeader title="K3 Mart Cockpit" description={`Today: ${formatDateShort(today)}`} />
+      <div className="flex items-center justify-between">
+        <PageHeader title="K3 Mart Cockpit" description={`Today: ${formatDateShort(today)}`} />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing...' : 'Refresh Data'}
+        </Button>
+      </div>
 
       {/* ALERT ZONE: Production Readiness Bar */}
       {productionReadinessItems.length > 0 && (
