@@ -1,0 +1,109 @@
+/**
+ * K3 Mart Cockpit - Pure Business Logic Helpers
+ *
+ * These functions have NO Convex ctx dependency and can be unit tested directly.
+ */
+
+/**
+ * Calculate how much kitchen needs to produce vs. how much to submit to K3 Mart API.
+ *
+ * @param target - Target stock level at the outlet
+ * @param currentStock - Current stock at the outlet
+ * @param transfersIn - Units being transferred in from other outlets
+ * @returns apiStockInQty (what to submit to K3 Mart) and kitchenOrderQty (what kitchen must produce fresh)
+ */
+export function calculateKitchenDelta(
+  target: number,
+  currentStock: number,
+  transfersIn: number
+): { apiStockInQty: number; kitchenOrderQty: number } {
+  const netStockIn = Math.max(0, target - currentStock);
+  return {
+    apiStockInQty: netStockIn,
+    kitchenOrderQty: Math.max(0, netStockIn - transfersIn),
+  };
+}
+
+/**
+ * Calculate suggested dispatch quantity for an outlet.
+ * Uses target, current stock, and 7-day average daily sales for safety buffer.
+ *
+ * @param target - Day target (weekday or weekend from restockTargets)
+ * @param currentStock - Current stock at outlet
+ * @param avgDailySales - 7-day average daily sales at this outlet
+ * @returns Suggested quantity (always >= 0)
+ */
+export function calculateSuggestedQty(
+  target: number,
+  currentStock: number,
+  avgDailySales: number
+): number {
+  const safetyStock = Math.ceil(avgDailySales);
+  return Math.max(0, target - currentStock + safetyStock);
+}
+
+/**
+ * Get ISO week number string from a YYYY-MM-DD date.
+ * Returns format "2026-W07".
+ */
+export function getWeekNumber(date: string): string {
+  const d = new Date(date + "T00:00:00+07:00"); // Jakarta timezone
+  const dayNum = d.getDay() || 7; // Make Sunday = 7
+  d.setDate(d.getDate() + 4 - dayNum); // Set to Thursday of the week
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+/**
+ * Format a YYYY-MM-DD date for display.
+ * Returns "Mon, Feb 11" style format.
+ */
+export function formatDateShort(date: string): string {
+  const d = new Date(date + "T00:00:00+07:00");
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "Asia/Jakarta",
+  });
+}
+
+/**
+ * Generate an array of YYYY-MM-DD dates for a week starting from Monday.
+ * @param startDate - Any date in the week (YYYY-MM-DD)
+ * @returns Array of 7 date strings [Monday..Sunday]
+ */
+export function getWeekDates(startDate: string): string[] {
+  const d = new Date(startDate + "T00:00:00+07:00");
+  const dayOfWeek = d.getDay() || 7; // Sunday = 7
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - dayOfWeek + 1);
+
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const current = new Date(monday);
+    current.setDate(monday.getDate() + i);
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, "0");
+    const day = String(current.getDate()).padStart(2, "0");
+    dates.push(`${year}-${month}-${day}`);
+  }
+  return dates;
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format (Jakarta timezone).
+ */
+export function getTodayJakarta(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+}
+
+/**
+ * Get tomorrow's date in YYYY-MM-DD format (Jakarta timezone).
+ */
+export function getTomorrowJakarta(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+}

@@ -46,7 +46,7 @@ const mainNavItems: NavItem[] = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
-  { path: '/restock', label: 'Restock', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
 ];
 
 // Configurations dropdown - Manager + Admin

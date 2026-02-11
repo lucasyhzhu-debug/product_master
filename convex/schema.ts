@@ -1154,4 +1154,73 @@ export default defineSchema({
   })
     .index("by_date", ["date"])
     .index("by_product_date", ["menuProductId", "date"]),
+
+  // ============================================
+  // K3 MART COCKPIT - Dispatch Planning & Stock Movements
+  // Weekly dispatch plans and stock movement audit log
+  // ============================================
+
+  k3martDispatchPlans: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    weekNumber: v.string(), // ISO week e.g. "2026-W07"
+    outletId: v.id("externalOutlets"),
+    menuProductId: v.id("menuProducts"),
+    externalProductId: v.string(), // "47068" or "47069"
+    suggestedQty: v.number(),
+    plannedQty: v.number(),
+    isStockOut: v.boolean(), // false = stock-in, true = stock-out
+    source: v.optional(v.union(v.literal("kitchen"), v.literal("goldfinch"), v.literal("outlet"))),
+    sourceOutletId: v.optional(v.id("externalOutlets")),
+    destinationOutletId: v.optional(v.id("externalOutlets")),
+    destination: v.optional(v.union(v.literal("office"), v.literal("goldfinch"), v.literal("outlet"))),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("confirmed"),
+      v.literal("submitted"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("canceled")
+    ),
+    submissionInProgress: v.optional(v.boolean()),
+    k3martRequestId: v.optional(v.number()),
+    submittedAt: v.optional(v.number()),
+    submittedBy: v.optional(v.string()),
+    updatedBy: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_date_outlet", ["date", "outletId"])
+    .index("by_date_status", ["date", "status"])
+    .index("by_outlet_date", ["outletId", "date"])
+    .index("by_week", ["weekNumber"]),
+
+  k3martStockMovements: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    outletId: v.id("externalOutlets"),
+    direction: v.union(v.literal("stock_in"), v.literal("stock_out")),
+    menuProductId: v.id("menuProducts"),
+    externalProductId: v.string(),
+    quantity: v.number(),
+    priceAtSubmission: v.number(),
+    currentStockAtSubmission: v.number(),
+    source: v.optional(v.union(v.literal("kitchen"), v.literal("goldfinch"), v.literal("outlet"))),
+    k3martRequestId: v.optional(v.number()),
+    k3martStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("canceled")
+    )),
+    destination: v.optional(v.union(v.literal("office"), v.literal("goldfinch"), v.literal("outlet"))),
+    destinationOutletId: v.optional(v.id("externalOutlets")),
+    note: v.optional(v.string()),
+    attemptCount: v.number(),
+    submittedBy: v.string(),
+    submittedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_outlet_date", ["outletId", "date"])
+    .index("by_outlet_direction", ["outletId", "direction"])
+    .index("by_status", ["k3martStatus"]),
 });
