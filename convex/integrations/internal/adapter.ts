@@ -71,6 +71,10 @@ export const syncInternalOrders = action({
           totalGross += gross;
           totalNet += net;
 
+          // Use payment confirmation date for revenue recognition;
+          // fall back to orderDate for historical orders without confirmedAt
+          const revenueDate = order.confirmedAt ?? order.orderDate;
+
           return {
             source: "internal" as const,
             productName: `Order ${order.orderNumber}`,
@@ -79,9 +83,9 @@ export const syncInternalOrders = action({
             revenueGross: gross,
             revenueNet: net,
             costOfGoods: order.totalCost,
-            periodStart: order.orderDate,
-            periodEnd: order.orderDate,
-            transactionDate: order.orderDate,
+            periodStart: revenueDate,
+            periodEnd: revenueDate,
+            transactionDate: revenueDate,
             transactionType: "sales" as const,
             externalTransactionId: order.orderNumber,
             dataOrigin: "db_query" as const,

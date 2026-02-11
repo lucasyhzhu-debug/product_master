@@ -30,6 +30,7 @@ import {
 interface OrderStatusUpdate {
   status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Boxed" | "Labeled" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled";
   awaitingPaymentSince?: number;
+  confirmedAt?: number;
 }
 
 interface OrderDetailsUpdate {
@@ -62,6 +63,7 @@ export const updateStatus = mutation({
     orderId: v.id("orders"),
     status: statusValidator,
     locationId: v.optional(v.id("storageLocations")),
+    skipStockCheck: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -79,6 +81,11 @@ export const updateStatus = mutation({
       updates.awaitingPaymentSince = Date.now();
     }
 
+    // Track payment confirmation timestamp (revenue recognition date)
+    if (newStatus === "Confirmed" && oldStatus !== "Confirmed" && !order.confirmedAt) {
+      updates.confirmedAt = Date.now();
+    }
+
     // Update order status first
     await ctx.db.patch(args.orderId, updates);
 
@@ -92,6 +99,7 @@ export const updateStatus = mutation({
         await reserveStockForOrderInternal(ctx, {
           orderId: args.orderId,
           locationId: args.locationId,
+          skipStockCheck: args.skipStockCheck,
         });
       } catch (error) {
         // Revert status on failure

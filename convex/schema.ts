@@ -300,6 +300,7 @@ export default defineSchema({
       v.literal("Cancelled")
     ),
     awaitingPaymentSince: v.optional(v.number()),
+    confirmedAt: v.optional(v.number()), // When payment was confirmed (revenue recognition date)
 
     // PRD-0: Payment status with type-safe union
     paymentStatus: v.union(
