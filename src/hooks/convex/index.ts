@@ -341,3 +341,28 @@ export { useKitchenProduction } from "./useKitchenProduction";
 
 // Protected Mutation Wrapper
 export { useProtectedMutation } from "./useProtectedMutation";
+
+// K3 Mart Cockpit (K3 Mart Management Cockpit)
+export {
+  // Query hooks
+  useConvexOutletStockSummary,
+  useConvexWeeklyDispatchPlans,
+  useConvexProductionReadiness,
+  useConvexInventorySources,
+  useConvexOutletDetail,
+  useConvexStockMovementHistory,
+  // Action hooks
+  useConvexFetchOutletDashboard,
+  useConvexSubmitStockFlow,
+  useConvexSubmitBulkStockIns,
+  useConvexCancelStockFlow,
+  useConvexFetchStockFlowHistory,
+  useConvexFetchStockFlowDetail,
+  useConvexVerifySubmissionStatuses,
+  useConvexRefreshOutlets,
+  // Protected mutation hooks
+  useConvexSaveWeeklyDispatchPlan,
+  useConvexConfirmDayPlan,
+  useConvexProcessStockOutDestination,
+  useConvexToggleOutletActive,
+} from "./useK3MartCockpit";
