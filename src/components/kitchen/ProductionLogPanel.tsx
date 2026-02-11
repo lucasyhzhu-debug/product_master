@@ -30,6 +30,8 @@ interface ProductionLogPanelProps {
   trayInventory: {
     originalBallCount: number;
     biteSizedBallCount: number;
+    totalProducedOriginal: number;
+    totalProducedBiteSized: number;
   } | undefined;
   kitchenStats: {
     bigBallsNeeded: number;
@@ -58,6 +60,7 @@ interface ProductionLogPanelProps {
     quantity: number;
   }>;
   depotStockMap?: Map<string, number>; // menuProductId -> depot quantity
+  k3MartStockMap?: Map<string, number>; // menuProductId -> K3 Mart outlet stock
   onAddBalls: (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => void;
   onSetProductTarget?: (menuProductId: string, source: string, quantity: number) => void;
   disabled?: boolean;
@@ -66,6 +69,7 @@ interface ProductionLogPanelProps {
 interface BallCounterSectionProps {
   ballType: BallType;
   count: number;
+  totalProduced?: number;
   target?: number;
   onAdd: (count: number, event?: React.MouseEvent) => void;
   disabled?: boolean;
@@ -74,6 +78,7 @@ interface BallCounterSectionProps {
 function BallCounterSection({
   ballType,
   count,
+  totalProduced = 0,
   target,
   onAdd,
   disabled = false,
@@ -94,7 +99,8 @@ function BallCounterSection({
     }
   };
 
-  const delta = target !== undefined && target > 0 ? count - target : null;
+  // Delta based on cumulative production (not tray count, which drops after boxing)
+  const delta = target !== undefined && target > 0 ? totalProduced - target : null;
 
   return (
     <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm p-3 space-y-2">
@@ -104,19 +110,19 @@ function BallCounterSection({
           <FlipNumber value={count} size="lg" />
         </div>
         <div className="text-xs font-medium text-gray-600">
-          {config.displayName} ({config.grams}g)
+          {config.displayName} ({config.grams}g) in tray
         </div>
-        {/* Delta vs target */}
+        {/* Delta vs target — uses cumulative production, not tray count */}
         {delta !== null && (
           <div className={cn(
             'text-[10px] font-semibold tabular-nums mt-0.5',
             delta < 0 ? 'text-amber-600' : delta === 0 ? 'text-green-600' : 'text-blue-600'
           )}>
             {delta < 0
-              ? `Need ${Math.abs(delta)} more (target: ${target})`
+              ? `Need ${Math.abs(delta)} more (${totalProduced}/${target} made)`
               : delta === 0
-                ? `On target (${target})`
-                : `+${delta} surplus (target: ${target})`}
+                ? `On target (${totalProduced}/${target} made)`
+                : `+${delta} surplus (${totalProduced}/${target} made)`}
           </div>
         )}
       </div>
@@ -286,10 +292,12 @@ function EditableTargetCell({
 export function ProductionLogPanel({
   trayInventory,
   kitchenStats,
+  productionTargets,
   productionCounts,
   productTargets,
   orderProductDemand,
   depotStockMap,
+  k3MartStockMap,
   onAddBalls,
   onSetProductTarget,
   disabled = false,
@@ -346,6 +354,17 @@ export function ProductionLogPanel({
       else midBallTotal += total * p.ballCount;
     }
   }
+
+  // Use productionTargets as baseline — take MAX of per-product demand and unit-type targets
+  const midBallFromUnitTargets = productionTargets?.find(
+    t => t.unitTypeCode === 'MID_BALL'
+  )?.effectiveTarget ?? 0;
+  const bigBallFromUnitTargets = productionTargets?.find(
+    t => t.unitTypeCode === 'BIG_BALL'
+  )?.effectiveTarget ?? 0;
+
+  const midBallTarget = Math.max(midBallTotal, midBallFromUnitTargets);
+  const bigBallTarget = Math.max(bigBallTotal, bigBallFromUnitTargets);
 
   // Compute balls/hour production speed
   // Total balls consumed by boxing = sum of (boxed * ballCount) per product
@@ -412,6 +431,16 @@ export function ProductionLogPanel({
                         <TooltipContent side="top"><p>GoFood targets (editable)</p></TooltipContent>
                       </Tooltip>
                     </th>
+                    {k3MartStockMap && k3MartStockMap.size > 0 && (
+                      <th className="text-center px-1 py-1.5 font-semibold text-gray-500 w-10">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help">Stk</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p>K3 Mart outlet stock (read-only)</p></TooltipContent>
+                        </Tooltip>
+                      </th>
+                    )}
                     <th className="text-center px-1 py-1.5 font-bold text-gray-900 w-10">Tot</th>
                   </tr>
                 </thead>
@@ -461,6 +490,12 @@ export function ProductionLogPanel({
                             </div>
                           )}
                         </td>
+                        {/* K3 Mart outlet stock (read-only) */}
+                        {k3MartStockMap && k3MartStockMap.size > 0 && (
+                          <td className="text-center px-1 py-1 tabular-nums text-gray-400 text-[10px]">
+                            {k3MartStockMap.get(p.menuProductId) ?? <span className="text-gray-300">-</span>}
+                          </td>
+                        )}
                         {/* Total */}
                         <td className="text-center px-1 py-1 font-bold tabular-nums text-gray-900">
                           {total || <span className="text-gray-300">0</span>}
@@ -479,13 +514,13 @@ export function ProductionLogPanel({
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
                   <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
-                    <FlipNumber value={midBallTotal} size="md" />
+                    <FlipNumber value={midBallTarget} size="md" />
                   </div>
                   <div className="text-[10px] text-gray-600">Original (45g)</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
-                    <FlipNumber value={bigBallTotal} size="md" />
+                    <FlipNumber value={bigBallTarget} size="md" />
                   </div>
                   <div className="text-[10px] text-gray-600">Jumbo (80g)</div>
                 </div>
@@ -510,7 +545,8 @@ export function ProductionLogPanel({
           <BallCounterSection
             ballType="original"
             count={trayInventory.originalBallCount}
-            target={midBallTotal}
+            totalProduced={trayInventory.totalProducedOriginal ?? 0}
+            target={midBallTarget}
             onAdd={(count, event) => onAddBalls('original', count, event)}
             disabled={disabled}
           />
@@ -518,7 +554,8 @@ export function ProductionLogPanel({
           <BallCounterSection
             ballType="bite_sized"
             count={trayInventory.biteSizedBallCount}
-            target={bigBallTotal}
+            totalProduced={trayInventory.totalProducedBiteSized ?? 0}
+            target={bigBallTarget}
             onAdd={(count, event) => onAddBalls('bite_sized', count, event)}
             disabled={disabled}
           />

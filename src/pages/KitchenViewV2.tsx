@@ -32,6 +32,19 @@ import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
 import type { Id } from '../../convex/_generated/dataModel';
 
+/** Map backend error messages to human-friendly copy for kitchen staff */
+function friendlyCopy(msg: string): string {
+  if (msg.includes('Insufficient balls')) {
+    const match = msg.match(/need (\d+), have (\d+)/);
+    return match ? `Not enough balls! ${match[2]} in tray, need ${match[1]}` : msg;
+  }
+  if (msg.includes('Insufficient boxed'))
+    return msg.replace(/Insufficient boxed products: need (\d+), available (\d+)/, 'Only $2 boxed, need $1 to sticker');
+  if (msg.includes('Insufficient stickered'))
+    return msg.replace(/Insufficient stickered products: need (\d+), available (\d+)/, 'Only $2 stickered, need $1 to pack');
+  return msg;
+}
+
 export function KitchenViewV2() {
   useDocumentTitle('Kitchen Production');
 
@@ -54,6 +67,7 @@ export function KitchenViewV2() {
     goFoodDailyOrder,
     depotStock,
     goldfinchStickerInventory,
+    k3MartSummary,
     today,
   } = useKitchenProduction();
 
@@ -119,30 +133,38 @@ export function KitchenViewV2() {
   // Handlers - Boxing
   const handleBoxProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
     try {
-      await boxProducts({
+      const result = await boxProducts({
         menuProductId: menuProductId as Id<'menuProducts'>,
         quantity,
       });
       const action = quantity > 0 ? 'Boxed' : 'Unboxed';
-      actionToast(`${action} ${Math.abs(quantity)}`, event);
+      if (result?.warning) {
+        actionToast(`${action} ${Math.abs(quantity)} (packaging low)`, event, 'warning');
+      } else {
+        actionToast(`${action} ${Math.abs(quantity)}`, event);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to box products';
-      toast.error(msg);
+      actionToast(friendlyCopy(msg), event, 'error');
     }
   };
 
   // Handlers - Stickering
   const handleStickerProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
     try {
-      await stickerProducts({
+      const result = await stickerProducts({
         menuProductId: menuProductId as Id<'menuProducts'>,
         quantity,
       });
       const action = quantity > 0 ? 'Stickered' : 'Unstickered';
-      actionToast(`${action} ${Math.abs(quantity)}`, event);
+      if (result?.warning) {
+        actionToast(`${action} ${Math.abs(quantity)} (packaging low)`, event, 'warning');
+      } else {
+        actionToast(`${action} ${Math.abs(quantity)}`, event);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to sticker products';
-      toast.error(msg);
+      actionToast(friendlyCopy(msg), event, 'error');
     }
   };
 
@@ -156,7 +178,7 @@ export function KitchenViewV2() {
       actionToast('Packed', event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to toggle pack';
-      toast.error(msg);
+      actionToast(friendlyCopy(msg), event, 'error');
     }
   };
 
@@ -168,7 +190,7 @@ export function KitchenViewV2() {
       actionToast('Order marked as ready!', event);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to mark order ready';
-      toast.error(msg);
+      actionToast(friendlyCopy(msg), event, 'error');
     }
   };
 
@@ -221,6 +243,19 @@ export function KitchenViewV2() {
       toast.info('Syncing GoBiz data...');
       await syncGoBizAction({ triggeredBy: 'kitchen_manual' });
       toast.success('GoBiz sync complete');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Sync failed';
+      toast.error(msg);
+    }
+  };
+
+  // Handler - K3 Mart Sync Stock
+  const syncK3MartAction = useAction(api.integrations.k3mart.adapter.syncK3MartStock);
+  const handleSyncK3Mart = async () => {
+    try {
+      toast.info('Syncing K3 Mart stock...');
+      await syncK3MartAction({ triggeredBy: 'kitchen_manual' });
+      toast.success('K3 Mart sync complete');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Sync failed';
       toast.error(msg);
@@ -308,6 +343,73 @@ export function KitchenViewV2() {
     };
   }, [goFoodDailyOrder, productionCounts, goldfinchStickerInventory]);
 
+  // Build K3 Mart outlet stock map for ProductionLogPanel + BoxingPanel
+  const k3MartStockMap = useMemo(() => {
+    if (!k3MartSummary?.items?.length) return undefined;
+    const map = new Map<string, number>();
+    for (const item of k3MartSummary.items) {
+      if (item.totalOutletStock > 0) {
+        map.set(item.menuProductId, item.totalOutletStock);
+      }
+    }
+    return map;
+  }, [k3MartSummary]);
+
+  // Build K3 Mart sticker data for StickeringPanel
+  const k3MartStickerData = useMemo(() => {
+    if (!k3MartSummary?.items?.length) return undefined;
+    return k3MartSummary.items;
+  }, [k3MartSummary]);
+
+  // Build K3 Mart packing data for PackingPanel
+  const k3MartPackingData = useMemo(() => {
+    if (!k3MartSummary?.items?.length) return null;
+
+    // Only include items with consignment targets
+    const targetItems = k3MartSummary.items.filter(
+      (i: any) => i.consignmentTarget > 0
+    );
+    if (targetItems.length === 0) return null;
+
+    const pcMap = new Map(
+      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
+    );
+
+    const items = targetItems.map((item: any) => {
+      const pc = pcMap.get(item.menuProductId);
+      const boxed = pc?.boxed ?? 0;
+      const stickered = pc?.stickered ?? 0;
+      return {
+        menuProductId: item.menuProductId,
+        productName: item.productName,
+        consignmentTarget: item.consignmentTarget,
+        boxed,
+        stickered,
+        isReady: stickered >= item.consignmentTarget,
+      };
+    });
+
+    return { date: today, items };
+  }, [k3MartSummary, productionCounts, today]);
+
+  // Compute per-product total target (orders + consignment + gofood) for BoxingPanel
+  const productTargetTotals = useMemo(() => {
+    if (!productionCounts) return {};
+    const map: Record<string, number> = {};
+    for (const p of productionCounts.filter(p => p.posSlot != null)) {
+      const orders = orderProductDemand?.find(d => d.menuProductId === p.menuProductId)?.quantity ?? 0;
+      const consignment = productTargets
+        ?.filter(t => t.source === 'consignment' && t.menuProductId === p.menuProductId)
+        .reduce((sum, t) => sum + t.quantity, 0) ?? 0;
+      const gofood = productTargets
+        ?.filter(t => t.source === 'gofood' && t.menuProductId === p.menuProductId)
+        .reduce((sum, t) => sum + t.quantity, 0) ?? 0;
+      const total = orders + consignment + gofood;
+      if (total > 0) map[p.menuProductId] = total;
+    }
+    return map;
+  }, [productionCounts, productTargets, orderProductDemand]);
+
   // Aggregate "packages needed from orders" per menuProductId
   const neededFromOrders = useMemo(() => {
     if (!packingOrders) return {};
@@ -374,8 +476,8 @@ export function KitchenViewV2() {
           productTargets={productTargets}
           orderProductDemand={orderProductDemand}
           depotStockMap={depotStockMap}
+          k3MartStockMap={k3MartStockMap}
           onAddBalls={handleAddBalls}
-
           onSetProductTarget={handleSetProductTarget}
           disabled={!canEditKitchen}
         />
@@ -383,6 +485,8 @@ export function KitchenViewV2() {
           productionCounts={productionCounts}
           trayInventory={trayInventory}
           neededFromOrders={neededFromOrders}
+          productTargetTotals={productTargetTotals}
+          k3MartStockMap={k3MartStockMap}
           onBoxProducts={handleBoxProducts}
           disabled={!canEditKitchen}
         />
@@ -391,13 +495,17 @@ export function KitchenViewV2() {
           neededFromOrders={neededFromOrders}
           goFoodDepotData={goFoodDepotData}
           lastSyncAt={goFoodDailyOrder?.lastSyncAt}
+          k3MartData={k3MartStickerData}
+          k3MartLastSyncAt={k3MartSummary?.lastSyncAt}
           onStickerProducts={handleStickerProducts}
           onSyncNow={handleSyncNow}
+          onSyncK3Mart={handleSyncK3Mart}
           disabled={!canEditKitchen}
         />
         <PackingPanel
           packingOrders={packingOrders}
           goFoodPackingData={goFoodPackingData}
+          k3MartPackingData={k3MartPackingData}
           onTogglePack={handleTogglePack}
           onMarkOrderReady={handleMarkOrderReady}
           onShipToGoldfinch={handleShipToGoldfinch}
@@ -420,8 +528,8 @@ export function KitchenViewV2() {
               productTargets={productTargets}
               orderProductDemand={orderProductDemand}
               depotStockMap={depotStockMap}
+              k3MartStockMap={k3MartStockMap}
               onAddBalls={handleAddBalls}
-
               onSetProductTarget={handleSetProductTarget}
               disabled={!canEditKitchen}
             />
@@ -433,6 +541,8 @@ export function KitchenViewV2() {
             <BoxingPanel
               productionCounts={productionCounts}
               trayInventory={trayInventory}
+              productTargetTotals={productTargetTotals}
+              k3MartStockMap={k3MartStockMap}
               onBoxProducts={handleBoxProducts}
               disabled={!canEditKitchen}
             />
@@ -445,8 +555,11 @@ export function KitchenViewV2() {
               productionCounts={productionCounts}
               goFoodDepotData={goFoodDepotData}
               lastSyncAt={goFoodDailyOrder?.lastSyncAt}
+              k3MartData={k3MartStickerData}
+              k3MartLastSyncAt={k3MartSummary?.lastSyncAt}
               onStickerProducts={handleStickerProducts}
               onSyncNow={handleSyncNow}
+              onSyncK3Mart={handleSyncK3Mart}
               disabled={!canEditKitchen}
             />
           </div>
@@ -457,6 +570,7 @@ export function KitchenViewV2() {
             <PackingPanel
               packingOrders={packingOrders}
               goFoodPackingData={goFoodPackingData}
+              k3MartPackingData={k3MartPackingData}
               onTogglePack={handleTogglePack}
               onMarkOrderReady={handleMarkOrderReady}
               onShipToGoldfinch={handleShipToGoldfinch}

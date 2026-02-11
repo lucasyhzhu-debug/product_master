@@ -68,6 +68,8 @@ interface KitchenProductionData {
     | {
         originalBallCount: number;
         biteSizedBallCount: number;
+        totalProducedOriginal: number;
+        totalProducedBiteSized: number;
       }
     | undefined;
 
@@ -117,6 +119,9 @@ interface KitchenProductionData {
   depotStock: any;
   goldfinchStickerInventory: any;
 
+  // K3 Mart kitchen summary
+  k3MartSummary: any;
+
   // Today's date string (YYYY-MM-DD)
   today: string;
 }
@@ -162,6 +167,11 @@ export function useKitchenProduction(): KitchenProductionData {
     {}
   );
 
+  // K3 Mart kitchen summary
+  const k3MartSummary = useQuery(api.k3martKitchen.queries.getK3MartKitchenSummary, {
+    date: today,
+  });
+
   const isLoading =
     productionCounts === undefined ||
     packingOrders === undefined ||
@@ -180,6 +190,7 @@ export function useKitchenProduction(): KitchenProductionData {
     goFoodDailyOrder,
     depotStock,
     goldfinchStickerInventory,
+    k3MartSummary,
     today,
   };
 }

@@ -30,6 +30,8 @@ interface BoxingPanelProps {
     biteSizedBallCount: number;
   } | undefined;
   neededFromOrders?: Record<string, number>;
+  productTargetTotals?: Record<string, number>;
+  k3MartStockMap?: Map<string, number>;
   onBoxProducts: (menuProductId: string, quantity: number, event?: React.MouseEvent) => Promise<void>;
   disabled?: boolean;
 }
@@ -38,6 +40,8 @@ export function BoxingPanel({
   productionCounts,
   trayInventory,
   neededFromOrders,
+  productTargetTotals,
+  k3MartStockMap,
   onBoxProducts,
   disabled = false,
 }: BoxingPanelProps) {
@@ -96,6 +100,8 @@ export function BoxingPanel({
           const availableBalls = getAvailableBalls(product.menuProductName);
           const awaitingSticker = product.availableForStickering;
           const needed = neededFromOrders?.[product.menuProductId] ?? 0;
+          const targetTotal = productTargetTotals?.[product.menuProductId] ?? 0;
+          const outletStock = k3MartStockMap?.get(product.menuProductId);
           const inputVal = inputValues[product.menuProductId] || '';
 
           return (
@@ -115,6 +121,12 @@ export function BoxingPanel({
                       <span>Balls: <span className="font-bold text-gray-700">{availableBalls}</span></span>
                       {needed > 0 && (
                         <span>Need: <span className="font-bold text-amber-700">{needed}</span></span>
+                      )}
+                      {targetTotal > 0 && (
+                        <span>Target: <span className="font-bold text-blue-700">{targetTotal}</span></span>
+                      )}
+                      {outletStock != null && outletStock > 0 && (
+                        <span>Outlets: <span className="font-bold" style={{ color: 'var(--color-k3mart)' }}>{outletStock}</span></span>
                       )}
                     </div>
                   </div>

@@ -540,6 +540,8 @@ export default defineSchema({
     date: v.string(), // YYYY-MM-DD format
     originalBallCount: v.number(), // Current Original (45g, MID_BALL) balls in tray
     biteSizedBallCount: v.number(), // Current Jumbo (80g, BIG_BALL) balls in tray
+    totalProducedOriginal: v.optional(v.number()), // Cumulative balls produced today (never decremented)
+    totalProducedBiteSized: v.optional(v.number()), // Cumulative balls produced today (never decremented)
     lastUpdated: v.number(), // Timestamp
     updatedBy: v.optional(v.string()),
   })
