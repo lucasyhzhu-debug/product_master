@@ -177,11 +177,10 @@ export const getProductionReadiness = query({
     date: v.string(), // YYYY-MM-DD (today)
   },
   handler: async (ctx, args) => {
-    // Calculate tomorrow's date
-    const today = new Date(args.date + "T00:00:00+07:00");
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+    // Calculate tomorrow's date (use noon UTC to avoid timezone edge cases)
+    const todayUTC = new Date(args.date + "T12:00:00Z");
+    todayUTC.setUTCDate(todayUTC.getUTCDate() + 1);
+    const tomorrowStr = todayUTC.toISOString().split("T")[0];
 
     // Fetch all production counts
     const allProductionCounts = await ctx.db
