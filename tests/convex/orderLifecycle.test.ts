@@ -39,7 +39,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
 
     // ARRANGE: Create order in Draft status
     const customerId = await createCustomer(t);
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -53,7 +53,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     const beforeTimestamp = Date.now();
 
     // ACT: Transition to AwaitingPayment
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
@@ -123,7 +123,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     });
 
     // Create the order with this menu product
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -138,13 +138,13 @@ describe('Complete Lifecycle - Shipped Path', () => {
     });
 
     // Move to AwaitingPayment
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
 
     // ACT: Transition to Confirmed (triggers inventory reservation)
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Confirmed',
     });
@@ -169,7 +169,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(order?.status).toBe('Confirmed');
 
     // ACT: Transition to InProduction
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'InProduction',
     });
@@ -189,7 +189,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(order?.status).toBe('InProduction');
 
     // ACT: Transition to Boxed
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Boxed',
     });
@@ -209,7 +209,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(order?.status).toBe('Boxed');
 
     // ACT: Transition to Labeled
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Labeled',
     });
@@ -229,7 +229,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(order?.status).toBe('Labeled');
 
     // ACT: Complete the shipped path
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'WaitingShipment',
     });
@@ -237,7 +237,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.status).toBe('WaitingShipment');
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'CompleteShipped',
     });
@@ -260,7 +260,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     const customerId = await createCustomer(t);
     await createDefaultStorageLocation(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       deliveryType: 'Pickup',
       lowPriceConfirmed: true,
@@ -270,7 +270,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     });
 
     // ACT: Transition through Draft -> AwaitingPayment -> Confirmed
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
@@ -278,7 +278,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.status).toBe('AwaitingPayment');
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Confirmed',
     });
@@ -299,9 +299,9 @@ describe('Complete Lifecycle - Pickup Path', () => {
     });
 
     // ACT: Transition through production stages
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Boxed' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Labeled' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
 
     // ASSERT: Labeled status
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
@@ -318,7 +318,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     });
 
     // ACT: Transition to WaitingPickup (not WaitingShipment)
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'WaitingPickup',
     });
@@ -341,7 +341,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     expect(order?.status).toBe('WaitingPickup');
 
     // ACT: Mark as picked up
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'PickedUp',
     });
@@ -366,12 +366,12 @@ describe('Complete Lifecycle - Pickup Path', () => {
     });
 
     // ACT: Take each order down its respective path
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId: shippedOrderId,
       status: 'WaitingShipment',
     });
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId: pickupOrderId,
       status: 'WaitingPickup',
     });
@@ -395,7 +395,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     const customerId = await createCustomer(t);
     await createDefaultStorageLocation(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       deliveryType: 'Pickup',
       lowPriceConfirmed: true,
@@ -420,7 +420,7 @@ describe('Complete Lifecycle - Pickup Path', () => {
     ] as const;
 
     for (const status of statuses) {
-      await t.mutation(api.orders.mutations.updateStatus, {
+      await t.mutation(api.orders.mutations.index.updateStatus, {
         orderId,
         status,
       });
@@ -448,7 +448,7 @@ describe('Cancellation Rollback at Every Stage', () => {
 
     // ARRANGE: Create order in Draft
     const customerId = await createCustomer(t);
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -457,7 +457,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     });
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Customer changed mind',
       reasonCategory: 'customer_request',
@@ -481,7 +481,7 @@ describe('Cancellation Rollback at Every Stage', () => {
 
     // ARRANGE: Create order at AwaitingPayment
     const customerId = await createCustomer(t);
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -489,13 +489,13 @@ describe('Cancellation Rollback at Every Stage', () => {
       ],
     });
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Payment not received',
       reasonCategory: 'payment_issue',
@@ -518,7 +518,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('Confirmed');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Out of stock',
       reasonCategory: 'out_of_stock',
@@ -541,7 +541,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('InProduction');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Production issue',
       reasonCategory: 'other',
@@ -565,7 +565,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('Boxed');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Quality issue',
       reasonCategory: 'other',
@@ -587,7 +587,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('Labeled');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Duplicate order',
       reasonCategory: 'duplicate',
@@ -608,7 +608,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('WaitingShipment');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Shipping cancelled',
       reasonCategory: 'customer_request',
@@ -632,7 +632,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(order?.status).toBe('WaitingPickup');
 
     // ACT: Cancel
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Pickup cancelled',
       reasonCategory: 'customer_request',
@@ -653,7 +653,7 @@ describe('Cancellation Rollback at Every Stage', () => {
 
     // ACT & ASSERT: Cannot cancel completed/shipped order
     await expect(
-      t.mutation(api.orders.mutations.cancel, {
+      t.mutation(api.orders.mutations.index.cancel, {
         orderId: shippedId,
         reason: 'Too late',
       })
@@ -666,7 +666,7 @@ describe('Cancellation Rollback at Every Stage', () => {
     });
 
     await expect(
-      t.mutation(api.orders.mutations.cancel, {
+      t.mutation(api.orders.mutations.index.cancel, {
         orderId: pickupId,
         reason: 'Too late',
       })
@@ -729,7 +729,7 @@ describe('Inventory Integration', () => {
       });
     });
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -744,7 +744,7 @@ describe('Inventory Integration', () => {
     });
 
     // ACT: Confirm order
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Confirmed',
     });
@@ -767,7 +767,7 @@ describe('Inventory Integration', () => {
 
     // ARRANGE: Create order in Draft
     const customerId = await createCustomer(t);
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -785,7 +785,7 @@ describe('Inventory Integration', () => {
     expect(reservations.length).toBe(0);
 
     // Move to AwaitingPayment
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
@@ -849,7 +849,7 @@ describe('Inventory Integration', () => {
       });
     });
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -864,7 +864,7 @@ describe('Inventory Integration', () => {
     });
 
     // Walk through lifecycle
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Confirmed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
 
     // Verify reserved after Confirmed
     let reservations = await t.run(async (ctx) => {
@@ -876,8 +876,8 @@ describe('Inventory Integration', () => {
     expect(reservations.some((r) => r.status === 'reserved')).toBe(true);
 
     // Continue through lifecycle -- Boxed triggers boxing material consumption
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Boxed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
 
     // ASSERT: After Boxed, boxing materials should be consumed
     reservations = await t.run(async (ctx) => {
@@ -895,9 +895,9 @@ describe('Inventory Integration', () => {
     expect(boxingReservations[0].status).toBe('consumed');
 
     // Complete the shipment
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Labeled' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'WaitingShipment' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'CompleteShipped' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'WaitingShipment' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'CompleteShipped' });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.status).toBe('CompleteShipped');
@@ -952,7 +952,7 @@ describe('Inventory Integration', () => {
       });
     });
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       deliveryType: 'Pickup',
       lowPriceConfirmed: true,
@@ -968,9 +968,9 @@ describe('Inventory Integration', () => {
     });
 
     // Walk through pickup lifecycle
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Confirmed' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Boxed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
 
     // Verify consumption happened at Boxed
     const reservations = await t.run(async (ctx) => {
@@ -984,9 +984,9 @@ describe('Inventory Integration', () => {
     expect(boxReservations[0].status).toBe('consumed');
 
     // Complete pickup path
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Labeled' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'WaitingPickup' });
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'PickedUp' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'WaitingPickup' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'PickedUp' });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.status).toBe('PickedUp');
@@ -1041,7 +1041,7 @@ describe('Inventory Integration', () => {
       });
     });
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -1056,7 +1056,7 @@ describe('Inventory Integration', () => {
     });
 
     // Confirm to trigger reservation
-    await t.mutation(api.orders.mutations.updateStatus, { orderId, status: 'Confirmed' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
 
     // Verify reservations exist
     const reservationsBefore = await verifyInventoryReserved(t, orderId);
@@ -1066,7 +1066,7 @@ describe('Inventory Integration', () => {
     // NOTE: The cancel mutation does NOT release inventory reservations --
     // only updateStatus with 'Cancelled' does. This is a known gap.
     // Using updateStatus here to test the inventory release path.
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Cancelled',
     });
@@ -1111,7 +1111,7 @@ describe('Invalid Transitions', () => {
     const customerId = await createCustomer(t);
     await createDefaultStorageLocation(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -1123,7 +1123,7 @@ describe('Invalid Transitions', () => {
     // so Draft -> Boxed succeeds. This documents the gap.
     // TODO: When state machine validation is added, change to:
     //   expect(...).rejects.toThrow()
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Boxed',
     });
@@ -1141,7 +1141,7 @@ describe('Invalid Transitions', () => {
     // ACT & ASSERT: Currently succeeds (no state machine enforcement)
     // TODO: When state machine validation is added, change to:
     //   expect(...).rejects.toThrow()
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'WaitingShipment',
     });
@@ -1159,7 +1159,7 @@ describe('Invalid Transitions', () => {
     // ACT & ASSERT: Currently succeeds (no state machine enforcement)
     // TODO: When state machine validation is added, change to:
     //   expect(...).rejects.toThrow()
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'InProduction',
     });
@@ -1176,7 +1176,7 @@ describe('Invalid Transitions', () => {
 
     // ACT & ASSERT: Cancel mutation correctly rejects terminal status
     await expect(
-      t.mutation(api.orders.mutations.cancel, {
+      t.mutation(api.orders.mutations.index.cancel, {
         orderId,
         reason: 'Too late to cancel',
       })

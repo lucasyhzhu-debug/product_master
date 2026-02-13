@@ -26,6 +26,7 @@ import type * as feedback_mutations from "../feedback/mutations.js";
 import type * as feedback_queries from "../feedback/queries.js";
 import type * as gofoodDepot_mutations from "../gofoodDepot/mutations.js";
 import type * as gofoodDepot_queries from "../gofoodDepot/queries.js";
+import type * as http from "../http.js";
 import type * as ingredients_mutations from "../ingredients/mutations.js";
 import type * as ingredients_queries from "../ingredients/queries.js";
 import type * as integrations_gobiz_adapter from "../integrations/gobiz/adapter.js";
@@ -72,7 +73,6 @@ import type * as orders_helpers_usageTracking from "../orders/helpers/usageTrack
 import type * as orders_helpers_voucherHandling from "../orders/helpers/voucherHandling.js";
 import type * as orders_kitchenQueries from "../orders/kitchenQueries.js";
 import type * as orders_migrations from "../orders/migrations.js";
-import type * as orders_mutations from "../orders/mutations.js";
 import type * as orders_mutations_index from "../orders/mutations/index.js";
 import type * as orders_mutations_inventoryIntegration from "../orders/mutations/inventoryIntegration.js";
 import type * as orders_mutations_itemCrud from "../orders/mutations/itemCrud.js";
@@ -102,6 +102,7 @@ import type * as products_mutations from "../products/mutations.js";
 import type * as products_queries from "../products/queries.js";
 import type * as recipes_mutations from "../recipes/mutations.js";
 import type * as recipes_queries from "../recipes/queries.js";
+import type * as reports_dailySales from "../reports/dailySales.js";
 import type * as restock_mutations from "../restock/mutations.js";
 import type * as restock_queries from "../restock/queries.js";
 import type * as shipping_mutations from "../shipping/mutations.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "feedback/queries": typeof feedback_queries;
   "gofoodDepot/mutations": typeof gofoodDepot_mutations;
   "gofoodDepot/queries": typeof gofoodDepot_queries;
+  http: typeof http;
   "ingredients/mutations": typeof ingredients_mutations;
   "ingredients/queries": typeof ingredients_queries;
   "integrations/gobiz/adapter": typeof integrations_gobiz_adapter;
@@ -186,7 +188,6 @@ declare const fullApi: ApiFromModules<{
   "orders/helpers/voucherHandling": typeof orders_helpers_voucherHandling;
   "orders/kitchenQueries": typeof orders_kitchenQueries;
   "orders/migrations": typeof orders_migrations;
-  "orders/mutations": typeof orders_mutations;
   "orders/mutations/index": typeof orders_mutations_index;
   "orders/mutations/inventoryIntegration": typeof orders_mutations_inventoryIntegration;
   "orders/mutations/itemCrud": typeof orders_mutations_itemCrud;
@@ -216,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   "products/queries": typeof products_queries;
   "recipes/mutations": typeof recipes_mutations;
   "recipes/queries": typeof recipes_queries;
+  "reports/dailySales": typeof reports_dailySales;
   "restock/mutations": typeof restock_mutations;
   "restock/queries": typeof restock_queries;
   "shipping/mutations": typeof shipping_mutations;

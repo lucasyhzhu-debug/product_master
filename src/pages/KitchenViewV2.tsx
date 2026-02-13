@@ -80,16 +80,16 @@ export function KitchenViewV2() {
   } = useKitchenProduction();
 
   // Mutations - ball tray (legacy, no auth)
-  const addBallsToTray = useMutation(api.orders.mutations.addBallsToTray);
+  const addBallsToTray = useMutation(api.orders.mutations.index.addBallsToTray);
 
   // Mutations - production targets (protected with auth)
   const setProductTarget = useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 
   // Mutations - new kitchen V3 (protected with auth)
-  const boxProducts = useProtectedMutation(api.orders.mutations.boxProducts);
-  const stickerProducts = useProtectedMutation(api.orders.mutations.stickerProducts);
-  const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.togglePackOrderLineItem);
-  const markOrderReady = useProtectedMutation(api.orders.mutations.markOrderReady);
+  const boxProducts = useProtectedMutation(api.orders.mutations.index.boxProducts);
+  const stickerProducts = useProtectedMutation(api.orders.mutations.index.stickerProducts);
+  const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.index.togglePackOrderLineItem);
+  const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
 
   // GoFood depot mutations
   const recordShipment = useProtectedMutation(api.gofoodDepot.mutations.recordShipment);
