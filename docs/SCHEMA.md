@@ -68,7 +68,6 @@ ingredients: defineTable({
   baseUnit: v.optional(v.string()),
 })
   .index("by_name", ["name"])
-  .index("by_brand", ["brand"])
 ```
 
 ### 2. `packagingMaterials` - Packaging Materials
@@ -398,7 +397,7 @@ orderItems: defineTable({
   isProductionComplete: v.optional(v.boolean()),
 })
   .index("by_order", ["orderId"])
-  .index("by_product_name", ["productName"])
+  .index("by_menu_product", ["menuProductId"])
 ```
 
 **Kitchen Ball Tracking (PRD-1 → PRD-5 Migration):**
@@ -494,8 +493,6 @@ productionLog: defineTable({
   note: v.optional(v.string()),                 // e.g., "correction"
 })
   .index("by_menu_product", ["menuProductId"])
-  .index("by_menu_product_timestamp", ["menuProductId", "timestamp"])
-  .index("by_action", ["action"])
   .index("by_timestamp", ["timestamp"])
 ```
 
