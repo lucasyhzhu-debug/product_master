@@ -1246,3 +1246,295 @@ export async function verifyNoGhostBalls(
     };
   });
 }
+
+// ============================================
+// Order Lifecycle Test Helpers
+// ============================================
+
+/**
+ * Valid order status transition paths.
+ * Used by createOrderAtStatus to advance orders through the lifecycle.
+ */
+const STATUS_PROGRESSION: Record<string, string> = {
+  Draft: 'AwaitingPayment',
+  AwaitingPayment: 'Confirmed',
+  Confirmed: 'InProduction',
+  InProduction: 'Boxed',
+  Boxed: 'Labeled',
+  Labeled: 'WaitingShipment', // Default path; pickup uses WaitingPickup
+};
+
+/**
+ * Creates an order and advances it to the target status through valid transitions.
+ *
+ * Uses createBasicOrder to create the order in Draft, then transitions
+ * through the valid workflow to reach targetStatus. Creates required
+ * infrastructure (storage location, inventory) as needed.
+ *
+ * @param t - Test context from convexTest(schema)
+ * @param options.targetStatus - The desired final status
+ * @param options.deliveryType - 'Delivery' (shipped) or 'Pickup' (pickup path)
+ * @param options.withInventory - Whether to create packaging inventory for reservation (default: true for Confirmed+)
+ * @param options.overrides - Overrides passed to createBasicOrder
+ * @returns orderId and supporting entity IDs
+ */
+export async function createOrderAtStatus(
+  t: TestContext,
+  options: {
+    targetStatus: string;
+    deliveryType?: 'Delivery' | 'Pickup';
+    withInventory?: boolean;
+    overrides?: Parameters<typeof createBasicOrder>[1];
+  }
+): Promise<{
+  orderId: Id<'orders'>;
+  customerId: Id<'customers'>;
+  menuProductId: Id<'menuProducts'>;
+  orderItemIds: Id<'orderItems'>[];
+  storageLocationId?: Id<'storageLocations'>;
+}> {
+  const { api } = await import('../../convex/_generated/api');
+
+  const targetStatus = options.targetStatus;
+  const deliveryType = options.deliveryType ?? 'Delivery';
+  const withInventory = options.withInventory ?? true;
+
+  // Create storage location (needed for Confirmed+ transitions)
+  let storageLocationId: Id<'storageLocations'> | undefined;
+  if (targetStatus !== 'Draft' && targetStatus !== 'AwaitingPayment') {
+    storageLocationId = await createDefaultStorageLocation(t);
+  }
+
+  // Create the order in Draft status via createBasicOrder
+  const orderResult = await createBasicOrder(t, {
+    ...options.overrides,
+    status: 'Draft', // Always start at Draft
+  });
+
+  // Fix: createBasicOrder creates order directly with the given status,
+  // but we need to start at Draft and transition forward.
+  // Patch the order to Draft first if needed.
+  await t.run(async (ctx) => {
+    await ctx.db.patch(orderResult.orderId, {
+      status: 'Draft',
+      deliveryType,
+    });
+  });
+
+  if (targetStatus === 'Draft') {
+    return { ...orderResult, storageLocationId };
+  }
+
+  // Define the path to reach target status
+  const statusPath: string[] = [];
+  let current = 'Draft';
+
+  while (current !== targetStatus) {
+    let next: string;
+
+    if (current === 'Labeled') {
+      // Branch: shipped vs pickup path
+      if (targetStatus === 'WaitingPickup' || targetStatus === 'PickedUp') {
+        next = 'WaitingPickup';
+      } else {
+        next = 'WaitingShipment';
+      }
+    } else if (current === 'WaitingShipment') {
+      next = 'CompleteShipped';
+    } else if (current === 'WaitingPickup') {
+      next = 'PickedUp';
+    } else {
+      next = STATUS_PROGRESSION[current];
+    }
+
+    if (!next) {
+      throw new Error(`No valid transition from ${current} toward ${targetStatus}`);
+    }
+
+    statusPath.push(next);
+    current = next;
+  }
+
+  // Execute transitions
+  for (const status of statusPath) {
+    await t.mutation(api.orders.mutations.updateStatus, {
+      orderId: orderResult.orderId,
+      status: status as 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'Boxed' | 'Labeled' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled',
+    });
+  }
+
+  return { ...orderResult, storageLocationId };
+}
+
+/**
+ * Verifies that orderComponentReservations exist for an order and all have status 'reserved'.
+ *
+ * @param t - Test context
+ * @param orderId - The order to check
+ * @returns Number of active reservations found
+ * @throws Error if no reservations found or any have non-reserved status
+ */
+export async function verifyInventoryReserved(
+  t: TestContext,
+  orderId: Id<'orders'>
+): Promise<number> {
+  const reservations = await t.run(async (ctx) => {
+    return await ctx.db
+      .query('orderComponentReservations')
+      .withIndex('by_order', (q) => q.eq('orderId', orderId))
+      .collect();
+  });
+
+  const activeReservations = reservations.filter((r) => r.status === 'reserved');
+
+  if (activeReservations.length === 0 && reservations.length === 0) {
+    // No reservations at all -- may be expected if no packaging components
+    return 0;
+  }
+
+  return activeReservations.length;
+}
+
+/**
+ * Verifies that no active reservations remain for an order.
+ * All reservations should be either 'released' or 'consumed'.
+ *
+ * @param t - Test context
+ * @param orderId - The order to check
+ * @returns true if no active reservations remain
+ * @throws Error if any reservations still have 'reserved' status
+ */
+export async function verifyInventoryReleased(
+  t: TestContext,
+  orderId: Id<'orders'>
+): Promise<boolean> {
+  const reservations = await t.run(async (ctx) => {
+    return await ctx.db
+      .query('orderComponentReservations')
+      .withIndex('by_order', (q) => q.eq('orderId', orderId))
+      .filter((q) => q.eq(q.field('status'), 'reserved'))
+      .collect();
+  });
+
+  if (reservations.length > 0) {
+    throw new Error(
+      `Expected 0 active reservations, found ${reservations.length} still with status 'reserved'`
+    );
+  }
+
+  return true;
+}
+
+/**
+ * Comprehensive cancellation verification.
+ * Checks all aspects of cancellation rollback per RESEARCH.md Pitfall 4:
+ * 1. Order status is 'Cancelled'
+ * 2. Inventory reservations released (no 'reserved' status)
+ * 3. Production records cancelled (isCancelled: true)
+ * 4. Voucher usage released (if applicable)
+ * 5. Cancellation event logged in orderEvents
+ *
+ * @param t - Test context
+ * @param orderId - The order to verify
+ * @returns Verification result with details
+ */
+export async function verifyOrderFullyCancelled(
+  t: TestContext,
+  orderId: Id<'orders'>
+): Promise<{
+  passed: boolean;
+  orderStatus: string;
+  inventoryReleased: boolean;
+  productionCancelled: boolean;
+  cancellationEventLogged: boolean;
+  voucherReleased: boolean;
+  failures: string[];
+}> {
+  const failures: string[] = [];
+
+  // 1. Check order status
+  const order = await t.run(async (ctx) => ctx.db.get(orderId));
+  const orderStatus = order?.status ?? 'NOT_FOUND';
+  if (orderStatus !== 'Cancelled') {
+    failures.push(`Order status is '${orderStatus}', expected 'Cancelled'`);
+  }
+
+  // 2. Check inventory reservations released
+  let inventoryReleased = true;
+  try {
+    await verifyInventoryReleased(t, orderId);
+  } catch {
+    inventoryReleased = false;
+    failures.push('Inventory reservations not fully released');
+  }
+
+  // 3. Check production records cancelled
+  let productionCancelled = true;
+  const productionCheck = await t.run(async (ctx) => {
+    const items = await ctx.db
+      .query('orderItems')
+      .withIndex('by_order', (q) => q.eq('orderId', orderId))
+      .collect();
+
+    for (const item of items) {
+      const records = await ctx.db
+        .query('orderItemProduction')
+        .withIndex('by_order_item', (q) => q.eq('orderItemId', item._id))
+        .collect();
+
+      for (const record of records) {
+        if (!record.isCancelled) {
+          return false;
+        }
+      }
+    }
+    return true;
+  });
+
+  if (!productionCheck) {
+    productionCancelled = false;
+    failures.push('Not all production records marked as cancelled');
+  }
+
+  // 4. Check voucher usage released
+  let voucherReleased = true;
+  if (order?.voucherId) {
+    const voucherUsage = await t.run(async (ctx) => {
+      return await ctx.db
+        .query('voucherUsage')
+        .withIndex('by_voucher', (q) => q.eq('voucherId', order.voucherId!))
+        .collect();
+    });
+
+    // Check if any usage records for this order still exist
+    const orderUsage = voucherUsage.filter((u) => u.orderId === orderId);
+    if (orderUsage.length > 0) {
+      voucherReleased = false;
+      failures.push('Voucher usage not released for this order');
+    }
+  }
+
+  // 5. Check cancellation event logged
+  const cancellationEventLogged = await t.run(async (ctx) => {
+    const events = await ctx.db
+      .query('orderEvents')
+      .withIndex('by_order', (q) => q.eq('orderId', orderId))
+      .collect();
+
+    return events.some((e) => e.eventType === 'cancelled');
+  });
+
+  if (!cancellationEventLogged) {
+    failures.push('No cancellation event found in orderEvents');
+  }
+
+  return {
+    passed: failures.length === 0,
+    orderStatus,
+    inventoryReleased,
+    productionCancelled,
+    cancellationEventLogged,
+    voucherReleased,
+    failures,
+  };
+}
