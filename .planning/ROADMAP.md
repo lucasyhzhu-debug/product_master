@@ -96,6 +96,12 @@ Plans:
 **Goal:** Both known bugs (stock shortage dialog, unresolved TODOs) are fixed, ensuring no untracked issues remain in production code.
 **Requirements:** BUG-01, BUG-02
 **Dependencies:** Phase 3 (QFIX-03 removes mutations shim that BUG-02 TODO references may depend on)
+**Plans:** 2 plans (Wave 1: both parallel)
+
+Plans:
+- [ ] 04-01-PLAN.md — Stock shortage override dialog fix with English UX, reason requirement, expanded roles, audit trail (BUG-01)
+- [ ] 04-02-PLAN.md — TODO resolution: cost invalidation schedulers, production records query, K3Mart backlog conversion (BUG-02)
+
 **Success Criteria:**
 1. Stock shortage override dialog shows a clear confirmation step with warning message, override button, and cancel option when inventory is insufficient for an order
 2. Zero `TODO` comments remain in production code (`src/` and `convex/` directories) — each is either resolved with code or converted to a tracked issue in REQUIREMENTS.md v2 section
