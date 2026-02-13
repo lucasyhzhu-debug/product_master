@@ -34,18 +34,22 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 |------|-------|--------|-------|
 | 2026-02-13 | -- | Project initialized | 39 requirements, 10 phases, roadmap created |
 | 2026-02-13 | 01 | Plan 04 complete | Voucher handling tests: 15 tests, 3 helpers |
+| 2026-02-13 | 01 | Plan 02 complete | FIFO inventory tests: 20 tests, 4 helpers |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
 - validateFinalPrice blocks orders with finalTotal <= 0 (no free orders via voucher)
 - Indonesian locale formatting for minimum order error messages (dots not commas)
+- Test FIFO logic directly via t.run() rather than through API mutations for focused unit testing
+- Fixed pre-existing type error in createDefaultStorageLocation helper
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
+| 01 | 02 | 5min | 2 | 2 |
 | 01 | 04 | 4min | 2 | 2 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 01-04-PLAN.md*
+*Last session stopped at: Completed 01-02-PLAN.md*
