@@ -10,6 +10,38 @@ import type { OrderWithItems } from "./types";
 // ============================================
 
 /**
+ * Get production records for all items in an order.
+ * Returns orderItemProduction records grouped by order item.
+ */
+export const getOrderProductionRecords = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    const records = [];
+    for (const item of items) {
+      const production = await ctx.db
+        .query("orderItemProduction")
+        .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+        .collect();
+      for (const p of production) {
+        records.push({
+          ...p,
+          // Include parent item info for display
+          menuProductId: item.menuProductId,
+          productName: item.productName,
+          quantity: item.quantity,
+        });
+      }
+    }
+    return records;
+  },
+});
+
+/**
  * List orders with optional filters.
  * PRD-0: Uses type-safe union for status filter.
  * Supports both single status and array of statuses for category filtering.

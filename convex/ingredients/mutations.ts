@@ -1,4 +1,5 @@
 import { mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { calculateCostPerBaseUnit } from "../lib/costCalculator";
 
@@ -93,8 +94,10 @@ export const update = mutation({
       baseUnit: baseUnit,
     });
 
-    // TODO: Schedule background job to invalidate affected recipe costs
-    // await ctx.scheduler.runAfter(0, internal.cost.invalidateRecipeCosts, { ingredientId: id });
+    // Invalidate affected recipe costs asynchronously
+    await ctx.scheduler.runAfter(0, internal.lib.costInvalidation.invalidateRecipeCosts, {
+      ingredientId: id,
+    });
 
     return id;
   },
