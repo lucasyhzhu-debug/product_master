@@ -53,6 +53,12 @@ Plans:
 **Goal:** All security concerns (exposed env files, token pattern, PIN hashing) are resolved or formally documented as accepted, with no sensitive configuration remaining in version control.
 **Requirements:** SEC-01, SEC-02, SEC-03
 **Dependencies:** None (can run in parallel with Phase 1)
+**Plans:** 2 plans (Wave 1: local cleanup + docs, Wave 2: history scrub + rotation)
+
+Plans:
+- [ ] 02-01-PLAN.md — Gitignore fix, env file untracking, .env.example update, SECURITY.md creation
+- [ ] 02-02-PLAN.md — Git history scrub with git-filter-repo, secrets scan, credential rotation
+
 **Success Criteria:**
 1. `.env` and `.env.local.production` removed from git tracking; only `.env.example` template remains committed
 2. `docs/SECURITY.md` or inline code comments document token-in-args as an accepted pattern for internal tool with rationale
