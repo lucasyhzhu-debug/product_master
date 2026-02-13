@@ -1,12 +1,14 @@
-import { mutation } from "../_generated/server";
+import { protectedMutation } from "../lib/functions";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { calculateCostPerBaseUnit } from "../lib/costCalculator";
 
 /**
  * Create a new ingredient.
+ * Requires manager or admin role. createdBy derived from session user.
  */
-export const create = mutation({
+export const create = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     name: v.string(),
     brand: v.optional(v.string()),
@@ -15,7 +17,6 @@ export const create = mutation({
     volumePurchased: v.number(),
     priceExclShipping: v.number(),
     shippingCost: v.number(),
-    createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Calculate cost per base unit
@@ -34,7 +35,7 @@ export const create = mutation({
       volumePurchased: args.volumePurchased,
       priceExclShipping: args.priceExclShipping,
       shippingCost: args.shippingCost,
-      createdBy: args.createdBy ?? "admin",
+      createdBy: ctx.user.name,
       costPerBaseUnit: costPerUnit,
       baseUnit: baseUnit,
     });
@@ -45,8 +46,10 @@ export const create = mutation({
 
 /**
  * Update an existing ingredient.
+ * Requires manager or admin role.
  */
-export const update = mutation({
+export const update = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     id: v.id("ingredients"),
     name: v.optional(v.string()),
@@ -105,8 +108,10 @@ export const update = mutation({
 
 /**
  * Delete an ingredient.
+ * Requires manager or admin role.
  */
-export const remove = mutation({
+export const remove = protectedMutation({
+  roles: ["manager", "admin"],
   args: { id: v.id("ingredients") },
   handler: async (ctx, args) => {
     // Check if ingredient is used in any recipe components

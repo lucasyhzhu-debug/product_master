@@ -1,14 +1,14 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { listAll } from "../lib/queryHelpers";
 
 /**
- * List all tags.
+ * List all tags (ascending order).
  */
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const tags = await ctx.db.query("tags").order("asc").collect();
-    return tags;
+    return await listAll(ctx, "tags", { order: "asc", limit: 1000 });
   },
 });
 

@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { listAll, textSearch } from "../lib/queryHelpers";
 
 /**
  * List all packaging materials with optional pagination.
@@ -9,12 +10,7 @@ export const list = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 100;
-    const materials = await ctx.db
-      .query("packagingMaterials")
-      .order("desc")
-      .take(limit);
-    return materials;
+    return await listAll(ctx, "packagingMaterials", { limit: args.limit ?? 100 });
   },
 });
 
@@ -37,17 +33,6 @@ export const search = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit ?? 20;
-    const searchLower = args.query.toLowerCase();
-
-    const all = await ctx.db.query("packagingMaterials").collect();
-
-    const filtered = all.filter((mat) => {
-      const nameMatch = mat.name.toLowerCase().includes(searchLower);
-      const brandMatch = mat.brand?.toLowerCase().includes(searchLower) ?? false;
-      return nameMatch || brandMatch;
-    });
-
-    return filtered.slice(0, limit);
+    return await textSearch(ctx, "packagingMaterials", args.query, ["name", "brand"], args.limit ?? 20);
   },
 });

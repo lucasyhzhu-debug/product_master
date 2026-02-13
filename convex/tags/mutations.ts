@@ -1,10 +1,12 @@
-import { mutation } from "../_generated/server";
+import { protectedMutation, publicMutation } from "../lib/functions";
 import { v } from "convex/values";
 
 /**
  * Create a new tag.
+ * Requires manager or admin role.
  */
-export const create = mutation({
+export const create = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     name: v.string(),
   },
@@ -29,8 +31,10 @@ export const create = mutation({
 
 /**
  * Update an existing tag.
+ * Requires manager or admin role.
  */
-export const update = mutation({
+export const update = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     id: v.id("tags"),
     name: v.string(),
@@ -58,10 +62,12 @@ export const update = mutation({
 
 /**
  * Delete a tag.
+ * Requires manager or admin role.
  * Note: This will NOT automatically remove the tag from recipes/products/packaging.
  * In production, you may want to also clean up tagIds arrays.
  */
-export const remove = mutation({
+export const remove = protectedMutation({
+  roles: ["manager", "admin"],
   args: { id: v.id("tags") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
@@ -71,8 +77,9 @@ export const remove = mutation({
 
 /**
  * Seed default tags if they don't exist.
+ * Public mutation -- no auth required (dashboard utility).
  */
-export const seedDefaults = mutation({
+export const seedDefaults = publicMutation({
   args: {},
   handler: async (ctx) => {
     const defaultTags = [
