@@ -24,8 +24,8 @@ export default defineSchema({
     costPerBaseUnit: v.optional(v.number()),
     baseUnit: v.optional(v.string()),
   })
-    .index("by_name", ["name"])
-    .index("by_brand", ["brand"]),
+    .index("by_name", ["name"]),
+  // QFIX-05: removed by_brand -- zero withIndex references in codebase
 
   packagingMaterials: defineTable({
     name: v.string(),
@@ -423,9 +423,9 @@ export default defineSchema({
     packedPackageIndices: v.optional(v.array(v.number())),
   })
     .index("by_order", ["orderId"])
-    .index("by_product_name", ["productName"])
-    .index("by_menu_product", ["menuProductId"])
-    .index("by_production_type", ["orderId", "productionType"]),
+    .index("by_menu_product", ["menuProductId"]),
+  // QFIX-05: removed by_product_name -- zero withIndex references
+  // QFIX-05: removed by_production_type -- deprecated field, zero references
 
   // ============================================
   // PRD-5: ORDER ITEM PRODUCTION
@@ -447,9 +447,8 @@ export default defineSchema({
     isCancelled: v.optional(v.boolean()),
   })
     .index("by_order_item", ["orderItemId"])
-    .index("by_production_type", ["productionUnitTypeId"])
-    .index("by_remaining", ["unitsRemaining"])
-    .index("by_completion", ["orderItemId", "unitsRemaining"]),
+    .index("by_production_type", ["productionUnitTypeId"]),
+  // QFIX-05: removed by_remaining, by_completion -- zero withIndex references
 
   // ============================================
   // PRD-0: WHATSAPP MESSAGE TRACKING
@@ -577,9 +576,9 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_date", ["date"])
-    .index("by_date_product", ["date", "menuProductId"])
     .index("by_date_source", ["date", "source"])
     .index("by_date_source_product", ["date", "source", "menuProductId"]),
+  // QFIX-05: removed by_date_product -- prefix subset of by_date_source_product, zero references
 
   // Running production tallies per menu product (carries over, manager can reset)
   productionCounts: defineTable({
@@ -602,8 +601,8 @@ export default defineSchema({
     previousQuantity: v.number(),
     newQuantity: v.number(),
   })
-    .index("by_date", ["date"])
-    .index("by_date_timestamp", ["date", "timestamp"]),
+    .index("by_date", ["date"]),
+  // QFIX-05: removed by_date_timestamp -- zero withIndex references, insert-only table
 
   // Audit log for every production action
   productionLog: defineTable({
@@ -621,9 +620,9 @@ export default defineSchema({
     note: v.optional(v.string()), // e.g., "correction"
   })
     .index("by_menu_product", ["menuProductId"])
-    .index("by_menu_product_timestamp", ["menuProductId", "timestamp"])
-    .index("by_action", ["action"])
     .index("by_timestamp", ["timestamp"]),
+  // QFIX-05: removed by_menu_product_timestamp -- prefix duplicate of by_menu_product, zero references
+  // QFIX-05: removed by_action -- zero withIndex references
 
   // ============================================
   // PRD-7: USAGE TRACKING TABLES
@@ -851,8 +850,8 @@ export default defineSchema({
     .index("by_component", ["componentTypeId"])
     .index("by_location", ["locationId"])
     .index("by_component_location", ["componentTypeId", "locationId"])
-    .index("by_status", ["status"])
     .index("by_fifo", ["componentTypeId", "locationId", "purchaseDate"]), // FIFO order
+  // QFIX-05: removed by_status -- zero withIndex references, queries filter by status after by_fifo/by_component
 
   // Component stock (aggregated view - computed from batches)
   componentStock: defineTable({
@@ -910,9 +909,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_component", ["componentTypeId", "createdAt"])
-    .index("by_location", ["locationId", "createdAt"])
-    .index("by_batch", ["batchId"])
-    .index("by_order", ["orderId"]),
+    .index("by_location", ["locationId", "createdAt"]),
+  // QFIX-05: removed by_batch, by_order -- zero withIndex references on componentTransactions
 
   // Order component reservations (track reserved stock per order)
   orderComponentReservations: defineTable({
