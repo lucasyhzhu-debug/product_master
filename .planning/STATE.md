@@ -18,7 +18,7 @@ Last completed: 05-03 (Customers/StorageLocations/Shipping Migration)
 | 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
 | 4 — Bugs | COMPLETE (all 2 plans done) | None |
-| 5 — Backend Factories | IN PROGRESS (2/3 plans done) | None |
+| 5 — Backend Factories | IN PROGRESS (3/3 plans done) | None |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
 | 7 — Query Optimization | Blocked | Phase 6 |
 | 8 — Schema Cleanup | Blocked | Phases 6, 7 |
@@ -46,6 +46,7 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 2026-02-13 | 04 | Plan 01 complete | Stock shortage override dialog: English UX, reason input, expanded roles, audit trail |
 | 2026-02-13 | 05 | Plan 01 complete | convex-helpers auth wrappers, query helpers, test auth helper, SessionProvider |
 | 2026-02-13 | 04 | Plan 02 complete | Cost invalidation schedulers, production records query, K3Mart backlog conversion. Phase 04 COMPLETE. |
+| 2026-02-13 | 05 | Plan 02 complete | Ingredients/materials/tags protectedMutation, query helpers, useSessionMutation hooks, tags tests with auth |
 | 2026-02-13 | 05 | Plan 03 complete | Customers/storageLocations protectedMutation, shipping internal docs, frontend useSessionMutation |
 
 ## Decisions
@@ -89,6 +90,10 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 - Shipping mutations remain bare mutation() -- internal system calls, auth enforced by calling order mutations (Pitfall 6)
 - StorageLocations queries left as-is -- custom index/sort patterns too entity-specific for generic helpers
 - Shipping queries left as-is -- unique usage tracking patterns not suited to generic helpers
+- Tags seedDefaults uses publicMutation (not protectedMutation) to remain callable from dashboard without auth
+- createdBy derived from ctx.user.name on server, removed from frontend create input types
+- Tags seedDefaults hook uses useMutation (not useSessionMutation) since public mutation does not accept sessionId
+- Entity queries remain public (no auth) since ProtectedRoute already guards page-level access
 
 ## Performance Metrics
 
@@ -107,8 +112,9 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 04 | 01 | 7min | 2 | 5 |
 | 05 | 01 | 8min | 2 | 6 |
 | 04 | 02 | 9min | 2 | 8 |
+| 05 | 02 | 5min | 2 | 10 |
 | 05 | 03 | 6min | 2 | 7 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 05-03-PLAN.md*
+*Last session stopped at: Completed 05-02-PLAN.md (parallel with 05-03)*
