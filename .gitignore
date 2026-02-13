@@ -3,13 +3,12 @@
 # =============================================================================
 .env
 .env.local
+.env.local.*
 .env.production.local
 api/.env
 
 # Keep example/template files (these are safe to commit)
 !.env.example
-!.env.local.production
-!.env.local.testing
 
 # =============================================================================
 # DATABASE
