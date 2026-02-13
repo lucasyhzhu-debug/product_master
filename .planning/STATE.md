@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 3 — Tech Debt (COMPLETE)
+**Current focus:** Phase 4 — Bugs (IN PROGRESS)
 
 ## Current Position
-Phase: 3 — Tech Debt (COMPLETE)
-Current Plan: 04 of 04 (all complete)
-Last completed: 03-04 (Remove Orders Mutations Shim QFIX-03)
+Phase: 4 — Bugs (IN PROGRESS)
+Current Plan: 01 of 02
+Last completed: 04-01 (Stock Shortage Override Dialog BUG-01)
 
 ## Phase Readiness
 
@@ -17,7 +17,7 @@ Last completed: 03-04 (Remove Orders Mutations Shim QFIX-03)
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
 | 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
-| 4 — Bugs | Ready | None |
+| 4 — Bugs | IN PROGRESS (1/2 plans done) | None |
 | 5 — Backend Factories | Blocked | Phase 1 |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
 | 7 — Query Optimization | Blocked | Phase 6 |
@@ -43,6 +43,7 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 2026-02-13 | 03 | Plan 02 complete | getDisplayStatus() helper, deprecated status cleanup in 5 UI files |
 | 2026-02-13 | 02 | Plan 02 complete | Git history scrub, TruffleHog scan, CONVEX_DEPLOY_KEY rotated. Phase 02 COMPLETE. |
 | 2026-02-13 | 03 | Plan 04 complete | Deleted orders/mutations.ts shim, migrated 135 refs across 8 files. Phase 03 COMPLETE. |
+| 2026-02-13 | 04 | Plan 01 complete | Stock shortage override dialog: English UX, reason input, expanded roles, audit trail |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -72,6 +73,9 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 - Cherry-picked 34 phase commits onto rewritten history (unpushed local work preserved)
 - TruffleHog 2.2.1 secrets scan: 18 false positives, 0 real secrets found
 - Used api.orders.mutations.index.X path (not domain-specific paths) for shim migration simplicity
+- Override audit stores user-provided reason (not re-fetched shortage details) since reservation already succeeded with skipStockCheck
+- Expanded stock override access to order_staff in addition to manager/admin
+- Used regex parsing for structured shortage line display with raw line fallback
 
 ## Performance Metrics
 
@@ -87,7 +91,8 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 03 | 02 | 7min | 2 | 5 |
 | 02 | 02 | 14min | 3 | 2 |
 | 03 | 04 | 4min | 2 | 11 |
+| 04 | 01 | 7min | 2 | 5 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 03-04-PLAN.md (Phase 03 COMPLETE)*
+*Last session stopped at: Completed 04-01-PLAN.md*
