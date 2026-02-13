@@ -62,9 +62,6 @@ function App() {
               }
             />
 
-            {/* Kitchen V1 - Legacy redirect */}
-            <Route path="kitchen-legacy" element={<Navigate to="/kitchen" replace />} />
-
             {/* Packaging - All roles can access (PRD-5) */}
             <Route
               path="packaging"

@@ -197,12 +197,6 @@ export {
   useConvexRevertToPackaging,
 } from "./useKitchenStats";
 
-// Pending Ball Stats (PRD-3: Phase 3 refactor)
-export {
-  usePendingBallStats,
-  type PendingBallStats,
-} from "./usePendingBallStats";
-
 // Visual Feedback Overlay
 export {
   // Query hooks

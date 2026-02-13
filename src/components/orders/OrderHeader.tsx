@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getDisplayStatus, getStatusColor } from '@/lib/orderConstants';
-import type { OrderDetail, OrderStatus, PaymentStatus } from '@/lib/types';
+import type { OrderDetail, PaymentStatus } from '@/lib/types';
 
 const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   Unpaid: 'bg-orange-500',
