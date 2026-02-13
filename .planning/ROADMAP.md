@@ -14,7 +14,7 @@
 | 1 | Test Infrastructure | Critical business logic has comprehensive test coverage before any refactoring begins | 4 | Complete (2026-02-13) |
 | 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Complete (2026-02-13) |
 | 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Complete (2026-02-13) |
-| 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Pending |
+| 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Complete (2026-02-13) |
 | 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Pending |
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Pending |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Pending |
@@ -99,8 +99,8 @@ Plans:
 **Plans:** 2 plans (Wave 1: both parallel)
 
 Plans:
-- [ ] 04-01-PLAN.md — Stock shortage override dialog fix with English UX, reason requirement, expanded roles, audit trail (BUG-01)
-- [ ] 04-02-PLAN.md — TODO resolution: cost invalidation schedulers, production records query, K3Mart backlog conversion (BUG-02)
+- [x] 04-01-PLAN.md — Stock shortage override dialog fix with English UX, reason requirement, expanded roles, audit trail (BUG-01)
+- [x] 04-02-PLAN.md — TODO resolution: cost invalidation schedulers, production records query, K3Mart backlog conversion (BUG-02)
 
 **Success Criteria:**
 1. Stock shortage override dialog shows a clear confirmation step with warning message, override button, and cancel option when inventory is insufficient for an order
