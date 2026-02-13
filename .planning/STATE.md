@@ -15,7 +15,7 @@ Last completed: 03-02 (Deprecated Status Cleanup QFIX-04)
 | Phase | Status | Blockers |
 |-------|--------|----------|
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
-| 2 — Security & Docs | IN PROGRESS (plan 01 done) | None |
+| 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
 | 3 — Tech Debt | IN PROGRESS (plans 01, 02, 03 done) | None |
 | 4 — Bugs | Blocked | Phase 3 |
 | 5 — Backend Factories | Blocked | Phase 1 |
@@ -41,6 +41,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 2026-02-13 | 03 | Plan 03 complete | Removed 12 unused schema indexes (QFIX-05) |
 | 2026-02-13 | 03 | Plan 01 complete | Replaced "current-user" in 5 files, deleted KitchenView V1 + 11 orphans |
 | 2026-02-13 | 03 | Plan 02 complete | getDisplayStatus() helper, deprecated status cleanup in 5 UI files |
+| 2026-02-13 | 02 | Plan 02 complete | Git history scrub, TruffleHog scan, CONVEX_DEPLOY_KEY rotated. Phase 02 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -66,6 +67,9 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 - Used Partial<Record> for STATUS_COLORS to safely remove deprecated entries
 - Updated getStatusCategory() to route through getDisplayStatus() so all callers benefit automatically
 - Added missing Boxed/Labeled statuses to OrderStatusPanel dropdown
+- Used git-filter-repo (not BFG) for history scrub since Java not installed
+- Cherry-picked 34 phase commits onto rewritten history (unpushed local work preserved)
+- TruffleHog 2.2.1 secrets scan: 18 false positives, 0 real secrets found
 
 ## Performance Metrics
 
@@ -79,7 +83,8 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 03 | 03 | 5min | 1 | 1 |
 | 03 | 01 | 6min | 2 | 17 |
 | 03 | 02 | 7min | 2 | 5 |
+| 02 | 02 | 14min | 3 | 2 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 03-02-PLAN.md*
+*Last session stopped at: Completed 02-02-PLAN.md (Phase 02 COMPLETE)*
