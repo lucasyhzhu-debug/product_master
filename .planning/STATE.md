@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 3 — Tech Debt (executing in parallel)
+**Current focus:** Phase 3 — Tech Debt (COMPLETE)
 
 ## Current Position
-Phase: 3 — Tech Debt (IN PROGRESS)
-Current Plan: 04 of 04 (01, 02, 03 complete)
-Last completed: 03-02 (Deprecated Status Cleanup QFIX-04)
+Phase: 3 — Tech Debt (COMPLETE)
+Current Plan: 04 of 04 (all complete)
+Last completed: 03-04 (Remove Orders Mutations Shim QFIX-03)
 
 ## Phase Readiness
 
@@ -16,8 +16,8 @@ Last completed: 03-02 (Deprecated Status Cleanup QFIX-04)
 |-------|--------|----------|
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
 | 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
-| 3 — Tech Debt | IN PROGRESS (plans 01, 02, 03 done) | None |
-| 4 — Bugs | Blocked | Phase 3 |
+| 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
+| 4 — Bugs | Ready | None |
 | 5 — Backend Factories | Blocked | Phase 1 |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
 | 7 — Query Optimization | Blocked | Phase 6 |
@@ -26,7 +26,7 @@ Last completed: 03-02 (Deprecated Status Cleanup QFIX-04)
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
 ## Parallel Opportunities
-Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. Phase 5 follows Phase 1. All remaining phases are on the critical path.
+Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (COMPLETE). Phases 4 and 5 can proceed in parallel. All remaining phases are on the critical path.
 
 ## Session History
 
@@ -42,6 +42,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 2026-02-13 | 03 | Plan 01 complete | Replaced "current-user" in 5 files, deleted KitchenView V1 + 11 orphans |
 | 2026-02-13 | 03 | Plan 02 complete | getDisplayStatus() helper, deprecated status cleanup in 5 UI files |
 | 2026-02-13 | 02 | Plan 02 complete | Git history scrub, TruffleHog scan, CONVEX_DEPLOY_KEY rotated. Phase 02 COMPLETE. |
+| 2026-02-13 | 03 | Plan 04 complete | Deleted orders/mutations.ts shim, migrated 135 refs across 8 files. Phase 03 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -70,6 +71,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 - Used git-filter-repo (not BFG) for history scrub since Java not installed
 - Cherry-picked 34 phase commits onto rewritten history (unpushed local work preserved)
 - TruffleHog 2.2.1 secrets scan: 18 false positives, 0 real secrets found
+- Used api.orders.mutations.index.X path (not domain-specific paths) for shim migration simplicity
 
 ## Performance Metrics
 
@@ -84,7 +86,8 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 03 | 01 | 6min | 2 | 17 |
 | 03 | 02 | 7min | 2 | 5 |
 | 02 | 02 | 14min | 3 | 2 |
+| 03 | 04 | 4min | 2 | 11 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 02-02-PLAN.md (Phase 02 COMPLETE)*
+*Last session stopped at: Completed 03-04-PLAN.md (Phase 03 COMPLETE)*
