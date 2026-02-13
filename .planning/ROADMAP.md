@@ -13,7 +13,7 @@
 |---|-------|------|--------------|--------|
 | 1 | Test Infrastructure | Critical business logic has comprehensive test coverage before any refactoring begins | 4 | Complete (2026-02-13) |
 | 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Complete (2026-02-13) |
-| 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Pending |
+| 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Complete (2026-02-13) |
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Pending |
 | 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Pending |
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Pending |
@@ -76,10 +76,10 @@ Plans:
 **Plans:** 4 plans (Wave 1: 03-01, 03-02, 03-03 parallel; Wave 2: 03-04)
 
 Plans:
-- [ ] 03-01-PLAN.md — Replace hardcoded "current-user" + delete KitchenView V1 (QFIX-01, QFIX-02)
-- [ ] 03-02-PLAN.md — Deprecated order status UI mapping cleanup (QFIX-04)
-- [ ] 03-03-PLAN.md — Index audit and removal (QFIX-05)
-- [ ] 03-04-PLAN.md — Remove orders/mutations.ts shim and update all callers (QFIX-03)
+- [x] 03-01-PLAN.md — Replace hardcoded "current-user" + delete KitchenView V1 (QFIX-01, QFIX-02)
+- [x] 03-02-PLAN.md — Deprecated order status UI mapping cleanup (QFIX-04)
+- [x] 03-03-PLAN.md — Index audit and removal (QFIX-05)
+- [x] 03-04-PLAN.md — Remove orders/mutations.ts shim and update all callers (QFIX-03)
 
 **Success Criteria:**
 1. `"current-user"` string does not appear in any inventory mutation — all inventory operations use the authenticated username from AuthContext
