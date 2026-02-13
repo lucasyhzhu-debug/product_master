@@ -3,17 +3,18 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Not started
+**Current focus:** Phase 1 — Test Infrastructure (plans executing in parallel)
 
 ## Current Position
-Phase: 0 (not started)
-Last completed: None
+Phase: 1 — Test Infrastructure (in progress)
+Current Plan: 04 of 04 (complete)
+Last completed: 01-04 (Voucher Handling Tests)
 
 ## Phase Readiness
 
 | Phase | Status | Blockers |
 |-------|--------|----------|
-| 1 — Test Infrastructure | Ready | None |
+| 1 — Test Infrastructure | In Progress (Plan 04 complete) | None |
 | 2 — Security & Docs | Ready | None |
 | 3 — Tech Debt | Ready | None |
 | 4 — Bugs | Blocked | Phase 3 |
@@ -32,6 +33,19 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | Date | Phase | Action | Notes |
 |------|-------|--------|-------|
 | 2026-02-13 | -- | Project initialized | 39 requirements, 10 phases, roadmap created |
+| 2026-02-13 | 01 | Plan 04 complete | Voucher handling tests: 15 tests, 3 helpers |
+
+## Decisions
+- Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
+- validateFinalPrice blocks orders with finalTotal <= 0 (no free orders via voucher)
+- Indonesian locale formatting for minimum order error messages (dots not commas)
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 01 | 04 | 4min | 2 | 2 |
 
 ---
 *Last updated: 2026-02-13*
+*Last session stopped at: Completed 01-04-PLAN.md*
