@@ -746,3 +746,141 @@ export async function verifyBatchState(
     );
   }
 }
+
+// ============================================
+// Voucher Test Helpers
+// ============================================
+
+/**
+ * Creates a voucher for testing discount and validation scenarios.
+ * Default: 10% percentage discount, active, valid from yesterday to tomorrow, no usage limits.
+ *
+ * Note: Schema uses discountType "amount" (not "fixed") and "percentage".
+ */
+export async function createVoucher(
+  t: TestContext,
+  overrides: {
+    code?: string;
+    name?: string;
+    discountType?: 'percentage' | 'amount';
+    discountValue?: number;
+    minimumOrderAmount?: number;
+    maximumDiscount?: number;
+    validFrom?: number;
+    validUntil?: number;
+    usageLimit?: number;
+    usagePerCustomer?: number;
+    isActive?: boolean;
+  } = {}
+): Promise<Id<'vouchers'>> {
+  const now = Date.now();
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('vouchers', {
+      code: overrides.code ?? 'SAVE10',
+      name: overrides.name ?? 'Test Voucher',
+      discountType: overrides.discountType ?? 'percentage',
+      discountValue: overrides.discountValue ?? 10,
+      minimumOrderAmount: overrides.minimumOrderAmount,
+      maximumDiscount: overrides.maximumDiscount,
+      validFrom: overrides.validFrom ?? (now - 86400000), // Yesterday
+      validUntil: overrides.validUntil ?? (now + 86400000), // Tomorrow
+      usageLimit: overrides.usageLimit,
+      usagePerCustomer: overrides.usagePerCustomer,
+      isActive: overrides.isActive ?? true,
+      usageCount: 0,
+      createdBy: 'test',
+      createdAt: now,
+    });
+  });
+}
+
+/**
+ * Creates an order with a voucher applied via the order creation mutation.
+ * Sets up customer and order items, then creates the order with a voucherCode.
+ * Returns the order ID and customer ID for verification.
+ *
+ * The orderTotal is achieved by creating a single item at the specified price.
+ * Uses lowPriceConfirmed: true for orders where final price may be below 20K.
+ */
+export async function createOrderWithVoucher(
+  t: TestContext,
+  overrides: {
+    voucherCode: string;
+    orderTotal?: number;
+    customerId?: Id<'customers'>;
+    unitCost?: number;
+  }
+): Promise<{
+  orderId: Id<'orders'>;
+  customerId: Id<'customers'>;
+}> {
+  const { api } = await import('../../convex/_generated/api');
+
+  // Create customer if not provided
+  const customerId = overrides.customerId ?? await createCustomer(t, {
+    name: 'Voucher Test Customer',
+    phone: '+62899887766',
+  });
+
+  const orderTotal = overrides.orderTotal ?? 100000;
+  const unitCost = overrides.unitCost ?? Math.floor(orderTotal * 0.4); // 40% cost default
+
+  // Create order with voucher code via mutation
+  const orderId = await t.mutation(api.orders.mutations.create, {
+    customerId,
+    voucherCode: overrides.voucherCode,
+    lowPriceConfirmed: true, // Accept any final price
+    items: [
+      {
+        productName: 'Voucher Test Product',
+        quantity: 1,
+        unitPrice: orderTotal,
+        unitCost,
+      },
+    ],
+  });
+
+  return { orderId, customerId };
+}
+
+/**
+ * Verifies voucher usage tracking by querying the voucherUsage table
+ * and the voucher's own usageCount field.
+ * Throws assertion-style errors if counts don't match expected.
+ * Returns usage records for further inspection.
+ */
+export async function verifyVoucherUsage(
+  t: TestContext,
+  voucherId: Id<'vouchers'>,
+  expectedUsageCount: number
+): Promise<Array<{
+  voucherId: Id<'vouchers'>;
+  customerId: Id<'customers'>;
+  orderId: Id<'orders'>;
+  usedAt: number;
+}>> {
+  const usageRecords = await t.run(async (ctx) => {
+    return await ctx.db
+      .query('voucherUsage')
+      .withIndex('by_voucher', (q) => q.eq('voucherId', voucherId))
+      .collect();
+  });
+
+  // Also verify the voucher's own usageCount field
+  const voucher = await t.run(async (ctx) => ctx.db.get(voucherId));
+  if (voucher) {
+    if (voucher.usageCount !== expectedUsageCount) {
+      throw new Error(
+        `Expected voucher.usageCount to be ${expectedUsageCount}, got ${voucher.usageCount}`
+      );
+    }
+  }
+
+  if (usageRecords.length !== expectedUsageCount) {
+    throw new Error(
+      `Expected ${expectedUsageCount} usage records, found ${usageRecords.length}`
+    );
+  }
+
+  return usageRecords;
+}
