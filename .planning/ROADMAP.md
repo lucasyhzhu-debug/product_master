@@ -123,10 +123,10 @@ Plans:
 - [ ] 05-03-PLAN.md — Migrate customers, storageLocations, shipping (backend + frontend)
 
 **Success Criteria:**
-1. `convex-helpers` is installed and `convex/lib/functions.ts` exports `customMutation`/`customQuery` wrappers with auth enforcement
+1. `convex-helpers` is installed and `convex/lib/functions.ts` exports `protectedMutation`/`protectedQuery`/`publicMutation`/`publicQuery` wrappers with auth enforcement
 2. Simple entity mutations (ingredients, materials, tags, customers, storageLocations) use `protectedMutation` wrapper — session-based auth with per-mutation role enforcement
 3. Common query helper functions (`listAll`, `getById`, `textSearch`) exist in `convex/lib/queryHelpers.ts` and are used by at least 4 entity query files
-4. Shipping mutations documented as intentionally unwrapped internal system calls
+4. Simple entity mutation files (5 user-facing entities) use `protectedMutation` wrapper consistently; shipping documented as internal system pattern
 5. Frontend hooks for 5 user-facing entities use `useSessionMutation` with SessionProvider integration
 6. `npm run build` passes; existing tests still pass; `_generated/api.d.ts` types are preserved (no `any` leaks)
 
@@ -265,7 +265,7 @@ Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                      
 | FACT-01 | 5 | Install convex-helpers, create auth wrappers |
 | FACT-02 | 5 | Migrate simple entity mutations to customMutation |
 | FACT-03 | 5 | Create common query helper functions |
-| FACT-04 | 5 | Apply protectedMutation across all 27 mutation files |
+| FACT-04 | 5 | Apply protectedMutation to 5 user-facing simple entities; document shipping as internal pattern |
 | BOM-01 | 6 | Backend queries read ball composition from BOM |
 | BOM-02 | 6 | Mutations stop writing deprecated fields |
 | BOM-03 | 6 | Frontend migrated to BOM-derived data |
