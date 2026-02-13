@@ -14,6 +14,9 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
+// Audit logging
+import { logOrderEvent } from "../helpers/statusTransitions";
+
 // Inventory integration (internal helpers)
 import {
   reserveStockForOrderInternal,
@@ -64,6 +67,8 @@ export const updateStatus = mutation({
     status: statusValidator,
     locationId: v.optional(v.id("storageLocations")),
     skipStockCheck: v.optional(v.boolean()),
+    overrideReason: v.optional(v.string()),
+    overrideBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -101,6 +106,20 @@ export const updateStatus = mutation({
           locationId: args.locationId,
           skipStockCheck: args.skipStockCheck,
         });
+
+        // Log audit event when stock check was overridden
+        if (args.skipStockCheck === true) {
+          await logOrderEvent(ctx, args.orderId, "stock_override", {
+            fromStatus: oldStatus,
+            toStatus: newStatus,
+            reason: args.overrideReason ?? "No reason provided",
+            metadata: {
+              overrideBy: args.overrideBy ?? "unknown",
+              shortageDetails: "Stock shortage overridden by user",
+            },
+            triggeredBy: "user",
+          });
+        }
       } catch (error) {
         // Revert status on failure
         await ctx.db.patch(args.orderId, { status: oldStatus });

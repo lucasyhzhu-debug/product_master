@@ -353,6 +353,21 @@ function sortOrdersByPriority<T extends Doc<"orders">>(orders: T[]): T[] {
 }
 
 /**
+ * Get order events for audit trail display.
+ * Returns events in reverse chronological order.
+ */
+export const getOrderEvents = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("orderEvents")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .order("desc")
+      .collect();
+  },
+});
+
+/**
  * Get orders by customer.
  */
 export const getByCustomer = query({

@@ -8,7 +8,7 @@
  */
 
 import { mutation } from "../../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 
@@ -218,6 +218,7 @@ export async function reserveStockForOrderInternal(
   args: {
     orderId: Id<"orders">;
     locationId?: Id<"storageLocations">;
+    skipStockCheck?: boolean;
   }
 ): Promise<{ reserved: number; shortages: ReservationShortage[] }> {
   const order = await ctx.db.get(args.orderId);
@@ -271,8 +272,8 @@ export async function reserveStockForOrderInternal(
     }
   }
 
-  // If any shortages, throw error with details
-  if (shortages.length > 0) {
+  // If any shortages, either throw or warn (manager override)
+  if (shortages.length > 0 && !args.skipStockCheck) {
     const shortageDetails = shortages
       .map(
         (s) =>
@@ -280,8 +281,8 @@ export async function reserveStockForOrderInternal(
       )
       .join("\n");
 
-    throw new Error(
-      `Insufficient stock to reserve for order:\n${shortageDetails}`
+    throw new ConvexError(
+      `Insufficient packaging stock:\n${shortageDetails}\n\nAuthorized staff can override to proceed.`
     );
   }
 
