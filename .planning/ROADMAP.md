@@ -15,7 +15,7 @@
 | 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Complete (2026-02-13) |
 | 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Complete (2026-02-13) |
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Complete (2026-02-13) |
-| 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Pending |
+| 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Complete (2026-02-13) |
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Pending |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Pending |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Pending |
@@ -118,9 +118,9 @@ Plans:
 **Plans:** 3 plans (Wave 1: 05-01 foundation; Wave 2: 05-02, 05-03 parallel entity migrations)
 
 Plans:
-- [ ] 05-01-PLAN.md — Install convex-helpers, create auth wrappers + query helpers + test helper, integrate SessionProvider
-- [ ] 05-02-PLAN.md — Migrate ingredients, materials, tags (backend + frontend + tests)
-- [ ] 05-03-PLAN.md — Migrate customers, storageLocations, shipping (backend + frontend)
+- [x] 05-01-PLAN.md — Install convex-helpers, create auth wrappers + query helpers + test helper, integrate SessionProvider
+- [x] 05-02-PLAN.md — Migrate ingredients, materials, tags (backend + frontend + tests)
+- [x] 05-03-PLAN.md — Migrate customers, storageLocations, shipping (backend + frontend)
 
 **Success Criteria:**
 1. `convex-helpers` is installed and `convex/lib/functions.ts` exports `protectedMutation`/`protectedQuery`/`publicMutation`/`publicQuery` wrappers with auth enforcement
