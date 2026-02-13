@@ -3,19 +3,19 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 1 — Test Infrastructure (plans executing in parallel)
+**Current focus:** Phase 2 — Security & Docs (executing)
 
 ## Current Position
-Phase: 1 — Test Infrastructure (COMPLETE)
-Current Plan: 04 of 04 (all complete)
-Last completed: 01-03 (Order Lifecycle Tests)
+Phase: 2 — Security & Docs (IN PROGRESS)
+Current Plan: 01 of 02 (01 complete)
+Last completed: 02-01 (Env File Cleanup + Security Docs)
 
 ## Phase Readiness
 
 | Phase | Status | Blockers |
 |-------|--------|----------|
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
-| 2 — Security & Docs | Ready | None |
+| 2 — Security & Docs | IN PROGRESS (plan 01 done) | None |
 | 3 — Tech Debt | Ready | None |
 | 4 — Bugs | Blocked | Phase 3 |
 | 5 — Backend Factories | Blocked | Phase 1 |
@@ -37,6 +37,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 2026-02-13 | 01 | Plan 02 complete | FIFO inventory tests: 20 tests, 4 helpers |
 | 2026-02-13 | 01 | Plan 01 complete | Ball distribution tests: 25 tests, 4 helpers |
 | 2026-02-13 | 01 | Plan 03 complete | Order lifecycle tests: 30 tests, 4 helpers. Phase 01 COMPLETE. |
+| 2026-02-13 | 02 | Plan 01 complete | Env files untracked, .gitignore fixed, SECURITY.md created |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -50,6 +51,9 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 - cancel mutation does not release inventory reservations (only updateStatus with Cancelled does) -- documented gap
 - updateStatus has no state machine enforcement (any status transition allowed) -- documented gap
 - Used updateStatus for inventory release tests, cancel mutation for status/production tests
+- Added .env.local.* glob to .gitignore (original patterns did not cover .env.local.production/.env.local.testing filenames)
+- Used casual internal-team tone for SECURITY.md per user preference
+- Documented 39 requireRole() usages across 11 files as token-in-args scope
 
 ## Performance Metrics
 
@@ -59,7 +63,8 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 01 | 04 | 4min | 2 | 2 |
 | 01 | 01 | 7min | 2 | 2 |
 | 01 | 03 | 8min | 3 | 2 |
+| 02 | 01 | 5min | 2 | 3 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 01-03-PLAN.md (Phase 01 fully complete)*
+*Last session stopped at: Completed 02-01-PLAN.md*
