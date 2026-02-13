@@ -11,7 +11,7 @@
 
 | # | Phase | Goal | Requirements | Status |
 |---|-------|------|--------------|--------|
-| 1 | Test Infrastructure | Critical business logic has comprehensive test coverage before any refactoring begins | 4 | Pending |
+| 1 | Test Infrastructure | Critical business logic has comprehensive test coverage before any refactoring begins | 4 | Complete (2026-02-13) |
 | 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Pending |
 | 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Pending |
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Pending |
@@ -33,10 +33,10 @@
 **Plans:** 4 plans (Wave 1: all parallel)
 
 Plans:
-- [ ] 01-01-PLAN.md — Ball distribution algorithm tests (priority, partial fills, ghost ball prevention)
-- [ ] 01-02-PLAN.md — FIFO inventory consumption tests (oldest-first, expiry, batch depletion)
-- [ ] 01-03-PLAN.md — Order lifecycle integration tests (status transitions, inventory, cancellation)
-- [ ] 01-04-PLAN.md — Voucher handling tests (discounts, validation, expiry, usage limits)
+- [x] 01-01-PLAN.md — Ball distribution algorithm tests (priority, partial fills, ghost ball prevention)
+- [x] 01-02-PLAN.md — FIFO inventory consumption tests (oldest-first, expiry, batch depletion)
+- [x] 01-03-PLAN.md — Order lifecycle integration tests (status transitions, inventory, cancellation)
+- [x] 01-04-PLAN.md — Voucher handling tests (discounts, validation, expiry, usage limits)
 
 **Success Criteria:**
 1. `ballDistribution.ts` has tests covering allocation to multi-product orders, partial fills, tray exhaustion, priority ordering, and auto-status transitions
