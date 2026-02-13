@@ -393,7 +393,7 @@ export function K3MartCockpit() {
         stickeredCount: p.stickered,
         plannedTotal: p.plannedToday + p.plannedTomorrow,
         deficit: p.deficit,
-        currentTarget: p.stickered, // TODO: Get actual production target
+        currentTarget: p.stickered, // BACKLOG: K3MART-01 -- Wire production readiness targets from backend
       }));
   }, [productionReadinessData]);
 
@@ -412,7 +412,7 @@ export function K3MartCockpit() {
     // Each outlet has: { _id, name, externalId, isActive, lastSyncAt, products: [...] }
     // Each product has: { externalProductId, externalProductCode, productName, quantity, price, soldToday, avgDailySales7d }
 
-    // TODO: The current query doesn't return all the fields needed by OutletCardGrid.
+    // BACKLOG: K3MART-02 -- Enhance outlet stock query with full OutletCardGrid fields
     // For now, create a minimal structure. This will need backend enhancement.
     const outlets = outletStockData.outlets.map((o: any) => {
       const totalStock = o.products.reduce((sum: number, p: any) => sum + p.quantity, 0);
@@ -429,8 +429,8 @@ export function K3MartCockpit() {
           soldToday: p.soldToday,
           avgDailySales: p.avgDailySales7d,
           daysOfStock: p.avgDailySales7d > 0 ? p.quantity / p.avgDailySales7d : 999,
-          plannedQty: 0, // TODO: Get from dispatch plans
-          planStatus: 'no_plan' as const, // TODO: Get from dispatch plans
+          plannedQty: 0, // BACKLOG: K3MART-03 -- Implement dispatch plan data for outlet product cards
+          planStatus: 'no_plan' as const, // BACKLOG: K3MART-03 -- Implement dispatch plan data for outlet product cards
         })),
         planStatus: 'no_plan' as const,
         totalStock,
@@ -440,7 +440,7 @@ export function K3MartCockpit() {
     });
 
     // Stub available sources and destinations
-    // TODO: These should come from backend query
+    // BACKLOG: K3MART-04 -- Create backend query for inventory sources/destinations
     const availableSources = [
       { type: 'kitchen' as const, label: 'Kitchen Office', available: 0 },
       { type: 'goldfinch' as const, label: 'Goldfinch Depot', available: 0 },
@@ -455,7 +455,7 @@ export function K3MartCockpit() {
       outlets,
       availableSources,
       availableDestinations,
-      movements: {}, // TODO: Get from stock movements query
+      movements: {}, // BACKLOG: K3MART-05 -- Create stock movements query for outlet grid
     };
   }, [outletStockData]);
 
@@ -547,7 +547,7 @@ export function K3MartCockpit() {
         <ProductionReadinessBar
           items={productionReadinessItems}
           onApproveBump={(menuProductId, newTarget) => {
-            // TODO: Implement bump approval
+            // BACKLOG: K3MART-06 -- Implement production bump approval workflow
             console.log('Approve bump:', menuProductId, newTarget);
             toast.info('Bump approval not yet implemented');
           }}

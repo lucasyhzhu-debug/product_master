@@ -92,6 +92,15 @@ Deferred to future milestones. Tracked but not in current roadmap.
 - **ETEST-02**: E2E tests for critical form submission flows (order creation, recipe editing)
 - **ETEST-03**: K3 Mart adapter integration tests for retry logic and error handling
 
+### K3 Mart Cockpit
+
+- **K3MART-01**: Wire production readiness targets from backend (currently uses stickered count as placeholder)
+- **K3MART-02**: Enhance outlet stock query with full OutletCardGrid fields (missing variant breakdown, movement data)
+- **K3MART-03**: Implement dispatch plan data for outlet product cards (planned qty, plan status)
+- **K3MART-04**: Create backend query for inventory sources/destinations (currently hardcoded)
+- **K3MART-05**: Create stock movements query for outlet grid (inbound/outbound tracking)
+- **K3MART-06**: Implement production bump approval workflow (currently logs to console)
+
 ### Code Quality
 
 - **CQ-01**: `useConvex` prefix removal from all hook names (cosmetic, high conflict risk)
