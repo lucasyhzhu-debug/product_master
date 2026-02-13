@@ -1,3 +1,12 @@
+/**
+ * Shipping Agency Usage Mutations
+ *
+ * NOTE: These mutations are INTERNAL system calls invoked by order mutations,
+ * not user-facing CRUD operations. They intentionally remain as bare mutation()
+ * without protectedMutation wrapper. Auth is enforced by the calling order
+ * mutations which use their own auth wrappers. See Phase 5 research Pitfall 6.
+ */
+
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 

@@ -1,16 +1,16 @@
-import { mutation } from "../_generated/server";
+import { protectedMutation } from "../lib/functions";
 import { v } from "convex/values";
 
 /**
  * Create a new customer.
  */
-export const create = mutation({
+export const create = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     name: v.string(),
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
-    createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("customers", {
@@ -18,7 +18,7 @@ export const create = mutation({
       phone: args.phone,
       source: args.source,
       notes: args.notes,
-      createdBy: args.createdBy ?? "admin",
+      createdBy: ctx.user.name,
     });
 
     return id;
@@ -28,7 +28,8 @@ export const create = mutation({
 /**
  * Update an existing customer.
  */
-export const update = mutation({
+export const update = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     id: v.id("customers"),
     name: v.optional(v.string()),
@@ -58,7 +59,8 @@ export const update = mutation({
 /**
  * Delete a customer.
  */
-export const remove = mutation({
+export const remove = protectedMutation({
+  roles: ["manager", "admin"],
   args: { id: v.id("customers") },
   handler: async (ctx, args) => {
     // Check if customer has any orders

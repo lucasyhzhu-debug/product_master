@@ -4,13 +4,14 @@
  * CRUD operations for storage locations.
  */
 
-import { mutation } from "../_generated/server";
+import { protectedMutation } from "../lib/functions";
 import { v } from "convex/values";
 
 /**
  * Create a new storage location
  */
-export const create = mutation({
+export const create = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     name: v.string(),
     locationType: v.union(
@@ -21,7 +22,6 @@ export const create = mutation({
     address: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
     isDefault: v.optional(v.boolean()),
-    createdBy: v.string(),
   },
   handler: async (ctx, args) => {
     // Validate: name must be unique
@@ -52,7 +52,7 @@ export const create = mutation({
       address: args.address,
       isActive: args.isActive ?? true,
       isDefault: args.isDefault ?? false,
-      createdBy: args.createdBy,
+      createdBy: ctx.user.name,
       createdAt: Date.now(),
     });
 
@@ -63,7 +63,8 @@ export const create = mutation({
 /**
  * Update an existing storage location
  */
-export const update = mutation({
+export const update = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     id: v.id("storageLocations"),
     name: v.optional(v.string()),
@@ -119,7 +120,8 @@ export const update = mutation({
 /**
  * Delete a storage location (with dependency checking)
  */
-export const remove = mutation({
+export const remove = protectedMutation({
+  roles: ["manager", "admin"],
   args: {
     id: v.id("storageLocations"),
   },
