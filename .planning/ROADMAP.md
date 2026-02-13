@@ -112,17 +112,25 @@ Plans:
 ---
 
 ### Phase 5: Backend Factories
-**Goal:** `convex-helpers` auth wrappers and common query helper functions are established and proven across all mutation files, eliminating repeated `requireRole` boilerplate.
+**Goal:** `convex-helpers` auth wrappers and common query helper functions are established and proven across simple entity mutations, eliminating boilerplate and adding session-based auth where none existed.
 **Requirements:** FACT-01, FACT-02, FACT-03, FACT-04
 **Dependencies:** Phase 1 (tests must exist before refactoring mutation files)
+**Plans:** 3 plans (Wave 1: 05-01 foundation; Wave 2: 05-02, 05-03 parallel entity migrations)
+
+Plans:
+- [ ] 05-01-PLAN.md — Install convex-helpers, create auth wrappers + query helpers + test helper, integrate SessionProvider
+- [ ] 05-02-PLAN.md — Migrate ingredients, materials, tags (backend + frontend + tests)
+- [ ] 05-03-PLAN.md — Migrate customers, storageLocations, shipping (backend + frontend)
+
 **Success Criteria:**
 1. `convex-helpers` is installed and `convex/lib/functions.ts` exports `customMutation`/`customQuery` wrappers with auth enforcement
-2. Simple entity mutations (ingredients, materials, tags, customers) use `customMutation` wrapper — no direct `requireRole` calls remain in those files
-3. Common query helper functions (`listAll`, `getById`, `getByField`) exist in `convex/lib/queryHelpers.ts` and are used by at least 4 entity query files
-4. All 27 mutation files use `protectedMutation` wrapper consistently — grep for raw `requireRole` in mutation handlers returns zero results (except the wrapper definition itself)
-5. `npm run build` passes; existing tests still pass; `_generated/api.d.ts` types are preserved (no `any` leaks)
+2. Simple entity mutations (ingredients, materials, tags, customers, storageLocations) use `protectedMutation` wrapper — session-based auth with per-mutation role enforcement
+3. Common query helper functions (`listAll`, `getById`, `textSearch`) exist in `convex/lib/queryHelpers.ts` and are used by at least 4 entity query files
+4. Shipping mutations documented as intentionally unwrapped internal system calls
+5. Frontend hooks for 5 user-facing entities use `useSessionMutation` with SessionProvider integration
+6. `npm run build` passes; existing tests still pass; `_generated/api.d.ts` types are preserved (no `any` leaks)
 
-**Estimated scope:** 30-40 files modified (all mutation + query files), 2 new library files
+**Estimated scope:** 18 files modified/created (6 backend mutations, 6 backend queries, 5 frontend hooks, 1 test file) + 3 new lib files + 1 test helper
 
 ---
 
