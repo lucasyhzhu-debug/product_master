@@ -12,7 +12,7 @@
 | # | Phase | Goal | Requirements | Status |
 |---|-------|------|--------------|--------|
 | 1 | Test Infrastructure | Critical business logic has comprehensive test coverage before any refactoring begins | 4 | Complete (2026-02-13) |
-| 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Pending |
+| 2 | Quick Fixes — Security & Docs | All security concerns resolved and documentation-only items completed | 3 | Complete (2026-02-13) |
 | 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Pending |
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Pending |
 | 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Pending |
@@ -56,8 +56,8 @@ Plans:
 **Plans:** 2 plans (Wave 1: local cleanup + docs, Wave 2: history scrub + rotation)
 
 Plans:
-- [ ] 02-01-PLAN.md — Gitignore fix, env file untracking, .env.example update, SECURITY.md creation
-- [ ] 02-02-PLAN.md — Git history scrub with git-filter-repo, secrets scan, credential rotation
+- [x] 02-01-PLAN.md — Gitignore fix, env file untracking, .env.example update, SECURITY.md creation
+- [x] 02-02-PLAN.md — Git history scrub with git-filter-repo, secrets scan, credential rotation
 
 **Success Criteria:**
 1. `.env` and `.env.local.production` removed from git tracking; only `.env.example` template remains committed
