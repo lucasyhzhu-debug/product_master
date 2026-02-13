@@ -4,22 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getDisplayStatus } from '@/lib/orderConstants';
 import type { UrgentOrder, OrderStatus } from '@/lib/types';
 
 interface ProductionQueueTableProps {
   orders: UrgentOrder[];
 }
 
-const STATUS_CONFIG: Record<
+const STATUS_CONFIG: Partial<Record<
   OrderStatus,
   { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; color: string }
-> = {
+>> = {
   Draft: { label: 'Draft', variant: 'secondary', color: 'text-gray-600' },
   AwaitingPayment: { label: 'Awaiting Payment', variant: 'outline', color: 'text-amber-600' },
   Confirmed: { label: 'Confirmed', variant: 'default', color: 'text-blue-600' },
-  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600' }, // PRD-7
-  ProductionComplete: { label: 'Production Done', variant: 'secondary', color: 'text-purple-600' },
-  Packaging: { label: 'Packaging', variant: 'default', color: 'text-indigo-600' },
+  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600' },
   Boxed: { label: 'Boxed', variant: 'default', color: 'text-amber-600' },
   Labeled: { label: 'Labeled', variant: 'default', color: 'text-blue-600' },
   WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600' },
@@ -28,6 +27,8 @@ const STATUS_CONFIG: Record<
   PickedUp: { label: 'Picked Up', variant: 'secondary', color: 'text-green-600' },
   Cancelled: { label: 'Cancelled', variant: 'destructive', color: 'text-red-600' },
 };
+
+const DEFAULT_STATUS_CONFIG = { label: 'Unknown', variant: 'secondary' as const, color: 'text-gray-600' };
 
 function formatDueDate(dateStr: string | null, isOverdue: boolean): string {
   if (!dateStr) return 'No due date';
@@ -117,7 +118,7 @@ export function ProductionQueueTable({ orders }: ProductionQueueTableProps) {
       <CardContent className="p-0">
         <div className="divide-y">
           {orders.map((order) => {
-            const statusConfig = STATUS_CONFIG[order.status];
+            const statusConfig = STATUS_CONFIG[getDisplayStatus(order.status)] ?? DEFAULT_STATUS_CONFIG;
             return (
               <Link
                 key={order.id}

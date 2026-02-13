@@ -8,24 +8,49 @@
 import type { OrderStatus, PaymentStatus } from './types';
 
 // ============================================
+// Display Status Mapping
+// ============================================
+
+/**
+ * Map deprecated statuses to their display equivalents.
+ * Used for UI display only -- backend and filters keep original values.
+ * ProductionComplete -> Boxed (both mean "production done, ready for next step")
+ * Packaging -> InProduction (packaging was the old step between Confirmed and Completion)
+ */
+export function getDisplayStatus(status: OrderStatus): OrderStatus {
+  switch (status) {
+    case 'ProductionComplete': return 'Boxed';
+    case 'Packaging': return 'InProduction';
+    default: return status;
+  }
+}
+
+// ============================================
 // Status Colors (Individual)
 // ============================================
 
-export const STATUS_COLORS: Record<OrderStatus, string> = {
+export const STATUS_COLORS: Partial<Record<OrderStatus, string>> = {
   Draft: 'bg-gray-500',
   AwaitingPayment: 'bg-amber-500',
   Confirmed: 'bg-blue-500',
   InProduction: 'bg-purple-500',
-  Boxed: 'bg-amber-500', // NEW: Boxed and ready for stickers
-  Labeled: 'bg-blue-500', // NEW: Stickers applied, ready to ship
-  ProductionComplete: 'bg-purple-500', // DEPRECATED
-  Packaging: 'bg-indigo-500', // DEPRECATED
+  Boxed: 'bg-amber-500',
+  Labeled: 'bg-blue-500',
   WaitingShipment: 'bg-yellow-500',
   CompleteShipped: 'bg-green-500',
   WaitingPickup: 'bg-orange-500',
   PickedUp: 'bg-green-500',
   Cancelled: 'bg-red-500',
 };
+
+/**
+ * Get the display color for an order status.
+ * Routes through getDisplayStatus() to handle deprecated statuses.
+ */
+export function getStatusColor(status: OrderStatus): string {
+  const displayStatus = getDisplayStatus(status);
+  return STATUS_COLORS[displayStatus] ?? 'bg-gray-500';
+}
 
 export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   Unpaid: 'bg-orange-500',
@@ -40,7 +65,7 @@ export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
 export const STATUS_CATEGORIES = {
   awaiting: ['Draft', 'AwaitingPayment'] as OrderStatus[],
   paidReady: ['Confirmed'] as OrderStatus[],
-  kitchen: ['InProduction', 'Boxed', 'Labeled', 'Packaging'] as OrderStatus[],
+  kitchen: ['InProduction', 'Boxed', 'Labeled'] as OrderStatus[],
   ready: ['WaitingShipment', 'WaitingPickup'] as OrderStatus[],
   completed: ['CompleteShipped', 'PickedUp'] as OrderStatus[],
   cancelled: ['Cancelled'] as OrderStatus[],
@@ -118,11 +143,13 @@ export const CATEGORY_INFO: Record<
 // ============================================
 
 /**
- * Get the category for a given order status
+ * Get the category for a given order status.
+ * Routes through getDisplayStatus() so deprecated statuses map correctly.
  */
 export function getStatusCategory(status: OrderStatus): StatusCategory {
+  const displayStatus = getDisplayStatus(status);
   for (const [category, statuses] of Object.entries(STATUS_CATEGORIES)) {
-    if (statuses.includes(status)) {
+    if (statuses.includes(displayStatus)) {
       return category as StatusCategory;
     }
   }
