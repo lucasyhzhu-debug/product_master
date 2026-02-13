@@ -6,15 +6,15 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 **Current focus:** Phase 1 — Test Infrastructure (plans executing in parallel)
 
 ## Current Position
-Phase: 1 — Test Infrastructure (in progress)
-Current Plan: 04 of 04 (complete)
-Last completed: 01-04 (Voucher Handling Tests)
+Phase: 1 — Test Infrastructure (COMPLETE)
+Current Plan: 04 of 04 (all complete)
+Last completed: 01-03 (Order Lifecycle Tests)
 
 ## Phase Readiness
 
 | Phase | Status | Blockers |
 |-------|--------|----------|
-| 1 — Test Infrastructure | In Progress (Plan 04 complete) | None |
+| 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
 | 2 — Security & Docs | Ready | None |
 | 3 — Tech Debt | Ready | None |
 | 4 — Bugs | Blocked | Phase 3 |
@@ -36,6 +36,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 2026-02-13 | 01 | Plan 04 complete | Voucher handling tests: 15 tests, 3 helpers |
 | 2026-02-13 | 01 | Plan 02 complete | FIFO inventory tests: 20 tests, 4 helpers |
 | 2026-02-13 | 01 | Plan 01 complete | Ball distribution tests: 25 tests, 4 helpers |
+| 2026-02-13 | 01 | Plan 03 complete | Order lifecycle tests: 30 tests, 4 helpers. Phase 01 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -46,6 +47,9 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 - Used completeBalls mutation (not fillPendingOrders) as primary ball distribution test entry point
 - Test helpers create both componentTypes and productionUnitTypes for bridge table compatibility
 - All ball distribution fixtures use BOM system exclusively (no deprecated fields)
+- cancel mutation does not release inventory reservations (only updateStatus with Cancelled does) -- documented gap
+- updateStatus has no state machine enforcement (any status transition allowed) -- documented gap
+- Used updateStatus for inventory release tests, cancel mutation for status/production tests
 
 ## Performance Metrics
 
@@ -54,7 +58,8 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 01 | 02 | 5min | 2 | 2 |
 | 01 | 04 | 4min | 2 | 2 |
 | 01 | 01 | 7min | 2 | 2 |
+| 01 | 03 | 8min | 3 | 2 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 01-01-PLAN.md*
+*Last session stopped at: Completed 01-03-PLAN.md (Phase 01 fully complete)*
