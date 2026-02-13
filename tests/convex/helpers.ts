@@ -884,3 +884,365 @@ export async function verifyVoucherUsage(
 
   return usageRecords;
 }
+
+// ============================================
+// Ball Distribution Test Helpers
+// ============================================
+
+/**
+ * Creates a component type (production or packaging) in the unified BOM system.
+ * Default: BIG_BALL production component (80g/Jumbo).
+ *
+ * Uses the componentTypes table (unified BOM) -- NOT the deprecated
+ * productionUnitTypes table. However, also creates a matching
+ * productionUnitTypes entry for production components since
+ * orderItemProduction.productionUnitTypeId requires it.
+ */
+export async function createComponentType(
+  t: TestContext,
+  overrides: {
+    code?: string;
+    name?: string;
+    category?: 'production' | 'packaging';
+    gramsPerUnit?: number;
+    unitCostIdr?: number;
+    unit?: string;
+    trackInventory?: boolean;
+    sortOrder?: number;
+    isActive?: boolean;
+    color?: string;
+  } = {}
+): Promise<Id<'componentTypes'>> {
+  const code = overrides.code ?? 'BIG_BALL';
+  const name = overrides.name ?? 'Big Ball';
+  const category = overrides.category ?? 'production';
+  const gramsPerUnit = overrides.gramsPerUnit ?? (code === 'MID_BALL' ? 45 : 80);
+  const unitCostIdr = overrides.unitCostIdr ?? 1000;
+  const unit = overrides.unit ?? 'pcs';
+  const trackInventory = overrides.trackInventory ?? (category === 'packaging');
+  const sortOrder = overrides.sortOrder ?? 0;
+  const isActive = overrides.isActive ?? true;
+
+  const componentTypeId = await t.run(async (ctx) => {
+    return await ctx.db.insert('componentTypes', {
+      code,
+      name,
+      category,
+      gramsPerUnit: category === 'production' ? gramsPerUnit : undefined,
+      unitCostIdr,
+      unit,
+      trackInventory,
+      sortOrder,
+      isActive,
+      color: overrides.color,
+      createdBy: 'test',
+      createdAt: Date.now(),
+    });
+  });
+
+  // For production components, also create matching productionUnitTypes entry.
+  // This is required because orderItemProduction.productionUnitTypeId is a required
+  // field (v.id, not optional) and createProductionRecordsForItem bridges via code.
+  if (category === 'production') {
+    await t.run(async (ctx) => {
+      // Check if already exists (avoid duplicates in multi-component tests)
+      const existing = await ctx.db
+        .query('productionUnitTypes')
+        .withIndex('by_code', (q) => q.eq('code', code))
+        .first();
+      if (!existing) {
+        await ctx.db.insert('productionUnitTypes', {
+          code,
+          name,
+          gramsPerUnit,
+          unitCostIdr,
+          color: overrides.color,
+          sortOrder,
+          isActive,
+        });
+      }
+    });
+  }
+
+  return componentTypeId;
+}
+
+/**
+ * Creates a menu product with BOM entries (menuProductComponents + componentTypes).
+ * Uses the unified BOM system -- NOT deprecated productionType/productionUnits fields.
+ *
+ * Default: Single product with 1 BIG_BALL at 25,000 IDR.
+ *
+ * @param ballConfig Array of {code, quantity} for production components.
+ *   e.g., [{code: 'BIG_BALL', quantity: 2}, {code: 'MID_BALL', quantity: 1}]
+ */
+export async function createMenuProductWithBOM(
+  t: TestContext,
+  overrides: {
+    code?: string;
+    name?: string;
+    defaultPrice?: number;
+    grams?: number;
+    isActive?: boolean;
+    ballConfig?: Array<{ code: string; quantity: number }>;
+  } = {}
+): Promise<{
+  menuProductId: Id<'menuProducts'>;
+  componentTypeIds: Id<'componentTypes'>[];
+}> {
+  const code = overrides.code ?? 'BOM-001';
+  const name = overrides.name ?? 'Test BOM Product';
+  const defaultPrice = overrides.defaultPrice ?? 25000;
+  const grams = overrides.grams ?? 100;
+  const isActive = overrides.isActive ?? true;
+  const ballConfig = overrides.ballConfig ?? [{ code: 'BIG_BALL', quantity: 1 }];
+
+  // Create the menu product (uses legacy fields with placeholder values -- required by schema)
+  const menuProductId = await t.run(async (ctx) => {
+    return await ctx.db.insert('menuProducts', {
+      code,
+      name,
+      grams,
+      defaultPrice,
+      productionType: 'original', // DEPRECATED -- placeholder only
+      productionUnits: 1,         // DEPRECATED -- placeholder only
+      isActive,
+    });
+  });
+
+  // Create component types and BOM links
+  const componentTypeIds: Id<'componentTypes'>[] = [];
+
+  for (let i = 0; i < ballConfig.length; i++) {
+    const config = ballConfig[i];
+    const componentName = config.code === 'BIG_BALL' ? 'Big Ball' :
+                          config.code === 'MID_BALL' ? 'Mid Ball' :
+                          config.code;
+    const componentGrams = config.code === 'BIG_BALL' ? 80 :
+                           config.code === 'MID_BALL' ? 45 : 0;
+
+    const componentTypeId = await createComponentType(t, {
+      code: config.code,
+      name: componentName,
+      category: 'production',
+      gramsPerUnit: componentGrams,
+    });
+    componentTypeIds.push(componentTypeId);
+
+    // Create BOM link (menuProductComponents)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('menuProductComponents', {
+        menuProductId,
+        componentTypeId,
+        quantity: config.quantity,
+        sortOrder: i,
+      });
+    });
+  }
+
+  return { menuProductId, componentTypeIds };
+}
+
+/**
+ * Creates an order with order items, production records, and all required
+ * supporting data (customer, menu product with BOM).
+ *
+ * This helper creates the full order structure needed for ball distribution tests:
+ * 1. Customer (if not provided)
+ * 2. Menu product with BOM (if not provided)
+ * 3. Order record
+ * 4. Order items with production records (orderItemProduction)
+ *
+ * Returns orderId and all created entity IDs for test assertions.
+ */
+export async function createBasicOrder(
+  t: TestContext,
+  overrides: {
+    customerId?: Id<'customers'>;
+    menuProductId?: Id<'menuProducts'>;
+    quantity?: number;
+    dueDate?: number;
+    status?: string;
+    orderDate?: number;
+    productName?: string;
+    unitPrice?: number;
+    unitCost?: number;
+    ballConfig?: Array<{ code: string; quantity: number }>;
+  } = {}
+): Promise<{
+  orderId: Id<'orders'>;
+  customerId: Id<'customers'>;
+  menuProductId: Id<'menuProducts'>;
+  orderItemIds: Id<'orderItems'>[];
+}> {
+  const quantity = overrides.quantity ?? 1;
+  const status = overrides.status ?? 'Confirmed';
+  const dueDate = overrides.dueDate ?? Date.now() + 86400000; // Tomorrow
+  const orderDate = overrides.orderDate ?? Date.now();
+  const productName = overrides.productName ?? 'Test Product';
+  const unitPrice = overrides.unitPrice ?? 25000;
+  const unitCost = overrides.unitCost ?? 10000;
+
+  // Create customer if not provided
+  const customerId = overrides.customerId ?? await createCustomer(t);
+
+  // Create menu product with BOM if not provided
+  let menuProductId = overrides.menuProductId;
+  if (!menuProductId) {
+    const bomResult = await createMenuProductWithBOM(t, {
+      ballConfig: overrides.ballConfig ?? [{ code: 'BIG_BALL', quantity: 1 }],
+    });
+    menuProductId = bomResult.menuProductId;
+  }
+
+  // Create the order
+  const orderId = await t.run(async (ctx) => {
+    const now = new Date();
+    const orderNumber = `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+
+    return await ctx.db.insert('orders', {
+      orderNumber,
+      customerId,
+      customerName: 'Test Customer',
+      status: status as 'Confirmed' | 'InProduction' | 'Draft' | 'AwaitingPayment' | 'Boxed' | 'Labeled' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled',
+      paymentStatus: 'Unpaid',
+      orderDate,
+      dueDate,
+      totalAmount: quantity * unitPrice,
+      totalCost: quantity * unitCost,
+      totalMargin: quantity * (unitPrice - unitCost),
+      deliveryType: 'Delivery',
+      createdBy: 'test',
+      itemCount: 1,
+    });
+  });
+
+  // Create order item
+  const orderItemId = await t.run(async (ctx) => {
+    return await ctx.db.insert('orderItems', {
+      orderId,
+      productName,
+      quantity,
+      unitPrice,
+      unitCost,
+      discountAmount: 0,
+      lineTotal: quantity * unitPrice,
+      lineCost: quantity * unitCost,
+      lineMargin: quantity * (unitPrice - unitCost),
+      menuProductId,
+      packageStatus: 'empty',
+      ballsFilled: 0,
+    });
+  });
+
+  // Create production records from BOM
+  // Fetch menu product components to build orderItemProduction records
+  await t.run(async (ctx) => {
+    const components = await ctx.db
+      .query('menuProductComponents')
+      .withIndex('by_menu_product', (q) => q.eq('menuProductId', menuProductId!))
+      .collect();
+
+    for (const comp of components) {
+      const componentType = await ctx.db.get(comp.componentTypeId);
+      if (!componentType || componentType.category !== 'production') continue;
+
+      // Find matching productionUnitType by code
+      const productionUnitType = await ctx.db
+        .query('productionUnitTypes')
+        .withIndex('by_code', (q) => q.eq('code', componentType.code))
+        .first();
+      if (!productionUnitType) continue;
+
+      const unitsRequired = comp.quantity * quantity;
+      await ctx.db.insert('orderItemProduction', {
+        orderItemId,
+        productionUnitTypeId: productionUnitType._id,
+        productionUnitCode: componentType.code,
+        productionUnitName: componentType.name,
+        unitsRequired,
+        unitsCompleted: 0,
+        unitsRemaining: unitsRequired,
+      });
+    }
+  });
+
+  return {
+    orderId,
+    customerId,
+    menuProductId,
+    orderItemIds: [orderItemId],
+  };
+}
+
+/**
+ * Verifies no ghost balls exist in the system.
+ * A "ghost ball" is an orderItemProduction record that is:
+ * - Not cancelled
+ * - Has unitsCompleted > 0 (balls were produced)
+ * - But the record has no valid orderId linkage through its orderItemId
+ *
+ * Also verifies the fundamental invariant:
+ *   For each active production record: unitsRequired = unitsCompleted + unitsRemaining
+ *
+ * Returns a verification result with details about any violations found.
+ */
+export async function verifyNoGhostBalls(
+  t: TestContext
+): Promise<{
+  passed: boolean;
+  totalRecords: number;
+  activeRecords: number;
+  totalProduced: number;
+  totalRemaining: number;
+  violations: string[];
+}> {
+  return await t.run(async (ctx) => {
+    const allRecords = await ctx.db.query('orderItemProduction').collect();
+    const violations: string[] = [];
+    let activeRecords = 0;
+    let totalProduced = 0;
+    let totalRemaining = 0;
+
+    for (const record of allRecords) {
+      if (record.isCancelled) continue;
+      activeRecords++;
+      totalProduced += record.unitsCompleted;
+      totalRemaining += record.unitsRemaining;
+
+      // Invariant: unitsRequired = unitsCompleted + unitsRemaining
+      if (record.unitsRequired !== record.unitsCompleted + record.unitsRemaining) {
+        violations.push(
+          `Record ${record._id}: unitsRequired(${record.unitsRequired}) != ` +
+          `unitsCompleted(${record.unitsCompleted}) + unitsRemaining(${record.unitsRemaining})`
+        );
+      }
+
+      // Verify the record's orderItem exists and has a valid orderId
+      const orderItem = await ctx.db.get(record.orderItemId);
+      if (!orderItem) {
+        violations.push(
+          `Record ${record._id}: orderItemId ${record.orderItemId} does not exist (ghost ball)`
+        );
+        continue;
+      }
+
+      // Verify the order exists
+      const order = await ctx.db.get(orderItem.orderId);
+      if (!order) {
+        violations.push(
+          `Record ${record._id}: order ${orderItem.orderId} does not exist (orphaned production)`
+        );
+      }
+    }
+
+    return {
+      passed: violations.length === 0,
+      totalRecords: allRecords.length,
+      activeRecords,
+      totalProduced,
+      totalRemaining,
+      violations,
+    };
+  });
+}
