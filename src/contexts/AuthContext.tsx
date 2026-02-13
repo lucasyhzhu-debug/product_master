@@ -6,6 +6,14 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 const AUTH_STORAGE_KEY = "malo_auth_session";
 
+/**
+ * SessionProvider storage key -- must match the storageKey prop
+ * passed to SessionProvider in main.tsx. When login writes the auth
+ * token here, useSessionMutation/useSessionQuery will automatically
+ * inject it as sessionId in Convex function args.
+ */
+const SESSION_ID_KEY = "malo_session_id";
+
 interface AuthContextValue {
   user: AuthSession | null;
   isAuthenticated: boolean;
@@ -45,8 +53,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Check if session hasn't expired
         if (parsed.expiresAt > Date.now()) {
           setSession(parsed);
+          localStorage.setItem(SESSION_ID_KEY, parsed.token);
         } else {
           localStorage.removeItem(AUTH_STORAGE_KEY);
+          localStorage.removeItem(SESSION_ID_KEY);
         }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -62,6 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (validationResult && !validationResult.valid && session) {
       // Session is invalid on server, clear local state
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(SESSION_ID_KEY);
       setSession(null);
     }
   }, [validationResult, session]);
@@ -81,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
 
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
+        localStorage.setItem(SESSION_ID_KEY, authSession.token);
         setSession(authSession);
 
         return { success: true };
@@ -109,6 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(SESSION_ID_KEY);
     setSession(null);
   }, [session, logoutMutation]);
 
