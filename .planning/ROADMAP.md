@@ -73,11 +73,19 @@ Plans:
 **Goal:** All straightforward tech debt items (hardcoded usernames, dead code, deprecated status mappings, shim files, redundant indexes) are cleaned up in a single focused phase.
 **Requirements:** QFIX-01, QFIX-02, QFIX-03, QFIX-04, QFIX-05
 **Dependencies:** None (can run in parallel with Phases 1-2)
+**Plans:** 4 plans (Wave 1: 03-01, 03-02, 03-03 parallel; Wave 2: 03-04)
+
+Plans:
+- [ ] 03-01-PLAN.md — Replace hardcoded "current-user" + delete KitchenView V1 (QFIX-01, QFIX-02)
+- [ ] 03-02-PLAN.md — Deprecated order status UI mapping cleanup (QFIX-04)
+- [ ] 03-03-PLAN.md — Index audit and removal (QFIX-05)
+- [ ] 03-04-PLAN.md — Remove orders/mutations.ts shim and update all callers (QFIX-03)
+
 **Success Criteria:**
 1. `"current-user"` string does not appear in any inventory mutation — all inventory operations use the authenticated username from AuthContext
 2. `KitchenView.tsx` file is deleted; route in `App.tsx` points directly to `KitchenViewV2`
 3. `convex/orders/mutations.ts` shim file is removed; all 19+ frontend imports updated to reference domain-specific mutation files (`orderCrud.ts`, `inventoryIntegration.ts`, etc.)
-4. `ProductionComplete` and `Packaging` status values no longer appear in any UI status mapping, color mapping, or filter — only in schema validator for historical data
+4. `ProductionComplete` and `Packaging` status values no longer appear in any UI status display (badges, colors, labels) — mapped to `Boxed` and `InProduction` respectively. Deprecated statuses remain as filter options for accounting/sales review. Schema validator keeps both values for historical data integrity.
 5. Index audit document lists all removed indexes with justification; `npm run build` passes after removal
 
 **Estimated scope:** 25-30 files modified across frontend and backend
