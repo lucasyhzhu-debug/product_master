@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 4 — Bugs (IN PROGRESS)
+**Current focus:** Phase 5 — Backend Factories (IN PROGRESS)
 
 ## Current Position
-Phase: 4 — Bugs (IN PROGRESS)
-Current Plan: 01 of 02
-Last completed: 04-01 (Stock Shortage Override Dialog BUG-01)
+Phase: 5 — Backend Factories (IN PROGRESS)
+Current Plan: 01 of 03
+Last completed: 05-01 (Foundation Wrappers)
 
 ## Phase Readiness
 
@@ -18,7 +18,7 @@ Last completed: 04-01 (Stock Shortage Override Dialog BUG-01)
 | 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
 | 4 — Bugs | IN PROGRESS (1/2 plans done) | None |
-| 5 — Backend Factories | Blocked | Phase 1 |
+| 5 — Backend Factories | IN PROGRESS (1/3 plans done) | None |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
 | 7 — Query Optimization | Blocked | Phase 6 |
 | 8 — Schema Cleanup | Blocked | Phases 6, 7 |
@@ -44,6 +44,7 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 2026-02-13 | 02 | Plan 02 complete | Git history scrub, TruffleHog scan, CONVEX_DEPLOY_KEY rotated. Phase 02 COMPLETE. |
 | 2026-02-13 | 03 | Plan 04 complete | Deleted orders/mutations.ts shim, migrated 135 refs across 8 files. Phase 03 COMPLETE. |
 | 2026-02-13 | 04 | Plan 01 complete | Stock shortage override dialog: English UX, reason input, expanded roles, audit trail |
+| 2026-02-13 | 05 | Plan 01 complete | convex-helpers auth wrappers, query helpers, test auth helper, SessionProvider |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -76,6 +77,10 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 - Override audit stores user-provided reason (not re-fetched shortage details) since reservation already succeeded with skipStockCheck
 - Expanded stock override access to order_staff in addition to manager/admin
 - Used regex parsing for structured shortage line display with raw line fallback
+- Used customMutation role metadata pattern (3rd arg) for per-function role declarations -- roles declared at definition site, never over wire
+- Generic "Unauthorized" error for all auth failures (no role/status details leaked)
+- Custom useLocalStorage hook for SessionProvider (localStorage, not sessionStorage) for cross-tab persistence
+- Auth token synced to malo_session_id localStorage key on all 5 state transitions (login, logout, mount valid, mount expired, server invalidation)
 
 ## Performance Metrics
 
@@ -92,7 +97,8 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 02 | 02 | 14min | 3 | 2 |
 | 03 | 04 | 4min | 2 | 11 |
 | 04 | 01 | 7min | 2 | 5 |
+| 05 | 01 | 8min | 2 | 6 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 04-01-PLAN.md*
+*Last session stopped at: Completed 05-01-PLAN.md*
