@@ -4,7 +4,8 @@
  * Queries and mutations for storage locations.
  */
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -48,21 +49,21 @@ export function useConvexDefaultLocation() {
  * Create a new storage location
  */
 export function useConvexCreateStorageLocation() {
-  return useMutation(api.storageLocations.mutations.create);
+  return useSessionMutation(api.storageLocations.mutations.create);
 }
 
 /**
  * Update an existing storage location
  */
 export function useConvexUpdateStorageLocation() {
-  return useMutation(api.storageLocations.mutations.update);
+  return useSessionMutation(api.storageLocations.mutations.update);
 }
 
 /**
  * Delete a storage location
  */
 export function useConvexDeleteStorageLocation() {
-  return useMutation(api.storageLocations.mutations.remove);
+  return useSessionMutation(api.storageLocations.mutations.remove);
 }
 
 // ============================================================================
@@ -75,7 +76,6 @@ export type StorageLocationCreateInput = {
   address?: string;
   isActive?: boolean;
   isDefault?: boolean;
-  createdBy: string;
 };
 
 export type StorageLocationUpdateInput = {

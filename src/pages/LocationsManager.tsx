@@ -35,11 +35,9 @@ import {
   useConvexDeleteStorageLocation,
 } from "@/hooks/convex";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export function LocationsManager() {
-  const { user } = useAuth();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<Id<"storageLocations"> | null>(
@@ -120,7 +118,6 @@ export function LocationsManager() {
           address: address.trim() || undefined,
           isActive,
           isDefault,
-          createdBy: user?.name ?? "unknown",
         });
         toast.success("Location created");
       }

@@ -3,7 +3,8 @@
  * Convex query/mutation hooks for customer management.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -19,7 +20,6 @@ export interface CustomerCreateInput {
   phone?: string;
   source?: string;
   notes?: string;
-  createdBy?: string;
 }
 
 export interface CustomerUpdateInput {
@@ -116,7 +116,7 @@ export function useConvexCustomerByPhone(phone: string | undefined) {
  * Create a new customer.
  */
 export function useConvexCreateCustomer() {
-  const mutation = useMutation(api.customers.mutations.create);
+  const mutation = useSessionMutation(api.customers.mutations.create);
 
   const execute = async (data: CustomerCreateInput) => {
     try {
@@ -136,7 +136,7 @@ export function useConvexCreateCustomer() {
  * Update an existing customer.
  */
 export function useConvexUpdateCustomer() {
-  const mutation = useMutation(api.customers.mutations.update);
+  const mutation = useSessionMutation(api.customers.mutations.update);
 
   const execute = async (data: { id: Id<"customers">; updates: CustomerUpdateInput }) => {
     try {
@@ -155,7 +155,7 @@ export function useConvexUpdateCustomer() {
  * Delete a customer.
  */
 export function useConvexDeleteCustomer() {
-  const mutation = useMutation(api.customers.mutations.remove);
+  const mutation = useSessionMutation(api.customers.mutations.remove);
 
   const execute = async (id: Id<"customers">) => {
     try {
