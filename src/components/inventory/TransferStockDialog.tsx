@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useConvexTransferStock } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -52,6 +53,7 @@ export function TransferStockDialog({
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { user } = useAuth();
   const transferStock = useConvexTransferStock();
 
   // Filter out source location from destination options
@@ -89,7 +91,7 @@ export function TransferStockDialog({
         toLocationId,
         quantity: qty,
         referenceNote: note.trim() || undefined,
-        createdBy: "current-user",
+        createdBy: user?.name ?? "unknown",
       });
       toast.success(`Transferred ${qty} ${componentName} successfully`);
       onOpenChange(false);

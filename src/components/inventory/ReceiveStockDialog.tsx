@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 // Select/RadioGroup imports removed - replaced with button grid in Wave 5
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   useConvexReceiveStock,
@@ -81,6 +82,9 @@ export function ReceiveStockDialog({
   const [purchaseReference, setPurchaseReference] = useState("");
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auth
+  const { user } = useAuth();
 
   // Queries and mutations
   const allComponents = useConvexInventoryTrackedComponents(true);
@@ -191,7 +195,7 @@ export function ReceiveStockDialog({
           purchaseUrl: purchaseUrl.trim() || undefined,
           quantityPurchased: Number(quantity),
           totalCostIdr: Number(totalCost),
-          createdBy: "current-user", // TODO: Replace with actual user
+          createdBy: user?.name ?? "unknown",
         });
 
         toast.success("Stock received successfully");
@@ -239,7 +243,7 @@ export function ReceiveStockDialog({
           purchaseUrl: purchaseUrl.trim() || undefined,
           quantityPurchased: Number(quantity),
           totalCostIdr: Number(totalCost),
-          createdBy: "current-user", // TODO: Replace with actual user
+          createdBy: user?.name ?? "unknown",
         });
 
         toast.success(`Component "${newComponentName}" created and stock received`);
