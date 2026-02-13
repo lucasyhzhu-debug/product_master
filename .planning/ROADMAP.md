@@ -30,6 +30,14 @@
 **Goal:** Every critical business logic module (ball distribution, FIFO inventory, order lifecycle, voucher handling) has comprehensive unit/integration tests providing a safety net for all subsequent refactoring.
 **Requirements:** TEST-01, TEST-02, TEST-03, TEST-04
 **Dependencies:** None
+**Plans:** 4 plans (Wave 1: all parallel)
+
+Plans:
+- [ ] 01-01-PLAN.md — Ball distribution algorithm tests (priority, partial fills, ghost ball prevention)
+- [ ] 01-02-PLAN.md — FIFO inventory consumption tests (oldest-first, expiry, batch depletion)
+- [ ] 01-03-PLAN.md — Order lifecycle integration tests (status transitions, inventory, cancellation)
+- [ ] 01-04-PLAN.md — Voucher handling tests (discounts, validation, expiry, usage limits)
+
 **Success Criteria:**
 1. `ballDistribution.ts` has tests covering allocation to multi-product orders, partial fills, tray exhaustion, priority ordering, and auto-status transitions
 2. `fifo.ts` has tests covering oldest-first batch selection, partial batch depletion, batch boundary cases, and empty inventory edge case
