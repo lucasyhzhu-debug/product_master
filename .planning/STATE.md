@@ -17,7 +17,7 @@ Last completed: 05-01 (Foundation Wrappers)
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
 | 2 — Security & Docs | COMPLETE (all 2 plans done) | None |
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
-| 4 — Bugs | IN PROGRESS (1/2 plans done) | None |
+| 4 — Bugs | COMPLETE (all 2 plans done) | None |
 | 5 — Backend Factories | IN PROGRESS (1/3 plans done) | None |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
 | 7 — Query Optimization | Blocked | Phase 6 |
@@ -45,6 +45,7 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 2026-02-13 | 03 | Plan 04 complete | Deleted orders/mutations.ts shim, migrated 135 refs across 8 files. Phase 03 COMPLETE. |
 | 2026-02-13 | 04 | Plan 01 complete | Stock shortage override dialog: English UX, reason input, expanded roles, audit trail |
 | 2026-02-13 | 05 | Plan 01 complete | convex-helpers auth wrappers, query helpers, test auth helper, SessionProvider |
+| 2026-02-13 | 04 | Plan 02 complete | Cost invalidation schedulers, production records query, K3Mart backlog conversion. Phase 04 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -81,6 +82,9 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 - Generic "Unauthorized" error for all auth failures (no role/status details leaked)
 - Custom useLocalStorage hook for SessionProvider (localStorage, not sessionStorage) for cross-tab persistence
 - Auth token synced to malo_session_id localStorage key on all 5 state transitions (login, logout, mount valid, mount expired, server invalidation)
+- Cost invalidation is depth-1 only -- does not cascade to linked recipe consumers (self-corrects on next view)
+- K3Mart TODOs converted to BACKLOG references (K3MART-01 through K3MART-06), not implemented
+- Production records mapped per-item with parent product name for display context
 
 ## Performance Metrics
 
@@ -98,7 +102,8 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 03 | 04 | 4min | 2 | 11 |
 | 04 | 01 | 7min | 2 | 5 |
 | 05 | 01 | 8min | 2 | 6 |
+| 04 | 02 | 9min | 2 | 8 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 05-01-PLAN.md*
+*Last session stopped at: Completed 04-02-PLAN.md (Phase 04 COMPLETE)*
