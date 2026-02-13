@@ -2,13 +2,16 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat, Pencil, AlertTriangle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { ConvexError } from 'convex/values';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout';
@@ -41,7 +44,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../convex/_generated/dataModel';
 import { getDisplayStatus, getStatusColor } from '@/lib/orderConstants';
-import type { OrderStatus, CancellationCategory, OrderItem } from '@/lib/types';
+import type { OrderStatus, CancellationCategory } from '@/lib/types';
 
 // ============================================
 // Status Flow Configuration
@@ -93,22 +96,41 @@ export function OrderDetail() {
   const cancelOrder = useConvexCancelOrder();
   const deleteOrder = useConvexDeleteOrder();
 
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
 
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [stockShortageMessage, setStockShortageMessage] = useState<string | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
 
   // Shipping input state
   const [shippingAgency, setShippingAgency] = useState('');
   const [shippingNumber, setShippingNumber] = useState('');
 
+  // Production records for the production step
+  const productionRecords = useQuery(
+    api.orders.queries.getOrderProductionRecords,
+    orderId ? { orderId } : "skip"
+  );
+
+  // Order events for audit trail
+  const orderEvents = useQuery(api.orders.queries.getOrderEvents, orderId ? { orderId } : "skip");
+  const overrideEvents = useMemo(() => {
+    if (!orderEvents) return [];
+    return orderEvents.filter(e => e.eventType === 'stock_override');
+  }, [orderEvents]);
+
   // ============================================
   // Handlers
   // ============================================
 
-  const handleStatusChange = async (newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled", skipStockCheck?: boolean) => {
+  const handleStatusChange = async (
+    newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled",
+    skipStockCheck?: boolean,
+    overrideReasonArg?: string,
+    overrideByArg?: string
+  ) => {
     if (!order || !orderId) return;
 
     if (newStatus === 'Cancelled') {
@@ -117,11 +139,11 @@ export function OrderDetail() {
     }
 
     try {
-      await updateStatus.mutate({ orderId, status: newStatus, skipStockCheck });
+      await updateStatus.mutate({ orderId, status: newStatus, skipStockCheck, overrideReason: overrideReasonArg, overrideBy: overrideByArg });
       setStockShortageMessage(null);
     } catch (error) {
       // Show override dialog for stock shortage errors
-      if (error instanceof ConvexError && typeof error.data === 'string' && error.data.includes('Stok kemasan tidak cukup')) {
+      if (error instanceof ConvexError && typeof error.data === 'string' && error.data.includes('Insufficient packaging stock')) {
         setStockShortageMessage(error.data);
         return;
       }
@@ -264,7 +286,7 @@ export function OrderDetail() {
       content: ['Confirmed', 'InProduction'].includes(order.status) ? (
         <div className="space-y-4">
           <ProductionProgress
-            units={getProductionUnits(order)}
+            units={mapProductionRecords(productionRecords)}
             compact
           />
           <div className="flex items-center justify-between">
@@ -549,6 +571,36 @@ export function OrderDetail() {
             </CardContent>
           </Card>
 
+          {/* Stock Override Audit Trail */}
+          {overrideEvents.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  Stock Override
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {overrideEvents.map((evt) => {
+                  const meta = evt.metadata ? JSON.parse(evt.metadata) : {};
+                  return (
+                    <div key={evt._id} className="text-sm space-y-1">
+                      <p className="text-amber-800">
+                        Overridden by <span className="font-medium">{meta.overrideBy ?? evt.triggeredBy}</span>
+                      </p>
+                      {evt.reason && (
+                        <p className="text-amber-700 italic">&quot;{evt.reason}&quot;</p>
+                      )}
+                      <p className="text-xs text-amber-600">
+                        {new Date(evt.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Channel Selector */}
           <Card>
             <CardHeader className="pb-2">
@@ -671,45 +723,86 @@ export function OrderDetail() {
       />
 
       {/* Stock shortage override dialog */}
-      <Dialog open={!!stockShortageMessage} onOpenChange={(open) => !open && setStockShortageMessage(null)}>
+      <Dialog
+        open={!!stockShortageMessage}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStockShortageMessage(null);
+            setOverrideReason('');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
               <AlertTriangle className="h-5 w-5" />
-              Stok Kemasan Kurang
+              Insufficient Packaging Stock
             </DialogTitle>
+            <DialogDescription>
+              Order cannot be fully packaged. {stockShortageMessage?.split('\n').filter(line => line.includes('need ')).length ?? 0} packaging item(s) have insufficient stock.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            {stockShortageMessage?.split('\n').filter(line => line.includes('need ')).map((line, i) => (
-              <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
-                <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <span className="text-amber-900">{line}</span>
+            {stockShortageMessage?.split('\n').filter(line => line.includes('need ')).map((line, i) => {
+              const match = line.match(/^(.+): need (\d+), have (\d+) \(short (\d+)\)/);
+              if (match) {
+                const [, name, needed, available, shortage] = match;
+                return (
+                  <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
+                    <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-amber-900">
+                      <span className="font-medium">{name}</span>
+                      <span className="text-amber-700 ml-1">
+                        need {needed}, have {available} (short <span className="font-semibold text-red-600">{shortage}</span>)
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
+                  <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-amber-900">{line}</span>
+                </div>
+              );
+            })}
+            {hasRole('order_staff', 'manager', 'admin') ? (
+              <div className="space-y-2 pt-2">
+                <Label htmlFor="override-reason" className="text-sm font-medium">
+                  Reason for override *
+                </Label>
+                <Textarea
+                  id="override-reason"
+                  placeholder="Why are you proceeding despite insufficient stock?"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  className="min-h-[60px]"
+                />
               </div>
-            ))}
-            {hasRole('manager', 'admin') ? (
-              <p className="text-sm text-muted-foreground">
-                Kamu bisa override untuk tetap konfirmasi order ini. Pastikan stok akan segera dipesan.
-              </p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Hubungi manager untuk override atau tambah stok dulu.
+                Contact a manager to override or add stock first.
               </p>
             )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setStockShortageMessage(null)}>
-              Batal
+            <Button variant="outline" onClick={() => { setStockShortageMessage(null); setOverrideReason(''); }}>
+              Cancel
             </Button>
-            {hasRole('manager', 'admin') && (
+            {hasRole('order_staff', 'manager', 'admin') && (
               <Button
                 variant="default"
                 className="bg-amber-600 hover:bg-amber-700"
+                disabled={overrideReason.trim().length < 5}
                 onClick={() => {
+                  const reason = overrideReason.trim();
+                  const by = user?.name ?? 'unknown';
                   setStockShortageMessage(null);
-                  handleStatusChange('Confirmed', true);
+                  setOverrideReason('');
+                  handleStatusChange('Confirmed', true, reason, by);
                 }}
               >
-                Override & Konfirmasi
+                Override & Confirm
               </Button>
             )}
           </DialogFooter>
@@ -723,13 +816,24 @@ export function OrderDetail() {
 // Helper Functions
 // ============================================
 
-function getProductionUnits(_order: {
-  items: OrderItem[];
-}): ProductionUnit[] {
-  // Production tracking is now handled by orderItemProduction table
-  // This function is deprecated - production data should come from dedicated query
-  // TODO: Create dedicated query to fetch orderItemProduction records
-  return [];
+function mapProductionRecords(
+  records: Array<{
+    productionUnitCode: string;
+    productionUnitName: string;
+    productName: string;
+    unitsRequired: number;
+    unitsCompleted: number;
+    unitsRemaining: number;
+  }> | undefined
+): ProductionUnit[] {
+  if (!records || records.length === 0) return [];
+  return records.map((r) => ({
+    code: r.productionUnitCode,
+    name: `${r.productionUnitName} (${r.productName})`,
+    unitsRequired: r.unitsRequired,
+    unitsCompleted: r.unitsCompleted,
+    unitsRemaining: r.unitsRemaining,
+  }));
 }
 
 function getPackageItems(order: { items: Array<{ id: number; product_name: string; product_variant: string | null; quantity: number }> }): PackageItem[] {
