@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 2 — Security & Docs (executing)
+**Current focus:** Phase 3 — Tech Debt (executing in parallel)
 
 ## Current Position
-Phase: 2 — Security & Docs (IN PROGRESS)
-Current Plan: 01 of 02 (01 complete)
-Last completed: 02-01 (Env File Cleanup + Security Docs)
+Phase: 3 — Tech Debt (IN PROGRESS)
+Current Plan: 03 of 04 (03 complete)
+Last completed: 03-03 (Index Audit + Cleanup)
 
 ## Phase Readiness
 
@@ -16,7 +16,7 @@ Last completed: 02-01 (Env File Cleanup + Security Docs)
 |-------|--------|----------|
 | 1 — Test Infrastructure | COMPLETE (all 4 plans done) | None |
 | 2 — Security & Docs | IN PROGRESS (plan 01 done) | None |
-| 3 — Tech Debt | Ready | None |
+| 3 — Tech Debt | IN PROGRESS (plan 03 done) | None |
 | 4 — Bugs | Blocked | Phase 3 |
 | 5 — Backend Factories | Blocked | Phase 1 |
 | 6 — BOM Migration | Blocked | Phases 1, 5 |
@@ -38,6 +38,7 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 2026-02-13 | 01 | Plan 01 complete | Ball distribution tests: 25 tests, 4 helpers |
 | 2026-02-13 | 01 | Plan 03 complete | Order lifecycle tests: 30 tests, 4 helpers. Phase 01 COMPLETE. |
 | 2026-02-13 | 02 | Plan 01 complete | Env files untracked, .gitignore fixed, SECURITY.md created |
+| 2026-02-13 | 03 | Plan 03 complete | Removed 12 unused schema indexes (QFIX-05) |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -54,6 +55,9 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 - Added .env.local.* glob to .gitignore (original patterns did not cover .env.local.production/.env.local.testing filenames)
 - Used casual internal-team tone for SECURITY.md per user preference
 - Documented 39 requireRole() usages across 11 files as token-in-args scope
+- Removed 12 unused indexes (5 strong + 7 moderate) after grep-verified audit
+- Kept inventoryBatches.by_location (1 active reference), productionTargetLogs.by_date (future audit use)
+- Added inline QFIX-05 comments for audit trail on removed indexes
 
 ## Performance Metrics
 
@@ -64,7 +68,8 @@ Phases 1, 2, and 3 can start immediately in parallel. Phase 4 follows Phase 3. P
 | 01 | 01 | 7min | 2 | 2 |
 | 01 | 03 | 8min | 3 | 2 |
 | 02 | 01 | 5min | 2 | 3 |
+| 03 | 03 | 5min | 1 | 1 |
 
 ---
 *Last updated: 2026-02-13*
-*Last session stopped at: Completed 02-01-PLAN.md*
+*Last session stopped at: Completed 03-03-PLAN.md*
