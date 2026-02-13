@@ -2,7 +2,8 @@
  * Convex hooks for packaging materials.
  * Convex query/mutation hooks for packaging material management.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -32,7 +33,6 @@ export interface MaterialCreateInput {
   volumePurchased: number;
   priceExclShipping: number;
   shippingCost: number;
-  createdBy?: string;
 }
 
 /**
@@ -61,9 +61,10 @@ export function useConvexMaterialSearch(query: string, limit?: number) {
 
 /**
  * Create packaging material mutation with toast notifications.
+ * Uses useSessionMutation for automatic sessionId injection.
  */
 export function useConvexCreateMaterial() {
-  const mutation = useMutation(api.materials.mutations.create);
+  const mutation = useSessionMutation(api.materials.mutations.create);
   const execute = async (data: MaterialCreateInput) => {
     try {
       const id = await mutation(data);
@@ -81,7 +82,7 @@ export function useConvexCreateMaterial() {
  * Update packaging material mutation with toast notifications.
  */
 export function useConvexUpdateMaterial() {
-  const mutation = useMutation(api.materials.mutations.update);
+  const mutation = useSessionMutation(api.materials.mutations.update);
   const execute = async (data: { id: Id<"packagingMaterials"> } & Partial<MaterialCreateInput>) => {
     try {
       const id = await mutation(data);
@@ -99,7 +100,7 @@ export function useConvexUpdateMaterial() {
  * Delete packaging material mutation with toast notifications.
  */
 export function useConvexDeleteMaterial() {
-  const mutation = useMutation(api.materials.mutations.remove);
+  const mutation = useSessionMutation(api.materials.mutations.remove);
   const execute = async (id: Id<"packagingMaterials">) => {
     try {
       await mutation({ id });

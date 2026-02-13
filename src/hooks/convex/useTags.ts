@@ -3,6 +3,7 @@
  * Convex query/mutation hooks for tag management.
  */
 import { useQuery, useMutation } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -42,9 +43,10 @@ export function useConvexTagsMany(ids: Id<"tags">[]) {
 
 /**
  * Create tag mutation with toast notifications.
+ * Uses useSessionMutation for automatic sessionId injection.
  */
 export function useConvexCreateTag() {
-  const mutation = useMutation(api.tags.mutations.create);
+  const mutation = useSessionMutation(api.tags.mutations.create);
 
   const execute = async (data: TagCreateInput) => {
     try {
@@ -64,7 +66,7 @@ export function useConvexCreateTag() {
  * Update tag mutation with toast notifications.
  */
 export function useConvexUpdateTag() {
-  const mutation = useMutation(api.tags.mutations.update);
+  const mutation = useSessionMutation(api.tags.mutations.update);
 
   const execute = async (data: { id: Id<"tags">; name: string }) => {
     try {
@@ -84,7 +86,7 @@ export function useConvexUpdateTag() {
  * Delete tag mutation with toast notifications.
  */
 export function useConvexDeleteTag() {
-  const mutation = useMutation(api.tags.mutations.remove);
+  const mutation = useSessionMutation(api.tags.mutations.remove);
 
   const execute = async (id: Id<"tags">) => {
     try {
@@ -102,6 +104,7 @@ export function useConvexDeleteTag() {
 
 /**
  * Seed default tags mutation.
+ * Uses useMutation (NOT useSessionMutation) -- seedDefaults is a public mutation.
  */
 export function useConvexSeedTags() {
   const mutation = useMutation(api.tags.mutations.seedDefaults);

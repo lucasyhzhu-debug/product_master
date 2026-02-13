@@ -2,7 +2,8 @@
  * Convex hooks for ingredients.
  * Convex query/mutation hooks for ingredient management.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -32,7 +33,6 @@ export interface IngredientCreateInput {
   volumePurchased: number;
   priceExclShipping: number;
   shippingCost: number;
-  createdBy?: string;
 }
 
 /**
@@ -61,9 +61,10 @@ export function useConvexIngredientSearch(query: string, limit?: number) {
 
 /**
  * Create ingredient mutation with toast notifications.
+ * Uses useSessionMutation for automatic sessionId injection.
  */
 export function useConvexCreateIngredient() {
-  const mutation = useMutation(api.ingredients.mutations.create);
+  const mutation = useSessionMutation(api.ingredients.mutations.create);
   const execute = async (data: IngredientCreateInput) => {
     try {
       const id = await mutation(data);
@@ -81,7 +82,7 @@ export function useConvexCreateIngredient() {
  * Update ingredient mutation with toast notifications.
  */
 export function useConvexUpdateIngredient() {
-  const mutation = useMutation(api.ingredients.mutations.update);
+  const mutation = useSessionMutation(api.ingredients.mutations.update);
   const execute = async (data: { id: Id<"ingredients"> } & Partial<IngredientCreateInput>) => {
     try {
       const id = await mutation(data);
@@ -99,7 +100,7 @@ export function useConvexUpdateIngredient() {
  * Delete ingredient mutation with toast notifications.
  */
 export function useConvexDeleteIngredient() {
-  const mutation = useMutation(api.ingredients.mutations.remove);
+  const mutation = useSessionMutation(api.ingredients.mutations.remove);
   const execute = async (id: Id<"ingredients">) => {
     try {
       await mutation({ id });

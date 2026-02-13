@@ -7,6 +7,7 @@ import { convexTest } from 'convex-test';
 import { expect, test, describe } from 'vitest';
 import { api } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
+import { createTestSession } from '../helpers/authTestHelper';
 
 // ============================================
 // Default Tag Seeding Tests (5 tests)
@@ -182,8 +183,10 @@ describe('Tag Seeding Idempotency', () => {
 describe('Tag CRUD Operations', () => {
   test('can create a custom tag', async () => {
     const t = convexTest(schema);
+    const sessionId = await createTestSession(t, { role: 'admin' });
 
     const tagId = await t.mutation(api.tags.mutations.create, {
+      sessionId,
       name: 'Custom-Tag',
     });
 
@@ -193,24 +196,29 @@ describe('Tag CRUD Operations', () => {
 
   test('prevents duplicate tag names', async () => {
     const t = convexTest(schema);
+    const sessionId = await createTestSession(t, { role: 'admin' });
 
     await t.mutation(api.tags.mutations.create, {
+      sessionId,
       name: 'Unique-Tag',
     });
 
     await expect(
-      t.mutation(api.tags.mutations.create, { name: 'Unique-Tag' })
+      t.mutation(api.tags.mutations.create, { sessionId, name: 'Unique-Tag' })
     ).rejects.toThrow('Tag "Unique-Tag" already exists');
   });
 
   test('can update tag name', async () => {
     const t = convexTest(schema);
+    const sessionId = await createTestSession(t, { role: 'admin' });
 
     const tagId = await t.mutation(api.tags.mutations.create, {
+      sessionId,
       name: 'Original-Name',
     });
 
     await t.mutation(api.tags.mutations.update, {
+      sessionId,
       id: tagId,
       name: 'New-Name',
     });
@@ -221,12 +229,14 @@ describe('Tag CRUD Operations', () => {
 
   test('can delete tag', async () => {
     const t = convexTest(schema);
+    const sessionId = await createTestSession(t, { role: 'admin' });
 
     const tagId = await t.mutation(api.tags.mutations.create, {
+      sessionId,
       name: 'Deletable-Tag',
     });
 
-    const result = await t.mutation(api.tags.mutations.remove, { id: tagId });
+    const result = await t.mutation(api.tags.mutations.remove, { sessionId, id: tagId });
     expect(result).toBe(true);
 
     const tag = await t.run(async (ctx) => ctx.db.get(tagId));
