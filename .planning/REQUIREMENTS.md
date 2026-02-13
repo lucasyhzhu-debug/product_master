@@ -122,51 +122,51 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| FACT-01 | TBD | Pending |
-| FACT-02 | TBD | Pending |
-| FACT-03 | TBD | Pending |
-| FACT-04 | TBD | Pending |
-| BOM-01 | TBD | Pending |
-| BOM-02 | TBD | Pending |
-| BOM-03 | TBD | Pending |
-| BOM-04 | TBD | Pending |
-| BOM-05 | TBD | Pending |
-| BOM-06 | TBD | Pending |
-| QFIX-01 | TBD | Pending |
-| QFIX-02 | TBD | Pending |
-| QFIX-03 | TBD | Pending |
-| QFIX-04 | TBD | Pending |
-| QFIX-05 | TBD | Pending |
-| BUG-01 | TBD | Pending |
-| BUG-02 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| SEC-03 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| FHOOK-01 | TBD | Pending |
-| FHOOK-02 | TBD | Pending |
-| FUI-01 | TBD | Pending |
-| FUI-02 | TBD | Pending |
-| SCHEMA-01 | TBD | Pending |
-| SCHEMA-02 | TBD | Pending |
-| SCHEMA-03 | TBD | Pending |
-| SCHEMA-04 | TBD | Pending |
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
+| TEST-01 | Phase 1: Test Infrastructure | Pending |
+| TEST-02 | Phase 1: Test Infrastructure | Pending |
+| TEST-03 | Phase 1: Test Infrastructure | Pending |
+| TEST-04 | Phase 1: Test Infrastructure | Pending |
+| SEC-01 | Phase 2: Security & Docs | Pending |
+| SEC-02 | Phase 2: Security & Docs | Pending |
+| SEC-03 | Phase 2: Security & Docs | Pending |
+| QFIX-01 | Phase 3: Tech Debt | Pending |
+| QFIX-02 | Phase 3: Tech Debt | Pending |
+| QFIX-03 | Phase 3: Tech Debt | Pending |
+| QFIX-04 | Phase 3: Tech Debt | Pending |
+| QFIX-05 | Phase 3: Tech Debt | Pending |
+| BUG-01 | Phase 4: Bugs | Pending |
+| BUG-02 | Phase 4: Bugs | Pending |
+| FACT-01 | Phase 5: Backend Factories | Pending |
+| FACT-02 | Phase 5: Backend Factories | Pending |
+| FACT-03 | Phase 5: Backend Factories | Pending |
+| FACT-04 | Phase 5: Backend Factories | Pending |
+| BOM-01 | Phase 6: BOM Migration | Pending |
+| BOM-02 | Phase 6: BOM Migration | Pending |
+| BOM-03 | Phase 6: BOM Migration | Pending |
+| BOM-04 | Phase 6: BOM Migration | Pending |
+| BOM-05 | Phase 6: BOM Migration | Pending |
+| BOM-06 | Phase 6: BOM Migration | Pending |
+| PERF-01 | Phase 7: Query Optimization | Pending |
+| PERF-02 | Phase 7: Query Optimization | Pending |
+| PERF-03 | Phase 7: Query Optimization | Pending |
+| PERF-04 | Phase 7: Query Optimization | Pending |
+| SCHEMA-01 | Phase 8: Schema Cleanup | Pending |
+| SCHEMA-02 | Phase 8: Schema Cleanup | Pending |
+| SCHEMA-03 | Phase 8: Schema Cleanup | Pending |
+| SCHEMA-04 | Phase 8: Schema Cleanup | Pending |
+| FHOOK-01 | Phase 9: Frontend Factories | Pending |
+| FHOOK-02 | Phase 9: Frontend Factories | Pending |
+| FUI-01 | Phase 9: Frontend Factories | Pending |
+| FUI-02 | Phase 9: Frontend Factories | Pending |
+| INFRA-01 | Phase 10: Infrastructure & Consolidation | Pending |
+| INFRA-02 | Phase 10: Infrastructure & Consolidation | Pending |
+| INFRA-03 | Phase 10: Infrastructure & Consolidation | Pending |
 
 **Coverage:**
 - v1 requirements: 39 total
-- Mapped to phases: 0
-- Unmapped: 39 ⚠️
+- Mapped to phases: 39
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-13*
-*Last updated: 2026-02-13 after initial definition*
+*Last updated: 2026-02-13 after roadmap phase assignment (39/39 mapped)*
