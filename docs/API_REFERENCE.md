@@ -258,20 +258,20 @@ orders.whatsapp.getMessageHistory({ orderId })       // Sent message audit trail
 ### Kitchen V3: Production Pipeline Mutations (Auth Required: kitchen, manager, admin)
 ```typescript
 // convex/orders/mutations/kitchen.ts
-orders.mutations.boxProducts({ token, menuProductId, quantity })
+orders.mutations.index.boxProducts({ token, menuProductId, quantity })
   // Box products: deduct balls from tray, consume boxing-stage FIFO, increment boxed count
   // quantity > 0 = box, quantity < 0 = undo (unbox)
 
-orders.mutations.stickerProducts({ token, menuProductId, quantity })
+orders.mutations.index.stickerProducts({ token, menuProductId, quantity })
   // Sticker products: validate vs boxed count, consume labeling-stage FIFO, increment stickered
   // quantity > 0 = sticker, quantity < 0 = undo (unsticker)
 
-orders.mutations.togglePackOrderLineItem({ token, orderId, orderItemId })
+orders.mutations.index.togglePackOrderLineItem({ token, orderId, orderItemId })
   // Toggle pack/unpack on a single order line item
   // Pack: validates availableForPacking >= item.quantity, sets packageStatus="packed"
   // Unpack: reverts to "filled", decrements packed count
 
-orders.mutations.markOrderReady({ token, orderId })
+orders.mutations.index.markOrderReady({ token, orderId })
   // Validates all product items are packed
   // Consumes "none"-stage packaging (outer boxes, inserts) from FIFO
   // Transitions order to WaitingPickup (pickup) or WaitingShipment (delivery)
@@ -585,8 +585,8 @@ customers.remove({ id })                // Fails if has orders
 
 ### Orders
 ```typescript
-// convex/orders/mutations.ts
-orders.create({
+// convex/orders/mutations/index.ts (barrel re-exports from orderCrud, statusUpdates, inventoryIntegration, kitchen)
+orders.mutations.index.create({
   customerId,
   dueDate?,
   channel?,
@@ -601,13 +601,13 @@ orders.create({
   createdBy
 })
 
-orders.updateStatus({ id, status, awaitingPaymentSince?, cancellationReason? })
+orders.mutations.index.updateStatus({ orderId, status, skipStockCheck? })
 
-orders.updatePayment({ id, paymentStatus, paymentMethod? })
+orders.mutations.index.updatePayment({ orderId, paymentStatus, paymentMethod? })
 
-orders.updateShipping({ id, shippingAgency, shippingNumber })
+orders.mutations.index.updateShipping({ orderId, shippingAgency, shippingNumber })
 
-orders.remove({ id })                   // Only Draft status allowed
+orders.mutations.index.remove({ orderId })   // Only Draft status allowed
 
 // Item CRUD (convex/orders/mutations/itemCrud.ts)
 orders.addItem({ orderId, item: { productName, quantity, unitPrice, unitCost, menuProductId? } })
@@ -618,10 +618,10 @@ orders.replaceItems({ orderId, items: [...] })  // Atomic bulk replace (Draft/Aw
 
 ### Kitchen Mutations (PRD-1, PRD-2)
 ```typescript
-// convex/orders/mutations.ts
-orders.completeOrder({ id })              // Mark order as ProductionComplete
-orders.revertToConfirmed({ id })          // Undo completion, restore ball counts
-orders.completeBalls({ ballType, count }) // Batch ball completion with overflow
+// convex/orders/mutations/index.ts
+orders.mutations.index.completeOrder({ id })              // Mark order as ProductionComplete
+orders.mutations.index.revertToConfirmed({ id })          // Undo completion, restore ball counts
+orders.mutations.index.completeBalls({ ballType, count }) // Batch ball completion with overflow
 ```
 
 **completeBalls Args:**

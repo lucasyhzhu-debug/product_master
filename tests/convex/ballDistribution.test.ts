@@ -62,7 +62,7 @@ describe('Priority Ordering', () => {
     });
 
     // Only 3 balls available -- not enough for both
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
     });
@@ -136,7 +136,7 @@ describe('Priority Ordering', () => {
     });
 
     // 3 balls -- not enough for both
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
     });
@@ -205,7 +205,7 @@ describe('Priority Ordering', () => {
 
     // The algorithm fetches Confirmed first, then InProduction
     // Both have same deadline and totalUnits
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
     });
@@ -268,7 +268,7 @@ describe('Priority Ordering', () => {
     });
 
     // 5 balls: enough for A (2) + B (2) + 1 leftover for C
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
@@ -297,7 +297,7 @@ describe('Priority Ordering', () => {
     const t = convexTest(schema);
 
     // No orders at all -- balls should overflow
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 10,
     });
@@ -324,7 +324,7 @@ describe('Partial Fills', () => {
     });
 
     // First batch: 6 balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 6,
     });
@@ -340,7 +340,7 @@ describe('Partial Fills', () => {
     expect(records[0].unitsRemaining).toBe(4);
 
     // Second batch: 4 balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 4,
     });
@@ -366,7 +366,7 @@ describe('Partial Fills', () => {
     });
 
     // Apply 7 balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 7,
     });
@@ -395,9 +395,9 @@ describe('Partial Fills', () => {
     });
 
     // Three batches: 3, 5, 4
-    await t.mutation(api.orders.mutations.completeBalls, { ballType: 'big', count: 3 });
-    await t.mutation(api.orders.mutations.completeBalls, { ballType: 'big', count: 5 });
-    await t.mutation(api.orders.mutations.completeBalls, { ballType: 'big', count: 4 });
+    await t.mutation(api.orders.mutations.index.completeBalls, { ballType: 'big', count: 3 });
+    await t.mutation(api.orders.mutations.index.completeBalls, { ballType: 'big', count: 5 });
+    await t.mutation(api.orders.mutations.index.completeBalls, { ballType: 'big', count: 4 });
 
     const records = await t.run(async (ctx) => {
       return await ctx.db
@@ -424,7 +424,7 @@ describe('Partial Fills', () => {
     expect(orderDoc?.status).toBe('Confirmed');
 
     // First ball
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 1,
     });
@@ -445,7 +445,7 @@ describe('Partial Fills', () => {
     });
 
     // Fill completely in one batch
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
@@ -484,7 +484,7 @@ describe('Partial Fills', () => {
     });
 
     // Only 10 balls: 8 for A, 2 for B (partially)
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 10,
     });
@@ -541,13 +541,13 @@ describe('Mixed Ball Types', () => {
     });
 
     // Distribute big balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
 
     // Distribute mid balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'mid',
       count: 5,
     });
@@ -592,13 +592,13 @@ describe('Mixed Ball Types', () => {
     });
 
     // Distribute big balls first
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 6,
     });
 
     // Distribute mid balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'mid',
       count: 4,
     });
@@ -637,7 +637,7 @@ describe('Mixed Ball Types', () => {
     });
 
     // Only produce big balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 10,
     });
@@ -677,7 +677,7 @@ describe('Mixed Ball Types', () => {
     });
 
     // Only produce mid balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'mid',
       count: 10,
     });
@@ -717,13 +717,13 @@ describe('Mixed Ball Types', () => {
     });
 
     // Partial fill of big balls (7 of 10)
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 7,
     });
 
     // Partial fill of mid balls (10 of 16)
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'mid',
       count: 10,
     });
@@ -763,7 +763,7 @@ describe('Ghost Ball Prevention', () => {
     const t = convexTest(schema);
 
     // Produce balls with no orders at all
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 20,
     });
@@ -788,7 +788,7 @@ describe('Ghost Ball Prevention', () => {
     });
 
     // Send 10 balls when only 3 needed
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 10,
     });
@@ -813,7 +813,7 @@ describe('Ghost Ball Prevention', () => {
     });
 
     // Fill some balls
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
     });
@@ -852,13 +852,13 @@ describe('Ghost Ball Prevention', () => {
     });
 
     // Fill Order A completely (Confirmed -> InProduction -> Packaging)
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
     });
 
     // Partially fill Order B
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'mid',
       count: 2,
     });
@@ -890,8 +890,8 @@ describe('Ghost Ball Prevention', () => {
     });
 
     // Partially fill both
-    await t.mutation(api.orders.mutations.completeBalls, { ballType: 'big', count: 5 });
-    await t.mutation(api.orders.mutations.completeBalls, { ballType: 'mid', count: 4 });
+    await t.mutation(api.orders.mutations.index.completeBalls, { ballType: 'big', count: 5 });
+    await t.mutation(api.orders.mutations.index.completeBalls, { ballType: 'mid', count: 4 });
 
     // Ghost check verifies invariant: required = completed + remaining
     const ghostCheck = await verifyNoGhostBalls(t);
@@ -925,7 +925,7 @@ describe('Auto-Transitions', () => {
     expect(orderDoc?.status).toBe('Confirmed');
 
     // Add just 1 ball
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 1,
     });
@@ -960,7 +960,7 @@ describe('Auto-Transitions', () => {
     });
 
     // Partial fill
-    await t.mutation(api.orders.mutations.completeBalls, {
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
@@ -979,7 +979,7 @@ describe('Auto-Transitions', () => {
     });
 
     // Fill completely
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
@@ -1022,7 +1022,7 @@ describe('Auto-Transitions', () => {
     });
 
     // Try to distribute balls
-    const result = await t.mutation(api.orders.mutations.completeBalls, {
+    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 10,
     });

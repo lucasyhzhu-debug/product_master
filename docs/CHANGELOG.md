@@ -14,6 +14,34 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-13 - Phase 02-03: Security Docs & Tech Debt Cleanup
+
+### Overview
+Major cleanup release: removes 1,700+ lines of dead code, deprecated components, and unused indexes. Kitchen View V1 is gone, deprecated order statuses now display correctly, and mutation paths are cleaned up.
+
+### Changes
+- **KitchenView V1 removed** -- Deleted KitchenView.tsx and 11 orphaned components (BallCompletionButtons, FlyingBall, InventoryTray, KitchenDashboard, KitchenHelpPanel, KitchenOrderCard, OrderBox, ProductPackage, SoundToggle, kitchenSounds.ts, usePendingBallStats.ts). KitchenViewV2 is now the only kitchen page.
+- **Deprecated status display** -- Added `getDisplayStatus()` helper that maps `ProductionComplete` to `Boxed` and `Packaging` to `InProduction` for UI display. Applied across OrderHeader, OrderStatusPanel, OrderDetail, and ProductionQueueTable.
+- **Status color cleanup** -- Consolidated scattered `STATUS_COLORS` maps into shared `getStatusColor()` in `orderConstants.ts`. Removed duplicate maps from OrderHeader.
+- **Schema index cleanup** -- Removed 12 unused indexes from `convex/schema.ts` (ingredients.by_brand, orderItems.by_product_name, orderItems.by_production_type, orderItemProduction.by_remaining, orderItemProduction.by_completion, dailySales.by_date_product, productionCountAdjustments.by_date_timestamp, productionLog.by_menu_product_timestamp, productionLog.by_action, inventoryBatches.by_status, componentTransactions.by_batch, componentTransactions.by_order).
+- **Orders mutation shim removed** -- Deleted deprecated `convex/orders/mutations.ts` re-export file. All callers updated from `api.orders.mutations.X` to `api.orders.mutations.index.X`.
+- **Stock shortage override** -- OrderDetail now shows a dialog when packaging stock is insufficient on order confirmation. Managers/admins can override to confirm anyway.
+- **OrderStatusPanel** -- Added missing `Boxed` and `Labeled` statuses to the status dropdown.
+- **Git history scrub** -- Phase 02: scrubbed env files from git history, created SECURITY.md.
+
+### Files Modified
+- `convex/schema.ts` -- 12 indexes removed
+- `convex/orders/mutations.ts` -- Deleted (shim)
+- `src/lib/orderConstants.ts` -- Added `getDisplayStatus()`, `getStatusColor()`, cleaned STATUS_CATEGORIES
+- `src/pages/OrderDetail.tsx` -- Stock shortage override dialog, display status helpers
+- `src/components/orders/OrderHeader.tsx`, `OrderStatusPanel.tsx` -- Use shared helpers
+- `src/components/dashboard/ProductionQueueTable.tsx` -- Use `getDisplayStatus()`
+- `src/hooks/convex/useOrders.ts`, `useKitchenStats.ts` -- Updated mutation paths
+- `src/pages/KitchenViewV2.tsx`, `PackagingView.tsx` -- Updated mutation paths
+- 10 deleted component/page files, 4 test files updated
+
+---
+
 ## 2026-02-11 - Hotfix: Orders + K3Mart Cockpit Issues
 
 ### Overview

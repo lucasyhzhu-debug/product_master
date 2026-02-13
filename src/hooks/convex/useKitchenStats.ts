@@ -250,7 +250,7 @@ export function useConvexCompletedToday() {
  * PRD-1: Kitchen Core - moves order from Confirmed to ProductionComplete.
  */
 export function useConvexCompleteOrder() {
-  const mutation = useMutation(api.orders.mutations.completeOrder);
+  const mutation = useMutation(api.orders.mutations.index.completeOrder);
 
   const execute = async (orderId: Id<"orders">) => {
     try {
@@ -271,7 +271,7 @@ export function useConvexCompleteOrder() {
  * PRD-1: Kitchen Core - undo production completion.
  */
 export function useConvexRevertToConfirmed() {
-  const mutation = useMutation(api.orders.mutations.revertToConfirmed);
+  const mutation = useMutation(api.orders.mutations.index.revertToConfirmed);
 
   const execute = async (orderId: Id<"orders">) => {
     try {
@@ -292,7 +292,7 @@ export function useConvexRevertToConfirmed() {
  * PRD-1: Kitchen Core - Wave 2 Gamification.
  */
 export function useConvexCompleteBalls() {
-  const completeBalls = useMutation(api.orders.mutations.completeBalls);
+  const completeBalls = useMutation(api.orders.mutations.index.completeBalls);
   return {
     mutate: completeBalls,
     mutateAsync: completeBalls,
@@ -304,7 +304,7 @@ export function useConvexCompleteBalls() {
  * Kitchen UI Flow Fix - Phase 2: Replaces completeOrder for kitchen workflow.
  */
 export function useConvexCompletePackaging() {
-  const mutation = useMutation(api.orders.mutations.completePackaging);
+  const mutation = useMutation(api.orders.mutations.index.completePackaging);
 
   const execute = async (orderId: Id<"orders">) => {
     try {
@@ -328,7 +328,7 @@ export function useConvexCompletePackaging() {
  * Kitchen UI Flow Fix - Phase 2: Undo completion for kitchen workflow.
  */
 export function useConvexRevertToPackaging() {
-  const mutation = useMutation(api.orders.mutations.revertToPackaging);
+  const mutation = useMutation(api.orders.mutations.index.revertToPackaging);
 
   const execute = async (orderId: Id<"orders">) => {
     try {

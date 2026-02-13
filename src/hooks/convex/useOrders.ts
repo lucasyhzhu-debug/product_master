@@ -384,7 +384,7 @@ export function useConvexOrderTemplate() {
  * Create a new order with items.
  */
 export function useConvexCreateOrder() {
-  const mutation = useMutation(api.orders.mutations.create);
+  const mutation = useMutation(api.orders.mutations.index.create);
 
   const execute = async (data: OrderCreateInput) => {
     try {
@@ -404,9 +404,9 @@ export function useConvexCreateOrder() {
  * Update order status.
  */
 export function useConvexUpdateOrderStatus() {
-  const mutation = useMutation(api.orders.mutations.updateStatus);
+  const mutation = useMutation(api.orders.mutations.index.updateStatus);
 
-  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled" }) => {
+  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled"; skipStockCheck?: boolean }) => {
     try {
       await mutation(data);
       toast.success("Order status updated");
@@ -424,7 +424,7 @@ export function useConvexUpdateOrderStatus() {
  * PRD-0: Uses type-safe PaymentStatusType.
  */
 export function useConvexUpdateOrderPayment() {
-  const mutation = useMutation(api.orders.mutations.updatePayment);
+  const mutation = useMutation(api.orders.mutations.index.updatePayment);
 
   const execute = async (data: {
     orderId: Id<"orders">;
@@ -447,7 +447,7 @@ export function useConvexUpdateOrderPayment() {
  * Update shipping info.
  */
 export function useConvexUpdateOrderShipping() {
-  const mutation = useMutation(api.orders.mutations.updateShipping);
+  const mutation = useMutation(api.orders.mutations.index.updateShipping);
 
   const execute = async (data: {
     orderId: Id<"orders">;
@@ -470,7 +470,7 @@ export function useConvexUpdateOrderShipping() {
  * Update order details (notes, delivery info, etc.).
  */
 export function useConvexUpdateOrderDetails() {
-  const mutation = useMutation(api.orders.mutations.updateDetails);
+  const mutation = useMutation(api.orders.mutations.index.updateDetails);
 
   const execute = async (data: {
     orderId: Id<"orders">;
@@ -503,7 +503,7 @@ export function useConvexUpdateOrderDetails() {
 type CancellationCategory = "customer_request" | "out_of_stock" | "payment_issue" | "duplicate" | "other";
 
 export function useConvexCancelOrder() {
-  const mutation = useMutation(api.orders.mutations.cancel);
+  const mutation = useMutation(api.orders.mutations.index.cancel);
 
   const execute = async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
     try {
@@ -522,7 +522,7 @@ export function useConvexCancelOrder() {
  * Delete an order (Draft only).
  */
 export function useConvexDeleteOrder() {
-  const mutation = useMutation(api.orders.mutations.remove);
+  const mutation = useMutation(api.orders.mutations.index.remove);
 
   const execute = async (orderId: Id<"orders">) => {
     try {
@@ -542,7 +542,7 @@ export function useConvexDeleteOrder() {
  * Add item to existing order.
  */
 export function useConvexAddOrderItem() {
-  const mutation = useMutation(api.orders.mutations.addItem);
+  const mutation = useMutation(api.orders.mutations.index.addItem);
 
   const execute = async (data: { orderId: Id<"orders">; item: OrderItemInput }) => {
     try {
@@ -562,7 +562,7 @@ export function useConvexAddOrderItem() {
  * Remove item from order.
  */
 export function useConvexRemoveOrderItem() {
-  const mutation = useMutation(api.orders.mutations.removeItem);
+  const mutation = useMutation(api.orders.mutations.index.removeItem);
 
   const execute = async (itemId: Id<"orderItems">) => {
     try {
@@ -582,7 +582,7 @@ export function useConvexRemoveOrderItem() {
  * Update order item quantity.
  */
 export function useConvexUpdateOrderItemQuantity() {
-  const mutation = useMutation(api.orders.mutations.updateItemQuantity);
+  const mutation = useMutation(api.orders.mutations.index.updateItemQuantity);
 
   const execute = async (data: { itemId: Id<"orderItems">; quantity: number }) => {
     try {
@@ -602,7 +602,7 @@ export function useConvexUpdateOrderItemQuantity() {
  * Used by the "Edit Order" flow.
  */
 export function useConvexReplaceOrderItems() {
-  const mutation = useMutation(api.orders.mutations.replaceItems);
+  const mutation = useMutation(api.orders.mutations.index.replaceItems);
 
   const execute = async (data: { orderId: Id<"orders">; items: OrderItemInput[] }) => {
     try {
@@ -622,7 +622,7 @@ export function useConvexReplaceOrderItems() {
  * PRD-5: Order System V2 - Wave 1.
  */
 export function useConvexUpdateOrderDiscount() {
-  const mutation = useMutation(api.orders.mutations.updateOrderDiscount);
+  const mutation = useMutation(api.orders.mutations.index.updateOrderDiscount);
 
   const execute = async (data: {
     orderId: Id<"orders">;

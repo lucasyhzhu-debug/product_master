@@ -40,20 +40,20 @@ patterns-established:
   - "Verify with git log --all -- [paths] after GC to confirm no traces remain"
 
 # Metrics
-duration: 11min
+duration: 14min
 completed: 2026-02-13
 ---
 
 # Phase 02 Plan 02: Git History Scrub Summary
 
-**Scrubbed .env, .env.local.production, .env.local.testing from 481+ commits across 6 branches using git-filter-repo, ran TruffleHog secrets scan (no real secrets found), awaiting CONVEX_DEPLOY_KEY rotation**
+**Scrubbed .env, .env.local.production, .env.local.testing from 481+ commits across 6 branches using git-filter-repo, ran TruffleHog secrets scan (no real secrets found), CONVEX_DEPLOY_KEY rotated and CI verified**
 
 ## Performance
 
-- **Duration:** 11 min
+- **Duration:** 14 min (Tasks 1-2: 11 min execution + Task 3: 3 min checkpoint resolution)
 - **Started:** 2026-02-13T09:24:00Z
-- **Completed:** 2026-02-13T09:35:40Z (Tasks 1-2; Task 3 is checkpoint)
-- **Tasks:** 2 of 3 complete (Task 3 is human-action checkpoint)
+- **Completed:** 2026-02-13T09:50:00Z
+- **Tasks:** 3 of 3 complete
 - **Files modified:** 2 (.gitignore, .env.example -- via cherry-pick of 02-01 changes)
 
 ## Accomplishments
@@ -64,13 +64,15 @@ completed: 2026-02-13
 - Confirmed K3Mart default password "12345678" in convex/platformCredentials/mutations.ts as previously documented known limitation
 - Deleted 22 stale local branches and ran aggressive GC to ensure no orphaned objects with env file data remain
 - Restored stashed local working-copy changes after history rewrite
+- CONVEX_DEPLOY_KEY rotated in GitHub Settings and Convex Dashboard (user-confirmed)
+- CI/CD pipeline verified working with new credentials
 
 ## Task Commits
 
 1. **Task 1: Scrub env files from git history and force-push** - `dfc5320` (history rewrite + cherry-pick)
    - Note: This task produced no single new commit. The work consisted of: mirror clone, git-filter-repo, force-push of 6 branches, cherry-pick of 34 commits onto rewritten history, stale branch cleanup, and aggressive GC. The HEAD hash `dfc5320` represents the final state.
 2. **Task 2: Run secrets scan and document findings** - No commit (read-only scan, results documented here)
-3. **Task 3: Rotate GitHub secrets and verify deployment** - CHECKPOINT (awaiting human action)
+3. **Task 3: Rotate GitHub secrets and verify deployment** - User confirmed: CONVEX_DEPLOY_KEY rotated, deployment verified
 
 ## Files Created/Modified
 - No new files created by this plan
@@ -147,23 +149,24 @@ completed: 2026-02-13
 
 ## User Setup Required
 
-**CRITICAL: Task 3 checkpoint pending.** The CONVEX_DEPLOY_KEY must be rotated in GitHub Settings before the history scrub is considered complete. See checkpoint details in the execution log.
+None -- CONVEX_DEPLOY_KEY rotation completed by user (confirmed 2026-02-13). No further manual setup required.
 
 ## Next Phase Readiness
-- Git history is clean (pending secret rotation confirmation)
-- Phase 02 will be complete once Task 3 checkpoint is resolved
+- Git history is clean, secrets rotated -- history scrub fully complete
+- Phase 02 (Security & Docs) is COMPLETE (both plans 01 and 02 done)
 - Phase 03 (Tech Debt) research and plans are already committed and ready
 - All phase 01 test infrastructure work preserved in rewritten history
 
-## Self-Check: PENDING
+## Self-Check: PASSED
 
-Self-check deferred until Task 3 checkpoint is resolved. Tasks 1-2 verification:
 - VERIFIED: `git log --all -- .env .env.local.production .env.local.testing` returns empty
 - VERIFIED: All 6 remote branches force-pushed with rewritten history
 - VERIFIED: TruffleHog scan completed with 18 false positives, 0 real secrets
 - VERIFIED: K3Mart default credentials are documented known limitation
 - VERIFIED: All phase 01/02-01 files present in current HEAD
+- VERIFIED: CONVEX_DEPLOY_KEY rotated (user-confirmed 2026-02-13)
+- VERIFIED: CI/CD pipeline working with new credentials (user-confirmed)
 
 ---
 *Phase: 02-security-docs*
-*Completed: 2026-02-13 (Tasks 1-2; Task 3 pending)*
+*Completed: 2026-02-13*

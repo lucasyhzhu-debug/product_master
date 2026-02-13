@@ -1,23 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import type { OrderDetail, OrderStatus, PaymentStatus } from '@/lib/types';
-
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  Draft: 'bg-gray-500',
-  AwaitingPayment: 'bg-amber-500',
-  Confirmed: 'bg-blue-500',
-  InProduction: 'bg-purple-500',      // PRD-7: Kitchen actively producing
-  ProductionComplete: 'bg-purple-500', // DEPRECATED
-  Packaging: 'bg-indigo-500',
-  Boxed: 'bg-amber-600',              // Wave 5: Boxed (ready for stickers)
-  Labeled: 'bg-blue-600',             // Wave 5: Labeled (ready to ship)
-  WaitingShipment: 'bg-yellow-500',
-  CompleteShipped: 'bg-green-500',
-  WaitingPickup: 'bg-orange-500',
-  PickedUp: 'bg-green-500',
-  Cancelled: 'bg-red-500',
-};
+import { getDisplayStatus, getStatusColor } from '@/lib/orderConstants';
+import type { OrderDetail, PaymentStatus } from '@/lib/types';
 
 const PAYMENT_COLORS: Record<PaymentStatus, string> = {
   Unpaid: 'bg-orange-500',
@@ -92,7 +77,7 @@ export function OrderHeader({ order }: OrderHeaderProps) {
             </p>
           </div>
           <div className="flex gap-2 items-center">
-            <Badge className={STATUS_COLORS[order.status]}>{order.status}</Badge>
+            <Badge className={getStatusColor(order.status)}>{getDisplayStatus(order.status)}</Badge>
             {waitInfo && (
               <Badge variant="outline" className={waitInfo.colorClass}>
                 {waitInfo.text}

@@ -19,7 +19,7 @@ describe('Order Number Generation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -43,7 +43,7 @@ describe('Order Number Generation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -68,7 +68,7 @@ describe('Order Number Generation', () => {
     const customerId = await createCustomer(t);
 
     // Create first order
-    const firstOrderId = await t.mutation(api.orders.mutations.create, {
+    const firstOrderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -80,7 +80,7 @@ describe('Order Number Generation', () => {
     expect(firstOrder?.orderNumber).toMatch(/-001$/);
 
     // Create second order
-    const secondOrderId = await t.mutation(api.orders.mutations.create, {
+    const secondOrderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -92,7 +92,7 @@ describe('Order Number Generation', () => {
     expect(secondOrder?.orderNumber).toMatch(/-002$/);
 
     // Create third order
-    const thirdOrderId = await t.mutation(api.orders.mutations.create, {
+    const thirdOrderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -109,7 +109,7 @@ describe('Order Number Generation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -137,7 +137,7 @@ describe('Order Totals Calculation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       items: [
         { productName: 'Product A', quantity: 2, unitPrice: 10000, unitCost: 5000 },
@@ -156,7 +156,7 @@ describe('Order Totals Calculation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       items: [
         { productName: 'Product A', quantity: 2, unitPrice: 10000, unitCost: 5000 },
@@ -175,7 +175,7 @@ describe('Order Totals Calculation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       items: [
         { productName: 'Product A', quantity: 2, unitPrice: 10000, unitCost: 5000 },
@@ -194,7 +194,7 @@ describe('Order Totals Calculation', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       items: [
         {
@@ -231,7 +231,7 @@ describe('Status Transitions', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -249,7 +249,7 @@ describe('Status Transitions', () => {
     const customerId = await createCustomer(t);
     await createDefaultStorageLocation(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -257,7 +257,7 @@ describe('Status Transitions', () => {
       ],
     });
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Confirmed',
     });
@@ -271,7 +271,7 @@ describe('Status Transitions', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -281,7 +281,7 @@ describe('Status Transitions', () => {
 
     const beforeTimestamp = Date.now();
 
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'AwaitingPayment',
     });
@@ -296,7 +296,7 @@ describe('Status Transitions', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -304,7 +304,7 @@ describe('Status Transitions', () => {
       ],
     });
 
-    await t.mutation(api.orders.mutations.cancel, {
+    await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
       reason: 'Customer changed mind',
     });
@@ -325,7 +325,7 @@ describe('Order Item Management', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -337,7 +337,7 @@ describe('Order Item Management', () => {
     expect(order?.itemCount).toBe(1);
     expect(order?.totalAmount).toBe(10000);
 
-    await t.mutation(api.orders.mutations.addItem, {
+    await t.mutation(api.orders.mutations.index.addItem, {
       orderId,
       item: {
         productName: 'Product B',
@@ -357,7 +357,7 @@ describe('Order Item Management', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       items: [
         { productName: 'Product A', quantity: 2, unitPrice: 10000, unitCost: 5000 },
@@ -378,7 +378,7 @@ describe('Order Item Management', () => {
 
     const itemToRemove = items.find((i) => i.productName === 'Product B');
 
-    await t.mutation(api.orders.mutations.removeItem, {
+    await t.mutation(api.orders.mutations.index.removeItem, {
       itemId: itemToRemove!._id,
     });
 
@@ -392,7 +392,7 @@ describe('Order Item Management', () => {
 
     const customerId = await createCustomer(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -403,7 +403,7 @@ describe('Order Item Management', () => {
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.paymentStatus).toBe('Unpaid');
 
-    await t.mutation(api.orders.mutations.updatePayment, {
+    await t.mutation(api.orders.mutations.index.updatePayment, {
       orderId,
       paymentStatus: 'Paid',
       paymentMethod: 'BankTransfer',
@@ -420,7 +420,7 @@ describe('Order Item Management', () => {
     const customerId = await createCustomer(t);
     await createDefaultStorageLocation(t);
 
-    const orderId = await t.mutation(api.orders.mutations.create, {
+    const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -429,18 +429,18 @@ describe('Order Item Management', () => {
     });
 
     // Change status to Confirmed
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Confirmed',
     });
 
     // Attempt to delete should fail
     await expect(
-      t.mutation(api.orders.mutations.remove, { orderId })
+      t.mutation(api.orders.mutations.index.remove, { orderId })
     ).rejects.toThrow('Only draft orders can be deleted');
 
     // Change back to Draft - but we can't do that directly, so let's test with a fresh draft
-    const draftOrderId = await t.mutation(api.orders.mutations.create, {
+    const draftOrderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
       lowPriceConfirmed: true,
       items: [
@@ -449,7 +449,7 @@ describe('Order Item Management', () => {
     });
 
     // This should succeed
-    const result = await t.mutation(api.orders.mutations.remove, {
+    const result = await t.mutation(api.orders.mutations.index.remove, {
       orderId: draftOrderId,
     });
     expect(result).toBe(true);

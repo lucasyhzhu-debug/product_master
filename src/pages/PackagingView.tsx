@@ -69,7 +69,7 @@ export function PackagingView() {
 
   // Fetch packaging orders
   const packagingOrders = useQuery(api.orders.queries.getPackagingOrders, {});
-  const updateStatus = useMutation(api.orders.mutations.updateStatus);
+  const updateStatus = useMutation(api.orders.mutations.index.updateStatus);
 
   const isLoading = packagingOrders === undefined;
 

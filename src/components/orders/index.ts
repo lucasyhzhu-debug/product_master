@@ -8,19 +8,8 @@ export { ShippingPanel } from './ShippingPanel';
 export { CancellationDialog } from './CancellationDialog';
 export { ConfirmationDialog } from './ConfirmationDialog';
 
-// Kitchen components (PRD-1: Kitchen Core)
-export { default as KitchenDashboard } from './KitchenDashboard';
-export { default as KitchenOrderCard } from './KitchenOrderCard';
-export { default as BallCompletionButtons } from './BallCompletionButtons';
-export { SoundToggle } from './SoundToggle';
-
-// Visual Inventory System (Phase 3)
+// Shared components
 export { ChannelBadge } from './ChannelBadge';
-export { KitchenHelpPanel } from './KitchenHelpPanel';
-export { ProductPackage } from './ProductPackage';
-export { InventoryTray } from './InventoryTray';
-export { OrderBox } from './OrderBox';
-export { FlyingBall } from './FlyingBall';
 
 // POS Form components (PRD-3: Order Form POS)
 export { ProductButtons } from './ProductButtons';

@@ -826,7 +826,7 @@ export async function createOrderWithVoucher(
   const unitCost = overrides.unitCost ?? Math.floor(orderTotal * 0.4); // 40% cost default
 
   // Create order with voucher code via mutation
-  const orderId = await t.mutation(api.orders.mutations.create, {
+  const orderId = await t.mutation(api.orders.mutations.index.create, {
     customerId,
     voucherCode: overrides.voucherCode,
     lowPriceConfirmed: true, // Accept any final price
@@ -1357,7 +1357,7 @@ export async function createOrderAtStatus(
 
   // Execute transitions
   for (const status of statusPath) {
-    await t.mutation(api.orders.mutations.updateStatus, {
+    await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId: orderResult.orderId,
       status: status as 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'Boxed' | 'Labeled' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled',
     });

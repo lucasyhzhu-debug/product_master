@@ -1,10 +1,12 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat, Pencil } from 'lucide-react';
+import { ArrowLeft, Truck, Package, CheckCircle2, XCircle, ChefHat, Pencil, AlertTriangle } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import { ConvexError } from 'convex/values';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -36,7 +38,9 @@ import {
   useConvexUpdateOrderDetails,
   useConvexCancelOrder,
 } from '@/hooks/convex';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../convex/_generated/dataModel';
+import { getDisplayStatus, getStatusColor } from '@/lib/orderConstants';
 import type { OrderStatus, CancellationCategory, OrderItem } from '@/lib/types';
 
 // ============================================
@@ -89,9 +93,12 @@ export function OrderDetail() {
   const cancelOrder = useConvexCancelOrder();
   const deleteOrder = useConvexDeleteOrder();
 
+  const { hasRole } = useAuth();
+
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [stockShortageMessage, setStockShortageMessage] = useState<string | null>(null);
 
   // Shipping input state
   const [shippingAgency, setShippingAgency] = useState('');
@@ -101,7 +108,7 @@ export function OrderDetail() {
   // Handlers
   // ============================================
 
-  const handleStatusChange = async (newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled") => {
+  const handleStatusChange = async (newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled", skipStockCheck?: boolean) => {
     if (!order || !orderId) return;
 
     if (newStatus === 'Cancelled') {
@@ -109,7 +116,16 @@ export function OrderDetail() {
       return;
     }
 
-    await updateStatus.mutate({ orderId, status: newStatus });
+    try {
+      await updateStatus.mutate({ orderId, status: newStatus, skipStockCheck });
+      setStockShortageMessage(null);
+    } catch (error) {
+      // Show override dialog for stock shortage errors
+      if (error instanceof ConvexError && typeof error.data === 'string' && error.data.includes('Stok kemasan tidak cukup')) {
+        setStockShortageMessage(error.data);
+        return;
+      }
+    }
   };
 
   const handlePaymentMethodChange = async (method: string) => {
@@ -500,14 +516,8 @@ export function OrderDetail() {
                     {order.customer_name}
                   </p>
                 </div>
-                <Badge
-                  className={
-                    order.status === 'Cancelled' ? 'bg-red-500' :
-                    order.status === 'CompleteShipped' || order.status === 'PickedUp' ? 'bg-green-500' :
-                    'bg-blue-500'
-                  }
-                >
-                  {order.status}
+                <Badge className={getStatusColor(order.status)}>
+                  {getDisplayStatus(order.status)}
                 </Badge>
               </div>
             </CardHeader>
@@ -659,6 +669,52 @@ export function OrderDetail() {
         impact={cancellationImpact}
         onConfirm={handleCancelConfirm}
       />
+
+      {/* Stock shortage override dialog */}
+      <Dialog open={!!stockShortageMessage} onOpenChange={(open) => !open && setStockShortageMessage(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Stok Kemasan Kurang
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {stockShortageMessage?.split('\n').filter(line => line.includes('need ')).map((line, i) => (
+              <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
+                <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <span className="text-amber-900">{line}</span>
+              </div>
+            ))}
+            {hasRole('manager', 'admin') ? (
+              <p className="text-sm text-muted-foreground">
+                Kamu bisa override untuk tetap konfirmasi order ini. Pastikan stok akan segera dipesan.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Hubungi manager untuk override atau tambah stok dulu.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setStockShortageMessage(null)}>
+              Batal
+            </Button>
+            {hasRole('manager', 'admin') && (
+              <Button
+                variant="default"
+                className="bg-amber-600 hover:bg-amber-700"
+                onClick={() => {
+                  setStockShortageMessage(null);
+                  handleStatusChange('Confirmed', true);
+                }}
+              >
+                Override & Konfirmasi
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
