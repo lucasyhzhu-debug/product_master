@@ -513,7 +513,7 @@ export async function createDefaultStorageLocation(
   t: TestContext,
   overrides: {
     name?: string;
-    locationType?: string;
+    locationType?: 'office' | 'kitchen' | 'venue';
   } = {}
 ): Promise<Id<'storageLocations'>> {
   return await t.run(async (ctx) => {
@@ -616,4 +616,133 @@ export async function createExternalRevenue(
       promoBurn: overrides.promoBurn,
     });
   });
+}
+
+// ============================================
+// FIFO Inventory Test Helpers
+// ============================================
+
+/**
+ * Creates a storage location for inventory tests.
+ * Default: Office location, active, non-default.
+ */
+export async function createStorageLocation(
+  t: TestContext,
+  overrides: {
+    name?: string;
+    locationType?: 'office' | 'kitchen' | 'venue';
+    isDefault?: boolean;
+    isActive?: boolean;
+  } = {}
+): Promise<Id<'storageLocations'>> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('storageLocations', {
+      name: overrides.name ?? 'Test Warehouse',
+      locationType: overrides.locationType ?? 'office',
+      isDefault: overrides.isDefault ?? false,
+      isActive: overrides.isActive ?? true,
+      createdBy: 'test',
+      createdAt: Date.now(),
+    });
+  });
+}
+
+/**
+ * Creates a packaging component type for inventory tests.
+ * Default: Box at 500 IDR/pcs, tracked inventory, consumed at boxing stage.
+ */
+export async function createPackagingComponentType(
+  t: TestContext,
+  overrides: {
+    code?: string;
+    name?: string;
+    unitCostIdr?: number;
+    unit?: string;
+    trackInventory?: boolean;
+    consumptionStage?: 'production' | 'boxing' | 'labeling' | 'none';
+    reorderPoint?: number;
+    reorderQuantity?: number;
+  } = {}
+): Promise<Id<'componentTypes'>> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('componentTypes', {
+      code: overrides.code ?? 'TEST_BOX',
+      name: overrides.name ?? 'Test Box',
+      category: 'packaging',
+      unitCostIdr: overrides.unitCostIdr ?? 500,
+      unit: overrides.unit ?? 'pcs',
+      trackInventory: overrides.trackInventory ?? true,
+      consumptionStage: overrides.consumptionStage ?? 'boxing',
+      isActive: true,
+      sortOrder: 0,
+      reorderPoint: overrides.reorderPoint,
+      reorderQuantity: overrides.reorderQuantity,
+      createdBy: 'test',
+      createdAt: Date.now(),
+    });
+  });
+}
+
+/**
+ * Creates an inventory batch for FIFO tests.
+ * Default: 100 units at 500 IDR/unit, active status, purchased now.
+ *
+ * Uses realistic packaging costs:
+ * - Boxes: ~500 IDR/pcs
+ * - Stickers: ~50 IDR/pcs
+ */
+export async function createInventoryBatch(
+  t: TestContext,
+  componentTypeId: Id<'componentTypes'>,
+  locationId: Id<'storageLocations'>,
+  overrides: {
+    quantity?: number;
+    unitCost?: number;
+    purchaseDate?: number;
+    expiryDate?: number;
+    status?: 'active' | 'depleted' | 'expired';
+    quantityReserved?: number;
+    supplierName?: string;
+  } = {}
+): Promise<Id<'inventoryBatches'>> {
+  const quantity = overrides.quantity ?? 100;
+  const unitCost = overrides.unitCost ?? 500;
+
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('inventoryBatches', {
+      componentTypeId,
+      locationId,
+      purchaseDate: overrides.purchaseDate ?? Date.now(),
+      supplierName: overrides.supplierName ?? 'Test Supplier',
+      quantityPurchased: quantity,
+      totalCostIdr: quantity * unitCost,
+      unitCostIdr: unitCost,
+      quantityRemaining: quantity,
+      quantityReserved: overrides.quantityReserved ?? 0,
+      status: overrides.status ?? 'active',
+      expiryDate: overrides.expiryDate,
+      createdBy: 'test',
+      createdAt: Date.now(),
+    });
+  });
+}
+
+/**
+ * Verifies that an inventory batch has the expected quantityRemaining.
+ * Throws assertion-style error if mismatch.
+ */
+export async function verifyBatchState(
+  t: TestContext,
+  batchId: Id<'inventoryBatches'>,
+  expectedRemaining: number
+): Promise<void> {
+  const batch = await t.run(async (ctx) => ctx.db.get(batchId));
+  if (!batch) {
+    throw new Error(`Batch ${batchId} not found`);
+  }
+  if (batch.quantityRemaining !== expectedRemaining) {
+    throw new Error(
+      `Batch ${batchId}: expected quantityRemaining=${expectedRemaining}, got ${batch.quantityRemaining}`
+    );
+  }
 }
