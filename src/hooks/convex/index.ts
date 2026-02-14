@@ -130,6 +130,7 @@ export {
 export {
   // Query hooks
   useConvexOrders,
+  useConvexOrdersPaginated,
   useConvexOrder,
   useConvexOrderByNumber,
   useConvexKitchenOrders,

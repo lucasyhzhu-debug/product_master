@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Search, ShoppingCart, SearchX, ChevronDown, FileEdit, List } from 'lucide-react';
+import { Search, ShoppingCart, SearchX, ChevronDown, FileEdit, List, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import {
 import { LoadingCards, EmptyState } from '@/components/shared';
 import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
 
-import { useConvexOrders, type OrderFilters } from '@/hooks/convex';
+import { useConvexOrders, useConvexOrdersPaginated, type OrderFilters } from '@/hooks/convex';
 import { formatCurrency } from '@/lib/utils';
 import type { OrderSummary } from '@/lib/types';
 import {
@@ -248,9 +248,13 @@ interface OrdersQueueProps {
   orders: OrderSummary[];
   activeFilter: FilterButtonValue;
   onOrderClick: (orderId: number) => void;
+  // Pagination props (only used when activeFilter === 'all')
+  paginationStatus?: 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted';
+  onLoadMore?: () => void;
+  remainingCount?: number;
 }
 
-function OrdersQueue({ orders, activeFilter, onOrderClick }: OrdersQueueProps) {
+function OrdersQueue({ orders, activeFilter, onOrderClick, paginationStatus, onLoadMore, remainingCount }: OrdersQueueProps) {
   // Group orders by category
   const groupedOrders = useMemo(() => {
     const groups: Record<StatusCategory, OrderSummary[]> = {
@@ -353,6 +357,34 @@ function OrdersQueue({ orders, activeFilter, onOrderClick }: OrdersQueueProps) {
         </AnimatePresence>
       </div>
 
+      {/* Load More (pagination) */}
+      {paginationStatus === 'CanLoadMore' && onLoadMore && (
+        <div className="flex justify-center py-4">
+          <Button
+            variant="outline"
+            onClick={onLoadMore}
+            className="w-full max-w-md"
+          >
+            {remainingCount !== undefined
+              ? `Load 25 more (${remainingCount} remaining)`
+              : 'Load more'}
+          </Button>
+        </div>
+      )}
+      {paginationStatus === 'LoadingMore' && (
+        <div className="flex justify-center py-4">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading more orders...
+          </div>
+        </div>
+      )}
+      {paginationStatus === 'Exhausted' && orders.length > 25 && (
+        <p className="text-center text-sm text-muted-foreground py-4">
+          All {orders.length} orders loaded
+        </p>
+      )}
+
       {/* Today's Stats Footer */}
       <div className="mt-4 pt-4 border-t bg-gradient-to-r from-[var(--color-dark-gradient-from)] to-[var(--color-dark-gradient-to)] text-white p-4 rounded-lg -mx-2">
         <div className="flex justify-between items-center text-sm">
@@ -387,14 +419,32 @@ export function OrderManager() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Build filters for backend query
+  // Build filters for backend query (non-paginated, used for category views)
+  const isPaginated = activeFilter === 'all';
+
   const filters: OrderFilters | undefined = useMemo(() => {
     if (activeFilter === 'all') return undefined;
     const statuses = STATUS_CATEGORIES[activeFilter as StatusCategory];
     return { status: statuses as any };
   }, [activeFilter]);
 
-  const { data: orders, isLoading } = useConvexOrders(filters);
+  // Paginated query (active when filter is "all", skipped for category views)
+  const {
+    orders: paginatedOrders,
+    paginationStatus,
+    loadMore,
+    isLoading: isPaginatedLoading,
+    remainingCount,
+  } = useConvexOrdersPaginated({ skip: !isPaginated });
+
+  // Non-paginated query (active when a category filter is selected, skipped for "all")
+  const { data: nonPaginatedOrders, isLoading: isNonPaginatedLoading } = useConvexOrders(
+    isPaginated ? "skip" : filters
+  );
+
+  // Merge results based on which mode is active
+  const orders = isPaginated ? paginatedOrders : nonPaginatedOrders;
+  const isLoading = isPaginated ? isPaginatedLoading : isNonPaginatedLoading;
 
   // Apply search filter
   const filteredOrders = useMemo(() => {
@@ -552,6 +602,9 @@ export function OrderManager() {
                   orders={filteredOrders}
                   activeFilter={activeFilter}
                   onOrderClick={handleOrderClick}
+                  paginationStatus={isPaginated ? paginationStatus : undefined}
+                  onLoadMore={isPaginated ? loadMore : undefined}
+                  remainingCount={isPaginated ? remainingCount : undefined}
                 />
               )}
             </motion.div>

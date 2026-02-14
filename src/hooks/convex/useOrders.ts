@@ -3,7 +3,7 @@
  * Convex query/mutation hooks for order management.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -245,13 +245,55 @@ function transformProductSuggestion(item: {
 
 /**
  * List orders with optional filters.
+ * Pass `"skip"` to disable the query (e.g., when using paginated hook instead).
  */
-export function useConvexOrders(filters?: OrderFilters) {
-  const data = useQuery(api.orders.queries.list, filters ?? {});
-  if (data === undefined) return { data: undefined, isLoading: true };
+export function useConvexOrders(filters?: OrderFilters | "skip") {
+  const data = useQuery(
+    api.orders.queries.list,
+    filters === "skip" ? "skip" : (filters ?? {})
+  );
+  if (data === undefined) return { data: undefined, isLoading: filters !== "skip" };
   return {
     data: data.map(transformToOrderSummary),
     isLoading: false,
+  };
+}
+
+/**
+ * List orders with cursor-based pagination (Load More pattern).
+ * Uses Convex usePaginatedQuery with 25 items per page.
+ * Only supports single status or no filter (paginate() cannot chain after .filter()).
+ * For multi-status category views, use useConvexOrders instead.
+ *
+ * @param options.status - Optional single status filter
+ * @param options.skip - When true, disables the query (returns empty results)
+ */
+export function useConvexOrdersPaginated(options?: { status?: OrderStatusType; skip?: boolean }) {
+  const skip = options?.skip ?? false;
+  const status = options?.status;
+
+  const paginatedArgs = skip ? "skip" as const : (status ? { status } : {});
+  const countArgs = skip ? "skip" as const : (status ? { status } : {});
+
+  const { results, status: paginationStatus, loadMore, isLoading } = usePaginatedQuery(
+    api.orders.queries.listPaginated,
+    paginatedArgs,
+    { initialNumItems: 25 }
+  );
+
+  // Separate count query for "remaining" display
+  const totalCount = useQuery(api.orders.queries.countOrders, countArgs);
+
+  const loadedCount = results.length;
+  const remainingCount = totalCount !== undefined ? Math.max(0, totalCount - loadedCount) : undefined;
+
+  return {
+    orders: results.map(transformToOrderSummary),
+    paginationStatus,
+    loadMore: () => loadMore(25),
+    isLoading,
+    totalCount,
+    remainingCount,
   };
 }
 
