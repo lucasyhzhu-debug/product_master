@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { calculatePeriodRange } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
@@ -185,6 +186,51 @@ export const getRevenue = query({
 
       return { ...r, customerStoreName };
     });
+  },
+});
+
+/**
+ * Get revenue records with cursor-based pagination.
+ * Uses Convex paginate() for efficient incremental loading.
+ * Supports optional single source filter via index.
+ * Enriches with outlet names for display.
+ */
+export const getRevenuePaginated = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    source: v.optional(sourceValidator),
+  },
+  handler: async (ctx, args) => {
+    let q;
+    if (args.source) {
+      q = ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source", (idx) => idx.eq("source", args.source!))
+        .order("desc");
+    } else {
+      q = ctx.db.query("externalRevenue").withIndex("by_period").order("desc");
+    }
+
+    const paginatedResult = await q.paginate(args.paginationOpts);
+
+    // Enrich with outlet names (same as getRevenue but only for the page)
+    const outletIds = new Set(
+      paginatedResult.page.filter((r) => r.outletId).map((r) => r.outletId!)
+    );
+    const outletNameMap = new Map<string, string>();
+    for (const outletId of outletIds) {
+      const outlet = await ctx.db.get(outletId);
+      if (outlet) outletNameMap.set(outletId, outlet.name);
+    }
+
+    const enrichedPage = paginatedResult.page.map((r) => ({
+      ...r,
+      customerStoreName: r.outletId
+        ? outletNameMap.get(r.outletId)
+        : undefined,
+    }));
+
+    return { ...paginatedResult, page: enrichedPage };
   },
 });
 

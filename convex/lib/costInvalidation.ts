@@ -1,6 +1,7 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { calculateLineCost } from "./costCalculator";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Invalidate and recalculate recipe costs when an ingredient's cost changes.
@@ -163,6 +164,61 @@ export const invalidatePackagingCosts = internalMutation({
       await ctx.db.patch(versionId, {
         cachedTotalCost: versionTotal,
         costCacheUpdatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+/**
+ * Invalidate and recalculate menu product COGS when a componentType's cost changes.
+ * Scheduled via ctx.scheduler.runAfter(0, ...) from componentTypes/mutations.ts
+ *
+ * Walk: componentType -> menuProductComponents (by_component_type index)
+ *    -> menuProducts
+ * Recalculates production-only COGS (packaging excluded per user decision)
+ * and stores it as menuProducts.unitCost.
+ *
+ * NOTE: Depth-1 cascade only — directly affected products, no deeper chains.
+ */
+export const invalidateMenuProductCosts = internalMutation({
+  args: { componentTypeId: v.id("componentTypes") },
+  handler: async (ctx, args) => {
+    // Find all menuProductComponents using this componentType
+    const usages = await ctx.db
+      .query("menuProductComponents")
+      .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.componentTypeId))
+      .collect();
+
+    // Get unique menuProduct IDs
+    const affectedMenuProductIds = new Set<Id<"menuProducts">>(
+      usages.map((u) => u.menuProductId)
+    );
+
+    for (const menuProductId of affectedMenuProductIds) {
+      const menuProduct = await ctx.db.get(menuProductId);
+      if (!menuProduct) continue;
+
+      // Fetch all components for this menu product
+      const components = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", menuProductId))
+        .collect();
+
+      // Calculate production-only COGS (packaging excluded per user decision)
+      let productionCost = 0;
+      for (const comp of components) {
+        const componentType = await ctx.db.get(comp.componentTypeId);
+        if (!componentType) continue;
+
+        if (componentType.category === "production") {
+          productionCost += componentType.unitCostIdr * comp.quantity;
+        }
+      }
+
+      // Update unitCost and clear stale marker
+      await ctx.db.patch(menuProductId, {
+        unitCost: productionCost,
+        unitCostStaleAt: undefined,
       });
     }
   },

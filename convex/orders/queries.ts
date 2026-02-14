@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
@@ -44,6 +45,10 @@ export const getOrderProductionRecords = query({
  * List orders with optional filters.
  * PRD-0: Uses type-safe union for status filter.
  * Supports both single status and array of statuses for category filtering.
+ *
+ * @deprecated For new code, prefer `listPaginated` which uses cursor-based pagination.
+ * This query is retained for backward compatibility with multi-status category filters
+ * (e.g., KitchenView, category tabs) where paginate() cannot be used with array filters.
  */
 export const list = query({
   args: {
@@ -144,6 +149,87 @@ export const list = query({
     result.sort((a, b) => a.orderDate - b.orderDate);
 
     return result;
+  },
+});
+
+// Status literal union for paginated queries (single status only)
+const orderStatusLiteral = v.union(
+  v.literal("Draft"),
+  v.literal("AwaitingPayment"),
+  v.literal("Confirmed"),
+  v.literal("InProduction"),
+  v.literal("Boxed"),
+  v.literal("Labeled"),
+  v.literal("ProductionComplete"),
+  v.literal("Packaging"),
+  v.literal("WaitingShipment"),
+  v.literal("CompleteShipped"),
+  v.literal("WaitingPickup"),
+  v.literal("PickedUp"),
+  v.literal("Cancelled")
+);
+
+/**
+ * List orders with cursor-based pagination.
+ * Uses Convex paginate() for efficient incremental loading.
+ *
+ * Only supports single status filter (not arrays) because
+ * paginate() cannot be chained after .filter().
+ * For multi-status category views, use the existing `list` query.
+ *
+ * Returns denormalized fields (itemCount, totalAmount, customerName)
+ * already on the orders table -- no per-order item fetch needed for list view.
+ */
+export const listPaginated = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(orderStatusLiteral),
+  },
+  handler: async (ctx, args) => {
+    let q;
+    if (args.status) {
+      q = ctx.db
+        .query("orders")
+        .withIndex("by_status", (idx) => idx.eq("status", args.status!))
+        .order("desc");
+    } else {
+      q = ctx.db.query("orders").order("desc");
+    }
+
+    const paginatedResult = await q.paginate(args.paginationOpts);
+
+    // For list view, use denormalized fields already on orders table:
+    // - order.itemCount, order.totalAmount, order.customerName, order.customerPhone
+    // No additional queries needed -- avoids N+1 item fetches entirely.
+    const enrichedPage = paginatedResult.page.map((order) => ({
+      ...order,
+      customer: null,
+    }));
+
+    return { ...paginatedResult, page: enrichedPage };
+  },
+});
+
+/**
+ * Lightweight count query for orders.
+ * Used alongside listPaginated to show "X remaining" on Load More button.
+ * Convex paginate() does not return total count, so this separate query is needed.
+ */
+export const countOrders = query({
+  args: {
+    status: v.optional(orderStatusLiteral),
+  },
+  handler: async (ctx, args) => {
+    let orders;
+    if (args.status) {
+      orders = await ctx.db
+        .query("orders")
+        .withIndex("by_status", (idx) => idx.eq("status", args.status!))
+        .collect();
+    } else {
+      orders = await ctx.db.query("orders").collect();
+    }
+    return orders.length;
   },
 });
 

@@ -5,6 +5,7 @@
  */
 
 import { query } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 /**
@@ -395,6 +396,42 @@ export const getLocationTransactions = query({
       location,
       transactions: enrichedTransactions,
     };
+  },
+});
+
+/**
+ * Get recent transactions for a location with cursor-based pagination.
+ * Uses Convex paginate() for efficient incremental loading.
+ * Enriches each transaction with component name/code.
+ */
+export const getLocationTransactionsPaginated = query({
+  args: {
+    locationId: v.id("storageLocations"),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const location = await ctx.db.get(args.locationId);
+    if (!location) return null;
+
+    const paginatedResult = await ctx.db
+      .query("componentTransactions")
+      .withIndex("by_location", (q) => q.eq("locationId", args.locationId))
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    // Enrich with component names
+    const enrichedPage = await Promise.all(
+      paginatedResult.page.map(async (tx) => {
+        const component = await ctx.db.get(tx.componentTypeId);
+        return {
+          ...tx,
+          componentName: component?.name,
+          componentCode: component?.code,
+        };
+      })
+    );
+
+    return { location, ...paginatedResult, page: enrichedPage };
   },
 });
 

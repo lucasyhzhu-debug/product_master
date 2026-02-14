@@ -163,7 +163,7 @@ export const create = mutation({
 
     if (args.components && args.components.length > 0) {
       const calculated = await calculateUnitCostFromComponentTypes(ctx, args.components);
-      unitCost = calculated.totalCost;
+      unitCost = calculated.breakdown.production; // Production-only COGS (packaging excluded per user decision)
       grams = calculated.totalGrams; // Override provided grams if components specified
 
       // Auto-derive productType from component categories if not explicitly set
@@ -285,7 +285,7 @@ export const update = mutation({
     if (components !== undefined) {
       if (components.length > 0) {
         const calculated = await calculateUnitCostFromComponentTypes(ctx, components);
-        patchData.unitCost = calculated.totalCost;
+        patchData.unitCost = calculated.breakdown.production; // Production-only COGS (packaging excluded per user decision)
         patchData.grams = calculated.totalGrams; // Override provided grams if components specified
 
         // Auto-derive productType from component categories
@@ -361,6 +361,73 @@ export const remove = mutation({
 
     await ctx.db.delete(args.id);
     return true;
+  },
+});
+
+/**
+ * Recalculate production-only COGS for all menu products.
+ * Admin safety net: compares current unitCost with freshly calculated value
+ * and returns a diff summary of changed products.
+ *
+ * Returns array of { productId, name, oldCost, newCost, delta } for changed products.
+ */
+export const recalculateAllCosts = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const allProducts = await ctx.db.query("menuProducts").collect();
+    const results: Array<{
+      productId: string;
+      name: string;
+      oldCost: number | undefined;
+      newCost: number;
+      delta: number;
+    }> = [];
+
+    for (const product of allProducts) {
+      // Fetch all components for this menu product
+      const components = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", product._id))
+        .collect();
+
+      // Skip products with no components
+      if (components.length === 0) continue;
+
+      // Calculate production-only cost
+      let productionCost = 0;
+      for (const comp of components) {
+        const componentType = await ctx.db.get(comp.componentTypeId);
+        if (!componentType) continue;
+
+        if (componentType.category === "production") {
+          productionCost += componentType.unitCostIdr * comp.quantity;
+        }
+      }
+
+      // Compare with existing unitCost
+      if (product.unitCost !== productionCost) {
+        const oldCost = product.unitCost;
+        await ctx.db.patch(product._id, {
+          unitCost: productionCost,
+          unitCostStaleAt: undefined,
+        });
+
+        results.push({
+          productId: product._id,
+          name: product.name,
+          oldCost,
+          newCost: productionCost,
+          delta: productionCost - (oldCost ?? 0),
+        });
+      } else if (product.unitCostStaleAt !== undefined) {
+        // Cost is correct but stale marker is set -- clear it
+        await ctx.db.patch(product._id, { unitCostStaleAt: undefined });
+      }
+    }
+
+    return results;
   },
 });
 

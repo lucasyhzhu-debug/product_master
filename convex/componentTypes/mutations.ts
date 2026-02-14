@@ -5,6 +5,7 @@
  */
 
 import { mutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
 
 /**
@@ -150,6 +151,29 @@ export const update = mutation({
     }
 
     await ctx.db.patch(args.id, updates);
+
+    // COGS cascade: when unitCostIdr changes, mark affected menuProducts as stale
+    // then schedule recalculation to update their cached unitCost
+    if (args.unitCostIdr !== undefined) {
+      // Find all menuProductComponents using this componentType
+      const usages = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_component_type", (q) => q.eq("componentTypeId", args.id))
+        .collect();
+
+      // Get unique menuProduct IDs and mark each as stale
+      const affectedIds = new Set(usages.map((u) => u.menuProductId));
+      for (const menuProductId of affectedIds) {
+        await ctx.db.patch(menuProductId, { unitCostStaleAt: Date.now() });
+      }
+
+      // Schedule async recalculation (clears stale marker when done)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.lib.costInvalidation.invalidateMenuProductCosts,
+        { componentTypeId: args.id }
+      );
+    }
 
     return args.id;
   },

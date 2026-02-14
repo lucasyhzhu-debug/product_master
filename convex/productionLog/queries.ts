@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 /**
@@ -25,6 +26,32 @@ export const getRecent = query({
         };
       })
     );
+  },
+});
+
+/**
+ * Get recent production log entries with cursor-based pagination.
+ * Uses Convex paginate() for efficient incremental loading.
+ * Enriches each entry with menu product name.
+ */
+export const getRecentPaginated = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const paginatedResult = await ctx.db
+      .query("productionLog")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    // Enrich with menu product name
+    const enrichedPage = await Promise.all(
+      paginatedResult.page.map(async (entry) => {
+        const mp = await ctx.db.get(entry.menuProductId);
+        return { ...entry, menuProductName: mp?.name ?? "Unknown" };
+      })
+    );
+
+    return { ...paginatedResult, page: enrichedPage };
   },
 });
 
