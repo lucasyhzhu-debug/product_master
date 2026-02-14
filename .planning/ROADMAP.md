@@ -2,8 +2,8 @@
 
 **Created:** 2026-02-13
 **Milestone:** Concerns Cleanup & Refactor
-**Phases:** 10
-**Requirements:** 39 mapped
+**Phases:** 11
+**Requirements:** 41 mapped
 
 ---
 
@@ -19,8 +19,9 @@
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Complete (2026-02-14) |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Complete (2026-02-14) |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Complete (2026-02-14) |
-| 9 | Frontend Factories & UI Brand Consolidation | Brand/UI reference established, all pages consistent (margins, fonts, colors), generic factories applied to simple CRUD entities | 4 | Pending |
-| 10 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
+| 9 | UI Brand Consolidation | Brand/UI reference established, all 19 pages audited and consistent (margins, fonts, colors, spacing, responsive) | 2 | Pending |
+| 10 | Frontend Factories | Generic hook and component factories applied to simple CRUD entities, reducing ~2,300 lines of boilerplate | 4 | Pending |
+| 11 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
 
 ---
 
@@ -213,26 +214,39 @@ Plans:
 
 ---
 
-### Phase 9: Frontend Factories & UI Brand Consolidation
-**Goal:** A universal brand/UI architecture reference is established and enforced across all pages (consistent fonts, colors, spacing, margins); generic hook and UI component factories are created and applied to all simple CRUD entities, reducing frontend boilerplate by ~2,300 lines. All UI work uses the `/frontend-design` skill.
-**Requirements:** FHOOK-01, FHOOK-02, FUI-01, FUI-02
-**Dependencies:** Phase 5 (backend factory patterns established), Phase 6 (BOM migration complete so hooks read correct data), Phase 8 (schema finalized before building generic components)
+### Phase 9: UI Brand Consolidation
+**Goal:** A universal brand/UI architecture reference is established and enforced across all 19 pages — consistent fonts, colors, spacing, margins, responsive layout, header/footer patterns, and mobile navigation. All UI work uses the `/frontend-design` skill.
+**Requirements:** BRAND-01, BRAND-02
+**Dependencies:** Phase 7 (query optimization complete — codebase stable for visual audit)
 **Success Criteria:**
-1. Brand/UI reference document exists (`docs/UI_BRAND_REFERENCE.md`) covering: color palette, typography, spacing scale, margin rules, component patterns, and page layout conventions
+1. Brand/UI reference document exists (`docs/UI_BRAND_REFERENCE.md`) covering: color palette, typography, spacing scale, margin rules, component patterns, page layout conventions, dark mode tokens
 2. All 19 pages audited for UI inconsistencies — every page uses consistent left margins, fonts, colors, and spacing per the brand reference
 3. Pages with missing left margins are fixed to match the standard layout
-4. `src/hooks/convex/createMutationHook.ts` exports a generic factory that produces typed mutation hooks with toast notifications
-5. Simple entity hooks (ingredients, materials, tags, customers, locations, vouchers) use the factory — each hook file is ~15 lines instead of ~115 lines
-6. `src/components/shared/EntityManager.tsx` exports a generic CRUD component with pluggable columns, forms, and validation
-7. IngredientsManager, MaterialsManager, CustomersManager, and LocationsManager pages use `EntityManager` — each page file shrinks by ~60%
-8. `npm run build` passes; all entity CRUD operations work identically to before (no visual or behavioral regression)
-9. All UI changes reviewed through the `/frontend-design` skill for design quality
+4. Header/footer/mobile-nav components implemented per brand reference
+5. `npm run build` passes; no visual or behavioral regression
+6. All UI changes reviewed through the `/frontend-design` skill for design quality
 
-**Estimated scope:** 1 brand reference doc, 2 new factory files, 10+ hook files simplified, 4+ page files fixed for consistency, 4 page files simplified
+**Estimated scope:** 1 brand reference doc, 4+ layout components (header, footer, mobile nav, page container), 19 pages audited, 10+ pages adjusted
 
 ---
 
-### Phase 10: Infrastructure & Consolidation
+### Phase 10: Frontend Factories
+**Goal:** Generic hook and UI component factories are created and applied to all simple CRUD entities, reducing frontend boilerplate by ~2,300 lines. Factories follow the brand reference established in Phase 9. All UI work uses the `/frontend-design` skill.
+**Requirements:** FHOOK-01, FHOOK-02, FUI-01, FUI-02
+**Dependencies:** Phase 5 (backend factory patterns established), Phase 8 (schema finalized before building generic components), Phase 9 (brand reference established — factories must follow it)
+**Success Criteria:**
+1. `src/hooks/convex/createMutationHook.ts` exports a generic factory that produces typed mutation hooks with toast notifications
+2. Simple entity hooks (ingredients, materials, tags, customers, locations) use the factory — each hook file is ~15 lines instead of ~115 lines
+3. `src/components/shared/EntityManager.tsx` exports a generic CRUD component with pluggable columns, forms, and validation
+4. IngredientsManager, MaterialsManager, CustomersManager, and LocationsManager pages use `EntityManager` — each page file shrinks by ~60%
+5. `npm run build` passes; all entity CRUD operations work identically to before (no visual or behavioral regression)
+6. All UI changes reviewed through the `/frontend-design` skill for design quality
+
+**Estimated scope:** 2 new factory files, 10+ hook files simplified, 4 page files simplified
+
+---
+
+### Phase 11: Infrastructure & Consolidation
 **Goal:** Automated database backups are running, all dependency compatibility is verified, and production counts use a single source of truth.
 **Requirements:** INFRA-01, INFRA-02, INFRA-03
 **Dependencies:** Phase 1 (tests needed for productionCounts consolidation), Phase 6 (BOM migration complete), Phase 8 (schema finalized)
@@ -254,18 +268,20 @@ Plans:
 Phase 1 (Tests) ──────────────────┐
                                    ├──> Phase 5 (Backend Factories) ──> Phase 6 (BOM Migration) ──┐
 Phase 2 (Security) ───(parallel)───┘                                                               │
-                                                                                                    ├──> Phase 7 (Query Opt) ──> Phase 8 (Schema Cleanup) ──┐
-Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                                             │                                                       │
-                                                                                                    │                                                       ├──> Phase 9 (Frontend Factories)
-                                                                                                    │                                                       │
-                                                                                                    └───────────────────────────────────────────────────────> Phase 10 (Infrastructure)
+                                                                                                    ├──> Phase 7 (Query Opt) ──┬──> Phase 8 (Schema Cleanup) ──┐
+Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                                             │                          │                               │
+                                                                                                    │                          └──> Phase 9 (UI Brand) ────────┤
+                                                                                                    │                                                          ├──> Phase 10 (Frontend Factories)
+                                                                                                    │                                                          │
+                                                                                                    └──────────────────────────────────────────────────────────> Phase 11 (Infrastructure)
 ```
 
 **Parallel opportunities:**
 - Phases 1, 2, 3 can run in parallel (independent concerns)
 - Phase 4 depends only on Phase 3
 - Phase 5 depends only on Phase 1
-- Phases 6+ are sequential on the critical path
+- Phases 8 and 9 can run in parallel after Phase 7
+- Phase 10 depends on both Phases 8 and 9
 
 ---
 
@@ -305,15 +321,17 @@ Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                      
 | SCHEMA-02 | 8 | Make safe-to-require fields required |
 | SCHEMA-03 | 8 | Remove unused tables/fields |
 | SCHEMA-04 | 8 | Document denormalization patterns |
-| FHOOK-01 | 9 | Create generic createMutationHook factory |
-| FHOOK-02 | 9 | Migrate simple entity hooks to factory |
-| FUI-01 | 9 | Create generic EntityManager component |
-| FUI-02 | 9 | Migrate simple CRUD pages to EntityManager |
-| INFRA-01 | 10 | Automated Convex database backup |
-| INFRA-02 | 10 | Dependency compatibility audit |
-| INFRA-03 | 10 | Production counts consolidation |
+| BRAND-01 | 9 | Brand/UI reference document with component-level guidelines |
+| BRAND-02 | 9 | 19-page UI audit and consistency fixes (margins, fonts, colors, spacing, responsive) |
+| FHOOK-01 | 10 | Create generic createMutationHook factory |
+| FHOOK-02 | 10 | Migrate simple entity hooks to factory |
+| FUI-01 | 10 | Create generic EntityManager component |
+| FUI-02 | 10 | Migrate simple CRUD pages to EntityManager |
+| INFRA-01 | 11 | Automated Convex database backup |
+| INFRA-02 | 11 | Dependency compatibility audit |
+| INFRA-03 | 11 | Production counts consolidation |
 
-**Coverage: 39/39 (100%)**
+**Coverage: 41/41 (100%)**
 
 ---
 
@@ -330,7 +348,8 @@ Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                      
 | 7 | MEDIUM | Query behavior changes visible to users | Performance benchmarking before/after |
 | 8 | MEDIUM | Schema deploy rejection on field tightening | Dev environment testing, batched deploys |
 | 9 | LOW | Frontend-only, no backend impact | Visual regression testing |
-| 10 | HIGH | productionCounts consolidation performance | Fallback to materialized view if slow |
+| 10 | LOW | Frontend-only, no backend impact | Visual regression testing |
+| 11 | HIGH | productionCounts consolidation performance | Fallback to materialized view if slow |
 
 ---
 
