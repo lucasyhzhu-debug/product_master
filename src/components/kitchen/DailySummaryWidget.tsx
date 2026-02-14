@@ -19,7 +19,7 @@ export function DailySummaryWidget({ stats }: DailySummaryWidgetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <div className="border-2 border-gray-200 bg-white rounded-lg shadow-sm overflow-hidden">
+    <div className="border-2 border-border bg-card rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -37,7 +37,7 @@ export function DailySummaryWidget({ stats }: DailySummaryWidgetProps) {
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 pt-2 space-y-4 border-t border-gray-200">
+        <div className="px-4 pb-4 pt-2 space-y-4 border-t border-border">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-3">
             <StatItem label="Balls" value={stats.ballsProduced} color="text-purple-600" />

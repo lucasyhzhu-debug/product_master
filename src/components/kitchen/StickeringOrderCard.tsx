@@ -18,7 +18,7 @@ interface StickeringOrderCardProps {
 
 export function StickeringOrderCard({ order, onApplyStickers, disabled = false }: StickeringOrderCardProps) {
   return (
-    <div className="rounded-lg overflow-hidden border-2 border-gray-300 bg-white hover:shadow-sm transition-shadow">
+    <div className="rounded-lg overflow-hidden border-2 border-border bg-card hover:shadow-sm transition-shadow">
       {/* Header */}
       <div className="px-3.5 py-2.5 flex items-center justify-between bg-gray-50 border-b border-gray-200">
         <span className="font-mono text-base font-bold text-gray-900">{order.orderNumber}</span>

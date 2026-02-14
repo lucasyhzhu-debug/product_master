@@ -441,13 +441,13 @@ export function KitchenViewV2() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F6F3]">
+    <div className="min-h-screen bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
       {/* Header */}
-      <header className="bg-white border-b border-[#E8E2DB] shadow-sm sticky top-0 z-30">
+      <header className="bg-card border-b border-border shadow-sm sticky top-0 z-30">
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Kitchen</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Kitchen</h1>
               {!canEditKitchen && (
                 <Badge variant="secondary" className="flex items-center gap-1.5 text-sm">
                   <Eye className="h-3.5 w-3.5" />
@@ -455,7 +455,7 @@ export function KitchenViewV2() {
                 </Badge>
               )}
             </div>
-            <div className="text-sm text-gray-600 font-medium">
+            <div className="text-sm text-muted-foreground font-medium">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
@@ -521,7 +521,7 @@ export function KitchenViewV2() {
       <div className="hidden md:block px-4 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-gray-900 mb-3 px-1" style={{ color: 'var(--color-station-production-accent)' }}>
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-production-accent)' }}>
               Production Log
             </h2>
             <ProductionLogPanel
@@ -539,7 +539,7 @@ export function KitchenViewV2() {
             />
           </div>
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-gray-900 mb-3 px-1" style={{ color: 'var(--color-station-boxing-accent)' }}>
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-boxing-accent)' }}>
               To Box
             </h2>
             <BoxingPanel
@@ -552,7 +552,7 @@ export function KitchenViewV2() {
             />
           </div>
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-gray-900 mb-3 px-1" style={{ color: 'var(--color-station-stickering-accent)' }}>
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-stickering-accent)' }}>
               To Sticker
             </h2>
             <StickeringPanel
@@ -568,7 +568,7 @@ export function KitchenViewV2() {
             />
           </div>
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-gray-900 mb-3 px-1" style={{ color: 'var(--color-station-packing-accent)' }}>
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-packing-accent)' }}>
               To Pack
             </h2>
             <PackingPanel

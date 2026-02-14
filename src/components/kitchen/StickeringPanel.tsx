@@ -181,7 +181,7 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 border-l-[#6B4C3B] overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[#6B4C3B] overflow-hidden">
       {/* Header */}
       <div className="bg-[#F7F0EB] px-3 py-2.5">
         <div className="flex items-center justify-between">

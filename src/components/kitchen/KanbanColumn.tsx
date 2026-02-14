@@ -35,7 +35,7 @@ export function KanbanColumn({ title, subtitle, count, color, icon, footer, chil
   const styles = colorStyles[color];
 
   return (
-    <div className="flex flex-col bg-white rounded-lg border-2 border-gray-200 overflow-hidden shadow-sm min-h-[600px]">
+    <div className="flex flex-col bg-card rounded-lg border-2 border-border overflow-hidden shadow-sm min-h-[600px]">
       {/* Header */}
       <div className={cn('px-4 py-3 border-b-2', styles.header)}>
         <div className="flex items-center justify-between">

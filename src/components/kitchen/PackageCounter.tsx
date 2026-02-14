@@ -27,7 +27,7 @@ export function PackageCounter({
     <div
       className={cn(
         'p-4 rounded-lg border-2 transition-all space-y-3',
-        isComplete ? 'bg-green-50 border-green-400' : 'bg-white border-gray-300 shadow-sm'
+        isComplete ? 'bg-green-50 border-green-400' : 'bg-card border-border shadow-sm'
       )}
     >
       {/* Product Name - Large and prominent */}
@@ -60,7 +60,7 @@ export function PackageCounter({
         <button
           onClick={onDecrement}
           disabled={disabled || filled === 0}
-          className="h-14 w-14 flex flex-col items-center justify-center rounded-lg border-2 border-gray-300 bg-white hover:bg-gray-100 active:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation flex-shrink-0"
+          className="h-14 w-14 flex flex-col items-center justify-center rounded-lg border-2 border-border bg-card hover:bg-muted active:bg-muted/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation flex-shrink-0"
           aria-label="Remove one package"
         >
           <Minus className="h-6 w-6 text-gray-700" />

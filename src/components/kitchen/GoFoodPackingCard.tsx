@@ -130,7 +130,7 @@ export function GoFoodPackingCard({
   const alreadyShipped = !!shippedAt;
 
   return (
-    <div className="rounded-lg overflow-hidden border-l-4 bg-white shadow-sm"
+    <div className="rounded-lg overflow-hidden border-l-4 bg-card shadow-sm"
       style={{ borderLeftColor: 'var(--color-gofood)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#E8E2DB]"

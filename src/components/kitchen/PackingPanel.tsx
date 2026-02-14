@@ -103,10 +103,10 @@ export function PackingPanel({
   // Loading state
   if (packingOrders === undefined) {
     return (
-      <div className="px-4 py-4 space-y-4 bg-[#F8F6F3]">
+      <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-lg overflow-hidden border-l-4 border-l-[#E07856] bg-white">
-            <div className="px-4 py-3 bg-[#FEF2EE]">
+          <div key={i} className="rounded-lg overflow-hidden border-l-4 border-l-[var(--color-station-packing)] bg-card">
+            <div className="px-4 py-3 bg-[var(--color-station-packing-light)]">
               <Skeleton className="h-6 w-32 mb-2" />
               <Skeleton className="h-4 w-48" />
             </div>
@@ -124,9 +124,9 @@ export function PackingPanel({
   // Empty state
   if (packingOrders.length === 0) {
     return (
-      <div className="px-4 py-12 text-center bg-[#F8F6F3]">
-        <Package className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-        <p className="text-gray-600 text-base font-medium">
+      <div className="px-4 py-12 text-center bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
+        <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+        <p className="text-muted-foreground text-base font-medium">
           All orders packed! Kitchen is clear.
         </p>
       </div>
@@ -134,7 +134,7 @@ export function PackingPanel({
   }
 
   return (
-    <div className="px-4 py-4 space-y-4 bg-[#F8F6F3]">
+    <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
       {/* GoFood packing card at top */}
       {goFoodPackingData && onShipToGoldfinch && (
         <GoFoodPackingCard
@@ -225,11 +225,11 @@ function PackingOrderCard({
   };
 
   return (
-    <div className="rounded-lg overflow-hidden border-l-4 border-l-[#E07856] bg-white shadow-sm">
+    <div className="rounded-lg overflow-hidden border-l-4 border-l-[var(--color-station-packing)] bg-card shadow-sm">
       {/* Header */}
-      <div className="px-4 py-3 bg-[#FEF2EE] border-b border-[#E8E2DB]">
+      <div className="px-4 py-3 bg-[var(--color-station-packing-light)] border-b border-border">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="font-mono text-lg font-bold text-[#E07856]">
+          <span className="font-mono text-lg font-bold text-[var(--color-station-packing)]">
             #{order.orderNumber}
           </span>
           {order.deliveryType && (
@@ -238,19 +238,19 @@ function PackingOrderCard({
                 'rounded-full px-2.5 py-0.5 text-xs font-semibold',
                 order.deliveryType.toLowerCase() === 'pickup'
                   ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                  : 'bg-[#FEF2EE] text-[#C55A3A] border border-[#F5D5C8]'
+                  : 'bg-[var(--color-station-packing-light)] text-[var(--color-station-packing-accent)] border border-[var(--color-station-packing-medium)]'
               )}
             >
               {order.deliveryType.toLowerCase() === 'pickup' ? 'Pickup' : 'Delivery'}
             </span>
           )}
         </div>
-        <p className="text-base font-medium text-gray-700">{order.customerName}</p>
+        <p className="text-base font-medium text-foreground/80">{order.customerName}</p>
       </div>
 
       {/* Products Section */}
       <div className="px-4 py-2">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
           Products
         </h3>
         <div className="space-y-1">
@@ -262,8 +262,8 @@ function PackingOrderCard({
               className={cn(
                 'w-full min-h-[56px] px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors touch-manipulation',
                 item.isPacked
-                  ? 'bg-[#FEF2EE]'
-                  : 'hover:bg-gray-50 active:bg-gray-100',
+                  ? 'bg-[var(--color-station-packing-light)]'
+                  : 'hover:bg-muted/50 active:bg-muted',
                 (disabled || isProcessing || !item.canPack) && 'cursor-not-allowed'
               )}
             >
@@ -272,8 +272,8 @@ function PackingOrderCard({
                 className={cn(
                   'flex-shrink-0 w-6 h-6 rounded-full transition-all flex items-center justify-center',
                   item.isPacked
-                    ? 'bg-[#E07856]'
-                    : 'border-2 border-gray-300'
+                    ? 'bg-[var(--color-station-packing)]'
+                    : 'border-2 border-border'
                 )}
               >
                 {item.isPacked && (
@@ -296,12 +296,12 @@ function PackingOrderCard({
                 <p
                   className={cn(
                     'text-base font-medium',
-                    item.isPacked && 'line-through text-gray-400'
+                    item.isPacked && 'line-through text-muted-foreground'
                   )}
                 >
                   {item.productName}
                   {item.productVariant && (
-                    <span className="text-sm text-gray-500 ml-1">
+                    <span className="text-sm text-muted-foreground ml-1">
                       ({item.productVariant})
                     </span>
                   )}
@@ -329,8 +329,8 @@ function PackingOrderCard({
 
       {/* Packaging Materials Section */}
       {order.packagingMaterials.length > 0 && (
-        <div className="px-4 py-2 border-t border-[#E8E2DB]">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        <div className="px-4 py-2 border-t border-border">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Packaging
           </h3>
           <div className="space-y-1">
@@ -340,15 +340,15 @@ function PackingOrderCard({
                 className="w-full min-h-[56px] px-3 py-2 rounded-lg flex items-center gap-3"
               >
                 {/* Non-interactive checkbox */}
-                <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300" />
+                <div className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-border" />
 
                 {/* Material name and quantity */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-base font-medium text-gray-700">
+                  <p className="text-base font-medium text-foreground/80">
                     {material.componentName}
                     <span className="ml-1.5">×{material.quantityNeeded}</span>
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Deducted on ORDER READY
                   </p>
                 </div>
@@ -359,17 +359,17 @@ function PackingOrderCard({
       )}
 
       {/* Footer - ORDER READY button */}
-      <div className="px-4 py-3 bg-[#FEF2EE] border-t border-[#E8E2DB]">
+      <div className="px-4 py-3 bg-[var(--color-station-packing-light)] border-t border-border">
         <button
           onClick={(e) => handleMarkReady(e)}
           disabled={disabled || isProcessing || !order.canMarkReady}
           className={cn(
             'w-full min-h-[56px] rounded-xl font-bold text-lg transition-colors touch-manipulation',
             confirmingReady
-              ? 'bg-[#C55A3A] text-white'
+              ? 'bg-[var(--color-station-packing-accent)] text-white'
               : order.canMarkReady
-                ? 'bg-[#E07856] hover:bg-[#D66A4A] text-white'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-[var(--color-station-packing)] hover:bg-[var(--color-station-packing-accent)] text-white'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
           )}
         >
           {confirmingReady ? (

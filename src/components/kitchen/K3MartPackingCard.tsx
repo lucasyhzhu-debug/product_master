@@ -43,7 +43,7 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
 
   return (
     <div
-      className="rounded-lg overflow-hidden border-l-4 bg-white shadow-sm"
+      className="rounded-lg overflow-hidden border-l-4 bg-card shadow-sm"
       style={{ borderLeftColor: 'var(--color-k3mart)' }}
     >
       {/* Header */}

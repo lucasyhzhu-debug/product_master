@@ -88,7 +88,7 @@ export function ProductButtons({ products, onAddProduct, label, columns = 2 }: P
   return (
     <>
       {label && (
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{label}</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</p>
       )}
       <div className={`grid gap-3 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {products.map((product) => (

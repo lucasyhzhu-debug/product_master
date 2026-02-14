@@ -509,19 +509,6 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
 
   return (
     <div className="space-y-6">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
-
-        .order-form-heading {
-          font-family: 'Playfair Display', serif;
-          letter-spacing: -0.02em;
-        }
-
-        .order-form-body {
-          font-family: 'Inter', sans-serif;
-        }
-      `}</style>
-
       {/* Header with Progress */}
       <motion.div
         className="space-y-4"
@@ -530,7 +517,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
         transition={{ duration: 0.4 }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="order-form-heading text-3xl font-bold text-[#2D3748]">
+          <h2 className="text-3xl font-bold text-foreground">
             {isEditMode && editOrder
               ? `Editing - Order for ${editOrder.customer_name} ${editOrder.order_number}`
               : isEditMode
@@ -549,14 +536,14 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                   {step.complete ? (
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                   ) : (
-                    <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                    <div className="h-4 w-4 rounded-full border-2 border-border" />
                   )}
-                  <span className={`text-sm ${step.complete ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
+                  <span className={`text-sm ${step.complete ? 'text-green-600 font-medium' : 'text-muted-foreground'}`}>
                     {step.label}
                   </span>
                 </motion.div>
                 {index < completionSteps.length - 1 && (
-                  <ChevronRight className="h-3 w-3 text-gray-300" />
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 )}
               </div>
             ))}
@@ -571,23 +558,23 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
         >
           <button
             onClick={() => setShowTemplateBox(!showTemplateBox)}
-            className="group w-full p-4 rounded-xl bg-gradient-to-br from-[#E07856]/10 to-[#E07856]/5 border border-[#E07856]/20 hover:border-[#E07856]/40 transition-all duration-300"
+            className="group w-full p-4 rounded-xl bg-gradient-to-br from-[var(--color-brand)]/10 to-[var(--color-brand)]/5 border border-[var(--color-brand)]/20 hover:border-[var(--color-brand)]/40 transition-all duration-300"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-[#E07856]/10 flex items-center justify-center group-hover:bg-[#E07856]/20 transition-colors">
-                  <Sparkles className="h-5 w-5 text-[#E07856]" />
+                <div className="h-10 w-10 rounded-lg bg-[var(--color-brand)]/10 flex items-center justify-center group-hover:bg-[var(--color-brand)]/20 transition-colors">
+                  <Sparkles className="h-5 w-5 text-[var(--color-brand)]" />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-sm text-[#2D3748]">Quick Start with WhatsApp Template</p>
-                  <p className="text-xs text-gray-500">Copy template → Send to customer → Paste their reply</p>
+                  <p className="font-semibold text-sm text-foreground">Quick Start with WhatsApp Template</p>
+                  <p className="text-xs text-muted-foreground">Copy template → Send to customer → Paste their reply</p>
                 </div>
               </div>
               <motion.div
                 animate={{ rotate: showTemplateBox ? 180 : 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Plus className="h-5 w-5 text-[#E07856]" />
+                <Plus className="h-5 w-5 text-[var(--color-brand)]" />
               </motion.div>
             </div>
           </button>
@@ -598,9 +585,9 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             <motion.div
               {...fadeIn}
               transition={{ duration: 0.3 }}
-              className="overflow-hidden rounded-xl border border-[#E07856]/20 bg-white"
+              className="overflow-hidden rounded-xl border border-[var(--color-brand)]/20 bg-card"
             >
-              <div className="p-4 bg-gradient-to-r from-[#E07856]/5 to-transparent border-b border-[#E07856]/10">
+              <div className="p-4 bg-gradient-to-r from-[var(--color-brand)]/5 to-transparent border-b border-[var(--color-brand)]/10">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-sm">WhatsApp Order Template</h3>
                   <Button
@@ -636,15 +623,15 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             {...fadeIn}
             transition={{ delay: 0.3 }}
           >
-            <Card className="overflow-hidden border-2 border-gray-100">
-              <div className="p-6 bg-gradient-to-br from-gray-50 to-white">
+            <Card className="overflow-hidden border-2 border-border">
+              <div className="p-6 bg-gradient-to-br from-muted/50 to-card">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-[#E07856]/10 flex items-center justify-center">
-                    <Package className="h-5 w-5 text-[#E07856]" />
+                  <div className="h-10 w-10 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-[var(--color-brand)]" />
                   </div>
                   <div>
-                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Products</h3>
-                    <p className="text-xs text-gray-500">Select items for this order</p>
+                    <h3 className="text-xl font-semibold text-foreground">Products</h3>
+                    <p className="text-xs text-muted-foreground">Select items for this order</p>
                   </div>
                 </div>
 
@@ -678,7 +665,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                     >
                       <Separator className="my-4" />
                       <div className="flex items-center justify-between mb-3">
-                        <Label className="text-sm font-semibold text-gray-700">Order Items</Label>
+                        <Label className="text-sm font-semibold text-foreground/80">Order Items</Label>
                         <Badge variant="secondary" className="text-xs">
                           {items.length} {items.length === 1 ? 'item' : 'items'}
                         </Badge>
@@ -688,15 +675,15 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                           key={item.productId}
                           {...slideIn}
                           transition={{ delay: index * 0.05 }}
-                          className="group p-4 rounded-lg bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:border-[#E07856]/30 hover:shadow-md transition-all duration-300"
+                          className="group p-4 rounded-lg bg-gradient-to-br from-muted/50 to-card border border-border hover:border-[var(--color-brand)]/30 hover:shadow-md transition-all duration-300"
                         >
                           <div className="flex items-center justify-between gap-4 mb-3">
                             <div className="flex-1">
-                              <p className="font-semibold text-sm text-[#2D3748]">{item.productName}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <p className="font-semibold text-sm text-foreground">{item.productName}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 {item.grams > 0 && <span>{item.grams}g</span>}
                                 {item.quantity > 1 && (
-                                  <span className="text-gray-400">@ {formatCurrency(item.unitPrice)}</span>
+                                  <span className="text-muted-foreground">@ {formatCurrency(item.unitPrice)}</span>
                                 )}
                               </div>
                             </div>
@@ -720,7 +707,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
-                              <span className="w-12 text-center font-bold text-lg text-[#2D3748]">
+                              <span className="w-12 text-center font-bold text-lg text-foreground">
                                 {item.quantity}
                               </span>
                               <Button
@@ -732,7 +719,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                                 <Plus className="h-3 w-3" />
                               </Button>
                             </div>
-                            <span className="font-bold text-lg text-[#E07856]">
+                            <span className="font-bold text-lg text-[var(--color-brand)]">
                               {formatCurrency(item.lineTotal)}
                             </span>
                           </div>
@@ -745,11 +732,11 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                 {items.length === 0 && (
                   <motion.div
                     {...fadeIn}
-                    className="mt-6 p-8 text-center rounded-lg border-2 border-dashed border-gray-200"
+                    className="mt-6 p-8 text-center rounded-lg border-2 border-dashed border-border"
                   >
-                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p className="text-sm text-gray-500">No products added yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Click the buttons above to add products</p>
+                    <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No products added yet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Click the buttons above to add products</p>
                   </motion.div>
                 )}
               </div>
@@ -761,15 +748,15 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             {...fadeIn}
             transition={{ delay: 0.4 }}
           >
-            <Card className="overflow-visible border-2 border-gray-100">
+            <Card className="overflow-visible border-2 border-border">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
                     <User className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Customer</h3>
-                    <p className="text-xs text-gray-500">Who is this order for?</p>
+                    <h3 className="text-xl font-semibold text-foreground">Customer</h3>
+                    <p className="text-xs text-muted-foreground">Who is this order for?</p>
                   </div>
                 </div>
 
@@ -819,17 +806,17 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                         <motion.div
                           {...scaleIn}
                           transition={{ duration: 0.2 }}
-                          className="absolute z-10 w-full mt-2 bg-white border-2 border-gray-100 rounded-lg shadow-xl max-h-48 overflow-auto"
+                          className="absolute z-10 w-full mt-2 bg-card border-2 border-border rounded-lg shadow-xl max-h-48 overflow-auto"
                         >
                           {customers?.map((customer) => (
                             <button
                               key={customer.id}
-                              className="w-full px-4 py-3 text-left hover:bg-gray-50 text-sm border-b last:border-b-0 transition-colors"
+                              className="w-full px-4 py-3 text-left hover:bg-muted/50 text-sm border-b last:border-b-0 transition-colors"
                               onClick={() => handleCustomerSelect(customer)}
                             >
-                              <div className="font-medium text-[#2D3748]">{customer.name}</div>
+                              <div className="font-medium text-foreground">{customer.name}</div>
                               {customer.phone && (
-                                <div className="text-xs text-gray-500 mt-1">{customer.phone}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{customer.phone}</div>
                               )}
                             </button>
                           ))}
@@ -854,15 +841,15 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             {...fadeIn}
             transition={{ delay: 0.5 }}
           >
-            <Card className="overflow-hidden border-2 border-gray-100">
+            <Card className="overflow-hidden border-2 border-border">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
                     <MapPin className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
-                    <h3 className="order-form-heading text-xl font-semibold text-[#2D3748]">Delivery</h3>
-                    <p className="text-xs text-gray-500">Pickup or delivery?</p>
+                    <h3 className="text-xl font-semibold text-foreground">Delivery</h3>
+                    <p className="text-xs text-muted-foreground">Pickup or delivery?</p>
                   </div>
                 </div>
 
@@ -895,19 +882,19 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             {...fadeIn}
             transition={{ delay: 0.6 }}
           >
-            <Card className="overflow-hidden border-2 border-gray-100">
+            <Card className="overflow-hidden border-2 border-border">
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <Label className="text-sm">Order Date</Label>
                     </div>
-                    <Input value={todayFormatted} disabled className="bg-gray-50" />
+                    <Input value={todayFormatted} disabled className="bg-muted/50" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <Label className="text-sm">Due Date</Label>
                     </div>
                     <Input
@@ -920,7 +907,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
 
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
+                    <FileText className="h-4 w-4 text-muted-foreground" />
                     <Label className="text-sm">Notes (Optional)</Label>
                   </div>
                   <Textarea
@@ -943,18 +930,18 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             transition={{ delay: 0.7 }}
             className="sticky top-6"
           >
-            <Card className="overflow-hidden border-2 border-gray-100">
-              <div className="p-6 bg-gradient-to-br from-[#2D3748] to-[#1A202C] text-white">
-                <h3 className="order-form-heading text-2xl font-bold mb-1">Order Summary</h3>
-                <p className="text-sm text-gray-300">Review before submitting</p>
+            <Card className="overflow-hidden border-2 border-border">
+              <div className="p-6 bg-foreground text-background">
+                <h3 className="text-2xl font-bold mb-1">Order Summary</h3>
+                <p className="text-sm text-muted-foreground">Review before submitting</p>
               </div>
 
               <div className="p-6 space-y-4">
                 {/* Voucher Section */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Ticket className="h-4 w-4 text-[#E07856]" />
-                    <Label className="text-sm font-semibold text-[#2D3748]">Voucher</Label>
+                    <Ticket className="h-4 w-4 text-[var(--color-brand)]" />
+                    <Label className="text-sm font-semibold text-foreground">Voucher</Label>
                   </div>
                   <VoucherInput
                     subtotal={subtotal}
@@ -970,7 +957,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full mt-3 border-[#E07856] text-[#E07856] hover:bg-[#E07856]/10"
+                      className="w-full mt-3 border-[var(--color-brand)] text-[var(--color-brand)] hover:bg-[var(--color-brand)]/10"
                       onClick={() => setShowManagerOverride(true)}
                       disabled={subtotal === 0}
                     >
@@ -987,8 +974,8 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                   {totalDiscountValue > 0 && appliedVoucher && (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subtotal</span>
-                        <span className="font-semibold text-gray-900">{formatCurrency(subtotal)}</span>
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-semibold text-foreground">{formatCurrency(subtotal)}</span>
                       </div>
 
                       <div className="flex justify-between text-sm text-emerald-600">
@@ -1001,8 +988,8 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                   )}
 
                   <div className="flex justify-between">
-                    <span className="order-form-heading text-xl font-bold text-[#2D3748]">Total</span>
-                    <span className={`order-form-heading text-2xl font-bold ${isLowPrice ? 'text-amber-600' : 'text-[#E07856]'}`}>
+                    <span className="text-xl font-bold text-foreground">Total</span>
+                    <span className={`text-2xl font-bold ${isLowPrice ? 'text-amber-600' : 'text-[var(--color-brand)]'}`}>
                       {formatCurrency(total)}
                     </span>
                   </div>
@@ -1034,7 +1021,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
 
                 {/* Submit Button */}
                 <Button
-                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[var(--color-brand)] to-[var(--color-brand-dark)] hover:from-[var(--color-brand-dark)] hover:to-[var(--color-brand-darker)] shadow-lg hover:shadow-xl transition-all duration-300"
                   onClick={handleSubmit}
                   disabled={isSubmitting || !hasItems || !hasCustomer || total <= 0}
                   size="lg"

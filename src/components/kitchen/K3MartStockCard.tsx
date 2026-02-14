@@ -42,7 +42,7 @@ export function K3MartStockCard({
 
   return (
     <div
-      className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 overflow-hidden"
+      className="bg-card rounded-xl shadow-sm border border-border border-l-4 overflow-hidden"
       style={{ borderLeftColor: 'var(--color-k3mart)' }}
     >
       {/* Header */}

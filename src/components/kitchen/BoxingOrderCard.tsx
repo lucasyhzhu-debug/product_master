@@ -37,18 +37,18 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden border-2 bg-white transition-all',
+        'rounded-lg overflow-hidden border-2 bg-card transition-all',
         isComplete
           ? 'border-green-500 shadow-md'
           : isUrgent
-            ? 'border-l-4 border-l-red-500 border-gray-300'
-            : 'border-gray-300'
+            ? 'border-l-4 border-l-red-500 border-border'
+            : 'border-border'
       )}
     >
       {/* Header */}
-      <div className="px-3.5 py-2.5 flex items-center justify-between bg-gray-50 border-b border-gray-200">
+      <div className="px-3.5 py-2.5 flex items-center justify-between bg-muted/50 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <span className="font-mono text-base font-bold text-gray-900">
+          <span className="font-mono text-base font-bold text-foreground">
             {order.orderNumber}
           </span>
           {isUrgent && (
@@ -66,7 +66,7 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
       </div>
 
       {/* Progress Bar */}
-      <div className="h-2 bg-gray-100 relative overflow-hidden">
+      <div className="h-2 bg-muted relative overflow-hidden">
         <div
           className="h-full bg-green-500 transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
@@ -74,13 +74,13 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
       </div>
 
       {/* Customer & Stats */}
-      <div className="px-3.5 py-2.5 border-b border-gray-200">
-        <p className="text-sm font-medium text-gray-900 truncate">{order.customerName}</p>
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-600 font-medium">
+      <div className="px-3.5 py-2.5 border-b border-border">
+        <p className="text-sm font-medium text-foreground truncate">{order.customerName}</p>
+        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground font-medium">
           <span>
             {order.totalPackagesFilled}/{order.totalPackages} packages
           </span>
-          <span className="text-gray-400">•</span>
+          <span className="text-muted-foreground">•</span>
           <span>
             {order.totalBallsFilled}/{order.totalBallsNeeded} balls
           </span>
@@ -88,7 +88,7 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
       </div>
 
       {/* Items with Counter Buttons */}
-      <div className="p-3 space-y-3 bg-gray-50">
+      <div className="p-3 space-y-3 bg-muted/50">
         {order.items.map((item) => (
           <PackageCounter
             key={item._id}

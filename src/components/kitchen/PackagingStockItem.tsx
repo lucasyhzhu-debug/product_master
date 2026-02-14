@@ -26,7 +26,7 @@ export function PackagingStockItem({
           ? 'bg-red-50 border-red-300'
           : isLow
             ? 'bg-amber-50 border-amber-300'
-            : 'bg-white border-gray-200'
+            : 'bg-card border-border'
       )}
     >
       <div className="flex items-start justify-between gap-2">

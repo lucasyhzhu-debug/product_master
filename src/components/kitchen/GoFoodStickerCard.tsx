@@ -48,7 +48,7 @@ export function GoFoodStickerCard({
     : 'Never';
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 overflow-hidden"
+    <div className="bg-card rounded-xl shadow-sm border border-border border-l-4 overflow-hidden"
       style={{ borderLeftColor: 'var(--color-gofood)' }}>
       {/* Header */}
       <div className="px-3 py-2.5" style={{ backgroundColor: 'var(--color-gofood-light)' }}>

@@ -17,7 +17,7 @@ export function ReadyToShipCard({ order, onMarkShipped, disabled = false }: Read
   const isPickup = order.deliveryType?.toLowerCase().includes('pickup');
 
   return (
-    <div className="rounded-lg overflow-hidden border-2 border-green-400 bg-white shadow-sm">
+    <div className="rounded-lg overflow-hidden border-2 border-green-400 bg-card shadow-sm">
       {/* Header */}
       <div className="px-3.5 py-2.5 flex items-center justify-between bg-green-50 border-b border-green-200">
         <span className="font-mono text-base font-bold text-gray-900">{order.orderNumber}</span>

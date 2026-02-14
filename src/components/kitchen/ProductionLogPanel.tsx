@@ -103,7 +103,7 @@ function BallCounterSection({
   const delta = target !== undefined && target > 0 ? totalProduced - target : null;
 
   return (
-    <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm p-3 space-y-2">
+    <div className="bg-card rounded-xl border border-border shadow-sm p-3 space-y-2">
       {/* Counter Display */}
       <div className="text-center space-y-0.5">
         <div className="text-4xl font-bold tracking-tight text-[#1A202C] flex items-center justify-center">
@@ -309,7 +309,7 @@ export function ProductionLogPanel({
   if (trayInventory === undefined) {
     return (
       <div className="h-full bg-[#F8F6F3] px-3 py-4 space-y-4">
-        <div className="bg-white rounded-xl border border-[#E8E2DB] p-6 text-center">
+        <div className="bg-card rounded-xl border border-border p-6 text-center">
           <div className="text-gray-500">Loading production data...</div>
         </div>
       </div>
@@ -401,11 +401,11 @@ export function ProductionLogPanel({
             <Target className="h-3 w-3" />
             Today&apos;s Targets
           </h2>
-          <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             {foodPosProducts.length > 0 ? (
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="bg-[#F8F6F3] border-b border-[#E8E2DB]">
+                  <tr className="bg-[#F8F6F3] border-b border-border">
                     <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Product</th>
                     <th className="text-center px-1 py-1.5 font-semibold text-blue-700 w-10">
                       <Tooltip>
@@ -510,7 +510,7 @@ export function ProductionLogPanel({
             )}
 
             {/* Ball totals computed from all 3 sources */}
-            <div className="border-t border-[#E8E2DB] px-3 py-2">
+            <div className="border-t border-border px-3 py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
                   <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
@@ -566,11 +566,11 @@ export function ProductionLogPanel({
         {/* Section 3: Finished Products */}
         <div className="space-y-1.5" {...sectionHoverProps(2)}>
           <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-0.5">Finished Products</h2>
-          <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             {foodPosProducts.length > 0 ? (
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#F8F6F3] border-b border-[#E8E2DB]">
+                  <tr className="bg-[#F8F6F3] border-b border-border">
                     <th className="text-left px-2.5 py-1.5 font-semibold text-gray-700">Name</th>
                     <th className="text-center px-1.5 py-1.5 font-semibold text-gray-700">Box</th>
                     <th className="text-center px-1.5 py-1.5 font-semibold text-gray-700">Stk</th>
@@ -581,7 +581,7 @@ export function ProductionLogPanel({
                   {foodPosProducts.map((p) => {
                     const depotQty = depotStockMap?.get(p.menuProductId);
                     return (
-                      <tr key={p.menuProductId} className="border-b border-[#E8E2DB] last:border-b-0">
+                      <tr key={p.menuProductId} className="border-b border-border last:border-b-0">
                         <td className="px-2.5 py-1.5">
                           <div className="font-medium text-gray-900">{p.menuProductName}</div>
                           {depotQty != null && depotQty > 0 && (
@@ -610,14 +610,14 @@ export function ProductionLogPanel({
         <div className="space-y-1.5" {...sectionHoverProps(3)}>
           <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-0.5">Order Summary</h2>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm p-3 text-center space-y-0.5">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-3 text-center space-y-0.5">
               <div className="text-2xl font-bold text-[#1A202C] flex items-center justify-center">
                 <FlipNumber value={kitchenStats?.ordersPending ?? 0} size="md" />
               </div>
               <div className="text-[10px] text-gray-600 font-medium">Orders Pending</div>
             </div>
 
-            <div className="bg-white rounded-xl border border-[#E8E2DB] shadow-sm p-3 text-center space-y-0.5">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-3 text-center space-y-0.5">
               <div className="text-2xl font-bold text-[#3D7A4A] flex items-center justify-center">
                 <FlipNumber value={kitchenStats?.ordersCompletedToday ?? 0} size="md" />
               </div>

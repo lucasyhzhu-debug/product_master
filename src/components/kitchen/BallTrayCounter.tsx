@@ -25,7 +25,7 @@ export function BallTrayCounter({
   const isLow = count < pendingBalls;
 
   return (
-    <div className="rounded-lg border-2 border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+    <div className="rounded-lg border-2 border-border bg-card p-4 space-y-3 shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -73,7 +73,7 @@ export function BallTrayCounter({
         <button
           onClick={onRemove}
           disabled={disabled || count === 0}
-          className="col-span-1 h-11 flex items-center justify-center rounded-lg border-2 border-gray-300 bg-white hover:bg-gray-100 active:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation"
+          className="col-span-1 h-11 flex items-center justify-center rounded-lg border-2 border-border bg-card hover:bg-muted active:bg-muted/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation"
         >
           <Minus className="h-5 w-5 text-gray-700" />
         </button>
