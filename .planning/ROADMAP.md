@@ -17,7 +17,7 @@
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Complete (2026-02-13) |
 | 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Complete (2026-02-13) |
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Complete (2026-02-14) |
-| 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Pending |
+| 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Complete (2026-02-14) |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Pending |
 | 9 | Frontend Factories | Generic hook and UI component factories created and applied to simple CRUD entities | 4 | Pending |
 | 10 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
