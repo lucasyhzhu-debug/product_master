@@ -1,4 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { TablePageSkeleton, EditorPageSkeleton, DashboardSkeleton } from './skeletons';
+
+export { TablePageSkeleton, EditorPageSkeleton, DashboardSkeleton };
 
 export function LoadingCards({ count = 3 }: { count?: number }) {
   return (
@@ -13,14 +16,5 @@ export function LoadingCards({ count = 3 }: { count?: number }) {
 }
 
 export function LoadingPage() {
-  return (
-    <div className="space-y-8">
-      <Skeleton className="h-8 w-48" />
-      <div className="space-y-6">
-        <LoadingCards />
-        <LoadingCards />
-        <LoadingCards />
-      </div>
-    </div>
-  );
+  return <TablePageSkeleton />;
 }
