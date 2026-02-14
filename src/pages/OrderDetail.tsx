@@ -573,9 +573,9 @@ export function OrderDetail() {
 
           {/* Stock Override Audit Trail */}
           {overrideEvents.length > 0 && (
-            <Card className="border-amber-200 bg-amber-50/50">
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-amber-700">
+                <CardTitle className="text-sm flex items-center gap-2 text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="h-4 w-4" />
                   Stock Override
                 </CardTitle>
@@ -585,13 +585,13 @@ export function OrderDetail() {
                   const meta = evt.metadata ? JSON.parse(evt.metadata) : {};
                   return (
                     <div key={evt._id} className="text-sm space-y-1">
-                      <p className="text-amber-800">
+                      <p className="text-amber-800 dark:text-amber-300">
                         Overridden by <span className="font-medium">{meta.overrideBy ?? evt.triggeredBy}</span>
                       </p>
                       {evt.reason && (
-                        <p className="text-amber-700 italic">&quot;{evt.reason}&quot;</p>
+                        <p className="text-amber-700 dark:text-amber-400 italic">&quot;{evt.reason}&quot;</p>
                       )}
-                      <p className="text-xs text-amber-600">
+                      <p className="text-xs text-amber-600 dark:text-amber-500">
                         {new Date(evt.timestamp).toLocaleString()}
                       </p>
                     </div>
@@ -734,7 +734,7 @@ export function OrderDetail() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-5 w-5" />
               Insufficient Packaging Stock
             </DialogTitle>
@@ -748,21 +748,21 @@ export function OrderDetail() {
               if (match) {
                 const [, name, needed, available, shortage] = match;
                 return (
-                  <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
-                    <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-amber-900">
+                  <div key={i} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2 text-sm">
+                    <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-amber-900 dark:text-amber-200">
                       <span className="font-medium">{name}</span>
-                      <span className="text-amber-700 ml-1">
-                        need {needed}, have {available} (short <span className="font-semibold text-red-600">{shortage}</span>)
+                      <span className="text-amber-700 dark:text-amber-400 ml-1">
+                        need {needed}, have {available} (short <span className="font-semibold text-red-600 dark:text-red-400">{shortage}</span>)
                       </span>
                     </div>
                   </div>
                 );
               }
               return (
-                <div key={i} className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2 text-sm">
-                  <Package className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-amber-900">{line}</span>
+                <div key={i} className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2 text-sm">
+                  <Package className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-amber-900 dark:text-amber-200">{line}</span>
                 </div>
               );
             })}
@@ -792,7 +792,7 @@ export function OrderDetail() {
             {hasRole('order_staff', 'manager', 'admin') && (
               <Button
                 variant="default"
-                className="bg-amber-600 hover:bg-amber-700"
+                className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600"
                 disabled={overrideReason.trim().length < 5}
                 onClick={() => {
                   const reason = overrideReason.trim();

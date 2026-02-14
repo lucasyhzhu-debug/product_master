@@ -106,10 +106,10 @@ export function LowStockAlert() {
                   <AlertTriangle
                     className={`h-5 w-5 ${
                       severity === "critical"
-                        ? "text-red-600"
+                        ? "text-red-600 dark:text-red-400"
                         : severity === "urgent"
-                        ? "text-orange-600"
-                        : "text-yellow-600"
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-yellow-600 dark:text-yellow-400"
                     }`}
                   />
                 </div>

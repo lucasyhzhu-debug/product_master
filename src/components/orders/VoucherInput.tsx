@@ -186,7 +186,7 @@ export function VoucherInput({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="bg-green-100 text-green-700">
+            <Badge variant="secondary" className="bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
               -{formatCurrency(appliedVoucher.calculatedDiscount)}
             </Badge>
             <Button
@@ -325,7 +325,7 @@ export function VoucherInput({
         </p>
       )}
       {showValidIndicator && isValid && validationResult?.voucher && (
-        <p className="text-sm text-green-600 flex items-center gap-1">
+        <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
           <Check className="w-3 h-3" />
           {validationResult.voucher.discountType === "percentage"
             ? `${validationResult.voucher.discountValue}% off`

@@ -49,10 +49,10 @@ export function K3MartStockCard({
       <div className="px-3 py-2.5" style={{ backgroundColor: 'var(--color-k3mart-light)' }}>
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 truncate">
+            <h3 className="text-base font-semibold text-foreground truncate">
               {productName}
             </h3>
-            <div className="text-[10px] text-gray-500 mt-0.5">
+            <div className="text-[10px] text-muted-foreground mt-0.5">
               Last sync {lastSyncStr}
             </div>
           </div>
@@ -70,26 +70,26 @@ export function K3MartStockCard({
         <div className="grid grid-cols-3 gap-2 text-center">
           {/* At Outlets */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={totalOutletStock} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">At Outlets</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">At Outlets</div>
           </div>
 
           {/* Sold Today */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={totalSoldToday} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Sold Today</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Sold Today</div>
           </div>
 
           {/* Target */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={consignmentTarget} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Target</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Target</div>
           </div>
         </div>
       </div>
@@ -105,10 +105,10 @@ export function K3MartStockCard({
 
       {/* Outlet breakdown (collapsible) */}
       {outletBreakdown.length > 0 && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-border">
           <button
             onClick={() => setShowBreakdown(!showBreakdown)}
-            className="w-full px-3 py-1.5 flex items-center justify-between text-[10px] font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-50"
+            className="w-full px-3 py-1.5 flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase tracking-wider hover:bg-muted"
           >
             Per-Outlet ({outletBreakdown.length})
             {showBreakdown ? (
@@ -122,14 +122,14 @@ export function K3MartStockCard({
               {outletBreakdown.map((outlet) => (
                 <div
                   key={outlet.outletName}
-                  className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-gray-50"
+                  className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-muted"
                 >
-                  <span className="text-gray-700 truncate mr-2">{outlet.outletName}</span>
+                  <span className="text-foreground/80 truncate mr-2">{outlet.outletName}</span>
                   <div className="flex items-center gap-3 shrink-0 tabular-nums">
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       Stk: <span className="font-bold">{outlet.stock}</span>
                     </span>
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       Sold: <span className="font-bold">{outlet.soldToday}</span>
                     </span>
                   </div>
@@ -142,10 +142,10 @@ export function K3MartStockCard({
 
       {/* Sync Stock button */}
       {onSyncStock && (
-        <div className="px-3 py-2 border-t border-gray-100 flex justify-end">
+        <div className="px-3 py-2 border-t border-border flex justify-end">
           <button
             onClick={onSyncStock}
-            className="text-[11px] font-medium px-3 py-1 rounded-md hover:bg-gray-100 transition-colors"
+            className="text-[11px] font-medium px-3 py-1 rounded-md hover:bg-muted transition-colors"
             style={{ color: 'var(--color-k3mart)' }}
           >
             Sync Stock

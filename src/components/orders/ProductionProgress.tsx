@@ -29,10 +29,10 @@ interface ProductionProgressProps {
 // ============================================
 
 const DEFAULT_COLORS: Record<string, { bg: string; text: string; progress: string }> = {
-  BIG_BALL: { bg: 'bg-blue-100', text: 'text-blue-700', progress: 'bg-blue-500' },
-  MID_BALL: { bg: 'bg-purple-100', text: 'text-purple-700', progress: 'bg-purple-500' },
-  SMALL_BALL: { bg: 'bg-green-100', text: 'text-green-700', progress: 'bg-green-500' },
-  default: { bg: 'bg-gray-100', text: 'text-gray-700', progress: 'bg-gray-500' },
+  BIG_BALL: { bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-700 dark:text-blue-300', progress: 'bg-blue-500' },
+  MID_BALL: { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300', progress: 'bg-purple-500' },
+  SMALL_BALL: { bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-700 dark:text-green-300', progress: 'bg-green-500 dark:bg-green-600' },
+  default: { bg: 'bg-muted', text: 'text-muted-foreground', progress: 'bg-muted-foreground' },
 };
 
 function getColors(code: string) {
@@ -68,7 +68,7 @@ function UnitProgressBar({
             {unit.name}
           </Badge>
           {isComplete && (
-            <Badge variant="default" className="text-xs bg-green-500">
+            <Badge variant="default" className="text-xs bg-green-500 dark:bg-green-600">
               Done
             </Badge>
           )}
@@ -138,7 +138,7 @@ export function ProductionProgress({
         </span>
         <div className="flex items-center gap-2">
           {isAllComplete ? (
-            <Badge variant="default" className="bg-green-500">
+            <Badge variant="default" className="bg-green-500 dark:bg-green-600">
               Complete
             </Badge>
           ) : (

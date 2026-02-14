@@ -15,20 +15,20 @@ const STATUS_CONFIG: Partial<Record<
   OrderStatus,
   { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; color: string }
 >> = {
-  Draft: { label: 'Draft', variant: 'secondary', color: 'text-gray-600' },
-  AwaitingPayment: { label: 'Awaiting Payment', variant: 'outline', color: 'text-amber-600' },
-  Confirmed: { label: 'Confirmed', variant: 'default', color: 'text-blue-600' },
-  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600' },
-  Boxed: { label: 'Boxed', variant: 'default', color: 'text-amber-600' },
-  Labeled: { label: 'Labeled', variant: 'default', color: 'text-blue-600' },
-  WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600' },
-  CompleteShipped: { label: 'Shipped', variant: 'secondary', color: 'text-green-600' },
-  WaitingPickup: { label: 'Ready for Pickup', variant: 'outline', color: 'text-green-600' },
-  PickedUp: { label: 'Picked Up', variant: 'secondary', color: 'text-green-600' },
-  Cancelled: { label: 'Cancelled', variant: 'destructive', color: 'text-red-600' },
+  Draft: { label: 'Draft', variant: 'secondary', color: 'text-muted-foreground' },
+  AwaitingPayment: { label: 'Awaiting Payment', variant: 'outline', color: 'text-amber-600 dark:text-amber-400' },
+  Confirmed: { label: 'Confirmed', variant: 'default', color: 'text-blue-600 dark:text-blue-400' },
+  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600 dark:text-purple-400' },
+  Boxed: { label: 'Boxed', variant: 'default', color: 'text-amber-600 dark:text-amber-400' },
+  Labeled: { label: 'Labeled', variant: 'default', color: 'text-blue-600 dark:text-blue-400' },
+  WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600 dark:text-green-400' },
+  CompleteShipped: { label: 'Shipped', variant: 'secondary', color: 'text-green-600 dark:text-green-400' },
+  WaitingPickup: { label: 'Ready for Pickup', variant: 'outline', color: 'text-green-600 dark:text-green-400' },
+  PickedUp: { label: 'Picked Up', variant: 'secondary', color: 'text-green-600 dark:text-green-400' },
+  Cancelled: { label: 'Cancelled', variant: 'destructive', color: 'text-red-600 dark:text-red-400' },
 };
 
-const DEFAULT_STATUS_CONFIG = { label: 'Unknown', variant: 'secondary' as const, color: 'text-gray-600' };
+const DEFAULT_STATUS_CONFIG = { label: 'Unknown', variant: 'secondary' as const, color: 'text-muted-foreground' };
 
 function formatDueDate(dateStr: string | null, isOverdue: boolean): string {
   if (!dateStr) return 'No due date';
@@ -156,7 +156,7 @@ export function ProductionQueueTable({ orders }: ProductionQueueTableProps) {
                   <div
                     className={cn(
                       'text-sm font-medium',
-                      order.is_overdue ? 'text-red-600' : 'text-muted-foreground'
+                      order.is_overdue ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
                     )}
                   >
                     {order.is_overdue && <AlertTriangle className="h-3 w-3 inline mr-1" />}

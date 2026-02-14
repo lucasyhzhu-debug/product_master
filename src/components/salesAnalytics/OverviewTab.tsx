@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,7 +84,7 @@ function GrowthIndicator({ current, previous, invertColor }: { current: number; 
   const isGood = invertColor ? !isPositive : isPositive;
 
   return (
-    <span className={cn("inline-flex items-center text-xs", isGood ? "text-green-600" : "text-red-600")}>
+    <span className={cn("inline-flex items-center text-xs", isGood ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
       {isPositive ? <ArrowUpRight className="h-3 w-3 mr-0.5" /> : <ArrowDownRight className="h-3 w-3 mr-0.5" />}
       {Math.abs(pct).toFixed(0)}%
     </span>
@@ -95,13 +95,13 @@ function ConfidenceBadge({ confidence }: { confidence: ConfidenceLevel }) {
   switch (confidence) {
     case "exact":
       return (
-        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+        <Badge variant="default" className="bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800">
           Exact
         </Badge>
       );
     case "inferred":
       return (
-        <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200">
+        <Badge variant="secondary" className="bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800">
           Inferred
         </Badge>
       );
@@ -116,25 +116,25 @@ function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
   switch (status) {
     case "exact":
       return (
-        <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
+        <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30">
           Matched
         </Badge>
       );
     case "price_only":
       return (
-        <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50">
+        <Badge variant="outline" className="border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30">
           Price Match
         </Badge>
       );
     case "name_only":
       return (
-        <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">
+        <Badge variant="outline" className="border-yellow-500 dark:border-yellow-600 text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30">
           Name Match
         </Badge>
       );
     case "none":
       return (
-        <Badge variant="outline" className="border-gray-400 text-gray-600 bg-gray-50">
+        <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground bg-muted/50">
           Unmatched
         </Badge>
       );
@@ -146,20 +146,20 @@ function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
 function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" }) {
   if (platform === "k3mart") {
     return (
-      <Badge variant="outline" className="border-purple-500 text-purple-700">
+      <Badge variant="outline" className="border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400">
         K3 Mart
       </Badge>
     );
   }
   if (platform === "internal") {
     return (
-      <Badge variant="outline" className="border-blue-500 text-blue-700">
+      <Badge variant="outline" className="border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400">
         Local
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-red-500 text-red-700">
+    <Badge variant="outline" className="border-red-500 dark:border-red-600 text-red-700 dark:text-red-400">
       GoBiz
     </Badge>
   );
@@ -661,9 +661,8 @@ function RevenueTable({
     const isExpanded = expandedId === record._id;
 
     return (
-      <>
+      <Fragment key={record._id}>
         <tr
-          key={record._id}
           className={cn("border-b hover:bg-muted/50", isExpandable && "cursor-pointer")}
           onClick={isExpandable ? () => setExpandedId(isExpanded ? null : record._id) : undefined}
         >
@@ -728,7 +727,7 @@ function RevenueTable({
             orderNumber={record.externalTransactionId!}
           />
         )}
-      </>
+      </Fragment>
     );
   }
 
@@ -956,7 +955,7 @@ export function OverviewTab() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 -{formatCurrency(currentPeriod.totalCommission ?? 0)}
               </div>
               <GrowthIndicator
@@ -994,7 +993,7 @@ export function OverviewTab() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                 -{formatCurrency(currentPeriod.totalDiscounts ?? 0)}
               </div>
               <GrowthIndicator
@@ -1041,8 +1040,8 @@ export function OverviewTab() {
               <Badge
                 variant="outline"
                 className={cn(
-                  "cursor-pointer border-purple-500 text-purple-700",
-                  platformFilter === "k3mart" && "bg-purple-500 text-white"
+                  "cursor-pointer border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400",
+                  platformFilter === "k3mart" && "bg-purple-500 text-white dark:bg-purple-600"
                 )}
                 onClick={() => setPlatformFilter("k3mart")}
               >
@@ -1051,8 +1050,8 @@ export function OverviewTab() {
               <Badge
                 variant="outline"
                 className={cn(
-                  "cursor-pointer border-red-500 text-red-700",
-                  platformFilter === "gobiz" && "bg-red-500 text-white"
+                  "cursor-pointer border-red-500 dark:border-red-600 text-red-700 dark:text-red-400",
+                  platformFilter === "gobiz" && "bg-red-500 text-white dark:bg-red-600"
                 )}
                 onClick={() => setPlatformFilter("gobiz")}
               >
@@ -1061,8 +1060,8 @@ export function OverviewTab() {
               <Badge
                 variant="outline"
                 className={cn(
-                  "cursor-pointer border-blue-500 text-blue-700",
-                  platformFilter === "internal" && "bg-blue-500 text-white"
+                  "cursor-pointer border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400",
+                  platformFilter === "internal" && "bg-blue-500 text-white dark:bg-blue-600"
                 )}
                 onClick={() => setPlatformFilter("internal")}
               >
@@ -1101,8 +1100,8 @@ export function OverviewTab() {
             <Skeleton className="h-64 w-full" />
           ) : revenueRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="bg-amber-50 border border-amber-200 rounded-full p-4 mb-4">
-                <ShoppingCart className="h-8 w-8 text-amber-600" />
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-full p-4 mb-4">
+                <ShoppingCart className="h-8 w-8 text-amber-600 dark:text-amber-400" />
               </div>
               <h3 className="text-base font-semibold mb-2">No Revenue Data Yet</h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-md">

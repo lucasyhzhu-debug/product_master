@@ -61,7 +61,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
       onClick={onClick}
       className={cn(
         "relative cursor-pointer rounded-xl p-4",
-        "bg-white border border-gray-200",
+        "bg-card border border-border",
         "hover:border-[#25D366]/50",
         "transition-colors duration-200"
       )}
@@ -70,7 +70,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
       <div className="flex items-start gap-3 mb-3">
         <span className="text-2xl">{icon}</span>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate">
+          <h3 className="font-semibold text-foreground truncate">
             {template.name}
           </h3>
           <p className="text-xs text-muted-foreground truncate">
@@ -90,7 +90,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
         />
 
         {/* Preview text */}
-        <p className="relative text-sm text-gray-800 line-clamp-2">
+        <p className="relative text-sm text-foreground/80 line-clamp-2">
           "{previewText}..."
         </p>
 
@@ -111,7 +111,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
             >
               <Badge
                 variant="secondary"
-                className="bg-amber-100 text-amber-700 border-amber-200"
+                className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
               >
                 Modified
               </Badge>

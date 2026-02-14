@@ -47,14 +47,14 @@ export function BallTrayCounter({
               fill="rgba(255,255,255,0.4)"
             />
           </svg>
-          <span className="font-semibold text-base text-gray-900">{config.name}</span>
+          <span className="font-semibold text-base text-foreground">{config.name}</span>
         </div>
 
         {/* Count Badge */}
         <div
           className={cn(
             'text-2xl font-bold tabular-nums px-3 py-1 rounded-lg',
-            isLow ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-900'
+            isLow ? 'bg-[var(--color-kitchen-critical-bg)] text-[var(--color-kitchen-critical)]' : 'bg-muted text-foreground'
           )}
         >
           {count}
@@ -63,7 +63,7 @@ export function BallTrayCounter({
 
       {/* Pending Info */}
       {pendingOrders > 0 && (
-        <div className="text-sm text-gray-700 bg-gray-50 rounded px-2.5 py-1.5 font-medium">
+        <div className="text-sm text-foreground/80 bg-muted rounded px-2.5 py-1.5 font-medium">
           {pendingOrders} order{pendingOrders > 1 ? 's' : ''} need {pendingBalls} ball{pendingBalls > 1 ? 's' : ''}
         </div>
       )}
@@ -75,13 +75,13 @@ export function BallTrayCounter({
           disabled={disabled || count === 0}
           className="col-span-1 h-11 flex items-center justify-center rounded-lg border-2 border-border bg-card hover:bg-muted active:bg-muted/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation"
         >
-          <Minus className="h-5 w-5 text-gray-700" />
+          <Minus className="h-5 w-5 text-foreground/80" />
         </button>
 
         <button
           onClick={() => onAdd(5)}
           disabled={disabled}
-          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="h-11 flex items-center justify-center rounded-lg bg-[var(--color-station-boxing)] hover:bg-[var(--color-station-boxing-accent)] active:opacity-80 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
           +5
         </button>
@@ -89,7 +89,7 @@ export function BallTrayCounter({
         <button
           onClick={() => onAdd(10)}
           disabled={disabled}
-          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="h-11 flex items-center justify-center rounded-lg bg-[var(--color-station-boxing)] hover:bg-[var(--color-station-boxing-accent)] active:opacity-80 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
           +10
         </button>
@@ -97,7 +97,7 @@ export function BallTrayCounter({
         <button
           onClick={() => onAdd(20)}
           disabled={disabled}
-          className="h-11 flex items-center justify-center rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="h-11 flex items-center justify-center rounded-lg bg-[var(--color-station-boxing)] hover:bg-[var(--color-station-boxing-accent)] active:opacity-80 text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
           +20
         </button>

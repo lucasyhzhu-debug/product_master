@@ -69,7 +69,7 @@ export function BatchConfirmDialog({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{item.name}</span>
                       {item.isLow && (
-                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                        <Badge variant="outline" className="text-[var(--color-kitchen-warning)] border-[var(--color-kitchen-warning)]">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           Low Stock
                         </Badge>
@@ -83,7 +83,7 @@ export function BatchConfirmDialog({
 
                   {/* Show FIFO breakdown if low stock */}
                   {item.isLow && item.fifoBreakdown && item.fifoBreakdown.length > 0 && (
-                    <div className="ml-4 pl-3 border-l-2 border-amber-500 space-y-1">
+                    <div className="ml-4 pl-3 border-l-2 border-[var(--color-kitchen-warning)] space-y-1">
                       <p className="text-xs text-muted-foreground font-semibold">FIFO Consumption:</p>
                       {item.fifoBreakdown.map((batch, bIdx) => (
                         <div key={bIdx} className="flex items-center justify-between text-xs">
@@ -108,9 +108,9 @@ export function BatchConfirmDialog({
 
           {/* Warning if low stock */}
           {hasLowStock && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
-              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-amber-900 dark:text-amber-200">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--color-kitchen-warning-bg)] border border-[var(--color-kitchen-warning)]/20">
+              <AlertTriangle className="h-5 w-5 text-[var(--color-kitchen-warning)] flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-foreground">
                 <p className="font-semibold">Low Stock Warning</p>
                 <p className="text-xs mt-1">
                   Some materials are running low. Consider reordering before the next batch.

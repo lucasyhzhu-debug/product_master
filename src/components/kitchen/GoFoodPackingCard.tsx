@@ -125,7 +125,7 @@ export function GoFoodPackingCard({
     f === 'fresh' ? '' : f === 'day_old' ? '(1d old)' : '(2d+ old)';
 
   const freshnessColor = (f: 'fresh' | 'day_old' | 'aging') =>
-    f === 'fresh' ? 'text-green-600' : f === 'day_old' ? 'text-yellow-600' : 'text-red-600';
+    f === 'fresh' ? 'text-[var(--color-kitchen-success)]' : f === 'day_old' ? 'text-[var(--color-kitchen-warning)]' : 'text-[var(--color-kitchen-critical)]';
 
   const alreadyShipped = !!shippedAt;
 
@@ -133,7 +133,7 @@ export function GoFoodPackingCard({
     <div className="rounded-lg overflow-hidden border-l-4 bg-card shadow-sm"
       style={{ borderLeftColor: 'var(--color-gofood)' }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#E8E2DB]"
+      <div className="px-4 py-3 border-b border-[var(--color-kitchen-card-border)]"
         style={{ backgroundColor: 'var(--color-gofood-light)' }}>
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="font-mono text-lg font-bold" style={{ color: 'var(--color-gofood)' }}>
@@ -146,13 +146,13 @@ export function GoFoodPackingCard({
             GoFood
           </span>
         </div>
-        <p className="text-base font-medium text-gray-700">GoFood Depot</p>
-        <p className="text-xs text-gray-500">Ship to Goldfinch</p>
+        <p className="text-base font-medium text-foreground/80">GoFood Depot</p>
+        <p className="text-xs text-muted-foreground">Ship to Goldfinch</p>
       </div>
 
       {/* Products to Ship */}
       <div className="px-4 py-2">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
           Products to Ship
         </h3>
         <div className="space-y-1">
@@ -167,7 +167,7 @@ export function GoFoodPackingCard({
                 disabled={disabled || !canCheck || alreadyShipped}
                 className={cn(
                   'w-full min-h-[56px] px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors touch-manipulation',
-                  isChecked ? 'bg-[var(--color-gofood-light)]' : 'hover:bg-gray-50 active:bg-gray-100',
+                  isChecked ? 'bg-[var(--color-gofood-light)]' : 'hover:bg-muted active:bg-muted',
                   (disabled || !canCheck || alreadyShipped) && 'cursor-not-allowed opacity-60'
                 )}
               >
@@ -175,7 +175,7 @@ export function GoFoodPackingCard({
                 <div
                   className={cn(
                     'flex-shrink-0 w-6 h-6 rounded-full transition-all flex items-center justify-center',
-                    isChecked ? '' : 'border-2 border-gray-300'
+                    isChecked ? '' : 'border-2 border-border'
                   )}
                   style={isChecked ? { backgroundColor: 'var(--color-gofood)' } : undefined}
                 >
@@ -189,10 +189,10 @@ export function GoFoodPackingCard({
 
                 {/* Product info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-base font-medium text-gray-900">
+                  <p className="text-base font-medium text-foreground">
                     {item.productName}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Target: {item.targetQty}
                     <span className="mx-1">|</span>
                     At depot: {item.existingAtDepot}
@@ -213,17 +213,17 @@ export function GoFoodPackingCard({
 
       {/* Stickers to Transfer */}
       {stickerTransfers.length > 0 && checkedItems.size > 0 && (
-        <div className="px-4 py-2 border-t border-[#E8E2DB]">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        <div className="px-4 py-2 border-t border-[var(--color-kitchen-card-border)]">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Stickers to Transfer
           </h3>
           <div className="space-y-1">
             {stickerTransfers.map((s) => (
               <div key={s.componentTypeId} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                <span className="text-gray-700">{s.componentName}</span>
+                <span className="text-foreground/80">{s.componentName}</span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tabular-nums">x{s.quantity}</span>
-                  <span className="text-[10px] text-gray-400">[Office: {s.officeStock}]</span>
+                  <span className="text-[10px] text-muted-foreground">[Office: {s.officeStock}]</span>
                 </div>
               </div>
             ))}
@@ -233,10 +233,10 @@ export function GoFoodPackingCard({
 
       {/* Collapsible: Goldfinch Current Stock */}
       {depotCurrentStock.length > 0 && (
-        <div className="border-t border-[#E8E2DB]">
+        <div className="border-t border-[var(--color-kitchen-card-border)]">
           <button
             onClick={() => setShowCurrentStock(!showCurrentStock)}
-            className="w-full px-4 py-2 flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-50"
+            className="w-full px-4 py-2 flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:bg-muted"
           >
             Goldfinch Current Stock
             {showCurrentStock ? (
@@ -249,7 +249,7 @@ export function GoFoodPackingCard({
             <div className="px-4 pb-2 space-y-1">
               {depotCurrentStock.map((item) => (
                 <div key={item.productName} className="flex items-center justify-between text-sm px-3 py-1">
-                  <span className="text-gray-700">{item.productName}</span>
+                  <span className="text-foreground/80">{item.productName}</span>
                   <div className="flex items-center gap-3 text-xs">
                     <span>{item.boxes} boxes</span>
                     <span>{item.stickers} stickers</span>
@@ -267,10 +267,10 @@ export function GoFoodPackingCard({
       )}
 
       {/* Footer - SHIP TO GOLDFINCH button */}
-      <div className="px-4 py-3 border-t border-[#E8E2DB]"
+      <div className="px-4 py-3 border-t border-[var(--color-kitchen-card-border)]"
         style={{ backgroundColor: 'var(--color-gofood-light)' }}>
         {alreadyShipped ? (
-          <div className="w-full min-h-[56px] rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-gray-200 text-gray-500">
+          <div className="w-full min-h-[56px] rounded-xl font-bold text-lg flex items-center justify-center gap-2 bg-muted text-muted-foreground">
             <Truck className="h-5 w-5" />
             Shipped at{' '}
             {new Date(shippedAt!).toLocaleTimeString('en-US', {
@@ -289,7 +289,7 @@ export function GoFoodPackingCard({
                 ? 'text-white'
                 : checkedItems.size > 0
                   ? 'text-white hover:opacity-90'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
             )}
             style={
               checkedItems.size > 0

@@ -103,7 +103,7 @@ export function PackingPanel({
   // Loading state
   if (packingOrders === undefined) {
     return (
-      <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
+      <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg)]">
         {[1, 2, 3].map((i) => (
           <div key={i} className="rounded-lg overflow-hidden border-l-4 border-l-[var(--color-station-packing)] bg-card">
             <div className="px-4 py-3 bg-[var(--color-station-packing-light)]">
@@ -124,7 +124,7 @@ export function PackingPanel({
   // Empty state
   if (packingOrders.length === 0) {
     return (
-      <div className="px-4 py-12 text-center bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
+      <div className="px-4 py-12 text-center bg-[var(--color-kitchen-page-bg)]">
         <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
         <p className="text-muted-foreground text-base font-medium">
           All orders packed! Kitchen is clear.
@@ -134,7 +134,7 @@ export function PackingPanel({
   }
 
   return (
-    <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
+    <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg)]">
       {/* GoFood packing card at top */}
       {goFoodPackingData && onShipToGoldfinch && (
         <GoFoodPackingCard
@@ -237,7 +237,7 @@ function PackingOrderCard({
               className={cn(
                 'rounded-full px-2.5 py-0.5 text-xs font-semibold',
                 order.deliveryType.toLowerCase() === 'pickup'
-                  ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                  ? 'bg-[var(--color-status-info-bg)] text-[var(--color-status-info)] border border-[var(--color-status-info)]/20'
                   : 'bg-[var(--color-station-packing-light)] text-[var(--color-station-packing-accent)] border border-[var(--color-station-packing-medium)]'
               )}
             >
@@ -314,8 +314,8 @@ function PackingOrderCard({
                 className={cn(
                   'flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-semibold',
                   item.canPack
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-[var(--color-kitchen-success-bg)] text-[var(--color-kitchen-success)]'
+                    : 'bg-[var(--color-kitchen-critical-bg)] text-[var(--color-kitchen-critical)]'
                 )}
               >
                 {item.canPack

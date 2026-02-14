@@ -34,10 +34,10 @@ export function GoFoodStickerCard({
   const left = depotStock;
   const freshnessColor =
     freshness === 'fresh'
-      ? 'bg-green-500'
+      ? 'bg-[var(--color-kitchen-success)]'
       : freshness === 'day_old'
-        ? 'bg-yellow-500'
-        : 'bg-red-500';
+        ? 'bg-[var(--color-kitchen-warning)]'
+        : 'bg-[var(--color-kitchen-critical)]';
 
   const lastSyncStr = lastSyncAt
     ? new Date(lastSyncAt).toLocaleTimeString('en-US', {
@@ -54,10 +54,10 @@ export function GoFoodStickerCard({
       <div className="px-3 py-2.5" style={{ backgroundColor: 'var(--color-gofood-light)' }}>
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 truncate">
+            <h3 className="text-base font-semibold text-foreground truncate">
               {productName}
             </h3>
-            <div className="text-[10px] text-gray-500 mt-0.5">
+            <div className="text-[10px] text-muted-foreground mt-0.5">
               Last sync {lastSyncStr}
             </div>
           </div>
@@ -75,12 +75,12 @@ export function GoFoodStickerCard({
         <div className="grid grid-cols-3 gap-2 text-center">
           {/* At Depot */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={depotStock} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">At Depot</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">At Depot</div>
             {shippedToday > 0 && (
-              <div className="text-[9px] text-gray-400 mt-0.5">
+              <div className="text-[9px] text-muted-foreground mt-0.5">
                 +{shippedToday} today
               </div>
             )}
@@ -88,19 +88,19 @@ export function GoFoodStickerCard({
 
           {/* Sold Today */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={soldToday} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Sold Today</div>
-            <div className="text-[9px] text-gray-400 mt-0.5">via GoFood</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Sold Today</div>
+            <div className="text-[9px] text-muted-foreground mt-0.5">via GoFood</div>
           </div>
 
           {/* Left */}
           <div>
-            <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+            <div className="text-xl font-bold text-foreground flex items-center justify-center">
               <FlipNumber value={left} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-center gap-1">
+            <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center justify-center gap-1">
               Left
               <span className={cn('inline-block w-2 h-2 rounded-full', freshnessColor)} />
             </div>
@@ -109,13 +109,13 @@ export function GoFoodStickerCard({
       </div>
 
       {/* Sticker Bar */}
-      <div className="px-3 py-2 border-t border-gray-100">
+      <div className="px-3 py-2 border-t border-border">
         <div className="flex items-center justify-between text-[11px] mb-1">
-          <span className="text-gray-600 font-medium">
+          <span className="text-muted-foreground font-medium">
             {stickersAtGoldfinch} stickers at Goldfinch
           </span>
         </div>
-        <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-300"
             style={{
@@ -127,14 +127,14 @@ export function GoFoodStickerCard({
 
         {/* Deficit warning */}
         {stickerDeficit > 0 && (
-          <div className="mt-1.5 text-[10px] text-red-600 font-medium bg-red-50 rounded px-2 py-1">
+          <div className="mt-1.5 text-[10px] text-[var(--color-kitchen-critical)] font-medium bg-[var(--color-kitchen-critical-bg)] rounded px-2 py-1">
             Sticker deficit: {stickerDeficit} missing
           </div>
         )}
 
         {/* Low stock warning */}
         {stickersAtGoldfinch < depotStock && stickersAtGoldfinch >= 0 && stickerDeficit === 0 && (
-          <div className="mt-1.5 text-[10px] text-amber-600 font-medium bg-amber-50 rounded px-2 py-1">
+          <div className="mt-1.5 text-[10px] text-[var(--color-kitchen-warning)] font-medium bg-[var(--color-kitchen-warning-bg)] rounded px-2 py-1">
             Stickers ({stickersAtGoldfinch}) &lt; boxes ({depotStock})
           </div>
         )}
@@ -142,10 +142,10 @@ export function GoFoodStickerCard({
 
       {/* Sync Now button */}
       {onSyncNow && (
-        <div className="px-3 py-2 border-t border-gray-100 flex justify-end">
+        <div className="px-3 py-2 border-t border-border flex justify-end">
           <button
             onClick={onSyncNow}
-            className="text-[11px] font-medium px-3 py-1 rounded-md hover:bg-gray-100 transition-colors"
+            className="text-[11px] font-medium px-3 py-1 rounded-md hover:bg-muted transition-colors"
             style={{ color: 'var(--color-gofood)' }}
           >
             Sync Now

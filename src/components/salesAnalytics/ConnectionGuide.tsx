@@ -52,7 +52,7 @@ function renderStepContent(step: string): React.ReactNode {
   return parts.map((part, index) => {
     if (urlRegex.test(part)) {
       return (
-        <span key={index} className="font-mono text-blue-600 select-all">
+        <span key={index} className="font-mono text-blue-600 dark:text-blue-400 select-all">
           {part}
         </span>
       );
@@ -84,7 +84,7 @@ export function ConnectionGuide({
   const getStatusBadge = () => {
     if (lastSyncStatus === 'success') {
       return (
-        <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
+        <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Connected
         </Badge>
@@ -92,7 +92,7 @@ export function ConnectionGuide({
     }
     if (lastSyncStatus === 'error') {
       return (
-        <Badge variant="outline" className="border-red-500 text-red-700 bg-red-50">
+        <Badge variant="outline" className="border-red-500 dark:border-red-600 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30">
           <XCircle className="h-3 w-3 mr-1" />
           Token Expired
         </Badge>
@@ -100,14 +100,14 @@ export function ConnectionGuide({
     }
     if (lastSyncStatus === 'partial') {
       return (
-        <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">
+        <Badge variant="outline" className="border-yellow-500 dark:border-yellow-600 text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30">
           <AlertCircle className="h-3 w-3 mr-1" />
           Partial Data
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 font-medium">
+      <Badge variant="outline" className="border-amber-500 dark:border-amber-600 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
         <AlertCircle className="h-3 w-3 mr-1" />
         Not Synced Yet
       </Badge>
@@ -164,7 +164,7 @@ export function ConnectionGuide({
             Last sync:{' '}
             <span
               className={cn(
-                lastSyncStatus === 'error' && 'text-red-600 font-medium'
+                lastSyncStatus === 'error' && 'text-red-600 dark:text-red-400 font-medium'
               )}
             >
               {getLastSyncMessage()}
@@ -174,11 +174,11 @@ export function ConnectionGuide({
             <div className="flex items-center gap-2">
               <span>Auto-refresh:</span>
               {hasCredentials ? (
-                <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 text-[10px] px-1.5 py-0">
+                <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 text-[10px] px-1.5 py-0">
                   Active
                 </Badge>
               ) : (
-                <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 text-[10px] px-1.5 py-0">
+                <Badge variant="outline" className="border-amber-500 dark:border-amber-600 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 text-[10px] px-1.5 py-0">
                   Not configured
                 </Badge>
               )}
@@ -187,7 +187,7 @@ export function ConnectionGuide({
           {hasRefreshToken && (
             <div className="flex items-center gap-2">
               <span>Refresh token:</span>
-              <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 text-[10px] px-1.5 py-0">
+              <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 text-[10px] px-1.5 py-0">
                 Saved
               </Badge>
             </div>
@@ -196,7 +196,7 @@ export function ConnectionGuide({
             <div>
               Token valid until:{' '}
               <span className={cn(
-                tokenExpiresAt < Date.now() ? 'text-red-600 font-medium' : 'text-green-700'
+                tokenExpiresAt < Date.now() ? 'text-red-600 dark:text-red-400 font-medium' : 'text-green-700 dark:text-green-400'
               )}>
                 {tokenExpiresAt < Date.now()
                   ? 'Expired'

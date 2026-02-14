@@ -203,10 +203,10 @@ export default function UsersManager() {
 
   const getRoleBadgeColor = (role: UserRole) => {
     const colors: Record<UserRole, string> = {
-      admin: "bg-purple-100 text-purple-700",
-      manager: "bg-blue-100 text-blue-700",
-      order_staff: "bg-green-100 text-green-700",
-      kitchen: "bg-orange-100 text-orange-700",
+      admin: "bg-[var(--color-role-admin-bg)] text-[var(--color-role-admin)]",
+      manager: "bg-[var(--color-role-manager-bg)] text-[var(--color-role-manager)]",
+      order_staff: "bg-[var(--color-role-order-staff-bg)] text-[var(--color-role-order-staff)]",
+      kitchen: "bg-[var(--color-role-kitchen-bg)] text-[var(--color-role-kitchen)]",
     };
     return colors[role];
   };

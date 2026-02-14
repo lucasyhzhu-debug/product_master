@@ -628,8 +628,8 @@ function VoucherCard({
             className={cn(
               "text-lg font-bold",
               voucher.discountType === "percentage"
-                ? "text-blue-600"
-                : "text-green-600"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-green-600 dark:text-green-400"
             )}
           >
             {formatDiscountValue(voucher)}
@@ -745,8 +745,8 @@ function OverrideCard({ voucher, onCopyCode }: OverrideCardProps) {
             className={cn(
               "text-lg font-bold",
               voucher.discountType === "percentage"
-                ? "text-blue-600"
-                : "text-green-600"
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-green-600 dark:text-green-400"
             )}
           >
             {formatDiscountValue(voucher)}
@@ -774,7 +774,7 @@ function OverrideCard({ voucher, onCopyCode }: OverrideCardProps) {
             ) : orderDetails ? (
               <Link
                 to={`/orders/${voucher.overrideOrderId}`}
-                className="text-blue-600 hover:underline flex items-center gap-1"
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
                 <ExternalLink className="w-3 h-3" />
                 Used by Order #{orderDetails.orderNumber}

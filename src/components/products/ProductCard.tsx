@@ -51,10 +51,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const marginColor =
     contributionMarginPct !== null && contributionMarginPct !== undefined
       ? contributionMarginPct >= 30
-        ? 'text-green-600'
+        ? 'text-green-600 dark:text-green-400'
         : contributionMarginPct >= 15
-        ? 'text-yellow-600'
-        : 'text-red-600'
+        ? 'text-yellow-600 dark:text-yellow-400'
+        : 'text-red-600 dark:text-red-400'
       : '';
 
   return (

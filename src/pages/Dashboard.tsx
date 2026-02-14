@@ -157,14 +157,14 @@ export function Dashboard() {
       {hasPermission('canAccessSalesAnalytics') && <SafeSalesWidget />}
 
       {/* Section Divider - Orders & Production */}
-      <div className="flex items-center gap-4 pt-4" data-tour-step="orders">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 pt-4" data-tour-step="orders">
         <div className="flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5 text-emerald-600" />
-          <h2 className="text-lg font-semibold text-emerald-600">Orders & Production</h2>
+          <ShoppingCart className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          <h2 className="text-base sm:text-lg font-semibold text-emerald-600 dark:text-emerald-400">Orders & Production</h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-emerald-600 cursor-help" />
+                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 cursor-help" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-left">
                 <p className="font-medium mb-1">Track orders & production</p>
@@ -177,18 +177,22 @@ export function Dashboard() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="flex-1 h-px bg-border" />
+        <div className="hidden sm:block flex-1 h-px bg-border" />
         <div className="flex gap-2">
           {canAccessMenuProducts && (
             <Button variant="outline" size="sm" asChild>
               <Link to="/menu-products">
                 <UtensilsCrossed className="h-4 w-4 mr-1" />
-                Menu Products
+                <span className="hidden sm:inline">Menu Products</span>
+                <span className="sm:hidden">Products</span>
               </Link>
             </Button>
           )}
           <Button variant="outline" size="sm" asChild>
-            <Link to="/orders">View All Orders</Link>
+            <Link to="/orders">
+              <span className="hidden sm:inline">View All Orders</span>
+              <span className="sm:hidden">Orders</span>
+            </Link>
           </Button>
         </div>
       </div>
@@ -208,10 +212,10 @@ export function Dashboard() {
       ) : null}
 
       {/* Section Divider - Product Development */}
-      <div className="flex items-center gap-4 pt-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 pt-4">
         <div className="flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-primary">Product Development</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-primary">Product Development</h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -229,7 +233,7 @@ export function Dashboard() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="flex-1 h-px bg-border" />
+        <div className="hidden sm:block flex-1 h-px bg-border" />
       </div>
 
       <Carousel
@@ -352,14 +356,14 @@ export function Dashboard() {
       </Carousel>
 
       {/* Section Divider - Raw Materials */}
-      <div className="flex items-center gap-4 pt-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 pt-4">
         <div className="flex items-center gap-2">
-          <Apple className="h-5 w-5 text-orange-600" />
-          <h2 className="text-lg font-semibold text-orange-600">Raw Materials</h2>
+          <Apple className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          <h2 className="text-base sm:text-lg font-semibold text-orange-600 dark:text-orange-400">Raw Materials</h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-orange-600 cursor-help" />
+                <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-orange-600 dark:hover:text-orange-400 cursor-help" />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-left">
                 <p className="font-medium mb-1">Manage your inventory items</p>
@@ -372,7 +376,7 @@ export function Dashboard() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="flex-1 h-px bg-border" />
+        <div className="hidden sm:block flex-1 h-px bg-border" />
       </div>
 
       <Carousel

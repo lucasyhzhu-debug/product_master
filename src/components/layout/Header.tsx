@@ -7,7 +7,6 @@ import {
   UtensilsCrossed,
   Users,
   LogOut,
-  User,
   Menu,
   MessageSquare,
   Ticket,
@@ -19,19 +18,41 @@ import {
   Settings,
   Shield,
   ChevronDown,
+  Sun,
+  Moon,
+  Monitor,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getRoleDisplayName, ROLE_PERMISSIONS } from '@/lib/types';
+import { useTheme } from '../../contexts/ThemeContext';
+import { ROLE_PERMISSIONS, type UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+
+const ROLE_COLORS: Record<UserRole, { bg: string; text: string }> = {
+  admin: { bg: 'bg-[var(--color-role-admin-bg)]', text: 'text-[var(--color-role-admin)]' },
+  manager: { bg: 'bg-[var(--color-role-manager-bg)]', text: 'text-[var(--color-role-manager)]' },
+  order_staff: { bg: 'bg-[var(--color-role-order-staff-bg)]', text: 'text-[var(--color-role-order-staff)]' },
+  kitchen: { bg: 'bg-[var(--color-role-kitchen-bg)]', text: 'text-[var(--color-role-kitchen)]' },
+};
+
+function UserInitials({ name, role, className }: { name: string; role: UserRole; className?: string }) {
+  const initials = name.slice(0, 2).toUpperCase();
+  const colors = ROLE_COLORS[role];
+  return (
+    <div className={cn('flex items-center justify-center rounded-full font-semibold', colors.bg, colors.text, className)}>
+      {initials}
+    </div>
+  );
+}
 
 type PermissionKey = keyof (typeof ROLE_PERMISSIONS)["admin"];
 
@@ -67,6 +88,7 @@ const adminItems: NavItem[] = [
 export function Header() {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isVisible = useScrollDirection();
 
@@ -106,14 +128,26 @@ export function Header() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64">
+              <SheetContent side="left" className="w-64 flex flex-col">
                 <SheetHeader>
                   <SheetTitle className="flex items-center gap-2">
                     <UtensilsCrossed className="h-5 w-5 text-primary" />
                     Menu
                   </SheetTitle>
                 </SheetHeader>
-                <nav className="flex flex-col space-y-1 mt-6">
+
+                {/* User info at top of mobile sheet */}
+                {user && (
+                  <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-lg bg-muted/50">
+                    <UserInitials name={user.name} role={user.role} className="w-9 h-9 text-sm" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{user.name}</div>
+                      <div className="text-xs text-muted-foreground capitalize">{user.role.replace('_', ' ')}</div>
+                    </div>
+                  </div>
+                )}
+
+                <nav className="flex flex-col space-y-1 mt-4 flex-1 overflow-y-auto">
                   {/* Main items */}
                   {visibleMainItems.map((item) => {
                     const Icon = item.icon;
@@ -185,6 +219,41 @@ export function Header() {
                     </>
                   )}
                 </nav>
+
+                {/* Theme + Logout at bottom of mobile sheet */}
+                <div className="border-t pt-3 mt-3 space-y-1">
+                  <div className="flex items-center gap-1 px-3 py-1.5">
+                    <span className="text-xs font-medium text-muted-foreground mr-auto">Theme</span>
+                    {([
+                      { value: 'light' as const, icon: Sun, label: 'Light' },
+                      { value: 'dark' as const, icon: Moon, label: 'Dark' },
+                      { value: 'system' as const, icon: Monitor, label: 'System' },
+                    ]).map(({ value, icon: Icon, label }) => (
+                      <Button
+                        key={value}
+                        variant={theme === value ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => setTheme(value)}
+                        title={label}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {theme === value && <Check className="h-3 w-3 ml-1" />}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      logout();
+                    }}
+                  >
+                    <LogOut className="h-5 w-5 mr-3" />
+                    Sign Out
+                  </Button>
+                </div>
               </SheetContent>
             </Sheet>
           )}
@@ -294,38 +363,42 @@ export function Header() {
           )}
         </div>
 
-        {/* User info section */}
+        {/* User menu */}
         {user && (
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                <User className="w-4 h-4" />
-              </div>
-            )}
-
-            <div className="hidden sm:flex sm:flex-col sm:items-start">
-              <div className="text-sm font-medium">{user.name}</div>
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {getRoleDisplayName(user.role)}
-              </Badge>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              title="Sign out"
-              className="h-9 w-9"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={cn(
+                'rounded-full font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                ROLE_COLORS[user.role].bg, ROLE_COLORS[user.role].text,
+              )}>
+                {/* Narrow: initials only */}
+                <span className="sm:hidden flex items-center justify-center w-8 h-8 text-xs font-semibold">
+                  {user.name.slice(0, 2).toUpperCase()}
+                </span>
+                {/* Wide: full name pill */}
+                <span className="hidden sm:inline-block px-3 py-1 text-sm">
+                  {user.name}
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className="cursor-pointer"
+              >
+                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+                {resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={logout}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </motion.header>

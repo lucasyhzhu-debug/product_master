@@ -12,22 +12,22 @@ interface KanbanColumnProps {
 
 const colorStyles = {
   orange: {
-    header: 'bg-orange-50 border-orange-200',
-    count: 'bg-orange-600 text-white',
-    title: 'text-orange-900',
-    subtitle: 'text-orange-700',
+    header: 'bg-[var(--color-station-boxing-light)] border-[var(--color-station-boxing)]/20',
+    count: 'bg-[var(--color-station-boxing)] text-white',
+    title: 'text-[var(--color-station-boxing-accent)]',
+    subtitle: 'text-[var(--color-station-boxing)]',
   },
   blue: {
-    header: 'bg-blue-50 border-blue-200',
-    count: 'bg-blue-600 text-white',
-    title: 'text-blue-900',
-    subtitle: 'text-blue-700',
+    header: 'bg-[var(--color-status-info-bg)] border-[var(--color-status-info)]/20',
+    count: 'bg-[var(--color-status-info)] text-white',
+    title: 'text-[var(--color-status-info)]',
+    subtitle: 'text-[var(--color-status-info)]',
   },
   green: {
-    header: 'bg-green-50 border-green-200',
-    count: 'bg-green-600 text-white',
-    title: 'text-green-900',
-    subtitle: 'text-green-700',
+    header: 'bg-[var(--color-kitchen-success-bg)] border-[var(--color-kitchen-success)]/20',
+    count: 'bg-[var(--color-kitchen-success)] text-white',
+    title: 'text-[var(--color-kitchen-success)]',
+    subtitle: 'text-[var(--color-kitchen-success)]',
   },
 };
 
@@ -53,7 +53,7 @@ export function KanbanColumn({ title, subtitle, count, color, icon, footer, chil
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 p-3 overflow-y-auto bg-gray-50">
+      <div className="flex-1 p-3 overflow-y-auto bg-muted">
         {children}
       </div>
 

@@ -26,7 +26,7 @@ function FlipDigit({ char, delay = 0, size = 'md' }: { char: string; delay?: num
 
   return (
     <span
-      className="relative inline-flex items-center justify-center overflow-hidden rounded-[3px] bg-[#1C2127]"
+      className="relative inline-flex items-center justify-center overflow-hidden rounded-[3px] bg-[var(--color-flip-bg)]"
       style={{ width: s.width, height: s.height, margin: `0 ${s.gap}` }}
     >
       <AnimatePresence mode="popLayout" initial={false}>
@@ -36,7 +36,7 @@ function FlipDigit({ char, delay = 0, size = 'md' }: { char: string; delay?: num
           animate={{ y: '0%' }}
           exit={{ y: '-100%' }}
           transition={{ type: 'spring', stiffness: 300, damping: 25, delay }}
-          className="absolute inset-0 flex items-center justify-center text-[#F0EDE8] font-bold leading-none"
+          className="absolute inset-0 flex items-center justify-center text-[var(--color-flip-text)] font-bold leading-none"
         >
           {char}
         </motion.span>
@@ -57,7 +57,7 @@ export function FlipNumber({ value, className, size = 'md' }: FlipNumberProps) {
           return (
             <span
               key="minus"
-              className="inline-flex items-center justify-center text-[#1C2127] font-bold"
+              className="inline-flex items-center justify-center text-[var(--color-flip-bg)] font-bold"
               style={{ width: '0.4em' }}
             >
               −

@@ -242,10 +242,10 @@ export function ProductEditor() {
   const marginColor =
     cogs?.contributionMarginPct !== null && cogs?.contributionMarginPct !== undefined
       ? cogs.contributionMarginPct >= 30
-        ? 'text-green-600'
+        ? 'text-green-600 dark:text-green-400'
         : cogs.contributionMarginPct >= 15
-        ? 'text-yellow-600'
-        : 'text-red-600'
+        ? 'text-yellow-600 dark:text-yellow-400'
+        : 'text-red-600 dark:text-red-400'
       : '';
 
   if (!isNew && loadingProduct) {

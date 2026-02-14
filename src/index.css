@@ -88,6 +88,38 @@
   --color-kitchen-counter: #1A202C;
   --color-kitchen-counter-complete: #3D7A4A;
 
+  /* Flip Number Display */
+  --color-flip-bg: #1C2127;
+  --color-flip-text: #F0EDE8;
+
+  /* Semantic Status Colors (app-wide, theme-aware) */
+  --color-status-success: #059669;
+  --color-status-success-bg: #ECFDF5;
+  --color-status-warning: #D97706;
+  --color-status-warning-bg: #FFFBEB;
+  --color-status-error: #DC2626;
+  --color-status-error-bg: #FEF2F2;
+  --color-status-info: #2563EB;
+  --color-status-info-bg: #EFF6FF;
+
+  /* Channel Colors (app-wide) */
+  --color-channel-internal: #2563EB;
+  --color-channel-internal-bg: #EFF6FF;
+  --color-channel-k3mart: #7C3AED;
+  --color-channel-k3mart-bg: #F5F3FF;
+  --color-channel-gobiz: #DC2626;
+  --color-channel-gobiz-bg: #FEF2F2;
+
+  /* Role Colors */
+  --color-role-admin: #7C3AED;
+  --color-role-admin-bg: #F5F3FF;
+  --color-role-manager: #2563EB;
+  --color-role-manager-bg: #EFF6FF;
+  --color-role-order-staff: #059669;
+  --color-role-order-staff-bg: #ECFDF5;
+  --color-role-kitchen: #EA580C;
+  --color-role-kitchen-bg: #FFF7ED;
+
   /* Border Radius — warm/rounded (8-12px) */
   --radius-lg: 0.75rem;
   --radius-md: 0.5rem;
@@ -122,6 +154,86 @@
   --color-brand-muted: rgba(20, 184, 166, 0.08);
   --color-kitchen-page-bg: hsl(224 10% 8%);
   --color-kitchen-card-border: hsl(224 10% 18%);
+
+  /* Kitchen Station Colors — Dark Mode (lighter backgrounds, brighter accents) */
+  --color-station-production: #7A9E7D;
+  --color-station-production-light: hsl(130 12% 16%);
+  --color-station-production-medium: hsl(130 12% 22%);
+  --color-station-production-accent: #9ABF9D;
+
+  --color-station-boxing: #D4A080;
+  --color-station-boxing-light: hsl(25 15% 15%);
+  --color-station-boxing-medium: hsl(25 15% 22%);
+  --color-station-boxing-accent: #E0B89A;
+
+  --color-station-stickering: #9B7A6A;
+  --color-station-stickering-light: hsl(20 10% 15%);
+  --color-station-stickering-medium: hsl(20 10% 22%);
+  --color-station-stickering-accent: #B89A8A;
+
+  --color-station-packing: #E8967A;
+  --color-station-packing-light: hsl(15 15% 15%);
+  --color-station-packing-medium: hsl(15 15% 22%);
+  --color-station-packing-accent: #F0A88E;
+
+  /* GoFood / K3 Mart — Dark Mode */
+  --color-gofood: #3DAF8A;
+  --color-gofood-light: hsl(160 15% 14%);
+  --color-gofood-medium: hsl(160 15% 20%);
+  --color-gofood-accent: #5CC8A4;
+  --color-gofood-badge: #22C55E;
+
+  --color-k3mart: #D97706;
+  --color-k3mart-light: hsl(40 15% 14%);
+  --color-k3mart-medium: hsl(40 20% 20%);
+  --color-k3mart-accent: #F59E0B;
+  --color-k3mart-badge: #FBBF24;
+
+  /* Kitchen Status — Dark Mode */
+  --color-kitchen-success: #4ADE80;
+  --color-kitchen-success-bg: hsl(145 15% 14%);
+  --color-kitchen-warning: #FBBF24;
+  --color-kitchen-warning-bg: hsl(40 15% 14%);
+  --color-kitchen-critical: #F87171;
+  --color-kitchen-critical-bg: hsl(0 15% 14%);
+  --color-kitchen-neutral: #9CA3AF;
+  --color-kitchen-neutral-bg: hsl(224 10% 16%);
+
+  /* Kitchen Surfaces — Dark Mode */
+  --color-kitchen-counter: #E2E8F0;
+  --color-kitchen-counter-complete: #4ADE80;
+
+  /* Flip Number Display — Dark Mode */
+  --color-flip-bg: #2A2D32;
+  --color-flip-text: #E8E0D8;
+
+  /* Semantic Status — Dark Mode */
+  --color-status-success: #34D399;
+  --color-status-success-bg: hsl(160 15% 14%);
+  --color-status-warning: #FBBF24;
+  --color-status-warning-bg: hsl(40 15% 14%);
+  --color-status-error: #F87171;
+  --color-status-error-bg: hsl(0 15% 14%);
+  --color-status-info: #60A5FA;
+  --color-status-info-bg: hsl(220 15% 14%);
+
+  /* Channel Colors — Dark Mode */
+  --color-channel-internal: #60A5FA;
+  --color-channel-internal-bg: hsl(220 15% 14%);
+  --color-channel-k3mart: #A78BFA;
+  --color-channel-k3mart-bg: hsl(260 15% 14%);
+  --color-channel-gobiz: #F87171;
+  --color-channel-gobiz-bg: hsl(0 15% 14%);
+
+  /* Role Colors — Dark Mode */
+  --color-role-admin: #A78BFA;
+  --color-role-admin-bg: hsl(260 15% 14%);
+  --color-role-manager: #60A5FA;
+  --color-role-manager-bg: hsl(220 15% 14%);
+  --color-role-order-staff: #34D399;
+  --color-role-order-staff-bg: hsl(160 15% 14%);
+  --color-role-kitchen: #FB923C;
+  --color-role-kitchen-bg: hsl(25 15% 14%);
 }
 
 * {

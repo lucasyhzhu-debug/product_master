@@ -385,10 +385,10 @@ export function MenuProductsManager() {
                     </Badge>
                   )}
                   {product.productType === "packaging" && (
-                    <Badge className="text-xs bg-blue-500">Packaging</Badge>
+                    <Badge className="text-xs bg-blue-500 dark:bg-blue-600">Packaging</Badge>
                   )}
                   {isFood && (
-                    <Badge className="text-xs bg-green-500">Food</Badge>
+                    <Badge className="text-xs bg-green-500 dark:bg-green-600">Food</Badge>
                   )}
                   {(('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined)) && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
@@ -478,7 +478,7 @@ export function MenuProductsManager() {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleAssignToNextSlot(product._id, isFood ? 'food' : 'packaging')}
-                  className="text-green-600 hover:text-green-600 h-7 w-7 sm:h-8 sm:w-8 p-0"
+                  className="text-green-600 dark:text-green-400 hover:text-green-600 dark:hover:text-green-400 h-7 w-7 sm:h-8 sm:w-8 p-0"
                   title={`Add to ${isFood ? 'Food' : 'Packaging'} POS`}
                   aria-label="Add to POS"
                 >
@@ -806,7 +806,7 @@ export function MenuProductsManager() {
                         {formatCurrency(result.newCost)}
                       </td>
                       <td className={`py-2 pl-2 text-right font-medium ${
-                        result.delta > 0 ? 'text-red-600' : result.delta < 0 ? 'text-green-600' : ''
+                        result.delta > 0 ? 'text-red-600 dark:text-red-400' : result.delta < 0 ? 'text-green-600 dark:text-green-400' : ''
                       }`}>
                         {result.delta > 0 ? '+' : ''}{formatCurrency(result.delta)}
                       </td>

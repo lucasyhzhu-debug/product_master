@@ -39,9 +39,9 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
       className={cn(
         'rounded-lg overflow-hidden border-2 bg-card transition-all',
         isComplete
-          ? 'border-green-500 shadow-md'
+          ? 'border-[var(--color-kitchen-success)] shadow-md'
           : isUrgent
-            ? 'border-l-4 border-l-red-500 border-border'
+            ? 'border-l-4 border-l-[var(--color-kitchen-critical)] border-border'
             : 'border-border'
       )}
     >
@@ -52,14 +52,14 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
             {order.orderNumber}
           </span>
           {isUrgent && (
-            <div className="flex items-center gap-1 text-xs font-medium text-red-600">
+            <div className="flex items-center gap-1 text-xs font-medium text-[var(--color-kitchen-critical)]">
               <Clock className="h-3.5 w-3.5" />
               <span>{minutesAgo}m</span>
             </div>
           )}
         </div>
         {isComplete && (
-          <span className="text-xs font-bold text-green-600 uppercase px-2 py-0.5 bg-green-100 rounded">
+          <span className="text-xs font-bold text-[var(--color-kitchen-success)] uppercase px-2 py-0.5 bg-[var(--color-kitchen-success-bg)] rounded">
             Complete
           </span>
         )}
@@ -68,7 +68,7 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
       {/* Progress Bar */}
       <div className="h-2 bg-muted relative overflow-hidden">
         <div
-          className="h-full bg-green-500 transition-all duration-300"
+          className="h-full bg-[var(--color-kitchen-success)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -105,11 +105,11 @@ export function BoxingOrderCard({ order, orderStatus, onFillPackage, onUnfillPac
 
       {/* Mark as Boxed button - shown when all packages filled and order is in Packaging status */}
       {isComplete && orderStatus === 'Packaging' && onMarkBoxed && (
-        <div className="p-3 bg-green-50 border-t border-green-200">
+        <div className="p-3 bg-[var(--color-kitchen-success-bg)] border-t border-[var(--color-kitchen-success)]/20">
           <button
             onClick={onMarkBoxed}
             disabled={disabled}
-            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+            className="w-full bg-[var(--color-kitchen-success)] hover:opacity-90 active:opacity-80 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           >
             <Package className="h-3.5 w-3.5 inline mr-1.5" />
             Mark as Boxed

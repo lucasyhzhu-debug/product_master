@@ -48,11 +48,11 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
     >
       {/* Header */}
       <div
-        className="px-4 py-3 border-b border-[#E8E2DB]"
+        className="px-4 py-3 border-b border-[var(--color-kitchen-card-border)]"
         style={{ backgroundColor: 'var(--color-k3mart-light)' }}
       >
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-base font-bold text-gray-900">
+          <span className="text-base font-bold text-foreground">
             K3 Mart Consignment
           </span>
           <span
@@ -62,17 +62,17 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
             K3MART
           </span>
         </div>
-        <p className="text-xs text-gray-500">{dateStr}</p>
+        <p className="text-xs text-muted-foreground">{dateStr}</p>
       </div>
 
       {/* Product rows */}
       <div className="px-4 py-2">
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 text-[11px] mb-1.5">
-          <span className="font-semibold text-gray-500 uppercase tracking-wider">Product</span>
-          <span className="font-semibold text-gray-500 uppercase tracking-wider text-center">Target</span>
-          <span className="font-semibold text-gray-500 uppercase tracking-wider text-center">Boxed</span>
-          <span className="font-semibold text-gray-500 uppercase tracking-wider text-center">Stickered</span>
-          <span className="font-semibold text-gray-500 uppercase tracking-wider text-center w-6" />
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider">Product</span>
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider text-center">Target</span>
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider text-center">Boxed</span>
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider text-center">Stickered</span>
+          <span className="font-semibold text-muted-foreground uppercase tracking-wider text-center w-6" />
         </div>
         <div className="space-y-1">
           {items.map((item) => (
@@ -80,18 +80,18 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
               key={item.menuProductId}
               className={cn(
                 'grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 items-center px-2 py-1.5 rounded-lg text-sm',
-                item.isReady ? 'bg-green-50' : 'bg-amber-50'
+                item.isReady ? 'bg-[var(--color-kitchen-success-bg)]' : 'bg-[var(--color-kitchen-warning-bg)]'
               )}
             >
-              <span className="font-medium text-gray-900 truncate">{item.productName}</span>
+              <span className="font-medium text-foreground truncate">{item.productName}</span>
               <span className="tabular-nums text-center font-bold w-10">{item.consignmentTarget}</span>
               <span className="tabular-nums text-center w-10">{item.boxed}</span>
               <span className="tabular-nums text-center w-10">{item.stickered}</span>
               <span className="w-6 flex justify-center">
                 {item.isReady ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <CheckCircle2 className="h-4 w-4 text-[var(--color-kitchen-success)]" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTriangle className="h-4 w-4 text-[var(--color-kitchen-warning)]" />
                 )}
               </span>
             </div>
@@ -101,11 +101,11 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
 
       {/* Footer */}
       <div
-        className="px-4 py-2.5 border-t border-[#E8E2DB] text-sm font-medium"
+        className="px-4 py-2.5 border-t border-[var(--color-kitchen-card-border)] text-sm font-medium"
         style={{ backgroundColor: 'var(--color-k3mart-light)' }}
       >
         {allReady ? (
-          <span className="text-green-700 flex items-center gap-1.5">
+          <span className="text-[var(--color-kitchen-success)] flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4" />
             All {totalCount} products ready for pickup
           </span>

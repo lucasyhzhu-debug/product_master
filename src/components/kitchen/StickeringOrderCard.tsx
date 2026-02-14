@@ -20,16 +20,16 @@ export function StickeringOrderCard({ order, onApplyStickers, disabled = false }
   return (
     <div className="rounded-lg overflow-hidden border-2 border-border bg-card hover:shadow-sm transition-shadow">
       {/* Header */}
-      <div className="px-3.5 py-2.5 flex items-center justify-between bg-gray-50 border-b border-gray-200">
-        <span className="font-mono text-base font-bold text-gray-900">{order.orderNumber}</span>
-        <Tag className="h-4 w-4 text-blue-600" />
+      <div className="px-3.5 py-2.5 flex items-center justify-between bg-muted border-b border-border">
+        <span className="font-mono text-base font-bold text-foreground">{order.orderNumber}</span>
+        <Tag className="h-4 w-4 text-[var(--color-status-info)]" />
       </div>
 
       {/* Content */}
       <div className="p-3.5 space-y-2.5">
-        <p className="text-sm font-medium text-gray-900 truncate">{order.customerName}</p>
+        <p className="text-sm font-medium text-foreground truncate">{order.customerName}</p>
 
-        <div className="text-xs text-gray-600 font-medium">
+        <div className="text-xs text-muted-foreground font-medium">
           <div>
             {order.totalPackages} package{order.totalPackages > 1 ? 's' : ''}
           </div>
@@ -38,7 +38,7 @@ export function StickeringOrderCard({ order, onApplyStickers, disabled = false }
             <div className="mt-1.5 space-y-0.5">
               {order.stickerTypes.map((sticker, idx) => (
                 <div key={idx} className="flex items-center gap-1.5">
-                  <span className="text-gray-400">•</span>
+                  <span className="text-muted-foreground">•</span>
                   <span>
                     {sticker.count}× {sticker.name}
                   </span>
@@ -52,7 +52,7 @@ export function StickeringOrderCard({ order, onApplyStickers, disabled = false }
         <button
           onClick={onApplyStickers}
           disabled={disabled}
-          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          className="w-full mt-2 bg-[var(--color-station-stickering)] hover:bg-[var(--color-station-stickering-accent)] active:opacity-80 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
         >
           <Tag className="h-3.5 w-3.5 inline mr-1.5" />
           Apply Stickers

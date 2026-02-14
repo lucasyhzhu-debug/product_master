@@ -113,7 +113,7 @@ function OrderCardCompact({ order, onClick }: OrderCardProps) {
                     <p className="text-[11px] text-muted-foreground line-through">
                       {formatCurrency(order.total_amount)}
                     </p>
-                    <p className="text-[11px] text-orange-600">
+                    <p className="text-[11px] text-orange-600 dark:text-orange-400">
                       -{formatCurrency(order.total_discount)}
                     </p>
                   </>
@@ -495,7 +495,7 @@ export function OrderManager() {
       />
 
       {/* Search Bar */}
-      <div className="relative max-w-md">
+      <div className="relative w-full sm:max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           aria-label="Search orders by number, customer, or salesperson"

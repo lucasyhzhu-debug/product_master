@@ -107,7 +107,7 @@ export function StepWhatsAppTemplate({
         {/* Header with language toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-green-600" />
+            <MessageCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="font-medium text-sm">{templateName}</span>
           </div>
 
@@ -165,7 +165,7 @@ export function StepWhatsAppTemplate({
             size="sm"
             onClick={handleSendWhatsApp}
             disabled={isLoading || !message}
-            className="flex-1 gap-2 bg-green-600 hover:bg-green-700"
+            className="flex-1 gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
           >
             <MessageCircle className="h-4 w-4" />
             Send WA

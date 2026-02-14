@@ -50,7 +50,7 @@ export function BoxingPanel({
   // Loading state
   if (productionCounts === undefined) {
     return (
-      <div className="bg-[#F8F6F3] px-4 py-4 space-y-4 min-h-screen">
+      <div className="bg-[var(--color-kitchen-page-bg)] px-4 py-4 space-y-4 min-h-screen">
         <Skeleton className="h-32 w-full rounded-xl" />
         <Skeleton className="h-32 w-full rounded-xl" />
         <Skeleton className="h-32 w-full rounded-xl" />
@@ -66,9 +66,9 @@ export function BoxingPanel({
   // Empty state
   if (sortedProducts.length === 0) {
     return (
-      <div className="bg-[#F8F6F3] px-4 py-4 min-h-screen flex items-center justify-center">
+      <div className="bg-[var(--color-kitchen-page-bg)] px-4 py-4 min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
-          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+          <CheckCircle2 className="h-12 w-12 text-[var(--color-kitchen-success)] mx-auto" />
           <p className="text-lg font-medium text-muted-foreground">
             All products boxed! Great work.
           </p>
@@ -95,7 +95,7 @@ export function BoxingPanel({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="bg-[#F8F6F3] px-3 py-3 space-y-3 min-h-screen">
+      <div className="bg-[var(--color-kitchen-page-bg)] px-3 py-3 space-y-3 min-h-screen">
         {sortedProducts.map((product) => {
           const availableBalls = getAvailableBalls(product.menuProductName);
           const awaitingSticker = product.availableForStickering;
@@ -108,33 +108,33 @@ export function BoxingPanel({
             <div
               key={product.menuProductId}
               className="bg-card rounded-xl shadow-sm border border-border border-l-4 overflow-hidden"
-              style={{ borderLeftColor: '#C4845C' }}
+              style={{ borderLeftColor: 'var(--color-station-boxing)' }}
             >
               {/* Header */}
-              <div className="bg-[#FDF5EF] px-3 py-2.5">
+              <div className="bg-[var(--color-station-boxing-light)] px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-gray-900 truncate">
+                    <h3 className="text-base font-semibold text-foreground truncate">
                       {product.menuProductName}
                     </h3>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
-                      <span>Balls: <span className="font-bold text-gray-700">{availableBalls}</span></span>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                      <span>Balls: <span className="font-bold text-foreground/80">{availableBalls}</span></span>
                       {needed > 0 && (
-                        <span>Need: <span className="font-bold text-amber-700">{needed}</span></span>
+                        <span>Need: <span className="font-bold text-[var(--color-kitchen-warning)]">{needed}</span></span>
                       )}
                       {targetTotal > 0 && (
-                        <span>Target: <span className="font-bold text-blue-700">{targetTotal}</span></span>
+                        <span>Target: <span className="font-bold text-[var(--color-status-info)]">{targetTotal}</span></span>
                       )}
                       {outletStock != null && outletStock > 0 && (
-                        <span>Outlets: <span className="font-bold" style={{ color: 'var(--color-k3mart)' }}>{outletStock}</span></span>
+                        <span>K3 Stock: <span className="font-bold" style={{ color: 'var(--color-k3mart)' }}>{outletStock}</span></span>
                       )}
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    <div className="text-2xl font-bold text-[#1A202C] flex items-center justify-end">
+                    <div className="text-2xl font-bold text-foreground flex items-center justify-end">
                       <FlipNumber value={awaitingSticker} size="md" />
                     </div>
-                    <div className="text-[10px] text-gray-500 leading-tight">Awaiting<br />Sticker</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">Awaiting<br />Sticker</div>
                   </div>
                 </div>
               </div>
@@ -156,13 +156,13 @@ export function BoxingPanel({
                           placeholder="Qty to add"
                           disabled={disabled}
                           className={cn(
-                            'w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-center text-base font-bold',
-                            'focus:border-[#C4845C] focus:outline-none focus:ring-1 focus:ring-[#C4845C]',
+                            'w-full h-11 rounded-lg border-2 border-border px-3 text-center text-base font-bold',
+                            'focus:border-[var(--color-station-boxing)] focus:outline-none focus:ring-1 focus:ring-[var(--color-station-boxing)]',
                             'disabled:opacity-50 disabled:cursor-not-allowed',
                             '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                           )}
                         />
-                        <Info className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                        <Info className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[200px] text-center">
@@ -174,7 +174,7 @@ export function BoxingPanel({
                     disabled={disabled || !inputVal || parseInt(inputVal, 10) === 0 || isNaN(parseInt(inputVal, 10))}
                     className={cn(
                       'h-11 px-5 rounded-lg font-bold text-base shrink-0',
-                      'bg-[#C4845C] hover:bg-[#B4744C] text-white',
+                      'bg-[var(--color-station-boxing)] hover:bg-[var(--color-station-boxing-accent)] text-white',
                       'touch-manipulation active:scale-95 transition-transform duration-100',
                       'disabled:opacity-50 disabled:cursor-not-allowed',
                       'flex items-center'

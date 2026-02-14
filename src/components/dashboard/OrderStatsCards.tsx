@@ -75,7 +75,7 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
             <div
               className={cn(
                 'flex items-center text-xs mt-2',
-                revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
+                revenueChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               )}
             >
               {revenueChange >= 0 ? (
@@ -90,19 +90,19 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
       </Card>
 
       {/* Needs Attention Card */}
-      <Card className={cn(totalAttention > 0 && 'border-amber-300 bg-amber-50/50')}>
+      <Card className={cn(totalAttention > 0 && 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/30')}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Needs Attention</CardTitle>
           <AlertCircle
             className={cn(
               'h-4 w-4',
-              totalAttention > 0 ? 'text-amber-600' : 'text-muted-foreground'
+              totalAttention > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
             )}
           />
         </CardHeader>
         <CardContent>
           {totalAttention === 0 ? (
-            <div className="text-2xl font-bold text-green-600">All Good</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">All Good</div>
           ) : (
             <div className="space-y-2">
               {needs_attention.overdue > 0 && (
@@ -121,7 +121,7 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
                   to="/orders?status=AwaitingPayment"
                   className="flex items-center gap-2 hover:opacity-80"
                 >
-                  <Badge variant="outline" className="gap-1 border-amber-500 text-amber-700">
+                  <Badge variant="outline" className="gap-1 border-amber-500 dark:border-amber-600 text-amber-700 dark:text-amber-400">
                     <Clock className="h-3 w-3" />
                     {needs_attention.awaiting_payment_long} payment &gt;24h
                   </Badge>
@@ -132,7 +132,7 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
                   to="/orders?filter=due_today"
                   className="flex items-center gap-2 hover:opacity-80"
                 >
-                  <Badge variant="outline" className="gap-1 border-blue-500 text-blue-700">
+                  <Badge variant="outline" className="gap-1 border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400">
                     <Calendar className="h-3 w-3" />
                     {needs_attention.due_today} due today
                   </Badge>
@@ -175,10 +175,10 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
             className={cn(
               'text-2xl font-bold',
               today.margin_pct >= 30
-                ? 'text-green-600'
+                ? 'text-green-600 dark:text-green-400'
                 : today.margin_pct >= 20
-                ? 'text-amber-600'
-                : 'text-red-600'
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-red-600 dark:text-red-400'
             )}
           >
             {today.margin_pct.toFixed(0)}%

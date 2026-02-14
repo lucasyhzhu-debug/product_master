@@ -106,17 +106,17 @@ function BallCounterSection({
     <div className="bg-card rounded-xl border border-border shadow-sm p-3 space-y-2">
       {/* Counter Display */}
       <div className="text-center space-y-0.5">
-        <div className="text-4xl font-bold tracking-tight text-[#1A202C] flex items-center justify-center">
+        <div className="text-4xl font-bold tracking-tight text-foreground flex items-center justify-center">
           <FlipNumber value={count} size="lg" />
         </div>
-        <div className="text-xs font-medium text-gray-600">
+        <div className="text-xs font-medium text-muted-foreground">
           {config.displayName} ({config.grams}g) in tray
         </div>
         {/* Delta vs target — uses cumulative production, not tray count */}
         {delta !== null && (
           <div className={cn(
             'text-[10px] font-semibold tabular-nums mt-0.5',
-            delta < 0 ? 'text-amber-600' : delta === 0 ? 'text-green-600' : 'text-blue-600'
+            delta < 0 ? 'text-[var(--color-kitchen-warning)]' : delta === 0 ? 'text-[var(--color-kitchen-success)]' : 'text-[var(--color-status-info)]'
           )}>
             {delta < 0
               ? `Need ${Math.abs(delta)} more (${totalProduced}/${target} made)`
@@ -139,8 +139,8 @@ function BallCounterSection({
           className={cn(
             'w-full h-11 rounded-lg border-2 px-3 text-center text-base font-bold',
             isNegative
-              ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-              : 'border-gray-200 focus:border-[#5B7A5E] focus:ring-[#5B7A5E]',
+              ? 'border-[var(--color-kitchen-critical)]/30 focus:border-[var(--color-kitchen-critical)] focus:ring-[var(--color-kitchen-critical)]'
+              : 'border-border focus:border-[var(--color-station-production)] focus:ring-[var(--color-station-production)]',
             'focus:outline-none focus:ring-1',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
@@ -154,8 +154,8 @@ function BallCounterSection({
             'touch-manipulation active:scale-95 transition-all duration-100',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             isNegative
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-[#5B7A5E] hover:bg-[#4A6A4E] text-white',
+              ? 'bg-[var(--color-kitchen-critical)] hover:opacity-90 text-white'
+              : 'bg-[var(--color-station-production)] hover:bg-[var(--color-station-production-accent)] text-white',
           )}
         >
           {isNegative ? 'Remove' : 'Add'}
@@ -175,14 +175,14 @@ function FlowArrow({ active = false }: { active?: boolean }) {
       <motion.div
         className="absolute left-1/2 -translate-x-1/2 rounded-full"
         style={{ width: 2, height: 24, top: 4 }}
-        animate={{ backgroundColor: active ? '#5B7A5E' : '#D1D5DB' }}
+        animate={{ backgroundColor: active ? 'var(--color-station-production)' : 'var(--color-border)' }}
         transition={{ duration: 0.3 }}
       />
       <motion.svg
         width="12" height="8" viewBox="0 0 12 8"
         className="absolute left-1/2 -translate-x-1/2"
         style={{ bottom: 0 }}
-        animate={{ fill: active ? '#5B7A5E' : '#D1D5DB' }}
+        animate={{ fill: active ? 'var(--color-station-production)' : 'var(--color-border)' }}
         transition={{ duration: 0.3 }}
       >
         <path d="M6 8L0 0h12L6 8z" />
@@ -194,7 +194,7 @@ function FlowArrow({ active = false }: { active?: boolean }) {
               <motion.div
                 key={i}
                 className="absolute left-1/2 -translate-x-1/2 rounded-full"
-                style={{ width: 5, height: 5, backgroundColor: '#5B7A5E' }}
+                style={{ width: 5, height: 5, backgroundColor: 'var(--color-station-production)' }}
                 initial={{ top: 0, opacity: 0, scale: 0.4 }}
                 animate={{
                   top: [0, 28],
@@ -279,7 +279,7 @@ function EditableTargetCell({
         'w-full h-6 rounded text-[11px] font-bold tabular-nums text-center transition-colors',
         value > 0
           ? 'hover:opacity-80'
-          : 'bg-gray-50 text-gray-400 hover:bg-gray-100',
+          : 'bg-muted text-muted-foreground hover:bg-muted',
         'disabled:opacity-50 disabled:cursor-not-allowed'
       )}
       style={value > 0 ? { backgroundColor: `${accentColor}15`, color: accentColor } : undefined}
@@ -308,9 +308,9 @@ export function ProductionLogPanel({
   // Loading state
   if (trayInventory === undefined) {
     return (
-      <div className="h-full bg-[#F8F6F3] px-3 py-4 space-y-4">
+      <div className="h-full bg-[var(--color-kitchen-page-bg)] px-3 py-4 space-y-4">
         <div className="bg-card rounded-xl border border-border p-6 text-center">
-          <div className="text-gray-500">Loading production data...</div>
+          <div className="text-muted-foreground">Loading production data...</div>
         </div>
       </div>
     );
@@ -394,10 +394,10 @@ export function ProductionLogPanel({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="h-full bg-[#F8F6F3] px-3 py-4 space-y-1.5 overflow-y-auto">
+      <div className="h-full bg-[var(--color-kitchen-page-bg)] px-3 py-4 space-y-1.5 overflow-y-auto">
         {/* Section 1: Today's Targets — 3-source table */}
         <div className="space-y-1.5" {...sectionHoverProps(0)}>
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-0.5 flex items-center gap-1">
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-0.5 flex items-center gap-1">
             <Target className="h-3 w-3" />
             Today&apos;s Targets
           </h2>
@@ -405,9 +405,9 @@ export function ProductionLogPanel({
             {foodPosProducts.length > 0 ? (
               <table className="w-full text-[11px]">
                 <thead>
-                  <tr className="bg-[#F8F6F3] border-b border-border">
-                    <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Product</th>
-                    <th className="text-center px-1 py-1.5 font-semibold text-blue-700 w-10">
+                  <tr className="bg-[var(--color-kitchen-page-bg)] border-b border-border">
+                    <th className="text-left px-2 py-1.5 font-semibold text-muted-foreground">Product</th>
+                    <th className="text-center px-1 py-1.5 font-semibold text-[var(--color-status-info)] w-10">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-help">Ord</span>
@@ -415,7 +415,7 @@ export function ProductionLogPanel({
                         <TooltipContent side="top"><p>Orders due today/tomorrow</p></TooltipContent>
                       </Tooltip>
                     </th>
-                    <th className="text-center px-1 py-1.5 font-semibold text-amber-700 w-12">
+                    <th className="text-center px-1 py-1.5 font-semibold text-[var(--color-k3mart)] w-12">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-help">K3M</span>
@@ -423,7 +423,7 @@ export function ProductionLogPanel({
                         <TooltipContent side="top"><p>K3 Mart consignment targets (editable)</p></TooltipContent>
                       </Tooltip>
                     </th>
-                    <th className="text-center px-1 py-1.5 font-semibold text-green-700 w-12">
+                    <th className="text-center px-1 py-1.5 font-semibold text-[var(--color-gofood)] w-12">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-help">GoF</span>
@@ -432,7 +432,7 @@ export function ProductionLogPanel({
                       </Tooltip>
                     </th>
                     {k3MartStockMap && k3MartStockMap.size > 0 && (
-                      <th className="text-center px-1 py-1.5 font-semibold text-gray-500 w-10">
+                      <th className="text-center px-1 py-1.5 font-semibold text-muted-foreground w-10">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="cursor-help">Stk</span>
@@ -441,7 +441,7 @@ export function ProductionLogPanel({
                         </Tooltip>
                       </th>
                     )}
-                    <th className="text-center px-1 py-1.5 font-bold text-gray-900 w-10">Tot</th>
+                    <th className="text-center px-1 py-1.5 font-bold text-foreground w-10">Tot</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -452,13 +452,13 @@ export function ProductionLogPanel({
                     const total = productTotals.get(p.menuProductId) ?? 0;
 
                     return (
-                      <tr key={p.menuProductId} className="border-b border-gray-100 last:border-b-0">
-                        <td className="px-2 py-1 font-medium text-gray-900 truncate max-w-[80px]">
+                      <tr key={p.menuProductId} className="border-b border-border last:border-b-0">
+                        <td className="px-2 py-1 font-medium text-foreground truncate max-w-[80px]">
                           {p.menuProductName}
                         </td>
                         {/* Orders: read-only */}
-                        <td className="text-center px-1 py-1 tabular-nums text-blue-700">
-                          {orders || <span className="text-gray-300">-</span>}
+                        <td className="text-center px-1 py-1 tabular-nums text-[var(--color-status-info)]">
+                          {orders || <span className="text-muted-foreground/50">-</span>}
                         </td>
                         {/* Consignment: editable */}
                         <td className="px-0.5 py-0.5">
@@ -467,11 +467,11 @@ export function ProductionLogPanel({
                               value={consignment}
                               onSave={(qty) => onSetProductTarget(p.menuProductId, 'consignment', qty)}
                               disabled={disabled}
-                              accentColor="#B45309"
+                              accentColor="var(--color-k3mart)"
                             />
                           ) : (
-                            <div className="text-center tabular-nums text-amber-700">
-                              {consignment || <span className="text-gray-300">-</span>}
+                            <div className="text-center tabular-nums text-[var(--color-k3mart)]">
+                              {consignment || <span className="text-muted-foreground/50">-</span>}
                             </div>
                           )}
                         </td>
@@ -482,23 +482,23 @@ export function ProductionLogPanel({
                               value={gofood}
                               onSave={(qty) => onSetProductTarget(p.menuProductId, 'gofood', qty)}
                               disabled={disabled}
-                              accentColor="#15803D"
+                              accentColor="var(--color-gofood)"
                             />
                           ) : (
-                            <div className="text-center tabular-nums text-green-700">
-                              {gofood || <span className="text-gray-300">-</span>}
+                            <div className="text-center tabular-nums text-[var(--color-gofood)]">
+                              {gofood || <span className="text-muted-foreground/50">-</span>}
                             </div>
                           )}
                         </td>
                         {/* K3 Mart outlet stock (read-only) */}
                         {k3MartStockMap && k3MartStockMap.size > 0 && (
-                          <td className="text-center px-1 py-1 tabular-nums text-gray-400 text-[10px]">
-                            {k3MartStockMap.get(p.menuProductId) ?? <span className="text-gray-300">-</span>}
+                          <td className="text-center px-1 py-1 tabular-nums text-muted-foreground text-[10px]">
+                            {k3MartStockMap.get(p.menuProductId) ?? <span className="text-muted-foreground/50">-</span>}
                           </td>
                         )}
                         {/* Total */}
-                        <td className="text-center px-1 py-1 font-bold tabular-nums text-gray-900">
-                          {total || <span className="text-gray-300">0</span>}
+                        <td className="text-center px-1 py-1 font-bold tabular-nums text-foreground">
+                          {total || <span className="text-muted-foreground/50">0</span>}
                         </td>
                       </tr>
                     );
@@ -506,23 +506,23 @@ export function ProductionLogPanel({
                 </tbody>
               </table>
             ) : (
-              <div className="p-3 text-xs text-gray-500 text-center">No products configured</div>
+              <div className="p-3 text-xs text-muted-foreground text-center">No products configured</div>
             )}
 
             {/* Ball totals computed from all 3 sources */}
             <div className="border-t border-border px-3 py-2">
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center">
-                  <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+                  <div className="text-xl font-bold text-foreground flex items-center justify-center">
                     <FlipNumber value={midBallTarget} size="md" />
                   </div>
-                  <div className="text-[10px] text-gray-600">Original (45g)</div>
+                  <div className="text-[10px] text-muted-foreground">Original (45g)</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-[#1A202C] flex items-center justify-center">
+                  <div className="text-xl font-bold text-foreground flex items-center justify-center">
                     <FlipNumber value={bigBallTarget} size="md" />
                   </div>
-                  <div className="text-[10px] text-gray-600">Jumbo (80g)</div>
+                  <div className="text-[10px] text-muted-foreground">Jumbo (80g)</div>
                 </div>
               </div>
             </div>
@@ -534,9 +534,9 @@ export function ProductionLogPanel({
         {/* Section 2: Produced Goods (Ball Tray) */}
         <div className="space-y-1.5" {...sectionHoverProps(1)}>
           <div className="flex items-center justify-between px-0.5">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Produced Goods (Ball Tray)</h2>
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Produced Goods (Ball Tray)</h2>
             {ballsPerHour > 0 && (
-              <span className="text-[10px] font-bold tabular-nums text-[#5B7A5E] bg-[#5B7A5E]/10 px-1.5 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold tabular-nums text-[var(--color-station-production)] bg-[var(--color-station-production)]/10 px-1.5 py-0.5 rounded-full">
                 {ballsPerHour} balls/hr
               </span>
             )}
@@ -565,16 +565,16 @@ export function ProductionLogPanel({
 
         {/* Section 3: Finished Products */}
         <div className="space-y-1.5" {...sectionHoverProps(2)}>
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-0.5">Finished Products</h2>
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-0.5">Finished Products</h2>
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             {foodPosProducts.length > 0 ? (
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#F8F6F3] border-b border-border">
-                    <th className="text-left px-2.5 py-1.5 font-semibold text-gray-700">Name</th>
-                    <th className="text-center px-1.5 py-1.5 font-semibold text-gray-700">Box</th>
-                    <th className="text-center px-1.5 py-1.5 font-semibold text-gray-700">Stk</th>
-                    <th className="text-center px-1.5 py-1.5 font-semibold text-gray-700">Pak</th>
+                  <tr className="bg-[var(--color-kitchen-page-bg)] border-b border-border">
+                    <th className="text-left px-2.5 py-1.5 font-semibold text-foreground/80">Name</th>
+                    <th className="text-center px-1.5 py-1.5 font-semibold text-foreground/80">Box</th>
+                    <th className="text-center px-1.5 py-1.5 font-semibold text-foreground/80">Stk</th>
+                    <th className="text-center px-1.5 py-1.5 font-semibold text-foreground/80">Pak</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -583,7 +583,7 @@ export function ProductionLogPanel({
                     return (
                       <tr key={p.menuProductId} className="border-b border-border last:border-b-0">
                         <td className="px-2.5 py-1.5">
-                          <div className="font-medium text-gray-900">{p.menuProductName}</div>
+                          <div className="font-medium text-foreground">{p.menuProductName}</div>
                           {depotQty != null && depotQty > 0 && (
                             <div className="text-[9px] font-semibold mt-0.5" style={{ color: 'var(--color-gofood)' }}>
                               GF depot: {depotQty}
@@ -599,7 +599,7 @@ export function ProductionLogPanel({
                 </tbody>
               </table>
             ) : (
-              <div className="p-3 text-xs text-gray-500 text-center">No products yet</div>
+              <div className="p-3 text-xs text-muted-foreground text-center">No products yet</div>
             )}
           </div>
         </div>
@@ -608,20 +608,20 @@ export function ProductionLogPanel({
 
         {/* Section 4: Order Summary */}
         <div className="space-y-1.5" {...sectionHoverProps(3)}>
-          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-0.5">Order Summary</h2>
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-0.5">Order Summary</h2>
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 text-center space-y-0.5">
-              <div className="text-2xl font-bold text-[#1A202C] flex items-center justify-center">
+              <div className="text-2xl font-bold text-foreground flex items-center justify-center">
                 <FlipNumber value={kitchenStats?.ordersPending ?? 0} size="md" />
               </div>
-              <div className="text-[10px] text-gray-600 font-medium">Orders Pending</div>
+              <div className="text-[10px] text-muted-foreground font-medium">Orders Pending</div>
             </div>
 
             <div className="bg-card rounded-xl border border-border shadow-sm p-3 text-center space-y-0.5">
-              <div className="text-2xl font-bold text-[#3D7A4A] flex items-center justify-center">
+              <div className="text-2xl font-bold text-[var(--color-kitchen-counter-complete)] flex items-center justify-center">
                 <FlipNumber value={kitchenStats?.ordersCompletedToday ?? 0} size="md" />
               </div>
-              <div className="text-[10px] text-gray-600 font-medium">Completed Today</div>
+              <div className="text-[10px] text-muted-foreground font-medium">Completed Today</div>
             </div>
           </div>
         </div>

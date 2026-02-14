@@ -272,7 +272,7 @@ export function TemplateEditor({
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-[#DCF8C6] rounded-lg p-3 shadow-sm"
                     >
-                      <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                      <pre className="text-sm text-foreground/80 whitespace-pre-wrap font-sans">
                         {previewContent}
                       </pre>
 
@@ -301,7 +301,7 @@ export function TemplateEditor({
             </div>
 
             {/* Variables Section */}
-            <div className="border-t px-4 py-3 bg-gray-50">
+            <div className="border-t px-4 py-3 bg-muted/50">
               <div className="font-medium text-sm mb-2 text-muted-foreground">
                 VARIABLES — Click to insert at cursor
               </div>
@@ -312,7 +312,7 @@ export function TemplateEditor({
             </div>
 
             {/* Footer */}
-            <div className="border-t p-4 flex items-center justify-between bg-white">
+            <div className="border-t p-4 flex items-center justify-between bg-card">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"

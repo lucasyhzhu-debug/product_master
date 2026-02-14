@@ -61,7 +61,7 @@ export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepo
   // Loading state
   if (productionCounts === undefined) {
     return (
-      <div className="px-4 py-4 space-y-4 bg-[#F8F6F3]">
+      <div className="px-4 py-4 space-y-4 bg-[var(--color-kitchen-page-bg)]">
         <Skeleton className="h-40 w-full rounded-xl" />
         <Skeleton className="h-40 w-full rounded-xl" />
         <Skeleton className="h-40 w-full rounded-xl" />
@@ -77,8 +77,8 @@ export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepo
   // Empty state
   if (visibleProducts.length === 0) {
     return (
-      <div className="px-4 py-8 bg-[#F8F6F3] min-h-[200px] flex items-center justify-center">
-        <p className="text-gray-500 text-center">No products need stickering.</p>
+      <div className="px-4 py-8 bg-[var(--color-kitchen-page-bg)] min-h-[200px] flex items-center justify-center">
+        <p className="text-muted-foreground text-center">No products need stickering.</p>
       </div>
     );
   }
@@ -95,7 +95,7 @@ export function StickeringPanel({ productionCounts, neededFromOrders, goFoodDepo
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="px-3 py-3 space-y-3 bg-[#F8F6F3]">
+      <div className="px-3 py-3 space-y-3 bg-[var(--color-kitchen-page-bg)]">
         {/* GoFood sticker cards (read-only) rendered above manual cards */}
         {visibleProducts.map((product) => {
           const gf = goFoodMap.get(product.menuProductId);
@@ -181,26 +181,26 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
   };
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[#6B4C3B] overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[var(--color-station-stickering)] overflow-hidden">
       {/* Header */}
-      <div className="bg-[#F7F0EB] px-3 py-2.5">
+      <div className="bg-[var(--color-station-stickering-light)] px-3 py-2.5">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-gray-900 truncate">{product.menuProductName}</h3>
+            <h3 className="text-base font-semibold text-foreground truncate">{product.menuProductName}</h3>
             <div className="flex items-center gap-3 mt-0.5 text-xs">
-              <span className={product.availableForStickering > 0 ? 'text-[#4A3428] font-medium' : 'text-gray-500'}>
+              <span className={product.availableForStickering > 0 ? 'text-[var(--color-station-stickering-accent)] font-medium' : 'text-muted-foreground'}>
                 Ready: {product.availableForStickering}
               </span>
               {needed > 0 && (
-                <span className="text-gray-500">Need: <span className="font-bold text-amber-700">{needed}</span></span>
+                <span className="text-muted-foreground">Need: <span className="font-bold text-[var(--color-kitchen-warning)]">{needed}</span></span>
               )}
             </div>
           </div>
           <div className="text-right shrink-0 ml-2">
-            <div className="text-2xl font-bold text-[#1A202C] flex items-center justify-end">
+            <div className="text-2xl font-bold text-foreground flex items-center justify-end">
               <FlipNumber value={product.stickered} size="md" />
             </div>
-            <div className="text-[10px] text-gray-500">Stickered</div>
+            <div className="text-[10px] text-muted-foreground">Stickered</div>
           </div>
         </div>
       </div>
@@ -220,13 +220,13 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
                   placeholder="Qty to add"
                   disabled={disabled}
                   className={cn(
-                    'w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-center text-base font-bold',
-                    'focus:border-[#6B4C3B] focus:outline-none focus:ring-1 focus:ring-[#6B4C3B]',
+                    'w-full h-11 rounded-lg border-2 border-border px-3 text-center text-base font-bold',
+                    'focus:border-[var(--color-station-stickering)] focus:outline-none focus:ring-1 focus:ring-[var(--color-station-stickering)]',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
                     '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                   )}
                 />
-                <Info className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                <Info className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[200px] text-center">
@@ -238,7 +238,7 @@ function ProductCard({ product, needed, inputValue, onInputChange, onStickerProd
             disabled={disabled || !inputValue || parseInt(inputValue, 10) === 0 || isNaN(parseInt(inputValue, 10))}
             className={cn(
               'h-11 px-4 rounded-lg font-bold text-sm shrink-0',
-              'bg-[#6B4C3B] hover:bg-[#5B3C2B] text-white',
+              'bg-[var(--color-station-stickering)] hover:bg-[var(--color-station-stickering-accent)] text-white',
               'touch-manipulation active:scale-95 transition-transform duration-100',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'flex items-center'

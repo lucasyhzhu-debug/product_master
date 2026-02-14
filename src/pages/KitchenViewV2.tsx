@@ -441,7 +441,7 @@ export function KitchenViewV2() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-kitchen-page-bg,#F8F6F3)]">
+    <div className="min-h-screen bg-[var(--color-kitchen-page-bg)]">
       {/* Header */}
       <header className="bg-card border-b border-border shadow-sm sticky top-0 z-30">
         <div className="px-4 sm:px-6 py-3">

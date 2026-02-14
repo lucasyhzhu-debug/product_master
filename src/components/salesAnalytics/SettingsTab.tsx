@@ -303,10 +303,10 @@ export function SettingsTab() {
                               variant="outline"
                               className={
                                 outlet.source === "k3mart"
-                                  ? "border-blue-500 text-blue-700"
+                                  ? "border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400"
                                   : outlet.source === "internal"
-                                  ? "border-emerald-500 text-emerald-700"
-                                  : "border-purple-500 text-purple-700"
+                                  ? "border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400"
+                                  : "border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400"
                               }
                             >
                               {outlet.source === "k3mart" ? "K3 Mart" : outlet.source === "internal" ? "Internal" : "GoBiz"}
@@ -405,10 +405,10 @@ export function SettingsTab() {
                               variant="outline"
                               className={
                                 log.source === "k3mart"
-                                  ? "border-blue-500 text-blue-700"
+                                  ? "border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400"
                                   : log.source === "internal"
-                                  ? "border-emerald-500 text-emerald-700"
-                                  : "border-purple-500 text-purple-700"
+                                  ? "border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400"
+                                  : "border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400"
                               }
                             >
                               {log.source === "k3mart" ? "K3 Mart" : log.source === "internal" ? "Internal" : "GoBiz"}
@@ -418,7 +418,7 @@ export function SettingsTab() {
                             {log.status === "success" ? (
                               <Badge
                                 variant="outline"
-                                className="border-green-500 text-green-700"
+                                className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400"
                               >
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                 Success
@@ -426,13 +426,13 @@ export function SettingsTab() {
                             ) : log.status === "error" ? (
                               <Badge
                                 variant="outline"
-                                className="border-red-500 text-red-700"
+                                className="border-red-500 dark:border-red-600 text-red-700 dark:text-red-400"
                               >
                                 <XCircle className="h-3 w-3 mr-1" />
                                 Error
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-gray-700">
+                              <Badge variant="outline" className="text-muted-foreground">
                                 <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                                 Started
                               </Badge>
@@ -442,7 +442,7 @@ export function SettingsTab() {
                             {log.productsCount || "\u2014"}
                           </td>
                           <td className="py-3 px-2 text-right">{durationStr}</td>
-                          <td className="py-3 px-2 text-red-600 text-xs">
+                          <td className="py-3 px-2 text-red-600 dark:text-red-400 text-xs">
                             {log.errorMessage || "\u2014"}
                           </td>
                         </tr>
