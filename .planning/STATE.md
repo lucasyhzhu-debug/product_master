@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 7 — Query Optimization (COMPLETE)
+**Current focus:** Phase 8 — Schema Cleanup (IN PROGRESS)
 
 ## Current Position
-Phase: 7 — Query Optimization
-Current Plan: 03 of 03 (all plans complete)
-Last completed: 07-03 (Cursor-Based Pagination + Load More UI)
+Phase: 8 — Schema Cleanup
+Current Plan: 02 of 04
+Last completed: 08-02 (Remove Deprecated Field Code References)
 
 ## Phase Readiness
 
@@ -21,7 +21,7 @@ Last completed: 07-03 (Cursor-Based Pagination + Load More UI)
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
-| 8 — Schema Cleanup | Ready | None (Phases 6, 7 complete) |
+| 8 — Schema Cleanup | IN PROGRESS (2 of 4 plans done) | None |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
@@ -54,6 +54,8 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 2026-02-14 | 07 | Plan 01 complete | isKitchenVisible denorm + by_kitchen_visible index, per-order indexed lookups, optimized kitchen/dashboard queries |
 | 2026-02-14 | 07 | Plan 02 complete | Eager COGS caching: invalidateMenuProductCosts cascade, stale badge, recalculateAllCosts admin button with diff dialog |
 | 2026-02-14 | 07 | Plan 03 complete | Cursor-based pagination for orders/inventory/production/revenue, Load More UI in OrderManager. Phase 07 COMPLETE. |
+| 2026-02-14 | 08 | Plan 01 complete | Schema field audit: 215 fields categorized A/B/C/D, 55 denormalization annotations in schema.ts, SCHEMA_AUDIT.md created |
+| 2026-02-14 | 08 | Plan 02 complete | Removed all deprecated field code refs (productionType/productionUnits/isFixed), posSlot deletion guard, dead hook deleted |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -132,6 +134,10 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 - useConvexOrders accepts "skip" string to disable query when paginated hook is active
 - countOrders uses .collect().length (Convex has no native count API)
 - Existing non-paginated queries preserved for backward compatibility (KitchenView, category tabs)
+- orders.completedAt stays v.optional() (Category A) -- active orders legitimately lack it, only terminal orders have it
+- 55 denormalization annotations: 18 SNAPSHOT + 25 CACHE + 12 DERIVED, formal format with source-of-truth and timing
+- menuProducts.isFixed classified Category C (removable) -- posSlot/packagingPosSlot replaces deletion protection
+- useConvexFixedProducts identified as dead code (exported but never imported)
 
 ## Performance Metrics
 
@@ -158,7 +164,8 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 07 | 01 | 7min | 2 | 11 |
 | 07 | 02 | 8min | 2 | 5 |
 | 07 | 03 | 7min | 2 | 7 |
+| 08 | 01 | 7min | 2 | 3 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 07-03-PLAN.md (cursor-based pagination + Load More UI). Phase 07 COMPLETE.*
+*Last session stopped at: Completed 08-01-PLAN.md (field audit & denormalization documentation).*
