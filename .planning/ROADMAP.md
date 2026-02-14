@@ -218,15 +218,24 @@ Plans:
 **Goal:** A universal brand/UI architecture reference is established and enforced across all 19 pages — consistent fonts, colors, spacing, margins, responsive layout, header/footer patterns, and mobile navigation. All UI work uses the `/frontend-design` skill.
 **Requirements:** BRAND-01, BRAND-02
 **Dependencies:** Phase 7 (query optimization complete — codebase stable for visual audit)
+**Plans:** 5 plans (Wave 1: 09-01, 09-02 parallel; Wave 2: 09-03, 09-04 parallel; Wave 3: 09-05)
+
+Plans:
+- [ ] 09-01-PLAN.md — Theme foundation: CSS tokens (light+dark), ThemeProvider, teal brand accent, Inter-only typography, brand reference doc
+- [ ] 09-02-PLAN.md — Layout components: PageContainer, scroll-hide Header, Footer, MobileBottomNav, AnimatePresence page transitions
+- [ ] 09-03-PLAN.md — Page audit batch 1: 15 standard pages (PageHeader migration, padding removal, semantic color tokens)
+- [ ] 09-04-PLAN.md — Page audit batch 2: 6 complex pages (Dashboard, OrderManager, KitchenViewV2, Login) + component-level color cleanup
+- [ ] 09-05-PLAN.md — Skeleton screens, enhanced EmptyState, full verification checkpoint
+
 **Success Criteria:**
 1. Brand/UI reference document exists (`docs/UI_BRAND_REFERENCE.md`) covering: color palette, typography, spacing scale, margin rules, component patterns, page layout conventions, dark mode tokens
-2. All 19 pages audited for UI inconsistencies — every page uses consistent left margins, fonts, colors, and spacing per the brand reference
+2. All 21 pages audited for UI inconsistencies — every page uses consistent left margins, fonts, colors, and spacing per the brand reference
 3. Pages with missing left margins are fixed to match the standard layout
 4. Header/footer/mobile-nav components implemented per brand reference
 5. `npm run build` passes; no visual or behavioral regression
 6. All UI changes reviewed through the `/frontend-design` skill for design quality
 
-**Estimated scope:** 1 brand reference doc, 4+ layout components (header, footer, mobile nav, page container), 19 pages audited, 10+ pages adjusted
+**Estimated scope:** 1 brand reference doc, 4+ layout components (header, footer, mobile nav, page container), 21 pages audited, 15+ pages adjusted, dark mode support, page transitions
 
 ---
 
