@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, UtensilsCrossed, Package } from 'lucide-react';
+import { Save, UtensilsCrossed, Package, RefreshCw } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -512,7 +512,14 @@ export function ProductForm({
                   {productType === 'food' && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Production Cost:</span>
-                      <span className="font-medium">{formatCurrency(calculatedValues.productionCost)}</span>
+                      <span className="font-medium flex items-center gap-1">
+                        {formatCurrency(calculatedValues.productionCost)}
+                        {product?.unitCostStaleAt && (
+                          <span title="Cost recalculation in progress">
+                            <RefreshCw className="h-3 w-3 text-amber-500 animate-spin" />
+                          </span>
+                        )}
+                      </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between text-sm">
@@ -592,7 +599,14 @@ export function ProductForm({
 
                 {/* COGS (Read-only) */}
                 <div className="space-y-2">
-                  <Label htmlFor="cogs">COGS</Label>
+                  <Label htmlFor="cogs" className="flex items-center gap-1">
+                    COGS
+                    {product?.unitCostStaleAt && (
+                      <span title="Cost recalculation in progress">
+                        <RefreshCw className="h-3 w-3 text-amber-500 animate-spin" />
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="cogs"
                     value={formatCurrency(cogs)}
