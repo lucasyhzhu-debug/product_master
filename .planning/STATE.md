@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 6 — BOM Migration (IN PROGRESS)
+**Current focus:** Phase 6 — BOM Migration (COMPLETE)
 
 ## Current Position
-Phase: 6 — BOM Migration (IN PROGRESS)
-Current Plan: 02 of 03 (plan 02 complete)
-Last completed: 06-02 (BOM Dual-Read and Stop-Writes)
+Phase: 6 — BOM Migration (COMPLETE)
+Current Plan: 03 of 03 (all plans complete)
+Last completed: 06-03 (BOM Frontend Migration + Schema Cleanup)
 
 ## Phase Readiness
 
@@ -19,14 +19,14 @@ Last completed: 06-02 (BOM Dual-Read and Stop-Writes)
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
 | 4 — Bugs | COMPLETE (all 2 plans done) | None |
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
-| 6 — BOM Migration | IN PROGRESS (plan 01 of 03 done) | None |
+| 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | Blocked | Phase 6 |
 | 8 — Schema Cleanup | Blocked | Phases 6, 7 |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
 ## Parallel Opportunities
-Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phases (7-10) depend on Phase 6 completion.
+Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (Infrastructure) are now unblocked.
 
 ## Session History
 
@@ -50,6 +50,7 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 | 2026-02-13 | 05 | Plan 03 complete | Customers/storageLocations protectedMutation, shipping internal docs, frontend useSessionMutation |
 | 2026-02-14 | 06 | Plan 01 complete | BOM backfill migration + verification query, auto-corrections for Original Single/Triple |
 | 2026-02-14 | 06 | Plan 02 complete | Dual-read pattern in queries/packaging, stop writing deprecated fields in all mutations |
+| 2026-02-14 | 06 | Plan 03 complete | Frontend deprecated field removal, schema optional, BOM migration COMPLETE. Phase 06 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -105,6 +106,11 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 - Packaging mutations use async per-item DB lookups for BOM helpers (not batch -- single item context)
 - menuProducts.create uses empty string/zero defaults for deprecated required schema fields (BOM-04 will relax)
 - Debug query renames deprecated fields with deprecated_ prefix and adds hasBOMData flag
+- Frontend type definitions retain deprecated fields as optional with @deprecated JSDoc for TypeScript compatibility
+- PackageStatusDisplay replaces productionUnits prop with ballsPerPackage for BOM-derived ball count display
+- menuProducts create/update mutations no longer propagate deprecated fields to database
+- Seed data retains deprecated field values with DEPRECATED comments for dev backward compatibility
+- BOM-05 (remove by_production_type on orderItems) already done in Phase 3 QFIX-05, documented not re-executed
 
 ## Performance Metrics
 
@@ -127,7 +133,8 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 | 05 | 03 | 6min | 2 | 7 |
 | 06 | 01 | 3min | 2 | 2 |
 | 06 | 02 | 8min | 2 | 6 |
+| 06 | 03 | 9min | 2 | 7 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 06-02-PLAN.md (BOM dual-read + stop-writes)*
+*Last session stopped at: Completed 06-03-PLAN.md (BOM frontend + schema cleanup). Phase 06 COMPLETE.*
