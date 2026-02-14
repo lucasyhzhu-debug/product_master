@@ -52,8 +52,8 @@ export default defineSchema({
     name: v.string(),
     grams: v.number(),
     defaultPrice: v.number(),
-    productionType: v.string(), // DEPRECATED: Do NOT use. Ball composition is derived from BOM (menuProductComponents + componentTypes). Kept for legacy data only.
-    productionUnits: v.number(), // DEPRECATED: Do NOT use. Ball count per product is derived from BOM. Kept for legacy data only.
+    productionType: v.optional(v.string()), // DEPRECATED: Phase 8 removal. Ball composition from BOM (menuProductComponents + componentTypes).
+    productionUnits: v.optional(v.number()), // DEPRECATED: Phase 8 removal. Ball count from BOM.
     isActive: v.boolean(),
     // PRD-0: Fixed products and COGS tracking
     isFixed: v.optional(v.boolean()), // Cannot be deleted if true
