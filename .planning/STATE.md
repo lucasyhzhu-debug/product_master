@@ -7,8 +7,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 Phase: 9 — UI Brand Consolidation
-Current Plan: 03 of 05
-Last completed: 09-03 (Page Audit Wave 1)
+Current Plan: 04 of 05
+Last completed: 09-04 (Complex Page Audit Wave 2)
 
 ## Phase Readiness
 
@@ -61,6 +61,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 01 complete | ThemeProvider context, teal brand tokens, dark mode CSS, Inter-only fonts, UI brand reference doc (360 lines) |
 | 2026-02-14 | 09 | Plan 02 complete | Layout shell: scroll-hide header, AnimatePresence page transitions, mobile bottom nav, desktop footer, fullWidth route variant |
 | 2026-02-14 | 09 | Plan 03 complete | PageHeader badge slot, 3 custom-header migrations, 8 pages cleaned for padding/colors/spacing consistency |
+| 2026-02-14 | 09 | Plan 04 complete | Dashboard/OrderManager PageHeader migration, 23 files cleaned of terracotta/hardcoded colors, OrderFormPOS Playfair removal |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -177,6 +178,10 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - InventoryManager terracotta gradient replaced with default shadcn primary Button (teal from Plan 01)
 - PageHeader badge prop used for inline status indicators (PackagingView order count)
 - PageHeader action prop used for header-level buttons (K3MartCockpit sync, MenuProductsManager actions)
+- OrderManager window.innerWidth replaced with Tailwind responsive classes (md:hidden/md:flex)
+- Dark summary panels use bg-foreground text-background (replacing removed --color-dark-gradient-from/to vars)
+- Kitchen #E07856 references replaced with station CSS variables (--color-station-packing), not brand vars
+- OrderFormPOS Playfair Display inline style block removed entirely (Inter is site-wide font)
 
 ## Performance Metrics
 
@@ -210,7 +215,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 01 | 5min | 2 | 5 |
 | 09 | 02 | 4min | 2 | 9 |
 | 09 | 03 | 5min | 2 | 11 |
+| 09 | 04 | 6min | 2 | 23 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-03-PLAN.md (page audit wave 1: PageHeader badge, 3 migrations, 8 pages cleaned)*
+*Last session stopped at: Completed 09-04-PLAN.md (complex page audit wave 2: Dashboard/OrderManager PageHeader, 23 files color cleanup)*
