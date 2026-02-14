@@ -16,7 +16,7 @@
 | 3 | Quick Fixes — Tech Debt | Deprecated code, dead files, and redundant indexes removed from the codebase | 5 | Complete (2026-02-13) |
 | 4 | Quick Fixes — Bugs | All known bugs fixed and TODO comments resolved | 2 | Complete (2026-02-13) |
 | 5 | Backend Factories | Shared auth wrappers and query helpers established, proven on simple domains | 4 | Complete (2026-02-13) |
-| 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Pending |
+| 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Complete (2026-02-14) |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Pending |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Pending |
 | 9 | Frontend Factories | Generic hook and UI component factories created and applied to simple CRUD entities | 4 | Pending |
@@ -149,9 +149,9 @@ Plans:
 **Plans:** 3 plans (Wave 1: 06-01; Wave 2: 06-02; Wave 3: 06-03)
 
 Plans:
-- [ ] 06-01-PLAN.md — BOM-06 backfill migration + verification query
-- [ ] 06-02-PLAN.md — BOM-01 dual-read backend queries + BOM-02 stop writing deprecated fields
-- [ ] 06-03-PLAN.md — BOM-03 frontend migration + BOM-04 schema changes + BOM-05 documentation
+- [x] 06-01-PLAN.md — BOM-06 backfill migration + verification query
+- [x] 06-02-PLAN.md — BOM-01 dual-read backend queries + BOM-02 stop writing deprecated fields
+- [x] 06-03-PLAN.md — BOM-03 frontend migration + BOM-04 schema changes + BOM-05 documentation
 
 **Migration sequence (must follow exactly):**
 1. Deploy: BOM-06 backfill migration (ensure BOM data exists) [Plan 01]
