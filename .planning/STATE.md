@@ -3,11 +3,11 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 11 — Infrastructure (IN PROGRESS)
+**Current focus:** Phase 11 — Infrastructure (COMPLETE)
 
 ## Current Position
-Phase: 11 — Infrastructure IN PROGRESS (2/3 plans done)
-Last completed: 11-02 (ProductionLog consolidation: aggregation queries, mutation rewrites, resetCounts via productionResets)
+Phase: 11 — Infrastructure COMPLETE (3/3 plans done)
+Last completed: 11-03 (Frontend switchover to productionLog aggregation, full integrity check, Phase 11 changelog)
 
 ## Phase Readiness
 
@@ -23,10 +23,10 @@ Last completed: 11-02 (ProductionLog consolidation: aggregation queries, mutatio
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
 | 10 — Frontend Factories | COMPLETE (all 3 plans done) | None |
-| 11 — Infrastructure | IN PROGRESS (2/3 plans done) | None |
+| 11 — Infrastructure | COMPLETE (all 3 plans done) | None |
 
 ## Parallel Opportunities
-Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plans 01-02 done, Plan 03 remaining.
+Phases 1-11 COMPLETE. All planned phases done. Ready for merge to main and next milestone planning.
 
 ## Session History
 
@@ -68,6 +68,7 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plans 01-02 done
 | 2026-02-14 | 10 | Plan 03 complete | 5 entity pages migrated to EntityManager (3 existing, 2 new), /customers + /tags routes. Phase 10 COMPLETE. |
 | 2026-02-14 | 11 | Plan 01 complete | Schema tables (integrityCheckLogs, productionResets), productionLog GoFood actions, weekly cron, dependency audit with 6 upgrades |
 | 2026-02-14 | 11 | Plan 02 complete | ProductionLog aggregation queries, removed all productionCounts writes, resetCounts via productionResets |
+| 2026-02-14 | 11 | Plan 03 complete | Frontend switchover to productionLog, full integrity check, Phase 11 CHANGELOG. Phase 11 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -208,6 +209,8 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plans 01-02 done
 - return_goldfinch log entries add to stickered total (items returned from Goldfinch become available for re-stickering)
 - Kitchen mutations read aggregated counts for validation before writing log entries (prevents invalid state transitions)
 - kitchenQueries pre-fetches orderItems and aggregates only for referenced menuProductIds (not all active products)
+- productionCounts table is now fully archived -- no reads or writes from frontend or backend mutations
+- Integrity check mismatches are expected and informational since productionLog is authoritative (dual-write historical discrepancies)
 
 ## Performance Metrics
 
@@ -248,8 +251,9 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plans 01-02 done
 | 10 | 03 | 8min | 3 | 8 |
 | 11 | 01 | 5min | 2 | 7 |
 | 11 | 02 | 9min | 2 | 8 |
+| 11 | 03 | 4min | 2 | 4 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 11-02-PLAN.md (productionLog consolidation). Phase 11 plan 2/3 done.*
+*Last session stopped at: Completed 11-03-PLAN.md (frontend switchover + integrity check). Phase 11 COMPLETE (3/3 plans). All 11 phases done.*
 
