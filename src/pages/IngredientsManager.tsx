@@ -107,7 +107,7 @@ export function IngredientsManager() {
   const handleDelete = async () => {
     if (deleteId !== null) {
       try {
-        await deleteMutation.mutate(deleteId as Id<"ingredients">);
+        await deleteMutation.mutate({ id: deleteId as Id<"ingredients"> });
         setShowDeleteDialog(false);
         setDeleteId(null);
       } catch {

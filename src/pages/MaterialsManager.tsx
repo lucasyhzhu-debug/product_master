@@ -107,7 +107,7 @@ export function MaterialsManager() {
   const handleDelete = async () => {
     if (deleteId !== null) {
       try {
-        await deleteMutation.mutate(deleteId as Id<"packagingMaterials">);
+        await deleteMutation.mutate({ id: deleteId as Id<"packagingMaterials"> });
         setShowDeleteDialog(false);
         setDeleteId(null);
       } catch {
