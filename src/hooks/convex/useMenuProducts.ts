@@ -57,6 +57,7 @@ function transformMenuProduct(product: ConvexMenuProduct): MenuProduct {
     default_price: product.defaultPrice,
     is_active: product.isActive ?? true,
     created_at: new Date(product._creationTime).toISOString(),
+    cached_production_summary: product.cachedProductionSummary,
   };
 }
 
