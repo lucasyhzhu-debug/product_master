@@ -6,8 +6,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 **Current focus:** Phase 10 — Frontend Factories (READY)
 
 ## Current Position
-Phase: 10 — Frontend Factories IN PROGRESS
-Last completed: 10-02 (EntityManager generic CRUD component)
+Phase: 10 — Frontend Factories COMPLETE
+Last completed: 10-03 (5 entity pages migrated to EntityManager)
 
 ## Phase Readiness
 
@@ -22,7 +22,7 @@ Last completed: 10-02 (EntityManager generic CRUD component)
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
-| 10 — Frontend Factories | IN PROGRESS (2/3 plans done) | None |
+| 10 — Frontend Factories | COMPLETE (all 3 plans done) | None |
 
 ## Parallel Opportunities
 Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are now unblocked and ready for execution.
@@ -64,6 +64,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 05 complete | Skeleton screens, dark mode re-enabled (ThemeContext + 60 CSS vars), kitchen 20-file color migration, 22-file non-kitchen dark fixes, header redesign (role-colored pill). Phase 09 COMPLETE. |
 | 2026-02-14 | 10 | Plan 02 complete | EntityManager generic CRUD component, shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection, search, sort |
 | 2026-02-14 | 10 | Plan 01 complete | createMutationHook factory, 5 entity hooks migrated, customer transform removed, StorageLocations toasts added |
+| 2026-02-14 | 10 | Plan 03 complete | 5 entity pages migrated to EntityManager (3 existing, 2 new), /customers + /tags routes. Phase 10 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -194,6 +195,9 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Customer transform layer removed entirely -- order forms updated to use raw Convex _id directly
 - useConvexSeedTags kept as standalone hook (useMutation not useSessionMutation -- public mutation, no sessionId)
 - LocationsManager inline toasts removed in favor of factory-provided toast notifications
+- [Phase 10-03]: transformFormData converts empty strings to undefined for optional mutation fields
+- [Phase 10-03]: LocationsManager uses Badge renders in columns for type and status display
+- [Phase 10-03]: TagsManager defaults to card view with undo support (no referential deps)
 
 ## Performance Metrics
 
@@ -231,7 +235,9 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 05 | 15min | 2 | 44 |
 | 10 | 02 | 5min | 2 | 5 |
 | 10 | 01 | 7min | 2 | 10 |
+| 10 | 03 | 8min | 3 | 8 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 10-01-PLAN.md (createMutationHook factory, 5 entity hook migrations, customer transform removal). Phase 10 plan 2/3 done (01+02 complete, 03 remaining).*
+*Last session stopped at: Completed 10-03-PLAN.md (5 entity pages migrated to EntityManager). Phase 10 COMPLETE (all 3 plans done).*
+
