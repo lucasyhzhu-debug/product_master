@@ -52,6 +52,7 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 2026-02-14 | 06 | Plan 02 complete | Dual-read pattern in queries/packaging, stop writing deprecated fields in all mutations |
 | 2026-02-14 | 06 | Plan 03 complete | Frontend deprecated field removal, schema optional, BOM migration COMPLETE. Phase 06 COMPLETE. |
 | 2026-02-14 | 07 | Plan 01 complete | isKitchenVisible denorm + by_kitchen_visible index, per-order indexed lookups, optimized kitchen/dashboard queries |
+| 2026-02-14 | 07 | Plan 02 complete | Eager COGS caching: invalidateMenuProductCosts cascade, stale badge, recalculateAllCosts admin button with diff dialog |
 | 2026-02-14 | 07 | Plan 03 complete | Cursor-based pagination for orders/inventory/production/revenue, Load More UI in OrderManager. Phase 07 COMPLETE. |
 
 ## Decisions
@@ -121,6 +122,11 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 - Dashboard entity counts parallelized with Promise.all
 - confirmPayment mutation does not exist -- payment confirmation goes through updateStatus
 - Pre-existing fifo.test.ts failure (by_batch index) from Phase 3 QFIX-05, not related to query optimization
+- unitCost stores production-only COGS (breakdown.production), packaging costs excluded per user decision
+- Stale marker (unitCostStaleAt) set synchronously on componentType cost change, cleared after async recalculation
+- recalculateAllCosts returns diff array with productId, name, oldCost, newCost, delta for changed products
+- Stale badge in list cards only -- edit form uses live-calculated costs from component rows, not cached unitCost
+- Recalculate Costs button visible only to admin role
 - Paginated queries support single status only (not arrays) due to Convex filter() + paginate() limitation
 - OrderManager dual-hook pattern: paginated for All view, non-paginated for category tabs
 - useConvexOrders accepts "skip" string to disable query when paginated hook is active
@@ -150,6 +156,7 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 06 | 02 | 8min | 2 | 6 |
 | 06 | 03 | 9min | 2 | 7 |
 | 07 | 01 | 7min | 2 | 11 |
+| 07 | 02 | 8min | 2 | 5 |
 | 07 | 03 | 7min | 2 | 7 |
 
 ---
