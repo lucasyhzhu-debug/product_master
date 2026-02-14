@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 8 — Schema Cleanup (IN PROGRESS)
+**Current focus:** Phase 8 — Schema Cleanup (COMPLETE)
 
 ## Current Position
 Phase: 8 — Schema Cleanup
-Current Plan: 03 of 04
-Last completed: 08-03 (Schema Cleanup Migrations)
+Current Plan: 04 of 04
+Last completed: 08-04 (Schema Tightening Deploy 2)
 
 ## Phase Readiness
 
@@ -21,12 +21,12 @@ Last completed: 08-03 (Schema Cleanup Migrations)
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
-| 8 — Schema Cleanup | IN PROGRESS (3 of 4 plans done) | None |
-| 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
-| 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
+| 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
+| 9 — Frontend Factories | Ready | None |
+| 10 — Infrastructure | Ready | None |
 
 ## Parallel Opportunities
-Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (Infrastructure) are now unblocked.
+Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are now unblocked and ready for execution.
 
 ## Session History
 
@@ -57,6 +57,7 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 2026-02-14 | 08 | Plan 01 complete | Schema field audit: 215 fields categorized A/B/C/D, 55 denormalization annotations in schema.ts, SCHEMA_AUDIT.md created |
 | 2026-02-14 | 08 | Plan 02 complete | Removed all deprecated field code refs (productionType/productionUnits/isFixed), posSlot deletion guard, dead hook deleted |
 | 2026-02-14 | 08 | Plan 03 complete | 9 migration functions: 6 backfill (Cat B) + 2 cleanup (Cat C) + 1 verify query in schemaCleanup.ts |
+| 2026-02-14 | 08 | Plan 04 complete | 13 fields tightened, 5 deprecated fields removed, migration file AnyDoc casts, build passes. Phase 08 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -152,6 +153,12 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 - orders.finalTotal backfill: totalAmount - (orderLevelDiscount ?? 0)
 - kitchenInventory.updatedBy defaults to "system" for backfilled records
 - verifyCleanupComplete checks both Category B (backfilled) and Category C (cleared) fields plus packagingMaterials
+- Migration files use AnyDoc cast pattern to reference removed schema fields post-tightening
+- menuProducts create defaults: unitCost=0, cachedProductionSummary="", productType="food"
+- kitchenInventory auto-create defaults: updatedBy="system"
+- productionUnitTypes create color default: "#93C572" (green)
+- seedFixedProducts updated with required cachedProductionSummary and productType per product
+- updateCachedProductionSummary sets empty string (not undefined) when no components exist
 
 ## Performance Metrics
 
@@ -181,7 +188,8 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 08 | 01 | 7min | 2 | 3 |
 | 08 | 02 | 7min | 2 | 8 |
 | 08 | 03 | 3min | 2 | 1 |
+| 08 | 04 | 4min | 2 | 11 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 08-03-PLAN.md (schema cleanup migration functions).*
+*Last session stopped at: Completed 08-04-PLAN.md (schema tightening deploy 2). Phase 08 COMPLETE.*
