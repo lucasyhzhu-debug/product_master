@@ -20,8 +20,9 @@ export default defineSchema({
     priceExclShipping: v.number(),
     shippingCost: v.number(),
     createdBy: v.string(),
-    // Denormalized for fast queries
+    // CACHE: Calculated from price/volume/shipping. Updated: on ingredient edit.
     costPerBaseUnit: v.optional(v.number()),
+    // CACHE: Derived from unitType (kg->g, l->ml). Updated: on ingredient edit.
     baseUnit: v.optional(v.string()),
   })
     .index("by_name", ["name"]),
@@ -36,8 +37,9 @@ export default defineSchema({
     priceExclShipping: v.number(),
     shippingCost: v.number(),
     createdBy: v.string(),
-    // Denormalized
+    // CACHE: Calculated from price/volume/shipping. Updated: on material edit.
     costPerBaseUnit: v.optional(v.number()),
+    // CACHE: Derived from unitType. Updated: on material edit.
     baseUnit: v.optional(v.string()),
   })
     .index("by_name", ["name"]),
@@ -57,13 +59,14 @@ export default defineSchema({
     isActive: v.boolean(),
     // PRD-0: Fixed products and COGS tracking
     isFixed: v.optional(v.boolean()), // Cannot be deleted if true
-    unitCost: v.optional(v.number()), // COGS in IDR
-    // PRD-5: Cached production summary for display
-    cachedProductionSummary: v.optional(v.string()), // e.g., "1 Big, 2 Mid"
+    // CACHE: Production COGS from BOM. Source: componentTypes.unitCostIdr via menuProductComponents. Updated: by recalculateAllCosts or invalidateMenuProductCosts.
+    unitCost: v.optional(v.number()),
+    // CACHE: Human-readable BOM summary (e.g., "1 Big, 2 Mid"). Source: menuProductComponents + componentTypes. Updated: on BOM change.
+    cachedProductionSummary: v.optional(v.string()),
     // PRD-8: POS slot assignment (positive integer, or undefined for unassigned)
     // Only products with posSlot appear on POS. Unique per slot.
     posSlot: v.optional(v.number()),
-    // Query optimization: timestamp when unit cost was marked stale (for COGS cache in Plan 02)
+    // CACHE: Timestamp when unitCost was marked stale. Cleared after recalculation. Source: set on componentType cost change.
     unitCostStaleAt: v.optional(v.number()),
     // BOM Refactor: Packaging POS slot (positive integer) for packaging-only products
     packagingPosSlot: v.optional(v.number()),
@@ -139,9 +142,11 @@ export default defineSchema({
     isReusableComponent: v.boolean(),
     copiedFromVersionId: v.optional(v.id("recipeVersions")),
     createdBy: v.string(),
-    // CACHED COSTS - Hybrid approach
+    // CACHE: Sum of component costs. Source: componentIngredients. Updated: on cost invalidation.
     cachedTotalCost: v.optional(v.number()),
+    // CACHE: cachedTotalCost / estimatedYieldGrams. Source: componentIngredients. Updated: on cost invalidation.
     cachedCostPerGram: v.optional(v.number()),
+    // CACHE: Timestamp of last cost recalculation.
     costCacheUpdatedAt: v.optional(v.number()),
   })
     .index("by_recipe", ["recipeId"])
@@ -153,7 +158,7 @@ export default defineSchema({
     sortOrder: v.number(),
     componentName: v.string(),
     linkedRecipeVersionId: v.optional(v.id("recipeVersions")),
-    // CACHED - for display
+    // CACHE: Sum of ingredient line costs. Source: componentIngredients. Updated: on cost invalidation.
     cachedSubtotalCost: v.optional(v.number()),
   })
     .index("by_version", ["recipeVersionId"])
@@ -165,8 +170,9 @@ export default defineSchema({
     sortOrder: v.number(),
     unit: v.string(), // g, kg, ml, l, pcs
     quantity: v.number(),
-    // Denormalized for display
+    // SNAPSHOT: From ingredients.name at creation. Never updated after.
     ingredientName: v.optional(v.string()),
+    // CACHE: ingredientCost * quantity. Source: ingredients.costPerBaseUnit. Updated: on cost invalidation.
     cachedLineCost: v.optional(v.number()),
   })
     .index("by_component", ["recipeComponentId"])
@@ -190,8 +196,9 @@ export default defineSchema({
     description: v.optional(v.string()),
     copiedFromVersionId: v.optional(v.id("packagingVersions")),
     createdBy: v.string(),
-    // CACHED
+    // CACHE: Sum of material costs. Source: packagingComponentMaterials. Updated: on cost invalidation.
     cachedTotalCost: v.optional(v.number()),
+    // CACHE: Timestamp of last cost recalculation.
     costCacheUpdatedAt: v.optional(v.number()),
   })
     .index("by_packaging", ["packagingRecipeId"])
@@ -201,6 +208,7 @@ export default defineSchema({
     packagingVersionId: v.id("packagingVersions"),
     sortOrder: v.number(),
     componentName: v.string(),
+    // CACHE: Sum of material line costs. Source: packagingComponentMaterials. Updated: on cost invalidation.
     cachedSubtotalCost: v.optional(v.number()),
   })
     .index("by_version", ["packagingVersionId"]),
@@ -211,8 +219,9 @@ export default defineSchema({
     sortOrder: v.number(),
     unit: v.string(), // pcs, m, cm, sheets
     quantity: v.number(),
-    // Denormalized
+    // SNAPSHOT: From packagingMaterials.name at creation. Never updated after.
     materialName: v.optional(v.string()),
+    // CACHE: materialCost * quantity. Source: packagingMaterials.costPerBaseUnit. Updated: on cost invalidation.
     cachedLineCost: v.optional(v.number()),
   })
     .index("by_component", ["packagingComponentId"])
@@ -241,12 +250,15 @@ export default defineSchema({
     gramsPerPiece: v.number(),
     copiedFromVersionId: v.optional(v.id("productVersions")),
     createdBy: v.string(),
-    // Denormalized for display
+    // SNAPSHOT: From recipes.name at version creation. Never updated after.
     recipeName: v.optional(v.string()),
+    // SNAPSHOT: From recipeVersions.versionName at version creation. Never updated after.
     recipeVersionName: v.optional(v.string()),
+    // SNAPSHOT: From packagingRecipes.name at version creation. Never updated after.
     packagingName: v.optional(v.string()),
+    // SNAPSHOT: From packagingVersions.versionName at version creation. Never updated after.
     packagingVersionName: v.optional(v.string()),
-    // CACHED COGS
+    // CACHE: COGS breakdown. Source: recipeVersions + packagingVersions costs. Updated: on cost invalidation.
     cachedCogs: v.optional(v.object({
       totalGrams: v.number(),
       recipeCogs: v.optional(v.number()),
@@ -255,6 +267,7 @@ export default defineSchema({
       contributionMargin: v.optional(v.number()),
       contributionMarginPct: v.optional(v.number()),
     })),
+    // CACHE: Timestamp of last COGS recalculation.
     cogsCacheUpdatedAt: v.optional(v.number()),
   })
     .index("by_product", ["productId"])
@@ -279,8 +292,9 @@ export default defineSchema({
   orders: defineTable({
     orderNumber: v.string(),
     customerId: v.id("customers"),
-    // Denormalized customer info for list queries
+    // SNAPSHOT: Copied from customers.name at order creation. Never updated after.
     customerName: v.string(),
+    // SNAPSHOT: Copied from customers.phone at order creation. Never updated after.
     customerPhone: v.optional(v.string()),
 
     // PRD-0: Status workflow with type-safe unions
@@ -315,9 +329,11 @@ export default defineSchema({
     orderDate: v.number(), // timestamp
     dueDate: v.optional(v.number()),
 
-    // Totals (denormalized)
+    // DERIVED: Sum of orderItems.lineTotal. Updated on item add/remove/edit.
     totalAmount: v.number(),
+    // DERIVED: Sum of orderItems.lineCost. Updated on item add/remove/edit.
     totalCost: v.number(),
+    // DERIVED: totalAmount - totalCost. Updated on item add/remove/edit.
     totalMargin: v.number(),
 
     // PRD-0: Order-level discount
@@ -326,12 +342,15 @@ export default defineSchema({
       v.literal("amount"),
       v.literal("percentage")
     )),
-    finalTotal: v.optional(v.number()), // totalAmount - discount
+    // DERIVED: totalAmount - orderLevelDiscount. Updated on discount change.
+    finalTotal: v.optional(v.number()),
 
     // Voucher tracking (optional - only if voucher applied)
     voucherId: v.optional(v.id("vouchers")),
-    voucherCode: v.optional(v.string()), // Snapshot of code at order time
-    voucherDiscountValue: v.optional(v.number()), // Calculated discount snapshot
+    // SNAPSHOT: Copied from vouchers.code at order creation. Never updated after.
+    voucherCode: v.optional(v.string()),
+    // SNAPSHOT: Calculated discount at order creation. Never updated after.
+    voucherDiscountValue: v.optional(v.number()),
     lowPriceConfirmed: v.optional(v.boolean()), // True if user confirmed < 20k order
 
     // Sales tracking - Channel with type-safe union
@@ -377,15 +396,12 @@ export default defineSchema({
     notes: v.optional(v.string()),
     createdBy: v.string(),
 
-    // Denormalized count
+    // DERIVED: Count of orderItems for this order. Updated on item add/remove.
     itemCount: v.number(),
 
-    // Query optimization: denormalized kitchen visibility flag
-    // True for statuses visible in kitchen view (Draft, Confirmed, InProduction, Packaging, Boxed, Labeled, WaitingShipment, WaitingPickup)
-    // False for AwaitingPayment, ProductionComplete, CompleteShipped, PickedUp, Cancelled
+    // DERIVED: Computed from status. Set on every status transition. Source: statusTransitions.ts computeKitchenVisibility().
     isKitchenVisible: v.optional(v.boolean()),
-    // Timestamp when order reached terminal status (CompleteShipped/PickedUp/Cancelled)
-    // Used by kitchen query to show completed-today orders at bottom until end of day
+    // DERIVED: Set when order reaches terminal status (CompleteShipped/PickedUp/Cancelled). Cleared on revert.
     completedAt: v.optional(v.number()),
   })
     .index("by_order_number", ["orderNumber"])
@@ -398,16 +414,20 @@ export default defineSchema({
 
   orderItems: defineTable({
     orderId: v.id("orders"),
-    // Product info (standalone - no FK to product)
+    // SNAPSHOT: From manual entry or menuProducts.name at item creation. Never updated after.
     productName: v.string(),
     productVariant: v.optional(v.string()),
     quantity: v.number(),
+    // SNAPSHOT: From manual entry or menuProducts.defaultPrice at item creation. Never updated after.
     unitPrice: v.number(),
+    // SNAPSHOT: From menuProducts.unitCost at item creation. Never updated after.
     unitCost: v.number(),
     discountAmount: v.number(),
-    // Calculated totals (stored for reporting)
+    // DERIVED: quantity * unitPrice - discountAmount. Computed at creation/update.
     lineTotal: v.number(),
+    // DERIVED: quantity * unitCost. Computed at creation/update.
     lineCost: v.number(),
+    // DERIVED: lineTotal - lineCost. Computed at creation/update.
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
@@ -447,13 +467,15 @@ export default defineSchema({
   orderItemProduction: defineTable({
     orderItemId: v.id("orderItems"),
     productionUnitTypeId: v.id("productionUnitTypes"),
-    // Snapshot at order creation (for historical accuracy)
+    // SNAPSHOT: From productionUnitTypes.code at order confirmation. Never updated after.
     productionUnitCode: v.string(), // "BIG_BALL", "MID_BALL"
+    // SNAPSHOT: From productionUnitTypes.name at order confirmation. Never updated after.
     productionUnitName: v.string(), // "Big Ball", "Mid Ball"
     // Production tracking
     unitsRequired: v.number(), // Total needed (orderItem.quantity * component.quantity)
     unitsCompleted: v.number(), // How many have been produced
-    unitsRemaining: v.number(), // unitsRequired - unitsCompleted
+    // DERIVED: unitsRequired - unitsCompleted. Updated on each ball completion.
+    unitsRemaining: v.number(),
     // PRD-7: Cancellation flag for soft delete
     isCancelled: v.optional(v.boolean()),
   })
@@ -840,7 +862,8 @@ export default defineSchema({
     // Quantities
     quantityPurchased: v.number(), // 2000 stickers
     totalCostIdr: v.number(), // Rp 100,000 for the batch
-    unitCostIdr: v.number(), // Rp 50 per sticker (calculated)
+    // DERIVED: totalCostIdr / quantityPurchased. Computed at batch creation.
+    unitCostIdr: v.number(),
 
     // FIFO tracking
     quantityRemaining: v.number(), // How many left in this batch
@@ -869,20 +892,23 @@ export default defineSchema({
     componentTypeId: v.id("componentTypes"),
     locationId: v.id("storageLocations"),
 
-    // Aggregated from all active batches
-    totalStock: v.number(), // Sum of quantityRemaining
-    totalReserved: v.number(), // Sum of quantityReserved
+    // CACHE: Sum of inventoryBatches.quantityRemaining. Updated: on batch change.
+    totalStock: v.number(),
+    // CACHE: Sum of inventoryBatches.quantityReserved. Updated: on reservation change.
+    totalReserved: v.number(),
     // Available = totalStock - totalReserved
 
-    // Weighted average cost (for COGS display)
-    weightedUnitCostIdr: v.number(), // Σ(qty × cost) / Σ(qty)
+    // CACHE: Weighted average cost from active batches. Updated: on batch change.
+    weightedUnitCostIdr: v.number(),
 
-    // Latest batch info (LIFO for reordering)
+    // CACHE: From most recent inventoryBatch. Updated: on new batch.
     latestSupplierName: v.optional(v.string()),
+    // CACHE: From most recent inventoryBatch. Updated: on new batch.
     latestPurchaseUrl: v.optional(v.string()),
+    // CACHE: From most recent inventoryBatch. Updated: on new batch.
     latestUnitCostIdr: v.optional(v.number()),
 
-    // BOM Refactor: Snapshot of totalStock after last restock (for % alarm calculation)
+    // CACHE: Snapshot of totalStock at last restock. Updated: on restock.
     lastRestockTotalStock: v.optional(v.number()),
 
     lastUpdated: v.number(),
@@ -978,6 +1004,7 @@ export default defineSchema({
     snapshotAt: v.number(),
     externalProductId: v.string(),
     externalProductCode: v.string(),
+    // SNAPSHOT: From external API at snapshot time. Never updated after.
     productName: v.string(),
     quantity: v.number(),
     price: v.number(),
@@ -1212,7 +1239,9 @@ export default defineSchema({
     menuProductId: v.id("menuProducts"),
     externalProductId: v.string(),
     quantity: v.number(),
+    // SNAPSHOT: Price at K3Mart submission time. Never updated after.
     priceAtSubmission: v.number(),
+    // SNAPSHOT: Stock level at K3Mart submission time. Never updated after.
     currentStockAtSubmission: v.number(),
     source: v.optional(v.union(v.literal("kitchen"), v.literal("goldfinch"), v.literal("outlet"))),
     k3martRequestId: v.optional(v.number()),

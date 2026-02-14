@@ -1049,3 +1049,87 @@ const activeOrders = await ctx.db
   .order("desc")
   .take(10);
 ```
+
+---
+
+## Denormalization Patterns
+
+This project uses three categories of denormalized data. All patterns are annotated inline in `convex/schema.ts` with formal `SNAPSHOT:`, `CACHE:`, or `DERIVED:` comments.
+
+For the complete field audit and categorization of all 215 `v.optional()` fields, see `docs/SCHEMA_AUDIT.md`.
+
+### SNAPSHOT (frozen at creation, never updated)
+
+Data copied from a source record at creation time. The snapshot preserves the value as it was when the event occurred, even if the source record changes later.
+
+| Table | Field | Source | Captured At |
+|-------|-------|--------|-------------|
+| orders | customerName | customers.name | Order creation |
+| orders | customerPhone | customers.phone | Order creation |
+| orders | voucherCode | vouchers.code | Order creation |
+| orders | voucherDiscountValue | Calculated from voucher | Order creation |
+| orderItems | productName | Manual entry or menuProducts.name | Item creation |
+| orderItems | unitPrice | Manual entry or menuProducts.defaultPrice | Item creation |
+| orderItems | unitCost | menuProducts.unitCost | Item creation |
+| orderItemProduction | productionUnitCode | productionUnitTypes.code | Order confirmation |
+| orderItemProduction | productionUnitName | productionUnitTypes.name | Order confirmation |
+| componentIngredients | ingredientName | ingredients.name | Component creation |
+| packagingComponentMaterials | materialName | packagingMaterials.name | Component creation |
+| productVersions | recipeName | recipes.name | Version creation |
+| productVersions | recipeVersionName | recipeVersions.versionName | Version creation |
+| productVersions | packagingName | packagingRecipes.name | Version creation |
+| productVersions | packagingVersionName | packagingVersions.versionName | Version creation |
+| externalStockSnapshots | productName | External API | Snapshot time |
+| k3martStockMovements | priceAtSubmission | K3Mart state | Submission time |
+| k3martStockMovements | currentStockAtSubmission | K3Mart state | Submission time |
+
+### CACHE (refreshable/invalidatable)
+
+Computed values stored for query performance. These can be recalculated from their source data at any time.
+
+| Table | Field | Source | Updated When |
+|-------|-------|--------|--------------|
+| ingredients | costPerBaseUnit | price/volume/shipping formula | On ingredient edit |
+| ingredients | baseUnit | Derived from unitType | On ingredient edit |
+| packagingMaterials | costPerBaseUnit | price/volume/shipping formula | On material edit |
+| packagingMaterials | baseUnit | Derived from unitType | On material edit |
+| recipeVersions | cachedTotalCost | componentIngredients sum | On cost invalidation |
+| recipeVersions | cachedCostPerGram | cachedTotalCost / yield | On cost invalidation |
+| recipeVersions | costCacheUpdatedAt | Timestamp | On cost invalidation |
+| recipeComponents | cachedSubtotalCost | componentIngredients sum | On cost invalidation |
+| componentIngredients | cachedLineCost | ingredientCost * quantity | On cost invalidation |
+| packagingVersions | cachedTotalCost | packagingComponentMaterials sum | On cost invalidation |
+| packagingVersions | costCacheUpdatedAt | Timestamp | On cost invalidation |
+| packagingComponents | cachedSubtotalCost | packagingComponentMaterials sum | On cost invalidation |
+| packagingComponentMaterials | cachedLineCost | materialCost * quantity | On cost invalidation |
+| productVersions | cachedCogs | recipeVersions + packagingVersions | On cost invalidation |
+| productVersions | cogsCacheUpdatedAt | Timestamp | On cost invalidation |
+| menuProducts | unitCost | BOM via componentTypes.unitCostIdr | On recalculateAllCosts |
+| menuProducts | unitCostStaleAt | Staleness marker | On componentType cost change |
+| menuProducts | cachedProductionSummary | menuProductComponents + componentTypes | On BOM change |
+| componentStock | totalStock | inventoryBatches.quantityRemaining | On batch change |
+| componentStock | totalReserved | inventoryBatches.quantityReserved | On reservation change |
+| componentStock | weightedUnitCostIdr | Weighted average from batches | On batch change |
+| componentStock | latestSupplierName | Most recent batch | On new batch |
+| componentStock | latestPurchaseUrl | Most recent batch | On new batch |
+| componentStock | latestUnitCostIdr | Most recent batch | On new batch |
+| componentStock | lastRestockTotalStock | totalStock snapshot | On restock |
+
+### DERIVED (computed from other fields)
+
+Values computed from other fields in the same or related records. Updated as part of the same write operation that changes the source fields.
+
+| Table | Field | Derivation | Updated When |
+|-------|-------|------------|--------------|
+| orders | totalAmount | Sum of orderItems.lineTotal | On item add/remove/edit |
+| orders | totalCost | Sum of orderItems.lineCost | On item add/remove/edit |
+| orders | totalMargin | totalAmount - totalCost | On item add/remove/edit |
+| orders | finalTotal | totalAmount - orderLevelDiscount | On discount change |
+| orders | itemCount | Count of orderItems | On item add/remove |
+| orders | isKitchenVisible | From status via computeKitchenVisibility() | On status transition |
+| orders | completedAt | Set on terminal status | On CompleteShipped/PickedUp/Cancelled |
+| orderItems | lineTotal | quantity * unitPrice - discountAmount | On creation/update |
+| orderItems | lineCost | quantity * unitCost | On creation/update |
+| orderItems | lineMargin | lineTotal - lineCost | On creation/update |
+| orderItemProduction | unitsRemaining | unitsRequired - unitsCompleted | On ball completion |
+| inventoryBatches | unitCostIdr | totalCostIdr / quantityPurchased | On batch creation |
