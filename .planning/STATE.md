@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 6 — BOM Migration (COMPLETE)
+**Current focus:** Phase 7 — Query Optimization (IN PROGRESS)
 
 ## Current Position
-Phase: 6 — BOM Migration (COMPLETE)
-Current Plan: 03 of 03 (all plans complete)
-Last completed: 06-03 (BOM Frontend Migration + Schema Cleanup)
+Phase: 7 — Query Optimization
+Current Plan: 01 of 03 (plan 01 complete)
+Last completed: 07-01 (N+1 Query Elimination + Kitchen Denormalization)
 
 ## Phase Readiness
 
@@ -20,7 +20,7 @@ Last completed: 06-03 (BOM Frontend Migration + Schema Cleanup)
 | 4 — Bugs | COMPLETE (all 2 plans done) | None |
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
-| 7 — Query Optimization | Blocked | Phase 6 |
+| 7 — Query Optimization | IN PROGRESS (1/3 plans done) | None |
 | 8 — Schema Cleanup | Blocked | Phases 6, 7 |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
@@ -51,6 +51,7 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 | 2026-02-14 | 06 | Plan 01 complete | BOM backfill migration + verification query, auto-corrections for Original Single/Triple |
 | 2026-02-14 | 06 | Plan 02 complete | Dual-read pattern in queries/packaging, stop writing deprecated fields in all mutations |
 | 2026-02-14 | 06 | Plan 03 complete | Frontend deprecated field removal, schema optional, BOM migration COMPLETE. Phase 06 COMPLETE. |
+| 2026-02-14 | 07 | Plan 01 complete | isKitchenVisible denorm + by_kitchen_visible index, per-order indexed lookups, optimized kitchen/dashboard queries |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -111,6 +112,14 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 - menuProducts create/update mutations no longer propagate deprecated fields to database
 - Seed data retains deprecated field values with DEPRECATED comments for dev backward compatibility
 - BOM-05 (remove by_production_type on orderItems) already done in Phase 3 QFIX-05, documented not re-executed
+- isKitchenVisible set at every status mutation point including revert handlers and auto-transition helpers
+- completedAt set on terminal transitions (CompleteShipped/PickedUp/Cancelled), cleared on revert
+- Kitchen query: by_kitchen_visible index for active orders + terminal status fetch for completed-today (completedAt >= midnight)
+- batchFetching uses Promise.all per-order indexed lookups (scales with active orders, not total history)
+- getProductSuggestions bounded to take(500) for recent unique suggestions
+- Dashboard entity counts parallelized with Promise.all
+- confirmPayment mutation does not exist -- payment confirmation goes through updateStatus
+- Pre-existing fifo.test.ts failure (by_batch index) from Phase 3 QFIX-05, not related to query optimization
 
 ## Performance Metrics
 
@@ -134,7 +143,8 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 | 06 | 01 | 3min | 2 | 2 |
 | 06 | 02 | 8min | 2 | 6 |
 | 06 | 03 | 9min | 2 | 7 |
+| 07 | 01 | 7min | 2 | 11 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 06-03-PLAN.md (BOM frontend + schema cleanup). Phase 06 COMPLETE.*
+*Last session stopped at: Completed 07-01-PLAN.md (N+1 query elimination + kitchen denormalization).*
