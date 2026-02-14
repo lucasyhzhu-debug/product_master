@@ -2,13 +2,62 @@
  * Packaging Operations mutations
  * Per-package tracking and completion
  */
-import { mutation } from "../../_generated/server";
+import { mutation, type MutationCtx } from "../../_generated/server";
 import { v } from "convex/values";
+import type { Doc } from "../../_generated/dataModel";
 
 // Pure helpers
 import { calculatePackageStatus } from "../helpers";
 // Ctx-dependent helpers
 import { logOrderEvent, transitionToBoxed, transitionToInProduction } from "../helpers/index";
+
+// ============================================
+// BOM-01: Dual-read helpers for packaging
+// ============================================
+
+/**
+ * Get balls per package for an order item.
+ * NEW system: derives from orderItemProduction records.
+ * FALLBACK: uses deprecated productionUnits for historical orders.
+ */
+async function getBallsPerPackageForItem(
+  ctx: MutationCtx,
+  item: Doc<"orderItems">
+): Promise<number> {
+  const records = await ctx.db
+    .query("orderItemProduction")
+    .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+    .collect();
+
+  const activeRecords = records.filter(r => !r.isCancelled);
+  if (activeRecords.length > 0 && item.quantity > 0) {
+    const totalUnits = activeRecords.reduce((sum, r) => sum + r.unitsRequired, 0);
+    return totalUnits / item.quantity;
+  }
+
+  // Fallback for historical orders without production records
+  return item.productionUnits ?? 1;
+}
+
+/**
+ * Check if an order item has production data (is a production item, not packaging-only).
+ * NEW system: checks for active orderItemProduction records.
+ * FALLBACK: checks deprecated productionType field.
+ */
+async function hasProductionData(
+  ctx: MutationCtx,
+  item: Doc<"orderItems">
+): Promise<boolean> {
+  const records = await ctx.db
+    .query("orderItemProduction")
+    .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+    .collect();
+
+  if (records.some(r => !r.isCancelled)) return true;
+
+  // Fallback: check deprecated field for historical orders
+  return !!item.productionType;
+}
 
 // ============================================
 // Mutations
@@ -43,8 +92,8 @@ export const markPackagePacked = mutation({
       throw new Error(`Invalid package index ${packageIndex}. Must be 0 to ${quantity - 1}`);
     }
 
-    // Check if balls are filled for this package
-    const ballsPerPackage = item.productionUnits ?? 1;
+    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
     const ballsForThisPackage = Math.min(
       Math.max(0, ballsFilled - (packageIndex * ballsPerPackage)),
@@ -85,8 +134,13 @@ export const markPackagePacked = mutation({
       .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
       .collect();
 
-    // Filter to items with production data
-    const productionItems = allItems.filter((i) => i.productionType);
+    // BOM-01: Filter to items with production data (async dual-read)
+    const productionItems: typeof allItems = [];
+    for (const i of allItems) {
+      if (await hasProductionData(ctx, i)) {
+        productionItems.push(i);
+      }
+    }
 
     // Check if all items are fully packed (all packages in each item)
     const allItemsPacked = productionItems.every((i) => {
@@ -142,8 +196,13 @@ export const completePackaging = mutation({
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
       .collect();
 
-    // Filter to items with production data
-    const productionItems = allItems.filter((i) => i.productionType);
+    // BOM-01: Filter to items with production data (async dual-read)
+    const productionItems: typeof allItems = [];
+    for (const i of allItems) {
+      if (await hasProductionData(ctx, i)) {
+        productionItems.push(i);
+      }
+    }
 
     // Check if all items are fully packed (all packages in each item)
     const allItemsPacked = productionItems.every((i) => {
@@ -241,7 +300,8 @@ export const markAllItemPackagesPacked = mutation({
     }
 
     const quantity = item.quantity ?? 1;
-    const ballsPerPackage = item.productionUnits ?? 1;
+    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
     const currentPackedIndices = item.packedPackageIndices ?? [];
 
@@ -314,7 +374,8 @@ export const unmarkPackagePacked = mutation({
     const newPackedIndices = packedIndices.filter((i) => i !== packageIndex);
 
     const quantity = item.quantity ?? 1;
-    const ballsPerPackage = item.productionUnits ?? 1;
+    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
 
     const newPackageStatus = calculatePackageStatus(ballsFilled, quantity, ballsPerPackage, newPackedIndices.length);
@@ -351,7 +412,8 @@ export const fillPackage = mutation({
 
     const ballsToAdd = args.ballsToAdd ?? 1;
     const currentBallsFilled = item.ballsFilled ?? 0;
-    const ballsPerPackage = item.productionUnits ?? 1;
+    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const quantity = item.quantity ?? 1;
     const totalBallsRequired = quantity * ballsPerPackage;
 
@@ -389,19 +451,29 @@ export const fillPackage = mutation({
         .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
         .collect();
 
-      const productionItems = allItems.filter((i) => i.productionType);
-
-      const allItemsFilled = productionItems.every((i) => {
-        if (i._id.toString() === args.orderItemId.toString()) {
-          // Use the updated state for this item
-          return newBallsFilled >= totalBallsRequired;
+      // BOM-01: Filter to items with production data (async dual-read)
+      const productionItems: typeof allItems = [];
+      for (const i of allItems) {
+        if (await hasProductionData(ctx, i)) {
+          productionItems.push(i);
         }
-        const ballsFilledInItem = i.ballsFilled ?? 0;
-        const ballsPerPkg = i.productionUnits ?? 1;
-        const qty = i.quantity ?? 1;
-        const totalRequired = qty * ballsPerPkg;
-        return ballsFilledInItem >= totalRequired;
-      });
+      }
+
+      const allItemsFilledChecks = await Promise.all(
+        productionItems.map(async (i) => {
+          if (i._id.toString() === args.orderItemId.toString()) {
+            // Use the updated state for this item
+            return newBallsFilled >= totalBallsRequired;
+          }
+          const ballsFilledInItem = i.ballsFilled ?? 0;
+          // BOM-01: Derive ballsPerPkg from production records, fallback to deprecated field
+          const ballsPerPkg = await getBallsPerPackageForItem(ctx, i);
+          const qty = i.quantity ?? 1;
+          const totalRequired = qty * ballsPerPkg;
+          return ballsFilledInItem >= totalRequired;
+        })
+      );
+      const allItemsFilled = allItemsFilledChecks.every(Boolean);
 
       // Auto-transition to Boxed if all items are filled
       if (allItemsFilled && order.status === "InProduction") {
@@ -442,7 +514,8 @@ export const unfillPackage = mutation({
     const newBallsFilled = Math.max(0, currentBallsFilled - ballsToRemove);
 
     // Determine packageStatus
-    const ballsPerPackage = item.productionUnits ?? 1;
+    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const quantity = item.quantity ?? 1;
     const packedIndices = item.packedPackageIndices ?? [];
     const newPackageStatus = calculatePackageStatus(newBallsFilled, quantity, ballsPerPackage, packedIndices.length);

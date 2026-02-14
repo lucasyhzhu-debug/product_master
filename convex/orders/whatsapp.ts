@@ -539,6 +539,21 @@ export const getOrderTemplate = query({
       .filter((p) => p.posSlot !== undefined && p.isActive)
       .sort((a, b) => (a.posSlot ?? 0) - (b.posSlot ?? 0));
 
+    // BOM-01: Fetch all menuProductComponents for BOM-derived production unit counts
+    const allComponents = await ctx.db.query("menuProductComponents").collect();
+    const allComponentTypes = await ctx.db.query("componentTypes").collect();
+    const componentTypeMap = new Map(allComponentTypes.map(ct => [ct._id.toString(), ct]));
+
+    // Build BOM production unit count per menu product
+    const bomProductionUnitsMap = new Map<string, number>();
+    for (const comp of allComponents) {
+      const ct = componentTypeMap.get(comp.componentTypeId.toString());
+      if (ct && ct.category === "production") {
+        const key = comp.menuProductId.toString();
+        bomProductionUnitsMap.set(key, (bomProductionUnitsMap.get(key) ?? 0) + comp.quantity);
+      }
+    }
+
     // Build template
     let template = "Halo! Mau pesan Dubai Chewy Cookie yang mana nih?\n\n";
 
@@ -546,14 +561,18 @@ export const getOrderTemplate = query({
       // Format price
       const priceK = (p.defaultPrice / 1000).toFixed(0);
 
+      // BOM-01: Derive production units from BOM, fallback to deprecated field
+      const bomUnits = bomProductionUnitsMap.get(p._id.toString());
+      const productionUnits = bomUnits ?? p.productionUnits ?? 1;
+
       // Only append grammage if name doesn't already contain it
       const nameAlreadyHasGrams = p.name.includes(`${p.grams}g`);
       let displayName = p.name;
       if (!nameAlreadyHasGrams) {
         let gramsDesc = `${p.grams}g`;
-        if (p.productionUnits > 1) {
-          const perUnit = p.grams / p.productionUnits;
-          gramsDesc = `${p.grams}g = ${p.productionUnits}x${perUnit}g`;
+        if (productionUnits > 1) {
+          const perUnit = p.grams / productionUnits;
+          gramsDesc = `${p.grams}g = ${productionUnits}x${perUnit}g`;
         }
         displayName = `${p.name} (${gramsDesc})`;
       }

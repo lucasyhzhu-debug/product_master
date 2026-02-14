@@ -258,8 +258,8 @@ export const getKitchenOrders = query({
         productionRecords: orderData.production.get(item._id) ?? [],
       }));
 
-      // Calculate OLD system ball stats (for backward compatibility)
-      const { bigBallsNeeded, midBallsNeeded } = calculateOldSystemBallStats(orderData.items);
+      // BOM-01: Dual-read ball stats (BOM first, deprecated fallback)
+      const { bigBallsNeeded, midBallsNeeded } = calculateBallStatsFromItems(itemsWithProduction);
 
       // Calculate NEW system production stats (dynamic by type)
       const productionByType = calculateProductionStatsByType(
@@ -282,19 +282,45 @@ export const getKitchenOrders = query({
 });
 
 /**
- * Calculate OLD system ball statistics (big/mid balls needed).
- * Used for backward compatibility during migration period.
+ * Dual-read ball composition: BOM (production records) first, deprecated fallback.
+ * BOM-01: This is the migration bridge function. For items with production records,
+ * ball stats are derived from the new system. For historical orders without records,
+ * the deprecated fields are used as fallback.
+ *
+ * CRITICAL: The fallback replicates EXISTING behavior for historical orders:
+ *   "original" -> midBallsNeeded (counterintuitive but matches current code, see Pitfall #11)
+ *   "bite_sized" -> bigBallsNeeded (current code behavior)
+ * For new orders with production records, the records contain correct codes directly.
  */
-function calculateOldSystemBallStats(items: Doc<"orderItems">[]): {
-  bigBallsNeeded: number;
-  midBallsNeeded: number;
-} {
+function calculateBallStatsFromItems(
+  items: Array<Doc<"orderItems"> & { productionRecords?: Doc<"orderItemProduction">[] }>
+): { bigBallsNeeded: number; midBallsNeeded: number } {
   let bigBallsNeeded = 0;
   let midBallsNeeded = 0;
 
   for (const item of items) {
-    // "original" = Original (45g) → MID_BALL (midBallsNeeded)
-    // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsNeeded)
+    if (item.isCancelled) continue;
+
+    // NEW system: production records (BOM-derived, correct codes)
+    const records = item.productionRecords ?? [];
+    const activeRecords = records.filter(r => !r.isCancelled);
+
+    if (activeRecords.length > 0) {
+      for (const record of activeRecords) {
+        if (record.productionUnitCode === "BIG_BALL") {
+          bigBallsNeeded += record.unitsRemaining;
+        } else if (record.productionUnitCode === "MID_BALL") {
+          midBallsNeeded += record.unitsRemaining;
+        }
+      }
+      continue; // Skip deprecated fallback for this item
+    }
+
+    // FALLBACK: Deprecated fields for historical orders (pre-BOM)
+    // IMPORTANT: Replicates EXISTING calculateOldSystemBallStats behavior exactly.
+    // "original" -> midBallsNeeded, "bite_sized" -> bigBallsNeeded
+    // This mapping looks counterintuitive but matches the existing code behavior
+    // that users have been seeing. Changing it would alter historical display.
     if (item.productionType === "original" && item.productionUnits) {
       midBallsNeeded += item.productionUnits * item.quantity;
     } else if (item.productionType === "bite_sized" && item.productionUnits) {
@@ -549,21 +575,38 @@ export const getKitchenStats = query({
       itemsByOrder.get(orderId)!.push(item);
     }
 
-    // Calculate stats for pending orders (OLD system - uses balls_filled for accuracy)
-    // Pending = Confirmed + InProduction + Packaging (not yet completed)
+    // BOM-01: Calculate stats for pending orders using dual-read pattern
+    // NEW system: uses orderItemProduction.unitsRemaining (already accounts for balls filled)
+    // FALLBACK: uses deprecated fields with ballsFilled subtraction for historical orders
     let bigBallsNeeded = 0;
     let midBallsNeeded = 0;
 
     for (const order of pendingOrders) {
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       for (const item of items) {
-        // Calculate remaining balls: (quantity * productionUnits) - ballsFilled
+        if (item.isCancelled) continue;
+
+        // Check for production records (NEW system)
+        const records = productionByItem.get(item._id.toString()) ?? [];
+        const activeRecords = records.filter(r => !r.isCancelled);
+
+        if (activeRecords.length > 0) {
+          // NEW system: unitsRemaining already reflects balls filled
+          for (const record of activeRecords) {
+            if (record.productionUnitCode === "BIG_BALL") {
+              bigBallsNeeded += record.unitsRemaining;
+            } else if (record.productionUnitCode === "MID_BALL") {
+              midBallsNeeded += record.unitsRemaining;
+            }
+          }
+          continue;
+        }
+
+        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
         const ballsFilled = item.ballsFilled ?? 0;
         const totalRequired = (item.quantity ?? 0) * (item.productionUnits ?? 0);
         const remaining = Math.max(0, totalRequired - ballsFilled);
 
-        // "original" = Original (45g) → MID_BALL (midBallsNeeded)
-        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsNeeded)
         if (item.productionType === "original") {
           midBallsNeeded += remaining;
         } else if (item.productionType === "bite_sized") {
@@ -572,15 +615,32 @@ export const getKitchenStats = query({
       }
     }
 
-    // Calculate stats for completed orders today (OLD system)
+    // BOM-01: Calculate stats for completed orders today using dual-read pattern
     let bigBallsCompleted = 0;
     let midBallsCompleted = 0;
 
     for (const order of completedTodayOrders) {
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       for (const item of items) {
-        // "original" = Original (45g) → MID_BALL (midBallsCompleted)
-        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBallsCompleted)
+        if (item.isCancelled) continue;
+
+        // Check for production records (NEW system)
+        const records = productionByItem.get(item._id.toString()) ?? [];
+        const activeRecords = records.filter(r => !r.isCancelled);
+
+        if (activeRecords.length > 0) {
+          // NEW system: unitsCompleted from production records
+          for (const record of activeRecords) {
+            if (record.productionUnitCode === "BIG_BALL") {
+              bigBallsCompleted += record.unitsCompleted;
+            } else if (record.productionUnitCode === "MID_BALL") {
+              midBallsCompleted += record.unitsCompleted;
+            }
+          }
+          continue;
+        }
+
+        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
         if (item.productionType === "original" && item.productionUnits) {
           midBallsCompleted += item.productionUnits * item.quantity;
         } else if (item.productionType === "bite_sized" && item.productionUnits) {
@@ -792,11 +852,13 @@ export const debugProductionRecords = query({
 
             return {
               itemId: item._id,
-              productionType: item.productionType,
+              // BOM-01: Deprecated fields kept for debug comparison only
+              deprecated_productionType: item.productionType,
+              deprecated_productionUnits: item.productionUnits,
               quantity: item.quantity,
               ballsFilled: item.ballsFilled,
               packageStatus: item.packageStatus,
-              productionUnits: item.productionUnits,
+              // BOM system (source of truth for new orders)
               productionRecords: productionRecords.map((r) => ({
                 code: r.productionUnitCode,
                 unitsRequired: r.unitsRequired,
@@ -804,6 +866,7 @@ export const debugProductionRecords = query({
                 unitsRemaining: r.unitsRemaining,
                 isCancelled: r.isCancelled,
               })),
+              hasBOMData: productionRecords.some(r => !r.isCancelled),
             };
           })
         );
@@ -912,18 +975,45 @@ export const getCompletedToday = query({
       customers.filter(Boolean).map((c) => [c!._id.toString(), c])
     );
 
+    // BATCH FETCH: Get all orderItemProduction records for dual-read
+    const allProductionRecords = await ctx.db.query("orderItemProduction").collect();
+    const productionByItem = new Map<string, typeof allProductionRecords>();
+    for (const record of allProductionRecords) {
+      const itemId = record.orderItemId.toString();
+      if (!productionByItem.has(itemId)) {
+        productionByItem.set(itemId, []);
+      }
+      productionByItem.get(itemId)!.push(record);
+    }
+
     // Build result with pre-fetched data
     const result = completedToday.map((order) => {
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       const customer = customersById.get(order.customerId.toString()) ?? null;
 
-      // Calculate ball counts
+      // BOM-01: Calculate ball counts using dual-read pattern
       let bigBalls = 0;
       let midBalls = 0;
 
       for (const item of items) {
-        // "original" = Original (45g) → MID_BALL (midBalls)
-        // "bite_sized" = Jumbo (80g) → BIG_BALL (bigBalls)
+        if (item.isCancelled) continue;
+
+        // Check for production records (NEW system)
+        const records = productionByItem.get(item._id.toString()) ?? [];
+        const activeRecords = records.filter(r => !r.isCancelled);
+
+        if (activeRecords.length > 0) {
+          for (const record of activeRecords) {
+            if (record.productionUnitCode === "BIG_BALL") {
+              bigBalls += record.unitsCompleted;
+            } else if (record.productionUnitCode === "MID_BALL") {
+              midBalls += record.unitsCompleted;
+            }
+          }
+          continue;
+        }
+
+        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
         if (item.productionType === "original" && item.productionUnits) {
           midBalls += item.productionUnits * item.quantity;
         } else if (item.productionType === "bite_sized" && item.productionUnits) {
