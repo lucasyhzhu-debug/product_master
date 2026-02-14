@@ -44,197 +44,195 @@ function App() {
             }
           />
 
-          {/* Protected routes with Layout */}
-          <Route path="/" element={<Layout />}>
+          {/* Protected routes */}
+          <Route path="/">
             {/* Role-based landing page */}
-            <Route
-              index
-              element={<RoleBasedRedirect />}
-            />
+            <Route index element={<RoleBasedRedirect />} />
 
-            {/* Kitchen V2 - Primary kitchen view */}
-            <Route
-              path="kitchen"
-              element={
-                <ProtectedRoute requiredPermission="canAccessKitchen">
-                  <KitchenViewV2 />
-                </ProtectedRoute>
-              }
-            />
+            {/* Full-width pages (no PageContainer) */}
+            <Route element={<Layout fullWidth />}>
+              <Route
+                path="kitchen"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessKitchen">
+                    <KitchenViewV2 />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="orders"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessOrders">
+                    <OrderManager />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-            {/* Packaging - All roles can access (PRD-5) */}
-            <Route
-              path="packaging"
-              element={
-                <ProtectedRoute requiredPermission="canAccessPackaging">
-                  <PackagingView />
-                </ProtectedRoute>
-              }
-            />
+            {/* Standard pages (with PageContainer) */}
+            <Route element={<Layout />}>
+              {/* Packaging - All roles can access (PRD-5) */}
+              <Route
+                path="packaging"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessPackaging">
+                    <PackagingView />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Orders - Order Staff, Manager, Admin */}
-            <Route
-              path="orders"
-              element={
-                <ProtectedRoute requiredPermission="canAccessOrders">
-                  <OrderManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Order Detail - Kitchen can view (no costs), others full access */}
+              <Route
+                path="orders/:id"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={["order_staff", "manager", "admin", "kitchen"]}
+                  >
+                    <OrderDetail />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Order Detail - Kitchen can view (no costs), others full access */}
-            <Route
-              path="orders/:id"
-              element={
-                <ProtectedRoute
-                  allowedRoles={["order_staff", "manager", "admin", "kitchen"]}
-                >
-                  <OrderDetail />
-                </ProtectedRoute>
-              }
-            />
+              {/* Recipe/Packaging/Product editors - Manager and Admin */}
+              <Route
+                path="recipes/:id"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessRecipes">
+                    <RecipeEditor />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Recipe/Packaging/Product editors - Manager and Admin */}
-            <Route
-              path="recipes/:id"
-              element={
-                <ProtectedRoute requiredPermission="canAccessRecipes">
-                  <RecipeEditor />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="packaging/:id"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessRecipes">
+                    <PackagingEditor />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="packaging/:id"
-              element={
-                <ProtectedRoute requiredPermission="canAccessRecipes">
-                  <PackagingEditor />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="products/:id"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessProducts">
+                    <ProductEditor />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="products/:id"
-              element={
-                <ProtectedRoute requiredPermission="canAccessProducts">
-                  <ProductEditor />
-                </ProtectedRoute>
-              }
-            />
+              {/* Ingredients/Materials - Manager and Admin */}
+              <Route
+                path="ingredients"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessIngredients">
+                    <IngredientsManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Ingredients/Materials - Manager and Admin */}
-            <Route
-              path="ingredients"
-              element={
-                <ProtectedRoute requiredPermission="canAccessIngredients">
-                  <IngredientsManager />
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="materials"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessMaterials">
+                    <MaterialsManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="materials"
-              element={
-                <ProtectedRoute requiredPermission="canAccessMaterials">
-                  <MaterialsManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Menu Products - Admin only */}
+              <Route
+                path="menu-products"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessMenuProducts">
+                    <MenuProductsManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Menu Products - Admin only */}
-            <Route
-              path="menu-products"
-              element={
-                <ProtectedRoute requiredPermission="canAccessMenuProducts">
-                  <MenuProductsManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Users - Admin only */}
+              <Route
+                path="users"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessUsers">
+                    <UsersManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Users - Admin only */}
-            <Route
-              path="users"
-              element={
-                <ProtectedRoute requiredPermission="canAccessUsers">
-                  <UsersManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* WhatsApp Templates - Manager and Admin */}
+              <Route
+                path="whatsapp-templates"
+                element={
+                  <ProtectedRoute requiredPermission="canManageWhatsAppTemplates">
+                    <WhatsAppTemplatesManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* WhatsApp Templates - Manager and Admin */}
-            <Route
-              path="whatsapp-templates"
-              element={
-                <ProtectedRoute requiredPermission="canManageWhatsAppTemplates">
-                  <WhatsAppTemplatesManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Vouchers - Admin only */}
+              <Route
+                path="vouchers"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessVouchers">
+                    <VouchersManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Vouchers - Admin only */}
-            <Route
-              path="vouchers"
-              element={
-                <ProtectedRoute requiredPermission="canAccessVouchers">
-                  <VouchersManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Inventory - Manager and Admin */}
+              <Route
+                path="inventory"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessInventory">
+                    <InventoryManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Inventory - Manager and Admin */}
-            <Route
-              path="inventory"
-              element={
-                <ProtectedRoute requiredPermission="canAccessInventory">
-                  <InventoryManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Inventory Locations - Manager and Admin */}
+              <Route
+                path="inventory/locations"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessInventory">
+                    <LocationsManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Inventory Locations - Manager and Admin */}
-            <Route
-              path="inventory/locations"
-              element={
-                <ProtectedRoute requiredPermission="canAccessInventory">
-                  <LocationsManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Production Components - Manager and Admin */}
+              <Route
+                path="components/production"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessInventory">
+                    <ProductionComponentsManager />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Production Components - Manager and Admin */}
-            <Route
-              path="components/production"
-              element={
-                <ProtectedRoute requiredPermission="canAccessInventory">
-                  <ProductionComponentsManager />
-                </ProtectedRoute>
-              }
-            />
+              {/* Sales Analytics - Manager and Admin */}
+              <Route
+                path="sales"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
+                    <SalesAnalytics />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Sales Analytics - Manager and Admin */}
-            <Route
-              path="sales"
-              element={
-                <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
-                  <SalesAnalytics />
-                </ProtectedRoute>
-              }
-            />
+              {/* K3 Mart Cockpit - Manager and Admin */}
+              <Route
+                path="k3mart-cockpit"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
+                    <K3MartCockpit />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-            {/* K3 Mart Cockpit - Manager and Admin */}
-            <Route
-              path="k3mart-cockpit"
-              element={
-                <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
-                  <K3MartCockpit />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Legacy Restock Planner - redirects to K3 Mart Cockpit */}
+            {/* Redirects (no layout needed) */}
             <Route path="restock" element={<Navigate to="/k3mart-cockpit" replace />} />
-
-            {/* Redirects for deleted pages (bookmarked URLs) */}
             <Route path="inventory/components" element={<Navigate to="/components/production" replace />} />
             <Route path="components/packaging" element={<Navigate to="/inventory" replace />} />
           </Route>

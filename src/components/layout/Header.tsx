@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import {
   ShoppingCart,
@@ -30,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
 
 type PermissionKey = keyof (typeof ROLE_PERMISSIONS)["admin"];
 
@@ -66,6 +68,7 @@ export function Header() {
   const location = useLocation();
   const { user, logout, hasPermission } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isVisible = useScrollDirection();
 
   const visibleMainItems = user
     ? mainNavItems.filter(item => hasPermission(item.permission))
@@ -86,8 +89,13 @@ export function Header() {
     items.some(item => isActive(item.path));
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between">
+    <motion.header
+      initial={{ y: 0 }}
+      animate={{ y: isVisible ? 0 : '-100%' }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
+      className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+    >
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 flex h-14 items-center justify-between">
         {/* Logo and brand */}
         <div className="flex items-center space-x-4">
           {/* Mobile menu button */}
@@ -320,6 +328,6 @@ export function Header() {
           </div>
         )}
       </div>
-    </header>
+    </motion.header>
   );
 }
