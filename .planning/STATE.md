@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 7 — Query Optimization (IN PROGRESS)
+**Current focus:** Phase 7 — Query Optimization (COMPLETE)
 
 ## Current Position
 Phase: 7 — Query Optimization
-Current Plan: 01 of 03 (plan 01 complete)
-Last completed: 07-01 (N+1 Query Elimination + Kitchen Denormalization)
+Current Plan: 03 of 03 (all plans complete)
+Last completed: 07-03 (Cursor-Based Pagination + Load More UI)
 
 ## Phase Readiness
 
@@ -20,13 +20,13 @@ Last completed: 07-01 (N+1 Query Elimination + Kitchen Denormalization)
 | 4 — Bugs | COMPLETE (all 2 plans done) | None |
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
-| 7 — Query Optimization | IN PROGRESS (1/3 plans done) | None |
-| 8 — Schema Cleanup | Blocked | Phases 6, 7 |
+| 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
+| 8 — Schema Cleanup | Ready | None (Phases 6, 7 complete) |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
 ## Parallel Opportunities
-Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (Infrastructure) are now unblocked.
+Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (Infrastructure) are now unblocked.
 
 ## Session History
 
@@ -52,6 +52,7 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 | 2026-02-14 | 06 | Plan 02 complete | Dual-read pattern in queries/packaging, stop writing deprecated fields in all mutations |
 | 2026-02-14 | 06 | Plan 03 complete | Frontend deprecated field removal, schema optional, BOM migration COMPLETE. Phase 06 COMPLETE. |
 | 2026-02-14 | 07 | Plan 01 complete | isKitchenVisible denorm + by_kitchen_visible index, per-order indexed lookups, optimized kitchen/dashboard queries |
+| 2026-02-14 | 07 | Plan 03 complete | Cursor-based pagination for orders/inventory/production/revenue, Load More UI in OrderManager. Phase 07 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -120,6 +121,11 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 - Dashboard entity counts parallelized with Promise.all
 - confirmPayment mutation does not exist -- payment confirmation goes through updateStatus
 - Pre-existing fifo.test.ts failure (by_batch index) from Phase 3 QFIX-05, not related to query optimization
+- Paginated queries support single status only (not arrays) due to Convex filter() + paginate() limitation
+- OrderManager dual-hook pattern: paginated for All view, non-paginated for category tabs
+- useConvexOrders accepts "skip" string to disable query when paginated hook is active
+- countOrders uses .collect().length (Convex has no native count API)
+- Existing non-paginated queries preserved for backward compatibility (KitchenView, category tabs)
 
 ## Performance Metrics
 
@@ -144,7 +150,8 @@ Phases 1-6 COMPLETE. Phases 7 (Query Optimization), 8 (Schema Cleanup), 9 (Front
 | 06 | 02 | 8min | 2 | 6 |
 | 06 | 03 | 9min | 2 | 7 |
 | 07 | 01 | 7min | 2 | 11 |
+| 07 | 03 | 7min | 2 | 7 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 07-01-PLAN.md (N+1 query elimination + kitchen denormalization).*
+*Last session stopped at: Completed 07-03-PLAN.md (cursor-based pagination + Load More UI). Phase 07 COMPLETE.*
