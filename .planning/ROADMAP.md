@@ -243,6 +243,13 @@ Plans:
 **Goal:** Generic hook and UI component factories are created and applied to all simple CRUD entities, reducing frontend boilerplate by ~2,300 lines. Factories follow the brand reference established in Phase 9. All UI work uses the `/frontend-design` skill.
 **Requirements:** FHOOK-01, FHOOK-02, FUI-01, FUI-02
 **Dependencies:** Phase 5 (backend factory patterns established), Phase 8 (schema finalized before building generic components), Phase 9 (brand reference established — factories must follow it)
+**Plans:** 3 plans (Wave 1: 10-01, 10-02 parallel; Wave 2: 10-03)
+
+Plans:
+- [ ] 10-01-PLAN.md — createMutationHook factory + migrate all 5 entity hooks (FHOOK-01, FHOOK-02)
+- [ ] 10-02-PLAN.md — Install shadcn Table + build EntityManager generic CRUD component (FUI-01)
+- [ ] 10-03-PLAN.md — Migrate 3 existing pages + create 2 new pages using EntityManager (FUI-02)
+
 **Success Criteria:**
 1. `src/hooks/convex/createMutationHook.ts` exports a generic factory that produces typed mutation hooks with toast notifications
 2. Simple entity hooks (ingredients, materials, tags, customers, locations) use the factory — each hook file is ~15 lines instead of ~115 lines
@@ -363,4 +370,4 @@ Phase 3 (Tech Debt) ──> Phase 4 (Bugs)                                      
 ---
 
 *Roadmap created: 2026-02-13*
-*Next action: Begin Phase 1 (Test Infrastructure)*
+*Next action: Begin Phase 10 (Frontend Factories)*
