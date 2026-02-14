@@ -1,13 +1,11 @@
 /**
  * Convex hooks for packaging materials.
- * Convex query/mutation hooks for packaging material management.
+ * Query hooks + factory-generated mutation hooks.
  */
 import { useQuery } from "convex/react";
-import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/utils";
+import { createMutationHook } from "./createMutationHook";
 
 // Types that match the Convex schema
 export interface ConvexPackagingMaterial {
@@ -35,23 +33,17 @@ export interface MaterialCreateInput {
   shippingCost: number;
 }
 
-/**
- * List all packaging materials.
- */
+/** List all packaging materials. */
 export function useConvexMaterials(limit?: number) {
   return useQuery(api.materials.queries.list, { limit });
 }
 
-/**
- * Get a single packaging material by ID.
- */
+/** Get a single packaging material by ID. */
 export function useConvexMaterial(id: Id<"packagingMaterials"> | undefined) {
   return useQuery(api.materials.queries.get, id ? { id } : "skip");
 }
 
-/**
- * Search packaging materials by name or brand.
- */
+/** Search packaging materials by name or brand. */
 export function useConvexMaterialSearch(query: string, limit?: number) {
   return useQuery(
     api.materials.queries.search,
@@ -59,57 +51,20 @@ export function useConvexMaterialSearch(query: string, limit?: number) {
   );
 }
 
-/**
- * Create packaging material mutation with toast notifications.
- * Uses useSessionMutation for automatic sessionId injection.
- */
-export function useConvexCreateMaterial() {
-  const mutation = useSessionMutation(api.materials.mutations.create);
-  const execute = async (data: MaterialCreateInput) => {
-    try {
-      const id = await mutation(data);
-      toast.success("Packaging material created successfully");
-      return id;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to create packaging material"));
-      throw error;
-    }
-  };
-  return { mutate: execute, mutateAsync: execute };
-}
+/** Create packaging material mutation with toast notifications. */
+export const useConvexCreateMaterial = createMutationHook(
+  api.materials.mutations.create,
+  { successMessage: "Packaging material created successfully", errorMessage: "Failed to create packaging material" }
+);
 
-/**
- * Update packaging material mutation with toast notifications.
- */
-export function useConvexUpdateMaterial() {
-  const mutation = useSessionMutation(api.materials.mutations.update);
-  const execute = async (data: { id: Id<"packagingMaterials"> } & Partial<MaterialCreateInput>) => {
-    try {
-      const id = await mutation(data);
-      toast.success("Packaging material updated successfully");
-      return id;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update packaging material"));
-      throw error;
-    }
-  };
-  return { mutate: execute, mutateAsync: execute };
-}
+/** Update packaging material mutation with toast notifications. */
+export const useConvexUpdateMaterial = createMutationHook(
+  api.materials.mutations.update,
+  { successMessage: "Packaging material updated successfully", errorMessage: "Failed to update packaging material" }
+);
 
-/**
- * Delete packaging material mutation with toast notifications.
- */
-export function useConvexDeleteMaterial() {
-  const mutation = useSessionMutation(api.materials.mutations.remove);
-  const execute = async (id: Id<"packagingMaterials">) => {
-    try {
-      await mutation({ id });
-      toast.success("Packaging material deleted successfully");
-      return true;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to delete packaging material"));
-      throw error;
-    }
-  };
-  return { mutate: execute, mutateAsync: execute };
-}
+/** Delete packaging material mutation with toast notifications. */
+export const useConvexDeleteMaterial = createMutationHook(
+  api.materials.mutations.remove,
+  { successMessage: "Packaging material deleted successfully", errorMessage: "Failed to delete packaging material" }
+);
