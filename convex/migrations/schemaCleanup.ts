@@ -313,6 +313,201 @@ export const backfillProductionUnitTypesColor = mutation({
 });
 
 // ============================================
+// CLEANUP MUTATIONS (Category C deprecated fields)
+// ============================================
+
+/**
+ * Mutation 7: clearMenuProductsDeprecatedFields
+ *
+ * Clears productionType, productionUnits, and isFixed from all menuProducts.
+ * These deprecated fields are replaced by BOM (menuProductComponents + componentTypes)
+ * and posSlot/packagingPosSlot respectively.
+ */
+export const clearMenuProductsDeprecatedFields = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const allMenuProducts = await ctx.db.query("menuProducts").collect();
+    let cleared = 0;
+    let skipped = 0;
+
+    for (const mp of allMenuProducts) {
+      const hasProductionType = mp.productionType !== undefined;
+      const hasProductionUnits = mp.productionUnits !== undefined;
+      const hasIsFixed = mp.isFixed !== undefined;
+
+      if (!hasProductionType && !hasProductionUnits && !hasIsFixed) {
+        skipped++;
+        continue;
+      }
+
+      await ctx.db.patch(mp._id, {
+        productionType: undefined,
+        productionUnits: undefined,
+        isFixed: undefined,
+      });
+      cleared++;
+    }
+
+    return { total: allMenuProducts.length, cleared, skipped };
+  },
+});
+
+/**
+ * Mutation 8: clearOrderItemsDeprecatedFields
+ *
+ * Clears productionType and productionUnits from all orderItems.
+ * These deprecated fields are replaced by orderItemProduction records (BOM-based).
+ *
+ * NOTE: orderItems may be the largest table. If this mutation times out,
+ * split into multiple calls using cursor-based pagination (process 500 at a time).
+ */
+export const clearOrderItemsDeprecatedFields = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const allItems = await ctx.db.query("orderItems").collect();
+    let cleared = 0;
+    let skipped = 0;
+
+    for (const item of allItems) {
+      if (
+        item.productionType === undefined &&
+        item.productionUnits === undefined
+      ) {
+        skipped++;
+        continue;
+      }
+
+      await ctx.db.patch(item._id, {
+        productionType: undefined,
+        productionUnits: undefined,
+      });
+      cleared++;
+    }
+
+    return { total: allItems.length, cleared, skipped };
+  },
+});
+
+// ============================================
+// VERIFICATION QUERY
+// ============================================
+
+/**
+ * Mutation 9 (query): verifyCleanupComplete
+ *
+ * Safety check run between Deploy 1 (backfill + cleanup) and Deploy 2 (schema tightening).
+ * Returns { ready: boolean, issues: string[] }.
+ * ready is true only if ALL counts are 0 (safe to tighten schema).
+ */
+export const verifyCleanupComplete = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const issues: string[] = [];
+
+    // Check Category C (deprecated fields should be cleared)
+    const menuProducts = await ctx.db.query("menuProducts").collect();
+    const mpWithDeprecated = menuProducts.filter(
+      (mp) =>
+        mp.productionType !== undefined ||
+        mp.productionUnits !== undefined ||
+        mp.isFixed !== undefined
+    ).length;
+    if (mpWithDeprecated > 0) {
+      issues.push(
+        `${mpWithDeprecated} menuProducts still have deprecated fields (productionType/productionUnits/isFixed)`
+      );
+    }
+
+    const orderItems = await ctx.db.query("orderItems").collect();
+    const oiWithDeprecated = orderItems.filter(
+      (oi) =>
+        oi.productionType !== undefined || oi.productionUnits !== undefined
+    ).length;
+    if (oiWithDeprecated > 0) {
+      issues.push(
+        `${oiWithDeprecated} orderItems still have deprecated fields (productionType/productionUnits)`
+      );
+    }
+
+    // Check Category B (required fields should be backfilled)
+    const ingredients = await ctx.db.query("ingredients").collect();
+    const ingMissing = ingredients.filter(
+      (i) => i.costPerBaseUnit === undefined || i.baseUnit === undefined
+    ).length;
+    if (ingMissing > 0) {
+      issues.push(
+        `${ingMissing} ingredients missing costPerBaseUnit or baseUnit`
+      );
+    }
+
+    const packagingMaterials = await ctx.db
+      .query("packagingMaterials")
+      .collect();
+    const matMissing = packagingMaterials.filter(
+      (m) => m.costPerBaseUnit === undefined || m.baseUnit === undefined
+    ).length;
+    if (matMissing > 0) {
+      issues.push(
+        `${matMissing} packagingMaterials missing costPerBaseUnit or baseUnit`
+      );
+    }
+
+    const mpMissing = menuProducts.filter(
+      (mp) =>
+        mp.unitCost === undefined ||
+        mp.cachedProductionSummary === undefined ||
+        mp.productType === undefined
+    ).length;
+    if (mpMissing > 0) {
+      issues.push(
+        `${mpMissing} menuProducts missing unitCost, cachedProductionSummary, or productType`
+      );
+    }
+
+    const orders = await ctx.db.query("orders").collect();
+    const ordersMissing = orders.filter(
+      (o) => o.isKitchenVisible === undefined || o.finalTotal === undefined
+    ).length;
+    if (ordersMissing > 0) {
+      issues.push(
+        `${ordersMissing} orders missing isKitchenVisible or finalTotal`
+      );
+    }
+
+    const kitchenInventory = await ctx.db.query("kitchenInventory").collect();
+    const kiMissing = kitchenInventory.filter(
+      (ki) =>
+        ki.totalProducedOriginal === undefined ||
+        ki.totalProducedBiteSized === undefined ||
+        ki.updatedBy === undefined
+    ).length;
+    if (kiMissing > 0) {
+      issues.push(
+        `${kiMissing} kitchenInventory missing totalProducedOriginal, totalProducedBiteSized, or updatedBy`
+      );
+    }
+
+    const productionUnitTypes = await ctx.db
+      .query("productionUnitTypes")
+      .collect();
+    const putMissing = productionUnitTypes.filter(
+      (put) => put.color === undefined
+    ).length;
+    if (putMissing > 0) {
+      issues.push(`${putMissing} productionUnitTypes missing color`);
+    }
+
+    return { ready: issues.length === 0, issues };
+  },
+});
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
