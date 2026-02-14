@@ -20,8 +20,8 @@
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Complete (2026-02-14) |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Complete (2026-02-14) |
 | 9 | UI Brand Consolidation | Brand/UI reference established, all 19 pages audited and consistent (margins, fonts, colors, spacing, responsive) | 2 | Complete (2026-02-14) |
-| 10 | Frontend Factories | Generic hook and component factories applied to simple CRUD entities, reducing ~2,300 lines of boilerplate | 4 | Pending |
-| 11 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
+| 10 | Frontend Factories | Generic hook and component factories applied to simple CRUD entities, reducing ~2,300 lines of boilerplate | 4 | Complete (2026-02-15) |
+| 11 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Complete (2026-02-14) |
 
 ---
 
