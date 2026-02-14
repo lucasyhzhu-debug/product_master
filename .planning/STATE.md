@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 5 — Backend Factories (COMPLETE)
+**Current focus:** Phase 6 — BOM Migration (IN PROGRESS)
 
 ## Current Position
-Phase: 5 — Backend Factories (COMPLETE)
-Current Plan: 03 of 03 (all complete)
-Last completed: 05-03 (Customers/StorageLocations/Shipping Migration)
+Phase: 6 — BOM Migration (IN PROGRESS)
+Current Plan: 01 of 03 (plan 01 complete)
+Last completed: 06-01 (BOM Backfill Migration)
 
 ## Phase Readiness
 
@@ -19,14 +19,14 @@ Last completed: 05-03 (Customers/StorageLocations/Shipping Migration)
 | 3 — Tech Debt | COMPLETE (all 4 plans done) | None |
 | 4 — Bugs | COMPLETE (all 2 plans done) | None |
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
-| 6 — BOM Migration | Blocked | Phases 1, 5 |
+| 6 — BOM Migration | IN PROGRESS (plan 01 of 03 done) | None |
 | 7 — Query Optimization | Blocked | Phase 6 |
 | 8 — Schema Cleanup | Blocked | Phases 6, 7 |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
 ## Parallel Opportunities
-Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (COMPLETE). Phases 4 and 5 can proceed in parallel. All remaining phases are on the critical path.
+Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phases (7-10) depend on Phase 6 completion.
 
 ## Session History
 
@@ -48,6 +48,7 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 2026-02-13 | 04 | Plan 02 complete | Cost invalidation schedulers, production records query, K3Mart backlog conversion. Phase 04 COMPLETE. |
 | 2026-02-13 | 05 | Plan 02 complete | Ingredients/materials/tags protectedMutation, query helpers, useSessionMutation hooks, tags tests with auth |
 | 2026-02-13 | 05 | Plan 03 complete | Customers/storageLocations protectedMutation, shipping internal docs, frontend useSessionMutation |
+| 2026-02-14 | 06 | Plan 01 complete | BOM backfill migration + verification query, auto-corrections for Original Single/Triple |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -94,6 +95,10 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 - createdBy derived from ctx.user.name on server, removed from frontend create input types
 - Tags seedDefaults hook uses useMutation (not useSessionMutation) since public mutation does not accept sessionId
 - Entity queries remain public (no auth) since ProtectedRoute already guards page-level access
+- PRODUCTION_TYPE_TO_BOM_CODE mapping: original->BIG_BALL, bite_sized->MID_BALL (counterintuitive but correct per CLAUDE.md Pitfall #11)
+- Known corrections auto-applied: Original Single -> 1 MID_BALL, Original Triple -> 3 MID_BALL (overrides standard mapping)
+- Brochure reclassification deletes menuProduct record but warns about referencing orderItems (snapshot data preserved)
+- Verification query compares against standard mapping only (not corrections), so corrected products will show as mismatches (expected)
 
 ## Performance Metrics
 
@@ -114,7 +119,8 @@ Phases 1, 2, 3 COMPLETE. Phase 4 (Bugs) is now ready. Phase 5 follows Phase 1 (C
 | 04 | 02 | 9min | 2 | 8 |
 | 05 | 02 | 5min | 2 | 10 |
 | 05 | 03 | 6min | 2 | 7 |
+| 06 | 01 | 3min | 2 | 2 |
 
 ---
-*Last updated: 2026-02-13*
-*Last session stopped at: Phase 05 COMPLETE (all 3 plans done, verification passed)*
+*Last updated: 2026-02-14*
+*Last session stopped at: Completed 06-01-PLAN.md (BOM backfill + verification)*
