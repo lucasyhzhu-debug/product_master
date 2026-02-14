@@ -39,6 +39,7 @@ import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapte
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_registry from "../integrations/registry.js";
+import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
 import type * as inventory_fifo from "../inventory/fifo.js";
 import type * as inventory_helpers from "../inventory/helpers.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/registry": typeof integrations_registry;
+  "integrityChecks/mutations": typeof integrityChecks_mutations;
   "inventory/fifo": typeof inventory_fifo;
   "inventory/helpers": typeof inventory_helpers;
   "inventory/mutations": typeof inventory_mutations;

@@ -108,6 +108,8 @@ export const getDailySummary = query({
         unsticker: number;
         pack: number;
         unpack: number;
+        ship_goldfinch: number;
+        return_goldfinch: number;
       }
     >();
 
@@ -124,6 +126,8 @@ export const getDailySummary = query({
           unsticker: 0,
           pack: 0,
           unpack: 0,
+          ship_goldfinch: 0,
+          return_goldfinch: 0,
         });
       }
 
