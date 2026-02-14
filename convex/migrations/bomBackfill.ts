@@ -22,6 +22,10 @@ import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
 
+// Type for documents that may still have deprecated fields (pre-cleanup data).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDoc = Record<string, any>;
+
 /**
  * Standard mapping from deprecated productionType to BOM component code.
  * CRITICAL: "original" -> BIG_BALL (80g), "bite_sized" -> MID_BALL (45g)
@@ -151,8 +155,10 @@ export const backfillMenuProductBOM = mutation({
     );
 
     for (const mp of remainingProducts) {
+      // Cast to AnyDoc: deprecated fields removed from schema in Plan 04.
+      const doc = mp as AnyDoc;
       // a. Skip if productionType is null/undefined/empty
-      if (!mp.productionType) {
+      if (!doc.productionType) {
         report.skipped++;
         report.details.push({
           productName: mp.name,
@@ -164,8 +170,8 @@ export const backfillMenuProductBOM = mutation({
       }
 
       // b. Look up BOM code from standard mapping
-      let targetBomCode = PRODUCTION_TYPE_TO_BOM_CODE[mp.productionType];
-      let targetQuantity = mp.productionUnits ?? 1;
+      let targetBomCode = PRODUCTION_TYPE_TO_BOM_CODE[doc.productionType as string];
+      let targetQuantity = (doc.productionUnits as number | undefined) ?? 1;
       let wasCorrected = false;
 
       if (!targetBomCode) {
@@ -174,7 +180,7 @@ export const backfillMenuProductBOM = mutation({
           productName: mp.name,
           productCode: mp.code,
           action: "error",
-          message: `Unknown productionType "${mp.productionType}" — no mapping found`,
+          message: `Unknown productionType "${doc.productionType}" — no mapping found`,
         });
         continue;
       }
@@ -233,7 +239,7 @@ export const backfillMenuProductBOM = mutation({
           productName: mp.name,
           productCode: mp.code,
           action: "corrected",
-          message: `Auto-corrected: productionType "${mp.productionType}" -> ${targetBomCode} x${targetQuantity} (standard mapping would have been ${PRODUCTION_TYPE_TO_BOM_CODE[mp.productionType]}). Deleted ${deletedCount} existing production BOM entries.`,
+          message: `Auto-corrected: productionType "${doc.productionType}" -> ${targetBomCode} x${targetQuantity} (standard mapping would have been ${PRODUCTION_TYPE_TO_BOM_CODE[doc.productionType as string]}). Deleted ${deletedCount} existing production BOM entries.`,
         });
       } else {
         report.backfilled++;
@@ -241,7 +247,7 @@ export const backfillMenuProductBOM = mutation({
           productName: mp.name,
           productCode: mp.code,
           action: "backfilled",
-          message: `Mapped: productionType "${mp.productionType}" -> ${targetBomCode} x${targetQuantity}. Deleted ${deletedCount} existing production BOM entries.`,
+          message: `Mapped: productionType "${doc.productionType}" -> ${targetBomCode} x${targetQuantity}. Deleted ${deletedCount} existing production BOM entries.`,
         });
       }
     }

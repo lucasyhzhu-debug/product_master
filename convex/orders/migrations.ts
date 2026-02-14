@@ -6,6 +6,10 @@
 
 import { query } from "../_generated/server";
 
+// Type for documents that may still have deprecated fields (pre-cleanup data).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDoc = Record<string, any>;
+
 /**
  * Verify current production tracking state (NEW system only)
  *
@@ -47,7 +51,9 @@ export const verifyProduction = query({
       // Skip cancelled items
       if (item.isCancelled) continue;
 
-      const hasProductionType = item.productionType !== undefined && item.productionType !== null;
+      // Cast to AnyDoc: deprecated fields removed from schema in Plan 04.
+      const doc = item as AnyDoc;
+      const hasProductionType = doc.productionType !== undefined && doc.productionType !== null;
       if (hasProductionType) {
         itemsWithProductionType++;
       }
@@ -61,7 +67,7 @@ export const verifyProduction = query({
         // Log items with productionType but no records (data integrity issue)
         if (hasProductionType && itemsMissingRecords.length < 10) {
           itemsMissingRecords.push(
-            `Item ${item._id}: ${item.productName} (type: ${item.productionType})`
+            `Item ${item._id}: ${item.productName} (type: ${doc.productionType})`
           );
         }
       }

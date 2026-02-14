@@ -38,7 +38,7 @@ export const create = mutation({
       name: args.name,
       gramsPerUnit: args.gramsPerUnit,
       unitCostIdr: args.unitCostIdr,
-      color: args.color,
+      color: args.color ?? "#93C572",
       sortOrder,
       isActive: args.isActive ?? true,
     });

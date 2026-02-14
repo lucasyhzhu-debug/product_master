@@ -20,6 +20,10 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
 
+// Type for documents that may still have deprecated fields (pre-cleanup data).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDoc = Record<string, any>;
+
 /**
  * Standard mapping from deprecated productionType to BOM component code.
  * Must match the mapping in convex/migrations/bomBackfill.ts exactly.
@@ -77,8 +81,10 @@ export const verifyBOMConsistency = query({
     result.total = allMenuProducts.length;
 
     for (const mp of allMenuProducts) {
-      const deprecatedType = mp.productionType || undefined;
-      const deprecatedUnits = mp.productionUnits ?? undefined;
+      // Cast to AnyDoc: deprecated fields removed from schema in Plan 04.
+      const doc = mp as AnyDoc;
+      const deprecatedType = doc.productionType || undefined;
+      const deprecatedUnits = doc.productionUnits ?? undefined;
 
       // Query BOM entries: menuProductComponents with category="production"
       const components = await ctx.db

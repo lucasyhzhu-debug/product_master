@@ -79,7 +79,7 @@ async function updateCachedProductionSummary(
     .collect();
 
   if (components.length === 0) {
-    await ctx.db.patch(menuProductId, { cachedProductionSummary: undefined });
+    await ctx.db.patch(menuProductId, { cachedProductionSummary: "" });
     return;
   }
 
@@ -155,9 +155,9 @@ export const create = mutation({
     }
 
     // PRD-4a: Auto-calculate unitCost and grams from components
-    let unitCost: number | undefined = undefined;
+    let unitCost: number = 0;
     let grams = args.grams ?? 0;
-    let productType: "food" | "packaging" | undefined = args.productType;
+    let productType: "food" | "packaging" = args.productType ?? "food";
 
     if (args.components && args.components.length > 0) {
       const calculated = await calculateUnitCostFromComponentTypes(ctx, args.components);
@@ -165,7 +165,7 @@ export const create = mutation({
       grams = calculated.totalGrams; // Override provided grams if components specified
 
       // Auto-derive productType from component categories if not explicitly set
-      if (!productType) {
+      if (!args.productType) {
         const hasProductionComponent = await Promise.all(
           args.components.map(async (comp) => {
             const componentType = await ctx.db.get(comp.componentTypeId);
@@ -182,10 +182,9 @@ export const create = mutation({
       name: args.name,
       grams,
       defaultPrice: args.defaultPrice,
-      // DEPRECATED: productionType/productionUnits omitted (schema now v.optional).
-      // Ball composition derived from BOM (menuProductComponents + componentTypes).
       isActive: args.isActive ?? true,
       unitCost,
+      cachedProductionSummary: "",
       productType,
     });
 
@@ -294,10 +293,10 @@ export const update = mutation({
 
         patchData.productType = hasProductionComponent.some((p) => p) ? "food" : "packaging";
       } else {
-        // If components array is empty, clear unitCost and grams
-        patchData.unitCost = undefined;
+        // If components array is empty, reset unitCost and grams to defaults
+        patchData.unitCost = 0;
         patchData.grams = 0;
-        patchData.productType = undefined;
+        patchData.cachedProductionSummary = "";
       }
     }
 
@@ -466,6 +465,8 @@ export const seedFixedProducts = mutation({
         defaultPrice: 50000,
         unitCost: 19231,
         isActive: true,
+        cachedProductionSummary: "1 Big Ball",
+        productType: "food" as const,
       },
       {
         code: "BITE_SINGLE",
@@ -474,6 +475,8 @@ export const seedFixedProducts = mutation({
         defaultPrice: 35000,
         unitCost: 12422,
         isActive: true,
+        cachedProductionSummary: "1 Mid Ball",
+        productType: "food" as const,
       },
       {
         code: "BITE_DOUBLE",
@@ -482,6 +485,8 @@ export const seedFixedProducts = mutation({
         defaultPrice: 70000,
         unitCost: 24843,
         isActive: true,
+        cachedProductionSummary: "2 Mid Ball",
+        productType: "food" as const,
       },
       {
         code: "BITE_TRIPLE",
@@ -490,6 +495,8 @@ export const seedFixedProducts = mutation({
         defaultPrice: 99000,
         unitCost: 36765,
         isActive: true,
+        cachedProductionSummary: "3 Mid Ball",
+        productType: "food" as const,
       },
     ];
 

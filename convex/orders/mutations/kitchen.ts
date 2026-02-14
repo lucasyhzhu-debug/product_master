@@ -43,6 +43,7 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
     totalProducedOriginal: 0,
     totalProducedBiteSized: 0,
     lastUpdated: Date.now(),
+    updatedBy: "system",
   });
 
   const newInventory = await ctx.db.get(id);

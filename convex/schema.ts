@@ -21,9 +21,9 @@ export default defineSchema({
     shippingCost: v.number(),
     createdBy: v.string(),
     // CACHE: Calculated from price/volume/shipping. Updated: on ingredient edit.
-    costPerBaseUnit: v.optional(v.number()),
+    costPerBaseUnit: v.number(),
     // CACHE: Derived from unitType (kg->g, l->ml). Updated: on ingredient edit.
-    baseUnit: v.optional(v.string()),
+    baseUnit: v.string(),
   })
     .index("by_name", ["name"]),
   // QFIX-05: removed by_brand -- zero withIndex references in codebase
@@ -38,9 +38,9 @@ export default defineSchema({
     shippingCost: v.number(),
     createdBy: v.string(),
     // CACHE: Calculated from price/volume/shipping. Updated: on material edit.
-    costPerBaseUnit: v.optional(v.number()),
+    costPerBaseUnit: v.number(),
     // CACHE: Derived from unitType. Updated: on material edit.
-    baseUnit: v.optional(v.string()),
+    baseUnit: v.string(),
   })
     .index("by_name", ["name"]),
 
@@ -54,15 +54,11 @@ export default defineSchema({
     name: v.string(),
     grams: v.number(),
     defaultPrice: v.number(),
-    productionType: v.optional(v.string()), // DEPRECATED: Phase 8 removal. Ball composition from BOM (menuProductComponents + componentTypes).
-    productionUnits: v.optional(v.number()), // DEPRECATED: Phase 8 removal. Ball count from BOM.
     isActive: v.boolean(),
-    // PRD-0: Fixed products and COGS tracking
-    isFixed: v.optional(v.boolean()), // Cannot be deleted if true
     // CACHE: Production COGS from BOM. Source: componentTypes.unitCostIdr via menuProductComponents. Updated: by recalculateAllCosts or invalidateMenuProductCosts.
-    unitCost: v.optional(v.number()),
+    unitCost: v.number(),
     // CACHE: Human-readable BOM summary (e.g., "1 Big, 2 Mid"). Source: menuProductComponents + componentTypes. Updated: on BOM change.
-    cachedProductionSummary: v.optional(v.string()),
+    cachedProductionSummary: v.string(),
     // PRD-8: POS slot assignment (positive integer, or undefined for unassigned)
     // Only products with posSlot appear on POS. Unique per slot.
     posSlot: v.optional(v.number()),
@@ -71,10 +67,10 @@ export default defineSchema({
     // BOM Refactor: Packaging POS slot (positive integer) for packaging-only products
     packagingPosSlot: v.optional(v.number()),
     // BOM Refactor: Derived product type (food = has production components, packaging = only packaging)
-    productType: v.optional(v.union(
+    productType: v.union(
       v.literal("food"),       // Has >= 1 production component
       v.literal("packaging")   // Only packaging components
-    )),
+    ),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
@@ -92,7 +88,7 @@ export default defineSchema({
     name: v.string(), // "Big Ball", "Mid Ball"
     gramsPerUnit: v.number(), // 80 for big, 45 for mid
     unitCostIdr: v.number(), // COGS per unit
-    color: v.optional(v.string()), // Hex color for kitchen display (e.g., "#EF4444")
+    color: v.string(), // Hex color for kitchen display (e.g., "#EF4444")
     sortOrder: v.number(), // Display ordering
     isActive: v.boolean(),
   })
@@ -343,7 +339,7 @@ export default defineSchema({
       v.literal("percentage")
     )),
     // DERIVED: totalAmount - orderLevelDiscount. Updated on discount change.
-    finalTotal: v.optional(v.number()),
+    finalTotal: v.number(),
 
     // Voucher tracking (optional - only if voucher applied)
     voucherId: v.optional(v.id("vouchers")),
@@ -400,7 +396,7 @@ export default defineSchema({
     itemCount: v.number(),
 
     // DERIVED: Computed from status. Set on every status transition. Source: statusTransitions.ts computeKitchenVisibility().
-    isKitchenVisible: v.optional(v.boolean()),
+    isKitchenVisible: v.boolean(),
     // DERIVED: Set when order reaches terminal status (CompleteShipped/PickedUp/Cancelled). Cleared on revert.
     completedAt: v.optional(v.number()),
   })
@@ -431,10 +427,6 @@ export default defineSchema({
     lineMargin: v.number(),
     // Optional link to menu product
     menuProductId: v.optional(v.id("menuProducts")),
-    // DEPRECATED: Legacy ball tracking. New code must use BOM (menuProductComponents + componentTypes) for ball composition.
-    // These fields are stamped at order creation for historical orders but should NOT be read by new features.
-    productionType: v.optional(v.string()), // DEPRECATED: was "original" or "bite_sized"
-    productionUnits: v.optional(v.number()), // DEPRECATED: was balls per unit
     // PRD-5: Production completion flag (denormalized for fast queries)
     isProductionComplete: v.optional(v.boolean()),
     // PRD-7: Cancellation flag for soft delete
@@ -573,10 +565,10 @@ export default defineSchema({
     date: v.string(), // YYYY-MM-DD format
     originalBallCount: v.number(), // Current Original (45g, MID_BALL) balls in tray
     biteSizedBallCount: v.number(), // Current Jumbo (80g, BIG_BALL) balls in tray
-    totalProducedOriginal: v.optional(v.number()), // Cumulative balls produced today (never decremented)
-    totalProducedBiteSized: v.optional(v.number()), // Cumulative balls produced today (never decremented)
+    totalProducedOriginal: v.number(), // Cumulative balls produced today (never decremented)
+    totalProducedBiteSized: v.number(), // Cumulative balls produced today (never decremented)
     lastUpdated: v.number(), // Timestamp
-    updatedBy: v.optional(v.string()),
+    updatedBy: v.string(),
   })
     .index("by_date", ["date"]),
 

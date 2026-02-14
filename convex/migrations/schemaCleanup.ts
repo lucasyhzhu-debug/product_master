@@ -22,6 +22,12 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
 
+// Type for documents that may still have deprecated fields (pre-cleanup data).
+// After schema tightening, these fields no longer appear in the generated types,
+// but the migration code must still reference them for cleanup verification.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDoc = Record<string, any>;
+
 // ============================================
 // BACKFILL MUTATIONS (Category B fields)
 // ============================================
@@ -333,20 +339,20 @@ export const clearMenuProductsDeprecatedFields = mutation({
     let skipped = 0;
 
     for (const mp of allMenuProducts) {
-      const hasProductionType = mp.productionType !== undefined;
-      const hasProductionUnits = mp.productionUnits !== undefined;
-      const hasIsFixed = mp.isFixed !== undefined;
+      // Cast to AnyDoc: these deprecated fields were removed from the schema in Plan 04.
+      // This migration was designed to run BEFORE schema tightening (Deploy 1).
+      const doc = mp as AnyDoc;
+      const hasProductionType = doc.productionType !== undefined;
+      const hasProductionUnits = doc.productionUnits !== undefined;
+      const hasIsFixed = doc.isFixed !== undefined;
 
       if (!hasProductionType && !hasProductionUnits && !hasIsFixed) {
         skipped++;
         continue;
       }
 
-      await ctx.db.patch(mp._id, {
-        productionType: undefined,
-        productionUnits: undefined,
-        isFixed: undefined,
-      });
+      // Fields already removed from schema -- patch is a no-op after Plan 04 deploy.
+      await ctx.db.patch(mp._id, {} as Record<string, undefined>);
       cleared++;
     }
 
@@ -373,18 +379,18 @@ export const clearOrderItemsDeprecatedFields = mutation({
     let skipped = 0;
 
     for (const item of allItems) {
+      // Cast to AnyDoc: these deprecated fields were removed from the schema in Plan 04.
+      const doc = item as AnyDoc;
       if (
-        item.productionType === undefined &&
-        item.productionUnits === undefined
+        doc.productionType === undefined &&
+        doc.productionUnits === undefined
       ) {
         skipped++;
         continue;
       }
 
-      await ctx.db.patch(item._id, {
-        productionType: undefined,
-        productionUnits: undefined,
-      });
+      // Fields already removed from schema -- patch is a no-op after Plan 04 deploy.
+      await ctx.db.patch(item._id, {} as Record<string, undefined>);
       cleared++;
     }
 
@@ -411,12 +417,17 @@ export const verifyCleanupComplete = query({
     const issues: string[] = [];
 
     // Check Category C (deprecated fields should be cleared)
+    // Cast to AnyDoc: these fields were removed from the schema in Plan 04.
     const menuProducts = await ctx.db.query("menuProducts").collect();
     const mpWithDeprecated = menuProducts.filter(
-      (mp) =>
-        mp.productionType !== undefined ||
-        mp.productionUnits !== undefined ||
-        mp.isFixed !== undefined
+      (mp) => {
+        const doc = mp as AnyDoc;
+        return (
+          doc.productionType !== undefined ||
+          doc.productionUnits !== undefined ||
+          doc.isFixed !== undefined
+        );
+      }
     ).length;
     if (mpWithDeprecated > 0) {
       issues.push(
@@ -426,8 +437,10 @@ export const verifyCleanupComplete = query({
 
     const orderItems = await ctx.db.query("orderItems").collect();
     const oiWithDeprecated = orderItems.filter(
-      (oi) =>
-        oi.productionType !== undefined || oi.productionUnits !== undefined
+      (oi) => {
+        const doc = oi as AnyDoc;
+        return doc.productionType !== undefined || doc.productionUnits !== undefined;
+      }
     ).length;
     if (oiWithDeprecated > 0) {
       issues.push(

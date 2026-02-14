@@ -5,6 +5,10 @@
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 
+// Type for documents that may still have deprecated fields (pre-cleanup data).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDoc = Record<string, any>;
+
 // ============================================
 // Constants
 // ============================================
@@ -62,9 +66,9 @@ export const backfillOrderItemProduction = mutation({
     // Get all orderItems with production data that don't have production records yet
     const allOrderItems = await ctx.db.query("orderItems").collect();
 
-    // Filter to items with production data
+    // Filter to items with production data (deprecated fields removed from schema in Plan 04)
     const itemsWithProduction = allOrderItems.filter(
-      (item) => item.productionType && item.productionUnits
+      (item) => (item as AnyDoc).productionType && (item as AnyDoc).productionUnits
     );
 
     // Check which items already have production records
@@ -89,13 +93,15 @@ export const backfillOrderItemProduction = mutation({
 
     for (const item of itemsToProcess) {
       try {
+        // Cast to AnyDoc: deprecated fields removed from schema in Plan 04.
+        const doc = item as AnyDoc;
         // Determine which production unit type to use
-        const unitType = item.productionType === "original" ? bigBall : midBall;
-        const unitCode = item.productionType === "original" ? "BIG_BALL" : "MID_BALL";
-        const unitName = item.productionType === "original" ? "Big Ball" : "Mid Ball";
+        const unitType = doc.productionType === "original" ? bigBall : midBall;
+        const unitCode = doc.productionType === "original" ? "BIG_BALL" : "MID_BALL";
+        const unitName = doc.productionType === "original" ? "Big Ball" : "Mid Ball";
 
         // Calculate units based on productionUnits * quantity
-        const unitsRequired = (item.productionUnits ?? 0) * item.quantity;
+        const unitsRequired = ((doc.productionUnits as number | undefined) ?? 0) * item.quantity;
 
         // Preserve existing progress from NEW system (ballsFilled)
         const unitsCompleted = item.ballsFilled ?? 0;
@@ -220,9 +226,9 @@ export const backfillProductionRecords = mutation({
   handler: async (ctx, args) => {
     const dryRun = args.dryRun ?? false;
 
-    // Get all order items with production type
+    // Get all order items with production type (deprecated field removed from schema in Plan 04)
     const allItems = await ctx.db.query("orderItems").collect();
-    const itemsWithProductionType = allItems.filter(item => item.productionType);
+    const itemsWithProductionType = allItems.filter(item => (item as AnyDoc).productionType);
 
     // Get production unit types
     const productionUnitTypes = await ctx.db
@@ -248,6 +254,9 @@ export const backfillProductionRecords = mutation({
     };
 
     for (const item of itemsWithProductionType) {
+      // Cast to AnyDoc: deprecated fields removed from schema in Plan 04.
+      const doc = item as AnyDoc;
+
       // Check if production records already exist
       const existingRecords = await ctx.db
         .query("orderItemProduction")
@@ -258,7 +267,7 @@ export const backfillProductionRecords = mutation({
         results.skipped++;
         results.details.push({
           itemId: item._id,
-          productionType: item.productionType!,
+          productionType: doc.productionType as string,
           quantity: item.quantity,
           action: "skipped (already has records)",
         });
@@ -266,7 +275,7 @@ export const backfillProductionRecords = mutation({
       }
 
       // Determine ball type from productionType
-      const unitType = item.productionType === "original" ? bigBallType : midBallType;
+      const unitType = doc.productionType === "original" ? bigBallType : midBallType;
       const unitsRequired = item.quantity;
 
       if (!dryRun) {
@@ -284,7 +293,7 @@ export const backfillProductionRecords = mutation({
       results.created++;
       results.details.push({
         itemId: item._id,
-        productionType: item.productionType!,
+        productionType: doc.productionType as string,
         quantity: item.quantity,
         action: dryRun ? "would create" : "created",
       });
