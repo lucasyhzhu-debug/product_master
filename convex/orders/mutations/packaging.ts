@@ -12,13 +12,13 @@ import { calculatePackageStatus } from "../helpers";
 import { logOrderEvent, transitionToBoxed, transitionToInProduction, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
 
 // ============================================
-// BOM-01: Dual-read helpers for packaging
+// Production record helpers for packaging
 // ============================================
 
 /**
  * Get balls per package for an order item.
- * NEW system: derives from orderItemProduction records.
- * FALLBACK: uses deprecated productionUnits for historical orders.
+ * Derives from orderItemProduction records.
+ * Returns 1 as default if no production records exist.
  */
 async function getBallsPerPackageForItem(
   ctx: MutationCtx,
@@ -35,14 +35,12 @@ async function getBallsPerPackageForItem(
     return totalUnits / item.quantity;
   }
 
-  // Fallback for historical orders without production records
-  return item.productionUnits ?? 1;
+  return 1;
 }
 
 /**
  * Check if an order item has production data (is a production item, not packaging-only).
- * NEW system: checks for active orderItemProduction records.
- * FALLBACK: checks deprecated productionType field.
+ * Checks for active orderItemProduction records.
  */
 async function hasProductionData(
   ctx: MutationCtx,
@@ -53,10 +51,7 @@ async function hasProductionData(
     .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
     .collect();
 
-  if (records.some(r => !r.isCancelled)) return true;
-
-  // Fallback: check deprecated field for historical orders
-  return !!item.productionType;
+  return records.some(r => !r.isCancelled);
 }
 
 // ============================================
@@ -92,7 +87,7 @@ export const markPackagePacked = mutation({
       throw new Error(`Invalid package index ${packageIndex}. Must be 0 to ${quantity - 1}`);
     }
 
-    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    // Derive ballsPerPackage from production records
     const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
     const ballsForThisPackage = Math.min(
@@ -134,7 +129,7 @@ export const markPackagePacked = mutation({
       .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
       .collect();
 
-    // BOM-01: Filter to items with production data (async dual-read)
+    // Filter to items with production data
     const productionItems: typeof allItems = [];
     for (const i of allItems) {
       if (await hasProductionData(ctx, i)) {
@@ -196,7 +191,7 @@ export const completePackaging = mutation({
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
       .collect();
 
-    // BOM-01: Filter to items with production data (async dual-read)
+    // Filter to items with production data
     const productionItems: typeof allItems = [];
     for (const i of allItems) {
       if (await hasProductionData(ctx, i)) {
@@ -304,7 +299,7 @@ export const markAllItemPackagesPacked = mutation({
     }
 
     const quantity = item.quantity ?? 1;
-    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    // Derive ballsPerPackage from production records
     const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
     const currentPackedIndices = item.packedPackageIndices ?? [];
@@ -378,7 +373,7 @@ export const unmarkPackagePacked = mutation({
     const newPackedIndices = packedIndices.filter((i) => i !== packageIndex);
 
     const quantity = item.quantity ?? 1;
-    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    // Derive ballsPerPackage from production records
     const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const ballsFilled = item.ballsFilled ?? 0;
 
@@ -416,7 +411,7 @@ export const fillPackage = mutation({
 
     const ballsToAdd = args.ballsToAdd ?? 1;
     const currentBallsFilled = item.ballsFilled ?? 0;
-    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    // Derive ballsPerPackage from production records
     const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const quantity = item.quantity ?? 1;
     const totalBallsRequired = quantity * ballsPerPackage;
@@ -455,7 +450,7 @@ export const fillPackage = mutation({
         .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
         .collect();
 
-      // BOM-01: Filter to items with production data (async dual-read)
+      // Filter to items with production data
       const productionItems: typeof allItems = [];
       for (const i of allItems) {
         if (await hasProductionData(ctx, i)) {
@@ -470,7 +465,7 @@ export const fillPackage = mutation({
             return newBallsFilled >= totalBallsRequired;
           }
           const ballsFilledInItem = i.ballsFilled ?? 0;
-          // BOM-01: Derive ballsPerPkg from production records, fallback to deprecated field
+          // Derive ballsPerPkg from production records
           const ballsPerPkg = await getBallsPerPackageForItem(ctx, i);
           const qty = i.quantity ?? 1;
           const totalRequired = qty * ballsPerPkg;
@@ -518,7 +513,7 @@ export const unfillPackage = mutation({
     const newBallsFilled = Math.max(0, currentBallsFilled - ballsToRemove);
 
     // Determine packageStatus
-    // BOM-01: Derive ballsPerPackage from production records, fallback to deprecated field
+    // Derive ballsPerPackage from production records
     const ballsPerPackage = await getBallsPerPackageForItem(ctx, item);
     const quantity = item.quantity ?? 1;
     const packedIndices = item.packedPackageIndices ?? [];

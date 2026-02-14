@@ -351,7 +351,7 @@ export const getKitchenOrders = query({
         productionRecords: orderData.production.get(item._id) ?? [],
       }));
 
-      // BOM-01: Dual-read ball stats (BOM first, deprecated fallback)
+      // Calculate ball stats from production records
       const { bigBallsNeeded, midBallsNeeded } = calculateBallStatsFromItems(itemsWithProduction);
 
       // Calculate NEW system production stats (dynamic by type)
@@ -388,15 +388,8 @@ export const getKitchenOrders = query({
 });
 
 /**
- * Dual-read ball composition: BOM (production records) first, deprecated fallback.
- * BOM-01: This is the migration bridge function. For items with production records,
- * ball stats are derived from the new system. For historical orders without records,
- * the deprecated fields are used as fallback.
- *
- * CRITICAL: The fallback replicates EXISTING behavior for historical orders:
- *   "original" -> midBallsNeeded (counterintuitive but matches current code, see Pitfall #11)
- *   "bite_sized" -> bigBallsNeeded (current code behavior)
- * For new orders with production records, the records contain correct codes directly.
+ * Calculate ball stats from orderItemProduction records.
+ * Items without production records contribute 0 balls.
  */
 function calculateBallStatsFromItems(
   items: Array<Doc<"orderItems"> & { productionRecords?: Doc<"orderItemProduction">[] }>
@@ -419,19 +412,10 @@ function calculateBallStatsFromItems(
           midBallsNeeded += record.unitsRemaining;
         }
       }
-      continue; // Skip deprecated fallback for this item
+      continue; // Skip items without production records (0 balls)
     }
 
-    // FALLBACK: Deprecated fields for historical orders (pre-BOM)
-    // IMPORTANT: Replicates EXISTING calculateOldSystemBallStats behavior exactly.
-    // "original" -> midBallsNeeded, "bite_sized" -> bigBallsNeeded
-    // This mapping looks counterintuitive but matches the existing code behavior
-    // that users have been seeing. Changing it would alter historical display.
-    if (item.productionType === "original" && item.productionUnits) {
-      midBallsNeeded += item.productionUnits * item.quantity;
-    } else if (item.productionType === "bite_sized" && item.productionUnits) {
-      bigBallsNeeded += item.productionUnits * item.quantity;
-    }
+    // Items without production records contribute 0 balls
   }
 
   return { bigBallsNeeded, midBallsNeeded };
@@ -690,9 +674,7 @@ export const getKitchenStats = query({
       }
     }));
 
-    // BOM-01: Calculate stats for pending orders using dual-read pattern
-    // NEW system: uses orderItemProduction.unitsRemaining (already accounts for balls filled)
-    // FALLBACK: uses deprecated fields with ballsFilled subtraction for historical orders
+    // Calculate stats for pending orders from orderItemProduction records
     let bigBallsNeeded = 0;
     let midBallsNeeded = 0;
 
@@ -701,36 +683,20 @@ export const getKitchenStats = query({
       for (const item of items) {
         if (item.isCancelled) continue;
 
-        // Check for production records (NEW system)
         const records = productionByItem.get(item._id.toString()) ?? [];
         const activeRecords = records.filter(r => !r.isCancelled);
 
-        if (activeRecords.length > 0) {
-          // NEW system: unitsRemaining already reflects balls filled
-          for (const record of activeRecords) {
-            if (record.productionUnitCode === "BIG_BALL") {
-              bigBallsNeeded += record.unitsRemaining;
-            } else if (record.productionUnitCode === "MID_BALL") {
-              midBallsNeeded += record.unitsRemaining;
-            }
+        for (const record of activeRecords) {
+          if (record.productionUnitCode === "BIG_BALL") {
+            bigBallsNeeded += record.unitsRemaining;
+          } else if (record.productionUnitCode === "MID_BALL") {
+            midBallsNeeded += record.unitsRemaining;
           }
-          continue;
-        }
-
-        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
-        const ballsFilled = item.ballsFilled ?? 0;
-        const totalRequired = (item.quantity ?? 0) * (item.productionUnits ?? 0);
-        const remaining = Math.max(0, totalRequired - ballsFilled);
-
-        if (item.productionType === "original") {
-          midBallsNeeded += remaining;
-        } else if (item.productionType === "bite_sized") {
-          bigBallsNeeded += remaining;
         }
       }
     }
 
-    // BOM-01: Calculate stats for completed orders today using dual-read pattern
+    // Calculate stats for completed orders today from orderItemProduction records
     let bigBallsCompleted = 0;
     let midBallsCompleted = 0;
 
@@ -739,27 +705,15 @@ export const getKitchenStats = query({
       for (const item of items) {
         if (item.isCancelled) continue;
 
-        // Check for production records (NEW system)
         const records = productionByItem.get(item._id.toString()) ?? [];
         const activeRecords = records.filter(r => !r.isCancelled);
 
-        if (activeRecords.length > 0) {
-          // NEW system: unitsCompleted from production records
-          for (const record of activeRecords) {
-            if (record.productionUnitCode === "BIG_BALL") {
-              bigBallsCompleted += record.unitsCompleted;
-            } else if (record.productionUnitCode === "MID_BALL") {
-              midBallsCompleted += record.unitsCompleted;
-            }
+        for (const record of activeRecords) {
+          if (record.productionUnitCode === "BIG_BALL") {
+            bigBallsCompleted += record.unitsCompleted;
+          } else if (record.productionUnitCode === "MID_BALL") {
+            midBallsCompleted += record.unitsCompleted;
           }
-          continue;
-        }
-
-        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
-        if (item.productionType === "original" && item.productionUnits) {
-          midBallsCompleted += item.productionUnits * item.quantity;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
-          bigBallsCompleted += item.productionUnits * item.quantity;
         }
       }
     }
@@ -956,13 +910,9 @@ export const debugProductionRecords = query({
 
             return {
               itemId: item._id,
-              // BOM-01: Deprecated fields kept for debug comparison only
-              deprecated_productionType: item.productionType,
-              deprecated_productionUnits: item.productionUnits,
               quantity: item.quantity,
               ballsFilled: item.ballsFilled,
               packageStatus: item.packageStatus,
-              // BOM system (source of truth for new orders)
               productionRecords: productionRecords.map((r) => ({
                 code: r.productionUnitCode,
                 unitsRequired: r.unitsRequired,
@@ -1090,33 +1040,22 @@ export const getCompletedToday = query({
       const items = itemsByOrder.get(order._id.toString()) ?? [];
       const customer = customersById.get(order.customerId.toString()) ?? null;
 
-      // BOM-01: Calculate ball counts using dual-read pattern
+      // Calculate ball counts from orderItemProduction records
       let bigBalls = 0;
       let midBalls = 0;
 
       for (const item of items) {
         if (item.isCancelled) continue;
 
-        // Check for production records (NEW system)
         const records = productionByItem.get(item._id.toString()) ?? [];
         const activeRecords = records.filter(r => !r.isCancelled);
 
-        if (activeRecords.length > 0) {
-          for (const record of activeRecords) {
-            if (record.productionUnitCode === "BIG_BALL") {
-              bigBalls += record.unitsCompleted;
-            } else if (record.productionUnitCode === "MID_BALL") {
-              midBalls += record.unitsCompleted;
-            }
+        for (const record of activeRecords) {
+          if (record.productionUnitCode === "BIG_BALL") {
+            bigBalls += record.unitsCompleted;
+          } else if (record.productionUnitCode === "MID_BALL") {
+            midBalls += record.unitsCompleted;
           }
-          continue;
-        }
-
-        // FALLBACK: Deprecated fields for historical orders (pre-BOM)
-        if (item.productionType === "original" && item.productionUnits) {
-          midBalls += item.productionUnits * item.quantity;
-        } else if (item.productionType === "bite_sized" && item.productionUnits) {
-          bigBalls += item.productionUnits * item.quantity;
         }
       }
 

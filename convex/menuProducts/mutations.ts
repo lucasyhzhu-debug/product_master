@@ -119,8 +119,6 @@ export const create = mutation({
     name: v.string(),
     grams: v.optional(v.number()),
     defaultPrice: v.number(),
-    productionType: v.optional(v.string()),
-    productionUnits: v.optional(v.number()),
     isActive: v.optional(v.boolean()),
     productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     // PRD-4a: Components array for auto-calculation (unified BOM)
@@ -226,8 +224,6 @@ export const update = mutation({
     name: v.optional(v.string()),
     grams: v.optional(v.number()),
     defaultPrice: v.optional(v.number()),
-    productionType: v.optional(v.string()),
-    productionUnits: v.optional(v.number()),
     productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     isActive: v.optional(v.boolean()),
     // PRD-4a: Components array for auto-calculation (unified BOM)
@@ -342,7 +338,7 @@ export const update = mutation({
 
 /**
  * Delete a menu product.
- * PRD-0: Fixed products cannot be deleted.
+ * POS-assigned products cannot be deleted (remove slot assignment first).
  */
 export const remove = mutation({
   args: { token: v.string(), id: v.id("menuProducts") },
@@ -354,9 +350,9 @@ export const remove = mutation({
       throw new Error("Menu product not found");
     }
 
-    // PRD-0: Block deletion of fixed products
-    if (product.isFixed) {
-      throw new Error("Cannot delete fixed product. This is a core menu item.");
+    // Block deletion of POS-assigned products
+    if (product.posSlot !== undefined || product.packagingPosSlot !== undefined) {
+      throw new Error("Cannot delete a POS-assigned product. Remove the POS slot assignment first.");
     }
 
     await ctx.db.delete(args.id);
@@ -462,18 +458,13 @@ export const toggleActive = mutation({
 export const seedFixedProducts = mutation({
   args: {},
   handler: async (ctx) => {
-    // DEPRECATED: productionType/productionUnits kept in seed data for backward
-    // compatibility in dev seeding. Ball composition is from BOM.
     const fixedProducts = [
       {
         code: "ORIGINAL",
         name: "Original",
         grams: 80,
         defaultPrice: 50000,
-        productionType: "original", // DEPRECATED: kept for dev seed only
-        productionUnits: 1, // DEPRECATED: kept for dev seed only
         unitCost: 19231,
-        isFixed: true,
         isActive: true,
       },
       {
@@ -481,10 +472,7 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Single",
         grams: 45,
         defaultPrice: 35000,
-        productionType: "bite_sized", // DEPRECATED: kept for dev seed only
-        productionUnits: 1, // DEPRECATED: kept for dev seed only
         unitCost: 12422,
-        isFixed: true,
         isActive: true,
       },
       {
@@ -492,10 +480,7 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Double",
         grams: 90,
         defaultPrice: 70000,
-        productionType: "bite_sized", // DEPRECATED: kept for dev seed only
-        productionUnits: 2, // DEPRECATED: kept for dev seed only
         unitCost: 24843,
-        isFixed: true,
         isActive: true,
       },
       {
@@ -503,10 +488,7 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Triple",
         grams: 135,
         defaultPrice: 99000,
-        productionType: "bite_sized", // DEPRECATED: kept for dev seed only
-        productionUnits: 3, // DEPRECATED: kept for dev seed only
         unitCost: 36765,
-        isFixed: true,
         isActive: true,
       },
     ];
@@ -521,10 +503,9 @@ export const seedFixedProducts = mutation({
         .first();
 
       if (existing) {
-        // Update existing product with new fields (no deprecated field writes)
+        // Update existing product with current values
         await ctx.db.patch(existing._id, {
           unitCost: product.unitCost,
-          isFixed: product.isFixed,
           grams: product.grams,
           defaultPrice: product.defaultPrice,
         });

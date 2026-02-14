@@ -561,9 +561,9 @@ export const getOrderTemplate = query({
       // Format price
       const priceK = (p.defaultPrice / 1000).toFixed(0);
 
-      // BOM-01: Derive production units from BOM, fallback to deprecated field
+      // Derive production units from BOM
       const bomUnits = bomProductionUnitsMap.get(p._id.toString());
-      const productionUnits = bomUnits ?? p.productionUnits ?? 1;
+      const productionUnits = bomUnits ?? 1;
 
       // Only append grammage if name doesn't already contain it
       const nameAlreadyHasGrams = p.name.includes(`${p.grams}g`);
