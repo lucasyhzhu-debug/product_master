@@ -7,8 +7,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 Phase: 6 — BOM Migration (IN PROGRESS)
-Current Plan: 01 of 03 (plan 01 complete)
-Last completed: 06-01 (BOM Backfill Migration)
+Current Plan: 02 of 03 (plan 02 complete)
+Last completed: 06-02 (BOM Dual-Read and Stop-Writes)
 
 ## Phase Readiness
 
@@ -49,6 +49,7 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 | 2026-02-13 | 05 | Plan 02 complete | Ingredients/materials/tags protectedMutation, query helpers, useSessionMutation hooks, tags tests with auth |
 | 2026-02-13 | 05 | Plan 03 complete | Customers/storageLocations protectedMutation, shipping internal docs, frontend useSessionMutation |
 | 2026-02-14 | 06 | Plan 01 complete | BOM backfill migration + verification query, auto-corrections for Original Single/Triple |
+| 2026-02-14 | 06 | Plan 02 complete | Dual-read pattern in queries/packaging, stop writing deprecated fields in all mutations |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -99,6 +100,11 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 - Known corrections auto-applied: Original Single -> 1 MID_BALL, Original Triple -> 3 MID_BALL (overrides standard mapping)
 - Brochure reclassification deletes menuProduct record but warns about referencing orderItems (snapshot data preserved)
 - Verification query compares against standard mapping only (not corrections), so corrected products will show as mismatches (expected)
+- Dual-read pattern: BOM production records checked first, deprecated fields used as fallback for historical orders
+- productionByItem batch fetch moved before stats calculation loops (use-before-declaration fix)
+- Packaging mutations use async per-item DB lookups for BOM helpers (not batch -- single item context)
+- menuProducts.create uses empty string/zero defaults for deprecated required schema fields (BOM-04 will relax)
+- Debug query renames deprecated fields with deprecated_ prefix and adds hasBOMData flag
 
 ## Performance Metrics
 
@@ -120,7 +126,8 @@ Phases 1-5 COMPLETE. Phase 6 (BOM Migration) is in progress. All remaining phase
 | 05 | 02 | 5min | 2 | 10 |
 | 05 | 03 | 6min | 2 | 7 |
 | 06 | 01 | 3min | 2 | 2 |
+| 06 | 02 | 8min | 2 | 6 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 06-01-PLAN.md (BOM backfill + verification)*
+*Last session stopped at: Completed 06-02-PLAN.md (BOM dual-read + stop-writes)*
