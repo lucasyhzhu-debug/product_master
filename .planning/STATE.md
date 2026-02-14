@@ -63,6 +63,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 04 complete | Dashboard/OrderManager PageHeader migration, 23 files cleaned of terracotta/hardcoded colors, OrderFormPOS Playfair removal |
 | 2026-02-14 | 09 | Plan 05 complete | Skeleton screens, dark mode re-enabled (ThemeContext + 60 CSS vars), kitchen 20-file color migration, 22-file non-kitchen dark fixes, header redesign (role-colored pill). Phase 09 COMPLETE. |
 | 2026-02-14 | 10 | Plan 02 complete | EntityManager generic CRUD component, shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection, search, sort |
+| 2026-02-14 | 10 | Plan 01 complete | createMutationHook factory, 5 entity hooks migrated, customer transform removed, StorageLocations toasts added |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -189,6 +190,10 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Bulk delete falls back to Promise.all of individual onDelete calls when onBulkDelete not provided
 - Sort state cycles asc -> desc -> clear on repeated column header clicks
 - Undo toast re-creates entity via onCreate with cached form data (pragmatic re-creation, not true undo)
+- createMutationHook uses Parameters<typeof mutation> to inherit exact useSessionMutation arg types (avoids complex generic math)
+- Customer transform layer removed entirely -- order forms updated to use raw Convex _id directly
+- useConvexSeedTags kept as standalone hook (useMutation not useSessionMutation -- public mutation, no sessionId)
+- LocationsManager inline toasts removed in favor of factory-provided toast notifications
 
 ## Performance Metrics
 
@@ -225,7 +230,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 04 | 6min | 2 | 23 |
 | 09 | 05 | 15min | 2 | 44 |
 | 10 | 02 | 5min | 2 | 5 |
+| 10 | 01 | 7min | 2 | 10 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 10-02-PLAN.md (EntityManager generic CRUD component with shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection). Phase 10 plan 2/3 done.*
+*Last session stopped at: Completed 10-01-PLAN.md (createMutationHook factory, 5 entity hook migrations, customer transform removal). Phase 10 plan 2/3 done (01+02 complete, 03 remaining).*
