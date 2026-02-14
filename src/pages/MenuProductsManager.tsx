@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock, Boxes, Package } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock, Boxes, Package, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/shared';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProductForm } from '@/components/menuProducts/ProductForm';
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
@@ -25,9 +33,11 @@ import {
   useConvexAssignToPackagingSlot,
   useConvexReorderSlots,
   useConvexReorderPackagingSlots,
+  useConvexRecalculateAllCosts,
   type PosProduct,
   type AvailableProduct,
   type PackagingPosProduct,
+  type RecalcResult,
 } from '@/hooks/convex/useMenuProducts';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 import type { Id } from '../../convex/_generated/dataModel';
@@ -36,6 +46,8 @@ import { toast } from 'sonner';
 export function MenuProductsManager() {
   useDocumentTitle('Product Manager');
   const navigate = useNavigate();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
 
   // Convex hooks
   const { data: posProducts, isLoading: loadingPos } = useConvexPosProducts();
@@ -48,6 +60,7 @@ export function MenuProductsManager() {
   const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
   const reorderSlotsMutation = useConvexReorderSlots();
   const reorderPackagingSlotsMutation = useConvexReorderPackagingSlots();
+  const recalcAllCosts = useConvexRecalculateAllCosts();
 
   // DnD state
   const [activeProduct, setActiveProduct] = useState<PosProduct | AvailableProduct | PackagingPosProduct | null>(null);
@@ -69,6 +82,10 @@ export function MenuProductsManager() {
     currentProduct: PosProduct;
   } | null>(null);
   const [showSwapDialog, setShowSwapDialog] = useState(false);
+
+  // Recalculate All Costs state
+  const [recalcResults, setRecalcResults] = useState<RecalcResult[] | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const isLoading = loadingPos || loadingAvailable || loadingPackagingPos;
 
@@ -187,6 +204,19 @@ export function MenuProductsManager() {
       setSwapSlotData(null);
     } catch (error) {
       console.error('Failed to swap slot:', error);
+    }
+  };
+
+  const handleRecalculateAll = async () => {
+    setIsRecalculating(true);
+    try {
+      const results = await recalcAllCosts.recalculate();
+      setRecalcResults(results);
+    } catch (error) {
+      toast.error('Failed to recalculate costs');
+      console.error('Recalculate all costs failed:', error);
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
@@ -382,7 +412,14 @@ export function MenuProductsManager() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">COGS</p>
-                  <p className="font-medium">{formatCurrency(product.unitCost ?? 0)}</p>
+                  <p className="font-medium flex items-center gap-1">
+                    {formatCurrency(product.unitCost ?? 0)}
+                    {product.unitCostStaleAt && (
+                      <span title="Cost recalculation in progress">
+                        <RefreshCw className="h-3 w-3 text-amber-500 animate-spin" />
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Margin</p>
@@ -488,6 +525,18 @@ export function MenuProductsManager() {
             Manage POS menu and packaging products
           </p>
         </div>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            onClick={handleRecalculateAll}
+            disabled={isRecalculating}
+            className="shrink-0"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRecalculating ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isRecalculating ? 'Recalculating...' : 'Recalculate Costs'}</span>
+            <span className="sm:hidden">{isRecalculating ? '...' : 'Recalc'}</span>
+          </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => navigate('/inventory')}
@@ -727,6 +776,52 @@ export function MenuProductsManager() {
         confirmLabel="Swap"
         variant="default"
       />
+
+      {/* Cost Recalculation Results Dialog */}
+      <Dialog open={recalcResults !== null} onOpenChange={() => setRecalcResults(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cost Recalculation Complete</DialogTitle>
+            <DialogDescription>
+              {recalcResults && recalcResults.length === 0
+                ? 'All costs are up to date. No changes were needed.'
+                : `${recalcResults?.length ?? 0} product(s) updated.`}
+            </DialogDescription>
+          </DialogHeader>
+          {recalcResults && recalcResults.length > 0 && (
+            <div className="max-h-[400px] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-2">Product</th>
+                    <th className="text-right py-2 px-2">Old Cost</th>
+                    <th className="text-right py-2 px-2">New Cost</th>
+                    <th className="text-right py-2 pl-2">Delta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recalcResults.map((result) => (
+                    <tr key={result.productId} className="border-b last:border-0">
+                      <td className="py-2 pr-2 font-medium">{result.name}</td>
+                      <td className="py-2 px-2 text-right text-muted-foreground">
+                        {formatCurrency(result.oldCost ?? 0)}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        {formatCurrency(result.newCost)}
+                      </td>
+                      <td className={`py-2 pl-2 text-right font-medium ${
+                        result.delta > 0 ? 'text-red-600' : result.delta < 0 ? 'text-green-600' : ''
+                      }`}>
+                        {result.delta > 0 ? '+' : ''}{formatCurrency(result.delta)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

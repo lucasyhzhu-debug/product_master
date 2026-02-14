@@ -1,13 +1,14 @@
 /**
  * Convex hooks for menu products.
  */
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import type { MenuProduct } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { useProtectedMutation } from "./useProtectedMutation";
+import { useAuth } from "../../contexts/AuthContext";
 
 // ============================================
 // Types
@@ -151,6 +152,7 @@ export interface PosProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
+  unitCostStaleAt?: number;
   posSlot: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
@@ -164,6 +166,7 @@ export interface PackagingPosProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
+  unitCostStaleAt?: number;
   packagingPosSlot: number;
   productType: "packaging";
 }
@@ -180,6 +183,7 @@ export function useConvexPosProducts() {
     grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
+    unitCostStaleAt: p.unitCostStaleAt,
     posSlot: p.posSlot as number,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
@@ -203,6 +207,7 @@ export interface AvailableProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
+  unitCostStaleAt?: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
@@ -219,6 +224,7 @@ export function useConvexAvailableProducts() {
     grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
+    unitCostStaleAt: p.unitCostStaleAt,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
@@ -383,6 +389,7 @@ export function useConvexPackagingPosProducts() {
     grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
+    unitCostStaleAt: p.unitCostStaleAt,
     packagingPosSlot: p.packagingPosSlot as number,
     productType: "packaging",
   }));
@@ -481,6 +488,38 @@ export function useConvexRemoveFromPackagingSlot() {
         }
         throw error;
       }
+    },
+  };
+}
+
+// ============================================
+// COGS Recalculation Hook
+// ============================================
+
+/**
+ * Recalculate all menu product costs.
+ * Admin only. Returns diff summary of changed products.
+ */
+export interface RecalcResult {
+  productId: string;
+  name: string;
+  oldCost: number | undefined;
+  newCost: number;
+  delta: number;
+}
+
+export function useConvexRecalculateAllCosts() {
+  const recalculate = useMutation(api.menuProducts.mutations.recalculateAllCosts);
+  const { user } = useAuth();
+
+  return {
+    recalculate: async (): Promise<RecalcResult[]> => {
+      if (!user?.token) {
+        toast.error("Session expired. Please log in again.");
+        throw new Error("Not authenticated");
+      }
+      const results = await recalculate({ token: user.token });
+      return results as RecalcResult[];
     },
   };
 }
