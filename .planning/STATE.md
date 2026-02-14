@@ -3,11 +3,11 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 10 — Frontend Factories (READY)
+**Current focus:** Phase 11 — Infrastructure (IN PROGRESS)
 
 ## Current Position
-Phase: 10 — Frontend Factories COMPLETE
-Last completed: 10-03 (5 entity pages migrated to EntityManager)
+Phase: 11 — Infrastructure IN PROGRESS (1/3 plans done)
+Last completed: 11-01 (Schema additions, integrity check cron, dependency audit)
 
 ## Phase Readiness
 
@@ -23,9 +23,10 @@ Last completed: 10-03 (5 entity pages migrated to EntityManager)
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
 | 10 — Frontend Factories | COMPLETE (all 3 plans done) | None |
+| 11 — Infrastructure | IN PROGRESS (1/3 plans done) | None |
 
 ## Parallel Opportunities
-Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are now unblocked and ready for execution.
+Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plan 01 done, Plans 02-03 remaining.
 
 ## Session History
 
@@ -65,6 +66,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 10 | Plan 02 complete | EntityManager generic CRUD component, shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection, search, sort |
 | 2026-02-14 | 10 | Plan 01 complete | createMutationHook factory, 5 entity hooks migrated, customer transform removed, StorageLocations toasts added |
 | 2026-02-14 | 10 | Plan 03 complete | 5 entity pages migrated to EntityManager (3 existing, 2 new), /customers + /tags routes. Phase 10 COMPLETE. |
+| 2026-02-14 | 11 | Plan 01 complete | Schema tables (integrityCheckLogs, productionResets), productionLog GoFood actions, weekly cron, dependency audit with 6 upgrades |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -195,6 +197,9 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Customer transform layer removed entirely -- order forms updated to use raw Convex _id directly
 - useConvexSeedTags kept as standalone hook (useMutation not useSessionMutation -- public mutation, no sessionId)
 - LocationsManager inline toasts removed in favor of factory-provided toast notifications
+- productionLog summary type extended inline with new ship_goldfinch/return_goldfinch action types (not Record<string,number>)
+- Placeholder integrity check inserts pass entry to integrityCheckLogs so crons.ts compiles before Plan 03 implementation
+- 6 safe patch/minor dependency upgrades applied; 7 major version upgrades skipped with documented rationale
 - [Phase 10-03]: transformFormData converts empty strings to undefined for optional mutation fields
 - [Phase 10-03]: LocationsManager uses Badge renders in columns for type and status display
 - [Phase 10-03]: TagsManager defaults to card view with undo support (no referential deps)
@@ -236,8 +241,9 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 10 | 02 | 5min | 2 | 5 |
 | 10 | 01 | 7min | 2 | 10 |
 | 10 | 03 | 8min | 3 | 8 |
+| 11 | 01 | 5min | 2 | 7 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 10-03-PLAN.md (5 entity pages migrated to EntityManager). Phase 10 COMPLETE (all 3 plans done).*
+*Last session stopped at: Completed 11-01-PLAN.md (schema additions, integrity check cron, dependency audit). Phase 11 plan 1/3 done.*
 
