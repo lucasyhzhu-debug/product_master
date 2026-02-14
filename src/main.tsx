@@ -4,6 +4,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { SessionProvider } from 'convex-helpers/react/sessions'
 import type { SessionId } from 'convex-helpers/server/sessions'
 import { AuthProvider } from './contexts/AuthContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -57,20 +58,22 @@ function useLocalStorage(
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {convex ? (
-      <ConvexProvider client={convex}>
-        <SessionProvider
-          useStorage={useLocalStorage}
-          storageKey="malo_session_id"
-        >
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </SessionProvider>
-      </ConvexProvider>
-    ) : (
-      // Fallback when Convex is not configured (legacy mode)
-      <App />
-    )}
+    <ThemeProvider>
+      {convex ? (
+        <ConvexProvider client={convex}>
+          <SessionProvider
+            useStorage={useLocalStorage}
+            storageKey="malo_session_id"
+          >
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </SessionProvider>
+        </ConvexProvider>
+      ) : (
+        // Fallback when Convex is not configured (legacy mode)
+        <App />
+      )}
+    </ThemeProvider>
   </StrictMode>,
 )

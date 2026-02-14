@@ -1,34 +1,26 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-heading: 'Playfair Display', Georgia, serif;
 
-  /* Terracotta Palette */
-  --color-terracotta: #E07856;
-  --color-terracotta-dark: #D66A4A;
-  --color-terracotta-darker: #C55A3A;
-  --color-terracotta-light: rgba(224, 120, 86, 0.1);
-  --color-terracotta-muted: rgba(224, 120, 86, 0.05);
+  /* Brand Accent — Teal */
+  --color-brand: #0D9488;
+  --color-brand-dark: #0F766E;
+  --color-brand-darker: #115E59;
+  --color-brand-light: rgba(13, 148, 136, 0.1);
+  --color-brand-muted: rgba(13, 148, 136, 0.05);
 
-  /* Text Colors */
-  --color-text-primary: #2D3748;
-  --color-text-secondary: #4A5568;
-  --color-text-muted: #718096;
-
-  /* Dark Gradient (for summary panels) */
-  --color-dark-gradient-from: #2D3748;
-  --color-dark-gradient-to: #1A202C;
-
-  /* Default shadcn colors */
+  /* Default shadcn colors (light theme) */
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(222.2 84% 4.9%);
   --color-card: hsl(0 0% 100%);
   --color-card-foreground: hsl(222.2 84% 4.9%);
   --color-popover: hsl(0 0% 100%);
   --color-popover-foreground: hsl(222.2 84% 4.9%);
-  --color-primary: hsl(222.2 47.4% 11.2%);
-  --color-primary-foreground: hsl(210 40% 98%);
+  --color-primary: hsl(172 90% 30%);
+  --color-primary-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(210 40% 96.1%);
   --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
   --color-muted: hsl(210 40% 96.1%);
@@ -39,9 +31,9 @@
   --color-destructive-foreground: hsl(210 40% 98%);
   --color-border: hsl(214.3 31.8% 91.4%);
   --color-input: hsl(214.3 31.8% 91.4%);
-  --color-ring: hsl(222.2 84% 4.9%);
+  --color-ring: hsl(172 90% 30%);
 
-  /* Kitchen Station Colors (Brand-Derived) */
+  /* Kitchen Station Colors (semantic — not theme-dependent) */
   /* Production Log - Sage Green */
   --color-station-production: #5B7A5E;
   --color-station-production-light: #EEF2EE;
@@ -60,7 +52,7 @@
   --color-station-stickering-medium: #E8D8CC;
   --color-station-stickering-accent: #4A3428;
 
-  /* Packing - Terracotta */
+  /* Packing - Warm Coral (station semantic, not brand) */
   --color-station-packing: #E07856;
   --color-station-packing-light: #FEF2EE;
   --color-station-packing-medium: #F5D5C8;
@@ -96,9 +88,40 @@
   --color-kitchen-counter: #1A202C;
   --color-kitchen-counter-complete: #3D7A4A;
 
-  --radius-lg: 0.5rem;
-  --radius-md: calc(var(--radius-lg) - 2px);
-  --radius-sm: calc(var(--radius-lg) - 4px);
+  /* Border Radius — warm/rounded (8-12px) */
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.375rem;
+}
+
+/* Dark theme overrides */
+.dark {
+  --color-background: hsl(224 10% 10%);
+  --color-foreground: hsl(210 40% 98%);
+  --color-card: hsl(224 10% 13%);
+  --color-card-foreground: hsl(210 40% 98%);
+  --color-popover: hsl(224 10% 13%);
+  --color-popover-foreground: hsl(210 40% 98%);
+  --color-primary: hsl(172 60% 45%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(224 10% 18%);
+  --color-secondary-foreground: hsl(210 40% 98%);
+  --color-muted: hsl(224 10% 18%);
+  --color-muted-foreground: hsl(215 16% 57%);
+  --color-accent: hsl(224 10% 18%);
+  --color-accent-foreground: hsl(210 40% 98%);
+  --color-destructive: hsl(0 63% 50%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-border: hsl(224 10% 20%);
+  --color-input: hsl(224 10% 20%);
+  --color-ring: hsl(172 60% 45%);
+  --color-brand: #14B8A6;
+  --color-brand-dark: #0D9488;
+  --color-brand-darker: #0F766E;
+  --color-brand-light: rgba(20, 184, 166, 0.15);
+  --color-brand-muted: rgba(20, 184, 166, 0.08);
+  --color-kitchen-page-bg: hsl(224 10% 8%);
+  --color-kitchen-card-border: hsl(224 10% 18%);
 }
 
 * {
@@ -116,66 +139,61 @@ body {
 }
 
 /* ============================================
-   Terracotta Theme Utilities
+   Brand Theme Utilities
    ============================================ */
 
-.text-terracotta {
-  color: var(--color-terracotta);
+.text-brand {
+  color: var(--color-brand);
 }
 
-.text-terracotta-dark {
-  color: var(--color-terracotta-dark);
+.text-brand-dark {
+  color: var(--color-brand-dark);
 }
 
-.bg-terracotta {
-  background-color: var(--color-terracotta);
+.bg-brand {
+  background-color: var(--color-brand);
 }
 
-.bg-terracotta-dark {
-  background-color: var(--color-terracotta-dark);
+.bg-brand-dark {
+  background-color: var(--color-brand-dark);
 }
 
-.bg-terracotta-light {
-  background-color: var(--color-terracotta-light);
+.bg-brand-light {
+  background-color: var(--color-brand-light);
 }
 
-.bg-terracotta-muted {
-  background-color: var(--color-terracotta-muted);
+.bg-brand-muted {
+  background-color: var(--color-brand-muted);
 }
 
-.border-terracotta {
-  border-color: var(--color-terracotta);
+.border-brand {
+  border-color: var(--color-brand);
 }
 
-.border-terracotta-dark {
-  border-color: var(--color-terracotta-dark);
+.border-brand-dark {
+  border-color: var(--color-brand-dark);
 }
 
 /* Hover states */
-.hover\:bg-terracotta:hover {
-  background-color: var(--color-terracotta);
+.hover\:bg-brand:hover {
+  background-color: var(--color-brand);
 }
 
-.hover\:bg-terracotta-dark:hover {
-  background-color: var(--color-terracotta-dark);
+.hover\:bg-brand-dark:hover {
+  background-color: var(--color-brand-dark);
 }
 
-.hover\:text-terracotta:hover {
-  color: var(--color-terracotta);
+.hover\:text-brand:hover {
+  color: var(--color-brand);
 }
 
-.hover\:border-terracotta:hover {
-  border-color: var(--color-terracotta);
+.hover\:border-brand:hover {
+  border-color: var(--color-brand);
 }
 
 /* ============================================
    Order-Specific Styles
    ============================================ */
-
-.order-heading {
-  font-family: var(--font-heading);
-  font-weight: 600;
-}
 
 .order-card-hover {
   transition: all 0.2s ease;
@@ -183,8 +201,8 @@ body {
 
 .order-card-hover:hover {
   transform: translateX(4px) scale(1.01);
-  box-shadow: 0 4px 12px rgba(224, 120, 86, 0.15);
-  border-left: 3px solid var(--color-terracotta);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
+  border-left: 3px solid var(--color-brand);
 }
 
 /* Custom scrollbar for order queue */
@@ -193,7 +211,7 @@ body {
 }
 
 .order-queue-scroll::-webkit-scrollbar-track {
-  background: var(--color-terracotta-muted);
+  background: var(--color-brand-muted);
   border-radius: 4px;
 }
 
@@ -204,7 +222,7 @@ body {
 }
 
 .order-queue-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--color-terracotta);
+  background: var(--color-brand);
 }
 
 /* Status indicator dot */
@@ -215,12 +233,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Terracotta focus ring */
-.focus-terracotta:focus {
+/* Brand focus ring */
+.focus-brand:focus {
   outline: none;
   ring: 2px;
-  ring-color: var(--color-terracotta-light);
-  border-color: var(--color-terracotta);
+  ring-color: var(--color-brand-light);
+  border-color: var(--color-brand);
 }
 
 /* ============================================
