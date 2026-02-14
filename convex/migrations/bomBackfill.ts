@@ -165,7 +165,7 @@ export const backfillMenuProductBOM = mutation({
 
       // b. Look up BOM code from standard mapping
       let targetBomCode = PRODUCTION_TYPE_TO_BOM_CODE[mp.productionType];
-      let targetQuantity = mp.productionUnits;
+      let targetQuantity = mp.productionUnits ?? 1;
       let wasCorrected = false;
 
       if (!targetBomCode) {

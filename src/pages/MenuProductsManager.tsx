@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Lock, Boxes, Package, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Boxes, Package, RefreshCw, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -175,8 +175,8 @@ export function MenuProductsManager() {
         (p) => p._id === deleteId
       );
 
-      if (productToDelete?.isFixed) {
-        toast.error('This product is marked as fixed and cannot be deleted');
+      if (productToDelete && (('posSlot' in productToDelete && productToDelete.posSlot !== undefined) || ('packagingPosSlot' in productToDelete && productToDelete.packagingPosSlot !== undefined))) {
+        toast.error('This product has a POS slot assigned and cannot be deleted. Remove the POS slot first.');
         setShowDeleteDialog(false);
         setDeleteId(null);
         return;
@@ -389,10 +389,10 @@ export function MenuProductsManager() {
                   {isFood && (
                     <Badge className="text-xs bg-green-500">Food</Badge>
                   )}
-                  {'isFixed' in product && product.isFixed && (
+                  {(('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined)) && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                      <Lock className="h-3 w-3" />
-                      Fixed
+                      <Pin className="h-3 w-3" />
+                      POS
                     </Badge>
                   )}
                 </div>
@@ -494,11 +494,11 @@ export function MenuProductsManager() {
                   }}
                   className="text-destructive hover:text-destructive h-7 w-7 sm:h-8 sm:w-8 p-0"
                   aria-label="Delete product"
-                  disabled={'isFixed' in product && product.isFixed === true}
-                  title={'isFixed' in product && product.isFixed ? 'Fixed products cannot be deleted' : 'Delete product'}
+                  disabled={('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined)}
+                  title={('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined) ? 'POS-assigned products cannot be deleted' : 'Delete product'}
                 >
-                  {'isFixed' in product && product.isFixed ? (
-                    <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                  {('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined) ? (
+                    <Pin className="h-3 w-3 sm:h-4 sm:w-4" />
                   ) : (
                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                   )}

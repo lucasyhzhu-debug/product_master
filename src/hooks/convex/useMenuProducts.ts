@@ -106,42 +106,6 @@ export function useConvexMenuProductByCode(code: string | undefined) {
 }
 
 /**
- * List only fixed menu products (isFixed === true).
- * PRD-5: For POS order form.
- * Returns raw Convex data with camelCase fields for POS components.
- */
-export interface FixedProduct {
-  _id: string;
-  code: string;
-  name: string;
-  grams: number;
-  defaultPrice: number;
-  unitCost?: number;
-}
-
-export function useConvexFixedProducts() {
-  const allProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
-  if (allProducts === undefined) return { data: undefined, isLoading: true };
-
-  // Filter to only fixed products and transform to POS-compatible format
-  const fixedProducts = allProducts
-    .filter(p => p.isFixed === true)
-    .map((p): FixedProduct => ({
-      _id: p._id as unknown as string,
-      code: p.code,
-      name: p.name,
-      grams: p.grams ?? 0,
-      defaultPrice: p.defaultPrice,
-      unitCost: p.unitCost,
-    }));
-
-  return {
-    data: fixedProducts,
-    isLoading: false,
-  };
-}
-
-/**
  * PRD-8 Phase 2: List products assigned to POS slots (posSlot 1-4).
  * Returns products sorted by slot number.
  */
@@ -154,7 +118,6 @@ export interface PosProduct {
   unitCost?: number;
   unitCostStaleAt?: number;
   posSlot: number;
-  isFixed?: boolean;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
 }
@@ -185,7 +148,6 @@ export function useConvexPosProducts() {
     unitCost: p.unitCost,
     unitCostStaleAt: p.unitCostStaleAt,
     posSlot: p.posSlot as number,
-    isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
   }));
@@ -208,7 +170,6 @@ export interface AvailableProduct {
   defaultPrice: number;
   unitCost?: number;
   unitCostStaleAt?: number;
-  isFixed?: boolean;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
 }
@@ -225,7 +186,6 @@ export function useConvexAvailableProducts() {
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
     unitCostStaleAt: p.unitCostStaleAt,
-    isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
   }));

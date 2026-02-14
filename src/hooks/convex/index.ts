@@ -105,7 +105,6 @@ export {
   useConvexMenuProducts,
   useConvexMenuProduct,
   useConvexMenuProductByCode,
-  useConvexFixedProducts,
   useConvexPosProducts,
   useConvexAvailableProducts,
   useConvexPackagingPosProducts,
@@ -120,7 +119,6 @@ export {
   // Types
   type MenuProductCreateInput,
   type MenuProductUpdateInput,
-  type FixedProduct,
   type PosProduct,
   type PackagingPosProduct,
   type AvailableProduct,
