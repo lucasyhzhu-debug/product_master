@@ -63,6 +63,8 @@ export default defineSchema({
     // PRD-8: POS slot assignment (positive integer, or undefined for unassigned)
     // Only products with posSlot appear on POS. Unique per slot.
     posSlot: v.optional(v.number()),
+    // Query optimization: timestamp when unit cost was marked stale (for COGS cache in Plan 02)
+    unitCostStaleAt: v.optional(v.number()),
     // BOM Refactor: Packaging POS slot (positive integer) for packaging-only products
     packagingPosSlot: v.optional(v.number()),
     // BOM Refactor: Derived product type (food = has production components, packaging = only packaging)
@@ -377,13 +379,22 @@ export default defineSchema({
 
     // Denormalized count
     itemCount: v.number(),
+
+    // Query optimization: denormalized kitchen visibility flag
+    // True for statuses visible in kitchen view (Draft, Confirmed, InProduction, Packaging, Boxed, Labeled, WaitingShipment, WaitingPickup)
+    // False for AwaitingPayment, ProductionComplete, CompleteShipped, PickedUp, Cancelled
+    isKitchenVisible: v.optional(v.boolean()),
+    // Timestamp when order reached terminal status (CompleteShipped/PickedUp/Cancelled)
+    // Used by kitchen query to show completed-today orders at bottom until end of day
+    completedAt: v.optional(v.number()),
   })
     .index("by_order_number", ["orderNumber"])
     .index("by_customer", ["customerId"])
     // REMOVED: .index("by_due_date", ["dueDate"]) - covered by by_status_due_date
     .index("by_status", ["status"])
     .index("by_channel", ["channel"])
-    .index("by_status_due_date", ["status", "dueDate"]),
+    .index("by_status_due_date", ["status", "dueDate"])
+    .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),

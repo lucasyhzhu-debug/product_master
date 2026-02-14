@@ -12,7 +12,7 @@ import { distributeBallsToOrders } from "../helpers/index";
 // Auth + inventory + status helpers for new kitchen mutations
 import { requireRole } from "../../lib/auth";
 import { consumeBatchMaterials } from "./inventoryIntegration";
-import { logAutoTransition } from "../helpers/statusTransitions";
+import { logAutoTransition, computeIsKitchenVisible, isTerminalStatus } from "../helpers/statusTransitions";
 import { consumeFromFIFO, applyFIFOConsumption } from "../../inventory/fifo";
 import { updateComponentStock } from "../../inventory/helpers";
 
@@ -667,7 +667,11 @@ export const markOrderReady = mutation({
     const newStatus = order.deliveryType === "Pickup" ? "WaitingPickup" : "WaitingShipment";
     const currentStatus = order.status;
 
-    await ctx.db.patch(order._id, { status: newStatus as typeof order.status });
+    await ctx.db.patch(order._id, {
+      status: newStatus as typeof order.status,
+      isKitchenVisible: computeIsKitchenVisible(newStatus),
+      completedAt: isTerminalStatus(newStatus) ? Date.now() : undefined,
+    });
 
     await logAutoTransition(
       ctx,

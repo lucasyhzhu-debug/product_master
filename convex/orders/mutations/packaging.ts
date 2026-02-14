@@ -9,7 +9,7 @@ import type { Doc } from "../../_generated/dataModel";
 // Pure helpers
 import { calculatePackageStatus } from "../helpers";
 // Ctx-dependent helpers
-import { logOrderEvent, transitionToBoxed, transitionToInProduction } from "../helpers/index";
+import { logOrderEvent, transitionToBoxed, transitionToInProduction, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
 
 // ============================================
 // BOM-01: Dual-read helpers for packaging
@@ -221,6 +221,8 @@ export const completePackaging = mutation({
     // Update order status
     await ctx.db.patch(args.orderId, {
       status: nextStatus,
+      isKitchenVisible: computeIsKitchenVisible(nextStatus),
+      completedAt: isTerminalStatus(nextStatus) ? Date.now() : undefined,
     });
 
     // Log the transition event
@@ -264,6 +266,8 @@ export const revertToPackaging = mutation({
     // Update order status back to Packaging
     await ctx.db.patch(args.orderId, {
       status: "Packaging",
+      isKitchenVisible: true,
+      completedAt: undefined,
     });
 
     // Log the revert event

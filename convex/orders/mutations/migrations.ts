@@ -328,7 +328,7 @@ export const migratePackagingToBoxed = mutation({
 
     for (const order of packagingOrders) {
       if (!dryRun) {
-        await ctx.db.patch(order._id, { status: "Boxed" });
+        await ctx.db.patch(order._id, { status: "Boxed", isKitchenVisible: true });
       }
 
       results.migrated++;

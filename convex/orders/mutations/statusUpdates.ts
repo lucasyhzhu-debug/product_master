@@ -14,8 +14,8 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
-// Audit logging
-import { logOrderEvent } from "../helpers/statusTransitions";
+// Audit logging + kitchen visibility
+import { logOrderEvent, computeIsKitchenVisible, isTerminalStatus } from "../helpers/statusTransitions";
 
 // Inventory integration (internal helpers)
 import {
@@ -34,6 +34,8 @@ interface OrderStatusUpdate {
   status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Boxed" | "Labeled" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled";
   awaitingPaymentSince?: number;
   confirmedAt?: number;
+  isKitchenVisible?: boolean;
+  completedAt?: number;
 }
 
 interface OrderDetailsUpdate {
@@ -79,7 +81,11 @@ export const updateStatus = mutation({
     const oldStatus = order.status;
     const newStatus = args.status;
 
-    const updates: OrderStatusUpdate = { status: newStatus };
+    const updates: OrderStatusUpdate = {
+      status: newStatus,
+      isKitchenVisible: computeIsKitchenVisible(newStatus),
+      completedAt: isTerminalStatus(newStatus) ? Date.now() : undefined,
+    };
 
     // Track awaiting payment timestamp
     if (newStatus === "AwaitingPayment" && !order.awaitingPaymentSince) {
@@ -122,7 +128,11 @@ export const updateStatus = mutation({
         }
       } catch (error) {
         // Revert status on failure
-        await ctx.db.patch(args.orderId, { status: oldStatus });
+        await ctx.db.patch(args.orderId, {
+          status: oldStatus,
+          isKitchenVisible: computeIsKitchenVisible(oldStatus),
+          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
+        });
         throw error;
       }
     }
@@ -133,7 +143,11 @@ export const updateStatus = mutation({
         await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
-        await ctx.db.patch(args.orderId, { status: oldStatus });
+        await ctx.db.patch(args.orderId, {
+          status: oldStatus,
+          isKitchenVisible: computeIsKitchenVisible(oldStatus),
+          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
+        });
         throw error;
       }
     }
@@ -144,7 +158,11 @@ export const updateStatus = mutation({
         await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
-        await ctx.db.patch(args.orderId, { status: oldStatus });
+        await ctx.db.patch(args.orderId, {
+          status: oldStatus,
+          isKitchenVisible: computeIsKitchenVisible(oldStatus),
+          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
+        });
         throw error;
       }
     }
@@ -155,7 +173,11 @@ export const updateStatus = mutation({
         await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
-        await ctx.db.patch(args.orderId, { status: oldStatus });
+        await ctx.db.patch(args.orderId, {
+          status: oldStatus,
+          isKitchenVisible: computeIsKitchenVisible(oldStatus),
+          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
+        });
         throw error;
       }
     }

@@ -48,6 +48,28 @@ export function canCancelOrder(order: Doc<"orders">): boolean {
   return !isTerminalStatus(order.status);
 }
 
+/**
+ * Compute whether an order with the given status should be visible in the kitchen view.
+ * Kitchen shows: Draft, Confirmed, InProduction, Packaging, Boxed, Labeled, WaitingShipment, WaitingPickup.
+ * Kitchen hides: AwaitingPayment, ProductionComplete, CompleteShipped, PickedUp, Cancelled.
+ *
+ * Note: CompleteShipped/PickedUp return false here, but the kitchen query separately
+ * fetches completed-today orders (terminal status with completedAt >= midnight).
+ */
+export function computeIsKitchenVisible(status: string): boolean {
+  const kitchenVisibleStatuses = new Set([
+    "Draft",
+    "Confirmed",
+    "InProduction",
+    "Packaging",
+    "Boxed",
+    "Labeled",
+    "WaitingShipment",
+    "WaitingPickup",
+  ]);
+  return kitchenVisibleStatuses.has(status);
+}
+
 // ============================================
 // Audit Logging
 // ============================================
@@ -140,7 +162,10 @@ export async function transitionToInProduction(
     return; // Only transition from Confirmed
   }
 
-  await ctx.db.patch(order._id, { status: "InProduction" });
+  await ctx.db.patch(order._id, {
+    status: "InProduction",
+    isKitchenVisible: computeIsKitchenVisible("InProduction"),
+  });
   await logAutoTransition(ctx, order._id, "Confirmed", "InProduction", reason, "kitchen");
 }
 
@@ -157,7 +182,10 @@ export async function transitionToPackaging(
 ): Promise<void> {
   const fromStatus = order.status;
 
-  await ctx.db.patch(order._id, { status: "Packaging" });
+  await ctx.db.patch(order._id, {
+    status: "Packaging",
+    isKitchenVisible: computeIsKitchenVisible("Packaging"),
+  });
   await logAutoTransition(ctx, order._id, fromStatus, "Packaging", reason, "kitchen");
 
   // Mark all items as production complete
@@ -177,7 +205,10 @@ export async function transitionToBoxed(
 ): Promise<void> {
   const fromStatus = order.status;
 
-  await ctx.db.patch(order._id, { status: "Boxed" });
+  await ctx.db.patch(order._id, {
+    status: "Boxed",
+    isKitchenVisible: computeIsKitchenVisible("Boxed"),
+  });
   await logAutoTransition(ctx, order._id, fromStatus, "Boxed", reason, "kitchen");
 }
 
@@ -194,6 +225,9 @@ export async function transitionToLabeled(
     return; // Only transition from Boxed
   }
 
-  await ctx.db.patch(order._id, { status: "Labeled" });
+  await ctx.db.patch(order._id, {
+    status: "Labeled",
+    isKitchenVisible: computeIsKitchenVisible("Labeled"),
+  });
   await logAutoTransition(ctx, order._id, "Boxed", "Labeled", reason, "kitchen");
 }

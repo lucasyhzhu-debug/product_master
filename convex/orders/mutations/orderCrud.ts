@@ -287,6 +287,7 @@ export const create = mutation({
       customerName,
       customerPhone,
       status: "Draft",
+      isKitchenVisible: true,
       paymentStatus: "Unpaid",
       orderDate: Date.now(),
       dueDate: args.dueDate,
@@ -392,6 +393,8 @@ export const cancel = mutation({
     // PRD-7: Update order with cancellation details
     await ctx.db.patch(args.orderId, {
       status: "Cancelled",
+      isKitchenVisible: false,
+      completedAt: Date.now(),
       cancellationReason: args.reason,
       cancellationCategory: args.reasonCategory,
       cancelledAt: Date.now(),
@@ -513,6 +516,7 @@ export const completeOrder = mutation({
     // Update order status
     await ctx.db.patch(args.orderId, {
       status: "ProductionComplete",
+      isKitchenVisible: false,
     });
 
     // PRD-5: Mark production complete using NEW system (orderItemProduction)
@@ -541,6 +545,8 @@ export const revertToConfirmed = mutation({
     // Update order status
     await ctx.db.patch(args.orderId, {
       status: "Confirmed",
+      isKitchenVisible: true,
+      completedAt: undefined,
     });
 
     // PRD-5: Reset orderItemProduction records using NEW system
