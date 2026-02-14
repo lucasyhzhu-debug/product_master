@@ -14,6 +14,34 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-14 - Phase 11: Infrastructure & Consolidation
+
+### Overview
+Production tracking simplified: all kitchen counts now come from a single source (the production log), replacing the old dual-write system. Dependencies audited and upgraded where safe.
+
+### INFRA-02: Dependency Audit
+- Full dependency compatibility audit completed
+- All safe upgrades applied; breaking upgrades documented with rationale
+- React 19 + Vite 7 + Convex 1.31 + TypeScript 5.9 compatibility verified
+
+### INFRA-03: Production Counts Consolidation
+- All production count reads now derived from `productionLog` aggregation
+- `productionCounts` table archived (read-only, no longer written to)
+- `productionResets` table tracks reset timestamps for aggregation filtering
+- New `productionLog` action types: `ship_goldfinch`, `return_goldfinch` for GoFood depot tracking
+- Weekly integrity check compares archived counts against log-derived aggregation
+- Kitchen UI, K3Mart cockpit, and GoFood depot all use single source of truth
+
+### Files Modified
+- `convex/productionLog/helpers.ts` -- Shared aggregation logic
+- `convex/productionLog/queries.ts` -- Aggregation queries replacing productionCounts reads
+- `convex/integrityChecks/mutations.ts` -- Full weekly integrity check
+- `convex/integrityChecks/queries.ts` -- Admin review query
+- `src/hooks/convex/useKitchenProduction.ts` -- Switched to productionLog aggregation
+- 6 mutation files updated to write only to productionLog
+
+---
+
 ## 2026-02-13 - Phase 02-03: Security Docs & Tech Debt Cleanup
 
 ### Overview
