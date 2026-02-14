@@ -6,8 +6,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 **Current focus:** Phase 11 — Infrastructure (IN PROGRESS)
 
 ## Current Position
-Phase: 11 — Infrastructure IN PROGRESS (1/3 plans done)
-Last completed: 11-01 (Schema additions, integrity check cron, dependency audit)
+Phase: 11 — Infrastructure IN PROGRESS (2/3 plans done)
+Last completed: 11-02 (ProductionLog consolidation: aggregation queries, mutation rewrites, resetCounts via productionResets)
 
 ## Phase Readiness
 
@@ -23,10 +23,10 @@ Last completed: 11-01 (Schema additions, integrity check cron, dependency audit)
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
 | 10 — Frontend Factories | COMPLETE (all 3 plans done) | None |
-| 11 — Infrastructure | IN PROGRESS (1/3 plans done) | None |
+| 11 — Infrastructure | IN PROGRESS (2/3 plans done) | None |
 
 ## Parallel Opportunities
-Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plan 01 done, Plans 02-03 remaining.
+Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plans 01-02 done, Plan 03 remaining.
 
 ## Session History
 
@@ -67,6 +67,7 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plan 01 done, Pl
 | 2026-02-14 | 10 | Plan 01 complete | createMutationHook factory, 5 entity hooks migrated, customer transform removed, StorageLocations toasts added |
 | 2026-02-14 | 10 | Plan 03 complete | 5 entity pages migrated to EntityManager (3 existing, 2 new), /customers + /tags routes. Phase 10 COMPLETE. |
 | 2026-02-14 | 11 | Plan 01 complete | Schema tables (integrityCheckLogs, productionResets), productionLog GoFood actions, weekly cron, dependency audit with 6 upgrades |
+| 2026-02-14 | 11 | Plan 02 complete | ProductionLog aggregation queries, removed all productionCounts writes, resetCounts via productionResets |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -203,6 +204,10 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plan 01 done, Pl
 - [Phase 10-03]: transformFormData converts empty strings to undefined for optional mutation fields
 - [Phase 10-03]: LocationsManager uses Badge renders in columns for type and status display
 - [Phase 10-03]: TagsManager defaults to card view with undo support (no referential deps)
+- ReadableCtx = QueryCtx | MutationCtx union type allows aggregateForProduct to work in both query and mutation contexts
+- return_goldfinch log entries add to stickered total (items returned from Goldfinch become available for re-stickering)
+- Kitchen mutations read aggregated counts for validation before writing log entries (prevents invalid state transitions)
+- kitchenQueries pre-fetches orderItems and aggregates only for referenced menuProductIds (not all active products)
 
 ## Performance Metrics
 
@@ -242,8 +247,9 @@ Phases 1-10 COMPLETE. Phase 11 (Infrastructure) in progress — Plan 01 done, Pl
 | 10 | 01 | 7min | 2 | 10 |
 | 10 | 03 | 8min | 3 | 8 |
 | 11 | 01 | 5min | 2 | 7 |
+| 11 | 02 | 9min | 2 | 8 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 11-01-PLAN.md (schema additions, integrity check cron, dependency audit). Phase 11 plan 1/3 done.*
+*Last session stopped at: Completed 11-02-PLAN.md (productionLog consolidation). Phase 11 plan 2/3 done.*
 
