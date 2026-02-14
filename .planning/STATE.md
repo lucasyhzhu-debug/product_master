@@ -3,12 +3,11 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 9 — UI Brand Consolidation (IN PROGRESS)
+**Current focus:** Phase 10 — Frontend Factories (READY)
 
 ## Current Position
-Phase: 9 — UI Brand Consolidation
-Current Plan: 04 of 05
-Last completed: 09-04 (Complex Page Audit Wave 2)
+Phase: 9 — UI Brand Consolidation COMPLETE
+Last completed: 09-05 (Skeleton Screens, Dark Mode, Header Redesign)
 
 ## Phase Readiness
 
@@ -22,7 +21,7 @@ Last completed: 09-04 (Complex Page Audit Wave 2)
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
-| 9 — UI Brand Consolidation | IN PROGRESS (03 of 05 plans done) | None |
+| 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
 | 10 — Infrastructure | Ready | None |
 
 ## Parallel Opportunities
@@ -62,6 +61,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 02 complete | Layout shell: scroll-hide header, AnimatePresence page transitions, mobile bottom nav, desktop footer, fullWidth route variant |
 | 2026-02-14 | 09 | Plan 03 complete | PageHeader badge slot, 3 custom-header migrations, 8 pages cleaned for padding/colors/spacing consistency |
 | 2026-02-14 | 09 | Plan 04 complete | Dashboard/OrderManager PageHeader migration, 23 files cleaned of terracotta/hardcoded colors, OrderFormPOS Playfair removal |
+| 2026-02-14 | 09 | Plan 05 complete | Skeleton screens, dark mode re-enabled (ThemeContext + 60 CSS vars), kitchen 20-file color migration, 22-file non-kitchen dark fixes, header redesign (role-colored pill). Phase 09 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -216,7 +216,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 02 | 4min | 2 | 9 |
 | 09 | 03 | 5min | 2 | 11 |
 | 09 | 04 | 6min | 2 | 23 |
+| 09 | 05 | 15min | 2 | 44 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-04-PLAN.md (complex page audit wave 2: Dashboard/OrderManager PageHeader, 23 files color cleanup)*
+*Last session stopped at: Completed 09-05-PLAN.md (skeletons, dark mode re-enabled, kitchen+app dark mode fixes, header redesign). Phase 09 COMPLETE.*

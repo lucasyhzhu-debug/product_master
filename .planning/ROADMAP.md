@@ -19,7 +19,7 @@
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Complete (2026-02-14) |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Complete (2026-02-14) |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Complete (2026-02-14) |
-| 9 | UI Brand Consolidation | Brand/UI reference established, all 19 pages audited and consistent (margins, fonts, colors, spacing, responsive) | 2 | Pending |
+| 9 | UI Brand Consolidation | Brand/UI reference established, all 19 pages audited and consistent (margins, fonts, colors, spacing, responsive) | 2 | Complete (2026-02-14) |
 | 10 | Frontend Factories | Generic hook and component factories applied to simple CRUD entities, reducing ~2,300 lines of boilerplate | 4 | Pending |
 | 11 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
 
@@ -221,11 +221,11 @@ Plans:
 **Plans:** 5 plans (Wave 1: 09-01, 09-02 parallel; Wave 2: 09-03, 09-04 parallel; Wave 3: 09-05)
 
 Plans:
-- [ ] 09-01-PLAN.md — Theme foundation: CSS tokens (light+dark), ThemeProvider, teal brand accent, Inter-only typography, brand reference doc
-- [ ] 09-02-PLAN.md — Layout components: PageContainer, scroll-hide Header, Footer, MobileBottomNav, AnimatePresence page transitions
-- [ ] 09-03-PLAN.md — Page audit batch 1: 15 standard pages (PageHeader migration, padding removal, semantic color tokens)
-- [ ] 09-04-PLAN.md — Page audit batch 2: 6 complex pages (Dashboard, OrderManager, KitchenViewV2, Login) + component-level color cleanup
-- [ ] 09-05-PLAN.md — Skeleton screens, enhanced EmptyState, full verification checkpoint
+- [x] 09-01-PLAN.md — Theme foundation: CSS tokens (light+dark), ThemeProvider, teal brand accent, Inter-only typography, brand reference doc
+- [x] 09-02-PLAN.md — Layout components: PageContainer, scroll-hide Header, Footer, MobileBottomNav, AnimatePresence page transitions
+- [x] 09-03-PLAN.md — Page audit batch 1: 15 standard pages (PageHeader migration, padding removal, semantic color tokens)
+- [x] 09-04-PLAN.md — Page audit batch 2: 6 complex pages (Dashboard, OrderManager, KitchenViewV2, Login) + component-level color cleanup
+- [x] 09-05-PLAN.md — Skeleton screens, dark mode re-enabled, kitchen+app dark mode fixes, header redesign
 
 **Success Criteria:**
 1. Brand/UI reference document exists (`docs/UI_BRAND_REFERENCE.md`) covering: color palette, typography, spacing scale, margin rules, component patterns, page layout conventions, dark mode tokens
