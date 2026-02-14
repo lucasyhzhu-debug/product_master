@@ -635,7 +635,8 @@ export default defineSchema({
     action: v.union(
       v.literal("box"), v.literal("unbox"),
       v.literal("sticker"), v.literal("unsticker"),
-      v.literal("pack"), v.literal("unpack")
+      v.literal("pack"), v.literal("unpack"),
+      v.literal("ship_goldfinch"), v.literal("return_goldfinch")
     ),
     quantity: v.number(), // Always positive
     timestamp: v.number(), // Date.now()
@@ -648,6 +649,32 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"]),
   // QFIX-05: removed by_menu_product_timestamp -- prefix duplicate of by_menu_product, zero references
   // QFIX-05: removed by_action -- zero withIndex references
+
+  // ============================================
+  // INTEGRITY CHECK LOGS
+  // Weekly automated data integrity checks
+  // ============================================
+
+  integrityCheckLogs: defineTable({
+    timestamp: v.number(),
+    type: v.string(), // Check type (e.g. "production_counts")
+    status: v.union(v.literal("pass"), v.literal("fail")),
+    mismatchCount: v.number(),
+    mismatches: v.optional(v.string()), // JSON string of mismatch details
+  })
+    .index("by_timestamp", ["timestamp"]),
+
+  // ============================================
+  // PRODUCTION RESETS
+  // Tracks when production counts were last reset per menu product
+  // ============================================
+
+  productionResets: defineTable({
+    menuProductId: v.id("menuProducts"),
+    lastResetAt: v.number(), // Timestamp of last reset
+    lastResetBy: v.string(), // Username who reset
+  })
+    .index("by_menu_product", ["menuProductId"]),
 
   // ============================================
   // PRD-7: USAGE TRACKING TABLES

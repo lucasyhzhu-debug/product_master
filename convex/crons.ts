@@ -17,4 +17,7 @@ crons.cron(
   internal.integrations.gobiz.adapter.autoSyncGoBizRevenue
 );
 
+// Weekly data integrity check (Sundays at 3:00 UTC = 10:00 WIB)
+crons.cron("weekly integrity check", "0 3 * * 0", internal.integrityChecks.mutations.runWeeklyCheck);
+
 export default crons;
