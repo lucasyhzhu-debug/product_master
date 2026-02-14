@@ -146,15 +146,22 @@ Plans:
 5. `by_production_type` index on `orderItems` is removed from schema
 6. Backfill migration has been run: every `menuProduct` has at least one corresponding entry in `menuProductComponents` with `category="production"`
 
-**Migration sequence (must follow exactly):**
-1. Deploy: BOM-06 backfill migration (ensure BOM data exists)
-2. Deploy: BOM-01 dual-read (BOM first, fallback to deprecated)
-3. Deploy: BOM-02 stop writing deprecated fields
-4. Deploy: BOM-03 frontend migration to BOM reads
-5. Deploy: BOM-04 mark fields as optional/deprecated in schema
-6. Deploy: BOM-05 remove deprecated index
+**Plans:** 3 plans (Wave 1: 06-01; Wave 2: 06-02; Wave 3: 06-03)
 
-**Estimated scope:** 29+ files modified (19 frontend + 10 backend), 1 migration mutation, 3-6 sequential deploys
+Plans:
+- [ ] 06-01-PLAN.md — BOM-06 backfill migration + verification query
+- [ ] 06-02-PLAN.md — BOM-01 dual-read backend queries + BOM-02 stop writing deprecated fields
+- [ ] 06-03-PLAN.md — BOM-03 frontend migration + BOM-04 schema changes + BOM-05 documentation
+
+**Migration sequence (must follow exactly):**
+1. Deploy: BOM-06 backfill migration (ensure BOM data exists) [Plan 01]
+2. Deploy: BOM-01 dual-read (BOM first, fallback to deprecated) [Plan 02]
+3. Deploy: BOM-02 stop writing deprecated fields [Plan 02]
+4. Deploy: BOM-03 frontend migration to BOM reads [Plan 03]
+5. Deploy: BOM-04 mark fields as optional/deprecated in schema [Plan 03]
+6. Deploy: BOM-05 remove deprecated index — ALREADY DONE (QFIX-05, Phase 3) [Plan 03 documents]
+
+**Estimated scope:** ~15 files modified (6 frontend + 8 backend + 1 schema), 2 migration functions, 3 sequential plans
 
 ---
 
