@@ -57,7 +57,7 @@ export function WhatsAppTemplatesManager() {
     : [];
 
   return (
-    <div className="p-6">
+    <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
         title="WhatsApp Templates"
@@ -87,7 +87,7 @@ export function WhatsAppTemplatesManager() {
           <MessageSquare className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h2 className="font-semibold text-gray-900">
+          <h2 className="font-semibold text-foreground">
             Customize Your Messages
           </h2>
           <p className="text-sm text-muted-foreground">

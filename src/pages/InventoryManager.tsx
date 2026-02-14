@@ -129,7 +129,7 @@ export function InventoryManager() {
     lowStockAlerts === undefined
   ) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6">
         <Skeleton className="h-12 w-64" />
         <Skeleton className="h-12 w-full" />
         <div className="space-y-3">
@@ -145,7 +145,7 @@ export function InventoryManager() {
   const legacyCount = report.matrix.filter((row) => row.component.isActive === false).length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <PageHeader
         title="Inventory"
@@ -153,7 +153,7 @@ export function InventoryManager() {
         action={
           <Button
             onClick={() => setReceiveDialogOpen(true)}
-            className="bg-gradient-to-r from-[#E07856] to-[#D66A4A] hover:from-[#D66A4A] hover:to-[#C55A3A] text-white shadow-md hover:shadow-lg transition-all duration-300"
+            className="shadow-md hover:shadow-lg transition-all duration-300"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Stock Type
@@ -192,7 +192,7 @@ export function InventoryManager() {
                     className={cn(
                       "cursor-pointer text-xs px-3 py-1 transition-colors",
                       categoryFilter === cat
-                        ? "bg-[#E07856] text-white border-[#E07856] hover:bg-[#D66A4A]"
+                        ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90"
                         : "hover:bg-muted"
                     )}
                     onClick={() => setCategoryFilter(cat)}

@@ -528,19 +528,22 @@ export function K3MartCockpit() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <PageHeader title="K3 Mart Cockpit" description={`Today: ${formatDateShort(today)}`} />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-          className="gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Syncing...' : 'Refresh Data'}
-        </Button>
-      </div>
+      <PageHeader
+        title="K3 Mart Cockpit"
+        description={`Today: ${formatDateShort(today)}`}
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Refresh Data'}
+          </Button>
+        }
+      />
 
       {/* ALERT ZONE: Production Readiness Bar */}
       {productionReadinessItems.length > 0 && (
@@ -563,7 +566,7 @@ export function K3MartCockpit() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Store className="h-5 w-5" style={{ color: 'var(--color-k3mart)' }} />
-            <h2 className="text-lg font-semibold text-gray-900">Today&apos;s Dispatch</h2>
+            <h2 className="text-lg font-semibold text-foreground">Today&apos;s Dispatch</h2>
             <span className="text-sm text-muted-foreground">({formatDateShort(today)})</span>
           </div>
           {canAct && outletCardGridData.outlets.length > 0 && (
@@ -602,7 +605,7 @@ export function K3MartCockpit() {
         >
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-gray-900">Weekly Planner</h2>
+            <h2 className="text-lg font-semibold text-foreground">Weekly Planner</h2>
             <span className="text-sm text-muted-foreground">({weekNumber})</span>
           </div>
           {weeklyPlannerOpen ? (

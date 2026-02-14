@@ -85,15 +85,15 @@ export function PackagingView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <PageHeader title="Packaging View" />
+      <PageHeader
+        title="Packaging View"
+        badge={
           <Badge variant="outline" className="flex items-center gap-1">
             <Package2 className="h-3 w-3" />
             {packagingOrders?.length ?? 0} orders ready
           </Badge>
-        </div>
-      </div>
+        }
+      />
 
       {isLoading ? (
         <LoadingCards count={4} />

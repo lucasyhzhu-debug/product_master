@@ -13,12 +13,12 @@ export function SalesAnalytics() {
   };
 
   return (
-    <div className="p-6">
+    <div className="space-y-6">
       <PageHeader
         title="Sales Analytics"
         description="Track revenue across K3 Mart, GoBiz, and Internal Orders"
       />
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="mt-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>

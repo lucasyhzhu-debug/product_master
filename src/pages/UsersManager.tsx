@@ -213,9 +213,9 @@ export default function UsersManager() {
 
   if (users === undefined) {
     return (
-      <div className="p-6">
+      <div className="space-y-6">
         <PageHeader title="User Management" description="Loading..." />
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-48 w-full" />
           ))}
@@ -225,7 +225,7 @@ export default function UsersManager() {
   }
 
   return (
-    <div className="p-6">
+    <div className="space-y-6">
       <PageHeader
         title="User Management"
         description="Manage users and their access roles"
@@ -237,7 +237,7 @@ export default function UsersManager() {
       </PageHeader>
 
       {/* User Cards Grid */}
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
           <Card key={user._id} className={cn(!user.isActive && "opacity-60")}>
             <CardHeader className="pb-3">
