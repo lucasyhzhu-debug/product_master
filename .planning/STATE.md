@@ -138,6 +138,13 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 - 55 denormalization annotations: 18 SNAPSHOT + 25 CACHE + 12 DERIVED, formal format with source-of-truth and timing
 - menuProducts.isFixed classified Category C (removable) -- posSlot/packagingPosSlot replaces deletion protection
 - useConvexFixedProducts identified as dead code (exported but never imported)
+- Items without production records contribute 0 balls (no fallback to deprecated fields)
+- getBallsPerPackageForItem returns 1 default without production records (same behavior, no deprecated field read)
+- hasProductionData returns false without fallback (clean separation from deprecated productionType)
+- Deletion protection uses posSlot/packagingPosSlot check instead of isFixed
+- POS badge (Pin icon) replaces Fixed badge (Lock icon) in MenuProductsManager UI
+- productionType/productionUnits removed from create/update mutation validator args
+- bomBackfill.ts productionUnits defaults to 1 when undefined (migration file type safety fix)
 
 ## Performance Metrics
 
@@ -165,7 +172,8 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 07 | 02 | 8min | 2 | 5 |
 | 07 | 03 | 7min | 2 | 7 |
 | 08 | 01 | 7min | 2 | 3 |
+| 08 | 02 | 7min | 2 | 8 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 08-01-PLAN.md (field audit & denormalization documentation).*
+*Last session stopped at: Completed 08-02-PLAN.md (deprecated field code reference removal).*
