@@ -19,7 +19,7 @@
 | 6 | BOM Migration | All ball composition reads/writes use BOM as single source of truth; deprecated fields retained only for historical data | 6 | Complete (2026-02-14) |
 | 7 | Query Optimization | N+1 patterns eliminated, large queries paginated, kitchen queries indexed, COGS cached | 4 | Complete (2026-02-14) |
 | 8 | Schema Cleanup | Optional fields audited and tightened, unused tables/fields removed, denormalization documented | 4 | Pending |
-| 9 | Frontend Factories | Generic hook and UI component factories created and applied to simple CRUD entities | 4 | Pending |
+| 9 | Frontend Factories & UI Brand Consolidation | Brand/UI reference established, all pages consistent (margins, fonts, colors), generic factories applied to simple CRUD entities | 4 | Pending |
 | 10 | Infrastructure & Consolidation | Automated backups configured, dependencies audited, production counts consolidated | 3 | Pending |
 
 ---
@@ -188,36 +188,47 @@ Plans:
 ---
 
 ### Phase 8: Schema Cleanup
-**Goal:** All 167 `v.optional()` fields are audited and categorized, fields that should be required are tightened, unused tables/fields are removed, and denormalization is documented.
+**Goal:** All 215 `v.optional()` fields are audited and categorized, fields that should be required are tightened, deprecated fields (productionType, productionUnits, isFixed) are removed, and denormalization is documented.
 **Requirements:** SCHEMA-01, SCHEMA-02, SCHEMA-03, SCHEMA-04
 **Dependencies:** Phase 6 (BOM migration must complete before deprecated field cleanup in schema), Phase 7 (new schema fields from PERF-04 should be included in audit)
+**Plans:** 4 plans (Wave 1: 08-01, 08-02 parallel; Wave 2: 08-03; Wave 3: 08-04)
+
+Plans:
+- [ ] 08-01-PLAN.md -- Field audit document (SCHEMA_AUDIT.md) + denormalization comments in schema.ts + SCHEMA.md summary (SCHEMA-01, SCHEMA-04)
+- [ ] 08-02-PLAN.md -- Remove all deprecated field code references + isFixed replacement + dead hook deletion (SCHEMA-03 prep)
+- [ ] 08-03-PLAN.md -- Backfill + cleanup migration mutations for all Category B and C fields (SCHEMA-02, SCHEMA-03 data prep)
+- [ ] 08-04-PLAN.md -- Schema tightening (optional->required) + deprecated field removal from schema (SCHEMA-02, SCHEMA-03)
+
 **Success Criteria:**
-1. Audit document exists listing all 167 `v.optional()` fields categorized as: (a) legitimately optional, (b) safe to make required, (c) needs backfill before requiring
-2. Category (b) fields — where every existing document has the value — are changed to required in schema; deploy succeeds without data rejection
-3. `menuProducts.isFixed` field and `kitchenInventory` table are removed from schema (with proper migration sequence: stop reads/writes, null out data, remove from schema)
-4. Schema file has inline comments on all intentional denormalization patterns (e.g., `orderItems.productName` snapshot, `orderItems.unitPrice` snapshot) explaining why they exist
+1. Audit document exists listing all 215 `v.optional()` fields categorized as: (a) legitimately optional, (b) safe to make required, (c) deprecated/remove, (d) table-level assessment
+2. Category (b) fields are changed to required in schema after backfill; deploy succeeds without data rejection
+3. `menuProducts.isFixed`, `menuProducts.productionType`, `menuProducts.productionUnits`, `orderItems.productionType`, `orderItems.productionUnits` removed from schema (kitchenInventory table KEPT -- actively used)
+4. Schema file has inline comments on all ~50 denormalized fields using SNAPSHOT/CACHE/DERIVED categories
 
-**Migration sequence for removals:**
-1. Verify no code reads/writes `menuProducts.isFixed` or `kitchenInventory`
-2. Run migration to null out `isFixed` values
-3. Deploy schema without the field/table
+**Two-step deploy pipeline:**
+1. Deploy 1: Run backfill + cleanup migrations from dashboard (Plan 03)
+2. Deploy 2: Tighten schema + remove fields (Plan 04)
 
-**Estimated scope:** `schema.ts` heavily modified, 5-10 migration mutations, 2-4 sequential deploys
+**Estimated scope:** `schema.ts` heavily modified, 9 migration mutations, 2 sequential deploys, 7+ backend/frontend files cleaned
 
 ---
 
-### Phase 9: Frontend Factories
-**Goal:** Generic hook and UI component factories are created and applied to all simple CRUD entities, reducing frontend boilerplate by ~2,300 lines.
+### Phase 9: Frontend Factories & UI Brand Consolidation
+**Goal:** A universal brand/UI architecture reference is established and enforced across all pages (consistent fonts, colors, spacing, margins); generic hook and UI component factories are created and applied to all simple CRUD entities, reducing frontend boilerplate by ~2,300 lines. All UI work uses the `/frontend-design` skill.
 **Requirements:** FHOOK-01, FHOOK-02, FUI-01, FUI-02
 **Dependencies:** Phase 5 (backend factory patterns established), Phase 6 (BOM migration complete so hooks read correct data), Phase 8 (schema finalized before building generic components)
 **Success Criteria:**
-1. `src/hooks/convex/createMutationHook.ts` exports a generic factory that produces typed mutation hooks with toast notifications
-2. Simple entity hooks (ingredients, materials, tags, customers, locations, vouchers) use the factory — each hook file is ~15 lines instead of ~115 lines
-3. `src/components/shared/EntityManager.tsx` exports a generic CRUD component with pluggable columns, forms, and validation
-4. IngredientsManager, MaterialsManager, CustomersManager, and LocationsManager pages use `EntityManager` — each page file shrinks by ~60%
-5. `npm run build` passes; all entity CRUD operations work identically to before (no visual or behavioral regression)
+1. Brand/UI reference document exists (`docs/UI_BRAND_REFERENCE.md`) covering: color palette, typography, spacing scale, margin rules, component patterns, and page layout conventions
+2. All 19 pages audited for UI inconsistencies — every page uses consistent left margins, fonts, colors, and spacing per the brand reference
+3. Pages with missing left margins are fixed to match the standard layout
+4. `src/hooks/convex/createMutationHook.ts` exports a generic factory that produces typed mutation hooks with toast notifications
+5. Simple entity hooks (ingredients, materials, tags, customers, locations, vouchers) use the factory — each hook file is ~15 lines instead of ~115 lines
+6. `src/components/shared/EntityManager.tsx` exports a generic CRUD component with pluggable columns, forms, and validation
+7. IngredientsManager, MaterialsManager, CustomersManager, and LocationsManager pages use `EntityManager` — each page file shrinks by ~60%
+8. `npm run build` passes; all entity CRUD operations work identically to before (no visual or behavioral regression)
+9. All UI changes reviewed through the `/frontend-design` skill for design quality
 
-**Estimated scope:** 2 new factory files, 10+ hook files simplified, 4 page files simplified
+**Estimated scope:** 1 brand reference doc, 2 new factory files, 10+ hook files simplified, 4+ page files fixed for consistency, 4 page files simplified
 
 ---
 
