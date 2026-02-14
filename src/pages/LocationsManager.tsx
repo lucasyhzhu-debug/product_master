@@ -35,7 +35,6 @@ import {
   useConvexDeleteStorageLocation,
 } from "@/hooks/convex";
 import type { Id } from "../../convex/_generated/dataModel";
-import { toast } from "sonner";
 
 export function LocationsManager() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -94,15 +93,12 @@ export function LocationsManager() {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error("Location name is required");
-      return;
-    }
+    if (!name.trim()) return;
 
     setIsSubmitting(true);
     try {
       if (editingId) {
-        await updateLocation({
+        await updateLocation.mutate({
           id: editingId,
           name,
           locationType,
@@ -110,23 +106,18 @@ export function LocationsManager() {
           isActive,
           isDefault,
         });
-        toast.success("Location updated");
       } else {
-        await createLocation({
+        await createLocation.mutate({
           name,
           locationType,
           address: address.trim() || undefined,
           isActive,
           isDefault,
         });
-        toast.success("Location created");
       }
       setEditDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to save location:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to save location"
-      );
+    } catch {
+      // Factory handles toast errors
     } finally {
       setIsSubmitting(false);
     }
@@ -136,15 +127,11 @@ export function LocationsManager() {
     if (!editingId) return;
 
     try {
-      await deleteLocation({ id: editingId });
-      toast.success("Location deleted");
+      await deleteLocation.mutate({ id: editingId });
       setDeleteDialogOpen(false);
       setEditingId(null);
-    } catch (error) {
-      console.error("Failed to delete location:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete location"
-      );
+    } catch {
+      // Factory handles toast errors
     }
   };
 

@@ -109,7 +109,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   });
 
   // Queries
-  const { data: customers } = useConvexCustomerSearch(customerSearch || '');
+  const customers = useConvexCustomerSearch(customerSearch || '');
   const { data: sellerSuggestions } = useConvexSellerSuggestions();
 
   // Calculate totals
@@ -129,9 +129,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: { id: number; _id?: string; name: string; phone?: string | null }) => {
-    // Customer from Convex has _id as string, from legacy has id as number
-    const convexId = (customer._id ?? customer.id) as unknown as Id<"customers">;
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+    const convexId = customer._id as Id<"customers">;
     setCustomerId(convexId);
     setCustomerSearch(customer.name);
     setIsNewCustomer(false);
@@ -411,7 +410,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
               <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
                 {customers?.map((customer) => (
                   <button
-                    key={customer.id}
+                    key={customer._id}
                     className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
                     onClick={() => handleCustomerSelect(customer)}
                   >

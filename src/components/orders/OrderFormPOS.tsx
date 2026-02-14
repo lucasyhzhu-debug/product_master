@@ -135,7 +135,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
   const { data: packagingProductsData } = useConvexPackagingPosProducts();
   const packagingProducts = packagingProductsData ?? [];
 
-  const { data: customers } = useConvexCustomerSearch(customerSearch || '');
+  const customers = useConvexCustomerSearch(customerSearch || '');
 
   const { data: orderTemplate, isLoading: templateLoading } = useConvexOrderTemplate();
 
@@ -369,8 +369,8 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     setItems(items.filter((item) => item.productId !== productId));
   };
 
-  const handleCustomerSelect = (customer: { id: number; _id?: string; name: string; phone?: string | null }) => {
-    const convexId = (customer._id ?? customer.id) as unknown as Id<"customers">;
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+    const convexId = customer._id as Id<"customers">;
     setSelectedCustomerId(convexId);
     setCustomerSearch(customer.name);
     setIsNewCustomer(false);
@@ -810,7 +810,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                         >
                           {customers?.map((customer) => (
                             <button
-                              key={customer.id}
+                              key={customer._id}
                               className="w-full px-4 py-3 text-left hover:bg-muted/50 text-sm border-b last:border-b-0 transition-colors"
                               onClick={() => handleCustomerSelect(customer)}
                             >

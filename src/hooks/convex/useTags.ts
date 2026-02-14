@@ -1,13 +1,13 @@
 /**
  * Convex hooks for tags.
- * Convex query/mutation hooks for tag management.
+ * Query hooks + factory-generated mutation hooks + standalone seed hook.
  */
 import { useQuery, useMutation } from "convex/react";
-import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/utils";
+import { createMutationHook } from "./createMutationHook";
 
 // Types that match the Convex schema
 export interface ConvexTag {
@@ -20,87 +20,38 @@ export interface TagCreateInput {
   name: string;
 }
 
-/**
- * List all tags.
- */
+/** List all tags. */
 export function useConvexTags() {
   return useQuery(api.tags.queries.list, {});
 }
 
-/**
- * Get a single tag by ID.
- */
+/** Get a single tag by ID. */
 export function useConvexTag(id: Id<"tags"> | undefined) {
   return useQuery(api.tags.queries.get, id ? { id } : "skip");
 }
 
-/**
- * Get multiple tags by IDs.
- */
+/** Get multiple tags by IDs. */
 export function useConvexTagsMany(ids: Id<"tags">[]) {
   return useQuery(api.tags.queries.getMany, ids.length > 0 ? { ids } : "skip");
 }
 
-/**
- * Create tag mutation with toast notifications.
- * Uses useSessionMutation for automatic sessionId injection.
- */
-export function useConvexCreateTag() {
-  const mutation = useSessionMutation(api.tags.mutations.create);
+/** Create tag mutation with toast notifications. */
+export const useConvexCreateTag = createMutationHook(
+  api.tags.mutations.create,
+  { successMessage: "Tag created successfully", errorMessage: "Failed to create tag" }
+);
 
-  const execute = async (data: TagCreateInput) => {
-    try {
-      const id = await mutation(data);
-      toast.success("Tag created successfully");
-      return id;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to create tag"));
-      throw error;
-    }
-  };
+/** Update tag mutation with toast notifications. */
+export const useConvexUpdateTag = createMutationHook(
+  api.tags.mutations.update,
+  { successMessage: "Tag updated successfully", errorMessage: "Failed to update tag" }
+);
 
-  return { mutate: execute, mutateAsync: execute };
-}
-
-/**
- * Update tag mutation with toast notifications.
- */
-export function useConvexUpdateTag() {
-  const mutation = useSessionMutation(api.tags.mutations.update);
-
-  const execute = async (data: { id: Id<"tags">; name: string }) => {
-    try {
-      const id = await mutation(data);
-      toast.success("Tag updated successfully");
-      return id;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update tag"));
-      throw error;
-    }
-  };
-
-  return { mutate: execute, mutateAsync: execute };
-}
-
-/**
- * Delete tag mutation with toast notifications.
- */
-export function useConvexDeleteTag() {
-  const mutation = useSessionMutation(api.tags.mutations.remove);
-
-  const execute = async (id: Id<"tags">) => {
-    try {
-      await mutation({ id });
-      toast.success("Tag deleted successfully");
-      return true;
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to delete tag"));
-      throw error;
-    }
-  };
-
-  return { mutate: execute, mutateAsync: execute };
-}
+/** Delete tag mutation with toast notifications. */
+export const useConvexDeleteTag = createMutationHook(
+  api.tags.mutations.remove,
+  { successMessage: "Tag deleted successfully", errorMessage: "Failed to delete tag" }
+);
 
 /**
  * Seed default tags mutation.
