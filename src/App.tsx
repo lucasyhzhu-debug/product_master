@@ -21,6 +21,8 @@ import {
   ProductionComponentsManager,
   SalesAnalytics,
   K3MartCockpit,
+  CustomersManager,
+  TagsManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -136,6 +138,26 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessMaterials">
                     <MaterialsManager />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Customers - Order Staff, Manager, Admin */}
+              <Route
+                path="customers"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessOrders">
+                    <CustomersManager />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Tags - Manager and Admin */}
+              <Route
+                path="tags"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessRecipes">
+                    <TagsManager />
                   </ProtectedRoute>
                 }
               />
