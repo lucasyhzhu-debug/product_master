@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LoadingCards, EmptyState } from '@/components/shared';
+import { PageHeader } from '@/components/layout';
 import { OrderFormPOS } from '@/components/orders/OrderFormPOS';
 
 import { useConvexOrders, useConvexOrdersPaginated, type OrderFilters } from '@/hooks/convex';
@@ -70,7 +71,7 @@ function OrderCardCompact({ order, onClick }: OrderCardProps) {
           {/* Order Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 mb-1">
-              <span className="font-mono text-sm font-bold text-gray-900">
+              <span className="font-mono text-sm font-bold text-foreground">
                 {order.order_number}
               </span>
               <span className="text-xs text-muted-foreground truncate max-w-[100px]">
@@ -104,7 +105,7 @@ function OrderCardCompact({ order, onClick }: OrderCardProps) {
               </p>
             ) : (
               <>
-                <p className="text-sm font-bold text-terracotta">
+                <p className="text-sm font-bold text-brand">
                   {formatCurrency(order.total_amount - order.total_discount)}
                 </p>
                 {order.total_discount > 0 && (
@@ -124,9 +125,9 @@ function OrderCardCompact({ order, onClick }: OrderCardProps) {
 
         {/* Payment Progress Bar */}
         {paymentProgress > 0 && paymentProgress < 100 && (
-          <div className="h-1 bg-gray-100">
+          <div className="h-1 bg-muted">
             <div
-              className="h-full bg-terracotta transition-all"
+              className="h-full bg-brand transition-all"
               style={{ width: `${paymentProgress}%` }}
             />
           </div>
@@ -173,8 +174,8 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
             className={`
               min-w-[100px] md:min-w-[120px] transition-all flex-shrink-0
               ${isActive
-                ? 'bg-terracotta hover:bg-terracotta-dark text-white shadow-md'
-                : 'hover:border-terracotta hover:text-terracotta'
+                ? 'bg-brand hover:bg-brand-hover text-white shadow-md'
+                : 'hover:border-brand hover:text-brand'
               }
             `}
           >
@@ -202,8 +203,8 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
             size="sm"
             className={`
               ${activeFilter === 'completed' || activeFilter === 'cancelled'
-                ? 'bg-terracotta hover:bg-terracotta-dark text-white'
-                : 'hover:border-terracotta'
+                ? 'bg-brand hover:bg-brand-hover text-white'
+                : 'hover:border-brand'
               }
             `}
           >
@@ -329,7 +330,7 @@ function OrdersQueue({ orders, activeFilter, onOrderClick, paginationStatus, onL
                 <div className="sticky top-0 bg-background z-10 pb-2 mb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{info.emoji}</span>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                       {info.label}
                     </h3>
                     <Badge className={`${info.color} text-white`}>
@@ -386,7 +387,7 @@ function OrdersQueue({ orders, activeFilter, onOrderClick, paginationStatus, onL
       )}
 
       {/* Today's Stats Footer */}
-      <div className="mt-4 pt-4 border-t bg-gradient-to-r from-[var(--color-dark-gradient-from)] to-[var(--color-dark-gradient-to)] text-white p-4 rounded-lg -mx-2">
+      <div className="mt-4 pt-4 border-t bg-foreground text-background p-4 rounded-lg -mx-2">
         <div className="flex justify-between items-center text-sm">
           <span>📊 Today:</span>
           <span className="font-bold">
@@ -410,14 +411,6 @@ export function OrderManager() {
   const [activeFilter, setActiveFilter] = useState<FilterButtonValue>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'form' | 'queue'>('form');
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // Mobile breakpoint detection
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Build filters for backend query (non-paginated, used for category views)
   const isPaginated = activeFilter === 'all';
@@ -494,69 +487,62 @@ export function OrderManager() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-6">
+    <div className="px-4 sm:px-6 lg:px-8 space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold order-heading text-gray-900 mb-1">
-          Orders
-        </h1>
-        <div className="w-16 h-1 bg-terracotta rounded-full mb-3 md:mb-4" />
+      <PageHeader
+        title="Orders"
+        description="Manage customer orders"
+      />
 
-        {/* Search Bar */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            aria-label="Search orders by number, customer, or salesperson"
-            placeholder={isMobile ? "Search..." : "Search orders... ⌘K"}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 focus-terracotta"
-          />
-        </div>
-      </div>
-
-      {/* Mobile Tab Navigation */}
-      {isMobile && (
-        <div className="flex gap-2 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('form')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
-              activeTab === 'form'
-                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <FileEdit className="h-4 w-4" />
-            <span>New Order</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('queue')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
-              activeTab === 'queue'
-                ? 'text-terracotta border-b-2 border-terracotta -mb-[1px]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <List className="h-4 w-4" />
-            <span>
-              Queue {orders && orders.length > 0 && `(${orders.length})`}
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* Filter Buttons - Scrollable on mobile */}
-      <div className={isMobile ? 'overflow-x-auto -mx-4 px-4' : ''}>
-        <FilterButtons
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          orderCounts={orderCounts}
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          aria-label="Search orders by number, customer, or salesperson"
+          placeholder="Search orders..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
         />
       </div>
 
-      {/* Main Content - Responsive Layout */}
-      {isMobile ? (
-        /* Mobile: Tab-based single column */
+      {/* Mobile Tab Navigation */}
+      <div className="flex gap-2 border-b border-border md:hidden">
+        <button
+          onClick={() => setActiveTab('form')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+            activeTab === 'form'
+              ? 'text-brand border-b-2 border-brand -mb-[1px]'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileEdit className="h-4 w-4" />
+          <span>New Order</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('queue')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all ${
+            activeTab === 'queue'
+              ? 'text-brand border-b-2 border-brand -mb-[1px]'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <List className="h-4 w-4" />
+          <span>
+            Queue {orders && orders.length > 0 && `(${orders.length})`}
+          </span>
+        </button>
+      </div>
+
+      {/* Filter Buttons */}
+      <FilterButtons
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        orderCounts={orderCounts}
+      />
+
+      {/* Mobile: Tab-based single column */}
+      <div className="md:hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'form' ? (
             <motion.div
@@ -610,50 +596,50 @@ export function OrderManager() {
             </motion.div>
           )}
         </AnimatePresence>
-      ) : (
-        /* Desktop: Golden Ratio Layout */
-        <div className="flex gap-6">
-          {/* Form Section - 61.8% */}
-          <div className="flex-[618] min-w-0">
-            <OrderFormPOS
-              onSuccess={handleOrderCreated}
-              onCancel={() => {}}
-              editOrderId={editOrderId}
-            />
-          </div>
+      </div>
 
-          {/* Orders Queue - 38.2% */}
-          <div className="flex-[382] min-w-0">
-            <Card className="h-[calc(100vh-280px)] sticky top-6">
-              <div className="p-4 h-full">
-                {isLoading ? (
-                  <LoadingCards count={3} />
-                ) : filteredOrders.length === 0 ? (
-                  orders?.length === 0 ? (
-                    <EmptyState
-                      icon={ShoppingCart}
-                      title="No orders yet"
-                      description="Orders will appear here once created."
-                    />
-                  ) : (
-                    <EmptyState
-                      icon={SearchX}
-                      title="No matching orders"
-                      description="Try adjusting your search or filters."
-                    />
-                  )
-                ) : (
-                  <OrdersQueue
-                    orders={filteredOrders}
-                    activeFilter={activeFilter}
-                    onOrderClick={handleOrderClick}
-                  />
-                )}
-              </div>
-            </Card>
-          </div>
+      {/* Desktop: Golden Ratio Layout */}
+      <div className="hidden md:flex gap-6">
+        {/* Form Section - 61.8% */}
+        <div className="flex-[618] min-w-0">
+          <OrderFormPOS
+            onSuccess={handleOrderCreated}
+            onCancel={() => {}}
+            editOrderId={editOrderId}
+          />
         </div>
-      )}
+
+        {/* Orders Queue - 38.2% */}
+        <div className="flex-[382] min-w-0">
+          <Card className="h-[calc(100vh-280px)] sticky top-6">
+            <div className="p-4 h-full">
+              {isLoading ? (
+                <LoadingCards count={3} />
+              ) : filteredOrders.length === 0 ? (
+                orders?.length === 0 ? (
+                  <EmptyState
+                    icon={ShoppingCart}
+                    title="No orders yet"
+                    description="Orders will appear here once created."
+                  />
+                ) : (
+                  <EmptyState
+                    icon={SearchX}
+                    title="No matching orders"
+                    description="Try adjusting your search or filters."
+                  />
+                )
+              ) : (
+                <OrdersQueue
+                  orders={filteredOrders}
+                  activeFilter={activeFilter}
+                  onOrderClick={handleOrderClick}
+                />
+              )}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

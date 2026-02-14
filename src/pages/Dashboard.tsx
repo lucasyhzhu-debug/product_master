@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Package, ChefHat, Box, Apple, PackageOpen, Sparkles, ShoppingCart, HelpCircle, BookOpen, UtensilsCrossed } from 'lucide-react';
+import { Plus, Package, ChefHat, Box, Apple, PackageOpen, ShoppingCart, HelpCircle, BookOpen, UtensilsCrossed } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useOnboardingTour } from '@/components/onboarding';
@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { PageHeader } from '@/components/layout';
 import { Carousel, LoadingCards } from '@/components/shared';
 import { TagFilterBar } from '@/components/shared/TagFilterBar';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
@@ -123,35 +124,22 @@ export function Dashboard() {
   );
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border p-6">
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-primary">Product Development Hub</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={startTour}
-              className="text-muted-foreground hover:text-primary"
-            >
-              <BookOpen className="h-4 w-4 mr-1" />
-              Getting Started
-            </Button>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to Frollie Recipe Master</h1>
-          <p className="text-muted-foreground max-w-2xl">
-            Your central hub for managing recipes, packaging designs, and finished products.
-            Click on any card below to view or edit, or use the "New" buttons to create.
-          </p>
-        </div>
-        {/* Decorative element */}
-        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description="Overview of your business"
+        action={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={startTour}
+            className="text-muted-foreground hover:text-primary"
+          >
+            <BookOpen className="h-4 w-4 mr-1" />
+            Getting Started
+          </Button>
+        }
+      />
 
       {/* Tag Filter Bar */}
       {tags.length > 0 && (

@@ -156,7 +156,7 @@ export function RestockPlanner() {
 
   if (isLoading) {
     return (
-      <div className="container py-6 space-y-6">
+      <div className="space-y-6">
         <PageHeader title="Restock Planner" description="Dispatch planning by channel" />
         <div className="grid grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -172,7 +172,7 @@ export function RestockPlanner() {
 
   if (!overview) {
     return (
-      <div className="container py-6">
+      <div className="space-y-6">
         <PageHeader title="Restock Planner" description="Dispatch planning by channel" />
         <p className="text-muted-foreground">No data available.</p>
       </div>
@@ -190,7 +190,7 @@ export function RestockPlanner() {
   const tomorrowType = isTomorrow();
 
   return (
-    <div className="container py-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Restock Planner" description="Dispatch planning by channel">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
