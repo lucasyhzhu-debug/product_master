@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Pencil, Trash2, ArrowDown, ArrowUp, Boxes, Package, RefreshCw, Pin } from 'lucide-react';
+import { Plus, Pencil, Trash2, ArrowDown, ArrowUp, Boxes, Package, RefreshCw, Pin } from 'lucide-react';
+import { PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -512,46 +513,41 @@ export function MenuProductsManager() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Product Manager</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Manage POS menu and packaging products
-          </p>
-        </div>
-        {isAdmin && (
-          <Button
-            variant="outline"
-            onClick={handleRecalculateAll}
-            disabled={isRecalculating}
-            className="shrink-0"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRecalculating ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isRecalculating ? 'Recalculating...' : 'Recalculate Costs'}</span>
-            <span className="sm:hidden">{isRecalculating ? '...' : 'Recalc'}</span>
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          onClick={() => navigate('/inventory')}
-          className="shrink-0"
-        >
-          <Boxes className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Inventory</span>
-          <span className="sm:hidden">Inv</span>
-        </Button>
-        <Button onClick={handleNewProduct} className="shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">New Product</span>
-          <span className="sm:hidden">New</span>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Product Manager"
+        description="Manage POS menu and packaging products"
+        action={
+          <div className="flex items-center gap-2 flex-wrap">
+            {isAdmin && (
+              <Button
+                variant="outline"
+                onClick={handleRecalculateAll}
+                disabled={isRecalculating}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRecalculating ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{isRecalculating ? 'Recalculating...' : 'Recalculate Costs'}</span>
+                <span className="sm:hidden">{isRecalculating ? '...' : 'Recalc'}</span>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => navigate('/inventory')}
+              className="shrink-0"
+            >
+              <Boxes className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Inventory</span>
+              <span className="sm:hidden">Inv</span>
+            </Button>
+            <Button onClick={handleNewProduct} className="shrink-0">
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">New Product</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </div>
+        }
+      />
 
       {isLoading ? (
         <div className="text-center py-12">

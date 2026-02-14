@@ -10,9 +10,10 @@ interface PageHeaderProps {
   backLabel?: string;
   action?: ReactNode;
   children?: ReactNode;
+  badge?: ReactNode;
 }
 
-export function PageHeader({ title, description, backTo, backLabel, action, children }: PageHeaderProps) {
+export function PageHeader({ title, description, backTo, backLabel, action, children, badge }: PageHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center gap-4">
@@ -25,7 +26,10 @@ export function PageHeader({ title, description, backTo, backLabel, action, chil
           </Button>
         )}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {badge}
+          </div>
           {description && (
             <p className="text-sm text-muted-foreground mt-1">{description}</p>
           )}

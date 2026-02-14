@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ArrowLeft, Plus, Trash2, Pencil, X } from 'lucide-react';
+import { Plus, Trash2, Pencil, X } from 'lucide-react';
+import { PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,7 +21,6 @@ const INGREDIENT_UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
 
 export function IngredientsManager() {
   useDocumentTitle('Ingredients');
-  const navigate = useNavigate();
 
   // Convex hooks - data comes back as camelCase
   const rawIngredients = useConvexIngredients();
@@ -119,16 +118,12 @@ export function IngredientsManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ingredients</h1>
-          <p className="text-muted-foreground">Manage your ingredient inventory</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Ingredients"
+        description="Manage your ingredient inventory"
+        backTo="/menu-products"
+        backLabel="Back to Products"
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Create/Edit Form */}
