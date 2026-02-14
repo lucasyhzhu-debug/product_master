@@ -3,12 +3,12 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-13)
 **Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 8 — Schema Cleanup (COMPLETE)
+**Current focus:** Phase 9 — UI Brand Consolidation (IN PROGRESS)
 
 ## Current Position
-Phase: 8 — Schema Cleanup
-Current Plan: 04 of 04
-Last completed: 08-04 (Schema Tightening Deploy 2)
+Phase: 9 — UI Brand Consolidation
+Current Plan: 02 of 05
+Last completed: 09-02 (Layout Components)
 
 ## Phase Readiness
 
@@ -22,7 +22,7 @@ Last completed: 08-04 (Schema Tightening Deploy 2)
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
-| 9 — Frontend Factories | Ready | None |
+| 9 — UI Brand Consolidation | IN PROGRESS (02 of 05 plans done) | None |
 | 10 — Infrastructure | Ready | None |
 
 ## Parallel Opportunities
@@ -58,6 +58,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 08 | Plan 02 complete | Removed all deprecated field code refs (productionType/productionUnits/isFixed), posSlot deletion guard, dead hook deleted |
 | 2026-02-14 | 08 | Plan 03 complete | 9 migration functions: 6 backfill (Cat B) + 2 cleanup (Cat C) + 1 verify query in schemaCleanup.ts |
 | 2026-02-14 | 08 | Plan 04 complete | 13 fields tightened, 5 deprecated fields removed, migration file AnyDoc casts, build passes. Phase 08 COMPLETE. |
+| 2026-02-14 | 09 | Plan 01 complete | ThemeProvider context, teal brand tokens, dark mode CSS, Inter-only fonts, UI brand reference doc (360 lines) |
+| 2026-02-14 | 09 | Plan 02 complete | Layout shell: scroll-hide header, AnimatePresence page transitions, mobile bottom nav, desktop footer, fullWidth route variant |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -159,6 +161,11 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - productionUnitTypes create color default: "#93C572" (green)
 - seedFixedProducts updated with required cachedProductionSummary and productType per product
 - updateCachedProductionSummary sets empty string (not undefined) when no components exist
+- Inter-only typography (dropped Playfair Display) -- single font reduces FOUT, matches Notion-style reference
+- Teal #0D9488 as brand accent replacing terracotta #E07856 -- fresh, natural feel for snack brand
+- Border radius 12px/8px/6px (up from 8px/6px/4px) -- warmer, more approachable
+- shadcn primary token remapped to teal HSL -- all shadcn Button/Ring components automatically use brand color
+- Kitchen station and domain colors preserved as-is (semantic, not theme-dependent)
 
 ## Performance Metrics
 
@@ -189,7 +196,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 08 | 02 | 7min | 2 | 8 |
 | 08 | 03 | 3min | 2 | 1 |
 | 08 | 04 | 4min | 2 | 11 |
+| 09 | 01 | 5min | 2 | 5 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 08-04-PLAN.md (schema tightening deploy 2). Phase 08 COMPLETE.*
+*Last session stopped at: Completed 09-01-PLAN.md (theme foundation: ThemeProvider, teal tokens, brand reference)*
