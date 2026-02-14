@@ -166,6 +166,11 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Border radius 12px/8px/6px (up from 8px/6px/4px) -- warmer, more approachable
 - shadcn primary token remapped to teal HSL -- all shadcn Button/Ring components automatically use brand color
 - Kitchen station and domain colors preserved as-is (semantic, not theme-dependent)
+- MobileBottomNav uses text-primary for active tabs (text-brand deferred until Plan 09-01 brand tokens are integrated)
+- Sonner Toaster keeps inline CSS variable styling (useTheme deferred until ThemeContext is wired)
+- MobileBottomNav primary tabs: Sales, Orders, Kitchen, Inventory; More sheet: K3 Mart, Production, WhatsApp, Products, Vouchers, Users
+- Header inner container changed from container class to max-w-[1400px] for alignment with PageContainer
+- Dual layout routing: fullWidth (kitchen, orders) vs standard (with PageContainer) in App.tsx
 
 ## Performance Metrics
 
@@ -197,7 +202,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 08 | 03 | 3min | 2 | 1 |
 | 08 | 04 | 4min | 2 | 11 |
 | 09 | 01 | 5min | 2 | 5 |
+| 09 | 02 | 4min | 2 | 9 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-01-PLAN.md (theme foundation: ThemeProvider, teal tokens, brand reference)*
+*Last session stopped at: Completed 09-02-PLAN.md (layout components: scroll-hide header, page transitions, mobile nav, footer)*
