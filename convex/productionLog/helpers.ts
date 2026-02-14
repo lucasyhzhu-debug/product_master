@@ -8,8 +8,11 @@
  * Replaces reads from the productionCounts table with log-based aggregation.
  */
 
-import type { QueryCtx } from "../_generated/server";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Id, Doc } from "../_generated/dataModel";
+
+/** Context type that supports both queries and mutations */
+type ReadableCtx = QueryCtx | MutationCtx;
 
 /**
  * Shape returned by aggregation — matches the old productionCounts.queries.getAll shape.
@@ -52,7 +55,7 @@ export interface SingleProductCounts {
  * respecting the productionResets timestamp.
  */
 export async function aggregateForProduct(
-  ctx: QueryCtx,
+  ctx: ReadableCtx,
   menuProductId: Id<"menuProducts">,
   resetRecord: Doc<"productionResets"> | null
 ): Promise<{

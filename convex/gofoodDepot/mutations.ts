@@ -19,7 +19,7 @@ import { updateComponentStock } from "../inventory/helpers";
  * For each product:
  *   1. Increment gofoodDepotStock.quantity
  *   2. Insert gofoodDepotShipments record
- *   3. Increment productionCounts.shippedToGoldfinch
+ *   3. Log ship_goldfinch to productionLog (INFRA-03)
  *
  * For stickers:
  *   4. Consume from Office FIFO, create batches at Goldfinch
@@ -124,20 +124,14 @@ export const recordShipment = mutation({
         timestamp: now,
       });
 
-      // 3. Update productionCounts.shippedToGoldfinch
-      const prodCount = await ctx.db
-        .query("productionCounts")
-        .withIndex("by_menu_product", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
-
-      if (prodCount) {
-        await ctx.db.patch(prodCount._id, {
-          shippedToGoldfinch:
-            (prodCount.shippedToGoldfinch ?? 0) + item.quantity,
-        });
-      }
+      // 3. Log shipment to productionLog (replaces productionCounts.shippedToGoldfinch write)
+      await ctx.db.insert("productionLog", {
+        menuProductId: item.menuProductId,
+        action: "ship_goldfinch",
+        quantity: item.quantity,
+        timestamp: now,
+        performedBy: user.name,
+      });
 
       // 4. Transfer stickers from Office to Goldfinch via FIFO
       if (item.stickerTransfers) {
@@ -404,21 +398,7 @@ export const processSyncSales = internalMutation({
         }
       }
 
-      // 4. Increment productionCounts.stickered
-      const prodCount = await ctx.db
-        .query("productionCounts")
-        .withIndex("by_menu_product", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
-
-      if (prodCount) {
-        await ctx.db.patch(prodCount._id, {
-          stickered: prodCount.stickered + item.quantity,
-        });
-      }
-
-      // 5. Write production log entry
+      // 4. Write production log entry (replaces productionCounts.stickered increment)
       await ctx.db.insert("productionLog", {
         menuProductId: item.menuProductId,
         action: "sticker",

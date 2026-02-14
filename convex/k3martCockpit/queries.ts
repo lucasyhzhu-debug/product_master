@@ -8,6 +8,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
 
 /**
  * Query 1: getOutletStockSummary
@@ -229,10 +230,21 @@ export const getProductionReadiness = query({
     todayUTC.setUTCDate(todayUTC.getUTCDate() + 1);
     const tomorrowStr = todayUTC.toISOString().split("T")[0];
 
-    // Fetch all production counts
-    const allProductionCounts = await ctx.db
-      .query("productionCounts")
+    // Fetch all active menu products and aggregate from productionLog
+    const activeMenuProducts = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
+
+    const resetsMap = await getResetsMap(ctx);
+
+    const allProductionCounts = await Promise.all(
+      activeMenuProducts.map(async (mp) => {
+        const resetRecord = resetsMap.get(mp._id as unknown as string) ?? null;
+        const counts = await aggregateForProduct(ctx, mp._id, resetRecord);
+        return { menuProductId: mp._id as unknown as string, ...counts };
+      })
+    );
 
     // Fetch today's confirmed/submitted dispatch plans
     const todayPlans = await ctx.db
@@ -273,10 +285,9 @@ export const getProductionReadiness = query({
       { stickered: number; plannedToday: number; plannedTomorrow: number }
     >();
 
-    // Initialize with production counts
+    // Initialize with aggregated production counts
     for (const pc of allProductionCounts) {
-      const mpId = pc.menuProductId as string;
-      productMap.set(mpId, {
+      productMap.set(pc.menuProductId, {
         stickered: pc.stickered,
         plannedToday: 0,
         plannedTomorrow: 0,
@@ -361,16 +372,22 @@ export const getProductionReadiness = query({
 export const getInventorySources = query({
   args: {},
   handler: async (ctx) => {
-    // 1. Office inventory (stickered production counts)
-    const productionCounts = await ctx.db.query("productionCounts").collect();
+    // 1. Office inventory (stickered from productionLog aggregation)
+    const activeProducts = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    const resetsMap = await getResetsMap(ctx);
 
     const office = await Promise.all(
-      productionCounts.map(async (pc) => {
-        const menuProduct = await ctx.db.get(pc.menuProductId);
+      activeProducts.map(async (mp) => {
+        const resetRecord = resetsMap.get(mp._id as unknown as string) ?? null;
+        const counts = await aggregateForProduct(ctx, mp._id, resetRecord);
         return {
-          menuProductId: pc.menuProductId,
-          productName: menuProduct?.name ?? "Unknown",
-          stickered: pc.stickered,
+          menuProductId: mp._id,
+          productName: mp.name,
+          stickered: counts.stickered,
         };
       })
     );
