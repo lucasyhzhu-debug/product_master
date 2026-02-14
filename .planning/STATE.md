@@ -6,8 +6,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 **Current focus:** Phase 10 — Frontend Factories (READY)
 
 ## Current Position
-Phase: 9 — UI Brand Consolidation COMPLETE
-Last completed: 09-05 (Skeleton Screens, Dark Mode, Header Redesign)
+Phase: 10 — Frontend Factories IN PROGRESS
+Last completed: 10-02 (EntityManager generic CRUD component)
 
 ## Phase Readiness
 
@@ -22,7 +22,7 @@ Last completed: 09-05 (Skeleton Screens, Dark Mode, Header Redesign)
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
-| 10 — Infrastructure | Ready | None |
+| 10 — Frontend Factories | IN PROGRESS (2/3 plans done) | None |
 
 ## Parallel Opportunities
 Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are now unblocked and ready for execution.
@@ -62,6 +62,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 03 complete | PageHeader badge slot, 3 custom-header migrations, 8 pages cleaned for padding/colors/spacing consistency |
 | 2026-02-14 | 09 | Plan 04 complete | Dashboard/OrderManager PageHeader migration, 23 files cleaned of terracotta/hardcoded colors, OrderFormPOS Playfair removal |
 | 2026-02-14 | 09 | Plan 05 complete | Skeleton screens, dark mode re-enabled (ThemeContext + 60 CSS vars), kitchen 20-file color migration, 22-file non-kitchen dark fixes, header redesign (role-colored pill). Phase 09 COMPLETE. |
+| 2026-02-14 | 10 | Plan 02 complete | EntityManager generic CRUD component, shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection, search, sort |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -182,6 +183,12 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Dark summary panels use bg-foreground text-background (replacing removed --color-dark-gradient-from/to vars)
 - Kitchen #E07856 references replaced with station CSS variables (--color-station-packing), not brand vars
 - OrderFormPOS Playfair Display inline style block removed entirely (Inter is site-wide font)
+- FormBuilder renders its own submit/cancel buttons inside EntityManager dialog (no separate DialogFooter)
+- useViewPreference stores in localStorage under entityManager:{key}:view namespace
+- Default card auto-generates from columns config: first column = title, rest = detail rows
+- Bulk delete falls back to Promise.all of individual onDelete calls when onBulkDelete not provided
+- Sort state cycles asc -> desc -> clear on repeated column header clicks
+- Undo toast re-creates entity via onCreate with cached form data (pragmatic re-creation, not true undo)
 
 ## Performance Metrics
 
@@ -217,7 +224,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 03 | 5min | 2 | 11 |
 | 09 | 04 | 6min | 2 | 23 |
 | 09 | 05 | 15min | 2 | 44 |
+| 10 | 02 | 5min | 2 | 5 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-05-PLAN.md (skeletons, dark mode re-enabled, kitchen+app dark mode fixes, header redesign). Phase 09 COMPLETE.*
+*Last session stopped at: Completed 10-02-PLAN.md (EntityManager generic CRUD component with shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection). Phase 10 plan 2/3 done.*
