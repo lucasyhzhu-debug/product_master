@@ -7,8 +7,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 Phase: 8 — Schema Cleanup
-Current Plan: 02 of 04
-Last completed: 08-02 (Remove Deprecated Field Code References)
+Current Plan: 03 of 04
+Last completed: 08-03 (Schema Cleanup Migrations)
 
 ## Phase Readiness
 
@@ -21,7 +21,7 @@ Last completed: 08-02 (Remove Deprecated Field Code References)
 | 5 — Backend Factories | COMPLETE (all 3 plans done) | None |
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
-| 8 — Schema Cleanup | IN PROGRESS (2 of 4 plans done) | None |
+| 8 — Schema Cleanup | IN PROGRESS (3 of 4 plans done) | None |
 | 9 — Frontend Factories | Blocked | Phases 5, 6, 8 |
 | 10 — Infrastructure | Blocked | Phases 1, 6, 8 |
 
@@ -56,6 +56,7 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 2026-02-14 | 07 | Plan 03 complete | Cursor-based pagination for orders/inventory/production/revenue, Load More UI in OrderManager. Phase 07 COMPLETE. |
 | 2026-02-14 | 08 | Plan 01 complete | Schema field audit: 215 fields categorized A/B/C/D, 55 denormalization annotations in schema.ts, SCHEMA_AUDIT.md created |
 | 2026-02-14 | 08 | Plan 02 complete | Removed all deprecated field code refs (productionType/productionUnits/isFixed), posSlot deletion guard, dead hook deleted |
+| 2026-02-14 | 08 | Plan 03 complete | 9 migration functions: 6 backfill (Cat B) + 2 cleanup (Cat C) + 1 verify query in schemaCleanup.ts |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -145,6 +146,12 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 - POS badge (Pin icon) replaces Fixed badge (Lock icon) in MenuProductsManager UI
 - productionType/productionUnits removed from create/update mutation validator args
 - bomBackfill.ts productionUnits defaults to 1 when undefined (migration file type safety fix)
+- costPerBaseUnit backfill: (priceExclShipping + shippingCost) / volumePurchased, then convert to base unit (kg->g: *0.001, l->ml: *0.001)
+- menuProducts.productType defaults to "food" (all current products are food)
+- orders.completedAt backfill uses _creationTime for terminal historical orders (best-guess)
+- orders.finalTotal backfill: totalAmount - (orderLevelDiscount ?? 0)
+- kitchenInventory.updatedBy defaults to "system" for backfilled records
+- verifyCleanupComplete checks both Category B (backfilled) and Category C (cleared) fields plus packagingMaterials
 
 ## Performance Metrics
 
@@ -173,7 +180,8 @@ Phases 1-7 COMPLETE. Phases 8 (Schema Cleanup), 9 (Frontend Factories), and 10 (
 | 07 | 03 | 7min | 2 | 7 |
 | 08 | 01 | 7min | 2 | 3 |
 | 08 | 02 | 7min | 2 | 8 |
+| 08 | 03 | 3min | 2 | 1 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 08-02-PLAN.md (deprecated field code reference removal).*
+*Last session stopped at: Completed 08-03-PLAN.md (schema cleanup migration functions).*
