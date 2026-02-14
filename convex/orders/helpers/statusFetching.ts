@@ -11,6 +11,9 @@ import type { OrderStatus } from "./statusTransitions";
  * Fetch orders by multiple statuses.
  * Consolidates duplicate query patterns.
  *
+ * NOTE: Kitchen queries should use the `by_kitchen_visible` index instead of this function.
+ * This function remains available for non-kitchen callers that need specific status subsets.
+ *
  * Performance: N queries where N = number of statuses
  * (Better than inline duplication, future: could optimize with OR query if Convex supports)
  *

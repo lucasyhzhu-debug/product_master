@@ -15,12 +15,12 @@ export interface OrderDataBatch {
 }
 
 /**
- * Batch fetch all order items and production records for given orders.
- * Groups data in memory to avoid N+1 queries.
+ * Batch fetch order items and production records for given orders.
+ * Uses per-order indexed lookups instead of full table scans.
  *
- * Performance: 2 DB queries instead of N + N*M queries
- * - 1 query: all orderItems
- * - 1 query: all orderItemProduction
+ * Performance: N + M indexed queries (where N = orders, M = items)
+ * instead of 2 full table scans. Scales with active orders (~30-50)
+ * not total history (~10000+).
  *
  * @param ctx - Convex query context
  * @param orderIds - List of order IDs to fetch data for
@@ -30,68 +30,46 @@ export async function fetchOrdersWithItemsAndProduction(
   ctx: QueryCtx,
   orderIds: Id<"orders">[]
 ): Promise<Map<Id<"orders">, OrderDataBatch>> {
-  // Convert to Set for O(1) lookup
-  const orderIdSet = new Set(orderIds.map((id) => id.toString()));
-
-  // BATCH FETCH: Get all order items in one query
-  const allItems = await ctx.db.query("orderItems").collect();
-
-  // BATCH FETCH: Get all production records in one query
-  const allProduction = await ctx.db.query("orderItemProduction").collect();
-
-  // Build lookup maps
   const result = new Map<Id<"orders">, OrderDataBatch>();
-  const itemIdToOrderId = new Map<string, Id<"orders">>();
 
-  // First pass: Group items by order
-  for (const item of allItems) {
-    const orderIdStr = item.orderId.toString();
+  // Fetch items per order in parallel using by_order index
+  const allItems: Doc<"orderItems">[] = [];
+  await Promise.all(orderIds.map(async (orderId) => {
+    const items = await ctx.db.query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .collect();
 
-    // Filter to only requested orders
-    if (!orderIdSet.has(orderIdStr)) continue;
+    result.set(orderId, {
+      items,
+      production: new Map(),
+    });
 
-    // Initialize order data if first item
-    if (!result.has(item.orderId)) {
-      result.set(item.orderId, {
-        items: [],
-        production: new Map(),
-      });
+    allItems.push(...items);
+  }));
+
+  // Fetch production records per item in parallel using by_order_item index
+  await Promise.all(allItems.map(async (item) => {
+    const records = await ctx.db.query("orderItemProduction")
+      .withIndex("by_order_item", (q) => q.eq("orderItemId", item._id))
+      .collect();
+
+    if (records.length > 0) {
+      const orderData = result.get(item.orderId);
+      if (orderData) {
+        orderData.production.set(item._id, records);
+      }
     }
-
-    // Add item to order
-    result.get(item.orderId)!.items.push(item);
-
-    // Track item -> order mapping for production records
-    itemIdToOrderId.set(item._id.toString(), item.orderId);
-  }
-
-  // Second pass: Group production records by order item
-  for (const record of allProduction) {
-    const itemIdStr = record.orderItemId.toString();
-    const orderId = itemIdToOrderId.get(itemIdStr);
-
-    // Skip if item not in requested orders
-    if (!orderId) continue;
-
-    const orderData = result.get(orderId)!;
-
-    // Initialize production array for item if first record
-    if (!orderData.production.has(record.orderItemId)) {
-      orderData.production.set(record.orderItemId, []);
-    }
-
-    // Add production record
-    orderData.production.get(record.orderItemId)!.push(record);
-  }
+  }));
 
   return result;
 }
 
 /**
- * Batch fetch all order items (without production records).
- * Simpler version when production records are not needed.
+ * Batch fetch order items (without production records).
+ * Uses per-order indexed lookups instead of full table scan.
  *
- * Performance: 1 DB query instead of N queries
+ * Performance: N indexed queries (where N = orders) instead of 1 full table scan.
+ * Scales with active orders, not total history.
  *
  * @param ctx - Convex query context
  * @param orderIds - List of order IDs to fetch items for
@@ -101,20 +79,14 @@ export async function fetchOrderItems(
   ctx: QueryCtx,
   orderIds: Id<"orders">[]
 ): Promise<Map<Id<"orders">, Doc<"orderItems">[]>> {
-  const orderIdSet = new Set(orderIds.map((id) => id.toString()));
-  const allItems = await ctx.db.query("orderItems").collect();
-
   const result = new Map<Id<"orders">, Doc<"orderItems">[]>();
 
-  for (const item of allItems) {
-    if (!orderIdSet.has(item.orderId.toString())) continue;
-
-    if (!result.has(item.orderId)) {
-      result.set(item.orderId, []);
-    }
-
-    result.get(item.orderId)!.push(item);
-  }
+  await Promise.all(orderIds.map(async (orderId) => {
+    const items = await ctx.db.query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .collect();
+    result.set(orderId, items);
+  }));
 
   return result;
 }

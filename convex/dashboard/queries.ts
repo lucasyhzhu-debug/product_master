@@ -58,13 +58,15 @@ export const getSummary = query({
       0
     );
 
-    // Count entities
-    const recipes = await ctx.db.query("recipes").collect();
-    const packaging = await ctx.db.query("packagingRecipes").collect();
-    const products = await ctx.db.query("products").collect();
-    const ingredients = await ctx.db.query("ingredients").collect();
-    const materials = await ctx.db.query("packagingMaterials").collect();
-    const customers = await ctx.db.query("customers").collect();
+    // OPTIMIZED: Count entities in parallel (6 small tables)
+    const [recipes, packaging, products, ingredients, materials, customers] = await Promise.all([
+      ctx.db.query("recipes").collect(),
+      ctx.db.query("packagingRecipes").collect(),
+      ctx.db.query("products").collect(),
+      ctx.db.query("ingredients").collect(),
+      ctx.db.query("packagingMaterials").collect(),
+      ctx.db.query("customers").collect(),
+    ]);
 
     return {
       // Today stats
@@ -127,14 +129,27 @@ export const getUpcomingDue = query({
     const now = Date.now();
     const threeDaysFromNow = now + 3 * 24 * 60 * 60 * 1000;
 
-    const allOrders = await ctx.db.query("orders").collect();
+    // OPTIMIZED: Fetch only non-terminal status orders using parallel indexed queries
+    const nonTerminalStatuses = [
+      "Draft", "AwaitingPayment", "Confirmed", "InProduction",
+      "Boxed", "Labeled", "ProductionComplete", "Packaging",
+      "WaitingShipment", "WaitingPickup",
+    ] as const;
 
-    const upcoming = allOrders
+    const statusResults = await Promise.all(
+      nonTerminalStatuses.map((status) =>
+        ctx.db.query("orders")
+          .withIndex("by_status", (q) => q.eq("status", status))
+          .collect()
+      )
+    );
+
+    const activeOrders = statusResults.flat();
+
+    // Filter by dueDate range in memory (acceptable since active orders are ~50-100)
+    const upcoming = activeOrders
       .filter((o) => {
         if (!o.dueDate) return false;
-        // Exclude terminal statuses from upcoming due orders
-        if (["CompleteShipped", "PickedUp", "Cancelled"].includes(o.status))
-          return false;
         return o.dueDate >= now && o.dueDate <= threeDaysFromNow;
       })
       .sort((a, b) => (a.dueDate ?? 0) - (b.dueDate ?? 0));
