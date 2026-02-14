@@ -211,6 +211,7 @@ Phases 1-11 COMPLETE. All planned phases done. Ready for merge to main and next 
 - kitchenQueries pre-fetches orderItems and aggregates only for referenced menuProductIds (not all active products)
 - productionCounts table is now fully archived -- no reads or writes from frontend or backend mutations
 - Integrity check mismatches are expected and informational since productionLog is authoritative (dual-write historical discrepancies)
+- **RCA: Phase 11 branching failure** — Phase 11 was started on `feature/infrastructure` branched from `feature/frontend-factories` (Phase 10's branch) instead of from `main`. Phase 10 had not been merged to main yet. Result: Phase 10 and 11 commits are interleaved on the same branch lineage. Root cause: orchestrator ran `git checkout -b feature/infrastructure` from the current HEAD without first verifying it was on `main` or that the previous phase's branch had been merged. The `handle_branching` workflow step creates branches from current HEAD but does not validate the starting point. Mitigation: all commits will be merged together from `feature/infrastructure` which contains both phases' work. No code impact — only git history is messier than intended.
 
 ## Performance Metrics
 
