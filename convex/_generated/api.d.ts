@@ -66,6 +66,7 @@ import type * as migrations_bomVerification from "../migrations/bomVerification.
 import type * as migrations_categorySimplification from "../migrations/categorySimplification.js";
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
+import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
@@ -186,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/categorySimplification": typeof migrations_categorySimplification;
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
+  "migrations/schemaCleanup": typeof migrations_schemaCleanup;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;
