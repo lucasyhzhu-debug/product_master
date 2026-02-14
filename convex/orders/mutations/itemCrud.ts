@@ -55,17 +55,8 @@ export const addItem = mutation({
       discount
     );
 
-    // Fetch menu product data for production fields
-    let productionType: string | undefined;
-    let productionUnits: number | undefined;
-
-    if (args.item.menuProductId) {
-      const menuProduct = await ctx.db.get(args.item.menuProductId);
-      if (menuProduct) {
-        productionType = menuProduct.productionType;
-        productionUnits = menuProduct.productionUnits;
-      }
-    }
+    // BOM-02: No longer stamp productionType/productionUnits from menuProduct.
+    // Production tracking uses orderItemProduction records (created below).
 
     // Create item
     const itemId = await ctx.db.insert("orderItems", {
@@ -80,9 +71,8 @@ export const addItem = mutation({
       lineCost,
       lineMargin,
       menuProductId: args.item.menuProductId,
-      // Production fields for Kitchen View ball tracking
-      productionType,
-      productionUnits,
+      // BOM-02: productionType/productionUnits no longer stamped.
+      // Ball composition is tracked via orderItemProduction records (below).
     });
 
     // PRD-5: Create orderItemProduction records (new production tracking system)
@@ -222,17 +212,8 @@ export const replaceItems = mutation({
         discount
       );
 
-      // Fetch menu product data for production fields
-      let productionType: string | undefined;
-      let productionUnits: number | undefined;
-
-      if (itemInput.menuProductId) {
-        const menuProduct = await ctx.db.get(itemInput.menuProductId);
-        if (menuProduct) {
-          productionType = menuProduct.productionType;
-          productionUnits = menuProduct.productionUnits;
-        }
-      }
+      // BOM-02: No longer stamp productionType/productionUnits from menuProduct.
+      // Production tracking uses orderItemProduction records (created below).
 
       const itemId = await ctx.db.insert("orderItems", {
         orderId: args.orderId,
@@ -246,8 +227,7 @@ export const replaceItems = mutation({
         lineCost,
         lineMargin,
         menuProductId: itemInput.menuProductId,
-        productionType,
-        productionUnits,
+        // BOM-02: productionType/productionUnits no longer stamped.
       });
 
       // Create production records

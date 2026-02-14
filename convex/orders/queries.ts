@@ -575,6 +575,19 @@ export const getKitchenStats = query({
       itemsByOrder.get(orderId)!.push(item);
     }
 
+    // BATCH FETCH: Get all orderItemProduction records (moved before stats calculation for dual-read)
+    const allProductionRecords = await ctx.db.query("orderItemProduction").collect();
+
+    // Group production records by orderItemId
+    const productionByItem = new Map<string, typeof allProductionRecords>();
+    for (const record of allProductionRecords) {
+      const itemId = record.orderItemId.toString();
+      if (!productionByItem.has(itemId)) {
+        productionByItem.set(itemId, []);
+      }
+      productionByItem.get(itemId)!.push(record);
+    }
+
     // BOM-01: Calculate stats for pending orders using dual-read pattern
     // NEW system: uses orderItemProduction.unitsRemaining (already accounts for balls filled)
     // FALLBACK: uses deprecated fields with ballsFilled subtraction for historical orders
@@ -655,18 +668,7 @@ export const getKitchenStats = query({
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
 
-    // BATCH FETCH: Get all orderItemProduction records
-    const allProductionRecords = await ctx.db.query("orderItemProduction").collect();
-
-    // Group production records by orderItemId
-    const productionByItem = new Map<string, typeof allProductionRecords>();
-    for (const record of allProductionRecords) {
-      const itemId = record.orderItemId.toString();
-      if (!productionByItem.has(itemId)) {
-        productionByItem.set(itemId, []);
-      }
-      productionByItem.get(itemId)!.push(record);
-    }
+    // productionByItem already built above (moved for dual-read pattern)
 
     // Calculate stats per production type
     const productionByType = productionUnitTypes

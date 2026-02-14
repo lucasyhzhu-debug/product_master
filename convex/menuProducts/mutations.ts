@@ -184,7 +184,10 @@ export const create = mutation({
       name: args.name,
       grams,
       defaultPrice: args.defaultPrice,
-      productionType: args.productionType ?? "original",
+      // DEPRECATED: Remove after BOM-04 makes schema fields optional.
+      // Empty defaults satisfy required schema constraint. Ball composition
+      // is derived from BOM (menuProductComponents + componentTypes).
+      productionType: args.productionType ?? "",
       productionUnits: args.productionUnits ?? 0,
       isActive: args.isActive ?? true,
       unitCost,
@@ -277,6 +280,9 @@ export const update = mutation({
     if (updates.name !== undefined) patchData.name = updates.name;
     if (updates.grams !== undefined) patchData.grams = updates.grams;
     if (updates.defaultPrice !== undefined) patchData.defaultPrice = updates.defaultPrice;
+    // DEPRECATED: productionType/productionUnits kept in args for backward compatibility
+    // but no longer propagated to patch unless explicitly provided.
+    // Ball composition is derived from BOM (menuProductComponents + componentTypes).
     if (updates.productionType !== undefined) patchData.productionType = updates.productionType;
     if (updates.productionUnits !== undefined) patchData.productionUnits = updates.productionUnits;
     if (updates.isActive !== undefined) patchData.isActive = updates.isActive;
@@ -395,14 +401,16 @@ export const toggleActive = mutation({
 export const seedFixedProducts = mutation({
   args: {},
   handler: async (ctx) => {
+    // DEPRECATED: productionType/productionUnits kept because schema fields are still required (BOM-04 will make optional).
+    // Ball composition is derived from BOM (menuProductComponents + componentTypes).
     const fixedProducts = [
       {
         code: "ORIGINAL",
         name: "Original",
         grams: 80,
         defaultPrice: 50000,
-        productionType: "original",
-        productionUnits: 1,
+        productionType: "original", // DEPRECATED: kept for schema compliance
+        productionUnits: 1, // DEPRECATED: kept for schema compliance
         unitCost: 19231,
         isFixed: true,
         isActive: true,
@@ -412,8 +420,8 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Single",
         grams: 45,
         defaultPrice: 35000,
-        productionType: "bite_sized",
-        productionUnits: 1,
+        productionType: "bite_sized", // DEPRECATED: kept for schema compliance
+        productionUnits: 1, // DEPRECATED: kept for schema compliance
         unitCost: 12422,
         isFixed: true,
         isActive: true,
@@ -423,8 +431,8 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Double",
         grams: 90,
         defaultPrice: 70000,
-        productionType: "bite_sized",
-        productionUnits: 2,
+        productionType: "bite_sized", // DEPRECATED: kept for schema compliance
+        productionUnits: 2, // DEPRECATED: kept for schema compliance
         unitCost: 24843,
         isFixed: true,
         isActive: true,
@@ -434,8 +442,8 @@ export const seedFixedProducts = mutation({
         name: "Bite Sized Triple",
         grams: 135,
         defaultPrice: 99000,
-        productionType: "bite_sized",
-        productionUnits: 3,
+        productionType: "bite_sized", // DEPRECATED: kept for schema compliance
+        productionUnits: 3, // DEPRECATED: kept for schema compliance
         unitCost: 36765,
         isFixed: true,
         isActive: true,
@@ -453,6 +461,7 @@ export const seedFixedProducts = mutation({
 
       if (existing) {
         // Update existing product with new fields
+        // DEPRECATED: productionType/productionUnits kept for schema compliance (BOM-04 will make optional)
         await ctx.db.patch(existing._id, {
           unitCost: product.unitCost,
           isFixed: product.isFixed,

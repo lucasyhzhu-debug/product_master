@@ -156,19 +156,11 @@ export const create = mutation({
       .map((item) => item.menuProductId)
       .filter((id): id is Id<"menuProducts"> => id !== undefined);
 
-    const menuProductsMap = new Map<string, { productionType: string; productionUnits: number }>();
-    for (const mpId of menuProductIds) {
-      const mp = await ctx.db.get(mpId);
-      if (mp && mp.productionType && mp.productionUnits) {
-        // Use string key for proper Map lookup (Id objects use reference equality)
-        menuProductsMap.set(mpId.toString(), {
-          productionType: mp.productionType,
-          productionUnits: mp.productionUnits,
-        });
-      }
-    }
+    // BOM-02: Removed menuProductsMap for deprecated productionType/productionUnits.
+    // New orders no longer stamp these fields on orderItems. BOM production records
+    // (created by createProductionRecordsForItem below) are the sole source of truth.
 
-    // PRD-5: Fetch menu product components for new production tracking (dual-write)
+    // PRD-5: Fetch menu product components for new production tracking
     const menuProductComponentsMap = new Map<string, Array<{
       productionUnitTypeId: Id<"productionUnitTypes">;
       productionUnitCode: string;
@@ -232,20 +224,14 @@ export const create = mutation({
       totalAmount += lineTotal;
       totalCost += lineCost;
 
-      // Get production data from menu product if available
-      // Use string key for proper Map lookup (Id objects use reference equality)
-      const menuProductData = item.menuProductId
-        ? menuProductsMap.get(item.menuProductId.toString())
-        : undefined;
-
+      // BOM-02: No longer stamp productionType/productionUnits from menuProduct.
+      // Production tracking uses orderItemProduction records (created below).
       return {
         ...item,
         discountAmount: discount,
         lineTotal,
         lineCost,
         lineMargin,
-        productionType: menuProductData?.productionType,
-        productionUnits: menuProductData?.productionUnits,
       };
     });
 
@@ -343,9 +329,8 @@ export const create = mutation({
         lineCost: item.lineCost,
         lineMargin: item.lineMargin,
         menuProductId: item.menuProductId,
-        // Production fields for Kitchen View ball tracking
-        productionType: item.productionType,
-        productionUnits: item.productionUnits,
+        // BOM-02: productionType/productionUnits no longer stamped.
+        // Ball composition is tracked via orderItemProduction records (below).
       });
 
       // PRD-5: Create orderItemProduction records (new production tracking system)
