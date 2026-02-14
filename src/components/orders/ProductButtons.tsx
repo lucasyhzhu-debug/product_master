@@ -19,8 +19,6 @@ export interface ProductButtonProduct {
   defaultPrice: number;
   unitCost?: number;
   posSlot?: number;
-  productionType?: string;
-  productionUnits?: number;
 }
 
 interface ProductButtonsProps {

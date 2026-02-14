@@ -17,8 +17,7 @@ export interface PackageItem {
   quantity: number;
   status: PackageStatus;
   ballsFilled?: number;
-  productionUnits?: number;
-  productionType?: 'original' | 'bite_sized';
+  ballsPerPackage?: number;
 }
 
 interface PackageStatusDisplayProps {
@@ -102,9 +101,9 @@ function PackageItemCard({
               <p className={cn('font-medium truncate', compact && 'text-sm')}>
                 {item.quantity}x {productDisplay}
               </p>
-              {!compact && item.ballsFilled !== undefined && item.productionUnits !== undefined && (
+              {!compact && item.ballsFilled !== undefined && item.ballsPerPackage !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  {item.ballsFilled}/{item.productionUnits} balls
+                  {item.ballsFilled}/{item.ballsPerPackage} balls
                 </p>
               )}
             </div>

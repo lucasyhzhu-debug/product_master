@@ -18,8 +18,6 @@ export interface MenuProductCreateInput {
   name: string;
   grams?: number;
   defaultPrice: number;
-  productionType?: string;
-  productionUnits?: number;
   isActive?: boolean;
   // Unified BOM: Components array using componentTypeId
   components?: Array<{
@@ -34,8 +32,6 @@ export interface MenuProductUpdateInput {
   name?: string;
   grams?: number;
   defaultPrice?: number;
-  productionType?: string;
-  productionUnits?: number;
   isActive?: boolean;
   // Unified BOM: Components array using componentTypeId
   components?: Array<{
@@ -58,8 +54,6 @@ function transformMenuProduct(product: ConvexMenuProduct): MenuProduct {
     name: product.name,
     grams: product.grams ?? 0,
     default_price: product.defaultPrice,
-    production_type: (product.productionType ?? 'original') as 'original' | 'bite_sized',
-    production_units: product.productionUnits ?? 1,
     is_active: product.isActive ?? true,
     created_at: new Date(product._creationTime).toISOString(),
   };
@@ -122,8 +116,6 @@ export interface FixedProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
-  productionType?: string;
-  productionUnits?: number;
 }
 
 export function useConvexFixedProducts() {
@@ -140,8 +132,6 @@ export function useConvexFixedProducts() {
       grams: p.grams ?? 0,
       defaultPrice: p.defaultPrice,
       unitCost: p.unitCost,
-      productionType: p.productionType,
-      productionUnits: p.productionUnits,
     }));
 
   return {
@@ -161,8 +151,6 @@ export interface PosProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
-  productionType?: string;
-  productionUnits?: number;
   posSlot: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
@@ -192,8 +180,6 @@ export function useConvexPosProducts() {
     grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
-    productionType: p.productionType,
-    productionUnits: p.productionUnits,
     posSlot: p.posSlot as number,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
@@ -217,8 +203,6 @@ export interface AvailableProduct {
   grams: number;
   defaultPrice: number;
   unitCost?: number;
-  productionType?: string;
-  productionUnits?: number;
   isFixed?: boolean;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
@@ -235,8 +219,6 @@ export function useConvexAvailableProducts() {
     grams: p.grams ?? 0,
     defaultPrice: p.defaultPrice,
     unitCost: p.unitCost,
-    productionType: p.productionType,
-    productionUnits: p.productionUnits,
     isFixed: p.isFixed,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,

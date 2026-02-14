@@ -255,8 +255,10 @@ export interface MenuProduct {
   name: string;
   grams: number;
   default_price: number;
-  production_type: 'original' | 'bite_sized';
-  production_units: number;
+  /** @deprecated DEPRECATED: Removed in Phase 8 (Schema Cleanup). Ball composition from BOM. */
+  production_type?: 'original' | 'bite_sized';
+  /** @deprecated DEPRECATED: Removed in Phase 8 (Schema Cleanup). Ball count from BOM. */
+  production_units?: number;
   is_active: boolean;
   created_at: string;
   // PRD-5: Cached production summary
@@ -624,9 +626,11 @@ export interface ProductionTypeStats {
 }
 
 export interface KitchenOrderItem extends OrderItem {
+  /** @deprecated DEPRECATED: Removed in Phase 8 (Schema Cleanup). Ball composition from BOM. */
   production_type?: 'original' | 'bite_sized';
+  /** @deprecated DEPRECATED: Removed in Phase 8 (Schema Cleanup). Ball count from BOM. */
   production_units?: number;
-  /** @deprecated Use production_units for total, balls_filled for current progress */
+  /** @deprecated Use production records for ball tracking */
   balls_remaining?: number;
   balls_filled?: number;
   // PRD-6: Package status for visual inventory system

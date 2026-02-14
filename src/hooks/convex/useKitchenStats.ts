@@ -49,8 +49,6 @@ interface ConvexKitchenOrderItem {
   lineTotal: number;
   lineCost: number;
   lineMargin: number;
-  productionType?: "original" | "bite_sized";
-  productionUnits?: number;
   ballsFilled?: number;
   packageStatus?: "empty" | "filling" | "filled" | "packed";
   packedPackageIndices?: number[];
@@ -152,8 +150,6 @@ function transformKitchenOrderItem(item: ConvexKitchenOrderItem): KitchenOrderIt
     line_cost: item.lineCost,
     line_margin: item.lineMargin,
     created_at: new Date(item._creationTime).toISOString(),
-    production_type: item.productionType,
-    production_units: item.productionUnits,
     balls_filled: item.ballsFilled,
     package_status: item.packageStatus,
     packed_package_indices: item.packedPackageIndices,
