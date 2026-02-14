@@ -7,8 +7,8 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 ## Current Position
 Phase: 9 — UI Brand Consolidation
-Current Plan: 02 of 05
-Last completed: 09-02 (Layout Components)
+Current Plan: 03 of 05
+Last completed: 09-03 (Page Audit Wave 1)
 
 ## Phase Readiness
 
@@ -22,7 +22,7 @@ Last completed: 09-02 (Layout Components)
 | 6 — BOM Migration | COMPLETE (all 3 plans done) | None |
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
-| 9 — UI Brand Consolidation | IN PROGRESS (02 of 05 plans done) | None |
+| 9 — UI Brand Consolidation | IN PROGRESS (03 of 05 plans done) | None |
 | 10 — Infrastructure | Ready | None |
 
 ## Parallel Opportunities
@@ -60,6 +60,7 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 08 | Plan 04 complete | 13 fields tightened, 5 deprecated fields removed, migration file AnyDoc casts, build passes. Phase 08 COMPLETE. |
 | 2026-02-14 | 09 | Plan 01 complete | ThemeProvider context, teal brand tokens, dark mode CSS, Inter-only fonts, UI brand reference doc (360 lines) |
 | 2026-02-14 | 09 | Plan 02 complete | Layout shell: scroll-hide header, AnimatePresence page transitions, mobile bottom nav, desktop footer, fullWidth route variant |
+| 2026-02-14 | 09 | Plan 03 complete | PageHeader badge slot, 3 custom-header migrations, 8 pages cleaned for padding/colors/spacing consistency |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -171,6 +172,11 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - MobileBottomNav primary tabs: Sales, Orders, Kitchen, Inventory; More sheet: K3 Mart, Production, WhatsApp, Products, Vouchers, Users
 - Header inner container changed from container class to max-w-[1400px] for alignment with PageContainer
 - Dual layout routing: fullWidth (kitchen, orders) vs standard (with PageContainer) in App.tsx
+- ComponentTypesManager.tsx is a deleted stub (4 lines) -- not a real page, skipped in audit
+- Semantic status colors (green/yellow/red margins, blue/green discount types) preserved as-is -- semantic, not brand accent
+- InventoryManager terracotta gradient replaced with default shadcn primary Button (teal from Plan 01)
+- PageHeader badge prop used for inline status indicators (PackagingView order count)
+- PageHeader action prop used for header-level buttons (K3MartCockpit sync, MenuProductsManager actions)
 
 ## Performance Metrics
 
@@ -203,7 +209,8 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 08 | 04 | 4min | 2 | 11 |
 | 09 | 01 | 5min | 2 | 5 |
 | 09 | 02 | 4min | 2 | 9 |
+| 09 | 03 | 5min | 2 | 11 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-02-PLAN.md (layout components: scroll-hide header, page transitions, mobile nav, footer)*
+*Last session stopped at: Completed 09-03-PLAN.md (page audit wave 1: PageHeader badge, 3 migrations, 8 pages cleaned)*
