@@ -176,7 +176,14 @@ Plans:
 4. `menuProducts` table has a `unitCost` field that caches COGS; it is recalculated when component prices change via a trigger or explicit invalidation
 5. `npm run build` passes; existing tests still pass
 
-**Estimated scope:** 5-8 files modified, 1-2 new indexes in schema, possible 1 schema field addition
+**Plans:** 3 plans (Wave 1: 07-01; Wave 2: 07-02, 07-03 parallel)
+
+Plans:
+- [ ] 07-01-PLAN.md — N+1 query fixes + kitchen denormalization (isKitchenVisible) + dashboard optimization (PERF-01, PERF-03)
+- [ ] 07-02-PLAN.md — COGS caching with eager recalculation + stale indicator + recalculate-all button (PERF-04)
+- [ ] 07-03-PLAN.md — Cursor-based pagination with Load More for orders, inventory, production log, external data (PERF-02)
+
+**Estimated scope:** ~15 files modified, 2 new schema fields, 1 new index, 4 new paginated queries
 
 ---
 
