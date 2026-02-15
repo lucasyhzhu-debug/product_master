@@ -3,7 +3,7 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-15)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 12: UI Brand Verification
+**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 13: API Audit & Auth Architecture
 
 ## Current Position
 

@@ -32,7 +32,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Research note:** All phases flagged as "skip research-phase" -- internal system with complete codebase access, all patterns proven in v1.0, no external research needed. Use `/gsd:plan-phase` directly.
 
-- [ ] **Phase 12: UI Brand Verification** - Verify brand reference doc covers v1.1 new pages
+- [x] **Phase 12: UI Brand Verification** - Verify brand reference doc covers v1.1 new pages
 - [ ] **Phase 13: API Audit & Auth Architecture** - External API integration with token management, sync health, and multi-outlet support
 - [ ] **Phase 14: Order QoL** - Order management UX overhaul with Kanban board, simplified statuses, and audit trail
 - [ ] **Phase 15: Kitchen Overhaul** - Kitchen dashboard with production targets, due-date ranking, and K3Mart demand integration
@@ -119,7 +119,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 9. UI Brand Consolidation | v1.0 | 5/5 | Complete | 2026-02-14 |
 | 10. Frontend Factories | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
-| 12. UI Brand Verification | v1.1 | 0/1 | Planned | - |
+| 12. UI Brand Verification | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 13. API Audit & Auth Architecture | v1.1 | 0/TBD | Not started | - |
 | 14. Order QoL | v1.1 | 0/TBD | Not started | - |
 | 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |

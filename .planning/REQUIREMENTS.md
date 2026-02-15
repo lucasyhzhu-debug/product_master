@@ -48,7 +48,7 @@ Requirements for v1.1 "Stabilization & QoL". Each maps to roadmap phases.
 
 ### UI Brand Verification (UIB)
 
-- [ ] **UIB-01**: Brand reference doc verified as current for v1.1; any new pages (Kanban board, kitchen dashboard header, outlet calendar) follow teal brand, Inter typography, dark mode
+- [x] **UIB-01**: Brand reference doc verified as current for v1.1; any new pages (Kanban board, kitchen dashboard header, outlet calendar) follow teal brand, Inter typography, dark mode
 
 ## Clarification Log
 
@@ -103,7 +103,7 @@ Deferred from v1.1. Tracked for next milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UIB-01 | Phase 12 | Pending |
+| UIB-01 | Phase 12 | Complete |
 | API-01 | Phase 13 | Pending |
 | API-02 | Phase 13 | Pending |
 | API-03 | Phase 13 | Pending |
