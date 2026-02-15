@@ -117,7 +117,11 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. Holidays and weekends are visually highlighted in the weekly planning grid with adjusted suggested quantities
   4. Manager can record manual stock in/out during the day without full dispatch planning
   5. Confirmed dispatch plans automatically create/update synthetic kitchen orders (linked to KIT-06 in Phase 15)
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 16-01-PLAN.md -- Backend: holiday system extension, outlet-first queries, copy-last-week, outlet settings
+- [ ] 16-02-PLAN.md -- Weekly planner rewrite: outlet-first grid, week navigation, 3-row headers, auto-suggest, totals
+- [ ] 16-03-PLAN.md -- Stock flow: rotation shortcut, confirmation dialog, movement history, outlet settings modal
+- [ ] 16-04-PLAN.md -- Synthetic kitchen orders, BACKLOG stub resolution, documentation, visual verification
 
 ## Progress
 
@@ -138,7 +142,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 13. API Audit & Auth Architecture | v1.1 | 5/5 | Complete | 2026-02-15 |
 | 14. Order QoL | v1.1 | 0/6 | Planned | - |
 | 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |
-| 16. K3Mart Cockpit | v1.1 | 0/TBD | Not started | - |
+| 16. K3Mart Cockpit | v1.1 | 0/4 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-13*
