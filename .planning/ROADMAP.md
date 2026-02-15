@@ -48,7 +48,8 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 **Success Criteria** (what must be TRUE):
   1. Brand reference doc (`docs/UI_BRAND_REFERENCE.md`) is reviewed and confirmed current for v1.1 scope
   2. Brand doc includes guidance for new UI patterns introduced in v1.1 (Kanban columns, dashboard summary headers, calendar grids)
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 12-01-PLAN.md -- Audit brand doc and add v1.1 component patterns (Kanban, dashboard header, calendar grid)
 
 ### Phase 13: API Audit & Auth Architecture
 **Goal**: Admin can monitor platform health, GoBiz token stays alive automatically, Crystal outlet syncs revenue, and all API integrations are documented
@@ -118,7 +119,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 9. UI Brand Consolidation | v1.0 | 5/5 | Complete | 2026-02-14 |
 | 10. Frontend Factories | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
-| 12. UI Brand Verification | v1.1 | 0/TBD | Not started | - |
+| 12. UI Brand Verification | v1.1 | 0/1 | Planned | - |
 | 13. API Audit & Auth Architecture | v1.1 | 0/TBD | Not started | - |
 | 14. Order QoL | v1.1 | 0/TBD | Not started | - |
 | 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |
