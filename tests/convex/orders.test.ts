@@ -259,11 +259,11 @@ describe('Status Transitions', () => {
 
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Confirmed',
+      status: 'PaymentReceived',
     });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Confirmed');
+    expect(order?.status).toBe('PaymentReceived');
   });
 
   test('records awaitingPaymentSince timestamp when transitioning to AwaitingPayment', async () => {
@@ -428,10 +428,10 @@ describe('Order Item Management', () => {
       ],
     });
 
-    // Change status to Confirmed
+    // Change status to PaymentReceived
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Confirmed',
+      status: 'PaymentReceived',
     });
 
     // Attempt to delete should fail

@@ -1,12 +1,13 @@
 /**
  * Order Lifecycle Integration Tests
  *
+ * Phase 14: Rewritten for simplified 7-status Kanban workflow.
+ *
  * Comprehensive tests for the complete order lifecycle covering:
- * 1. Status transitions (shipped path: Draft -> CompleteShipped)
- * 2. Status transitions (pickup path: Draft -> PickedUp)
- * 3. Cancellation rollback at every stage
- * 4. Inventory integration (reservation, consumption, release)
- * 5. Invalid transition handling
+ * 1. Status transitions (Draft -> Complete, linear path)
+ * 2. Cancellation rollback at every stage
+ * 3. Inventory integration (reservation, consumption, release)
+ * 4. Invalid transition handling
  *
  * Uses convex-test for isolated DB per test and fixture-based AAA pattern.
  */
@@ -30,10 +31,11 @@ import {
 } from './helpers';
 
 // ============================================
-// 1. Complete Lifecycle - Shipped Path (6 tests)
+// 1. Complete Lifecycle (5 tests)
+// Phase 14: Linear path Draft -> Complete
 // ============================================
 
-describe('Complete Lifecycle - Shipped Path', () => {
+describe('Complete Lifecycle', () => {
   test('Draft -> AwaitingPayment sets awaitingPaymentSince timestamp', async () => {
     const t = convexTest(schema);
 
@@ -65,7 +67,7 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(order?.awaitingPaymentSince).toBeGreaterThanOrEqual(beforeTimestamp);
   });
 
-  test('AwaitingPayment -> Confirmed reserves inventory', async () => {
+  test('AwaitingPayment -> PaymentReceived reserves inventory', async () => {
     const t = convexTest(schema);
 
     // ARRANGE: Create order at AwaitingPayment
@@ -145,15 +147,15 @@ describe('Complete Lifecycle - Shipped Path', () => {
       status: 'AwaitingPayment',
     });
 
-    // ACT: Transition to Confirmed (triggers inventory reservation)
+    // ACT: Transition to PaymentReceived (triggers inventory reservation)
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Confirmed',
+      status: 'PaymentReceived',
     });
 
-    // ASSERT: Status is Confirmed and inventory reserved
+    // ASSERT: Status is PaymentReceived and inventory reserved
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Confirmed');
+    expect(order?.status).toBe('PaymentReceived');
     expect(order?.confirmedAt).toBeDefined();
 
     // Verify inventory reservations exist
@@ -161,236 +163,49 @@ describe('Complete Lifecycle - Shipped Path', () => {
     expect(reservationCount).toBeGreaterThan(0);
   });
 
-  test('Confirmed -> InProduction transition', async () => {
+  test('PaymentReceived -> BeingPrepared transition', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at Confirmed status
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Confirmed' });
+    // ARRANGE: Create order at PaymentReceived status
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'PaymentReceived' });
 
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Confirmed');
+    expect(order?.status).toBe('PaymentReceived');
 
-    // ACT: Transition to InProduction
+    // ACT: Transition to BeingPrepared
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'InProduction',
+      status: 'BeingPrepared',
     });
 
-    // ASSERT: Order is InProduction
+    // ASSERT: Order is BeingPrepared and kitchen visible
     order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('InProduction');
+    expect(order?.status).toBe('BeingPrepared');
+    expect(order?.isKitchenVisible).toBe(true);
   });
 
-  test('InProduction -> Boxed transition (production completion)', async () => {
+  test('BeingPrepared -> AwaitingDelivery transition', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at InProduction
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'InProduction' });
+    // ARRANGE: Create order at BeingPrepared
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'BeingPrepared' });
 
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('InProduction');
+    expect(order?.status).toBe('BeingPrepared');
 
-    // ACT: Transition to Boxed
+    // ACT: Transition to AwaitingDelivery
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Boxed',
+      status: 'AwaitingDelivery',
     });
 
-    // ASSERT: Order is Boxed
+    // ASSERT: Order is AwaitingDelivery
     order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Boxed');
+    expect(order?.status).toBe('AwaitingDelivery');
+    expect(order?.isKitchenVisible).toBe(false);
   });
 
-  test('Boxed -> Labeled transition', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Boxed
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Boxed' });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Boxed');
-
-    // ACT: Transition to Labeled
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'Labeled',
-    });
-
-    // ASSERT: Order is Labeled
-    order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Labeled');
-  });
-
-  test('Labeled -> WaitingShipment -> CompleteShipped full chain', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Labeled
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Labeled' });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Labeled');
-
-    // ACT: Complete the shipped path
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'WaitingShipment',
-    });
-
-    order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingShipment');
-
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'CompleteShipped',
-    });
-
-    // ASSERT: Order is complete
-    order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('CompleteShipped');
-  });
-});
-
-// ============================================
-// 2. Complete Lifecycle - Pickup Path (6 tests)
-// ============================================
-
-describe('Complete Lifecycle - Pickup Path', () => {
-  test('Draft -> AwaitingPayment -> Confirmed (same as shipped)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create a fresh order
-    const customerId = await createCustomer(t);
-    await createDefaultStorageLocation(t);
-
-    const orderId = await t.mutation(api.orders.mutations.index.create, {
-      customerId,
-      deliveryType: 'Pickup',
-      lowPriceConfirmed: true,
-      items: [
-        { productName: 'Frollie Pickup', quantity: 1, unitPrice: 25000, unitCost: 10000 },
-      ],
-    });
-
-    // ACT: Transition through Draft -> AwaitingPayment -> Confirmed
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'AwaitingPayment',
-    });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('AwaitingPayment');
-
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'Confirmed',
-    });
-
-    // ASSERT: Confirmed with timestamp
-    order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Confirmed');
-    expect(order?.confirmedAt).toBeDefined();
-  });
-
-  test('Confirmed -> InProduction -> Boxed -> Labeled (same as shipped)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Confirmed
-    const { orderId } = await createOrderAtStatus(t, {
-      targetStatus: 'Confirmed',
-      deliveryType: 'Pickup',
-    });
-
-    // ACT: Transition through production stages
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
-
-    // ASSERT: Labeled status
-    const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Labeled');
-  });
-
-  test('Labeled -> WaitingPickup transition (separate from WaitingShipment)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Labeled with Pickup delivery type
-    const { orderId } = await createOrderAtStatus(t, {
-      targetStatus: 'Labeled',
-      deliveryType: 'Pickup',
-    });
-
-    // ACT: Transition to WaitingPickup (not WaitingShipment)
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'WaitingPickup',
-    });
-
-    // ASSERT: WaitingPickup status
-    const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingPickup');
-  });
-
-  test('WaitingPickup -> PickedUp transition (order complete)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at WaitingPickup
-    const { orderId } = await createOrderAtStatus(t, {
-      targetStatus: 'WaitingPickup',
-      deliveryType: 'Pickup',
-    });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingPickup');
-
-    // ACT: Mark as picked up
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'PickedUp',
-    });
-
-    // ASSERT: Order is complete
-    order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('PickedUp');
-  });
-
-  test('WaitingShipment vs WaitingPickup use different delivery paths', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create two orders at Labeled, one for each path
-    const { orderId: shippedOrderId } = await createOrderAtStatus(t, {
-      targetStatus: 'Labeled',
-      deliveryType: 'Delivery',
-    });
-
-    const { orderId: pickupOrderId } = await createOrderAtStatus(t, {
-      targetStatus: 'Labeled',
-      deliveryType: 'Pickup',
-    });
-
-    // ACT: Take each order down its respective path
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId: shippedOrderId,
-      status: 'WaitingShipment',
-    });
-
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId: pickupOrderId,
-      status: 'WaitingPickup',
-    });
-
-    // ASSERT: Different statuses for different delivery methods
-    const shippedOrder = await t.run(async (ctx) => ctx.db.get(shippedOrderId));
-    const pickupOrder = await t.run(async (ctx) => ctx.db.get(pickupOrderId));
-
-    expect(shippedOrder?.status).toBe('WaitingShipment');
-    expect(pickupOrder?.status).toBe('WaitingPickup');
-
-    // Both have different delivery types
-    expect(shippedOrder?.deliveryType).toBe('Delivery');
-    expect(pickupOrder?.deliveryType).toBe('Pickup');
-  });
-
-  test('End-to-end pickup: Draft -> PickedUp in single test', async () => {
+  test('End-to-end: Draft -> Complete in single test', async () => {
     const t = convexTest(schema);
 
     // ARRANGE: Create order from scratch
@@ -399,10 +214,9 @@ describe('Complete Lifecycle - Pickup Path', () => {
 
     const orderId = await t.mutation(api.orders.mutations.index.create, {
       customerId,
-      deliveryType: 'Pickup',
       lowPriceConfirmed: true,
       items: [
-        { productName: 'Full Pickup Journey', quantity: 3, unitPrice: 25000, unitCost: 10000 },
+        { productName: 'Full Journey', quantity: 3, unitPrice: 25000, unitCost: 10000 },
       ],
     });
 
@@ -410,15 +224,13 @@ describe('Complete Lifecycle - Pickup Path', () => {
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
     expect(order?.status).toBe('Draft');
 
-    // ACT: Walk through entire pickup lifecycle
+    // ACT: Walk through entire lifecycle
     const statuses = [
       'AwaitingPayment',
-      'Confirmed',
-      'InProduction',
-      'Boxed',
-      'Labeled',
-      'WaitingPickup',
-      'PickedUp',
+      'PaymentReceived',
+      'BeingPrepared',
+      'AwaitingDelivery',
+      'Complete',
     ] as const;
 
     for (const status of statuses) {
@@ -433,14 +245,15 @@ describe('Complete Lifecycle - Pickup Path', () => {
 
     // ASSERT: Final state
     order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('PickedUp');
+    expect(order?.status).toBe('Complete');
     expect(order?.awaitingPaymentSince).toBeDefined();
     expect(order?.confirmedAt).toBeDefined();
+    expect(order?.completedAt).toBeDefined();
   });
 });
 
 // ============================================
-// 3. Cancellation Rollback at Every Stage (9 tests)
+// 2. Cancellation Rollback at Every Stage (6 tests)
 // Per CONTEXT.md: "Test cancellation at EVERY status stage"
 // ============================================
 
@@ -509,15 +322,15 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(result.orderStatus).toBe('Cancelled');
   });
 
-  test('Cancel from Confirmed (inventory reservations released)', async () => {
+  test('Cancel from PaymentReceived (inventory reservations released)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at Confirmed with inventory
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Confirmed' });
+    // ARRANGE: Create order at PaymentReceived with inventory
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'PaymentReceived' });
 
-    // Verify order is Confirmed before cancellation
+    // Verify order is PaymentReceived before cancellation
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Confirmed');
+    expect(order?.status).toBe('PaymentReceived');
 
     // ACT: Cancel
     await t.mutation(api.orders.mutations.index.cancel, {
@@ -533,14 +346,14 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(result.productionCancelled).toBe(true);
   });
 
-  test('Cancel from InProduction (inventory released AND production cancelled)', async () => {
+  test('Cancel from BeingPrepared (inventory released AND production cancelled)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at InProduction
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'InProduction' });
+    // ARRANGE: Create order at BeingPrepared
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'BeingPrepared' });
 
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('InProduction');
+    expect(order?.status).toBe('BeingPrepared');
 
     // ACT: Cancel
     await t.mutation(api.orders.mutations.index.cancel, {
@@ -557,62 +370,19 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(result.cancellationEventLogged).toBe(true);
   });
 
-  test('Cancel from Boxed (rollback + production records cancelled)', async () => {
+  test('Cancel from AwaitingDelivery (rollback)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at Boxed
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Boxed' });
+    // ARRANGE: Create order at AwaitingDelivery
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'AwaitingDelivery' });
 
     let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Boxed');
+    expect(order?.status).toBe('AwaitingDelivery');
 
     // ACT: Cancel
     await t.mutation(api.orders.mutations.index.cancel, {
       orderId,
-      reason: 'Quality issue',
-      reasonCategory: 'other',
-    });
-
-    // ASSERT
-    const result = await verifyOrderFullyCancelled(t, orderId);
-    expect(result.passed).toBe(true);
-    expect(result.productionCancelled).toBe(true);
-  });
-
-  test('Cancel from Labeled (rollback)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Labeled
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Labeled' });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Labeled');
-
-    // ACT: Cancel
-    await t.mutation(api.orders.mutations.index.cancel, {
-      orderId,
-      reason: 'Duplicate order',
-      reasonCategory: 'duplicate',
-    });
-
-    // ASSERT
-    const result = await verifyOrderFullyCancelled(t, orderId);
-    expect(result.passed).toBe(true);
-  });
-
-  test('Cancel from WaitingShipment (rollback before consumption)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at WaitingShipment
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'WaitingShipment' });
-
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingShipment');
-
-    // ACT: Cancel
-    await t.mutation(api.orders.mutations.index.cancel, {
-      orderId,
-      reason: 'Shipping cancelled',
+      reason: 'Delivery cancelled',
       reasonCategory: 'customer_request',
     });
 
@@ -621,68 +391,35 @@ describe('Cancellation Rollback at Every Stage', () => {
     expect(result.passed).toBe(true);
   });
 
-  test('Cancel from WaitingPickup (rollback before consumption)', async () => {
+  test('Cannot cancel terminal statuses (Complete, Cancelled)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at WaitingPickup
-    const { orderId } = await createOrderAtStatus(t, {
-      targetStatus: 'WaitingPickup',
-      deliveryType: 'Pickup',
+    // ARRANGE: Create a completed order
+    const { orderId: completeId } = await createOrderAtStatus(t, {
+      targetStatus: 'Complete',
     });
 
-    let order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingPickup');
-
-    // ACT: Cancel
-    await t.mutation(api.orders.mutations.index.cancel, {
-      orderId,
-      reason: 'Pickup cancelled',
-      reasonCategory: 'customer_request',
-    });
-
-    // ASSERT
-    const result = await verifyOrderFullyCancelled(t, orderId);
-    expect(result.passed).toBe(true);
-  });
-
-  test('Cannot cancel terminal statuses (CompleteShipped, PickedUp, Cancelled)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create a completed shipped order
-    const { orderId: shippedId } = await createOrderAtStatus(t, {
-      targetStatus: 'CompleteShipped',
-    });
-
-    // ACT & ASSERT: Cannot cancel completed/shipped order
+    // ACT & ASSERT: Cannot cancel completed order
     await expect(
       t.mutation(api.orders.mutations.index.cancel, {
-        orderId: shippedId,
+        orderId: completeId,
         reason: 'Too late',
       })
     ).rejects.toThrow('Cannot cancel a completed or already cancelled order');
 
-    // Also test with PickedUp
-    const { orderId: pickupId } = await createOrderAtStatus(t, {
-      targetStatus: 'PickedUp',
-      deliveryType: 'Pickup',
-    });
-
-    await expect(
-      t.mutation(api.orders.mutations.index.cancel, {
-        orderId: pickupId,
-        reason: 'Too late',
-      })
-    ).rejects.toThrow('Cannot cancel a completed or already cancelled order');
+    // Verify the order status remains Complete
+    const order = await t.run(async (ctx) => ctx.db.get(completeId));
+    expect(order?.status).toBe('Complete');
   });
 });
 
 // ============================================
-// 4. Inventory Integration (5 tests)
+// 3. Inventory Integration (5 tests)
 // Per CONTEXT.md: "Full integration with inventory"
 // ============================================
 
 describe('Inventory Integration', () => {
-  test('Inventory reserved on Confirmed status', async () => {
+  test('Inventory reserved on PaymentReceived status', async () => {
     const t = convexTest(schema);
 
     // ARRANGE: Set up full inventory infrastructure
@@ -747,10 +484,10 @@ describe('Inventory Integration', () => {
       ],
     });
 
-    // ACT: Confirm order
+    // ACT: Confirm order (PaymentReceived triggers reservation)
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Confirmed',
+      status: 'PaymentReceived',
     });
 
     // ASSERT: Reservations exist
@@ -804,10 +541,10 @@ describe('Inventory Integration', () => {
     expect(reservations.length).toBe(0);
   });
 
-  test('Inventory consumed on CompleteShipped (reservations marked consumed)', async () => {
+  test('Inventory consumed on BeingPrepared (all materials consumed at once)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Set up order with full inventory through to labeled
+    // ARRANGE: Set up order with full inventory
     const storageLocationId = await createDefaultStorageLocation(t);
     const boxComponentId = await createPackagingComponentType(t, {
       code: 'CONSUME_BOX',
@@ -869,10 +606,10 @@ describe('Inventory Integration', () => {
       ],
     });
 
-    // Walk through lifecycle
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
+    // PaymentReceived triggers reservation
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'PaymentReceived' });
 
-    // Verify reserved after Confirmed
+    // Verify reserved after PaymentReceived
     let reservations = await t.run(async (ctx) => {
       return await ctx.db
         .query('orderComponentReservations')
@@ -881,11 +618,10 @@ describe('Inventory Integration', () => {
     });
     expect(reservations.some((r) => r.status === 'reserved')).toBe(true);
 
-    // Continue through lifecycle -- Boxed triggers boxing material consumption
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
+    // ACT: BeingPrepared triggers consumption of ALL materials
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'BeingPrepared' });
 
-    // ASSERT: After Boxed, boxing materials should be consumed
+    // ASSERT: After BeingPrepared, all materials should be consumed
     reservations = await t.run(async (ctx) => {
       return await ctx.db
         .query('orderComponentReservations')
@@ -893,111 +629,19 @@ describe('Inventory Integration', () => {
         .collect();
     });
 
-    // Boxing materials consumed (status changed from 'reserved' to 'consumed')
+    // Materials consumed (status changed from 'reserved' to 'consumed')
     const boxingReservations = reservations.filter(
       (r) => r.componentTypeId === boxComponentId
     );
     expect(boxingReservations.length).toBeGreaterThan(0);
     expect(boxingReservations[0].status).toBe('consumed');
 
-    // Complete the shipment
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'WaitingShipment' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'CompleteShipped' });
+    // Complete the order
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'AwaitingDelivery' });
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Complete' });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('CompleteShipped');
-  });
-
-  test('Inventory consumed on PickedUp (same as CompleteShipped)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Set up order with full inventory (pickup path)
-    const storageLocationId = await createDefaultStorageLocation(t);
-    const boxComponentId = await createPackagingComponentType(t, {
-      code: 'PICKUP_BOX',
-      name: 'Pickup Box',
-      consumptionStage: 'boxing',
-    });
-
-    await createInventoryBatch(t, boxComponentId, storageLocationId, {
-      quantity: 50,
-      unitCost: 500,
-    });
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert('componentStock', {
-        componentTypeId: boxComponentId,
-        locationId: storageLocationId,
-        totalStock: 50,
-        totalReserved: 0,
-        weightedUnitCostIdr: 500,
-        lastUpdated: Date.now(),
-      });
-    });
-
-    const customerId = await createCustomer(t);
-    const menuProductId = await t.run(async (ctx) => {
-      return await ctx.db.insert('menuProducts', {
-        code: 'PICKUP-TEST',
-        name: 'Pickup Test Product',
-        grams: 100,
-        defaultPrice: 25000,
-
-        isActive: true,
-        unitCost: 0,
-        cachedProductionSummary: '',
-        productType: 'food' as const,
-      });
-    });
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert('menuProductComponents', {
-        menuProductId,
-        componentTypeId: boxComponentId,
-        quantity: 1,
-        sortOrder: 0,
-      });
-    });
-
-    const orderId = await t.mutation(api.orders.mutations.index.create, {
-      customerId,
-      deliveryType: 'Pickup',
-      lowPriceConfirmed: true,
-      items: [
-        {
-          productName: 'Pickup Test',
-          quantity: 2,
-          unitPrice: 25000,
-          unitCost: 10000,
-          menuProductId,
-        },
-      ],
-    });
-
-    // Walk through pickup lifecycle
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'InProduction' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Boxed' });
-
-    // Verify consumption happened at Boxed
-    const reservations = await t.run(async (ctx) => {
-      return await ctx.db
-        .query('orderComponentReservations')
-        .withIndex('by_order', (q) => q.eq('orderId', orderId))
-        .collect();
-    });
-
-    const boxReservations = reservations.filter((r) => r.componentTypeId === boxComponentId);
-    expect(boxReservations[0].status).toBe('consumed');
-
-    // Complete pickup path
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Labeled' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'WaitingPickup' });
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'PickedUp' });
-
-    const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('PickedUp');
+    expect(order?.status).toBe('Complete');
   });
 
   test('Cancellation releases reservations (verifyInventoryReleased)', async () => {
@@ -1065,17 +709,14 @@ describe('Inventory Integration', () => {
       ],
     });
 
-    // Confirm to trigger reservation
-    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'Confirmed' });
+    // PaymentReceived to trigger reservation
+    await t.mutation(api.orders.mutations.index.updateStatus, { orderId, status: 'PaymentReceived' });
 
     // Verify reservations exist
     const reservationsBefore = await verifyInventoryReserved(t, orderId);
     expect(reservationsBefore).toBeGreaterThan(0);
 
     // ACT: Cancel order using updateStatus (which triggers releaseReservationInternal).
-    // NOTE: The cancel mutation does NOT release inventory reservations --
-    // only updateStatus with 'Cancelled' does. This is a known gap.
-    // Using updateStatus here to test the inventory release path.
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
       status: 'Cancelled',
@@ -1102,19 +743,12 @@ describe('Inventory Integration', () => {
 });
 
 // ============================================
-// 5. Invalid Transitions (4 tests)
-// Per CONTEXT.md: "Test invalid transition rejection"
-//
-// NOTE: The current updateStatus mutation does NOT enforce a state machine --
-// it accepts ANY status transition. These tests document CURRENT behavior
-// where invalid transitions are accepted. When transition validation is
-// implemented, these tests should be updated to expect rejection.
-//
-// The cancel mutation DOES enforce terminal status checks.
+// 4. Invalid Transitions (3 tests)
+// Phase 14: Tests for transition validation
 // ============================================
 
 describe('Invalid Transitions', () => {
-  test('Reject skipping: Draft -> Boxed (no state machine enforcement yet)', async () => {
+  test('Reject skipping: Draft -> BeingPrepared (no state machine enforcement yet)', async () => {
     const t = convexTest(schema);
 
     // ARRANGE: Create order in Draft
@@ -1130,59 +764,41 @@ describe('Invalid Transitions', () => {
     });
 
     // ACT & ASSERT: Currently updateStatus does NOT validate transitions,
-    // so Draft -> Boxed succeeds. This documents the gap.
+    // so Draft -> BeingPrepared succeeds. This documents the gap.
     // TODO: When state machine validation is added, change to:
     //   expect(...).rejects.toThrow()
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'Boxed',
+      status: 'BeingPrepared',
     });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('Boxed');
+    expect(order?.status).toBe('BeingPrepared');
   });
 
-  test('Reject skipping: Confirmed -> WaitingShipment (skips production)', async () => {
+  test('Reject skipping: PaymentReceived -> Complete (skips production)', async () => {
     const t = convexTest(schema);
 
-    // ARRANGE: Create order at Confirmed
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Confirmed' });
+    // ARRANGE: Create order at PaymentReceived
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'PaymentReceived' });
 
     // ACT & ASSERT: Currently succeeds (no state machine enforcement)
     // TODO: When state machine validation is added, change to:
     //   expect(...).rejects.toThrow()
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId,
-      status: 'WaitingShipment',
+      status: 'Complete',
     });
 
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('WaitingShipment');
+    expect(order?.status).toBe('Complete');
   });
 
-  test('Reject backwards: Labeled -> InProduction (no state machine enforcement yet)', async () => {
-    const t = convexTest(schema);
-
-    // ARRANGE: Create order at Labeled
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Labeled' });
-
-    // ACT & ASSERT: Currently succeeds (no state machine enforcement)
-    // TODO: When state machine validation is added, change to:
-    //   expect(...).rejects.toThrow()
-    await t.mutation(api.orders.mutations.index.updateStatus, {
-      orderId,
-      status: 'InProduction',
-    });
-
-    const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('InProduction');
-  });
-
-  test('Reject terminal: CompleteShipped -> Confirmed (terminal status cannot cancel)', async () => {
+  test('Reject terminal: Complete -> PaymentReceived (terminal status cannot cancel)', async () => {
     const t = convexTest(schema);
 
     // ARRANGE: Create completed order
-    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'CompleteShipped' });
+    const { orderId } = await createOrderAtStatus(t, { targetStatus: 'Complete' });
 
     // ACT & ASSERT: Cancel mutation correctly rejects terminal status
     await expect(
@@ -1192,8 +808,8 @@ describe('Invalid Transitions', () => {
       })
     ).rejects.toThrow('Cannot cancel a completed or already cancelled order');
 
-    // The order status should remain CompleteShipped
+    // The order status should remain Complete
     const order = await t.run(async (ctx) => ctx.db.get(orderId));
-    expect(order?.status).toBe('CompleteShipped');
+    expect(order?.status).toBe('Complete');
   });
 });

@@ -46,11 +46,9 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
 
   // Total pipeline orders
   const totalPipeline =
-    pipeline.confirmed +
-    pipeline.production_complete +
-    pipeline.packaging +
-    pipeline.waiting_shipment +
-    pipeline.waiting_pickup;
+    pipeline.payment_received +
+    pipeline.being_prepared +
+    pipeline.awaiting_delivery;
 
   // Total attention items
   const totalAttention =
@@ -152,14 +150,9 @@ export function OrderStatsCards({ stats }: OrderStatsCardsProps) {
         <CardContent>
           <div className="text-2xl font-bold">{totalPipeline} orders</div>
           <div className="mt-3 space-y-2">
-            <PipelineBar label="Confirmed" count={pipeline.confirmed} color="bg-blue-500" total={totalPipeline} />
-            <PipelineBar label="Packaging" count={pipeline.packaging} color="bg-indigo-500" total={totalPipeline} />
-            <PipelineBar
-              label="Ready"
-              count={pipeline.waiting_shipment + pipeline.waiting_pickup}
-              color="bg-green-500"
-              total={totalPipeline}
-            />
+            <PipelineBar label="Paid" count={pipeline.payment_received} color="bg-blue-500" total={totalPipeline} />
+            <PipelineBar label="Preparing" count={pipeline.being_prepared} color="bg-purple-500" total={totalPipeline} />
+            <PipelineBar label="Ready" count={pipeline.awaiting_delivery} color="bg-green-500" total={totalPipeline} />
           </div>
         </CardContent>
       </Card>

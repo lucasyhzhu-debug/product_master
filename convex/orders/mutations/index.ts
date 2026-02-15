@@ -57,7 +57,6 @@ export {
   backfillOrderItemProduction,
   migrateChannelCodes,
   backfillProductionRecords,
-  migratePackagingToBoxed,
 } from "./migrations";
 
 // Inventory Integration

@@ -6,22 +6,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getDisplayStatus } from '@/lib/orderConstants';
 import type { OrderStatus, PaymentStatus } from '@/lib/types';
 
 const STATUS_OPTIONS: OrderStatus[] = [
   'Draft',
   'AwaitingPayment',
-  'Confirmed',
-  'InProduction',
-  'ProductionComplete', // DEPRECATED: kept for old order transitions
-  'Packaging',          // DEPRECATED: kept for old order transitions
-  'Boxed',
-  'Labeled',
-  'WaitingShipment',
-  'CompleteShipped',
-  'WaitingPickup',
-  'PickedUp',
+  'PaymentReceived',
+  'BeingPrepared',
+  'AwaitingDelivery',
+  'Complete',
   'Cancelled',
 ];
 
@@ -60,7 +53,7 @@ export function OrderStatusPanel({
             <SelectContent>
               {STATUS_OPTIONS.map((status) => (
                 <SelectItem key={status} value={status}>
-                  {getDisplayStatus(status)}
+                  {status}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -196,8 +196,6 @@ export async function distributeBallsToOrders(
       );
     });
 
-    let orderReceivedBalls = false;
-
     // Apply balls to matching items using NEW system (orderItemProduction)
     for (const item of matchingItems) {
       if (remainingBalls <= 0) break;
@@ -254,7 +252,6 @@ export async function distributeBallsToOrders(
         }
 
         remainingBalls -= ballsAppliedToItem;
-        orderReceivedBalls = true;
       }
     }
 

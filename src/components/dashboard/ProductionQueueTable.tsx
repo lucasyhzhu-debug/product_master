@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getDisplayStatus } from '@/lib/orderConstants';
 import type { UrgentOrder, OrderStatus } from '@/lib/types';
 
 interface ProductionQueueTableProps {
@@ -17,14 +16,10 @@ const STATUS_CONFIG: Partial<Record<
 >> = {
   Draft: { label: 'Draft', variant: 'secondary', color: 'text-muted-foreground' },
   AwaitingPayment: { label: 'Awaiting Payment', variant: 'outline', color: 'text-amber-600 dark:text-amber-400' },
-  Confirmed: { label: 'Confirmed', variant: 'default', color: 'text-blue-600 dark:text-blue-400' },
-  InProduction: { label: 'In Production', variant: 'default', color: 'text-purple-600 dark:text-purple-400' },
-  Boxed: { label: 'Boxed', variant: 'default', color: 'text-amber-600 dark:text-amber-400' },
-  Labeled: { label: 'Labeled', variant: 'default', color: 'text-blue-600 dark:text-blue-400' },
-  WaitingShipment: { label: 'Ready to Ship', variant: 'outline', color: 'text-green-600 dark:text-green-400' },
-  CompleteShipped: { label: 'Shipped', variant: 'secondary', color: 'text-green-600 dark:text-green-400' },
-  WaitingPickup: { label: 'Ready for Pickup', variant: 'outline', color: 'text-green-600 dark:text-green-400' },
-  PickedUp: { label: 'Picked Up', variant: 'secondary', color: 'text-green-600 dark:text-green-400' },
+  PaymentReceived: { label: 'Payment Received', variant: 'default', color: 'text-blue-600 dark:text-blue-400' },
+  BeingPrepared: { label: 'Being Prepared', variant: 'default', color: 'text-purple-600 dark:text-purple-400' },
+  AwaitingDelivery: { label: 'Awaiting Delivery', variant: 'outline', color: 'text-green-600 dark:text-green-400' },
+  Complete: { label: 'Complete', variant: 'secondary', color: 'text-green-600 dark:text-green-400' },
   Cancelled: { label: 'Cancelled', variant: 'destructive', color: 'text-red-600 dark:text-red-400' },
 };
 
@@ -118,7 +113,7 @@ export function ProductionQueueTable({ orders }: ProductionQueueTableProps) {
       <CardContent className="p-0">
         <div className="divide-y">
           {orders.map((order) => {
-            const statusConfig = STATUS_CONFIG[getDisplayStatus(order.status)] ?? DEFAULT_STATUS_CONFIG;
+            const statusConfig = STATUS_CONFIG[order.status] ?? DEFAULT_STATUS_CONFIG;
             return (
               <Link
                 key={order.id}

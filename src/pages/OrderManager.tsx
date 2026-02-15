@@ -153,7 +153,7 @@ function FilterButtons({ activeFilter, onFilterChange, orderCounts }: FilterButt
   const mainCategories: Array<{ value: FilterButtonValue; label: string; category?: StatusCategory }> = [
     { value: 'all', label: 'All' },
     { value: 'awaiting', label: 'Awaiting Payment', category: 'awaiting' },
-    { value: 'paidReady', label: 'Paid & Ready', category: 'paidReady' },
+    { value: 'paid', label: 'Paid & Ready', category: 'paid' },
     { value: 'kitchen', label: 'In Kitchen', category: 'kitchen' },
     { value: 'ready', label: 'Ready Ship/Pick', category: 'ready' },
   ];
@@ -260,7 +260,7 @@ function OrdersQueue({ orders, activeFilter, onOrderClick, paginationStatus, onL
   const groupedOrders = useMemo(() => {
     const groups: Record<StatusCategory, OrderSummary[]> = {
       awaiting: [],
-      paidReady: [],
+      paid: [],
       kitchen: [],
       ready: [],
       completed: [],
@@ -457,7 +457,7 @@ export function OrderManager() {
   const orderCounts = useMemo(() => {
     const counts: Record<StatusCategory, number> = {
       awaiting: 0,
-      paidReady: 0,
+      paid: 0,
       kitchen: 0,
       ready: 0,
       completed: 0,

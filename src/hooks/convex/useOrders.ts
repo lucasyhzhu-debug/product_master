@@ -56,7 +56,7 @@ export interface OrderCreateInput {
     phone?: string;
     source?: string;
   };
-  channel?: OrderChannel;
+  createdByUserId?: Id<"users">;
   soldBy?: string;
   dueDate?: number;
   notes?: string;
@@ -75,20 +75,14 @@ export interface OrderCreateInput {
   createdBy?: string;
 }
 
-// PRD-0: Type-safe order status values
+// Phase 14: Type-safe order status values (7 statuses)
 export type OrderStatusType =
   | "Draft"
   | "AwaitingPayment"
-  | "Confirmed"
-  | "InProduction"
-  | "Boxed"
-  | "Labeled"
-  | "ProductionComplete"
-  | "Packaging"
-  | "WaitingShipment"
-  | "CompleteShipped"
-  | "WaitingPickup"
-  | "PickedUp"
+  | "PaymentReceived"
+  | "BeingPrepared"
+  | "AwaitingDelivery"
+  | "Complete"
   | "Cancelled";
 
 // PRD-0: Type-safe payment status values
@@ -448,7 +442,7 @@ export function useConvexCreateOrder() {
 export function useConvexUpdateOrderStatus() {
   const mutation = useMutation(api.orders.mutations.index.updateStatus);
 
-  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled"; skipStockCheck?: boolean; overrideReason?: string; overrideBy?: string }) => {
+  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled"; skipStockCheck?: boolean; overrideReason?: string; overrideBy?: string }) => {
     try {
       await mutation(data);
       toast.success("Order status updated");

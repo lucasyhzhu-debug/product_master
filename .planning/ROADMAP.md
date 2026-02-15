@@ -100,7 +100,11 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. Kitchen orders are grouped by due-date headers ("Due Today", "Due Tomorrow", etc.) with per-item production checklists
   4. K3Mart demand appears as a synthetic order in the kitchen view, auto-generated from confirmed K3Mart dispatch plans with manager-adjustable quantity
   5. Manager can override "unavailable" inventory with a reason (manager role required)
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 15-01-PLAN.md -- Backend: kitchenConfig schema, queries/mutations, sendBackToOrderDesk, extend getKitchenStats
+- [ ] 15-02-PLAN.md -- Dashboard header components: DashboardHeader, StatCard, TargetConfigPopover
+- [ ] 15-03-PLAN.md -- Due-date order list: KitchenOrderCard, checklist, K3MartSyntheticCard, DueDateOrderList
+- [ ] 15-04-PLAN.md -- Wire into KitchenViewV2, inventory override, documentation, visual verification
 
 ### Phase 16: K3Mart Cockpit
 **Goal**: Manager can plan weekly dispatches per outlet with holiday awareness, record manual stock movements, and push confirmed plans to kitchen

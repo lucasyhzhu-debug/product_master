@@ -2,54 +2,30 @@
  * Order Constants
  *
  * Shared constants for order-related UI components.
- * Centralizes status colors, category groupings, and helper functions.
+ * Phase 14: Simplified to 7 statuses with 6 Kanban columns.
  */
 
 import type { OrderStatus, PaymentStatus } from './types';
 
 // ============================================
-// Display Status Mapping
-// ============================================
-
-/**
- * Map deprecated statuses to their display equivalents.
- * Used for UI display only -- backend and filters keep original values.
- * ProductionComplete -> Boxed (both mean "production done, ready for next step")
- * Packaging -> InProduction (packaging was the old step between Confirmed and Completion)
- */
-export function getDisplayStatus(status: OrderStatus): OrderStatus {
-  switch (status) {
-    case 'ProductionComplete': return 'Boxed';
-    case 'Packaging': return 'InProduction';
-    default: return status;
-  }
-}
-
-// ============================================
 // Status Colors (Individual)
 // ============================================
 
-export const STATUS_COLORS: Partial<Record<OrderStatus, string>> = {
+export const STATUS_COLORS: Record<OrderStatus, string> = {
   Draft: 'bg-gray-500',
   AwaitingPayment: 'bg-amber-500',
-  Confirmed: 'bg-blue-500',
-  InProduction: 'bg-purple-500',
-  Boxed: 'bg-amber-500',
-  Labeled: 'bg-blue-500',
-  WaitingShipment: 'bg-yellow-500',
-  CompleteShipped: 'bg-green-500',
-  WaitingPickup: 'bg-orange-500',
-  PickedUp: 'bg-green-500',
+  PaymentReceived: 'bg-blue-500',
+  BeingPrepared: 'bg-purple-500',
+  AwaitingDelivery: 'bg-green-500',
+  Complete: 'bg-emerald-600',
   Cancelled: 'bg-red-500',
 };
 
 /**
  * Get the display color for an order status.
- * Routes through getDisplayStatus() to handle deprecated statuses.
  */
 export function getStatusColor(status: OrderStatus): string {
-  const displayStatus = getDisplayStatus(status);
-  return STATUS_COLORS[displayStatus] ?? 'bg-gray-500';
+  return STATUS_COLORS[status] ?? 'bg-gray-500';
 }
 
 export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
@@ -59,15 +35,15 @@ export const PAYMENT_COLORS: Record<PaymentStatus, string> = {
 };
 
 // ============================================
-// Status Category Groupings
+// Status Category Groupings (6 Kanban Columns)
 // ============================================
 
 export const STATUS_CATEGORIES = {
   awaiting: ['Draft', 'AwaitingPayment'] as OrderStatus[],
-  paidReady: ['Confirmed'] as OrderStatus[],
-  kitchen: ['InProduction', 'Boxed', 'Labeled'] as OrderStatus[],
-  ready: ['WaitingShipment', 'WaitingPickup'] as OrderStatus[],
-  completed: ['CompleteShipped', 'PickedUp'] as OrderStatus[],
+  paid: ['PaymentReceived'] as OrderStatus[],
+  kitchen: ['BeingPrepared'] as OrderStatus[],
+  ready: ['AwaitingDelivery'] as OrderStatus[],
+  completed: ['Complete'] as OrderStatus[],
   cancelled: ['Cancelled'] as OrderStatus[],
 } as const;
 
@@ -93,47 +69,47 @@ export const CATEGORY_INFO: Record<
     shortLabel: 'Awaiting',
     color: 'bg-amber-500',
     dotColor: '#F59E0B',
-    emoji: '🟡',
+    emoji: '',
     description: 'Orders waiting for customer payment',
   },
-  paidReady: {
-    label: 'Paid & Ready',
+  paid: {
+    label: 'Payment Received',
     shortLabel: 'Paid',
     color: 'bg-blue-500',
     dotColor: '#3B82F6',
-    emoji: '🔵',
-    description: 'Paid orders waiting to start production',
+    emoji: '',
+    description: 'Paid orders ready for production',
   },
   kitchen: {
-    label: 'In Kitchen',
+    label: 'Being Prepared',
     shortLabel: 'Kitchen',
     color: 'bg-purple-500',
     dotColor: '#8B5CF6',
-    emoji: '🟣',
+    emoji: '',
     description: 'Orders being made in production',
   },
   ready: {
-    label: 'Ready to Ship/Pickup',
+    label: 'Awaiting Delivery',
     shortLabel: 'Ready',
     color: 'bg-green-500',
     dotColor: '#10B981',
-    emoji: '🟢',
-    description: 'Need shipping details or customer notification',
+    emoji: '',
+    description: 'Ready for shipping or pickup',
   },
   completed: {
     label: 'Completed',
     shortLabel: 'Done',
-    color: 'bg-green-500',
-    dotColor: '#10B981',
-    emoji: '\u2705',
-    description: 'Successfully shipped or picked up orders',
+    color: 'bg-emerald-600',
+    dotColor: '#059669',
+    emoji: '',
+    description: 'Successfully delivered orders',
   },
   cancelled: {
     label: 'Cancelled',
     shortLabel: 'Cancelled',
     color: 'bg-red-500',
     dotColor: '#EF4444',
-    emoji: '\u274C',
+    emoji: '',
     description: 'Cancelled orders',
   },
 };
@@ -144,12 +120,10 @@ export const CATEGORY_INFO: Record<
 
 /**
  * Get the category for a given order status.
- * Routes through getDisplayStatus() so deprecated statuses map correctly.
  */
 export function getStatusCategory(status: OrderStatus): StatusCategory {
-  const displayStatus = getDisplayStatus(status);
   for (const [category, statuses] of Object.entries(STATUS_CATEGORIES)) {
-    if (statuses.includes(displayStatus)) {
+    if (statuses.includes(status)) {
       return category as StatusCategory;
     }
   }
@@ -210,7 +184,7 @@ export function getWaitingTimeInfo(awaitingSince: string | null): {
     color = 'bg-red-100 text-red-700';
   }
 
-  return { text: `⏱ ${text}`, color };
+  return { text, color };
 }
 
 /**

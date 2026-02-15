@@ -274,7 +274,6 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
       newCustomer: isNewCustomer
         ? { name: newCustomerName, phone: newCustomerPhone || undefined }
         : undefined,
-      channel: (formData.channel || undefined) as OrderCreateInput['channel'],
       soldBy: formData.sold_by || undefined,
       dueDate: formData.due_date ? new Date(formData.due_date).getTime() : undefined,
       notes: formData.notes || undefined,

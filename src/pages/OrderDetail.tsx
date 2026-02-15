@@ -24,13 +24,11 @@ import {
   ShippingAgencyButtons,
   ChannelButtons,
   ProductionProgress,
-  PackageStatusDisplay,
   EnhancedCancellationDialog,
 } from '@/components/orders';
 import type { OrderStep, StepStatus } from '@/components/orders/OrderStatusAccordion';
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 import type { ProductionUnit } from '@/components/orders/ProductionProgress';
-import type { PackageItem } from '@/components/orders/PackageStatusDisplay';
 
 import {
   useConvexOrder,
@@ -43,7 +41,7 @@ import {
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../convex/_generated/dataModel';
-import { getDisplayStatus, getStatusColor } from '@/lib/orderConstants';
+import { getStatusColor } from '@/lib/orderConstants';
 import type { OrderStatus, CancellationCategory } from '@/lib/types';
 
 // ============================================
@@ -53,16 +51,10 @@ import type { OrderStatus, CancellationCategory } from '@/lib/types';
 const STATUS_ORDER: Record<OrderStatus, number> = {
   'Draft': 0,
   'AwaitingPayment': 1,
-  'Confirmed': 2,
-  'InProduction': 3,
-  'ProductionComplete': 4, // Deprecated
-  'Packaging': 4,
-  'Boxed': 4,        // Added
-  'Labeled': 5,      // Added
-  'WaitingShipment': 5,
-  'WaitingPickup': 5,
-  'CompleteShipped': 6,
-  'PickedUp': 6,
+  'PaymentReceived': 2,
+  'BeingPrepared': 3,
+  'AwaitingDelivery': 4,
+  'Complete': 5,
   'Cancelled': -1,
 };
 
@@ -126,7 +118,7 @@ export function OrderDetail() {
   // ============================================
 
   const handleStatusChange = async (
-    newStatus: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled",
+    newStatus: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled",
     skipStockCheck?: boolean,
     overrideReasonArg?: string,
     overrideByArg?: string
@@ -264,7 +256,7 @@ export function OrderDetail() {
             <Button
               onClick={() => {
                 handlePaymentStatusChange('Paid');
-                handleStatusChange('Confirmed');
+                handleStatusChange('PaymentReceived');
               }}
               className="w-full"
               disabled={!order.payment_method}
@@ -277,13 +269,13 @@ export function OrderDetail() {
       ) : null,
     });
 
-    // Step 3: Confirmed / Production
+    // Step 3: Payment Received / Production
     steps.push({
       id: 'production',
       title: 'Production',
-      description: order.status === 'InProduction' ? 'Kitchen is preparing' : 'Ready for kitchen',
-      status: getStepStatus('Confirmed', order.status as OrderStatus),
-      content: ['Confirmed', 'InProduction'].includes(order.status) ? (
+      description: order.status === 'BeingPrepared' ? 'Kitchen is preparing' : 'Ready for kitchen',
+      status: getStepStatus('PaymentReceived', order.status as OrderStatus),
+      content: ['PaymentReceived', 'BeingPrepared'].includes(order.status) ? (
         <div className="space-y-4">
           <ProductionProgress
             units={mapProductionRecords(productionRecords)}
@@ -304,145 +296,86 @@ export function OrderDetail() {
       ) : null,
     });
 
-    // Step 4: Packaging
+    // Step 4: Awaiting Delivery
     steps.push({
-      id: 'packaging',
-      title: 'Packaging',
-      description: order.status === 'Packaging' ? 'Packaging in progress' : 'Ready for packaging',
-      status: getStepStatus('Packaging', order.status as OrderStatus),
-      content: order.status === 'Packaging' ? (
+      id: 'delivery',
+      title: isDelivery ? 'Shipping' : 'Ready for Pickup',
+      description: isDelivery
+        ? (order.shipping_agency ? `Via ${order.shipping_agency}` : 'Enter shipping details')
+        : (order.pickup_location || 'Customer pickup'),
+      status: getStepStatus('AwaitingDelivery', order.status as OrderStatus),
+      content: getStepStatus('AwaitingDelivery', order.status as OrderStatus) !== 'pending' ? (
         <div className="space-y-4">
-          <PackageStatusDisplay
-            items={getPackageItems(order)}
-            compact
-          />
-          <p className="text-sm text-muted-foreground">
-            Package status is updated from Kitchen View.
-          </p>
+          {isDelivery && ['BeingPrepared', 'AwaitingDelivery'].includes(order.status) && (
+            <>
+              <div>
+                <Label className="text-sm text-muted-foreground">Shipping Agency</Label>
+                <ShippingAgencyButtons
+                  value={shippingAgency || order.shipping_agency}
+                  onChange={(agency) => {
+                    setShippingAgency(agency);
+                  }}
+                />
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Tracking Number</Label>
+                <Input
+                  placeholder="Enter tracking number"
+                  value={shippingNumber || order.shipping_number || ''}
+                  onChange={(e) => setShippingNumber(e.target.value)}
+                />
+              </div>
+              <Button
+                onClick={handleShippingUpdate}
+                variant="outline"
+                className="w-full"
+              >
+                <Truck className="h-4 w-4 mr-2" />
+                Save Shipping Info
+              </Button>
+            </>
+          )}
+          {order.status === 'AwaitingDelivery' && (
+            <>
+              <Separator />
+              <StepWhatsAppTemplate
+                orderId={orderId!}
+                templateType={isDelivery ? "shipping" : "pickup_ready"}
+                customerPhone={order.customer_phone}
+              />
+              <Button
+                onClick={() => handleStatusChange('Complete')}
+                className="w-full"
+              >
+                {isDelivery ? 'Mark as Shipped' : (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Mark as Picked Up
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
       ) : null,
     });
 
-    // Step 5: Shipping/Pickup
-    if (isDelivery) {
-      steps.push({
-        id: 'shipping',
-        title: 'Shipping',
-        description: order.shipping_agency ? `Via ${order.shipping_agency}` : 'Enter shipping details',
-        status: getStepStatus('WaitingShipment', order.status as OrderStatus),
-        content: getStepStatus('WaitingShipment', order.status as OrderStatus) !== 'pending' ? (
-          <div className="space-y-4">
-            {['Packaging', 'WaitingShipment'].includes(order.status) && (
-              <>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Shipping Agency</Label>
-                  <ShippingAgencyButtons
-                    value={shippingAgency || order.shipping_agency}
-                    onChange={(agency) => {
-                      setShippingAgency(agency);
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Tracking Number</Label>
-                  <Input
-                    placeholder="Enter tracking number"
-                    value={shippingNumber || order.shipping_number || ''}
-                    onChange={(e) => setShippingNumber(e.target.value)}
-                  />
-                </div>
-                <Button
-                  onClick={handleShippingUpdate}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Truck className="h-4 w-4 mr-2" />
-                  Save Shipping Info
-                </Button>
-              </>
-            )}
-            {(order.status === 'WaitingShipment' || getStepStatus('WaitingShipment', order.status as OrderStatus) === 'completed') && (
-              <>
-                <Separator />
-                <StepWhatsAppTemplate
-                  orderId={orderId!}
-                  templateType="shipping"
-                  customerPhone={order.customer_phone}
-                />
-                {order.status === 'WaitingShipment' && (
-                  <Button
-                    onClick={() => handleStatusChange('CompleteShipped')}
-                    className="w-full"
-                  >
-                    Mark as Shipped
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        ) : null,
-      });
-
-      // Step 6: Complete (Delivery)
-      steps.push({
-        id: 'complete',
-        title: 'Delivered',
-        description: 'Order delivered to customer',
-        status: getStepStatus('CompleteShipped', order.status as OrderStatus),
-        content: order.status === 'CompleteShipped' ? (
-          <div className="space-y-4">
-            <StepWhatsAppTemplate
-              orderId={orderId!}
-              templateType="delivery_complete"
-              customerPhone={order.customer_phone}
-            />
-          </div>
-        ) : null,
-      });
-    } else {
-      // Pickup flow
-      steps.push({
-        id: 'pickup',
-        title: 'Ready for Pickup',
-        description: order.pickup_location || 'Customer pickup',
-        status: getStepStatus('WaitingPickup', order.status as OrderStatus),
-        content: getStepStatus('WaitingPickup', order.status as OrderStatus) !== 'pending' ? (
-          <div className="space-y-4">
-            <StepWhatsAppTemplate
-              orderId={orderId!}
-              templateType="pickup_ready"
-              customerPhone={order.customer_phone}
-            />
-            {order.status === 'WaitingPickup' && (
-              <Button
-                onClick={() => handleStatusChange('PickedUp')}
-                className="w-full"
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Mark as Picked Up
-              </Button>
-            )}
-          </div>
-        ) : null,
-      });
-
-      // Step 6: Complete (Pickup)
-      steps.push({
-        id: 'complete',
-        title: 'Picked Up',
-        description: 'Customer collected order',
-        status: getStepStatus('PickedUp', order.status as OrderStatus),
-        content: order.status === 'PickedUp' ? (
-          <div className="space-y-4">
-            <StepWhatsAppTemplate
-              orderId={orderId!}
-              templateType="delivery_complete"
-              customerPhone={order.customer_phone}
-            />
-          </div>
-        ) : null,
-      });
-    }
+    // Step 5: Complete
+    steps.push({
+      id: 'complete',
+      title: 'Complete',
+      description: isDelivery ? 'Order delivered to customer' : 'Customer collected order',
+      status: getStepStatus('Complete', order.status as OrderStatus),
+      content: order.status === 'Complete' ? (
+        <div className="space-y-4">
+          <StepWhatsAppTemplate
+            orderId={orderId!}
+            templateType="delivery_complete"
+            customerPhone={order.customer_phone}
+          />
+        </div>
+      ) : null,
+    });
 
     return steps;
   }, [order, orderId, shippingAgency, shippingNumber]);
@@ -539,7 +472,7 @@ export function OrderDetail() {
                   </p>
                 </div>
                 <Badge className={getStatusColor(order.status)}>
-                  {getDisplayStatus(order.status)}
+                  {order.status}
                 </Badge>
               </div>
             </CardHeader>
@@ -799,7 +732,7 @@ export function OrderDetail() {
                   const by = user?.name ?? 'unknown';
                   setStockShortageMessage(null);
                   setOverrideReason('');
-                  handleStatusChange('Confirmed', true, reason, by);
+                  handleStatusChange('PaymentReceived', true, reason, by);
                 }}
               >
                 Override & Confirm
@@ -836,12 +769,3 @@ function mapProductionRecords(
   }));
 }
 
-function getPackageItems(order: { items: Array<{ id: number; product_name: string; product_variant: string | null; quantity: number }> }): PackageItem[] {
-  return order.items.map((item) => ({
-    id: String(item.id),
-    productName: item.product_name,
-    productVariant: item.product_variant,
-    quantity: item.quantity,
-    status: 'empty' as const,
-  }));
-}

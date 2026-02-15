@@ -103,14 +103,11 @@ function transformDashboardStats(
     due_today: dueToday,
   };
 
-  // Build pipeline from status counts
-  // Map Convex statuses to expected pipeline keys
+  // Build pipeline from status counts (Phase 14: 7 statuses)
   const pipeline: OrderStatsPipeline = {
-    confirmed: summary.statusCounts?.["Confirmed"] ?? 0,
-    production_complete: summary.statusCounts?.["Production"] ?? 0,
-    packaging: 0, // Convex schema may not have this status
-    waiting_shipment: summary.statusCounts?.["Shipped"] ?? 0,
-    waiting_pickup: summary.statusCounts?.["Ready"] ?? 0,
+    payment_received: summary.statusCounts?.["PaymentReceived"] ?? 0,
+    being_prepared: summary.statusCounts?.["BeingPrepared"] ?? 0,
+    awaiting_delivery: summary.statusCounts?.["AwaitingDelivery"] ?? 0,
   };
 
   return {

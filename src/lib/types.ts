@@ -416,9 +416,8 @@ export interface CustomerSummary {
 }
 
 // Order types
-// PRD-7: Added InProduction between Confirmed and Packaging
-// PRD-Kitchen-Workflow: Added Boxed and Labeled statuses for inventory management
-export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'Boxed' | 'Labeled' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled';
+// Phase 14: Simplified to 7 statuses
+export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'PaymentReceived' | 'BeingPrepared' | 'AwaitingDelivery' | 'Complete' | 'Cancelled';
 
 // PRD-7: Cancellation categories for enhanced cancellation flow
 export type CancellationCategory = 'customer_request' | 'out_of_stock' | 'payment_issue' | 'duplicate' | 'other';
@@ -564,11 +563,9 @@ export interface OrderStatsNeedsAttention {
 }
 
 export interface OrderStatsPipeline {
-  confirmed: number;
-  production_complete: number;
-  packaging: number;
-  waiting_shipment: number;
-  waiting_pickup: number;
+  payment_received: number;
+  being_prepared: number;
+  awaiting_delivery: number;
 }
 
 export interface UrgentOrder {

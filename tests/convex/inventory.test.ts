@@ -217,7 +217,7 @@ describe("Stock Reservation", () => {
         orderNumber: "0206-001",
         customerId,
         customerName: "Test Customer",
-        status: "Confirmed",
+        status: "PaymentReceived",
         paymentStatus: "Unpaid",
         orderDate: Date.now(),
         totalAmount: 50000,

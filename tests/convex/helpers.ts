@@ -1265,11 +1265,10 @@ export async function verifyNoGhostBalls(
  */
 const STATUS_PROGRESSION: Record<string, string> = {
   Draft: 'AwaitingPayment',
-  AwaitingPayment: 'Confirmed',
-  Confirmed: 'InProduction',
-  InProduction: 'Boxed',
-  Boxed: 'Labeled',
-  Labeled: 'WaitingShipment', // Default path; pickup uses WaitingPickup
+  AwaitingPayment: 'PaymentReceived',
+  PaymentReceived: 'BeingPrepared',
+  BeingPrepared: 'AwaitingDelivery',
+  AwaitingDelivery: 'Complete',
 };
 
 /**
@@ -1307,7 +1306,7 @@ export async function createOrderAtStatus(
   const deliveryType = options.deliveryType ?? 'Delivery';
   const withInventory = options.withInventory ?? true;
 
-  // Create storage location (needed for Confirmed+ transitions)
+  // Create storage location (needed for PaymentReceived+ transitions)
   let storageLocationId: Id<'storageLocations'> | undefined;
   if (targetStatus !== 'Draft' && targetStatus !== 'AwaitingPayment') {
     storageLocationId = await createDefaultStorageLocation(t);
@@ -1333,27 +1332,12 @@ export async function createOrderAtStatus(
     return { ...orderResult, storageLocationId };
   }
 
-  // Define the path to reach target status
+  // Define the path to reach target status (Phase 14: linear 7-status model)
   const statusPath: string[] = [];
   let current = 'Draft';
 
   while (current !== targetStatus) {
-    let next: string;
-
-    if (current === 'Labeled') {
-      // Branch: shipped vs pickup path
-      if (targetStatus === 'WaitingPickup' || targetStatus === 'PickedUp') {
-        next = 'WaitingPickup';
-      } else {
-        next = 'WaitingShipment';
-      }
-    } else if (current === 'WaitingShipment') {
-      next = 'CompleteShipped';
-    } else if (current === 'WaitingPickup') {
-      next = 'PickedUp';
-    } else {
-      next = STATUS_PROGRESSION[current];
-    }
+    const next = STATUS_PROGRESSION[current];
 
     if (!next) {
       throw new Error(`No valid transition from ${current} toward ${targetStatus}`);
@@ -1367,7 +1351,7 @@ export async function createOrderAtStatus(
   for (const status of statusPath) {
     await t.mutation(api.orders.mutations.index.updateStatus, {
       orderId: orderResult.orderId,
-      status: status as 'Draft' | 'AwaitingPayment' | 'Confirmed' | 'InProduction' | 'Boxed' | 'Labeled' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled',
+      status: status as 'Draft' | 'AwaitingPayment' | 'PaymentReceived' | 'BeingPrepared' | 'AwaitingDelivery' | 'Complete' | 'Cancelled',
     });
   }
 

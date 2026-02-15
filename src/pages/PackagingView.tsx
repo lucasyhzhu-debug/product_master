@@ -75,7 +75,7 @@ export function PackagingView() {
 
   const handleMarkAsPackaged = async (orderId: Id<"orders">) => {
     try {
-      await updateStatus({ orderId, status: "Packaging" });
+      await updateStatus({ orderId, status: "AwaitingDelivery" });
       toast.success("Order marked as packaged");
     } catch (error) {
       toast.error("Failed to update order status");

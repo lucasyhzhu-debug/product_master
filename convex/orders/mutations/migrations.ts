@@ -310,54 +310,8 @@ export const backfillProductionRecords = mutation({
   },
 });
 
-/**
- * Migrate existing "Packaging" status to "Boxed" status.
- * Run from Convex dashboard Functions tab: orders:migratePackagingToBoxed
- *
- * PRD-Kitchen-Workflow: Wave 5 - New status flow (InProduction -> Boxed -> Labeled -> WaitingShipment)
- * This migrates orders stuck in old "Packaging" status to the new "Boxed" status.
- */
-export const migratePackagingToBoxed = mutation({
-  args: {
-    dryRun: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    const dryRun = args.dryRun ?? false;
-
-    // Get all orders with "Packaging" status
-    const packagingOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Packaging"))
-      .collect();
-
-    const results = {
-      total: packagingOrders.length,
-      migrated: 0,
-      details: [] as { orderId: string; orderNumber: string; action: string }[],
-    };
-
-    for (const order of packagingOrders) {
-      if (!dryRun) {
-        await ctx.db.patch(order._id, { status: "Boxed", isKitchenVisible: true });
-      }
-
-      results.migrated++;
-      results.details.push({
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        action: dryRun ? "would migrate Packaging -> Boxed" : "migrated Packaging -> Boxed",
-      });
-    }
-
-    return {
-      ...results,
-      dryRun,
-      message: dryRun
-        ? `Dry run: Would migrate ${results.migrated} orders from Packaging to Boxed. Run again with dryRun: false to apply.`
-        : `Migrated ${results.migrated} orders from Packaging to Boxed status.`,
-    };
-  },
-});
+// migratePackagingToBoxed — ARCHIVED: Phase 14 removed Packaging/Boxed statuses.
+// This migration is no longer needed (old statuses Packaging/Boxed no longer exist in schema).
 
 // ============================================
 // Phase 14: Status Migration (12+ statuses -> 7)
