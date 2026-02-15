@@ -378,11 +378,14 @@ export const getRevenueItems = query({
 // ─── PERIOD-BASED DASHBOARD SUMMARY ───
 
 const periodPresetValidator = v.union(
+  v.literal("past24hours"),
   v.literal("today"),
   v.literal("yesterday"),
+  v.literal("thisWeek"),
   v.literal("last7days"),
   v.literal("last30days"),
-  v.literal("thisMonth")
+  v.literal("thisMonth"),
+  v.literal("allTime")
 );
 
 export const getDashboardSummaryByPeriod = query({
@@ -1320,5 +1323,274 @@ export const getChannelSellThrough = query({
       },
       products,
     };
+  },
+});
+
+// ─── TIME-SERIES REVENUE QUERY (for stacked charts) ───
+
+const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+
+/** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
+function utcToWibDateStr(utcMs: number): string {
+  return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
+}
+
+/** Get ISO week number from WIB-adjusted date */
+function getIsoWeekNumber(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  // Thursday of current week determines the year/week
+  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `W${weekNo.toString().padStart(2, "0")}`;
+}
+
+/** Get YYYY-MM from WIB-adjusted date */
+function utcToWibMonthStr(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const y = wib.getUTCFullYear();
+  const m = (wib.getUTCMonth() + 1).toString().padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+/** Map source to platform display name */
+function sourceToPlatform(source: string): string {
+  switch (source) {
+    case "gobiz": return "GoFood";
+    case "k3mart": return "K3 Mart";
+    case "internal": return "Direct";
+    default: return source;
+  }
+}
+
+export const getRevenueTimeSeries = query({
+  args: {
+    preset: periodPresetValidator,
+    granularity: v.union(v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    metric: v.union(v.literal("gross"), v.literal("net"), v.literal("volume")),
+  },
+  handler: async (ctx, args) => {
+    const range = calculatePeriodRange(args.preset as PeriodPreset);
+
+    // Fetch all revenue within range
+    const records = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_period", (q) => q.gte("periodStart", range.currentStart))
+      .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
+      .collect();
+
+    // For internal orders, look up real order data for accurate gross/net
+    const internalOrderNumbers = records
+      .filter((r) => r.source === "internal" && r.externalTransactionId)
+      .map((r) => r.externalTransactionId!);
+    const orderDataMap = new Map<string, { totalAmount: number; finalTotal: number }>();
+    if (internalOrderNumbers.length > 0) {
+      for (const orderNumber of internalOrderNumbers) {
+        const order = await ctx.db
+          .query("orders")
+          .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+          .first();
+        if (order) {
+          orderDataMap.set(orderNumber, {
+            totalAmount: order.totalAmount,
+            finalTotal: order.finalTotal ?? order.totalAmount,
+          });
+        }
+      }
+    }
+
+    // Bucket key function
+    function bucketKey(utcMs: number): string {
+      switch (args.granularity) {
+        case "daily": return utcToWibDateStr(utcMs);
+        case "weekly": return getIsoWeekNumber(utcMs);
+        case "monthly": return utcToWibMonthStr(utcMs);
+      }
+    }
+
+    // Label formatter
+    function formatLabel(key: string): string {
+      switch (args.granularity) {
+        case "daily": {
+          // YYYY-MM-DD -> "Feb 10"
+          const d = new Date(key + "T00:00:00Z");
+          return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        }
+        case "weekly":
+          return key; // "W06"
+        case "monthly": {
+          // "2026-02" -> "Feb"
+          const d = new Date(key + "-01T00:00:00Z");
+          return d.toLocaleDateString("en-US", { month: "short" });
+        }
+      }
+    }
+
+    // Group by bucket and platform
+    const platforms = ["gobiz", "k3mart", "internal"] as const;
+    const buckets = new Map<string, Record<string, number>>();
+
+    for (const record of records) {
+      const ts = record.transactionDate ?? record.periodStart;
+      const key = bucketKey(ts);
+      const platform = record.source;
+
+      if (!buckets.has(key)) {
+        buckets.set(key, { gobiz: 0, k3mart: 0, internal: 0 });
+      }
+      const bucket = buckets.get(key)!;
+
+      let value: number;
+      if (args.metric === "volume") {
+        value = record.transactionCount ?? (record.quantitySold ?? 0);
+      } else if (args.metric === "gross") {
+        if (platform === "internal" && record.externalTransactionId) {
+          const od = orderDataMap.get(record.externalTransactionId);
+          value = od ? od.totalAmount : (record.revenueGross ?? 0);
+        } else {
+          value = record.revenueGross ?? 0;
+        }
+      } else {
+        // net
+        if (platform === "internal" && record.externalTransactionId) {
+          const od = orderDataMap.get(record.externalTransactionId);
+          value = od ? od.finalTotal : (record.revenueNet ?? record.revenueGross ?? 0);
+        } else {
+          const gross = record.revenueGross ?? 0;
+          const commission = record.commission ?? 0;
+          const adBurn = record.adBurn ?? 0;
+          const promoBurn = record.promoBurn ?? 0;
+          value = gross - commission - adBurn - promoBurn;
+        }
+      }
+
+      bucket[platform] = (bucket[platform] ?? 0) + value;
+    }
+
+    // Sort buckets chronologically
+    const sortedKeys = Array.from(buckets.keys()).sort();
+    const labels = sortedKeys.map(formatLabel);
+    const series = platforms.map((p) => ({
+      platform: sourceToPlatform(p),
+      platformKey: p,
+      data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
+    }));
+
+    return { labels, series };
+  },
+});
+
+// ─── REVENUE BY OUTLET (Platform -> Outlet hierarchy) ───
+
+export const getRevenueByOutlet = query({
+  args: { preset: periodPresetValidator },
+  handler: async (ctx, args) => {
+    const range = calculatePeriodRange(args.preset as PeriodPreset);
+
+    // Fetch revenue in period
+    const records = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_period", (q) => q.gte("periodStart", range.currentStart))
+      .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
+      .collect();
+
+    // Fetch outlet names
+    const outletIds = new Set(records.filter((r) => r.outletId).map((r) => r.outletId!));
+    const outletNameMap = new Map<string, string>();
+    for (const outletId of outletIds) {
+      const outlet = await ctx.db.get(outletId);
+      if (outlet) outletNameMap.set(outletId, outlet.name);
+    }
+
+    // For internal orders, get real order data
+    const internalOrderNumbers = records
+      .filter((r) => r.source === "internal" && r.externalTransactionId)
+      .map((r) => r.externalTransactionId!);
+    const orderDataMap = new Map<string, { totalAmount: number; finalTotal: number }>();
+    for (const orderNumber of internalOrderNumbers) {
+      const order = await ctx.db
+        .query("orders")
+        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+        .first();
+      if (order) {
+        orderDataMap.set(orderNumber, {
+          totalAmount: order.totalAmount,
+          finalTotal: order.finalTotal ?? order.totalAmount,
+        });
+      }
+    }
+
+    // Group by source -> outletId
+    type OutletData = { outletId: string | null; name: string; gross: number; net: number; transactions: number };
+    type PlatformData = { platform: string; platformName: string; outlets: OutletData[]; totals: { gross: number; net: number; transactions: number } };
+
+    const platformMap = new Map<string, Map<string, OutletData>>();
+
+    for (const record of records) {
+      const platform = record.source;
+      if (!platformMap.has(platform)) {
+        platformMap.set(platform, new Map());
+      }
+      const outletMap = platformMap.get(platform)!;
+      const outletKey = record.outletId ?? "direct";
+
+      if (!outletMap.has(outletKey)) {
+        outletMap.set(outletKey, {
+          outletId: record.outletId ?? null,
+          name: record.outletId ? (outletNameMap.get(record.outletId) ?? "Unknown") : "Direct Orders",
+          gross: 0,
+          net: 0,
+          transactions: 0,
+        });
+      }
+      const outlet = outletMap.get(outletKey)!;
+
+      let gross: number;
+      let net: number;
+
+      if (platform === "internal" && record.externalTransactionId) {
+        const od = orderDataMap.get(record.externalTransactionId);
+        gross = od ? od.totalAmount : (record.revenueGross ?? 0);
+        net = od ? od.finalTotal : (record.revenueGross ?? 0);
+      } else {
+        gross = record.revenueGross ?? 0;
+        const commission = record.commission ?? 0;
+        const adBurn = record.adBurn ?? 0;
+        const promoBurn = record.promoBurn ?? 0;
+        net = gross - commission - adBurn - promoBurn;
+      }
+
+      outlet.gross += gross;
+      outlet.net += net;
+      outlet.transactions += record.transactionCount ?? 1;
+    }
+
+    // Build result
+    const result: PlatformData[] = [];
+    for (const [platform, outletMap] of platformMap) {
+      const outlets = Array.from(outletMap.values());
+      const totals = outlets.reduce(
+        (acc, o) => ({
+          gross: acc.gross + o.gross,
+          net: acc.net + o.net,
+          transactions: acc.transactions + o.transactions,
+        }),
+        { gross: 0, net: 0, transactions: 0 }
+      );
+      result.push({
+        platform,
+        platformName: sourceToPlatform(platform),
+        outlets,
+        totals,
+      });
+    }
+
+    // Sort: gobiz first, then k3mart, then internal
+    const order = ["gobiz", "k3mart", "internal"];
+    result.sort((a, b) => order.indexOf(a.platform) - order.indexOf(b.platform));
+
+    return result;
   },
 });
