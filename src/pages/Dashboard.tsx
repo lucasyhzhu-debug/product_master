@@ -27,6 +27,7 @@ import {
   ProductionQueueTableSkeleton,
   LowStockAlert,
   SafeSalesWidget,
+  SyncHealthBanner,
 } from '@/components/dashboard';
 import {
   useConvexRecipes,
@@ -140,6 +141,9 @@ export function Dashboard() {
           </Button>
         }
       />
+
+      {/* Sync Health Alert Banner */}
+      {hasPermission('canAccessSalesAnalytics') && <SyncHealthBanner />}
 
       {/* Tag Filter Bar */}
       {tags.length > 0 && (
