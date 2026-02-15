@@ -13,6 +13,7 @@ import { calculateLineTotals, generateOrderNumber as formatOrderNumber } from ".
 import {
   distributeBallsToOrders,
   logOrderEvent,
+  logStatusTransition,
   isTerminalStatus,
   createProductionRecordsForItem,
   cancelOrderProductionRecords,
@@ -23,6 +24,9 @@ import {
   releaseVoucherUsage,
   validateFinalPrice,
 } from "../helpers/index";
+
+// Auth helper for token -> userId resolution
+import { getSessionUser } from "../../lib/auth";
 
 // Shared validators
 import { orderItemInput } from "../validators";
@@ -618,5 +622,183 @@ export const completeBalls = mutation({
       ballsUsed: result.ballsUsed,
       overflow: result.overflow,
     };
+  },
+});
+
+// ============================================
+// Phase 14: Order Lifecycle Mutations
+// ============================================
+
+/**
+ * Submit a Draft order, transitioning it to AwaitingPayment.
+ * Validates the order has items before submission.
+ *
+ * Phase 14: "Submit Order" action on Kanban Draft column.
+ */
+export const submitOrder = mutation({
+  args: {
+    orderId: v.id("orders"),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "Draft") throw new Error("Can only submit Draft orders");
+
+    // Validate order has items
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .filter((q) => q.neq(q.field("isCancelled"), true))
+      .collect();
+
+    if (items.length === 0) {
+      throw new Error("Cannot submit order with no items");
+    }
+
+    await ctx.db.patch(args.orderId, {
+      status: "AwaitingPayment",
+      awaitingPaymentSince: Date.now(),
+      isKitchenVisible: false,
+    });
+
+    // Resolve userId from token for audit trail
+    let userId: Id<"users"> | undefined;
+    if (args.token) {
+      const user = await getSessionUser(ctx, args.token);
+      if (user) userId = user._id;
+    }
+
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      "Draft",
+      "AwaitingPayment",
+      "Order submitted",
+      "user",
+      userId
+    );
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Create a new Draft order by copying details from a cancelled order.
+ * Copies customer, items (quantities, prices), and delivery info.
+ * Due date defaults to tomorrow. Vouchers are removed.
+ *
+ * Phase 14: "Copy to new order" on cancelled order cards.
+ */
+export const copyFromCancelled = mutation({
+  args: {
+    orderId: v.id("orders"),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const sourceOrder = await ctx.db.get(args.orderId);
+    if (!sourceOrder) throw new Error("Order not found");
+    if (sourceOrder.status !== "Cancelled") {
+      throw new Error("Can only copy from Cancelled orders");
+    }
+
+    // Get source items (include cancelled items -- they represent the original order)
+    const sourceItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    // Generate new order number
+    const orderNumber = await generateOrderNumber(ctx);
+
+    // Due date defaults to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const dueDate = tomorrow.getTime();
+
+    // Resolve creator from token
+    let createdByUserId: Id<"users"> | undefined;
+    let createdBy = sourceOrder.createdBy;
+    if (args.token) {
+      const user = await getSessionUser(ctx, args.token);
+      if (user) {
+        createdByUserId = user._id;
+        createdBy = user.name;
+      }
+    }
+
+    // Recalculate totals from source items (no voucher)
+    let totalAmount = 0;
+    let totalCost = 0;
+    const activeItems = sourceItems.filter((item) => !item.isCancelled);
+
+    for (const item of activeItems) {
+      totalAmount += item.lineTotal;
+      totalCost += item.lineCost;
+    }
+
+    // Create new order (no voucher, no manual discount)
+    const newOrderId = await ctx.db.insert("orders", {
+      orderNumber,
+      customerId: sourceOrder.customerId,
+      customerName: sourceOrder.customerName,
+      customerPhone: sourceOrder.customerPhone,
+      status: "Draft",
+      isKitchenVisible: false,
+      paymentStatus: "Unpaid",
+      orderDate: Date.now(),
+      dueDate,
+      totalAmount,
+      totalCost,
+      totalMargin: totalAmount - totalCost,
+      finalTotal: totalAmount, // No discount on copy
+      deliveryType: sourceOrder.deliveryType,
+      pickupLocation: sourceOrder.pickupLocation,
+      deliveryAddress: sourceOrder.deliveryAddress,
+      contactWa: sourceOrder.contactWa,
+      contactIg: sourceOrder.contactIg,
+      notes: sourceOrder.notes,
+      soldBy: sourceOrder.soldBy,
+      createdBy,
+      createdByUserId,
+      copiedFromOrderId: args.orderId,
+      itemCount: activeItems.length,
+    });
+
+    // Copy items (non-cancelled only) and create production records
+    for (const item of activeItems) {
+      const orderItemId = await ctx.db.insert("orderItems", {
+        orderId: newOrderId,
+        productName: item.productName,
+        productVariant: item.productVariant,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unitCost: item.unitCost,
+        discountAmount: item.discountAmount,
+        lineTotal: item.lineTotal,
+        lineCost: item.lineCost,
+        lineMargin: item.lineMargin,
+        menuProductId: item.menuProductId,
+      });
+
+      // Create production records for items with menu products
+      if (item.menuProductId) {
+        await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
+      }
+    }
+
+    // Log creation event
+    await logOrderEvent(ctx, newOrderId, "order_created", {
+      reason: `Copied from cancelled order ${sourceOrder.orderNumber}`,
+      triggeredBy: "user",
+      userId: createdByUserId,
+      metadata: {
+        copiedFromOrderId: args.orderId,
+        copiedFromOrderNumber: sourceOrder.orderNumber,
+      },
+    });
+
+    return newOrderId;
   },
 });

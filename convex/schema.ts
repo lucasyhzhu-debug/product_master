@@ -387,6 +387,8 @@ export default defineSchema({
     createdByUserId: v.optional(v.id("users")),
     // Phase 14: Rush order marking
     expedited: v.optional(v.boolean()),
+    // Phase 14: Reference to original order when copied from cancelled
+    copiedFromOrderId: v.optional(v.id("orders")),
     // Phase 14: Timestamp when order entered kitchen (auto-entry tracking, one-time threshold consumed)
     kitchenEnteredAt: v.optional(v.number()),
 

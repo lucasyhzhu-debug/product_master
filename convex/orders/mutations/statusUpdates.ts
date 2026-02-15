@@ -9,6 +9,7 @@
  */
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../../_generated/dataModel";
 import { statusValidator, channelValidator } from "../validators";
 
 // Ctx-dependent helpers
@@ -19,8 +20,18 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
-// Audit logging + kitchen visibility
-import { logOrderEvent, computeIsKitchenVisible, isTerminalStatus } from "../helpers/statusTransitions";
+// Audit logging + kitchen visibility + transition validation
+import {
+  logOrderEvent,
+  logStatusTransition,
+  computeIsKitchenVisible,
+  isTerminalStatus,
+  isValidBackwardTransition,
+  FORWARD_TRANSITIONS,
+} from "../helpers/statusTransitions";
+
+// Auth helper for token -> userId resolution
+import { getSessionUser } from "../../lib/auth";
 
 // Inventory integration (internal helpers)
 import {
@@ -61,6 +72,10 @@ interface OrderDetailsUpdate {
 
 /**
  * Update order status.
+ *
+ * @deprecated For new code, prefer `moveForward` and `moveBackward` which validate
+ * transitions and handle side effects. This mutation is retained as a lower-level
+ * escape hatch for edge cases.
  *
  * Integrates with inventory management:
  * - PaymentReceived: Reserve stock for packaging components
@@ -299,5 +314,287 @@ export const updateDetails = mutation({
 
     await ctx.db.patch(orderId, patchData);
     return orderId;
+  },
+});
+
+// ============================================
+// Phase 14: Validated Status Transition Mutations
+// ============================================
+
+/**
+ * Move an order one step forward in the Kanban workflow.
+ * Validates the transition using FORWARD_TRANSITIONS map.
+ * Handles status-specific side effects (stock reservation, material consumption).
+ *
+ * Phase 14: Replaces ad-hoc updateStatus calls for forward moves.
+ */
+export const moveForward = mutation({
+  args: {
+    orderId: v.id("orders"),
+    token: v.optional(v.string()),
+    locationId: v.optional(v.id("storageLocations")),
+    skipStockCheck: v.optional(v.boolean()),
+    overrideReason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+
+    const nextStatus = FORWARD_TRANSITIONS[order.status];
+    if (!nextStatus) {
+      throw new Error(`Cannot move forward from ${order.status}`);
+    }
+
+    // Resolve userId from token
+    let userId: Id<"users"> | undefined;
+    if (args.token) {
+      const user = await getSessionUser(ctx, args.token);
+      if (user) userId = user._id;
+    }
+
+    // Build status update
+    const updates: OrderStatusUpdate = {
+      status: nextStatus as OrderStatusUpdate["status"],
+      isKitchenVisible: computeIsKitchenVisible(nextStatus),
+    };
+
+    // Status-specific side effects
+    if (nextStatus === "AwaitingPayment" && !order.awaitingPaymentSince) {
+      updates.awaitingPaymentSince = Date.now();
+    }
+
+    if (nextStatus === "PaymentReceived") {
+      updates.confirmedAt = Date.now();
+    }
+
+    if (nextStatus === "BeingPrepared") {
+      // kitchenEnteredAt tracks when order enters kitchen (one-time)
+      // isKitchenVisible is already set by computeIsKitchenVisible
+    }
+
+    if (isTerminalStatus(nextStatus)) {
+      updates.completedAt = Date.now();
+    }
+
+    // Apply status update
+    await ctx.db.patch(args.orderId, updates);
+
+    // Inventory integration: reserve stock on PaymentReceived
+    if (nextStatus === "PaymentReceived" && order.status !== "PaymentReceived") {
+      try {
+        await reserveStockForOrderInternal(ctx, {
+          orderId: args.orderId,
+          locationId: args.locationId,
+          skipStockCheck: args.skipStockCheck,
+        });
+
+        if (args.skipStockCheck === true) {
+          await logOrderEvent(ctx, args.orderId, "stock_override", {
+            fromStatus: order.status,
+            toStatus: nextStatus,
+            reason: args.overrideReason ?? "No reason provided",
+            triggeredBy: "user",
+            userId,
+          });
+        }
+      } catch (error) {
+        // Revert status on failure
+        await ctx.db.patch(args.orderId, {
+          status: order.status,
+          isKitchenVisible: computeIsKitchenVisible(order.status),
+        });
+        throw error;
+      }
+    }
+
+    // Inventory integration: consume all materials on BeingPrepared
+    if (nextStatus === "BeingPrepared" && order.status !== "BeingPrepared") {
+      try {
+        await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
+        await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
+        await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+      } catch (error) {
+        await ctx.db.patch(args.orderId, {
+          status: order.status,
+          isKitchenVisible: computeIsKitchenVisible(order.status),
+        });
+        throw error;
+      }
+    }
+
+    // Audit trail
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      order.status,
+      nextStatus,
+      "Moved forward",
+      "user",
+      userId
+    );
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Move an order backward in the Kanban workflow.
+ * Validates the backward transition and handles reversal side effects.
+ *
+ * Phase 14: Backward transitions with confirmation reason and sales reversal.
+ */
+export const moveBackward = mutation({
+  args: {
+    orderId: v.id("orders"),
+    targetStatus: statusValidator,
+    reason: v.optional(v.string()),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+
+    if (!isValidBackwardTransition(order.status, args.targetStatus)) {
+      throw new Error(
+        `Invalid backward transition: ${order.status} -> ${args.targetStatus}`
+      );
+    }
+
+    // Resolve userId from token
+    let userId: Id<"users"> | undefined;
+    if (args.token) {
+      const user = await getSessionUser(ctx, args.token);
+      if (user) userId = user._id;
+    }
+
+    // Build update using the same typed interface as updateStatus
+    const updates: OrderStatusUpdate = {
+      status: args.targetStatus as OrderStatusUpdate["status"],
+      isKitchenVisible: computeIsKitchenVisible(args.targetStatus),
+    };
+
+    // Status-specific reversal side effects
+
+    // PaymentReceived -> AwaitingPayment/Draft: clear confirmedAt (reverse sales recognition)
+    if (
+      order.status === "PaymentReceived" &&
+      (args.targetStatus === "AwaitingPayment" || args.targetStatus === "Draft")
+    ) {
+      updates.confirmedAt = undefined;
+    }
+
+    // BeingPrepared -> PaymentReceived: mark kitchenEnteredAt as consumed
+    // (prevents auto-re-entry if threshold already crossed)
+    if (order.status === "BeingPrepared" && args.targetStatus === "PaymentReceived") {
+      // kitchenEnteredAt stays set (threshold consumed) -- order won't auto-enter again
+      // Reset package status on order items
+      const items = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+        .filter((q) => q.neq(q.field("isCancelled"), true))
+        .collect();
+
+      for (const item of items) {
+        await ctx.db.patch(item._id, {
+          packageStatus: "empty",
+          ballsFilled: 0,
+          packedPackageIndices: [],
+        });
+      }
+    }
+
+    // Complete -> AwaitingDelivery: clear completedAt
+    if (order.status === "Complete" && args.targetStatus === "AwaitingDelivery") {
+      updates.completedAt = undefined;
+    }
+
+    // Release reservations when reverting from PaymentReceived to before payment
+    if (
+      order.status === "PaymentReceived" &&
+      (args.targetStatus === "AwaitingPayment" || args.targetStatus === "Draft")
+    ) {
+      try {
+        await releaseReservationInternal(ctx, { orderId: args.orderId });
+      } catch (error) {
+        console.error("Error releasing reservations on backward transition:", error);
+      }
+    }
+
+    await ctx.db.patch(args.orderId, updates);
+
+    // Audit trail
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      order.status,
+      args.targetStatus,
+      args.reason ?? "Moved backward",
+      "user",
+      userId
+    );
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Expedite a PaymentReceived order into kitchen production immediately.
+ * Bypasses the 2-day auto-entry threshold for rush orders.
+ *
+ * Phase 14: "Expedite Production" button on PaymentReceived cards.
+ */
+export const expediteOrder = mutation({
+  args: {
+    orderId: v.id("orders"),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "PaymentReceived") {
+      throw new Error("Can only expedite PaymentReceived orders");
+    }
+
+    // Resolve userId from token
+    let userId: Id<"users"> | undefined;
+    if (args.token) {
+      const user = await getSessionUser(ctx, args.token);
+      if (user) userId = user._id;
+    }
+
+    await ctx.db.patch(args.orderId, {
+      status: "BeingPrepared",
+      isKitchenVisible: true,
+      expedited: true,
+      kitchenEnteredAt: Date.now(),
+    });
+
+    // Consume materials on expedited entry to BeingPrepared
+    try {
+      await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
+      await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
+      await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+    } catch (error) {
+      // Revert on failure
+      await ctx.db.patch(args.orderId, {
+        status: "PaymentReceived",
+        isKitchenVisible: false,
+        expedited: undefined,
+        kitchenEnteredAt: undefined,
+      });
+      throw error;
+    }
+
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      "PaymentReceived",
+      "BeingPrepared",
+      "Expedited - manual production entry",
+      "user",
+      userId
+    );
+
+    return args.orderId;
   },
 });
