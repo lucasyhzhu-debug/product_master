@@ -14,6 +14,36 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-15 - Phase 14: Order QoL
+
+### Overview
+Order management redesigned from the ground up. Orders now flow through a visual Kanban board, with a dedicated creation page, simplified statuses, and a full audit trail -- making it faster to create, track, and manage orders.
+
+### Added
+- Kanban board with 6 columns (Draft, Awaiting Payment, Payment Received, Being Prepared, Awaiting Delivery, Complete)
+- Dedicated order creation page (/orders/new) with customer-first layout
+- Quick-tap due date pills (next 7 days with day names)
+- Customer search with autocomplete
+- Crystal and Goldfinch quick-add address buttons
+- Order audit trail (status change timeline with who/when/reason)
+- Creator attribution on all order cards
+- Expedited order badges and manual expedite action
+- Copy-to-new-order from cancelled orders
+- Forward/backward status transition buttons with validation
+- WhatsApp payment request modal on order submission
+
+### Changed
+- Order statuses simplified from 12 to 7 (Draft, AwaitingPayment, PaymentReceived, BeingPrepared, AwaitingDelivery, Complete, Cancelled)
+- Order creation starts as Draft (was AwaitingPayment)
+- Kitchen view uses BeingPrepared status (replaces InProduction/Boxed/Labeled)
+- Sales channel and payment method fields removed from order creation
+- OrderDetail page redesigned with status action buttons replacing accordion workflow
+
+### Migration
+- Existing orders migrated: Confirmed->PaymentReceived, InProduction/Boxed/Labeled->BeingPrepared, WaitingShipment/WaitingPickup->AwaitingDelivery, CompleteShipped/PickedUp->Complete
+
+---
+
 ## 2026-02-14 - Phase 11: Infrastructure & Consolidation
 
 ### Overview

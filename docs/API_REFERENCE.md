@@ -114,6 +114,23 @@ orders.getById({ id })                  // Get detail with items and WhatsApp te
 orders.getProductionReport({ dateFrom, dateTo }) // Production report grouped by date
 orders.getProductSuggestions()          // Distinct products from history
 orders.getSellerSuggestions()           // Distinct sold_by from history
+
+// Phase 14: Kanban & Audit Trail
+orders.queries.listForKanban({})        // All active orders grouped by 6 Kanban columns
+orders.queries.getAuditTrail({ orderId }) // Status change events enriched with user names
+orders.queries.searchCustomers({ query }) // Debounced customer search for autocomplete
+```
+
+### Order Status Transitions (Phase 14)
+```typescript
+// convex/orders/mutations/statusUpdates.ts
+orders.mutations.statusUpdates.moveForward({ orderId, token })              // Move order forward in Kanban workflow
+orders.mutations.statusUpdates.moveBackward({ orderId, targetStatus, reason?, token }) // Move backward with optional reason
+orders.mutations.statusUpdates.expediteOrder({ orderId, token })            // Manual kitchen entry (PaymentReceived -> BeingPrepared)
+
+// convex/orders/mutations/orderCrud.ts
+orders.mutations.orderCrud.submitOrder({ orderId, token })                  // Draft -> AwaitingPayment
+orders.mutations.orderCrud.copyFromCancelled({ orderId, token })            // Create new Draft from Cancelled order
 ```
 
 ### Kitchen View Queries (PRD-1)

@@ -609,34 +609,38 @@ voucherUsage: defineTable({
 
 ## Order Status Workflow
 
+*Updated Phase 14: Simplified from 12 statuses to 7.*
+
 ```
 Draft
-  └─> AwaitingPayment (WhatsApp sent, waiting for payment)
-        └─> Confirmed (payment verified)
-              └─> InProduction (kitchen: actively producing)
-                    └─> ProductionComplete (kitchen: production done)
-                          └─> Packaging (kitchen: actively packaging)
-                                ├─> WaitingShipment ─> CompleteShipped (delivered)
-                                └─> WaitingPickup ─> PickedUp (customer picked up)
+  └─> AwaitingPayment (invoice sent, waiting for payment)
+        └─> PaymentReceived (payment confirmed)
+              └─> BeingPrepared (auto at due-2d, or manual expedite)
+                    └─> AwaitingDelivery (kitchen marks complete)
+                          └─> Complete (delivered or picked up)
 
-Any non-terminal → Cancelled (requires cancellationReason)
+Any non-terminal → Cancelled (requires reason)
 ```
 
 **Status Meanings:**
 
-| Status | Description | Next States |
+| Status | Description | Forward Transition |
 |--------|-------------|-------------|
-| Draft | Order created, not confirmed | AwaitingPayment, Cancelled |
-| AwaitingPayment | WhatsApp sent, waiting for payment | Confirmed, Cancelled |
-| Confirmed | Payment verified, ready for production | InProduction, Cancelled |
-| InProduction | Kitchen actively producing (first ball filled) | ProductionComplete, Cancelled |
-| ProductionComplete | Kitchen finished production (all balls complete) | Packaging, Cancelled |
-| Packaging | Actively packaging (all items being packed) | WaitingShipment, WaitingPickup, Cancelled |
-| WaitingShipment | Ready for courier | CompleteShipped, Cancelled |
-| CompleteShipped | Delivered to customer (terminal) | - |
-| WaitingPickup | Ready for customer pickup | PickedUp, Cancelled |
-| PickedUp | Customer picked up (terminal) | - |
+| Draft | Order being composed, not yet submitted | Submit Order -> AwaitingPayment |
+| AwaitingPayment | Invoice sent, waiting for customer payment | Customer Paid! -> PaymentReceived |
+| PaymentReceived | Payment confirmed, waiting for kitchen | Auto at due-2d or Expedite -> BeingPrepared |
+| BeingPrepared | Kitchen is producing and packing the order | Kitchen Complete -> AwaitingDelivery |
+| AwaitingDelivery | Ready for shipping or customer pickup | Mark Delivered -> Complete |
+| Complete | Order fulfilled (terminal) | - |
 | Cancelled | Order cancelled (terminal) | - |
+
+**Backward Transitions:** All non-terminal statuses support backward transitions with optional reason text. Example: BeingPrepared -> PaymentReceived ("Send back to order desk").
+
+**New Fields (Phase 14):**
+- `orders.createdByUserId` - Links to users table for creator attribution
+- `orders.expedited` - Boolean flag for manually expedited orders
+- `orders.kitchenEnteredAt` - Timestamp when order entered BeingPrepared
+- `orderEvents.userId` - Links to users table for audit trail attribution
 
 **AwaitingPayment Visual Indicator:**
 - Green badge: Waiting < 24 hours
