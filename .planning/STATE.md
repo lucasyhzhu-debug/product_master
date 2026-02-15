@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 05 of 06 -- COMPLETE
-Status: Plan 14-05 complete (dedicated order creation page at /orders/new), 1 plan remaining
-Last activity: 2026-02-15 -- Plan 14-05 executed (order creation page with customer-first layout)
+Plan: 06 of 06 -- CHECKPOINT PENDING (visual verification)
+Status: Plan 14-06 auto tasks complete, awaiting human verification of Kanban + audit trail
+Last activity: 2026-02-15 -- Plan 14-06 Tasks 1-2 executed (audit trail, OrderDetail, docs)
 
-Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-05 complete)
+Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-06 code complete, checkpoint pending)
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-05 
 | 14 | 03 | 4 min | 2 | 4 |
 | 14 | 04 | 8 min | 2 | 9 |
 | 14 | 05 | 6 min | 1 | 8 |
+| 14 | 06 | 10 min | 2 | 7 |
 
 *Updated after each plan completion*
 
@@ -59,6 +60,7 @@ Recent decisions affecting current work:
 - [Phase 14-03]: Customer search reused from customers/queries.ts; updateStatus retained as escape hatch; moveForward/moveBackward pattern with FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS maps; token-to-userId via getSessionUser for audit trail
 - [Phase 14-04]: shadcn Sheet for slide-over (not Framer Motion); PaymentReceived uses expediteOrder for manual kitchen entry; BeingPrepared has no forward button (kitchen completes); Copy to New Order placeholder pending Plan 05
 - [Phase 14-05]: Reused existing ProductButtons/DeliveryToggle/VoucherInput; Submit creates Draft then AwaitingPayment; date-fns installed for DueDatePills; customer-first form layout pattern established
+- [Phase 14-06]: OrderDetail replaced accordion with StatusActionButtons + AuditTrail; Kitchen view unchanged (production workflow, not status-driven); WhatsApp modal on submit callback
 
 ### Pending Todos
 
@@ -73,7 +75,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 14-05-PLAN.md (order creation page with customer-first layout)
+Stopped at: 14-06-PLAN.md checkpoint:human-verify (Task 3) -- awaiting visual verification
 Resume file: None
 
 ---
