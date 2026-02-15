@@ -868,6 +868,8 @@ export const seedGoBizOutlets = internalMutation({
         externalId: outlet.externalId,
         name: outlet.name,
         isActive: true,
+        createdBy: "system:seed",
+        createdAt: Date.now(),
       });
 
       created.push(`${outlet.name} (${outlet.externalId})`);
