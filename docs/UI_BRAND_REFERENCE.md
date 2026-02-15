@@ -272,6 +272,46 @@ All pages MUST use the `<PageHeader>` component. No custom inline headers.
 - **Navigation:** 20px (`h-5 w-5`)
 - **Inline/small:** 16px (`h-4 w-4`)
 
+### Kanban Board
+
+Used for multi-status workflow views (e.g., order pipeline in Phase 14).
+
+- **Container:** Horizontal-scrolling wrapper (`overflow-x-auto`) with `snap-x snap-mandatory` on mobile, standard horizontal scroll on desktop
+- **Columns:** Each column is a vertical card stack. Header uses `text-sm font-semibold text-muted-foreground` with a count badge. Column width: `min-w-[280px] w-[320px]` on desktop, `min-w-[85vw] snap-center` on mobile
+- **Column background:** `bg-muted/30` with `rounded-lg` and `p-3`
+- **Cards:** Use standard `<Card>` with `shadow-sm`, `rounded-md`. Clickable cards get `hover:shadow-md cursor-pointer` transition. Card content uses standard spacing (`p-3 space-y-2`)
+- **Status indicators:** Use the existing domain-specific status colors (not new colors). Each column header can have a subtle left border accent in the status color
+- **Empty columns:** Show `text-muted-foreground text-sm` centered message, no empty state icon (too heavy for a column)
+- **Dark mode:** All works automatically via CSS variables. Column bg uses `bg-muted/30` which resolves correctly in both modes
+- **Responsive:** On mobile, columns snap-scroll horizontally. On `md:+`, show 3-4 columns visible with horizontal scroll for overflow
+
+### Dashboard Summary Header
+
+Used for at-a-glance KPI bars above main content (e.g., kitchen overview in Phase 15).
+
+- **Container:** Full-width bar above main content. Uses `bg-card border-b border-border` with `p-4`
+- **Layout:** CSS grid: `grid grid-cols-2 md:grid-cols-4 gap-3` for stat cards
+- **Stat cards:** Each stat is a mini-card with `bg-background rounded-md p-3 border border-border`. Contains: icon (Lucide, `h-4 w-4 text-brand` or `text-muted-foreground`), label (`text-xs text-muted-foreground font-medium`), value (`text-lg font-bold text-foreground`), optional delta/subtext (`text-xs text-muted-foreground`)
+- **Emphasis:** The primary KPI (e.g., "remaining balls") uses `text-brand` for its value instead of `text-foreground`
+- **Dark mode:** Standard -- all via CSS variables
+- **Responsive:** 2 columns on mobile, 4 on `md:+`. Values use `text-lg` not larger to stay compact
+
+### Calendar Grid
+
+Used for date-based schedule views (e.g., K3Mart delivery cockpit in Phase 16).
+
+- **Container:** Standard `<Card>` wrapper with `overflow-x-auto` for narrow screens
+- **Layout:** 7-column CSS grid: `grid grid-cols-7 gap-px bg-border` (gap-px + bg-border creates 1px grid lines)
+- **Day headers:** `text-xs font-medium text-muted-foreground text-center py-2 bg-muted/50`
+- **Day cells:** `bg-card p-2 min-h-[80px]` for content area. Date number in `text-xs font-medium` top-left corner
+- **Today highlight:** `ring-2 ring-brand/50` on the cell, date number gets `bg-brand text-white rounded-full w-6 h-6 flex items-center justify-center`
+- **Weekend cells:** `bg-muted/20` subtle background tint
+- **Holiday cells:** `bg-amber-50 dark:bg-amber-950/20` with a small holiday indicator dot
+- **Cell content:** Product quantities shown as compact pills: `text-xs bg-muted rounded-sm px-1.5 py-0.5`
+- **Outlet tabs:** Use standard shadcn `Tabs` component above the grid. Active tab uses brand accent
+- **Dark mode:** Weekend/holiday cell colors use dark-mode-aware values (as specified). Grid lines from `bg-border` resolve automatically
+- **Responsive:** On mobile, show 3-day rolling view or horizontal scroll. Full 7-day grid on `md:+`
+
 ---
 
 ## Dark Mode
@@ -356,5 +396,5 @@ All pages MUST use the `<PageHeader>` component. No custom inline headers.
 
 ---
 
-*Last updated: 2026-02-14*
-*Phase: 09-ui-brand, Plan 01*
+*Last updated: 2026-02-15*
+*Phase: 12-ui-brand-verification, Plan 01*
