@@ -3,11 +3,14 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-15)
 **Core value:** Production reliability — single source of truth for recipes, orders, kitchen, inventory
-**Current focus:** Milestone v1.0 COMPLETE — ready for next milestone
+**Current focus:** Milestone v1.1 "Stabilization & QoL" — defining requirements
 
 ## Current Position
-Milestone v1.0 Concerns Cleanup & Refactor — SHIPPED 2026-02-15
-All 11 phases, 36 plans complete
+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-15 — Milestone v1.1 started
 
 ## Phase Readiness
 

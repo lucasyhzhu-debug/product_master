@@ -40,7 +40,16 @@ Production reliability — the system is the single source of truth for recipes,
 
 ### Active
 
-(Fresh for next milestone — define via `/gsd:new-milestone`)
+## Current Milestone: v1.1 "Stabilization & QoL"
+
+**Goal:** Stabilize production workflows, integrate external APIs with auto-auth, and improve daily UX for kitchen staff, order managers, and K3Mart operators.
+
+**Target features:**
+- API audit & auto-auth architecture for GoBiz/GoFood
+- Order UX improvements (layout, audit trail, date handling)
+- Kitchen overhaul (due dates, targets, inventory fixes)
+- K3Mart cockpit completion (manual stock, demand push, weekly planning)
+- GoFood API integrations (Crystal outlet, token refresh, product mapping)
 
 ### Out of Scope
 
