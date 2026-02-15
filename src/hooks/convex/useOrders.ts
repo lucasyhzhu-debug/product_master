@@ -238,6 +238,15 @@ function transformProductSuggestion(item: {
 // ============================================
 
 /**
+ * Phase 14: Kanban board data hook.
+ * Returns column-grouped orders for the Kanban UI.
+ */
+export function useKanbanOrders() {
+  const data = useQuery(api.orders.queries.listForKanban, {});
+  return data;
+}
+
+/**
  * List orders with optional filters.
  * Pass `"skip"` to disable the query (e.g., when using paginated hook instead).
  */

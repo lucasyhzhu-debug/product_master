@@ -141,6 +141,7 @@ export {
   useConvexChannelSuggestions,
   useConvexWhatsAppMessage,
   useConvexOrderTemplate,
+  useKanbanOrders,
   // Mutation hooks
   useConvexCreateOrder,
   useConvexUpdateOrderStatus,
