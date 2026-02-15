@@ -1,446 +1,252 @@
-# Domain Pitfalls: Frollie Recipe Master Refactoring
+# Pitfalls Research: v1.1 Stabilization & QoL
 
-**Domain:** Production TypeScript + Convex + React codebase cleanup and refactoring
-**Researched:** 2026-02-13
-**Overall confidence:** HIGH (based on codebase analysis + Convex official docs + community patterns)
+**Domain:** External API integrations, order QoL, kitchen mobile UX, weekly planning, multi-outlet aggregation on Convex serverless
+**Researched:** 2026-02-15
+**Confidence:** HIGH (based on codebase analysis, existing integration code review, Convex docs, GoBiz API docs)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause production outages, data loss, or force rewrites.
+### Pitfall 1: GoBiz Token Cascade Silently Fails, Cron Syncs Stop for Days Unnoticed
+
+**What goes wrong:**
+The GoBiz token refresh uses a 3-method cascade (cookie, rotate, API). All three methods rely on the refresh token, which GoBiz expires after **9 months** of session inactivity -- but the access token expires every **1 hour**. If the underlying GoBiz session expires (password change, account lockout, Gojek server-side invalidation), all three refresh methods fail silently. The cron job (`autoSyncGoBizRevenue`) logs "no_token" and returns -- but there is **no alerting mechanism**. Revenue data silently stops syncing. The team only discovers the gap days later when sales reports show zero GoFood revenue.
+
+**Why it happens:**
+The current `autoSyncGoBizRevenue` cron logs the skip to console but does not surface it to any user. There is no "last successful sync" dashboard indicator, no staleness warning, and no notification system. The cron runs 7 times daily, so console logs scroll past quickly.
+
+**How to avoid:**
+1. Add a `syncHealth` query that checks `externalSyncLogs` for the most recent successful GoBiz sync. If the last success is older than 6 hours, surface a warning banner on the Dashboard.
+2. Track consecutive cron failures in `platformCredentials`. After 3 consecutive failures, mark the credential as `status: "stale"` which triggers a UI banner: "GoFood sync stopped -- re-authenticate in Settings."
+3. The existing `externalSyncLogs` table already has the data. Just need a query + UI indicator.
+
+**Warning signs:**
+- `externalSyncLogs` shows multiple consecutive `status: "success"` entries with `productsCount: 0` for GoBiz
+- `platformCredentials` for "gobiz" has `lastRefreshStatus: "error"` with recent timestamps
+- Dashboard sales reports show zero GoFood revenue for recent days
+
+**Phase to address:**
+Phase 2 (API Audit & Auth Architecture) -- design the health check system. Phase 6 (API Integrations) -- implement it.
 
 ---
 
-### Pitfall 1: Convex Schema Deployment Rejection on Field Removal
+### Pitfall 2: Convex Action Timeout (10 min) Hit During Large GoBiz Sync
 
-**What goes wrong:** You remove a field from `convex/schema.ts` (e.g., dropping `menuProducts.productionType`) and deploy. Convex rejects the deployment because existing documents still contain that field. Production deploy fails. If this is in a combined PR with other changes, the entire deploy is blocked.
+**What goes wrong:**
+Convex actions have a hard **10-minute timeout**. The current `syncGoBizRevenue` action processes days sequentially: for each day it fetches journals (paginated), saves transactions, then fetches individual order details with 200ms rate-limiting delays. With `daysBack=7` (default) and ~50 transactions/day, Phase B alone needs ~50 orders x 200ms = 10 seconds per day. But on catch-up after a token failure (e.g., `daysBack=30`), the action processes 30 days x (journal fetch + transaction save + order details). This easily exceeds 10 minutes and the action is **killed mid-execution**, leaving partial data.
 
-**Why it happens:** Convex enforces schema-data consistency at deploy time. Unlike SQL databases, there is no `ALTER TABLE DROP COLUMN`. The schema validator checks every document in the table against the new schema. If any document has a field that is not in the schema (when using strict validation), or a required field that is missing, the deploy is rejected.
+**Why it happens:**
+The action does both Phase A (journals) and Phase B (order details) in a single execution. There is no checkpointing. If the action times out in Phase B after Phase A completed, the sync log shows "started" forever (never updated to success/error because the catch block never runs).
 
-**Consequences:** Deploy pipeline blocked. If CI/CD pushes schema + code changes together, the entire release is stuck. Rollback may require reverting unrelated changes.
+**How to avoid:**
+1. Split into two separate actions: `syncJournals` (Phase A) and `syncOrderDetails` (Phase B). Phase A creates revenue records, Phase B enriches them. Chain via `ctx.scheduler.runAfter(0, ...)`.
+2. Limit `daysBack` to 3 for cron runs. Only allow larger ranges for manual sync with explicit user action.
+3. Add a "stale sync log" cleanup: any `externalSyncLogs` entry with `status: "started"` older than 15 minutes should be marked as `status: "timeout"` by an integrity check.
+4. For catch-up scenarios, use Convex's scheduler to process one day per action invocation, chaining the next day via `ctx.scheduler.runAfter`.
 
-**Prevention:**
-1. Never remove a field and deploy in one step. The Convex migration pattern is:
-   - Step 1: Make field `v.optional()` (if not already). Deploy.
-   - Step 2: Deploy code that stops writing the field and handles its absence.
-   - Step 3: Run a migration mutation to `undefined` the field on all documents.
-   - Step 4: Remove the field from schema. Deploy.
-2. For this codebase: `productionType` and `productionUnits` are already `v.optional()` on both `menuProducts` and `orderItems`. Step 1 is done. But 19 frontend files and 10 backend files still read these fields. Steps 2-4 remain.
-3. Test schema changes against dev environment first (`npx convex dev` with `dev:exciting-fennec-671`).
+**Warning signs:**
+- `externalSyncLogs` entries stuck in `status: "started"` with no corresponding success/error
+- Convex dashboard shows action timeouts in the logs
+- Revenue data has gaps (some days have journals but no order items)
 
-**Detection (warning signs):**
-- `npx convex deploy` fails with "Schema validation failed" or "Document does not match schema"
-- Grep for the field name shows active reads/writes in production code
-- No migration mutation exists to clear the field
-
-**Phase:** Schema Cleanup phase. Must be sequenced AFTER all code stops reading deprecated fields, and AFTER migration mutations have cleared the data.
-
-**Sources:** [Intro to Migrations (Convex)](https://stack.convex.dev/intro-to-migrations), [Zero-Downtime Migrations (Convex)](https://stack.convex.dev/zero-downtime-migrations)
+**Phase to address:**
+Phase 6 (API Integrations) -- refactor sync into chained actions before scaling up.
 
 ---
 
-### Pitfall 2: Dual Tracking System Inconsistency During Gradual Migration
+### Pitfall 3: Modifying Active Order Form Breaks Kitchen Staff Mid-Shift
 
-**What goes wrong:** During the transition from old tracking (`orderItems.productionType`/`productionUnits`) to new tracking (`orderItemProduction` records via BOM), you have two systems running simultaneously. A bug in one path corrupts data that the other path relies on. Example: the ball distribution algorithm (`ballDistribution.ts:202-208`) filters items by `productionRecords` (new system), but `OrderBox.tsx:118` still checks `item.productionType` (old system) to render package boxes. If a new order lacks the deprecated fields, the UI shows empty boxes while production tracking works correctly.
+**What goes wrong:**
+The order creation form is used daily by order staff. Moving fields around (customer info to top, dates to RHS, hiding creation date) changes muscle memory. If deployed during business hours, staff who have the old UI open get the new layout on next Convex reactive update. Orders in progress may have fields in unexpected positions, leading to missed fields, wrong dates, or abandoned orders. Worse: if the schema changes (e.g., adding `createdBy` to order status transitions), existing in-flight orders may fail validation on the next mutation.
 
-**Why it happens:** This codebase has TWO parallel production tracking systems:
-- **Old system:** `orderItems.productionType` + `orderItems.productionUnits` + `orderItems.ballsFilled` + `orderItems.packageStatus` (UI display fields)
-- **New system:** `orderItemProduction.unitsRequired` / `unitsCompleted` / `unitsRemaining` (source of truth for production)
+**Why it happens:**
+Convex's real-time nature means frontend updates are **instant** for all connected clients. There is no "deploy during maintenance window" -- Vercel deploys the new frontend and Convex deploys the new backend, and all connected browsers get the new code within seconds. Order staff cannot "finish what they're doing" on the old UI.
 
-The CLAUDE.md says "NEVER use productionType/productionUnits" but the code actively writes them in `convex/orders/mutations/itemCrud.ts:59-66` and reads them in 9 frontend files. The migration function `backfillOrderItemProduction` in `convex/orders/mutations/migrations.ts` creates production records FROM the deprecated fields, making the old fields the bootstrap source for the new system.
+**How to avoid:**
+1. **Never change field semantics in the same deploy as UI changes.** If adding required fields to order mutations, make them optional first, deploy, then make the UI use them, then make them required in a later deploy.
+2. **Deploy UI changes during off-hours** (after 8 PM WIB / 1 PM UTC). The Convex backend can be deployed anytime since it's backward-compatible, but the Vite frontend bundle is what changes the UI.
+3. **Feature flag the new layout.** Add a `useNewOrderLayout` flag (even a simple `localStorage` toggle) so staff can switch back if confused. Remove the flag after 1 week.
+4. **Test with actual order staff before deploying.** Have one staff member use the new layout for a day before rolling out to all.
 
-**Consequences:** Kitchen staff sees incorrect ball counts. Orders marked complete in one system but not the other. Production records and UI display diverge.
+**Warning signs:**
+- Order staff complaining about "the form changed"
+- Increase in draft orders that are never completed
+- Orders missing customer information or dates after deployment
 
-**Prevention:**
-1. Map every read/write of deprecated fields before changing anything. The current inventory:
-   - **Backend writes:** `convex/orders/mutations/itemCrud.ts` (order creation stamps `productionType`/`productionUnits`), `convex/orders/mutations/packaging.ts`, `convex/orders/mutations/migrations.ts`
-   - **Backend reads:** `convex/orders/queries.ts` (returns to frontend), `convex/orders/helpers/ballDistribution.ts` (normalizes old names to new codes)
-   - **Frontend reads:** `src/components/orders/OrderBox.tsx:118` (renders package visualization), `src/hooks/convex/usePendingBallStats.ts:70` (calculates pending stats), `src/hooks/convex/useKitchenStats.ts:52,155`, `src/hooks/convex/useMenuProducts.ts` (4 interface types), `src/components/orders/PackageStatusDisplay.tsx:21`, `src/components/orders/ProductButtons.tsx:22`
-2. Create an adapter layer that reads from NEW system first, falls back to OLD system for historical orders. Migrate frontend components one at a time, not all at once.
-3. Keep both systems writing in parallel during transition. Only stop writing old fields AFTER all reads are migrated.
-4. Write regression tests for the ball distribution algorithm BEFORE touching any field mappings (currently untested at 342 lines).
-
-**Detection (warning signs):**
-- Kitchen staff reports "wrong ball count" on orders
-- `orderItemProduction.unitsRemaining` and `orderItems.ballsFilled` show different completion states
-- New orders have `null` for `productionType` but frontend components crash or show blank
-
-**Phase:** Deprecated Field Migration phase. Must happen BEFORE schema cleanup. Requires dedicated testing.
+**Phase to address:**
+Phase 3 (QoL Fixes Batch) -- implement all order form changes with backward-compatible backend mutations.
 
 ---
 
-### Pitfall 3: Generic Factory Breaks Convex End-to-End Type Safety
+### Pitfall 4: WIB Timezone Bugs at Day Boundaries Corrupt Date-Dependent Features
 
-**What goes wrong:** You build a generic query factory like `makeEntityQueries<T>(tableName)` that generates `list`, `get`, `search` queries. It works at runtime but Convex's auto-generated `api.d.ts` cannot infer types through the factory abstraction. `useQuery(api.ingredients.queries.list)` no longer knows the return type is `Doc<"ingredients">[]`. Frontend loses autocomplete, hover types show `any`, and type errors only surface at runtime.
+**What goes wrong:**
+The codebase has **multiple independent WIB conversion implementations**: `wibDateToUtcRange()` in gobiz helpers, `getTodayJakarta()` in k3mart helpers, manual `+7 hours` arithmetic in `generateWibDateRange()`, `Date.UTC(..., -7, ...)` in periodRange.ts, and `toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })` in the K3Mart adapter. Each handles edge cases differently. The `getWeekNumber()` function parses dates as `new Date(date + "T00:00:00+07:00")` but `getProductionReadiness` uses `new Date(args.date + "T12:00:00Z")` -- these give different dates at certain times. Adding kitchen due-date display, weekly planning with holiday detection, and day-name quick-tap all introduce more date logic. One wrong timezone conversion means kitchen targets show for the wrong day, dispatch plans land on the wrong week, or due dates show "Saturday" when it is Friday in Jakarta.
 
-**Why it happens:** Convex's type system works through a specific chain: `convex/schema.ts` defines types -> `_generated/api.d.ts` imports each module by exact file path -> `ApiFromModules` constructs typed API tree -> frontend `useQuery`/`useMutation` infer args and return types from the tree. This chain requires each query/mutation to be a concrete export from a concrete file. A factory function that returns `query({...})` dynamically breaks the inference chain because TypeScript cannot resolve the generic through the `ApiFromModules` type mapper.
+**Why it happens:**
+JavaScript `Date` is notoriously bad with timezones. Convex runs on UTC servers. The codebase mixes three approaches: (a) manual `+7 hours` offset, (b) `toLocaleDateString` with `timeZone` option, and (c) explicit `+07:00` in date strings. These work in isolation but produce subtle 1-day-off errors when combined or when one function's output feeds another function that assumes a different convention.
 
-Currently, `_generated/api.d.ts` has 100+ explicit `import type * as` statements (e.g., `import type * as ingredients_queries from "../ingredients/queries.js"`). Each one maps to a specific module with concrete exported types. A factory would need to preserve this exact structure.
+**How to avoid:**
+1. **Centralize ALL WIB date logic into a single `convex/lib/wibDate.ts` utility.** Functions: `nowWib()`, `toWibDateString(utcMs)`, `wibDateToUtcRange(dateStr)`, `getWibWeekNumber(dateStr)`, `isWibWeekend(dateStr)`. Delete the scattered implementations.
+2. **Convention:** All dates stored in Convex are either UTC epoch milliseconds or `YYYY-MM-DD` strings that represent WIB dates (never UTC dates). Document this convention in `CLAUDE.md`.
+3. **Test at boundary times.** Write unit tests that run at 23:30 WIB (16:30 UTC), 00:30 WIB (17:30 UTC previous day), and WIB midnight exactly. The existing `periodRange.test.ts` does this -- extend to all new date functions.
+4. **For kitchen due-date display:** Always show the WIB date explicitly (e.g., "Sat, Feb 15") -- never show relative dates like "tomorrow" which depend on the viewer's timezone.
 
-**Consequences:**
-- `useQuery(api.ingredients.queries.list)` returns `any` instead of `Doc<"ingredients">[]`
-- IDE autocomplete broken across 51 files that import from `_generated/api`
-- Runtime type mismatches go undetected until users hit them
-- `npm run type-check` may still pass because `any` is compatible with everything
+**Warning signs:**
+- Kitchen view shows targets for "yesterday" early in the morning (before WIB midnight rolls over)
+- K3Mart dispatch plans appear in wrong week when created near WIB midnight
+- Production readiness query shows wrong day's data
 
-**Prevention:**
-1. **Do NOT make a runtime factory for Convex queries/mutations.** Convex's `api.d.ts` generation requires concrete exports per file. A factory that returns `query()` objects dynamically will lose type information.
-2. **Instead, use code generation.** Write a script (not runtime code) that generates `ingredients/queries.ts`, `materials/queries.ts`, etc. from a template. The output files are concrete and Convex can type them. This preserves the 100% type safety while eliminating copy-paste.
-3. **For frontend hooks**, a factory IS safe because React hooks wrap `useQuery(api.X.Y)` which is already typed. The factory just adds toast/error handling around a typed mutation reference. The existing `useProtectedMutation.ts` already does this correctly.
-4. **For mutations**, use a higher-order function pattern that wraps a concrete handler, not a factory that generates the entire `mutation()` call. Example:
-   ```typescript
-   // SAFE: wraps a concrete mutation with auth
-   export const create = mutation({
-     args: { token: v.string(), name: v.string(), ...entityArgs },
-     handler: withAuth(["admin"], async (ctx, args, user) => {
-       // entity-specific logic
-     }),
-   });
-   ```
-5. Measure the actual boilerplate. The "200+ lines of boilerplate" in queries is across 31 files averaging ~50 lines each. Most of those lines are entity-specific (search logic, index usage, filter conditions). The truly duplicated part (list + get) is ~15 lines per entity. A codegen script saves ~450 lines total but adds a build step. Weigh this against complexity.
-
-**Detection (warning signs):**
-- After factory introduction, hover over `useQuery(api.X.Y.list)` in VS Code -- if return type shows `any` or `FunctionReturnType<...>` instead of concrete document type, the chain is broken
-- `npm run type-check` passes but runtime errors appear ("Cannot read property 'name' of undefined")
-- New developers cannot discover available query arguments via autocomplete
-
-**Phase:** Factory/Consolidation phase. Critical architectural decision that affects all subsequent work.
-
-**Sources:** [End-to-End TypeScript with Convex](https://stack.convex.dev/end-to-end-ts), [TypeScript Best Practices (Convex)](https://docs.convex.dev/understanding/best-practices/typescript)
+**Phase to address:**
+Phase 4 (Kitchen Overhaul) and Phase 5 (K3Mart Cockpit) -- centralize before building new date-dependent features.
 
 ---
 
-### Pitfall 4: Breaking Production During 167 Optional Field Cleanup
+### Pitfall 5: K3Mart Cockpit "Stubs to Real" Transition Breaks Existing Data
 
-**What goes wrong:** You audit the 167 `v.optional()` fields and decide many should be required (e.g., `orders.confirmedAt` should always exist on confirmed orders). You make them required in the schema. Deploy fails because historical documents lack those fields. Or worse: you add default values in mutations but miss one code path, and new documents are created without the field, failing schema validation.
+**What goes wrong:**
+The K3Mart cockpit already has real data in `k3martDispatchPlans`, `k3martStockMovements`, `k3martRestockTargets`, `externalOutlets`, and `externalRevenue` tables. The weekly planning uses `getWeekNumber()` to index plans by ISO week. If the implementation of "complete weekly planning section with public holidays" changes the week numbering, date format, or adds new required fields to dispatch plans, existing data becomes orphaned or invalid. Plans saved as `weekNumber: "2026-W07"` will not match if the function changes its algorithm.
 
-**Why it happens:** Convex validates all documents against the schema at deploy time. Making a field required means EVERY existing document must have that field set. In this codebase, many optional fields were added incrementally over multiple PRDs (PRD-0 through PRD-8, Kitchen Workflow, BOM Refactor). Fields like `orders.confirmedAt` were added in later PRDs and only exist on orders created after that feature shipped.
+**Why it happens:**
+The stubs are not empty -- they already have production data from the K3Mart integration built in v1.0. Developers treat "cockpit stubs" as greenfield when they are actually brownfield. Changing helpers like `getWeekNumber()` retroactively changes the semantics of stored data.
 
-Specific examples from the schema:
-- `orders.confirmedAt` -- only exists on orders confirmed after the revenue recognition feature
-- `orders.cancelledAt` -- only exists on cancelled orders
-- `menuProducts.productType` -- added in BOM Refactor, only exists on products that ran the `bomRefactorV2:cleanSlateAndSeed` migration
-- `orderItems.packageStatus` -- added in PRD-6, only on recent orders
-- `componentTypes.consumptionStage` -- added in Kitchen Workflow
+**How to avoid:**
+1. **Never change `getWeekNumber()`'s algorithm.** It uses ISO week numbering with WIB timezone. This is already correct and matches the stored `weekNumber` field values. If you need a different week system, add a new function; do not modify the existing one.
+2. **New fields on existing tables must be optional.** For example, adding `isPublicHoliday` to dispatch plans: make it `v.optional(v.boolean())`, not `v.boolean()`.
+3. **Before any cockpit work, snapshot the current data.** Run `npx convex export` to backup. Then verify the new code reads existing plans correctly.
+4. **Holiday calendar should be a separate table** (`publicHolidays`), not inline on dispatch plans. This way existing plans are not affected.
 
-**Consequences:** Deploy rejection, blocking the entire release pipeline.
+**Warning signs:**
+- Weekly dispatch plan view shows empty weeks that previously had data
+- `getWeeklyDispatchPlans` returns empty for weeks that have plans in the DB
+- Stock movement history shows "undefined" for new fields
 
-**Prevention:**
-1. Categorize optional fields into three buckets before touching any:
-   - **Legitimately optional:** Field that may or may not exist (e.g., `orders.notes`, `customers.phone`). Keep `v.optional()`.
-   - **Should be required, all docs have it:** Field that every document already has (e.g., `ingredients.costPerBaseUnit`). Safe to make required after verification.
-   - **Should be required, but historical docs lack it:** Field that only exists on recent documents. Requires backfill migration BEFORE making required.
-2. For each field you want to make required, run a diagnostic query first:
-   ```typescript
-   // Count documents missing the field
-   const missing = await ctx.db.query("orders")
-     .filter(q => q.eq(q.field("confirmedAt"), undefined))
-     .collect();
-   console.log(`${missing.length} orders missing confirmedAt`);
-   ```
-3. Write backfill mutations for category 3 fields. Run them on dev first, verify, then production.
-4. Batch the changes: make 5-10 fields required per deploy, not all 167 at once.
-
-**Detection (warning signs):**
-- `npx convex deploy` fails immediately after making a field required
-- `npx convex dev` shows schema validation errors in the terminal
-- Grep for `v.optional` shows fields that semantically should not be optional (timestamps on entities that always have them)
-
-**Phase:** Schema Cleanup phase. Requires preliminary audit phase to categorize all 167 fields.
+**Phase to address:**
+Phase 5 (K3Mart Cockpit) -- verify backward compatibility before any schema changes.
 
 ---
 
-### Pitfall 5: Import Path Breakage During Large File Moves
+### Pitfall 6: Multi-Outlet Revenue Aggregation Double-Counts on Re-Sync
 
-**What goes wrong:** You reorganize the file structure (e.g., moving `convex/orders/helpers/ballDistribution.ts` to `convex/orders/production/ballDistribution.ts`). 74 frontend files import from `convex/_generated/api` which auto-regenerates based on file paths. But internal imports between Convex files break silently. Or worse: the `_generated/api.d.ts` path changes (e.g., `api.orders.helpers.ballDistribution` becomes `api.orders.production.ballDistribution`) and every frontend file using the old path breaks.
+**What goes wrong:**
+Both GoBiz and K3Mart sync use deduplication keys (`externalTransactionId`) to prevent duplicate revenue entries. The GoBiz dedup key is built from `orderNumber + transactionTimeMs`. The K3Mart dedup key is built from `transDate + outletName + productCode + qty + total`. If the external API returns slightly different data on re-sync (e.g., a timestamp shifted by 1ms due to rounding, or a product name changed), the dedup key changes and a duplicate record is created. Sales reports then show inflated revenue.
 
-**Why it happens:** Convex's `_generated/api.d.ts` mirrors the file structure exactly. Line 66: `"orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution`. Moving files changes the API path. The 51 frontend files that import from `_generated/api` reference these paths. The 320+ `query()`/`mutation()` calls across 75 backend files have internal relative imports that also break.
+**Why it happens:**
+The dedup strategy relies on exact field matching. External APIs are not guaranteed to return byte-identical responses on subsequent calls. GoBiz journal timestamps may have millisecond precision that varies between calls. K3Mart may update product names or prices retroactively.
 
-**Consequences:**
-- `npm run build` fails with hundreds of import errors
-- `npx convex dev` regenerates `api.d.ts` with new paths, causing a cascade of frontend type errors
-- Git diff becomes enormous and unreviable
-- Partial moves leave the codebase in an inconsistent state
+**How to avoid:**
+1. **Use stable identifiers for dedup keys.** For GoBiz: use `orderNumber` alone (not `orderNumber + timestamp`), since order numbers are unique per merchant. For K3Mart: use `transDate + outletName + productCode + qty` (drop `total` since price may be corrected).
+2. **Add a revenue reconciliation query** that detects potential duplicates: same source + same date + same amount + different dedup keys.
+3. **For the Crystal outlet addition:** When adding the second GoFood merchant (`G347061572`), include the `merchantId` in the dedup key so transactions from different merchants are never confused even if they have the same order number format.
+4. **Add a "total revenue vs expected" sanity check** in the integrity check cron.
 
-**Prevention:**
-1. **Do NOT move files in the `convex/` directory unless absolutely necessary.** The Convex API path is a public interface consumed by the entire frontend. Renaming it is a breaking change.
-2. If you must move files, do it in one atomic commit with a find-and-replace of all import paths. Use `npm run type-check` immediately after.
-3. **Frontend files are safer to move** because they only import from `convex/_generated/api` (not each other, typically). But still update all 51 files that reference the moved hook.
-4. For the barrel export in `src/hooks/convex/index.ts` (369 lines), any renamed hook must be updated there AND in every consuming page.
-5. Run `npm run build` after every file move, not just at the end.
+**Warning signs:**
+- Revenue totals from the app exceed what GoBiz/K3Mart portals show
+- `externalRevenue` table has entries with near-identical fields but different `_id`s
+- Daily revenue shows unexpected spikes after manual re-sync
 
-**Detection (warning signs):**
-- `npx convex dev` terminal shows "Module not found" errors
-- `api.d.ts` changes unexpectedly in git diff
-- TypeScript errors reference paths that look correct but point to moved files
-
-**Phase:** Any restructuring phase. Prefer refactoring file contents over moving files.
+**Phase to address:**
+Phase 2 (API Audit) -- audit current dedup keys. Phase 6 (API Integrations) -- fix before adding Crystal outlet.
 
 ---
 
-## Moderate Pitfalls
-
-### Pitfall 6: Convex Mutation Transaction Limits During Large Backfills
-
-**What goes wrong:** You write a migration mutation to backfill a field on all orders (e.g., setting `productType: "food"` on all `menuProducts`). The mutation tries to update more than ~8,192 documents in a single transaction. Convex rejects it with a transaction size limit error.
-
-**Why it happens:** Convex mutations run in serializable transactions with document count limits. The existing `bomRefactorV2:cleanSlateAndSeed` migration already hit this pattern -- it deletes reservations, transactions, batches, stock, BOM links, and component types all in one mutation. With production data growth, this will eventually fail.
-
-**Prevention:**
-1. Always paginate migration mutations. Use `batchSize` parameter (the existing `backfillOrderItemProduction` already does this with `args.batchSize ?? 100`).
-2. Use the [Convex Migrations Component](https://www.convex.dev/components/migrations) for large-scale migrations. It handles pagination, progress tracking, and resumability.
-3. Test migrations on dev environment with production-like data volume first.
-4. Add `dryRun` parameter to every migration (existing migrations already do this -- good pattern to maintain).
-
-**Detection (warning signs):**
-- Migration mutation returns "Transaction too large" error
-- Migration runs successfully on dev (small dataset) but fails on production
-- Document counts per table exceed 1,000
-
-**Phase:** Any phase that involves data migration or backfill.
-
-**Sources:** [Stateful Online Migrations using Mutations](https://stack.convex.dev/migrating-data-with-mutations), [Convex Migrations Component](https://www.convex.dev/components/migrations)
-
----
-
-### Pitfall 7: Abstracting Away Entity-Specific Logic in CRUD Factories
-
-**What goes wrong:** You build a generic `<EntityManager<T>>` component to replace `IngredientsManager.tsx`, `MaterialsManager.tsx`, and `CustomersManager.tsx`. The first two work perfectly (they are nearly identical at 329 lines each). But customers have `getByPhone` query, ingredients have deletion checks against `componentIngredients`, and materials have deletion checks against `packagingComponentMaterials`. These entity-specific behaviors don't fit the generic abstraction. You end up with a factory that has more configuration options than the original code, or you keep "escape hatches" that defeat the purpose.
-
-**Why it happens:** The CONCERNS.md identifies "200+ lines of boilerplate" but the actual shared code per entity is ~15 lines for queries and ~30 lines for mutations. The remaining lines are:
-- Entity-specific search logic (ingredients search by name+brand, customers by name+phone)
-- Entity-specific deletion validation (ingredients check `componentIngredients`, materials check `packagingComponentMaterials`)
-- Entity-specific computed fields (ingredients calculate `costPerBaseUnit`, materials calculate the same)
-- Entity-specific UI columns and form fields
-
-**Prevention:**
-1. Before building any factory, make a table of what's actually shared vs. entity-specific:
-
-   | Pattern | Shared | Entity-Specific |
-   |---------|--------|-----------------|
-   | `list` query | `ctx.db.query(table).order("desc").take(limit)` | Table name |
-   | `get` query | `ctx.db.get(args.id)` | ID type |
-   | `search` query | Filter + slice | Which fields to search, what indexes to use |
-   | `create` mutation | `ctx.db.insert(table, data)` | Computed fields (costPerBaseUnit), validation |
-   | `delete` mutation | `ctx.db.delete(args.id)` | Foreign key checks (different per entity) |
-   | Frontend hook | `useQuery` + `useMutation` + toast | Transform functions, return types |
-   | Manager page | Table + dialog + form | Column definitions, form fields, validation |
-
-2. Extract ONLY the truly shared parts. A `makeListQuery(tableName)` and `makeGetQuery(tableName)` save 15 lines each across 10+ entities = 150 lines. That is worth it. A `makeEntityManager<T>(config)` that needs 50 lines of configuration per entity is NOT worth it.
-3. Prefer composition over configuration. Make small reusable pieces (a generic table component, a generic dialog wrapper) rather than one mega-factory.
-
-**Detection (warning signs):**
-- Factory configuration object is longer than the original entity-specific code
-- You keep adding `if (entityType === "ingredients")` branches inside the factory
-- TypeScript generics become deeply nested (`EntityManager<T extends BaseEntity, C extends Config<T>, ...>`)
-- New team members cannot understand how to add a new entity
-
-**Phase:** Factory/Consolidation phase. Start with smallest possible extraction, measure savings, expand only if justified.
-
----
-
-### Pitfall 8: camelCase/snake_case Transform Layer Hides Bugs
-
-**What goes wrong:** The codebase has a transform layer in hooks like `useOrders.ts` that converts Convex camelCase (`orderNumber`, `unitPrice`) to legacy snake_case (`order_number`, `unit_price`). During refactoring, you either (a) miss adding a field to the transform, causing `undefined` in the UI, or (b) refactor away the transform layer, breaking all 19 pages that consume snake_case data.
-
-**Why it happens:** The transform layer exists because the frontend was originally built against a FastAPI + SQLAlchemy backend (snake_case convention). When migrated to Convex (camelCase convention), adapter hooks were added to maintain backwards compatibility. Files affected:
-- `src/hooks/convex/useOrders.ts` (transforms order data)
-- `src/hooks/convex/useKitchenStats.ts` (transforms kitchen data)
-- `src/hooks/convex/usePendingBallStats.ts` (transforms ball stats)
-- `src/hooks/convex/useCustomers.ts`, `useDashboard.ts` (transform customer data)
-- `src/lib/types.ts` (defines snake_case interfaces like `OrderDetail`, `OrderItem`)
-- `src/lib/transforms.ts` (shared transform utilities)
-
-**Prevention:**
-1. Do NOT remove the transform layer as part of a refactoring effort. It touches every page and every component. This is a separate, dedicated migration.
-2. If you do decide to standardize on camelCase, do it as its own phase with a clear scope: update `src/lib/types.ts` interfaces first, then update all consuming components (19 pages), then remove transforms.
-3. When adding new fields during refactoring, add them to BOTH the Convex schema AND the transform function. The transform functions in `useOrders.ts` (lines 154-224) must be kept in sync.
-4. Use TypeScript's `satisfies` operator to ensure transforms map all fields:
-   ```typescript
-   const result = { order_number: order.orderNumber, ... } satisfies OrderDetail;
-   ```
-
-**Detection (warning signs):**
-- UI shows `undefined` for a field that has data in the database
-- New field works on backend but not on frontend
-- TypeScript does not error because the interface uses optional types
-
-**Phase:** Any phase that touches data shapes. Specifically relevant during deprecated field removal.
-
----
-
-### Pitfall 9: Test-Free Refactoring of Ball Distribution Algorithm
-
-**What goes wrong:** You refactor the 342-line `ballDistribution.ts` to remove deprecated field references or consolidate with the new BOM system. The refactoring introduces a subtle bug in the priority sorting or partial fill logic. Kitchen production silently allocates balls to wrong orders for days before anyone notices.
-
-**Why it happens:** The ball distribution algorithm has ZERO unit tests (confirmed in CONCERNS.md and TESTING.md). It has complex business logic:
-- Fetches eligible orders (Confirmed + InProduction)
-- Sorts by priority (due date ASC, total units DESC, order date ASC)
-- Distributes balls across orders using production records
-- Tracks partial fills with `updatedUnitsRemaining` Map
-- Auto-transitions order status (Confirmed -> InProduction -> Packaging)
-- Updates both `orderItemProduction` records (source of truth) AND `orderItems.ballsFilled`/`packageStatus` (UI display)
-
-Any change to this file is high risk because there is no safety net.
-
-**Prevention:**
-1. Write comprehensive tests for `ballDistribution.ts` BEFORE any refactoring. Cover:
-   - Single order, single ball type
-   - Multiple orders with priority sorting
-   - Partial fills (overflow)
-   - Status transitions (Confirmed -> InProduction, InProduction -> Packaging)
-   - Combo products (orders needing both BIG_BALL and MID_BALL)
-   - Edge case: zero count input
-   - Edge case: cancelled production records (should be skipped)
-2. Use snapshot testing: capture the exact output of `distributeBallsToOrders()` with known inputs, then verify the output doesn't change after refactoring.
-3. The algorithm depends on database state (orders, orderItems, orderItemProduction). Use `convex-test` to set up realistic fixtures.
-
-**Detection (warning signs):**
-- Kitchen staff reports "wrong balls in tray" or "order completed but still shows pending"
-- `orderItemProduction.unitsRemaining` goes negative
-- Orders skip the InProduction status (go directly from Confirmed to Packaging)
-
-**Phase:** Testing phase. Must happen BEFORE any refactoring of production tracking code.
-
----
-
-### Pitfall 10: FIFO Inventory Corruption During Reservation Refactoring
-
-**What goes wrong:** You refactor the inventory integration to consolidate `reserveStockForOrderInternal`, `consumeMaterialsByStageInternal`, and `releaseReservationInternal` (all in `inventoryIntegration.ts`, 618 lines). The refactoring introduces an off-by-one error in FIFO batch selection or reservation accounting. Reserved stock is double-consumed or never released, causing phantom stock shortages.
-
-**Why it happens:** The inventory system has a two-phase commit pattern:
-1. **Reserve:** On order confirmation, reserve packaging components from FIFO batches (`inventoryBatches.quantityReserved += toReserve`)
-2. **Consume:** At boxing/labeling stages, consume reserved stock (`quantityRemaining -= consumed`)
-3. **Release:** On cancellation, unreserve stock (`quantityReserved -= toUnreserve`)
-
-The `componentStock` table is an aggregated view recomputed by `updateComponentStock()`. If the aggregation step is missed or runs out of order, stock levels diverge from reality. The current code calls `updateComponentStock()` after every batch update (6 locations in `inventoryIntegration.ts`), and missing any one causes stale aggregates.
-
-**Prevention:**
-1. Add integration tests for the full reserve -> consume -> release cycle before refactoring.
-2. If consolidating the three stage consumption functions, ensure the `updateComponentStock()` call happens AFTER every batch modification, not just at the end.
-3. Add a consistency check mutation that compares `componentStock.totalStock` against `SUM(inventoryBatches.quantityRemaining)` for the same component+location. Run it periodically.
-4. The `consumeBatchMaterials` function (for non-order batch operations) follows a different path than `consumeMaterialsByStageInternal` (for per-order consumption). Do not accidentally merge these -- they have different semantics.
-
-**Detection (warning signs):**
-- Stock levels show negative available
-- `componentStock.totalReserved` exceeds `componentStock.totalStock`
-- Orders fail to confirm with "Stok kemasan tidak cukup" but manual check shows stock exists
-- `inventoryBatches` records show `quantityReserved > quantityRemaining`
-
-**Phase:** Inventory consolidation phase. Requires integration tests first.
-
----
-
-## Minor Pitfalls
-
-### Pitfall 11: Convex Dynamic Import Gotcha in Refactored Modules
-
-**What goes wrong:** While consolidating helper modules, you introduce a dynamic `import()` for code splitting. It works in local dev (`npx convex dev`) but fails silently in production (returns 204 No Content).
-
-**Prevention:** Already documented in CLAUDE.md pitfall #8: "No dynamic imports in Convex -- Static imports only. Dynamic `import()` works locally but fails silently in production." Ensure all code reviews check for dynamic imports in `convex/` directory. Use `import ... from` exclusively.
-
-**Phase:** Any consolidation phase that moves or merges Convex backend files.
-
----
-
-### Pitfall 12: React Hooks Order Violation During Component Refactoring
-
-**What goes wrong:** While extracting shared logic from page components, you accidentally place a hook call after a conditional return. React throws "Rendered more hooks than during the previous render" error, crashing the page.
-
-**Prevention:** Already documented in CLAUDE.md pitfall #9. When extracting components, always verify: all `useQuery`, `useMutation`, `useState`, `useEffect` calls come BEFORE any `if (data === undefined) return <Loading />` checks. The existing pattern in all 21 hooks files is correct -- maintain it.
-
-**Phase:** Any frontend refactoring phase.
-
----
-
-### Pitfall 13: Losing Deprecated Status Values in Schema Union
-
-**What goes wrong:** You remove `ProductionComplete` and `Packaging` from the `orders.status` union in the schema. Historical orders with those statuses now violate the schema. Deploy is rejected.
-
-**Prevention:**
-1. Keep deprecated status values in the schema union with comments. They are needed for historical data.
-2. Run the existing `migratePackagingToBoxed` migration first (already exists in `convex/orders/mutations/migrations.ts:310`).
-3. Verify zero orders exist with deprecated statuses before removing from union:
-   ```typescript
-   const packagingOrders = await ctx.db.query("orders").withIndex("by_status", q => q.eq("status", "Packaging")).collect();
-   const pcOrders = await ctx.db.query("orders").withIndex("by_status", q => q.eq("status", "ProductionComplete")).collect();
-   ```
-4. Only remove from the union AFTER the count is zero on production.
-
-**Phase:** Schema Cleanup phase, after status migrations complete.
-
----
-
-### Pitfall 14: Forgetting the `productionUnitTypes` to `componentTypes` Bridge
-
-**What goes wrong:** You try to simplify the BOM system by removing the `productionUnitTypes` table (since `componentTypes` already has production components). But `orderItemProduction.productionUnitTypeId` is a required `v.id("productionUnitTypes")` field, creating a hard foreign key dependency. Removing the table breaks all production tracking.
-
-**Why it happens:** The codebase has a bridge pattern documented in `productionRecords.ts:178`: "This bridge MUST stay because orderItemProduction.productionUnitTypeId is REQUIRED (v.id, not optional)." The `createProductionRecordsForItem` function looks up `productionUnitTypes` by matching `componentType.code`.
-
-**Prevention:**
-1. Do not remove `productionUnitTypes` table without migrating `orderItemProduction.productionUnitTypeId` to point to `componentTypes` instead.
-2. That migration requires: add new optional field `componentTypeId` to `orderItemProduction`, backfill it, make it required, then make `productionUnitTypeId` optional, then remove it. Four deploys minimum.
-3. Consider whether the simplification is worth the migration cost. The bridge works and has clear documentation.
-
-**Phase:** Schema Cleanup phase, if table consolidation is attempted.
-
----
-
-### Pitfall 15: Barrel Export Circular Dependencies
-
-**What goes wrong:** The `src/hooks/convex/index.ts` barrel file (369 lines) re-exports everything from 25 hook files. During refactoring, moving a hook to import from another hook creates a circular dependency through the barrel. Webpack/Vite handles it at runtime (tree shaking), but TypeScript may emit incorrect types or the dev server may hot-reload incorrectly.
-
-**Prevention:**
-1. Hook files should import from `convex/_generated/api` directly, never from the barrel `./index.ts`.
-2. If hooks need to share types, create a separate `types.ts` file in `src/hooks/convex/` rather than importing from another hook through the barrel.
-3. After any hook restructuring, run `npm run build` to verify no circular dependency issues.
-
-**Phase:** Frontend consolidation phase.
-
----
-
-## Phase-Specific Warnings
-
-| Phase Topic | Likely Pitfall | Mitigation | Priority |
-|-------------|---------------|------------|----------|
-| **Schema Cleanup** | Deploy rejection on field removal (#1, #4, #13) | Always: make optional -> clear data -> remove field. Three deploys minimum per field. | Critical |
-| **Deprecated Field Migration** | Dual tracking inconsistency (#2) | Map all 19 frontend + 10 backend read sites. Migrate reads before stopping writes. | Critical |
-| **Factory/Consolidation** | Type safety loss from generic factories (#3) | Use codegen for backend, composition for frontend. No runtime factories for Convex queries. | Critical |
-| **Factory/Consolidation** | Over-abstraction of entity-specific logic (#7) | Measure actual shared code before building factory. Start with smallest extraction. | Moderate |
-| **Testing Phase** | Untested critical algorithms (#9) | Write tests for ballDistribution.ts and FIFO before refactoring those files. | Critical |
-| **Inventory Consolidation** | FIFO reservation corruption (#10) | Integration tests for reserve -> consume -> release cycle. Add consistency check mutation. | Moderate |
-| **Any Backend Restructuring** | Dynamic import failure in production (#11) | Code review: no dynamic `import()` in `convex/` directory. | Low |
-| **Any Frontend Refactoring** | React hooks order violation (#12) | Hooks before conditionals. Verified by existing patterns. | Low |
-| **Schema Consolidation** | productionUnitTypes bridge dependency (#14) | Do not remove table without 4-deploy migration plan. | Moderate |
-| **Transform Layer** | camelCase/snake_case bugs (#8) | Do not touch transform layer during refactoring. Separate dedicated phase. | Moderate |
-| **File Moves** | API path breakage in `_generated/api.d.ts` (#5) | Avoid moving files in `convex/` directory. Prefer refactoring contents. | Critical |
-| **Data Migration** | Transaction size limits (#6) | Paginate all migration mutations. Use Convex Migrations Component for large tables. | Moderate |
-
----
-
-## Recommended Phase Ordering Based on Pitfalls
-
-1. **Testing First** -- Write tests for ballDistribution.ts, FIFO logic, and production records BEFORE any refactoring. This is the safety net everything else depends on.
-2. **Deprecated Field Migration** -- Migrate all reads from old fields to new BOM system. Keep writes in parallel. This eliminates the dual tracking risk.
-3. **Small Factories** -- Extract only the obvious wins (list/get query factories via codegen, shared mutation auth wrapper). Measure before expanding.
-4. **Schema Cleanup** -- After all code stops reading deprecated fields and migrations have cleared data, remove fields from schema in batches of 5-10.
-5. **Frontend Consolidation** -- Extract shared UI components (table, dialog, form patterns). Do NOT attempt to unify the camelCase/snake_case transform layer in this effort.
-
----
+## Technical Debt Patterns
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Duplicate sync logic between `syncGoBizRevenue` and `autoSyncGoBizRevenue` | Working cron quickly | 200+ lines of duplicated code, bugs fixed in one but not other | Never -- already exists, must refactor in Phase 6 |
+| Using `any` casts in K3Mart adapter (`items: batchItems as any`) | Bypasses strict typing | Silent type errors, runtime failures on shape mismatch | Only during rapid prototyping, must clean up in Phase 5 |
+| Hardcoded merchant IDs in config files | Fast initial setup | Adding Crystal outlet requires code change + deploy | Acceptable for v1.1 MVP, migrate to DB-stored config in v1.2 |
+| Manual `+7 hours` timezone arithmetic | No dependency on Intl API | Off-by-one day bugs, impossible to handle DST if Indonesia ever adopts it | Never -- centralize into wibDate utility |
+| `console.log` as only observability | Zero setup | No alerting, logs disappear after Convex log retention | Acceptable for v1.1, add structured logging in v1.2 |
+| Rate-limit via `setTimeout(200ms)` in sync actions | Simple, prevents throttling | Wastes action execution time (billed), may still hit rate limits under load | Acceptable for current volume (<100 orders/day) |
+
+## Integration Gotchas
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| GoBiz Token API | Storing password in code (already in `docs/apiS/` reference file) | Move to Convex environment variable via `npx convex env set GOBIZ_EMAIL xxx`. The current `platformCredentials` table approach is correct for tokens but credentials should never be in source. |
+| GoBiz Journal Search | Assuming `total` field in response is reliable for pagination | Always paginate until `hits.length < pageSize` (already done correctly in current code). |
+| GoBiz Order Search | Fetching order details for every transaction including old ones | Only fetch for NEW revenue records (already done -- `allNewRecords` filtering). Keep this pattern. |
+| K3Mart Stock Flow | Submitting stock-in without fetching fresh dashboard first | Always fetch current stock before submission (already done with `dashboardCache`). Stale stock leads to K3Mart rejecting the request. |
+| K3Mart JWT Token | Assuming JWT expiry from `exp` claim is reliable | K3Mart may invalidate tokens server-side before expiry. Always handle 401 and trigger refresh. The 12-hour cron refresh is a good safety net. |
+| Convex Actions + fetch | Assuming `fetch` responses are JSON | Always check `Content-Type` header before `.json()` parse. K3Mart sometimes returns HTML during maintenance (already handled in `performK3MartRefresh`). |
+| Multi-merchant GoBiz | Using same dedup key format across merchants | Include `merchantId` in dedup key when adding Crystal outlet to prevent cross-merchant collisions. |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Fetching all `externalRevenue` records for aggregation queries | Slow dashboard load, query timeout (1s limit) | Use Convex indexes on `[source, periodStart]`. Pre-aggregate daily totals in a separate table. | >10,000 revenue records (~6 months of data) |
+| K3Mart `discoverK3MartOutlets` scanning all products x all outlets | Action takes >30s, UI feels frozen | Already mitigated by product-centric approach (N API calls for N products). Keep product count low. | >20 configured products |
+| Kitchen view querying `productionLog` without time-bounded index | Full table scan on every kitchen page load | Ensure `productionLog` has index on `[menuProductId, _creationTime]` and queries filter to current reset period only | >50,000 production log entries (~6 months) |
+| Weekly dispatch plan queries scanning all plans | Slow cockpit load | Already indexed by `by_week` and `by_date_outlet`. Maintain these indexes when adding features. | >5,000 dispatch plans (~1 year of daily plans for 10 outlets) |
+| `autoMatchMenuProduct` calling DB for every order item individually | N+1 query pattern inside sync action | Batch-load all product mappings at start of sync, match in-memory | >50 items per sync batch |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| GoBiz credentials in `docs/apiS/` reference file committed to git | Email/password for GoBiz merchant portal exposed in repo | Already flagged in `NEXT-MILESTONE-DRAFT.md`. Phase 2 MUST extract to `.env.local` before any work. Add to `.gitignore`. Run `git filter-branch` or BFG to scrub from history if repo is public. |
+| K3Mart token stored in `platformCredentials` table without encryption | Anyone with DB read access sees the JWT | Acceptable risk for internal tool with PIN auth. If multi-tenant or public-facing in future, encrypt at rest. |
+| Public actions (`syncGoBizRevenue`, `discoverK3MartOutlets`) lack auth checks | Any authenticated user could trigger expensive API syncs | Add `requireRole(ctx, args.token, ["admin"])` to all sync actions. Currently only `refreshK3MartToken` has auth. |
+| Rate-limiting not enforced on manual sync triggers | Staff could spam "Sync Now" button, hitting external API rate limits | Add client-side debounce (disable button for 30s after click) and server-side check (reject if last sync was <5 min ago). |
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Changing order form layout without visual migration cues | Staff confused, orders take longer, errors increase | Add subtle highlights on moved fields for first week ("NEW: Customer info moved here"). Remove after 7 days via localStorage flag. |
+| Kitchen due-date display using relative dates ("tomorrow") | Ambiguous near midnight, different for UTC vs WIB users | Always show absolute dates with day name: "Sat, Feb 15". Highlight overdue in red, today in yellow, future in default. |
+| Day-name quick-tap for due dates showing wrong day names | Quick-tap shows "Saturday" but server stores Friday's date | Calculate day names in WIB timezone, display WIB date alongside day name for verification. |
+| K3Mart weekly planner assuming Monday-Sunday weeks | Some outlet deliveries happen on specific days, not all 7 | Show all 7 days but grey out days with no scheduled deliveries. Let user configure delivery days per outlet. |
+| "Sync Now" button with no progress indicator | Staff thinks it is broken, clicks multiple times | Show spinner, disable button, display last sync time and record count on completion. Already partially done for K3Mart but not for GoBiz. |
+| Mobile kitchen UI with small tap targets | Wet hands, small screens, kitchen staff makes wrong selections | Minimum 48px tap targets (current shadcn/ui buttons may be 32px). Test on actual kitchen device before deploy. |
+| Inventory "brochure unavailable" bug with no override | Manager cannot correct inventory errors, blocks kitchen | Add manager override button that logs the correction with reason. Never silently adjust -- always require a note. |
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **GoBiz Crystal outlet:** Adding merchantId to config is NOT enough -- also need: dedup key update, product mapping table entries for Crystal-specific products, outlet display name mapping, commission rate verification (may differ from Goldfinch)
+- [ ] **Kitchen due dates:** Showing due dates requires not just display changes but also sorting logic change -- orders must sort by due date ascending, not creation date. Verify the `kitchenOrders` query supports this sort order.
+- [ ] **Weekly planning holidays:** A holiday calendar table is NOT enough -- also need: holiday-aware suggested quantity calculation (lower targets on holidays), visual indicators in the weekly grid, and handling of "holiday on delivery day" edge case (skip or move to next day?)
+- [ ] **Order audit trail:** Adding "who placed order" requires: user reference on order creation, status transition logging (not just final status), and display of history timeline on order detail page. The `orders` table may need a `statusHistory` array or separate `orderStatusTransitions` table.
+- [ ] **K3Mart manual stock in/out:** The API submission works, but the UI needs: confirmation dialog, loading state during API call, error handling for TOKEN_EXPIRED (redirect to settings), and rollback UI if API succeeds but DB save fails.
+- [ ] **Consignment flow:** Revenue recognition for consignment is fundamentally different from direct sales -- consignment revenue is recognized on SALE by the outlet, not on DELIVERY. This affects all revenue reports and requires a separate accounting path.
+- [ ] **Sync health dashboard:** Showing "last sync: 2 hours ago" looks done but is NOT useful without also showing: records synced, error count, data coverage (which dates have data), and quick-action to re-sync.
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| GoBiz token expired, days of missing data | LOW | Re-authenticate manually, run `syncGoBizRevenue` with `daysBack: 30`. Dedup keys prevent duplicates. Data gap fills automatically. |
+| Double-counted revenue from dedup key collision | MEDIUM | Query `externalRevenue` for duplicates (same source + date + amount). Delete newer duplicate. Re-run aggregation queries. |
+| Wrong dates in dispatch plans from timezone bug | HIGH | Must identify all affected plans by comparing stored dates vs expected WIB dates. Manual correction in Convex dashboard. May need to void and recreate plans. |
+| Order form deployment breaks active orders | MEDIUM | Revert Vercel deployment to previous build. Convex backend stays compatible since mutations accept optional fields. In-flight orders resume on old UI. |
+| K3Mart API submission succeeds but DB save fails | MEDIUM | Check K3Mart stock flow history via `fetchStockFlowHistory`. Compare with `k3martStockMovements` table. Add missing records manually or re-run stock sync. |
+| Action timeout during sync leaves orphaned sync log | LOW | Run integrity check to find `status: "started"` sync logs older than 15 min. Mark as `status: "timeout"`. Re-trigger sync. |
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| GoBiz token failure unnoticed | Phase 2 (design) + Phase 6 (implement) | Dashboard shows sync health indicator; test by revoking token and verifying warning appears within 6 hours |
+| Action timeout on large sync | Phase 6 (API Integrations) | Run `syncGoBizRevenue` with `daysBack: 30`; verify it completes without timeout by checking sync log status |
+| Order form breaks staff workflow | Phase 3 (QoL Fixes) | Deploy during off-hours; verify all existing draft orders can still be completed after deployment |
+| WIB timezone bugs | Phase 4 (Kitchen) + Phase 5 (K3Mart) | Unit tests at WIB boundary times; integration test comparing app dates with `date` command in Asia/Jakarta |
+| K3Mart stub-to-real data breakage | Phase 5 (K3Mart Cockpit) | Export data before changes; verify existing dispatch plans load correctly after deployment |
+| Revenue double-counting | Phase 2 (audit dedup keys) + Phase 6 (fix) | Compare app revenue totals with GoBiz/K3Mart portal totals for same date range; variance should be <1% |
+| GoBiz credentials in git | Phase 2 (API Audit) | First task of Phase 2: move secrets to env vars, verify `.gitignore` covers API docs with credentials |
 
 ## Sources
 
-- [Intro to Migrations (Convex)](https://stack.convex.dev/intro-to-migrations) -- Field removal process, dual-write/dual-read strategies
-- [Zero-Downtime Migrations (Convex)](https://stack.convex.dev/zero-downtime-migrations) -- Schema-data consistency enforcement
-- [Lightweight Migrations (Convex)](https://stack.convex.dev/lightweight-zero-downtime-migrations) -- Optional field strategies, transaction limits
-- [Stateful Online Migrations (Convex)](https://stack.convex.dev/migrating-data-with-mutations) -- Paginated mutation backfills
-- [Convex Migrations Component](https://www.convex.dev/components/migrations) -- Large-scale migration tooling
-- [End-to-End TypeScript with Convex](https://stack.convex.dev/end-to-end-ts) -- Type safety chain, API generation
-- [TypeScript Best Practices (Convex)](https://docs.convex.dev/understanding/best-practices/typescript) -- Type inference requirements
-- [Refactoring TypeScript at Scale](https://stefanhaas.dev/blog/refactoring-at-scale/) -- Code mod strategies for large codebases
-- Codebase analysis: `convex/schema.ts` (1227 lines, 37 tables, 210 optional fields), `src/hooks/convex/` (25 hook files, 369-line barrel export), `convex/_generated/api.d.ts` (100+ module imports)
+- Convex action timeout: 10 minutes ([Convex Limits](https://docs.convex.dev/production/state/limits)) -- HIGH confidence
+- Convex query/mutation timeout: 1 second ([Convex Limits](https://docs.convex.dev/production/state/limits)) -- HIGH confidence
+- GoBiz token expiry: 1 hour access token, 9-month refresh session ([GoBiz Developer Portal](https://developer.gobiz.com/docs/docs/authentication/index.html)) -- MEDIUM confidence (public docs may differ from internal merchant API used by this project)
+- Codebase analysis: `convex/integrations/gobiz/adapter.ts`, `convex/integrations/k3mart/adapter.ts`, `convex/k3martCockpit/helpers.ts`, `convex/crons.ts` -- HIGH confidence (direct code review)
+- GoBiz API reference documentation: `docs/apiS/gojek search transactions documentation.txt` -- HIGH confidence (captured from real API calls)
+- Existing WIB date handling patterns: `convex/lib/periodRange.ts`, `convex/integrations/gobiz/helpers.ts`, `convex/k3martCockpit/helpers.ts` -- HIGH confidence (direct code review)
 
 ---
-
-*Pitfalls research: 2026-02-13*
+*Pitfalls research for: v1.1 Stabilization & QoL*
+*Researched: 2026-02-15*

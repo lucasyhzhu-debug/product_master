@@ -1,571 +1,240 @@
-# Research Synthesis: Codebase Cleanup & Refactoring
+# Project Research Summary
 
-**Project:** Frollie Recipe Master
-**Research Date:** 2026-02-13
-**Researchers:** gsd-stack-researcher, gsd-feature-researcher, gsd-architecture-researcher, gsd-pitfall-researcher
+**Project:** Frollie Recipe Master v1.1 Stabilization & QoL
+**Domain:** FMCG snack production management system with external platform integrations (K3Mart consignment, GoFood delivery)
+**Researched:** 2026-02-15
+**Confidence:** HIGH
 
----
+## Executive Summary
+
+This is a stabilization and quality-of-life milestone building on top of an already-complete v1.0 infrastructure. The existing codebase already has robust API integration architecture (platformCredentials, externalData, adapters, token refresh), kitchen production tracking, K3Mart cockpit foundations, and GoBiz revenue sync. **v1.1 is primarily a feature-build milestone, not a stack-change milestone.** Almost nothing new needs to be added to the tech stack -- only one npm dependency (`date-fns` for centralized date handling).
+
+The research reveals that v1.0's infrastructure was exceptionally well-architected. Multi-platform revenue tracking with deduplication, token auto-refresh patterns, weekly dispatch planning tables, BOM-driven production targets, and real-time sync are all proven and production-ready. v1.1's work is about **using this infrastructure better** through UX improvements (order form layout, kitchen due-date ranking, day-name quick-tap) and **scaling it** (adding Crystal outlet to GoBiz, holiday-aware K3Mart planning, audit trails).
+
+The key risk is **breaking existing patterns while extending them**. Six critical pitfalls identified: (1) GoBiz token failures going unnoticed for days due to lack of sync health monitoring, (2) Convex action timeouts during large catch-up syncs, (3) deploying order form changes during business hours breaking staff workflows, (4) WIB timezone bugs at day boundaries from fragmented date logic, (5) treating K3Mart cockpit "stubs" as greenfield when they already have production data, and (6) revenue double-counting from dedup key collisions during multi-outlet expansion. All are preventable through design-before-implementation in Phase 2 and backward-compatible schema changes.
 
 ## Key Findings
 
-### 1. Dependencies Are Current, No Upgrades Needed
+### Recommended Stack
 
-All major dependencies (Convex 1.31.7, React 19.2.0, TypeScript 5.9.3, Vite 7.2.4, Vitest 4.0.18) are already at latest stable versions. The only additions needed are:
-- **convex-helpers** (0.1.107) for `customMutation`/`customQuery` auth factories
-- **@convex-dev/eslint-plugin** (1.1.0) for explicit-table-ids enforcement
+**Almost nothing new required.** The v1.0 stack (Convex ^1.31.7, React 19, TypeScript 5.9, Vite 7, Tailwind 4, Radix UI, framer-motion, dnd-kit, sonner, lucide-react) handles 90% of v1.1 needs. GoBiz integration (adapter, token refresh, cron sync) already exists. K3Mart auto-refresh already works. The `"use node"` actions architecture, `platformCredentials` storage, and `externalRevenue`/`externalSyncLogs` tables are production-proven.
 
-### 2. Critical Tech Debt: Dual Production Tracking Systems
+**Core technologies (already installed):**
+- **Convex ^1.31.7** — Backend actions for API calls, crons for auto-sync, mutations for data storage. Multi-platform integration pattern is working.
+- **React 19 + TypeScript 5.9** — UI layer with shadcn/ui primitives and framer-motion. No changes needed.
+- **Vite ^7.2.4** — Build tooling. Current.
 
-The codebase maintains TWO parallel ball tracking systems causing confusion and risk:
-- **Old system:** `menuProducts.productionType`/`productionUnits` + `orderItems.productionType`/`productionUnits` (deprecated but still actively read in 19 frontend + 10 backend files)
-- **New system:** BOM (`menuProductComponents` + `componentTypes`) + `orderItemProduction` records
+**Single new dependency required:**
+- **date-fns ^4.1.0** — ISO week calculations (`getISOWeek`, `startOfISOWeek`), day-name formatting (`format(date, 'EEEE')`), and date arithmetic (`differenceInCalendarDays`, `addDays`). Needed for kitchen due-date ranking and K3Mart weekly planner. Tree-shakeable (only pay for imported functions, ~5KB bundle impact). Replaces fragmented manual date math scattered across codebase.
 
-Migration is incomplete. The `backfillOrderItemProduction` function bootstraps from deprecated fields, making them the source of truth for the new system.
+**What NOT to add:**
+- Holiday APIs (`date-holidays`, `holidayapi.com`) — Indonesian holidays change once per year. Static JSON array in `convex/lib/holidays.ts` updated annually is simpler, faster, and more reliable than external API dependency.
+- `axios` — Native `fetch()` already used throughout adapters.
+- Calendar UI libraries (`react-big-calendar`, `FullCalendar`) — K3Mart weekly planner is a focused 7-day grid, not a generic calendar. Custom component is simpler.
 
-### 3. 2000+ Lines of Removable Boilerplate via Factories
+### Expected Features
 
-| Layer | Files | Avg Duplication % | Potential Savings |
-|-------|-------|------------------|-------------------|
-| Frontend Hooks | 21 files | 70% identical | 1,120 lines via hook factory |
-| Backend Queries | 30 files | 80% identical | 450 lines via helper functions |
-| Backend Mutations | 27 files | 70% identical | 150 lines via `customMutation` auth |
-| Manager Pages | 6 files | 60% identical | 1,200 lines via `EntityManager` component |
-| **Total** | | | **~3,000 lines** |
+**Must have (table stakes):**
+- **API credential status visibility** — Staff currently blind to K3Mart/GoBiz token health. `platformCredentials` table already stores status; just needs dashboard UI.
+- **Customer info at top of order form** — Order staff identify customer first, then select products. Current layout reverses this workflow. Pure frontend reorder.
+- **Due date display on kitchen orders** — Kitchen produces FIFO by order-received instead of by due date. The `dueDate` field and `by_kitchen_visible` index already exist. Just needs sorting + UI.
+- **Due date ranking in kitchen** — Core prioritization mechanism. Query already uses compound index `["isKitchenVisible", "dueDate"]` that supports ordered retrieval.
+- **K3Mart outlet stock visibility** — Manager needs stock across 8 outlets at a glance. `getOutletStockSummary` query exists; cockpit UI stubs need completion.
+- **GoFood transaction data storage** — Revenue data must include item-level detail. `externalRevenue` + `externalRevenueItems` tables exist; GoBiz adapter syncs journals but needs to enrich with order details API.
 
-### 4. Zero Tests for Critical Business Logic
+**Should have (competitive advantage):**
+- **Day-name quick-tap for due dates** — "Tomorrow", "Saturday", "Monday" pill buttons replace tiny native date picker. Mobile-first UX. Frontend-only, uses `date-fns` for day names.
+- **K3Mart weekly dispatch with holiday awareness** — 25+ Indonesian holidays/year including cuti bersama. Dispatch must account for outlet closures and pre-holiday stocking. Static holiday array, not API.
+- **GoFood multi-outlet sync (Crystal outlet)** — Two merchants (`G293156297` Goldfinch, `G347061572` Crystal). GoBiz API supports merchant array in journal search. Architecture already multi-outlet ready.
+- **Audit trail on order status updates** — Track WHO moved order to which status and WHEN. Requires `statusHistory` array on orders schema or separate transition table.
+- **Discounted total on order cards** — Order list shows gross total; staff misjudge revenue. Voucher discount already calculated, just needs display.
 
-- `ballDistribution.ts` (342 lines) -- ZERO tests for ball allocation algorithm
-- `fifo.ts` (~200 lines) -- ZERO tests for FIFO inventory consumption
-- `statusTransitions.ts` (~200 lines) -- ZERO tests for order state machine
-- `voucherHandling.ts` -- ZERO tests for discount calculations
+**Defer (v2+):**
+- **Full GoFood POS integration** — Requires Facilitator Model partnership, webhook infrastructure, real-time SLA. Massive scope for 2 outlets. Sync transaction data for reporting only.
+- **Automated K3Mart stock reorder** — K3Mart API requires human approval. Auto-submit risks over/under stocking. Keep suggestion + human confirmation pattern.
+- **Production targets linked to specific orders** — Complex aggregation joining orders -> orderItems -> menuProductComponents -> componentTypes. High value but high complexity. v1.1.x enhancement after MVP validation.
 
-These are the highest-risk areas for refactoring. Tests MUST be written before any changes.
+### Architecture Approach
 
-### 5. Convex Type Safety Chain Is Fragile
+The existing Convex serverless architecture is battle-tested. All external API calls run in `action` functions with `"use node"` directive. Mutations handle DB writes called via `ctx.runMutation()` from actions. Queries are pure reactive reads. Token refresh uses a cascade pattern (K3Mart already proven with 12h cron). Deduplication via `externalTransactionId` prevents double-counting on re-sync. Multi-platform revenue aggregation already supports source-scoped outlets.
 
-Convex generates `_generated/api.d.ts` from backend function signatures. Runtime factories that return `query()`/`mutation()` dynamically break TypeScript inference (return types become `any`). Code generation (build-time) is safe, runtime factories are not.
+**Major components:**
+1. **platformCredentials** — Unified token storage for all platforms (K3Mart, GoBiz). Already stores email/password (K3Mart), tokens, expiry, refresh status. Extend with GoBiz password-grant credentials.
+2. **integrations/gobiz/adapter.ts** — GoBiz API calls with 3-method token refresh cascade (cookie, rotate, API). Add 4th method: password grant (`POST /goid/token` with email/password). Already handles journal sync, order detail fetch, fetchWithAuth with 401 retry.
+3. **integrations/k3mart/adapter.ts** — K3Mart API calls with credential-based auto-auth. 12h cron refresh working in production. Weekly dispatch planning helpers (`getWeekNumber`, `calculateSuggestedQty`) exist.
+4. **externalData/** — Multi-platform revenue storage. `externalRevenue` (per-transaction), `externalRevenueItems` (per-item, auto-matched to menuProducts), `externalSyncLogs` (dedup + health tracking). Schema already supports multi-outlet with `outletId`.
+5. **k3martCockpit/** — Weekly dispatch planning, outlet stock summary, production readiness queries. Tables (`k3martDispatchPlans`, `k3martStockMovements`, `restockTargets`) and queries exist. Stubs need completion.
+6. **Kitchen queries (orders/queries.ts)** — Kitchen view with `by_kitchen_visible` index. Compound index `["isKitchenVisible", "dueDate"]` supports ordered retrieval. Post-fetch sort currently used; switch to index-based ordering.
 
-### 6. N+1 Queries That Will Not Scale
+**Key patterns to follow:**
+- **Action-Mutation Separation** — External HTTP in actions (`"use node"`), DB writes in mutations. Already proven with GoBiz/K3Mart adapters.
+- **Token Resolution Cascade** — Try DB token first, fall back to env var, attempt refresh on 401. Existing K3Mart and GoBiz patterns.
+- **Dedup Key for Idempotent Sync** — Every external record gets deterministic `externalTransactionId`. `by_source_txn` index prevents duplicates. GoBiz uses `orderNumber|txnTimeMs`, K3Mart uses `date|outlet|product|qty`.
 
-Current batch-fetching helpers (`batchFetching.ts`) trade N+1 for "load ALL orderItems/orderItemProduction into memory." Works with hundreds of orders, will fail with thousands. Solution: parallel indexed queries via `Promise.all()`.
+### Critical Pitfalls
 
-### 7. 167 Optional Fields Need Categorization
+1. **GoBiz token cascade silently fails, cron syncs stop for days unnoticed** — All 3 refresh methods (cookie, rotate, API) rely on refresh token that expires after 9 months of inactivity. When it fails, cron logs "no_token" but no alerting. Revenue data silently stops syncing. **Prevention:** Add `syncHealth` query checking `externalSyncLogs` for last successful GoBiz sync. Yellow warning banner on dashboard if >6h stale. Track consecutive failures in `platformCredentials` and mark credential as `status: "stale"` after 3 failures.
 
-Schema has 167 `v.optional()` fields. Many should be required (added in later PRDs, only exist on recent documents). Requires audit before cleanup to avoid deploy rejection.
+2. **Convex action timeout (10 min) hit during large GoBiz sync** — Current `syncGoBizRevenue` processes days sequentially: fetch journals (paginated) + save transactions + fetch order details (200ms rate-limit per order). With `daysBack=30` during catch-up, easily exceeds 10 min. Action killed mid-execution, leaving partial data and `status: "started"` sync log forever. **Prevention:** Split into two chained actions (`syncJournals` Phase A, `syncOrderDetails` Phase B). Limit cron runs to `daysBack=3`. For catch-up, use `ctx.scheduler.runAfter` to process one day per invocation.
+
+3. **Modifying active order form breaks kitchen staff mid-shift** — Order creation form changes (customer info to top, dates to RHS, hiding creation date) alter muscle memory. Convex real-time updates mean instant deployment to all connected clients. Staff with orders in-progress get new layout mid-task, leading to missed fields or abandoned orders. **Prevention:** Deploy UI changes during off-hours (after 8 PM WIB). Feature flag the new layout with localStorage toggle for 1-week rollback option. Test with one staff member before full rollout.
+
+4. **WIB timezone bugs at day boundaries corrupt date-dependent features** — Codebase has multiple independent WIB conversion implementations: `wibDateToUtcRange()`, `getTodayJakarta()`, manual `+7 hours`, `Date.UTC(..., -7, ...)`, `toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })`. Each handles edge cases differently. `getWeekNumber()` uses `new Date(date + "T00:00:00+07:00")` but `getProductionReadiness` uses `new Date(args.date + "T12:00:00Z")` — different dates at certain times. Kitchen targets show wrong day, dispatch plans land in wrong week. **Prevention:** Centralize ALL WIB logic into single `convex/lib/wibDate.ts` utility (`nowWib()`, `toWibDateString()`, `wibDateToUtcRange()`, `getWibWeekNumber()`, `isWibWeekend()`). Convention: all dates stored as UTC epoch milliseconds or `YYYY-MM-DD` strings representing WIB dates. Test at boundary times (23:30 WIB, 00:30 WIB).
+
+5. **K3Mart cockpit "stubs to real" transition breaks existing data** — Weekly planning has real production data in `k3martDispatchPlans`, `k3martStockMovements`, `restockTargets`. Plans already use `weekNumber: "2026-W07"` from `getWeekNumber()`. If implementation changes week numbering, date format, or adds required fields, existing data becomes orphaned or invalid. **Prevention:** NEVER change `getWeekNumber()` algorithm (already correct ISO week + WIB timezone). New fields must be optional. Holiday calendar should be separate `holidays` table, not inline on dispatch plans. Snapshot data with `npx convex export` before any cockpit work.
+
+6. **Multi-outlet revenue aggregation double-counts on re-sync** — GoBiz dedup key is `orderNumber + transactionTimeMs`. K3Mart dedup key is `transDate + outletName + productCode + qty + total`. If external API returns slightly different data on re-sync (timestamp shifted 1ms, product name changed), dedup key changes and duplicate record created. **Prevention:** Use stable identifiers. GoBiz: use `orderNumber` alone (unique per merchant). K3Mart: drop `total` from dedup key (price may be corrected). When adding Crystal outlet, include `merchantId` in dedup key to prevent cross-merchant collisions.
+
+## Implications for Roadmap
+
+Based on research, suggested 5-phase structure with design-first approach:
+
+### Phase 1: API Audit & Auth Architecture Design (DESIGN DOC)
+**Rationale:** All pitfalls trace back to fragmented auth patterns and missing observability. Design before implementation prevents rework. GoBiz password grant integration, multi-merchant config, internal order revenue sync, and sync health monitoring all need architectural decisions before coding.
+
+**Delivers:** Design document covering (1) GoBiz password-grant token refresh cascade, (2) multi-merchant configuration strategy (config vs DB-stored), (3) internal order -> externalRevenue sync approach, (4) sync health monitoring UX, (5) centralized WIB date utility API, (6) dedup key standardization across platforms.
+
+**Addresses Features:** API credential status visibility (design monitoring UX), GoFood multi-outlet sync (design multi-merchant config), audit trail (design status transition storage).
+
+**Avoids Pitfalls:** Pitfall 1 (silent token failures — design health checks), Pitfall 4 (WIB timezone bugs — design date utility), Pitfall 6 (double-counting — standardize dedup keys).
+
+**Research Flag:** SKIP RESEARCH-PHASE. This is an internal system with complete codebase access. All API docs available in `docs/apiS/`. Focus on design synthesis, not external research.
+
+### Phase 2: Order QoL Fixes Batch (INDEPENDENT, LOW RISK)
+**Rationale:** Pure frontend layout changes, no schema changes, no external API dependencies. Can run in parallel with Phase 1 design work. Highest user value (daily pain points) with lowest technical risk. Backward-compatible.
+
+**Delivers:** (1) Customer info section moved to top of order form, (2) due date input with day-name quick-tap (7-day pill buttons + fallback calendar), (3) hide order creation date field (auto-set to now), (4) discounted total display on order cards (voucher amount shown), (5) audit trail schema addition (`statusHistory` array on orders, optional).
+
+**Addresses Features:** Customer info at top (table stakes), day-name quick-tap (differentiator), discounted total on cards (differentiator), audit trail (differentiator).
+
+**Uses Stack:** `date-fns` for day-name formatting (`format(date, 'EEEE')`), existing React form components, shadcn/ui primitives.
+
+**Avoids Pitfalls:** Pitfall 3 (breaking staff workflow — deploy after 8 PM WIB, feature flag for 1 week, test with one staff first).
+
+**Research Flag:** SKIP RESEARCH-PHASE. Standard UI/UX patterns on existing tech stack.
+
+### Phase 3: Kitchen Due-Date Ranking & Mobile UX Overhaul
+**Rationale:** Kitchen is the production bottleneck. Due date ranking is the core prioritization mechanism. Currently producing in wrong order (FIFO by creation instead of by due date). Query optimization uses existing compound index `["isKitchenVisible", "dueDate"]` — no schema change needed. Mobile UX improvements (48px tap targets, day-name display) reduce wet-hand mis-taps.
+
+**Delivers:** (1) Kitchen query sort by due date (use index ordering, not post-fetch sort), (2) day-name + date display on all kitchen order cards (large, color-coded by urgency), (3) group headers by due date ("DUE TODAY", "DUE TOMORROW", etc.), (4) minimum 48px tap targets for all kitchen buttons/cards, (5) manager override for inventory "brochure unavailable" bug (with reason logging).
+
+**Addresses Features:** Due date display in kitchen (table stakes), due date ranking (table stakes), manager override for inventory (table stakes).
+
+**Uses Stack:** `date-fns` for day-name display and relative date logic (`differenceInCalendarDays`, `format`), existing `by_kitchen_visible` compound index.
+
+**Implements Architecture:** Kitchen queries optimization (switch from post-fetch sort to index-based ordering).
+
+**Avoids Pitfalls:** Pitfall 4 (WIB timezone bugs — use centralized `wibDate.ts` from Phase 1 design for all date display logic). Display absolute WIB dates ("Sat, Feb 15"), never relative ("tomorrow") which is timezone-ambiguous.
+
+**Research Flag:** SKIP RESEARCH-PHASE. Query optimization pattern is well-documented Convex practice. UX improvements are domain-specific based on kitchen staff feedback.
+
+### Phase 4: K3Mart Cockpit Weekly Planning Completion
+**Rationale:** K3Mart cockpit has working stubs (K3MART-01 through K3MART-06 TODOs) and production data in backend tables. Weekly dispatch planning, outlet stock summary, manual stock in/out are all partially implemented. Holiday awareness adds dispatch planning intelligence (zero targets on holidays, increased targets pre-holiday).
+
+**Delivers:** (1) Complete weekly dispatch planner UI (7-day grid, product rows, outlet tabs, suggested quantities pre-filled), (2) holiday calendar table (`holidays`) with CRUD + seeding for Indonesian 2026 holidays, (3) holiday-aware suggested quantity calculation (weekend target on holidays, zero on closures, +50% day before holidays), (4) visual holiday/weekend markers on weekly grid, (5) manual stock in/out quick-entry UI (outlet selector, product selector, quantity, direction, source/destination tracking).
+
+**Addresses Features:** K3Mart cockpit completion (table stakes), weekly dispatch with holiday awareness (differentiator), manual stock in/out (table stakes).
+
+**Uses Stack:** `date-fns` for ISO week calculations (`getISOWeek`, `startOfISOWeek`, `endOfISOWeek`, `eachDayOfInterval`), static Indonesian holiday JSON array (no external API).
+
+**Implements Architecture:** Holiday calendar table (new schema), holiday-aware target calculation in `k3martCockpit/helpers.ts`, query enhancement to incorporate holidays.
+
+**Avoids Pitfalls:** Pitfall 5 (breaking existing data — NEVER change `getWeekNumber()`, new fields optional, export data before changes, holiday table separate not inline on dispatch plans). Pitfall 4 (timezone bugs — use centralized `wibDate.ts` for all week calculations).
+
+**Research Flag:** SKIP RESEARCH-PHASE. Weekly planning is UI work on existing backend. Holiday data is static JSON (government-announced, stable for the year).
+
+### Phase 5: API Integrations (Multi-Outlet, Token Hardening, Unified Reporting)
+**Rationale:** Depends on Phase 1 design decisions (multi-merchant config, password-grant implementation, dedup key standardization). This phase scales existing integrations: add Crystal outlet to GoBiz, harden token refresh with password grant, sync internal orders to externalRevenue for unified reporting.
+
+**Delivers:** (1) GoBiz password-grant token refresh (4th cascade method using email/password from `platformCredentials`), (2) multi-merchant GoBiz config (array of `{ id, name, outletLabel }`, journal search with merchant array), (3) GoBiz Crystal outlet added (`G347061572`), dedup key includes `merchantId`, product mapping entries created, (4) internal order -> externalRevenue sync (virtual adapter that queries confirmed orders, creates `externalRevenue` with `source: "internal"`), (5) GoBiz/K3Mart token auto-refresh cron hardening (GoBiz every 4h as safety net, on-demand via fetchWithAuth), (6) sync health dashboard (unified API status page showing all platforms: token health, last sync, error counts, quick re-sync actions).
+
+**Addresses Features:** GoFood Crystal outlet (differentiator), API credential status dashboard (table stakes), auto-refresh for all platforms (table stakes), unified sales reporting across channels (differentiator).
+
+**Uses Stack:** Existing Convex actions (`"use node"`), `platformCredentials` table, GoBiz/K3Mart adapters (extend, not rewrite), `externalData` mutations.
+
+**Implements Architecture:** Multi-merchant config (extend `gobiz/config.ts`), password-grant cascade (add to `gobiz/adapter.ts`), internal order adapter (create `integrations/internal/adapter.ts`), sync health query (new `platformCredentials/queries.ts::getAllPlatformStatuses`).
+
+**Avoids Pitfalls:** Pitfall 1 (silent token failures — sync health dashboard with staleness warnings implemented), Pitfall 2 (action timeout — split sync into chained actions, limit `daysBack=3` for cron), Pitfall 6 (double-counting — dedup key includes merchantId, stable identifiers only).
+
+**Research Flag:** SKIP RESEARCH-PHASE. API endpoints documented in `docs/apiS/`, patterns proven in existing adapters, extend not rewrite.
+
+### Phase Ordering Rationale
+
+- **Phase 1 (API Audit) before Phase 5 (API Integrations):** Design before implementation. Multi-merchant config strategy, dedup key standardization, password-grant cascade design, and sync health monitoring UX must be documented before coding. Prevents rework and ensures backward compatibility.
+- **Phase 2 (Order QoL) is independent:** Pure frontend layout changes. No schema changes, no API dependencies. Can parallelize with Phase 1 design work. Delivers immediate user value (daily pain points).
+- **Phase 3 (Kitchen) uses Phase 1 design outputs:** Due-date display logic depends on centralized `wibDate.ts` utility designed in Phase 1. Can overlap with Phase 4 (different domains).
+- **Phase 4 (K3Mart Cockpit) and Phase 3 (Kitchen) are independent:** Kitchen queries vs K3Mart dispatch planning touch completely different files. Can parallelize after Phase 1 design completes.
+- **Phase 5 (API Integrations) comes last:** Builds on all prior work. Uses centralized date utility from Phase 1, avoids timezone bugs discovered in Phases 3-4, benefits from sync health monitoring designed in Phase 1.
+
+### Research Flags
+
+**Phases likely needing deeper research during planning:**
+- **None.** All 5 phases work within existing tech stack on existing infrastructure. Codebase access is complete. API documentation captured in `docs/apiS/`. Holiday data is static (government-announced). Patterns proven in v1.0.
+
+**Phases with standard patterns (skip research-phase):**
+- **Phase 1:** Internal design synthesis. No external research needed.
+- **Phase 2:** Standard UI/UX layout changes on React + shadcn/ui.
+- **Phase 3:** Query optimization (Convex compound index usage) is well-documented pattern.
+- **Phase 4:** UI work on existing backend, static holiday data.
+- **Phase 5:** Extend existing adapters, proven action-mutation separation pattern.
+
+**All phases should use `/gsd:plan-phase` directly, skipping `/gsd:research-phase`.**
+
+## Confidence Assessment
+
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Stack | HIGH | Only 1 new dependency (`date-fns`). All other needs met by existing v1.0 stack. Verified in codebase (`package.json`, adapter implementations). |
+| Features | HIGH | Derived from direct codebase analysis, existing user feedback captured in milestone draft, and API documentation in `docs/apiS/`. Table stakes features have existing partial implementations. |
+| Architecture | HIGH | Existing patterns proven in production (K3Mart 12h cron, GoBiz 7x daily sync, multi-platform revenue aggregation). Direct code review of `integrations/gobiz/adapter.ts`, `integrations/k3mart/adapter.ts`, `externalData/mutations.ts`, `k3martCockpit/queries.ts`. |
+| Pitfalls | HIGH | Identified through code review (fragmented date logic, missing health checks, hardcoded config), Convex documentation (action timeout limits), and API documentation (GoBiz token expiry behavior). All preventable through design-first approach. |
+
+**Overall confidence:** HIGH
+
+### Gaps to Address
+
+**Minor gaps (validate during planning, not blockers):**
+
+- **GoBiz password-grant token API expiry behavior:** Reference doc shows token response format but not documented access token TTL. Existing 3-method cascade has 1-hour assumption. Validate actual TTL during Phase 5 implementation by logging token creation time and first 401 occurrence.
+
+- **K3Mart stock-flow API per-outlet submission constraints:** Current code submits sequentially to avoid conflicts. Unclear if API supports batch submission for multiple outlets. Phase 4 should test concurrent submission vs sequential to optimize dispatch confirmation speed.
+
+- **Indonesian holiday dates for 2027+:** Phase 4 will hardcode 2026 holidays. Government typically announces next year's holidays in September. Add a reminder in Phase 4 changelog to update holiday data annually, or create an admin UI for holiday CRUD to future-proof.
+
+- **Inventory "brochure unavailable" root cause:** Manager override (Phase 3) is a workaround. True fix requires understanding why inventory batch quantities show zero when physical stock exists. Phase 3 should log override reasons to identify if this is a sync issue, batch FIFO logic bug, or data entry error.
+
+**All gaps are low-risk and can be resolved during phase planning or execution.**
+
+## Sources
+
+### Primary (HIGH confidence)
+- **Codebase analysis:**
+  - `convex/integrations/gobiz/adapter.ts` — 3-method token refresh, fetchWithAuth, journal/order sync
+  - `convex/integrations/k3mart/adapter.ts` — K3Mart credential-based auth, stock sync, 12h cron
+  - `convex/platformCredentials/` — Token storage, auto-refresh actions, credential CRUD
+  - `convex/k3martCockpit/` — Weekly dispatch queries, helpers (`getWeekNumber`, `calculateSuggestedQty`)
+  - `convex/externalData/` — Multi-platform revenue storage with dedup, sync logs
+  - `convex/schema.ts` — 37 tables including externalRevenue, externalRevenueItems, externalSyncLogs
+  - `convex/crons.ts` — K3Mart 12h refresh, GoBiz 7x daily revenue sync
+  - `src/components/orders/OrderFormPOS.tsx` — Current order creation layout
+  - `src/components/kitchen/` — Kitchen panels (PackingPanel, ProductionLog)
+  - `package.json` — Stack versions verified
+- **API documentation:**
+  - `docs/apiS/gojek search transactions documentation.txt` — GoBiz token grant endpoint, journal search, order search, merchant IDs
+- **Official documentation:**
+  - [Convex Cron Jobs](https://docs.convex.dev/scheduling/cron-jobs) — Scheduling patterns
+  - [Convex Limits](https://docs.convex.dev/production/state/limits) — 10-min action timeout, 1s query timeout
+  - [date-fns npm](https://www.npmjs.com/package/date-fns) — v4.1.0 API reference
+
+### Secondary (MEDIUM confidence)
+- [Indonesia Public Holidays 2026](https://www.eskimo.travel/en/blog/indonesia-public-holidays) — 17 national holidays + 8 cuti bersama
+- [Holiday API Indonesia](https://holidayapi.com/countries/id/2026) — Programmatic holiday data (referenced for validation, not recommended for use)
+- [Date Picker UX Best Practices - NN/g](https://www.nngroup.com/articles/date-input/) — Quick-select pattern validation
+- [OAuth Token Refresh Patterns](https://oneuptime.com/blog/post/2026-01-24-oauth2-token-refresh/view) — Auto-refresh strategy comparison
+
+### Tertiary (LOW confidence, needs validation)
+- **GoBiz token expiry:** 1 hour access token, 9-month refresh session (inferred from reference doc + cron frequency). Official GoBiz developer portal may have different specs (merchant API vs Facilitator API).
 
 ---
-
-## Recommended Stack Changes
-
-### What to Add
-
-```bash
-# Production dependency (customMutation/customQuery)
-npm install convex-helpers@^0.1.107
-
-# Dev dependencies (linting, one-time migration)
-npm install -D @convex-dev/eslint-plugin@^1.1.0
-
-# One-time codemod (table-name-first syntax migration)
-npx @convex-dev/codemod@latest explicit-ids
-```
-
-### What to Upgrade
-
-**NONE.** All dependencies are at latest stable versions.
-
-### What NOT to Change
-
-- Do NOT upgrade to experimental/beta versions (Convex OSS backend, React 19 canary, etc.)
-- Do NOT add `convex-ents` (full ORM layer -- too heavy for refactoring initiative)
-- Do NOT add `jscodeshift` (lacks TypeScript type awareness needed for Convex ID types)
-- Do NOT add `ts-morph` as a permanent dependency (use for one-time codegen, then remove)
-
----
-
-## Recommended Phase Order
-
-All four researchers agreed on testing-first, disagreed on factory vs. migration priority.
-
-### Consensus Build Order
-
-#### Phase 1: Test Infrastructure (FOUNDATION -- blocking everything)
-
-**Why first:** Cannot safely refactor without safety net. All researchers agreed.
-
-**Scope:**
-- Add `convex-test` integration tests for order mutations (create, status transitions, cancel)
-- Add unit tests for `ballDistribution.ts` (342 lines, zero tests)
-- Add unit tests for `fifo.ts` (FIFO allocation)
-- Add unit tests for `voucherHandling.ts` (discount calculations)
-
-**Deliverables:**
-- `tests/convex/orderMutations.test.ts` (end-to-end order lifecycle)
-- `convex/orders/__tests__/ballDistribution.test.ts`
-- `convex/inventory/__tests__/fifo.test.ts`
-- `convex/orders/__tests__/voucherHandling.test.ts`
-
-**Risk:** LOW (additive, no production changes)
-
----
-
-#### Phase 2: Backend Factories (INFRASTRUCTURE)
-
-**Why second:** Establishes patterns all future code follows. Must exist before migrating domains.
-
-**Scope:**
-- Install `convex-helpers`
-- Create `convex/lib/functions.ts` with `customMutation`/`customQuery` auth wrappers
-- Create helper functions (not runtime factories) for common query patterns
-- Migrate 2 simple domains as proof-of-concept (ingredients, materials)
-
-**Build order within phase:**
-1. Create `convex/lib/functions.ts` with auth factories
-2. Migrate `ingredients` mutations to use `customMutation`
-3. Verify `npm run build` passes
-4. Migrate `materials` mutations (near-identical)
-5. Verify both work in dev environment
-
-**Risk:** MEDIUM (Convex type safety chain must be preserved)
-
-**Dependencies:** Phase 1 tests for ingredients/materials
-
----
-
-#### Phase 3: BOM Migration (CRITICAL PATH -- highest risk)
-
-**Why third:** Deprecated fields are highest-risk tech debt. Every new feature built on deprecated fields compounds the problem.
-
-**Scope (Strangler Fig Pattern):**
-1. **Dual-read:** Update all 10 backend files that read deprecated fields to read BOM first, fallback to deprecated for historical orders
-2. **Stop writing:** Remove deprecated field writes from `menuProducts/mutations.ts` and `orders/mutations/itemCrud.ts`
-3. **Backfill migration:** Run mutation to ensure all menuProducts have BOM entries
-4. **Remove fallbacks:** Remove deprecated field reads from queries
-5. **Schema cleanup:** Make deprecated fields `v.optional()` with DEPRECATED comment (keep for historical data)
-
-**Files Modified (19 frontend + 10 backend):**
-
-Backend:
-- `convex/orders/queries.ts` (lines 266-269, 513-540)
-- `convex/orders/helpers/ballDistribution.ts`
-- `convex/orders/mutations/itemCrud.ts` (lines 59-66, 226-233)
-- `convex/orders/mutations/orderCrud.ts`
-- `convex/orders/mutations/packaging.ts`
-- `convex/orders/mutations/migrations.ts`
-- `convex/orders/whatsapp.ts`
-- `convex/menuProducts/mutations.ts`
-- `convex/schema.ts`
-
-Frontend (19 files in `src/hooks/` and `src/components/`):
-- All files reading `productionType`/`productionUnits` from order items
-
-**Risk:** HIGH (touches order system, most complex and most used)
-
-**Dependencies:** Phase 1 tests MUST be complete
-
----
-
-#### Phase 4: Query Optimization (N+1 fixes)
-
-**Why fourth:** After BOM migration simplifies queries, fix N+1 patterns before they become bottlenecks.
-
-**Scope:**
-- Fix `orders/queries.ts::list()` -- parallel index lookups instead of full-table scan
-- Fix `dashboard/queries.ts` -- 7 full table scans for summary stats
-- Add search indexes for `ingredients` and `materials`
-- Replace `batchFetching.ts` full-scan with parallel indexed queries via `Promise.all()`
-
-**Pattern (Convex-optimized):**
-```typescript
-// Instead of: load ALL items and filter in memory (current)
-const allItems = await ctx.db.query("orderItems").collect(); // BAD at scale
-
-// Use: parallel index lookups
-const itemsByOrder = await Promise.all(
-  orderIds.map(id =>
-    ctx.db.query("orderItems")
-      .withIndex("by_order", q => q.eq("orderId", id))
-      .collect()
-  )
-); // N parallel index lookups -- fast in Convex
-```
-
-**Risk:** MEDIUM (query changes are visible to users)
-
-**Dependencies:** Phase 3 (simplified queries after BOM migration)
-
----
-
-#### Phase 5: Frontend Hook Factories
-
-**Why fifth:** After backend stabilizes, apply same pattern to frontend. Safe because hooks are leaf nodes.
-
-**Scope:**
-- Create `src/hooks/convex/createMutationHook.ts` factory
-- Migrate simple entity hooks (ingredients, materials, tags, customers, locations, vouchers)
-- Keep complex hooks manual (orders, kitchen, inventory -- too domain-specific)
-
-**Factory Pattern:**
-```typescript
-export function createMutationHook<Mutation extends FunctionReference<"mutation">>(
-  mutationRef: Mutation,
-  entityName: string,
-  action: "created" | "updated" | "deleted"
-) {
-  return function useMutationHook() {
-    const mutation = useMutation(mutationRef);
-    const execute = async (args: FunctionArgs<Mutation>) => {
-      try {
-        const result = await mutation(args);
-        toast.success(`${entityName} ${action} successfully`);
-        return result;
-      } catch (error: unknown) {
-        toast.error(getErrorMessage(error, `Failed to ${action.replace("d", "")} ${entityName.toLowerCase()}`));
-        throw error;
-      }
-    };
-    return { mutate: execute, mutateAsync: execute };
-  };
-}
-```
-
-**Result:** Each entity hook file shrinks from ~115 lines to ~15 lines
-
-**Risk:** LOW (frontend-only, no backend impact)
-
-**Dependencies:** Phase 2 backend factories (establishes pattern)
-
----
-
-#### Phase 6: UI Consolidation
-
-**Why last:** After hooks are factorized, consolidate CRUD manager pages. Cosmetic, lowest risk.
-
-**Scope:**
-- Create `src/components/shared/EntityManager.tsx` generic component
-- Migrate: IngredientsManager, MaterialsManager, LocationsManager, StorageLocationsManager
-- Keep complex pages manual (OrderManager, KitchenViewV2, MenuProductsManager)
-
-**Entities to consolidate:** 6 simple CRUD pages with ~60% shared structure
-
-**Entities to keep manual:** Orders, Kitchen, Inventory, Menu Products (too domain-specific)
-
-**Risk:** LOW (visual changes only, can be tested by screenshot comparison)
-
-**Dependencies:** Phase 5 hook factories
-
----
-
-### Points of Disagreement (Resolved)
-
-| Aspect | Feature Researcher | Architecture Researcher | Resolution |
-|--------|-------------------|------------------------|------------|
-| Factory timing | Phase 2 (early infrastructure) | Phase 2 (before domain migrations) | **Agreed -- Phase 2** |
-| BOM migration timing | Phase 3 (after factories) | Phase 3 (critical path, needs tests first) | **Agreed -- Phase 3, after Phase 1 tests** |
-| productionCounts consolidation | Include in Phase 4 | Separate milestone (high risk) | **Defer to separate milestone** |
-| useConvex prefix removal | Phase 5 (cosmetic cleanup) | Phase 6 or skip (low value) | **Skip or defer indefinitely** |
-
----
-
-## Critical Constraints
-
-### Schema Migration Sequence (MUST follow exactly)
-
-Convex validates schema against data at deploy time. Field removal requires this exact sequence:
-
-```
-Step 1: Make field v.optional() in schema (if not already)
-        Deploy schema
-
-Step 2: Update mutations to stop writing the field
-        Deploy code
-
-Step 3: Update queries to stop reading the field
-        Deploy code
-
-Step 4: Run migration mutation to null out field data
-        (Batched: 100 docs per transaction)
-
-Step 5: Remove field from schema
-        Deploy schema
-```
-
-**Minimum deploys per field:** 3-5 (depending on whether field is already optional)
-
-**Critical fields affected:** `productionType`, `productionUnits` on `menuProducts` and `orderItems` (4 fields total)
-
----
-
-### Factory Type Safety (MUST preserve Convex type chain)
-
-Convex auto-generates `_generated/api.d.ts` from backend function signatures. This is the type contract between backend and frontend.
-
-**What works:**
-```typescript
-// Higher-order function wraps concrete mutation
-export const create = mutation({
-  args: { token: v.string(), name: v.string() },
-  handler: withAuth(["admin"], async (ctx, args, user) => {
-    // entity-specific logic
-  }),
-});
-```
-
-**What breaks type safety:**
-```typescript
-// Runtime factory returns query() dynamically
-export const list = makeListQuery("ingredients"); // Return type becomes 'any'
-```
-
-**Allowed approaches:**
-- **Code generation (build-time):** Script generates concrete query files from templates. Safe.
-- **Helper functions (inside handlers):** Generic helpers called from concrete handlers. Safe.
-- **customMutation/customQuery (convex-helpers):** Officially supported pattern. Safe.
-
-**Forbidden approach:**
-- Runtime factories that generate and export Convex functions dynamically
-
----
-
-### Test-Before-Refactor Rule (BLOCKING)
-
-The following files CANNOT be refactored until tests exist:
-
-| File | Lines | Risk Level | Why Blocking |
-|------|-------|-----------|--------------|
-| `convex/orders/helpers/ballDistribution.ts` | 342 | CRITICAL | Ball allocation algorithm, auto-status transitions, untested |
-| `convex/inventory/fifo.ts` | ~200 | CRITICAL | FIFO batch selection, reservation accounting |
-| `convex/orders/helpers/statusTransitions.ts` | ~200 | HIGH | Order state machine validation |
-| `convex/orders/mutations/inventoryIntegration.ts` | 618 | HIGH | Two-phase commit (reserve/consume/release) |
-
-**Enforcement:** Phase 1 is a hard dependency for Phase 3. Cannot proceed with BOM migration without these tests.
-
----
-
-### Dual Tracking During Migration (MUST maintain both systems)
-
-During BOM migration (Phase 3), both old and new ball tracking systems must remain operational:
-
-```
-Week 1-2: Dual read (read BOM, fallback to deprecated fields)
-Week 3-4: Stop writing deprecated fields (BOM only)
-Week 5-6: Remove deprecated field reads (BOM source of truth)
-Week 7+:   Schema cleanup (keep fields as v.optional with DEPRECATED comment)
-```
-
-**Critical rule:** Do NOT remove writes before all reads are migrated. Order: read migration -> write migration -> schema cleanup.
-
----
-
-## Risk Map
-
-### CRITICAL Risk Areas
-
-#### 1. Order Status Transitions + Inventory (Risk Score: 9/10)
-
-**Call chain:**
-```
-orders/mutations/statusUpdates.ts
-  -> orders/helpers/statusTransitions.ts
-    -> orders/mutations/inventoryIntegration.ts
-      -> inventory/fifo.ts
-        -> inventory/helpers.ts
-```
-
-**Triggers:** Status validation, audit logging, FIFO reservation/consumption, stock recalculation, production record updates
-
-**Mitigation:**
-- Phase 1 tests for every step in chain
-- Never refactor this chain without tests
-- Use strangler fig pattern (wrap, don't rewrite)
-
----
-
-#### 2. Ball Distribution Algorithm (Risk Score: 9/10)
-
-**File:** `convex/orders/helpers/ballDistribution.ts` (342 lines, ZERO tests)
-
-**Complexity:**
-- Fetches all Confirmed + InProduction orders
-- N+1 query pattern (items + production records per order)
-- Calculates ball needs from BOM
-- Priority queue distribution
-- Auto-transitions order status
-- Atomic production record updates
-
-**Mitigation:**
-- Phase 1 MUST add comprehensive tests before any changes
-- Extract pure allocation logic into testable function
-- Use snapshot testing for complex outputs
-
----
-
-#### 3. Schema Deploy Rejection on Field Removal (Risk Score: 8/10)
-
-**Scenario:** Remove `productionType` from schema before all code stops reading it. Convex rejects deploy.
-
-**Impact:** Blocks entire release pipeline (schema + code deploy together)
-
-**Mitigation:**
-- Follow 5-step schema migration sequence (Critical Constraints above)
-- Test schema changes against dev environment first
-- Never combine field removal with unrelated changes
-
----
-
-### HIGH Risk Areas
-
-#### 4. Dual Tracking Inconsistency (Risk Score: 7/10)
-
-**Scenario:** During BOM migration, bug in one tracking system corrupts the other. Kitchen sees wrong ball counts.
-
-**Files at risk:** 19 frontend + 10 backend files reading deprecated fields
-
-**Mitigation:**
-- Map all read/write sites before changing anything
-- Dual-read adapter with fallback for historical orders
-- Integration tests for both systems during transition
-
----
-
-#### 5. FIFO Inventory Corruption (Risk Score: 7/10)
-
-**Scenario:** Refactoring reservation logic introduces off-by-one error. Reserved stock double-consumed or never released.
-
-**Two-phase commit pattern:** Reserve -> Consume -> Release
-
-**Mitigation:**
-- Integration tests for full reserve -> consume -> release cycle
-- Consistency check mutation (`componentStock.totalStock` vs `SUM(inventoryBatches.quantityRemaining)`)
-- Ensure `updateComponentStock()` called after every batch modification
-
----
-
-#### 6. Type Safety Loss from Generic Factories (Risk Score: 6/10)
-
-**Scenario:** Runtime factory generates queries dynamically. `useQuery(api.ingredients.queries.list)` returns `any`.
-
-**Impact:** 51 frontend files lose autocomplete, hover types, type checking
-
-**Mitigation:**
-- Use code generation (build-time) for backend factories
-- Use composition (createMutationHook) for frontend
-- Never generate Convex functions dynamically at runtime
-
----
-
-### MEDIUM Risk Areas
-
-#### 7. Convex Transaction Limits During Migrations (Risk Score: 5/10)
-
-**Limit:** ~8,192 documents per transaction
-
-**Mitigation:**
-- Paginate all migration mutations (100 docs per batch)
-- Use Convex Migrations Component for large-scale migrations
-- Add `dryRun` parameter to every migration
-
----
-
-#### 8. Transform Layer (camelCase/snake_case) Bugs (Risk Score: 4/10)
-
-**Affected files:** `useOrders.ts`, `useKitchenStats.ts`, `usePendingBallStats.ts`, `src/lib/types.ts`
-
-**Mitigation:**
-- Do NOT touch transform layer during refactoring (separate dedicated phase)
-- When adding fields, update BOTH schema AND transform function
-- Use TypeScript `satisfies` to enforce complete mapping
-
----
-
-## Open Questions
-
-### 1. Should `productionCounts` table be consolidated into `productionLog`-derived aggregates?
-
-**Current state:** Dual tracking (running tallies + event log). Event log already has `getDailySummary` aggregator.
-
-**Pros of consolidation:**
-- Single source of truth (event-sourced)
-- No manual reset logic
-- No drift between tallies and reality
-
-**Cons:**
-- Performance: aggregating log on every kitchen page load may be slow at scale
-- Complexity: log has `shippedToGoldfinch` tracking + reset tracking that need migration thought
-
-**Recommendation:** DEFER to separate milestone after Phase 6. High risk, needs dedicated planning.
-
----
-
-### 2. Should we remove the `useConvex` prefix from all hook names?
-
-**Current state:** All hooks prefixed `useConvex` (369 exports in barrel file). Vestige of migration from FastAPI backend.
-
-**Pros of removal:**
-- Cleaner DX (`useOrders` vs `useConvexOrders`)
-- Less noise (entire app uses Convex exclusively)
-
-**Cons:**
-- Tedious (369 export references, all consumers)
-- Merge conflict risk if done during other work
-- Low impact (cosmetic only)
-
-**Recommendation:** SKIP or defer indefinitely. Low value, high conflict risk.
-
----
-
-### 3. Should we build a generic `EntityManager<T>` UI component?
-
-**Estimated savings:** 1,200 lines across 6 simple CRUD pages
-
-**Risk:** Over-abstraction. Entities have specific logic (search fields, deletion checks, computed fields).
-
-**Recommendation:** Start small. Extract only truly shared pieces (table component, dialog wrapper, form builder). Measure savings per entity before building mega-factory. Target: 6 simple entities (ingredients, materials, tags, customers, locations, vouchers). Keep complex UIs manual (orders, kitchen, inventory, menu products).
-
----
-
-### 4. Should we migrate from `productionUnitTypes` to `componentTypes` for production records?
-
-**Current state:** Bridge pattern documented in `productionRecords.ts:178`. `orderItemProduction.productionUnitTypeId` is required `v.id("productionUnitTypes")`.
-
-**Migration path:** 4 deploys minimum (add optional field, backfill, make required, remove old field)
-
-**Recommendation:** SKIP. Bridge works, has clear documentation, low complexity cost. Migration effort not justified.
-
----
-
-### 5. How should we handle the 167 `v.optional()` fields in schema?
-
-**Categories needed:**
-- Legitimately optional (user input, may not exist)
-- Should be required, all docs have it (safe to make required after verification)
-- Should be required, but historical docs lack it (needs backfill)
-
-**Recommendation:** Phase 0 task: audit all 167 fields into categorization spreadsheet. Then batch-process category 2 (5-10 fields per deploy). Defer category 3 to separate migrations.
-
----
-
-### 6. Should we use Convex Migrations Component or custom mutations for backfills?
-
-**Custom mutations (current approach):**
-- Pros: Simple, already implemented, flexible
-- Cons: Manual invocation, no built-in progress tracking
-
-**Convex Migrations Component:**
-- Pros: Progress tracking, resumability, pagination
-- Cons: New dependency, learning curve
-
-**Recommendation:** Use custom mutations for Phase 3 (BOM migration). Evaluate Migrations Component if `productionCounts` consolidation proceeds (larger scale).
-
----
-
-### 7. Should we add E2E tests for kitchen workflow during refactoring?
-
-**Current E2E coverage:** 4 Playwright specs (sales analytics, dashboard). Kitchen and order flows are gaps.
-
-**Recommendation:** DEFER. Backend tests (Phase 1) provide better ROI at lower cost. Add E2E tests only after backend test coverage is solid. Current priority: unit + integration tests via `convex-test`.
-
----
-
-*Research synthesis: 2026-02-13*
-*Confidence: HIGH (unanimous consensus on critical constraints, resolved disagreements on phase ordering)*
+*Research completed: 2026-02-15*
+*Ready for roadmap: yes*
