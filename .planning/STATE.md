@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 02 of 06 -- COMPLETE
-Status: Plan 14-02 complete (status transitions TDD + auto-entry), 4 plans remaining
-Last activity: 2026-02-15 -- Plan 14-02 executed (TDD status transitions + auto-entry)
+Plan: 03 of 06 -- COMPLETE
+Status: Plan 14-03 complete (Kanban queries + order lifecycle mutations), 3 plans remaining
+Last activity: 2026-02-15 -- Plan 14-03 executed (Kanban backend queries + lifecycle mutations)
 
 Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 
@@ -32,6 +32,7 @@ Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 | 13 | 05 | 5 min | 3 | 8 |
 | 14 | 01 | 45 min | 2 | 40 |
 | 14 | 02 | 2 min | 2 | 3 |
+| 14 | 03 | 4 min | 2 | 4 |
 
 *Updated after each plan completion*
 
@@ -53,6 +54,7 @@ Recent decisions affecting current work:
 - [Phase 13-05]: Recharts added for stacked charts; BarChart for daily/weekly, AreaChart for monthly; platform colors: GoFood=teal, K3Mart=blue, Direct=amber; allTime preset from Jan 2020 with no comparison
 - [Phase 14-01]: 7-status model replaces 12+; getDisplayStatus() removed; STATUS_CATEGORIES has 6 Kanban columns; inventory consolidated to PaymentReceived (reserve) + BeingPrepared (consume all)
 - [Phase 14-02]: shouldAutoEnterKitchen is pure function (no Convex ctx) for testability; canCancelOrder uses string param matching Plan 01 impl
+- [Phase 14-03]: Customer search reused from customers/queries.ts; updateStatus retained as escape hatch; moveForward/moveBackward pattern with FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS maps; token-to-userId via getSessionUser for audit trail
 
 ### Pending Todos
 
@@ -67,7 +69,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 14-02-PLAN.md (status transitions TDD + auto-entry)
+Stopped at: Completed 14-03-PLAN.md (Kanban queries + order lifecycle mutations)
 Resume file: None
 
 ---
