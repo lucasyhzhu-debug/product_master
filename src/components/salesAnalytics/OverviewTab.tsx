@@ -20,6 +20,7 @@ import {
   TagIcon,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { SalesChart } from "./SalesChart";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -1134,6 +1135,9 @@ export function OverviewTab() {
           internal: 0,
         }}
       />
+
+      {/* Revenue Chart */}
+      <SalesChart preset={selectedPeriod} defaultExpanded={true} />
 
       {/* Platform -> Outlet Hierarchy */}
       <PlatformHierarchy preset={selectedPeriod} />
