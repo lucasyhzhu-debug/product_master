@@ -937,6 +937,25 @@ export const getSyncHealthStatus = query({
  * Get sync health alerts for dashboard banner.
  * Returns platforms that have been stale for 6+ hours.
  */
+/**
+ * Count how many revenue items would be affected by a mapping change.
+ * Used to show impact in the confirmation dialog.
+ */
+export const countMappingImpact = query({
+  args: {
+    source: sourceValidator,
+    externalProductName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const items = await ctx.db.query("externalRevenueItems")
+      .withIndex("by_product_name", (q) =>
+        q.eq("source", args.source).eq("productName", args.externalProductName)
+      )
+      .collect();
+    return { count: items.length };
+  },
+});
+
 export const getSyncHealthAlert = query({
   args: {},
   handler: async (ctx) => {

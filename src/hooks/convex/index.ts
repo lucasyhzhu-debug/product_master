@@ -328,8 +328,6 @@ export {
   useConvexChannelSellThrough,
   useConvexSaveRestockTarget,
   useConvexUpdateManualStock,
-  // Sync health hooks
-  useConvexSyncHealthAlert,
   // Product mapping hooks
   useConvexCountMappingImpact,
   useConvexUpdateProductMapping,

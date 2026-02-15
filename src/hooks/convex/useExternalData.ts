@@ -221,3 +221,28 @@ export function useConvexSaveRestockTarget() {
 export function useConvexUpdateManualStock() {
   return useMutation(api.restock.mutations.updateManualStock);
 }
+
+// ============================================
+// Product Mapping Hooks
+// ============================================
+
+/**
+ * Get count of revenue items that would be affected by a mapping change.
+ */
+export function useConvexCountMappingImpact(
+  source?: "k3mart" | "gobiz" | "internal",
+  externalProductName?: string
+) {
+  const data = useQuery(
+    api.externalData.queries.countMappingImpact,
+    source && externalProductName ? { source, externalProductName } : "skip"
+  );
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Update a product mapping with retroactive revenue item updates.
+ */
+export function useConvexUpdateProductMapping() {
+  return useMutation(api.externalData.mutations.updateProductMapping);
+}

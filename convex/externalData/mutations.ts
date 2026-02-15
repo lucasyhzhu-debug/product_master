@@ -416,6 +416,47 @@ export const linkProductMapping = mutation({
   },
 });
 
+/**
+ * Update a product mapping and retroactively update all revenue items
+ * with the matching external product name.
+ */
+export const updateProductMapping = mutation({
+  args: {
+    token: v.string(),
+    mappingId: v.id("externalProductMappings"),
+    menuProductId: v.optional(v.id("menuProducts")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const mapping = await ctx.db.get(args.mappingId);
+    if (!mapping) throw new Error("Mapping not found");
+
+    // Update the mapping
+    await ctx.db.patch(args.mappingId, {
+      menuProductId: args.menuProductId,
+      isAutoMapped: false,
+      createdAt: Date.now(),
+    });
+
+    // Retroactively update all revenue items with this external product
+    const items = await ctx.db.query("externalRevenueItems")
+      .withIndex("by_product_name", (q) =>
+        q.eq("source", mapping.source).eq("productName", mapping.externalProductName)
+      )
+      .collect();
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        linkedMenuProductId: args.menuProductId,
+        isAutoMatched: false,
+        matchConfidence: "exact",
+      });
+    }
+
+    return { updatedItems: items.length };
+  },
+});
+
 // ─── REVENUE ITEMS MUTATIONS (journal-level data) ───
 
 export const saveRevenueItems = internalMutation({

@@ -2,11 +2,13 @@ import { useSearchParams } from "react-router";
 import { PageHeader } from "@/components/layout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OverviewTab } from "@/components/salesAnalytics/OverviewTab";
+import { ProductMappingTab } from "@/components/salesAnalytics/ProductMappingTab";
 import { SettingsTab } from "@/components/salesAnalytics/SettingsTab";
 
 export function SalesAnalytics() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") === "settings" ? "settings" : "overview";
+  const tabParam = searchParams.get("tab");
+  const activeTab = tabParam === "settings" ? "settings" : tabParam === "mappings" ? "mappings" : "overview";
 
   const handleTabChange = (value: string) => {
     setSearchParams(value === "overview" ? {} : { tab: value }, { replace: true });
@@ -21,10 +23,14 @@ export function SalesAnalytics() {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="mappings">Mappings</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
           <OverviewTab />
+        </TabsContent>
+        <TabsContent value="mappings" className="mt-4">
+          <ProductMappingTab />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
           <SettingsTab />
