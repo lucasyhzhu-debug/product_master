@@ -5,6 +5,7 @@ export { ProductEditor } from './ProductEditor';
 export { IngredientsManager } from './IngredientsManager';
 export { MaterialsManager } from './MaterialsManager';
 export { OrderManager } from './OrderManager';
+export { OrderCreate } from './OrderCreate';
 export { OrderDetail } from './OrderDetail';
 export { KitchenViewV2 } from './KitchenViewV2';
 export { PackagingView } from './PackagingView';

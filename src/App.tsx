@@ -10,6 +10,7 @@ import {
   IngredientsManager,
   MaterialsManager,
   OrderManager,
+  OrderCreate,
   OrderDetail,
   KitchenViewV2,
   PackagingView,
@@ -79,6 +80,16 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessPackaging">
                     <PackagingView />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Order Create - Dedicated creation page */}
+              <Route
+                path="orders/new"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessOrders">
+                    <OrderCreate />
                   </ProtectedRoute>
                 }
               />
