@@ -81,7 +81,13 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. WaitingShipment/WaitingPickup merged into WaitingDelivery and CompleteShipped/PickedUp merged into Complete (schema migrated, all status references updated)
   4. Due date input offers day-name quick-tap pills (Today, Tomorrow, Saturday, Sunday, Monday...) with manual date fallback
   5. Order cards show discounted total prominently with discount amount and struck-through gross price, and every status change records who/when in a viewable audit trail
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 14-01-PLAN.md -- Schema migration + status engine rewrite (7 statuses, creator attribution, expedited flag)
+- [ ] 14-02-PLAN.md -- TDD: Status transition state machine tests + auto-entry logic
+- [ ] 14-03-PLAN.md -- Kanban backend queries + order lifecycle mutations (forward/backward/expedite/copy)
+- [ ] 14-04-PLAN.md -- Kanban board UI + order cards + slide-over panel + status action buttons
+- [ ] 14-05-PLAN.md -- Order creation page with customer search, due date pills, POS grid
+- [ ] 14-06-PLAN.md -- Audit trail timeline + kitchen view updates + documentation
 
 ### Phase 15: Kitchen Overhaul
 **Goal**: Kitchen staff see production targets, due-date-ranked orders, and K3Mart demand at a glance above the existing batch production panels
@@ -126,7 +132,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 12. UI Brand Verification | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 13. API Audit & Auth Architecture | v1.1 | 5/5 | Complete | 2026-02-15 |
-| 14. Order QoL | v1.1 | 0/TBD | Not started | - |
+| 14. Order QoL | v1.1 | 0/6 | Planned | - |
 | 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |
 | 16. K3Mart Cockpit | v1.1 | 0/TBD | Not started | - |
 
