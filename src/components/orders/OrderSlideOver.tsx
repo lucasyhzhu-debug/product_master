@@ -9,7 +9,8 @@ import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import { Phone, MapPin, Copy, FileText } from 'lucide-react';
+import { Phone, MapPin, Copy, FileText, MessageCircle } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -24,8 +25,17 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusActionButtons } from './StatusActionButtons';
+import { AuditTrail } from './AuditTrail';
+import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
 import { formatCurrency } from '@/lib/utils';
 import { getStatusColor } from '@/lib/orderConstants';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 // ============================================
 // Types
@@ -95,6 +105,8 @@ export function OrderSlideOver({ orderId, open, onClose }: OrderSlideOverProps) 
     api.orders.queries.get,
     orderId ? { id: orderId } : 'skip'
   );
+
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
 
   const handleCopyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -273,26 +285,67 @@ export function OrderSlideOver({ orderId, open, onClose }: OrderSlideOverProps) 
                 </>
               )}
 
+              {/* WhatsApp template (AwaitingPayment -- payment request) */}
+              {order.status === 'AwaitingPayment' && (
+                <>
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-green-700 border-green-300 hover:bg-green-50"
+                      onClick={() => setShowWhatsAppModal(true)}
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Send Payment Request via WhatsApp
+                    </Button>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               {/* Status action buttons */}
               <div>
                 <h4 className="text-sm font-semibold mb-2">Actions</h4>
                 <StatusActionButtons
                   orderId={orderId!}
                   status={order.status}
+                  onStatusChange={() => {
+                    // Show WhatsApp modal when order moves to AwaitingPayment (Submit)
+                    if (order.status === 'Draft') {
+                      setShowWhatsAppModal(true);
+                    }
+                  }}
                 />
               </div>
 
               <Separator />
 
-              {/* Audit trail placeholder */}
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Audit Trail</h4>
-                <p className="text-xs text-muted-foreground italic">
-                  Loading...
-                </p>
-              </div>
+              {/* Audit trail */}
+              {orderId && <AuditTrail orderId={orderId} />}
             </div>
           </>
+        )}
+
+        {/* WhatsApp Payment Request Modal */}
+        {orderId && order && (
+          <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-green-600" />
+                  Send Payment Request
+                </DialogTitle>
+                <DialogDescription>
+                  Copy the payment request template and send it to {order.customerName} via WhatsApp.
+                </DialogDescription>
+              </DialogHeader>
+              <StepWhatsAppTemplate
+                orderId={orderId}
+                templateType="payment_request"
+                customerPhone={order.customerPhone}
+              />
+            </DialogContent>
+          </Dialog>
         )}
       </SheetContent>
     </Sheet>

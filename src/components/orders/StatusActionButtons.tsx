@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { ChevronLeft, Loader2, Send, DollarSign, Zap, Truck, Copy } from 'lucide-react';
 import { useMutation } from 'convex/react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
@@ -44,11 +45,13 @@ interface StatusActionButtonsProps {
 export function StatusActionButtons({ orderId, status, onStatusChange }: StatusActionButtonsProps) {
   const { user } = useAuth();
   const token = user?.token ?? '';
+  const navigate = useNavigate();
 
   const moveForward = useMutation(api.orders.mutations.statusUpdates.moveForward);
   const moveBackwardMut = useMutation(api.orders.mutations.statusUpdates.moveBackward);
   const expediteOrderMut = useMutation(api.orders.mutations.statusUpdates.expediteOrder);
   const cancelOrderMut = useMutation(api.orders.mutations.index.cancel);
+  const copyFromCancelledMut = useMutation(api.orders.mutations.orderCrud.copyFromCancelled);
 
   const [isForwardLoading, setIsForwardLoading] = useState(false);
   const [isBackwardLoading, setIsBackwardLoading] = useState(false);
@@ -215,7 +218,15 @@ export function StatusActionButtons({ orderId, status, onStatusChange }: StatusA
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={() => toast.info('Copy to New Order will be available in Plan 05')}
+          onClick={async () => {
+            try {
+              const newOrderId = await copyFromCancelledMut({ orderId, token });
+              toast.success('Draft order created from cancelled order');
+              navigate(`/orders/new?orderId=${newOrderId}`);
+            } catch (error: unknown) {
+              toast.error(getErrorMessage(error, 'Failed to copy order'));
+            }
+          }}
         >
           <Copy className="h-4 w-4 mr-2" />
           Copy to New Order
