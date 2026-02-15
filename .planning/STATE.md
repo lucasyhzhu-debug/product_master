@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 13 (API Audit & Auth Architecture) -- second of 5 phases in v1.1
-Plan: 03 of 05 -- COMPLETE (01 + 02 + 03 done, 04-05 remaining)
-Status: In progress, ready for plan 04
-Last activity: 2026-02-15 -- Completed 13-03-PLAN.md (integration settings dashboard with health cards)
+Plan: 04 of 05 -- COMPLETE (01 + 02 + 03 + 04 done, 05 remaining)
+Status: In progress, ready for plan 05
+Last activity: 2026-02-15 -- Completed 13-04-PLAN.md (dashboard sync banner + product mapping UI)
 
 Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 
@@ -28,6 +28,7 @@ Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 | 13 | 01 | 6 min | 2 | 6 |
 | 13 | 02 | 3 min | 1 | 1 |
 | 13 | 03 | 4 min | 2 | 5 |
+| 13 | 04 | 8 min | 2 | 11 |
 
 *Updated after each plan completion*
 
@@ -45,6 +46,7 @@ Recent decisions affecting current work:
 - [Phase 13-02]: All 3 integrations documented in single reference file for discoverability; multi-merchant gap noted (POC vs production)
 - [Phase 13-01]: resolveGoBizToken fixed to use getCredentialsInternal (refreshToken was always null); outlet map built once per sync run
 - [Phase 13-03]: IntegrationHealthCard replaces Accordion layout; manager sees read-only health, admin gets full controls; 30s countdown interval for token expiry
+- [Phase 13-04]: SyncHealthBanner gated by canAccessSalesAnalytics; raw Convex query used for menu products to preserve Id types; countMappingImpact uses skip pattern for lazy loading
 
 ### Pending Todos
 
@@ -59,8 +61,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 13-03-PLAN.md -- integration settings dashboard with health cards
+Stopped at: Completed 13-04-PLAN.md -- dashboard sync banner + product mapping UI
 Resume file: None
 
 ---
-*Last updated: 2026-02-15T10:49Z*
+*Last updated: 2026-02-15*
