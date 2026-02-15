@@ -331,6 +331,9 @@ export {
   // Product mapping hooks
   useConvexCountMappingImpact,
   useConvexUpdateProductMapping,
+  // Chart / analytics hooks
+  useConvexRevenueTimeSeries,
+  useConvexRevenueByOutlet,
   // Types
   type PeriodPreset,
 } from "./useExternalData";

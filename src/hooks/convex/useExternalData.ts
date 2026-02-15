@@ -83,7 +83,7 @@ export function useConvexDashboardSalesSummary() {
 /**
  * Period preset type for sales analytics time filters.
  */
-export type PeriodPreset = "today" | "yesterday" | "last7days" | "last30days" | "thisMonth";
+export type PeriodPreset = "past24hours" | "today" | "yesterday" | "thisWeek" | "last7days" | "last30days" | "thisMonth" | "allTime";
 
 /**
  * Get dashboard sales summary by period preset (with current vs previous comparison).
@@ -245,4 +245,33 @@ export function useConvexCountMappingImpact(
  */
 export function useConvexUpdateProductMapping() {
   return useMutation(api.externalData.mutations.updateProductMapping);
+}
+
+// ============================================
+// Sales Analytics Chart Hooks
+// ============================================
+
+/**
+ * Get time-series revenue data for stacked charts.
+ * Bucketed by daily/weekly/monthly, split by platform.
+ */
+export function useConvexRevenueTimeSeries(
+  preset: PeriodPreset,
+  granularity: "daily" | "weekly" | "monthly",
+  metric: "gross" | "net" | "volume"
+) {
+  const data = useQuery(api.externalData.queries.getRevenueTimeSeries, {
+    preset,
+    granularity,
+    metric,
+  });
+  return { data, isLoading: data === undefined };
+}
+
+/**
+ * Get revenue grouped by platform and outlet for hierarchy drill-down.
+ */
+export function useConvexRevenueByOutlet(preset: PeriodPreset) {
+  const data = useQuery(api.externalData.queries.getRevenueByOutlet, { preset });
+  return { data, isLoading: data === undefined };
 }

@@ -30,6 +30,7 @@ import {
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
+  useConvexRevenueByOutlet,
   type PeriodPreset,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -39,11 +40,14 @@ type ConfidenceLevel = "exact" | "inferred" | "manual";
 type MatchConfidence = "exact" | "price_only" | "name_only" | "none";
 
 const PERIOD_PRESETS: { value: PeriodPreset; label: string }[] = [
+  { value: "past24hours", label: "Past 24h" },
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
+  { value: "thisWeek", label: "This Week" },
   { value: "last7days", label: "Last 7 Days" },
   { value: "last30days", label: "Last 30 Days" },
   { value: "thisMonth", label: "This Month" },
+  { value: "allTime", label: "All Time" },
 ];
 
 const DEFAULT_PERIOD: PeriodPreset = "last7days";
@@ -592,6 +596,113 @@ function ChannelSummary({
   );
 }
 
+// ─── Platform Hierarchy (Platform -> Outlet drill-down) ───
+
+function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
+  const { data, isLoading } = useConvexRevenueByOutlet(preset);
+  const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Platform &amp; Outlet Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (data.length === 0) {
+    return null;
+  }
+
+  const platformColors: Record<string, { border: string; dot: string; bg: string }> = {
+    gobiz: { border: "border-l-red-500", dot: "bg-red-500", bg: "hover:bg-red-50 dark:hover:bg-red-950/20" },
+    k3mart: { border: "border-l-purple-500", dot: "bg-purple-500", bg: "hover:bg-purple-50 dark:hover:bg-purple-950/20" },
+    internal: { border: "border-l-blue-500", dot: "bg-blue-500", bg: "hover:bg-blue-50 dark:hover:bg-blue-950/20" },
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium">Platform &amp; Outlet Breakdown</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-1">
+        {data.map((platform) => {
+          const colors = platformColors[platform.platform] ?? platformColors.internal;
+          const isExpanded = expandedPlatform === platform.platform;
+          const hasOutlets = platform.outlets.length > 1 || (platform.outlets.length === 1 && platform.outlets[0].outletId !== null);
+
+          return (
+            <div key={platform.platform} className={cn("border-l-4 rounded-r-md", colors.border)}>
+              <div
+                className={cn(
+                  "flex items-center justify-between py-3 px-4 rounded-r-md cursor-pointer transition-colors",
+                  colors.bg
+                )}
+                onClick={() => setExpandedPlatform(isExpanded ? null : platform.platform)}
+              >
+                <div className="flex items-center gap-2">
+                  {hasOutlets ? (
+                    isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <span className="w-4" />
+                  )}
+                  <span className={cn("h-2 w-2 rounded-full", colors.dot)} />
+                  <span className="font-medium text-sm">{platform.platformName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({platform.totals.transactions} txn{platform.totals.transactions !== 1 ? "s" : ""})
+                  </span>
+                </div>
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="text-right">
+                    <span className="font-semibold tabular-nums">{formatCurrency(platform.totals.gross)}</span>
+                    <span className="text-xs text-muted-foreground ml-1">gross</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold tabular-nums">{formatCurrency(platform.totals.net)}</span>
+                    <span className="text-xs text-muted-foreground ml-1">net</span>
+                  </div>
+                </div>
+              </div>
+              {isExpanded && hasOutlets && (
+                <div className="pb-2 px-4 space-y-0.5">
+                  {platform.outlets
+                    .sort((a, b) => b.gross - a.gross)
+                    .map((outlet, idx) => (
+                    <div
+                      key={outlet.outletId ?? `direct-${idx}`}
+                      className="flex items-center justify-between py-2 px-4 text-sm rounded-md hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{outlet.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({outlet.transactions} txn{outlet.transactions !== 1 ? "s" : ""})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <span className="tabular-nums">{formatCurrency(outlet.gross)}</span>
+                        </div>
+                        <div className="text-right text-muted-foreground">
+                          <span className="tabular-nums">{formatCurrency(outlet.net)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Revenue Table ───
 
 function RevenueTable({
@@ -1023,6 +1134,9 @@ export function OverviewTab() {
           internal: 0,
         }}
       />
+
+      {/* Platform -> Outlet Hierarchy */}
+      <PlatformHierarchy preset={selectedPeriod} />
 
       {/* Revenue Table */}
       <Card>
