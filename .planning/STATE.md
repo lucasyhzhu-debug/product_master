@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 03 of 06 -- COMPLETE
-Status: Plan 14-03 complete (Kanban queries + order lifecycle mutations), 3 plans remaining
-Last activity: 2026-02-15 -- Plan 14-03 executed (Kanban backend queries + lifecycle mutations)
+Plan: 04 of 06 -- COMPLETE
+Status: Plan 14-04 complete (Kanban board UI with slide-over and status transitions), 2 plans remaining
+Last activity: 2026-02-15 -- Plan 14-04 executed (Kanban board, cards, slide-over, status buttons)
 
 Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 
@@ -33,6 +33,7 @@ Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 | 14 | 01 | 45 min | 2 | 40 |
 | 14 | 02 | 2 min | 2 | 3 |
 | 14 | 03 | 4 min | 2 | 4 |
+| 14 | 04 | 8 min | 2 | 9 |
 
 *Updated after each plan completion*
 
@@ -55,6 +56,7 @@ Recent decisions affecting current work:
 - [Phase 14-01]: 7-status model replaces 12+; getDisplayStatus() removed; STATUS_CATEGORIES has 6 Kanban columns; inventory consolidated to PaymentReceived (reserve) + BeingPrepared (consume all)
 - [Phase 14-02]: shouldAutoEnterKitchen is pure function (no Convex ctx) for testability; canCancelOrder uses string param matching Plan 01 impl
 - [Phase 14-03]: Customer search reused from customers/queries.ts; updateStatus retained as escape hatch; moveForward/moveBackward pattern with FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS maps; token-to-userId via getSessionUser for audit trail
+- [Phase 14-04]: shadcn Sheet for slide-over (not Framer Motion); PaymentReceived uses expediteOrder for manual kitchen entry; BeingPrepared has no forward button (kitchen completes); Copy to New Order placeholder pending Plan 05
 
 ### Pending Todos
 
@@ -69,7 +71,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 14-03-PLAN.md (Kanban queries + order lifecycle mutations)
+Stopped at: Completed 14-04-PLAN.md (Kanban board UI with slide-over and status transitions)
 Resume file: None
 
 ---
