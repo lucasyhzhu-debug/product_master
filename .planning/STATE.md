@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 13 (API Audit & Auth Architecture) -- second of 5 phases in v1.1
-Plan: 02 of 03 -- COMPLETE
+Plan: 02 of 05 -- COMPLETE (01 + 02 done, 03-05 remaining)
 Status: In progress, ready for plan 03
-Last activity: 2026-02-15 -- Completed 13-02-PLAN.md (API integration reference)
+Last activity: 2026-02-15 -- Completed 13-01-PLAN.md (multi-merchant GoBiz sync + health monitoring)
 
 Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 
@@ -25,6 +25,7 @@ Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 12 | 01 | 1 min | 1 | 1 |
+| 13 | 01 | 6 min | 2 | 6 |
 | 13 | 02 | 3 min | 1 | 1 |
 
 *Updated after each plan completion*
@@ -41,6 +42,7 @@ Recent decisions affecting current work:
 - [v1.1 planning]: Single new dependency: date-fns ^4.1.0 for date arithmetic across Order/Kitchen/K3Mart phases
 - [Phase 12]: text-white on today badge acceptable (contrast on bg-brand); holiday cells use amber as only non-semantic color
 - [Phase 13-02]: All 3 integrations documented in single reference file for discoverability; multi-merchant gap noted (POC vs production)
+- [Phase 13-01]: resolveGoBizToken fixed to use getCredentialsInternal (refreshToken was always null); outlet map built once per sync run
 
 ### Pending Todos
 
@@ -55,7 +57,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 13-02-PLAN.md -- API integration reference done, ready for 13-03
+Stopped at: Completed 13-01-PLAN.md -- multi-merchant GoBiz sync + health monitoring done
 Resume file: None
 
 ---
