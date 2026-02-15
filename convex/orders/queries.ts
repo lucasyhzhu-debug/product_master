@@ -1037,3 +1037,115 @@ export const getCompletedToday = query({
     return result.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
+
+// ============================================
+// Phase 14: Kanban Board Queries
+// ============================================
+
+/**
+ * List orders grouped by Kanban column for the board view.
+ * Returns 6 columns, each sorted by dueDate ascending (nearest due first).
+ * Complete column is limited to last 50 orders for performance.
+ *
+ * Phase 14: Core query powering the Kanban UI (Plan 04).
+ */
+export const listForKanban = query({
+  args: {},
+  handler: async (ctx) => {
+    // Define column -> status mapping (matches STATUS_CATEGORIES in statusTransitions.ts)
+    const columns = [
+      { key: "draft", statuses: ["Draft"] as const },
+      { key: "awaiting_payment", statuses: ["AwaitingPayment"] as const },
+      { key: "payment_received", statuses: ["PaymentReceived"] as const },
+      { key: "being_prepared", statuses: ["BeingPrepared"] as const },
+      { key: "awaiting_delivery", statuses: ["AwaitingDelivery"] as const },
+      { key: "complete", statuses: ["Complete", "Cancelled"] as const },
+    ];
+
+    const result: Record<string, Array<Doc<"orders"> & {
+      items: Doc<"orderItems">[];
+      creatorName: string;
+    }>> = {};
+
+    for (const col of columns) {
+      const orders: Doc<"orders">[] = [];
+      for (const status of col.statuses) {
+        const statusOrders = await ctx.db
+          .query("orders")
+          .withIndex("by_status_due_date", (q) => q.eq("status", status))
+          .collect();
+        orders.push(...statusOrders);
+      }
+
+      // For "complete" column: limit to last 50 by completedAt descending (performance)
+      let sortedOrders: Doc<"orders">[];
+      if (col.key === "complete") {
+        sortedOrders = orders
+          .sort((a, b) => (b.completedAt ?? b._creationTime) - (a.completedAt ?? a._creationTime))
+          .slice(0, 50);
+      } else {
+        // Sort by dueDate ascending (nearest due first), nulls last
+        sortedOrders = orders.sort(
+          (a, b) => (a.dueDate ?? Infinity) - (b.dueDate ?? Infinity)
+        );
+      }
+
+      // Enrich with items + creator name
+      const enriched = await Promise.all(
+        sortedOrders.map(async (order) => {
+          const items = await ctx.db
+            .query("orderItems")
+            .withIndex("by_order", (q) => q.eq("orderId", order._id))
+            .filter((q) => q.neq(q.field("isCancelled"), true))
+            .collect();
+
+          // Resolve creator name from users table
+          let creatorName = order.createdBy;
+          if (order.createdByUserId) {
+            const user = await ctx.db.get(order.createdByUserId);
+            if (user) creatorName = user.name;
+          }
+
+          return { ...order, items, creatorName };
+        })
+      );
+
+      result[col.key] = enriched;
+    }
+
+    return result;
+  },
+});
+
+/**
+ * Get audit trail for an order.
+ * Returns orderEvents enriched with user names, sorted newest first.
+ *
+ * Phase 14: Powers the audit trail timeline in order details slide-over.
+ */
+export const getAuditTrail = query({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query("orderEvents")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    // Sort newest first
+    events.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Enrich with user names
+    const enriched = await Promise.all(
+      events.map(async (event) => {
+        let userName: string | undefined;
+        if (event.userId) {
+          const user = await ctx.db.get(event.userId);
+          if (user) userName = user.name;
+        }
+        return { ...event, userName };
+      })
+    );
+
+    return enriched;
+  },
+});
