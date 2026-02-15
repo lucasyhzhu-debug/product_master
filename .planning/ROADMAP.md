@@ -63,7 +63,12 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   4. GoFood revenue syncs from both Crystal (G347061572) and Goldfinch (G293156297) outlets
   5. Unified product mapping system auto-matches external products to internal menuProducts by type (Original→Original, Triple→Triple, Jumbo→Jumbo) independent of price differences; admin can edit/add/delete mappings via UI; covers GoFood and K3Mart
   6. All external API integrations documented with SOPs, automation status, and refresh token flow in docs/apiS/
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 13-01-PLAN.md -- Backend: multi-outlet GoBiz sync, token auto-refresh cron, sync health queries
+- [ ] 13-02-PLAN.md -- API documentation: comprehensive integration reference
+- [ ] 13-03-PLAN.md -- Integration settings dashboard with health monitoring and token management UX
+- [ ] 13-04-PLAN.md -- Dashboard sync failure banner and product mapping UI
+- [ ] 13-05-PLAN.md -- Sales analytics enhancement: summary cards, charts, date ranges, drill-down
 
 ### Phase 14: Order QoL
 **Goal**: Order staff can manage orders through a Kanban board, create orders in a dedicated form, and track every status change with an audit trail
@@ -120,7 +125,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 10. Frontend Factories | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 12. UI Brand Verification | v1.1 | 1/1 | Complete | 2026-02-15 |
-| 13. API Audit & Auth Architecture | v1.1 | 0/TBD | Not started | - |
+| 13. API Audit & Auth Architecture | v1.1 | 0/5 | Planned | - |
 | 14. Order QoL | v1.1 | 0/TBD | Not started | - |
 | 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |
 | 16. K3Mart Cockpit | v1.1 | 0/TBD | Not started | - |
