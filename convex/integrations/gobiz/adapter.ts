@@ -3,7 +3,7 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action, internalAction } from "../../_generated/server";
+import { action, internalAction, internalMutation } from "../../_generated/server";
 import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GOBIZ_CONFIG } from "./config";
@@ -16,8 +16,10 @@ import {
   aggregateJournalMetrics,
   parseOrderItems,
   buildJournalDedupKey,
+  getMerchantName,
   type JournalMetrics,
 } from "./helpers";
+import { GOBIZ_OUTLET_SEED } from "./config";
 
 type ActionCtx = {
   runQuery: (...args: any[]) => Promise<any>;
@@ -31,7 +33,7 @@ async function resolveGoBizToken(ctx: ActionCtx): Promise<{
   refreshToken: string | null;
 }> {
   const dbCred = await ctx.runQuery(
-    internal.platformCredentials.queries.getTokenInternal,
+    internal.platformCredentials.queries.getCredentialsInternal,
     { platformId: "gobiz" }
   );
 
@@ -266,7 +268,7 @@ async function fetchDayJournals(
 
   do {
     const body = buildJournalSearchBody(
-      isoFrom, isoTo, GOBIZ_CONFIG.merchantId,
+      isoFrom, isoTo, [...GOBIZ_CONFIG.merchantIds],
       page * pageSize, pageSize
     );
 
@@ -302,7 +304,8 @@ async function saveJournalTransactions(
   ctx: ActionCtx,
   dateStr: string,
   transactions: JournalMetrics[],
-  syncLogId: Id<"externalSyncLogs">
+  syncLogId: Id<"externalSyncLogs">,
+  outletMap: Map<string, Id<"externalOutlets">>
 ): Promise<Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }>> {
   const { from: periodStart, to: periodEnd } = wibDateToUtcRange(dateStr);
   const newRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }> = [];
@@ -310,12 +313,21 @@ async function saveJournalTransactions(
   for (const txn of transactions) {
     const dedupKey = buildJournalDedupKey(txn.orderNumber, txn.transactionTimeMs);
 
+    // Resolve outlet for this transaction's merchant
+    const outletId = txn.merchantId ? outletMap.get(txn.merchantId) : undefined;
+    if (txn.merchantId && !outletId) {
+      console.warn(
+        `No registered outlet for merchant_id: ${txn.merchantId} (${getMerchantName(txn.merchantId)}), skipping revenue attribution`
+      );
+    }
+
     const ids: Id<"externalRevenue">[] = await ctx.runMutation(
       internal.externalData.mutations.saveRevenue,
       {
         records: [
           {
             source: "gobiz" as const,
+            outletId: outletId ?? undefined,
             periodStart,
             periodEnd,
             dataOrigin: "api_revenue" as const,
@@ -467,6 +479,16 @@ export const syncGoBizRevenue = action({
       const dates = generateWibDateRange(daysBack);
       console.log(`GoBiz Sync: ${dates.length} days (${dates[0]} to ${dates[dates.length - 1]})`);
 
+      // Build outlet map: merchantId -> outletId for revenue attribution
+      const outletMap = new Map<string, Id<"externalOutlets">>();
+      const gobizOutlets: Array<{ _id: Id<"externalOutlets">; externalId: string }> = await ctx.runQuery(
+        internal.externalData.queries.getActiveOutlets,
+        { source: "gobiz" }
+      );
+      for (const outlet of gobizOutlets) {
+        outletMap.set(outlet.externalId, outlet._id);
+      }
+
       let totalGross = 0;
       let totalNet = 0;
       let totalCommission = 0;
@@ -499,7 +521,7 @@ export const syncGoBizRevenue = action({
 
         // Save each transaction as a revenue record
         const newRecords = await saveJournalTransactions(
-          ctx, dateStr, dayMetrics.transactions, syncLogId
+          ctx, dateStr, dayMetrics.transactions, syncLogId, outletMap
         );
 
         allNewRecords.push(...newRecords);
@@ -678,6 +700,16 @@ export const autoSyncGoBizRevenue = internalAction({
       const dates = generateWibDateRange(daysBack);
       const { refreshToken } = await resolveGoBizToken(ctx);
 
+      // Build outlet map for revenue attribution
+      const outletMap = new Map<string, Id<"externalOutlets">>();
+      const gobizOutlets: Array<{ _id: Id<"externalOutlets">; externalId: string }> = await ctx.runQuery(
+        internal.externalData.queries.getActiveOutlets,
+        { source: "gobiz" }
+      );
+      for (const outlet of gobizOutlets) {
+        outletMap.set(outlet.externalId, outlet._id);
+      }
+
       let currentToken = accessToken;
       let totalTransactions = 0;
       const allNewRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }> = [];
@@ -689,7 +721,7 @@ export const autoSyncGoBizRevenue = internalAction({
         );
         currentToken = usedToken;
         const dayMetrics = aggregateJournalMetrics(hits);
-        const newRecords = await saveJournalTransactions(ctx, dateStr, dayMetrics.transactions, syncLogId);
+        const newRecords = await saveJournalTransactions(ctx, dateStr, dayMetrics.transactions, syncLogId, outletMap);
         allNewRecords.push(...newRecords);
         totalTransactions += dayMetrics.transactionCount;
       }
@@ -770,5 +802,78 @@ export const autoSyncGoBizRevenue = internalAction({
       console.log("GoBiz auto-sync failed:", errorMsg);
       return { success: false, error: errorMsg };
     }
+  },
+});
+
+// ─── Token Auto-Refresh (standalone cron action) ─────────────────────────────
+
+/**
+ * Auto-refresh GoBiz token via 3-method cascade.
+ * Runs every 30 minutes via cron, independent of revenue sync schedule.
+ * Ensures the token stays alive even outside WIB business hours.
+ */
+export const autoRefreshGoBizToken = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const { accessToken, refreshToken } = await resolveGoBizToken(ctx);
+
+    if (!refreshToken) {
+      console.log("GoBiz token refresh skipped: no refresh token available");
+      return { success: false, reason: "no_refresh_token" };
+    }
+
+    const newToken = await attemptTokenRefresh(ctx, refreshToken, accessToken);
+
+    if (newToken) {
+      console.log("GoBiz token auto-refresh successful");
+      return { success: true };
+    } else {
+      console.log("GoBiz token auto-refresh failed (all methods exhausted)");
+      return { success: false, reason: "all_methods_failed" };
+    }
+  },
+});
+
+// ─── Outlet Seed Mutation ────────────────────────────────────────────────────
+
+/**
+ * Seed GoBiz outlets (Crystal + Goldfinch) into externalOutlets table.
+ * Idempotent: only creates outlets that don't already exist.
+ *
+ * Run from Convex dashboard Functions tab during initial setup:
+ *   integrations.gobiz.adapter.seedGoBizOutlets
+ */
+export const seedGoBizOutlets = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    for (const outlet of GOBIZ_OUTLET_SEED) {
+      // Check if outlet already exists by source + externalId
+      const existing = await ctx.db
+        .query("externalOutlets")
+        .withIndex("by_source_external_id", (q) =>
+          q.eq("source", outlet.source).eq("externalId", outlet.externalId)
+        )
+        .first();
+
+      if (existing) {
+        skipped.push(`${outlet.name} (${outlet.externalId})`);
+        continue;
+      }
+
+      await ctx.db.insert("externalOutlets", {
+        source: outlet.source,
+        externalId: outlet.externalId,
+        name: outlet.name,
+        isActive: true,
+      });
+
+      created.push(`${outlet.name} (${outlet.externalId})`);
+    }
+
+    console.log(`seedGoBizOutlets: created ${created.length}, skipped ${skipped.length}`);
+    return { created, skipped };
   },
 });

@@ -10,7 +10,13 @@
  */
 
 export const GOBIZ_CONFIG = {
-  merchantId: "G293156297",
+  /** @deprecated Use merchantIds instead */
+  merchantId: "G293156297" as const,
+  merchantIds: ["G293156297", "G347061572"] as const,
+  merchantNames: {
+    "G293156297": "Legato Goldfinch",
+    "G347061572": "GoFood Crystal",
+  } as Record<string, string>,
   portalBaseUrl: "https://portal.gofoodmerchant.co.id",
   dashboardApi: {
     proxyId: 63,
@@ -77,3 +83,15 @@ export interface GoBizDashboardMetrics {
   promoBurn: number;
   transactionCount: number;
 }
+
+/**
+ * Seed data for GoBiz outlets.
+ * Both Crystal and Goldfinch must be pre-registered in externalOutlets
+ * before the first sync runs.
+ *
+ * Run `seedGoBizOutlets` from Convex dashboard Functions tab during initial setup.
+ */
+export const GOBIZ_OUTLET_SEED = [
+  { externalId: "G293156297", name: "Legato Goldfinch", source: "gobiz" as const },
+  { externalId: "G347061572", name: "GoFood Crystal", source: "gobiz" as const },
+] as const;

@@ -152,7 +152,7 @@ export function buildGoBizApiHeaders(token: string): Record<string, string> {
 export function buildJournalSearchBody(
   utcFromIso: string,
   utcToIso: string,
-  merchantId: string,
+  merchantIds: string[],
   from: number,
   size: number
 ): object {
@@ -221,11 +221,11 @@ export function buildJournalSearchBody(
             op: "lte",
             value: utcToIso,
           },
-          // Merchant filter
+          // Merchant filter (supports multiple merchants via "in" operator)
           {
             field: "metadata.transaction.merchant_id",
-            op: "equal",
-            value: merchantId,
+            op: "in",
+            value: merchantIds,
           },
         ],
       },
@@ -247,6 +247,7 @@ export interface JournalMetrics {
   commission: number;
   paymentType: string;
   status: string;
+  merchantId: string;
 }
 
 /**
@@ -273,6 +274,7 @@ export function extractJournalMetrics(hit: any): JournalMetrics | null {
   const transactionTimeMs = transactionTime ? new Date(transactionTime).getTime() : 0;
   const status = hit.metadata?.transaction?.status ?? hit.status ?? "";
   const paymentType = hit.metadata?.transaction?.payment_type ?? "";
+  const merchantId = hit.metadata?.transaction?.merchant_id ?? "";
 
   // Gross from hit.amount (centesimal)
   const grossRaw = hit.amount ?? hit.metadata?.transaction?.gross_amount ?? 0;
@@ -298,6 +300,7 @@ export function extractJournalMetrics(hit: any): JournalMetrics | null {
     commission,
     paymentType,
     status,
+    merchantId,
   };
 }
 
@@ -395,4 +398,12 @@ export function parseOrderItems(orderResponse: any): ParsedOrderItem[] {
  */
 export function buildJournalDedupKey(orderNumber: string, txnTimeMs: number): string {
   return `${orderNumber}|${txnTimeMs}`;
+}
+
+/**
+ * Get human-readable merchant name from merchant ID.
+ * Falls back to the raw ID if not found in config.
+ */
+export function getMerchantName(merchantId: string): string {
+  return GOBIZ_CONFIG.merchantNames[merchantId] ?? merchantId;
 }

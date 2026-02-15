@@ -17,6 +17,14 @@ crons.cron(
   internal.integrations.gobiz.adapter.autoSyncGoBizRevenue
 );
 
+// Refresh GoBiz token every 30 minutes (24/7)
+// Independent of revenue sync schedule — keeps token alive outside business hours
+crons.interval(
+  "refresh gobiz token",
+  { minutes: 30 },
+  internal.integrations.gobiz.adapter.autoRefreshGoBizToken
+);
+
 // Weekly data integrity check (Sundays at 3:00 UTC = 10:00 WIB)
 crons.cron("weekly integrity check", "0 3 * * 0", internal.integrityChecks.mutations.runWeeklyCheck);
 
