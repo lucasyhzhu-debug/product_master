@@ -254,12 +254,11 @@ describe("Menu Product Components BOM", () => {
         code: "ORIGINAL",
         grams: 80,
         defaultPrice: 50000,
-        productionType: "original",
-        productionUnits: 1,
+
         unitCost: 19231,
+        cachedProductionSummary: "1 Big Ball",
         productType: "food",
         isActive: true,
-        isFixed: true,
       });
     });
 
@@ -363,11 +362,11 @@ describe("Component Type Deletion Guards", () => {
         code: "TEST_PROD",
         grams: 80,
         defaultPrice: 25000,
-        productionType: "original",
-        productionUnits: 1,
+
+        unitCost: 0,
+        cachedProductionSummary: "",
         productType: "food",
         isActive: true,
-        isFixed: false,
       });
     });
 

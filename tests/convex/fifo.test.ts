@@ -667,7 +667,7 @@ describe('Edge cases and constraints', () => {
     const transactions = await t.run(async (ctx) => {
       return await ctx.db
         .query('componentTransactions')
-        .withIndex('by_batch', (q) => q.eq('batchId', batchId))
+        .filter((q) => q.eq(q.field('batchId'), batchId))
         .collect();
     });
 

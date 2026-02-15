@@ -388,9 +388,11 @@ export async function createMenuProduct(
       name: overrides.name ?? 'Test Product',
       grams: 100,
       defaultPrice: overrides.defaultPrice ?? 25000,
-      productionType: 'original',
-      productionUnits: 1,
+
       isActive: overrides.isActive ?? true,
+      unitCost: 0,
+      cachedProductionSummary: '',
+      productType: 'food' as const,
     });
   });
 }

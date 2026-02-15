@@ -27,9 +27,11 @@ async function createMenuProduct(
       name: overrides.name ?? "Frollie Original",
       grams: 80,
       defaultPrice: 50000,
-      productionType: "original",
-      productionUnits: 1,
+
       isActive: true,
+      unitCost: 0,
+      cachedProductionSummary: "",
+      productType: "food" as const,
     });
   });
 }
@@ -405,21 +407,32 @@ describe("recordShipment", () => {
     expect(shipments[0].shippedBy).toBe("Test User");
   });
 
-  test("updates productionCounts.shippedToGoldfinch", async () => {
+  test("writes productionLog ship_goldfinch entry", async () => {
     const t = convexTest(schema);
     const mpId = await createMenuProduct(t);
     await createOfficeLocation(t);
     await createGoldfinchLocation(t);
     const token = await createAuthUser(t, "kitchen");
-    const countId = await createProductionCounts(t, mpId);
 
     await t.mutation(api.gofoodDepot.mutations.recordShipment, {
       token,
       items: [{ menuProductId: mpId, quantity: 4 }],
     });
 
-    const counts = await t.run(async (ctx) => ctx.db.get(countId));
-    expect(counts!.shippedToGoldfinch).toBe(4);
+    // Phase 11: shippedToGoldfinch is now derived from productionLog aggregation
+    const logs = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("productionLog")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("menuProductId"), mpId),
+            q.eq(q.field("action"), "ship_goldfinch")
+          )
+        )
+        .collect();
+    });
+    expect(logs.length).toBe(1);
+    expect(logs[0].quantity).toBe(4);
   });
 
   test("rejects zero quantity", async () => {
@@ -638,18 +651,31 @@ describe("processSyncSales", () => {
     expect(logs[0].note).toBe("auto:gobiz-sale");
   });
 
-  test("increments productionCounts.stickered", async () => {
+  test("aggregates stickered count from productionLog", async () => {
     const t = convexTest(schema);
     const mpId = await createMenuProduct(t);
     await createGoldfinchLocation(t);
-    const countId = await createProductionCounts(t, mpId);
 
     await t.mutation(internal.gofoodDepot.mutations.processSyncSales, {
       items: [{ menuProductId: mpId, quantity: 4 }],
     });
 
-    const counts = await t.run(async (ctx) => ctx.db.get(countId));
-    expect(counts!.stickered).toBe(4);
+    // Phase 11: stickered count is now derived from productionLog aggregation
+    const logs = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("productionLog")
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("menuProductId"), mpId),
+            q.eq(q.field("action"), "sticker")
+          )
+        )
+        .collect();
+    });
+    // processSyncSales writes both its own sticker log entry (line 622 test)
+    // and this test verifies the total sticker quantity
+    const totalStickered = logs.reduce((sum, l) => sum + l.quantity, 0);
+    expect(totalStickered).toBe(4);
   });
 
   test("returns gracefully when Goldfinch location not found", async () => {

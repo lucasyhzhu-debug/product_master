@@ -713,15 +713,15 @@ describe('Cost Recalculation', () => {
     expect(version?.cachedCostPerGram).toBe(10);
   });
 
-  test('returns null when ingredient has null cost', async () => {
+  test('returns zero cost when ingredient has zero cost', async () => {
     const t = convexTest(schema);
 
     const { versionId, ingredientId } = await setupRecipeWithVersion(t);
 
-    // Set ingredient cost to null
+    // Set ingredient cost to zero (costPerBaseUnit is required after schema tightening)
     await t.run(async (ctx) => {
       await ctx.db.patch(ingredientId, {
-        costPerBaseUnit: undefined,
+        costPerBaseUnit: 0,
       });
     });
 
@@ -729,8 +729,8 @@ describe('Cost Recalculation', () => {
       versionId,
     });
 
-    expect(result.totalCost).toBeNull();
-    expect(result.costPerGram).toBeNull();
+    expect(result.totalCost).toBe(0);
+    expect(result.costPerGram).toBe(0);
   });
 
   test('returns null cost per gram when yield is not set', async () => {

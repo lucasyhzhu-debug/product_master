@@ -264,16 +264,11 @@ describe("K3 Mart Cockpit - confirmDayPlan", () => {
 // processStockOutDestination - 5 tests
 // ============================================
 describe("K3 Mart Cockpit - processStockOutDestination", () => {
-  test("routes to office - increments production count", async () => {
+  test("routes to office - writes productionLog sticker entry", async () => {
     const t = convexTest(schema);
     const outlet = await createK3MartOutlet(t);
     const menuProduct = await createMenuProduct(t, { name: "Product K" });
     const token = await createAdminSession(t);
-
-    const prodCountId = await createProductionCount(t, {
-      menuProductId: menuProduct,
-      stickered: 5,
-    });
 
     const movementId = await t.run(async (ctx) => {
       return await ctx.db.insert("k3martStockMovements", {
@@ -298,8 +293,17 @@ describe("K3 Mart Cockpit - processStockOutDestination", () => {
       quantity: 3,
     });
 
-    const updatedCount = await t.run(async (ctx) => ctx.db.get(prodCountId));
-    expect(updatedCount?.stickered).toBe(8);
+    // Phase 11: production counts are now derived from productionLog aggregation
+    const logs = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("productionLog")
+        .filter((q) => q.eq(q.field("menuProductId"), menuProduct))
+        .collect();
+    });
+    expect(logs.length).toBe(1);
+    expect(logs[0].action).toBe("sticker");
+    expect(logs[0].quantity).toBe(3);
+    expect(logs[0].note).toBe("k3mart-stock-out:office");
   });
 
   test("routes to goldfinch - increments depot stock", async () => {
@@ -668,9 +672,16 @@ describe("K3 Mart Cockpit - getProductionReadiness", () => {
     const outlet = await createK3MartOutlet(t);
     const menuProduct = await createMenuProduct(t, { name: "Product V" });
 
-    await createProductionCount(t, {
-      menuProductId: menuProduct,
-      stickered: 5,
+    // Phase 11: production counts derived from productionLog aggregation
+    await t.run(async (ctx) => {
+      await ctx.db.insert("productionLog", {
+        menuProductId: menuProduct,
+        action: "sticker",
+        quantity: 5,
+        timestamp: Date.now(),
+        performedBy: "test",
+        note: "test-setup",
+      });
     });
 
     // Today: confirmed plan for 8 stock-in

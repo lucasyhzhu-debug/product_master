@@ -226,6 +226,8 @@ describe("Stock Reservation", () => {
         itemCount: 1,
         deliveryType: "Pickup",
         createdBy: "test",
+        finalTotal: 50000,
+        isKitchenVisible: true,
       });
     });
 

@@ -579,9 +579,11 @@ export async function createMenuProduct(
       name: overrides.name ?? 'Test Product',
       grams: 100,
       defaultPrice: overrides.defaultPrice ?? 25000,
-      productionType: 'original',
-      productionUnits: 1,
+
       isActive: overrides.isActive ?? true,
+      unitCost: 0,
+      cachedProductionSummary: '',
+      productType: 'food' as const,
     });
   });
 }
@@ -956,7 +958,7 @@ export async function createComponentType(
           name,
           gramsPerUnit,
           unitCostIdr,
-          color: overrides.color,
+          color: overrides.color ?? '#93C572',
           sortOrder,
           isActive,
         });
@@ -1004,9 +1006,11 @@ export async function createMenuProductWithBOM(
       name,
       grams,
       defaultPrice,
-      productionType: 'original', // DEPRECATED -- placeholder only
-      productionUnits: 1,         // DEPRECATED -- placeholder only
+
       isActive,
+      unitCost: 0,
+      cachedProductionSummary: '',
+      productType: 'food' as const,
     });
   });
 
@@ -1100,6 +1104,8 @@ export async function createBasicOrder(
     const now = new Date();
     const orderNumber = `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
 
+    const totalAmount = quantity * unitPrice;
+    const kitchenVisibleStatuses = ['Confirmed', 'InProduction', 'Boxed', 'Labeled', 'ProductionComplete', 'Packaging'];
     return await ctx.db.insert('orders', {
       orderNumber,
       customerId,
@@ -1108,12 +1114,14 @@ export async function createBasicOrder(
       paymentStatus: 'Unpaid',
       orderDate,
       dueDate,
-      totalAmount: quantity * unitPrice,
+      totalAmount,
       totalCost: quantity * unitCost,
       totalMargin: quantity * (unitPrice - unitCost),
       deliveryType: 'Delivery',
       createdBy: 'test',
       itemCount: 1,
+      finalTotal: totalAmount,
+      isKitchenVisible: kitchenVisibleStatuses.includes(status),
     });
   });
 

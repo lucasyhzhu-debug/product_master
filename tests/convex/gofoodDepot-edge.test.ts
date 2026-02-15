@@ -29,9 +29,11 @@ async function createMenuProduct(
       name: overrides.name ?? "Frollie Original",
       grams: 80,
       defaultPrice: 50000,
-      productionType: "original",
-      productionUnits: 1,
+
       isActive: true,
+      unitCost: 0,
+      cachedProductionSummary: "",
+      productType: "food" as const,
     });
   });
 }

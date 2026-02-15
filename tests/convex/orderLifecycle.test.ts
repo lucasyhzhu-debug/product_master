@@ -106,9 +106,11 @@ describe('Complete Lifecycle - Shipped Path', () => {
         name: 'Shipped Test Product',
         grams: 100,
         defaultPrice: 25000,
-        productionType: 'original',
-        productionUnits: 1,
+
         isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: '',
+        productType: 'food' as const,
       });
     });
 
@@ -714,9 +716,11 @@ describe('Inventory Integration', () => {
         name: 'Inventory Test Product',
         grams: 100,
         defaultPrice: 25000,
-        productionType: 'original',
-        productionUnits: 1,
+
         isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: '',
+        productType: 'food' as const,
       });
     });
 
@@ -834,9 +838,11 @@ describe('Inventory Integration', () => {
         name: 'Consume Test Product',
         grams: 100,
         defaultPrice: 25000,
-        productionType: 'original',
-        productionUnits: 1,
+
         isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: '',
+        productType: 'food' as const,
       });
     });
 
@@ -937,9 +943,11 @@ describe('Inventory Integration', () => {
         name: 'Pickup Test Product',
         grams: 100,
         defaultPrice: 25000,
-        productionType: 'original',
-        productionUnits: 1,
+
         isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: '',
+        productType: 'food' as const,
       });
     });
 
@@ -1026,9 +1034,11 @@ describe('Inventory Integration', () => {
         name: 'Release Test Product',
         grams: 100,
         defaultPrice: 25000,
-        productionType: 'original',
-        productionUnits: 1,
+
         isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: '',
+        productType: 'food' as const,
       });
     });
 
