@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 13 (API Audit & Auth Architecture) -- second of 5 phases in v1.1
-Plan: 02 of 05 -- COMPLETE (01 + 02 done, 03-05 remaining)
-Status: In progress, ready for plan 03
-Last activity: 2026-02-15 -- Completed 13-01-PLAN.md (multi-merchant GoBiz sync + health monitoring)
+Plan: 03 of 05 -- COMPLETE (01 + 02 + 03 done, 04-05 remaining)
+Status: In progress, ready for plan 04
+Last activity: 2026-02-15 -- Completed 13-03-PLAN.md (integration settings dashboard with health cards)
 
 Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 
@@ -27,6 +27,7 @@ Progress (v1.1): [###.......] 30% (Phase 12 complete, Phase 13 in progress)
 | 12 | 01 | 1 min | 1 | 1 |
 | 13 | 01 | 6 min | 2 | 6 |
 | 13 | 02 | 3 min | 1 | 1 |
+| 13 | 03 | 4 min | 2 | 5 |
 
 *Updated after each plan completion*
 
@@ -43,6 +44,7 @@ Recent decisions affecting current work:
 - [Phase 12]: text-white on today badge acceptable (contrast on bg-brand); holiday cells use amber as only non-semantic color
 - [Phase 13-02]: All 3 integrations documented in single reference file for discoverability; multi-merchant gap noted (POC vs production)
 - [Phase 13-01]: resolveGoBizToken fixed to use getCredentialsInternal (refreshToken was always null); outlet map built once per sync run
+- [Phase 13-03]: IntegrationHealthCard replaces Accordion layout; manager sees read-only health, admin gets full controls; 30s countdown interval for token expiry
 
 ### Pending Todos
 
@@ -57,8 +59,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 13-01-PLAN.md -- multi-merchant GoBiz sync + health monitoring done
+Stopped at: Completed 13-03-PLAN.md -- integration settings dashboard with health cards
 Resume file: None
 
 ---
-*Last updated: 2026-02-15*
+*Last updated: 2026-02-15T10:49Z*
