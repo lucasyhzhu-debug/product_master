@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 13 (API Audit & Auth Architecture) -- second of 5 phases in v1.1
-Plan: 05 of 05 -- COMPLETE (all plans done, phase complete)
-Status: Phase 13 verified and complete, ready for Phase 14
-Last activity: 2026-02-15 -- Phase 13 verified (27/27 must-haves passed)
+Phase: 14 (Order QoL) -- third of 5 phases in v1.1
+Plan: 01 of 06 -- COMPLETE
+Status: Plan 14-01 complete (schema migration + frontend types), 5 plans remaining
+Last activity: 2026-02-15 -- Plan 14-01 executed (7-status model migration)
 
-Progress (v1.1): [####......] 40% (Phase 12 + 13 complete)
+Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 
 ## Performance Metrics
 
@@ -30,6 +30,7 @@ Progress (v1.1): [####......] 40% (Phase 12 + 13 complete)
 | 13 | 03 | 4 min | 2 | 5 |
 | 13 | 04 | 8 min | 2 | 11 |
 | 13 | 05 | 5 min | 3 | 8 |
+| 14 | 01 | 45 min | 2 | 40 |
 
 *Updated after each plan completion*
 
@@ -49,6 +50,7 @@ Recent decisions affecting current work:
 - [Phase 13-03]: IntegrationHealthCard replaces Accordion layout; manager sees read-only health, admin gets full controls; 30s countdown interval for token expiry
 - [Phase 13-04]: SyncHealthBanner gated by canAccessSalesAnalytics; raw Convex query used for menu products to preserve Id types; countMappingImpact uses skip pattern for lazy loading
 - [Phase 13-05]: Recharts added for stacked charts; BarChart for daily/weekly, AreaChart for monthly; platform colors: GoFood=teal, K3Mart=blue, Direct=amber; allTime preset from Jan 2020 with no comparison
+- [Phase 14-01]: 7-status model replaces 12+; getDisplayStatus() removed; STATUS_CATEGORIES has 6 Kanban columns; inventory consolidated to PaymentReceived (reserve) + BeingPrepared (consume all)
 
 ### Pending Todos
 
@@ -63,7 +65,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 13 verified and complete -- ready for Phase 14 (Order QoL)
+Stopped at: Completed 14-01-PLAN.md (schema migration + frontend types)
 Resume file: None
 
 ---
