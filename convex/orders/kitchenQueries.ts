@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
 
 /**
  * Get orders ready for packing in the kitchen.
@@ -30,16 +31,47 @@ export const getKitchenPackingOrders = query({
       return a.orderDate - b.orderDate;
     });
 
-    // Get global production counts for availability calculation
-    const allCounts = await ctx.db.query("productionCounts").collect();
-    const countsMap = new Map(allCounts.map((c) => [c.menuProductId, c]));
+    // Get global production counts from productionLog aggregation
+    const resetsMap = await getResetsMap(ctx);
 
-    const result = await Promise.all(
+    // Collect unique menuProductIds from orders to aggregate only what's needed
+    const menuProductIds = new Set<Id<"menuProducts">>();
+
+    // Pre-fetch order items for all orders
+    const allOrderItems = await Promise.all(
       allOrders.map(async (order) => {
-        const orderItems = await ctx.db
+        const items = await ctx.db
           .query("orderItems")
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
           .collect();
+        return { orderId: order._id, items };
+      })
+    );
+
+    const orderItemsMap = new Map(
+      allOrderItems.map((o) => [o.orderId as unknown as string, o.items])
+    );
+
+    for (const { items } of allOrderItems) {
+      for (const item of items) {
+        if (item.menuProductId && !item.isCancelled) {
+          menuProductIds.add(item.menuProductId);
+        }
+      }
+    }
+
+    // Aggregate counts for relevant products
+    const countsMap = new Map<string, { stickered: number; packed: number }>();
+    for (const mpId of menuProductIds) {
+      const resetRecord = resetsMap.get(mpId as unknown as string) ?? null;
+      const counts = await aggregateForProduct(ctx, mpId, resetRecord);
+      countsMap.set(mpId as unknown as string, counts);
+    }
+
+    const result = await Promise.all(
+      allOrders.map(async (order) => {
+        const orderItems =
+          orderItemsMap.get(order._id as unknown as string) ?? [];
 
         const activeItems = orderItems.filter((item) => !item.isCancelled);
 
@@ -49,7 +81,7 @@ export const getKitchenPackingOrders = query({
             let availableForPacking = 0;
 
             if (item.menuProductId) {
-              const counts = countsMap.get(item.menuProductId);
+              const counts = countsMap.get(item.menuProductId as unknown as string);
               if (counts) {
                 availableForPacking = counts.stickered - counts.packed;
               }

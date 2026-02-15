@@ -1,6 +1,11 @@
 import { query } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import {
+  aggregateForProduct,
+  buildBallInfoMap,
+  getResetsMap,
+} from "./helpers";
 
 /**
  * Get recent production log entries, enriched with menu product name.
@@ -108,6 +113,8 @@ export const getDailySummary = query({
         unsticker: number;
         pack: number;
         unpack: number;
+        ship_goldfinch: number;
+        return_goldfinch: number;
       }
     >();
 
@@ -124,6 +131,8 @@ export const getDailySummary = query({
           unsticker: 0,
           pack: 0,
           unpack: 0,
+          ship_goldfinch: 0,
+          return_goldfinch: 0,
         });
       }
 
@@ -132,5 +141,100 @@ export const getDailySummary = query({
     }
 
     return Array.from(summaryMap.values());
+  },
+});
+
+// ============================================
+// Aggregation Queries (replace productionCounts reads)
+// ============================================
+
+/**
+ * Get aggregated production counts for all active menu products.
+ * Replaces productionCounts.queries.getAll — derives counts from productionLog.
+ *
+ * Respects productionResets timestamps: only counts log entries after the last reset.
+ * Ball info derived from BOM (menuProductComponents + componentTypes).
+ */
+export const getAggregatedCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    // 1. Get all active menu products
+    const menuProducts = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    // 2. Get all productionResets
+    const resetsMap = await getResetsMap(ctx);
+
+    // 3. Build ball info from BOM
+    const ballInfoMap = await buildBallInfoMap(ctx);
+
+    // 4. Aggregate for each menu product
+    return await Promise.all(
+      menuProducts.map(async (mp) => {
+        const resetRecord =
+          resetsMap.get(mp._id as unknown as string) ?? null;
+
+        const counts = await aggregateForProduct(ctx, mp._id, resetRecord);
+
+        const bomInfo = ballInfoMap.get(mp._id as unknown as string);
+        const ballType: "big" | "mid" = bomInfo?.ballType ?? "mid";
+        const ballCount: number = bomInfo?.ballCount ?? 0;
+
+        return {
+          menuProductId: mp._id,
+          menuProductName: mp.name,
+          menuProductCode: mp.code,
+          posSlot: mp.posSlot,
+          productType: mp.productType,
+          ballType,
+          ballCount,
+          boxed: counts.boxed,
+          stickered: counts.stickered,
+          packed: counts.packed,
+          shippedToGoldfinch: counts.shippedToGoldfinch,
+          availableForStickering: counts.boxed - counts.stickered,
+          availableForPacking: counts.stickered - counts.packed,
+          lastResetAt: resetRecord?.lastResetAt,
+          lastResetBy: resetRecord?.lastResetBy,
+        };
+      })
+    );
+  },
+});
+
+/**
+ * Get aggregated production counts for a single menu product.
+ * Replaces productionCounts.queries.getByMenuProduct.
+ */
+export const getCountsByMenuProduct = query({
+  args: { menuProductId: v.id("menuProducts") },
+  handler: async (ctx, args) => {
+    // Get reset record for this product
+    const resetRecord = await ctx.db
+      .query("productionResets")
+      .withIndex("by_menu_product", (q) =>
+        q.eq("menuProductId", args.menuProductId)
+      )
+      .first();
+
+    const counts = await aggregateForProduct(
+      ctx,
+      args.menuProductId,
+      resetRecord
+    );
+
+    return {
+      menuProductId: args.menuProductId,
+      boxed: counts.boxed,
+      stickered: counts.stickered,
+      packed: counts.packed,
+      shippedToGoldfinch: counts.shippedToGoldfinch,
+      availableForStickering: counts.boxed - counts.stickered,
+      availableForPacking: counts.stickered - counts.packed,
+      lastResetAt: resetRecord?.lastResetAt,
+      lastResetBy: resetRecord?.lastResetBy,
+    };
   },
 });

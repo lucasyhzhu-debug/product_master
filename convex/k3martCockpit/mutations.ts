@@ -329,19 +329,15 @@ export const processStockOutDestination = mutation({
 
     // Route to destination
     if (args.destination === "office") {
-      // Increment production counts stickered
-      const prodCount = await ctx.db
-        .query("productionCounts")
-        .withIndex("by_menu_product", (q) =>
-          q.eq("menuProductId", movement.menuProductId)
-        )
-        .first();
-
-      if (prodCount) {
-        await ctx.db.patch(prodCount._id, {
-          stickered: prodCount.stickered + args.quantity,
-        });
-      }
+      // Log stickering to productionLog (replaces productionCounts.stickered write)
+      await ctx.db.insert("productionLog", {
+        menuProductId: movement.menuProductId,
+        action: "sticker",
+        quantity: args.quantity,
+        timestamp: now,
+        performedBy: user.name,
+        note: "k3mart-stock-out:office",
+      });
     } else if (args.destination === "goldfinch") {
       // Increment GoFood depot stock
       const depotStock = await ctx.db

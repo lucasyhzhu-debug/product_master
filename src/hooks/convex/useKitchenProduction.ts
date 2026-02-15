@@ -140,7 +140,8 @@ export function useKitchenProduction(): KitchenProductionData {
   const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
   const today = wibNow.toISOString().slice(0, 10);
 
-  const productionCounts = useQuery(api.productionCounts.queries.getAll, {});
+  // INFRA-03: Production counts now derived from productionLog aggregation
+  const productionCounts = useQuery(api.productionLog.queries.getAggregatedCounts, {});
   const packingOrders = useQuery(
     api.orders.kitchenQueries.getKitchenPackingOrders,
     {}

@@ -39,6 +39,7 @@ import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapte
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_registry from "../integrations/registry.js";
+import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
 import type * as inventory_fifo from "../inventory/fifo.js";
 import type * as inventory_helpers from "../inventory/helpers.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
@@ -66,6 +67,7 @@ import type * as migrations_bomVerification from "../migrations/bomVerification.
 import type * as migrations_categorySimplification from "../migrations/categorySimplification.js";
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
+import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_ballDistribution from "../orders/helpers/ballDistribution.js";
@@ -159,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/registry": typeof integrations_registry;
+  "integrityChecks/mutations": typeof integrityChecks_mutations;
   "inventory/fifo": typeof inventory_fifo;
   "inventory/helpers": typeof inventory_helpers;
   "inventory/mutations": typeof inventory_mutations;
@@ -186,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/categorySimplification": typeof migrations_categorySimplification;
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
+  "migrations/schemaCleanup": typeof migrations_schemaCleanup;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/ballDistribution": typeof orders_helpers_ballDistribution;

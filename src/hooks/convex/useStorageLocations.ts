@@ -1,30 +1,25 @@
 /**
  * Storage Locations hooks for warehouse/office/venue management.
- *
- * Queries and mutations for storage locations.
+ * Query hooks + factory-generated mutation hooks (with toast notifications).
  */
 
 import { useQuery } from "convex/react";
-import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { createMutationHook } from "./createMutationHook";
 
 // ============================================================================
 // QUERY HOOKS
 // ============================================================================
 
-/**
- * List all storage locations
- */
+/** List all storage locations */
 export function useConvexStorageLocations(activeOnly?: boolean) {
   return useQuery(api.storageLocations.queries.list, {
     activeOnly,
   });
 }
 
-/**
- * Get location by ID
- */
+/** Get location by ID */
 export function useConvexStorageLocation(
   id: Id<"storageLocations"> | undefined
 ) {
@@ -34,9 +29,7 @@ export function useConvexStorageLocation(
   );
 }
 
-/**
- * Get default storage location
- */
+/** Get default storage location */
 export function useConvexDefaultLocation() {
   return useQuery(api.storageLocations.queries.getDefault);
 }
@@ -45,26 +38,23 @@ export function useConvexDefaultLocation() {
 // MUTATION HOOKS
 // ============================================================================
 
-/**
- * Create a new storage location
- */
-export function useConvexCreateStorageLocation() {
-  return useSessionMutation(api.storageLocations.mutations.create);
-}
+/** Create a new storage location */
+export const useConvexCreateStorageLocation = createMutationHook(
+  api.storageLocations.mutations.create,
+  { successMessage: "Location created", errorMessage: "Failed to create location" }
+);
 
-/**
- * Update an existing storage location
- */
-export function useConvexUpdateStorageLocation() {
-  return useSessionMutation(api.storageLocations.mutations.update);
-}
+/** Update an existing storage location */
+export const useConvexUpdateStorageLocation = createMutationHook(
+  api.storageLocations.mutations.update,
+  { successMessage: "Location updated", errorMessage: "Failed to update location" }
+);
 
-/**
- * Delete a storage location
- */
-export function useConvexDeleteStorageLocation() {
-  return useSessionMutation(api.storageLocations.mutations.remove);
-}
+/** Delete a storage location */
+export const useConvexDeleteStorageLocation = createMutationHook(
+  api.storageLocations.mutations.remove,
+  { successMessage: "Location deleted", errorMessage: "Failed to delete location" }
+);
 
 // ============================================================================
 // TYPES

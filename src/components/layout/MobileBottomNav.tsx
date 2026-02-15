@@ -9,8 +9,10 @@ import {
   Circle,
   MessageSquare,
   Tag,
+  Tags,
   Ticket,
   Users,
+  Contact,
   Store,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +47,8 @@ const moreItems: TabItem[] = [
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
+  { path: '/customers', icon: Contact, label: 'Customers', permission: 'canAccessOrders' },
+  { path: '/tags', icon: Tags, label: 'Tags', permission: 'canAccessRecipes' },
   { path: '/vouchers', icon: Ticket, label: 'Vouchers', permission: 'canAccessVouchers' },
   { path: '/users', icon: Users, label: 'Users', permission: 'canAccessUsers' },
 ];

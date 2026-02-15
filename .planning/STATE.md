@@ -1,13 +1,13 @@
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-02-13)
-**Core value:** Every concern resolved, build passes, no regressions
-**Current focus:** Phase 10 — Frontend Factories (READY)
+See: .planning/PROJECT.md (updated 2026-02-15)
+**Core value:** Production reliability — single source of truth for recipes, orders, kitchen, inventory
+**Current focus:** Milestone v1.0 COMPLETE — ready for next milestone
 
 ## Current Position
-Phase: 9 — UI Brand Consolidation COMPLETE
-Last completed: 09-05 (Skeleton Screens, Dark Mode, Header Redesign)
+Milestone v1.0 Concerns Cleanup & Refactor — SHIPPED 2026-02-15
+All 11 phases, 36 plans complete
 
 ## Phase Readiness
 
@@ -22,10 +22,11 @@ Last completed: 09-05 (Skeleton Screens, Dark Mode, Header Redesign)
 | 7 — Query Optimization | COMPLETE (all 3 plans done) | None |
 | 8 — Schema Cleanup | COMPLETE (all 4 plans done) | None |
 | 9 — UI Brand Consolidation | COMPLETE (all 5 plans done) | None |
-| 10 — Infrastructure | Ready | None |
+| 10 — Frontend Factories | COMPLETE (all 3 plans done) | None |
+| 11 — Infrastructure | COMPLETE (all 3 plans done) | None |
 
 ## Parallel Opportunities
-Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are now unblocked and ready for execution.
+Phases 1-11 COMPLETE. All planned phases done. Ready for merge to main and next milestone planning.
 
 ## Session History
 
@@ -62,6 +63,12 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 2026-02-14 | 09 | Plan 03 complete | PageHeader badge slot, 3 custom-header migrations, 8 pages cleaned for padding/colors/spacing consistency |
 | 2026-02-14 | 09 | Plan 04 complete | Dashboard/OrderManager PageHeader migration, 23 files cleaned of terracotta/hardcoded colors, OrderFormPOS Playfair removal |
 | 2026-02-14 | 09 | Plan 05 complete | Skeleton screens, dark mode re-enabled (ThemeContext + 60 CSS vars), kitchen 20-file color migration, 22-file non-kitchen dark fixes, header redesign (role-colored pill). Phase 09 COMPLETE. |
+| 2026-02-14 | 10 | Plan 02 complete | EntityManager generic CRUD component, shadcn Table, table/card toggle, FormBuilder dialogs, bulk selection, search, sort |
+| 2026-02-14 | 10 | Plan 01 complete | createMutationHook factory, 5 entity hooks migrated, customer transform removed, StorageLocations toasts added |
+| 2026-02-14 | 10 | Plan 03 complete | 5 entity pages migrated to EntityManager (3 existing, 2 new), /customers + /tags routes. Phase 10 COMPLETE. |
+| 2026-02-14 | 11 | Plan 01 complete | Schema tables (integrityCheckLogs, productionResets), productionLog GoFood actions, weekly cron, dependency audit with 6 upgrades |
+| 2026-02-14 | 11 | Plan 02 complete | ProductionLog aggregation queries, removed all productionCounts writes, resetCounts via productionResets |
+| 2026-02-14 | 11 | Plan 03 complete | Frontend switchover to productionLog, full integrity check, Phase 11 CHANGELOG. Phase 11 COMPLETE. |
 
 ## Decisions
 - Schema uses discountType "amount" (not "fixed") for fixed-value voucher discounts
@@ -182,6 +189,29 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 - Dark summary panels use bg-foreground text-background (replacing removed --color-dark-gradient-from/to vars)
 - Kitchen #E07856 references replaced with station CSS variables (--color-station-packing), not brand vars
 - OrderFormPOS Playfair Display inline style block removed entirely (Inter is site-wide font)
+- FormBuilder renders its own submit/cancel buttons inside EntityManager dialog (no separate DialogFooter)
+- useViewPreference stores in localStorage under entityManager:{key}:view namespace
+- Default card auto-generates from columns config: first column = title, rest = detail rows
+- Bulk delete falls back to Promise.all of individual onDelete calls when onBulkDelete not provided
+- Sort state cycles asc -> desc -> clear on repeated column header clicks
+- Undo toast re-creates entity via onCreate with cached form data (pragmatic re-creation, not true undo)
+- createMutationHook uses Parameters<typeof mutation> to inherit exact useSessionMutation arg types (avoids complex generic math)
+- Customer transform layer removed entirely -- order forms updated to use raw Convex _id directly
+- useConvexSeedTags kept as standalone hook (useMutation not useSessionMutation -- public mutation, no sessionId)
+- LocationsManager inline toasts removed in favor of factory-provided toast notifications
+- productionLog summary type extended inline with new ship_goldfinch/return_goldfinch action types (not Record<string,number>)
+- Placeholder integrity check inserts pass entry to integrityCheckLogs so crons.ts compiles before Plan 03 implementation
+- 6 safe patch/minor dependency upgrades applied; 7 major version upgrades skipped with documented rationale
+- [Phase 10-03]: transformFormData converts empty strings to undefined for optional mutation fields
+- [Phase 10-03]: LocationsManager uses Badge renders in columns for type and status display
+- [Phase 10-03]: TagsManager defaults to card view with undo support (no referential deps)
+- ReadableCtx = QueryCtx | MutationCtx union type allows aggregateForProduct to work in both query and mutation contexts
+- return_goldfinch log entries add to stickered total (items returned from Goldfinch become available for re-stickering)
+- Kitchen mutations read aggregated counts for validation before writing log entries (prevents invalid state transitions)
+- kitchenQueries pre-fetches orderItems and aggregates only for referenced menuProductIds (not all active products)
+- productionCounts table is now fully archived -- no reads or writes from frontend or backend mutations
+- Integrity check mismatches are expected and informational since productionLog is authoritative (dual-write historical discrepancies)
+- **RCA: Phase 11 branching failure** — Phase 11 was started on `feature/infrastructure` branched from `feature/frontend-factories` (Phase 10's branch) instead of from `main`. Phase 10 had not been merged to main yet. Result: Phase 10 and 11 commits are interleaved on the same branch lineage. Root cause: orchestrator ran `git checkout -b feature/infrastructure` from the current HEAD without first verifying it was on `main` or that the previous phase's branch had been merged. The `handle_branching` workflow step creates branches from current HEAD but does not validate the starting point. Mitigation: all commits will be merged together from `feature/infrastructure` which contains both phases' work. No code impact — only git history is messier than intended.
 
 ## Performance Metrics
 
@@ -217,7 +247,14 @@ Phases 1-8 COMPLETE. Phases 9 (Frontend Factories) and 10 (Infrastructure) are n
 | 09 | 03 | 5min | 2 | 11 |
 | 09 | 04 | 6min | 2 | 23 |
 | 09 | 05 | 15min | 2 | 44 |
+| 10 | 02 | 5min | 2 | 5 |
+| 10 | 01 | 7min | 2 | 10 |
+| 10 | 03 | 8min | 3 | 8 |
+| 11 | 01 | 5min | 2 | 7 |
+| 11 | 02 | 9min | 2 | 8 |
+| 11 | 03 | 4min | 2 | 4 |
 
 ---
 *Last updated: 2026-02-14*
-*Last session stopped at: Completed 09-05-PLAN.md (skeletons, dark mode re-enabled, kitchen+app dark mode fixes, header redesign). Phase 09 COMPLETE.*
+*Last session stopped at: Completed 11-03-PLAN.md (frontend switchover + integrity check). Phase 11 COMPLETE (3/3 plans). All 11 phases done.*
+

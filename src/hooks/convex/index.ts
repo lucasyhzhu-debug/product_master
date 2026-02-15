@@ -3,6 +3,9 @@
  * Import from here for cleaner imports in components.
  */
 
+// Mutation Hook Factory
+export { createMutationHook, type MutationHookConfig } from "./createMutationHook";
+
 // Ingredients
 export {
   useConvexIngredients,

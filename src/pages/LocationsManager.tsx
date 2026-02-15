@@ -1,348 +1,108 @@
 /**
- * LocationsManager - CRUD for storage locations
+ * LocationsManager - CRUD page for storage locations.
+ * Uses EntityManager generic component with factory mutation hooks.
  */
 
-import { useState } from "react";
-import { MapPin, Plus, Pencil, Trash2, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { PageHeader } from "@/components/layout";
-import { ConfirmDialog } from "@/components/shared";
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { EntityManager } from '@/components/shared/EntityManager';
+import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
   useConvexStorageLocations,
   useConvexCreateStorageLocation,
   useConvexUpdateStorageLocation,
   useConvexDeleteStorageLocation,
-} from "@/hooks/convex";
-import type { Id } from "../../convex/_generated/dataModel";
-import { toast } from "sonner";
+} from '@/hooks/convex';
+import type { Id } from '../../convex/_generated/dataModel';
+
+type Location = NonNullable<ReturnType<typeof useConvexStorageLocations>>[number];
+
+const LOCATION_TYPES = [
+  { value: 'office', label: 'Office' },
+  { value: 'kitchen', label: 'Kitchen' },
+  { value: 'venue', label: 'Venue' },
+];
+
+const columns: EntityColumn<Location>[] = [
+  { key: 'name', header: 'Name', sortable: true },
+  {
+    key: 'locationType',
+    header: 'Type',
+    sortable: true,
+    render: (item) => <Badge variant="outline">{item.locationType}</Badge>,
+  },
+  { key: 'address', header: 'Address', render: (item) => item.address || '-' },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (item) => (
+      <div className="flex items-center gap-1">
+        {item.isDefault && <Badge className="bg-emerald-600">Default</Badge>}
+        {!item.isActive && <Badge variant="destructive">Inactive</Badge>}
+        {item.isActive && !item.isDefault && <span className="text-muted-foreground">Active</span>}
+      </div>
+    ),
+  },
+];
+
+/** Convert empty address to undefined for optional mutation field */
+function transformData(data: Record<string, any>) {
+  return {
+    ...data,
+    address: data.address?.trim() || undefined,
+  };
+}
 
 export function LocationsManager() {
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingId, setEditingId] = useState<Id<"storageLocations"> | null>(
-    null
-  );
+  useDocumentTitle('Storage Locations');
 
-  // Form state
-  const [name, setName] = useState("");
-  const [locationType, setLocationType] = useState<
-    "office" | "kitchen" | "venue"
-  >("office");
-  const [address, setAddress] = useState("");
-  const [isActive, setIsActive] = useState(true);
-  const [isDefault, setIsDefault] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Queries & mutations
   const locations = useConvexStorageLocations(false);
-  const createLocation = useConvexCreateStorageLocation();
-  const updateLocation = useConvexUpdateStorageLocation();
-  const deleteLocation = useConvexDeleteStorageLocation();
-
-  // Loading state
-  if (locations === undefined) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
-  const handleEdit = (id: Id<"storageLocations">) => {
-    const location = locations.find((l) => l._id === id);
-    if (location) {
-      setEditingId(id);
-      setName(location.name);
-      setLocationType(location.locationType);
-      setAddress(location.address || "");
-      setIsActive(location.isActive);
-      setIsDefault(location.isDefault || false);
-      setEditDialogOpen(true);
-    }
-  };
-
-  const handleNew = () => {
-    setEditingId(null);
-    setName("");
-    setLocationType("office");
-    setAddress("");
-    setIsActive(true);
-    setIsDefault(false);
-    setEditDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error("Location name is required");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (editingId) {
-        await updateLocation({
-          id: editingId,
-          name,
-          locationType,
-          address: address.trim() || undefined,
-          isActive,
-          isDefault,
-        });
-        toast.success("Location updated");
-      } else {
-        await createLocation({
-          name,
-          locationType,
-          address: address.trim() || undefined,
-          isActive,
-          isDefault,
-        });
-        toast.success("Location created");
-      }
-      setEditDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to save location:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to save location"
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!editingId) return;
-
-    try {
-      await deleteLocation({ id: editingId });
-      toast.success("Location deleted");
-      setDeleteDialogOpen(false);
-      setEditingId(null);
-    } catch (error) {
-      console.error("Failed to delete location:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete location"
-      );
-    }
-  };
+  const create = useConvexCreateStorageLocation();
+  const update = useConvexUpdateStorageLocation();
+  const del = useConvexDeleteStorageLocation();
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Storage Locations"
-        action={
-          <Button onClick={handleNew} size="lg">
-            <Plus className="h-5 w-5 mr-2" />
-            New Location
-          </Button>
-        }
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Locations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {locations.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No locations yet. Create one to get started.</p>
-              </div>
-            ) : (
-              locations.map((location) => (
-                <div
-                  key={location._id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <MapPin className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{location.name}</span>
-                        <Badge variant="outline">
-                          {location.locationType}
-                        </Badge>
-                        {location.isDefault && (
-                          <Badge className="bg-emerald-600">Default</Badge>
-                        )}
-                        {!location.isActive && (
-                          <Badge variant="destructive">Inactive</Badge>
-                        )}
-                      </div>
-                      {location.address && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {location.address}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(location._id)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingId(location._id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Edit/Create Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit Location" : "New Location"}
-            </DialogTitle>
-            <DialogDescription>
-              Configure storage location details
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Location Name *</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Kitchen"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Location Type *</Label>
-              <Select
-                value={locationType}
-                onValueChange={(value) =>
-                  setLocationType(value as "office" | "kitchen" | "venue")
-                }
-              >
-                <SelectTrigger id="type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="office">Office</SelectItem>
-                  <SelectItem value="kitchen">Kitchen</SelectItem>
-                  <SelectItem value="venue">Venue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Address (Optional)</Label>
-              <Input
-                id="address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="123 Main St, Jakarta"
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isActive"
-                  checked={isActive}
-                  onCheckedChange={(checked) =>
-                    setIsActive(checked === true)
-                  }
-                />
-                <label
-                  htmlFor="isActive"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Active
-                </label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isDefault"
-                  checked={isDefault}
-                  onCheckedChange={(checked) =>
-                    setIsDefault(checked === true)
-                  }
-                />
-                <label
-                  htmlFor="isDefault"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Set as Default
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditDialogOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={isSubmitting}>
-              {isSubmitting
-                ? "Saving..."
-                : editingId
-                ? "Update"
-                : "Create"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title="Delete Location"
-        description="Are you sure? This action cannot be undone. The location must have no inventory."
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={handleDelete}
-      />
-    </div>
+    <EntityManager<Location>
+      entityName="Location"
+      entityNamePlural="Locations"
+      pageTitle="Storage Locations"
+      icon={MapPin}
+      items={locations}
+      columns={columns}
+      searchable
+      searchKeys={['name', 'address']}
+      searchPlaceholder="Search locations..."
+      supportsUndo
+      formSections={[
+        {
+          fields: [
+            { name: 'name', label: 'Location Name', type: 'text', required: true, placeholder: 'e.g., Kitchen' },
+            {
+              name: 'locationType',
+              label: 'Location Type',
+              type: 'select',
+              required: true,
+              options: LOCATION_TYPES,
+            },
+            { name: 'address', label: 'Address', type: 'text', placeholder: '123 Main St, Jakarta' },
+            { name: 'isActive', label: 'Active', type: 'checkbox', placeholder: 'Location is active' },
+            { name: 'isDefault', label: 'Default', type: 'checkbox', placeholder: 'Set as default location' },
+          ],
+        },
+      ]}
+      getFormDefaults={() => ({ locationType: 'office', isActive: true, isDefault: false })}
+      getFormInitialData={(item) => ({
+        name: item.name,
+        locationType: item.locationType,
+        address: item.address || '',
+        isActive: item.isActive,
+        isDefault: item.isDefault || false,
+      })}
+      transformFormData={transformData}
+      onCreate={(data) => create.mutate(data)}
+      onUpdate={(id, data) => update.mutate({ id: id as Id<"storageLocations">, ...data })}
+      onDelete={(id) => del.mutate({ id: id as Id<"storageLocations"> })}
+    />
   );
 }

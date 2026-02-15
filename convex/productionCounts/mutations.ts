@@ -1,8 +1,9 @@
 /**
  * Production Counts Mutations
  *
- * Mutations for managing running production tallies per menu product.
- * Supports resetting counts (single product or all products).
+ * INFRA-03: resetCounts now writes to productionResets table instead of
+ * zeroing productionCounts records. The productionCounts table is now
+ * a read-only archive — all production data derives from productionLog.
  */
 
 import { mutation } from "../_generated/server";
@@ -10,9 +11,12 @@ import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
 
 /**
- * Reset production counts to zero.
- * If menuProductId is provided, resets only that product's counts.
- * Otherwise, resets all products' counts.
+ * Reset production counts by inserting/updating productionResets timestamps.
+ * The aggregation queries in productionLog/queries.ts filter log entries
+ * by these reset timestamps, effectively "zeroing" the counts.
+ *
+ * If menuProductId is provided, resets only that product.
+ * Otherwise, resets all active products.
  * Requires manager or admin role.
  */
 export const resetCounts = mutation({
@@ -22,39 +26,61 @@ export const resetCounts = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+    const now = Date.now();
 
     if (args.menuProductId) {
-      // Reset single product
-      const count = await ctx.db
-        .query("productionCounts")
+      // Reset single product — upsert productionResets record
+      const existing = await ctx.db
+        .query("productionResets")
         .withIndex("by_menu_product", (q) =>
           q.eq("menuProductId", args.menuProductId!)
         )
         .first();
 
-      if (count) {
-        await ctx.db.patch(count._id, {
-          boxed: 0,
-          stickered: 0,
-          packed: 0,
-          lastResetAt: Date.now(),
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          lastResetAt: now,
+          lastResetBy: user.name,
+        });
+      } else {
+        await ctx.db.insert("productionResets", {
+          menuProductId: args.menuProductId!,
+          lastResetAt: now,
           lastResetBy: user.name,
         });
       }
-      return { reset: count ? 1 : 0 };
+
+      return { reset: 1 };
     }
 
-    // Reset all products
-    const allCounts = await ctx.db.query("productionCounts").collect();
-    for (const count of allCounts) {
-      await ctx.db.patch(count._id, {
-        boxed: 0,
-        stickered: 0,
-        packed: 0,
-        lastResetAt: Date.now(),
-        lastResetBy: user.name,
-      });
+    // Reset all active products — upsert productionResets for each
+    const menuProducts = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    for (const mp of menuProducts) {
+      const existing = await ctx.db
+        .query("productionResets")
+        .withIndex("by_menu_product", (q) =>
+          q.eq("menuProductId", mp._id)
+        )
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          lastResetAt: now,
+          lastResetBy: user.name,
+        });
+      } else {
+        await ctx.db.insert("productionResets", {
+          menuProductId: mp._id,
+          lastResetAt: now,
+          lastResetBy: user.name,
+        });
+      }
     }
-    return { reset: allCounts.length };
+
+    return { reset: menuProducts.length };
   },
 });

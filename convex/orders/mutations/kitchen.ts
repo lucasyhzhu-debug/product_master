@@ -1,6 +1,9 @@
 /**
  * Kitchen Operations mutations
  * Tray inventory and ball distribution
+ *
+ * INFRA-03: All production counts now derive from productionLog.
+ * No writes to productionCounts table. Validation reads via aggregateForProduct.
  */
 import { mutation, type MutationCtx } from "../../_generated/server";
 import { ConvexError, v } from "convex/values";
@@ -15,6 +18,7 @@ import { consumeBatchMaterials } from "./inventoryIntegration";
 import { logAutoTransition, computeIsKitchenVisible, isTerminalStatus } from "../helpers/statusTransitions";
 import { consumeFromFIFO, applyFIFOConsumption } from "../../inventory/fifo";
 import { updateComponentStock } from "../../inventory/helpers";
+import { aggregateForProduct } from "../../productionLog/helpers";
 
 // ============================================
 // Helper Functions
@@ -58,13 +62,6 @@ async function getOrCreateTodayInventory(ctx: MutationCtx) {
 /**
  * Add balls to tray (NO auto-distribution).
  * PRD-6: Visual Inventory Tray System
- *
- * Flow:
- * 1. Add balls to tray ONLY (no distribution)
- * 2. User clicks "Fill Orders" button separately to distribute
- *
- * This separates accumulation (adding balls) from distribution (filling orders)
- * for better UX control.
  */
 export const addBallsToTray = mutation({
   args: {
@@ -76,15 +73,10 @@ export const addBallsToTray = mutation({
       throw new Error("Count cannot be zero");
     }
 
-    // Get or create today's inventory
     const inventory = await getOrCreateTodayInventory(ctx);
 
-    // Add (or remove) balls from tray (NO auto-distribution)
-    // "original" → originalBallCount (45g, MID_BALL)
-    // "bite_sized" / "jumbo" → biteSizedBallCount (80g, BIG_BALL)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
-    // Clamp to 0 — can't go below zero
     const newCount = Math.max(0, currentCount + args.count);
 
     const patchData: Record<string, number> = {
@@ -92,7 +84,6 @@ export const addBallsToTray = mutation({
       lastUpdated: Date.now(),
     };
 
-    // Only increment cumulative counter for positive additions (never decrement)
     if (args.count > 0) {
       const actualAdded = newCount - currentCount;
       if (actualAdded > 0) {
@@ -104,7 +95,6 @@ export const addBallsToTray = mutation({
 
     await ctx.db.patch(inventory._id, patchData);
 
-    // Return actual change (may be less than requested if clamped)
     return {
       trayCount: newCount,
       ballsAdded: newCount - currentCount,
@@ -116,12 +106,6 @@ export const addBallsToTray = mutation({
 /**
  * Fill pending orders with balls from tray.
  * PRD-6: Visual Inventory Tray System - Manual Fill
- *
- * Flow:
- * 1. Get current tray inventory
- * 2. Call existing distribution helper (handles status transitions)
- * 3. Update tray with remaining balls (overflow)
- * 4. Return results for UI (animations, sounds, toasts)
  */
 export const fillPendingOrders = mutation({
   args: {
@@ -130,7 +114,6 @@ export const fillPendingOrders = mutation({
   handler: async (ctx, args) => {
     const today = new Date().toISOString().split("T")[0];
 
-    // 1. Get current tray inventory
     const tray = await ctx.db
       .query("kitchenInventory")
       .withIndex("by_date", (q) => q.eq("date", today))
@@ -165,28 +148,21 @@ export const fillPendingOrders = mutation({
       };
     }
 
-    // 2. Call existing distribution helper (handles status transitions)
     const result = await distributeBallsToOrders(ctx, {
       ballType: args.ballType,
       count: availableBalls,
       trackFilledPackages: true,
     });
 
-    // 3. Update tray with remaining balls (overflow)
     await ctx.db.patch(tray._id, {
       [countField]: result.overflow,
       lastUpdated: Date.now(),
     });
 
-    // 4. Derive additional metrics from result
-    // Count unique orders updated (from filledPackages)
     const uniqueOrderItemIds = new Set(result.filledPackages.map(p => p.orderItemId.toString()));
     const ordersUpdated = uniqueOrderItemIds.size;
-
-    // Count packages completed (orders that transitioned to Packaging status)
     const packagesCompleted = result.completedOrderIds.length;
 
-    // 5. Return results for UI (animations, sounds, toasts)
     return {
       success: true,
       ballsUsed: result.ballsUsed,
@@ -203,15 +179,12 @@ export const fillPendingOrders = mutation({
 /**
  * Remove a ball from tray (undo functionality).
  * PRD-6: Visual Inventory Tray System
- *
- * Removes from tray first, then from most recently filled package (LIFO).
  */
 export const removeBallFromTray = mutation({
   args: {
     ballType: v.union(v.literal("original"), v.literal("bite_sized"), v.literal("jumbo")),
   },
   handler: async (ctx, args) => {
-    // Get today's inventory
     const today = new Date().toISOString().split("T")[0];
     const inventory = await ctx.db
       .query("kitchenInventory")
@@ -222,8 +195,6 @@ export const removeBallFromTray = mutation({
       throw new Error("No inventory for today");
     }
 
-    // "original" → originalBallCount (45g, MID_BALL)
-    // "bite_sized" / "jumbo" → biteSizedBallCount (80g, BIG_BALL)
     const fieldName = args.ballType === "original" ? "originalBallCount" : "biteSizedBallCount";
     const currentCount = args.ballType === "original" ? inventory.originalBallCount : inventory.biteSizedBallCount;
 
@@ -231,7 +202,6 @@ export const removeBallFromTray = mutation({
       throw new Error("No balls in tray to remove");
     }
 
-    // Remove from tray
     await ctx.db.patch(inventory._id, {
       [fieldName]: currentCount - 1,
       lastUpdated: Date.now(),
@@ -246,18 +216,19 @@ export const removeBallFromTray = mutation({
 
 // ============================================
 // Kitchen V3: Production Pipeline Mutations
+// INFRA-03: No productionCounts writes. All counts derive from productionLog.
 // ============================================
 
 /**
  * Box products mutation.
  * Deducts balls from kitchen inventory tray, consumes boxing-stage packaging (FIFO),
- * and increments boxed count. Supports negative quantity for undo.
+ * and logs to productionLog. Supports negative quantity for undo.
  */
 export const boxProducts = mutation({
   args: {
     token: v.string(),
     menuProductId: v.id("menuProducts"),
-    quantity: v.number(), // Can be negative for undo
+    quantity: v.number(),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
@@ -269,34 +240,22 @@ export const boxProducts = mutation({
     const menuProduct = await ctx.db.get(args.menuProductId);
     if (!menuProduct) throw new ConvexError("Menu product not found");
 
-    // Get or create production counts
-    let counts = await ctx.db
-      .query("productionCounts")
+    // Get current aggregated counts from productionLog for validation
+    const resetRecord = await ctx.db
+      .query("productionResets")
       .withIndex("by_menu_product", (q) => q.eq("menuProductId", args.menuProductId))
       .first();
-
-    if (!counts) {
-      const id = await ctx.db.insert("productionCounts", {
-        menuProductId: args.menuProductId,
-        boxed: 0,
-        stickered: 0,
-        packed: 0,
-      });
-      counts = await ctx.db.get(id);
-      if (!counts) throw new ConvexError("Failed to create production counts");
-    }
+    const currentCounts = await aggregateForProduct(ctx, args.menuProductId, resetRecord);
 
     let packagingWarning: string | undefined;
 
     if (args.quantity > 0) {
       // POSITIVE FLOW: Box products
-      // Look up production components to find ball type & quantity per unit
       const components = await ctx.db
         .query("menuProductComponents")
         .withIndex("by_menu_product", (q) => q.eq("menuProductId", args.menuProductId))
         .collect();
 
-      // Find production component(s) — balls
       let totalBallsNeeded = 0;
       let ballFieldName: "originalBallCount" | "biteSizedBallCount" | null = null;
 
@@ -305,15 +264,13 @@ export const boxProducts = mutation({
         if (!ct || ct.category !== "production") continue;
 
         totalBallsNeeded += comp.quantity * args.quantity;
-        // Determine which tray field to deduct from based on production unit code
         if (ct.code === "MID_BALL") {
-          ballFieldName = "originalBallCount"; // Original (45g) = MID_BALL
+          ballFieldName = "originalBallCount";
         } else if (ct.code === "BIG_BALL") {
-          ballFieldName = "biteSizedBallCount"; // Jumbo (80g) = BIG_BALL
+          ballFieldName = "biteSizedBallCount";
         }
       }
 
-      // Deduct balls from kitchen inventory tray
       if (totalBallsNeeded > 0 && ballFieldName) {
         const today = new Date().toISOString().split("T")[0];
         const inventory = await ctx.db
@@ -334,7 +291,7 @@ export const boxProducts = mutation({
         });
       }
 
-      // Consume boxing-stage packaging from FIFO (non-fatal — boxing proceeds even if packaging short)
+      // Consume boxing-stage packaging from FIFO (non-fatal)
       try {
         await consumeBatchMaterials(ctx, {
           menuProductId: args.menuProductId,
@@ -345,18 +302,12 @@ export const boxProducts = mutation({
         packagingWarning = e instanceof Error ? e.message : "Packaging stock issue";
       }
 
-      // Increment boxed count
-      await ctx.db.patch(counts._id, {
-        boxed: counts.boxed + args.quantity,
-      });
-
     } else {
       // NEGATIVE FLOW: Undo boxing
       const undoQty = Math.abs(args.quantity);
 
-      // Validate: can't un-box if already stickered
-      if (counts.boxed - undoQty < counts.stickered) {
-        throw new ConvexError(`Cannot undo boxing: ${counts.stickered} already stickered. Unsticker first. Max unbox: ${counts.boxed - counts.stickered}`);
+      if (currentCounts.boxed - undoQty < currentCounts.stickered) {
+        throw new ConvexError(`Cannot undo boxing: ${currentCounts.stickered} already stickered. Unsticker first. Max unbox: ${currentCounts.boxed - currentCounts.stickered}`);
       }
 
       // Return balls to kitchen inventory tray
@@ -390,13 +341,6 @@ export const boxProducts = mutation({
           });
         }
       }
-
-      // NOTE: Negative flow does NOT reverse FIFO packaging consumption
-
-      // Decrement boxed count
-      await ctx.db.patch(counts._id, {
-        boxed: counts.boxed - undoQty,
-      });
     }
 
     // Write production log entry
@@ -416,47 +360,36 @@ export const boxProducts = mutation({
 
 /**
  * Sticker products mutation.
- * Validates against boxed count, consumes labeling-stage packaging (FIFO),
- * and increments stickered count. Supports negative quantity for undo.
+ * Validates against boxed count via productionLog aggregation, consumes labeling-stage
+ * packaging (FIFO), and logs to productionLog. Supports negative quantity for undo.
  */
 export const stickerProducts = mutation({
   args: {
     token: v.string(),
     menuProductId: v.id("menuProducts"),
-    quantity: v.number(), // Can be negative for undo
+    quantity: v.number(),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
 
     if (args.quantity === 0) throw new ConvexError("Quantity cannot be zero");
 
-    // Get or create production counts
-    let counts = await ctx.db
-      .query("productionCounts")
+    // Get current aggregated counts from productionLog for validation
+    const resetRecord = await ctx.db
+      .query("productionResets")
       .withIndex("by_menu_product", (q) => q.eq("menuProductId", args.menuProductId))
       .first();
-
-    if (!counts) {
-      const id = await ctx.db.insert("productionCounts", {
-        menuProductId: args.menuProductId,
-        boxed: 0,
-        stickered: 0,
-        packed: 0,
-      });
-      counts = await ctx.db.get(id);
-      if (!counts) throw new ConvexError("Failed to create production counts");
-    }
+    const currentCounts = await aggregateForProduct(ctx, args.menuProductId, resetRecord);
 
     let packagingWarning: string | undefined;
 
     if (args.quantity > 0) {
-      // POSITIVE FLOW: Sticker products
-      const availableForStickering = counts.boxed - counts.stickered;
+      const availableForStickering = currentCounts.boxed - currentCounts.stickered;
       if (availableForStickering < args.quantity) {
         throw new ConvexError(`Insufficient boxed products: need ${args.quantity}, available ${availableForStickering}`);
       }
 
-      // Consume labeling-stage packaging from FIFO (non-fatal — stickering proceeds even if packaging short)
+      // Consume labeling-stage packaging from FIFO (non-fatal)
       try {
         await consumeBatchMaterials(ctx, {
           menuProductId: args.menuProductId,
@@ -467,24 +400,12 @@ export const stickerProducts = mutation({
         packagingWarning = e instanceof Error ? e.message : "Packaging stock issue";
       }
 
-      // Increment stickered count
-      await ctx.db.patch(counts._id, {
-        stickered: counts.stickered + args.quantity,
-      });
-
     } else {
-      // NEGATIVE FLOW: Undo stickering
       const undoQty = Math.abs(args.quantity);
 
-      if (counts.stickered - undoQty < counts.packed) {
-        throw new ConvexError(`Cannot undo stickering: ${counts.packed} already packed. Unpack first. Max unsticker: ${counts.stickered - counts.packed}`);
+      if (currentCounts.stickered - undoQty < currentCounts.packed) {
+        throw new ConvexError(`Cannot undo stickering: ${currentCounts.packed} already packed. Unpack first. Max unsticker: ${currentCounts.stickered - currentCounts.packed}`);
       }
-
-      // NOTE: No FIFO reversal
-
-      await ctx.db.patch(counts._id, {
-        stickered: counts.stickered - undoQty,
-      });
     }
 
     // Write production log
@@ -504,8 +425,8 @@ export const stickerProducts = mutation({
 
 /**
  * Toggle pack/unpack for an order line item.
- * Validates against stickered pool, updates packageStatus on orderItem,
- * and adjusts packed count. Toggle behavior based on current packageStatus.
+ * Validates against stickered pool via productionLog aggregation, updates packageStatus
+ * on orderItem, and logs to productionLog.
  */
 export const togglePackOrderLineItem = mutation({
   args: {
@@ -522,38 +443,22 @@ export const togglePackOrderLineItem = mutation({
 
     if (!orderItem.menuProductId) throw new ConvexError("Order item has no menu product");
 
-    // Get or create production counts for this menu product
-    let counts = await ctx.db
-      .query("productionCounts")
+    // Get current aggregated counts from productionLog for validation
+    const resetRecord = await ctx.db
+      .query("productionResets")
       .withIndex("by_menu_product", (q) => q.eq("menuProductId", orderItem.menuProductId!))
       .first();
+    const currentCounts = await aggregateForProduct(ctx, orderItem.menuProductId!, resetRecord);
 
-    if (!counts) {
-      const id = await ctx.db.insert("productionCounts", {
-        menuProductId: orderItem.menuProductId!,
-        boxed: 0,
-        stickered: 0,
-        packed: 0,
-      });
-      counts = await ctx.db.get(id);
-      if (!counts) throw new ConvexError("Failed to create production counts");
-    }
-
-    // Determine if packing or unpacking based on current packageStatus
     const isPacked = orderItem.packageStatus === "packed";
-    const neededQty = orderItem.quantity; // Read qty from orderItems (staff doesn't type it)
+    const neededQty = orderItem.quantity;
 
     if (isPacked) {
-      // UNPACK: decrement packed count, unmark line item
-      await ctx.db.patch(counts._id, {
-        packed: counts.packed - neededQty,
-      });
-
+      // UNPACK
       await ctx.db.patch(args.orderItemId, {
         packageStatus: "filled",
       });
 
-      // Log
       await ctx.db.insert("productionLog", {
         menuProductId: orderItem.menuProductId!,
         action: "unpack",
@@ -565,21 +470,16 @@ export const togglePackOrderLineItem = mutation({
       });
 
     } else {
-      // PACK: validate stickered pool, increment packed, mark line item
-      const availableForPacking = counts.stickered - counts.packed;
+      // PACK
+      const availableForPacking = currentCounts.stickered - currentCounts.packed;
       if (availableForPacking < neededQty) {
         throw new ConvexError(`Insufficient stickered products: need ${neededQty}, available ${availableForPacking}`);
       }
-
-      await ctx.db.patch(counts._id, {
-        packed: counts.packed + neededQty,
-      });
 
       await ctx.db.patch(args.orderItemId, {
         packageStatus: "packed",
       });
 
-      // Log
       await ctx.db.insert("productionLog", {
         menuProductId: orderItem.menuProductId!,
         action: "pack",
@@ -611,7 +511,6 @@ export const markOrderReady = mutation({
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError("Order not found");
 
-    // Validate all product line items are packed
     const orderItems = await ctx.db
       .query("orderItems")
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
@@ -625,8 +524,6 @@ export const markOrderReady = mutation({
       }
     }
 
-    // Deduct consumptionStage="none" packaging from FIFO
-    // These are outer boxes, brochures, inserts etc.
     for (const item of activeItems) {
       if (!item.menuProductId) continue;
 
@@ -642,10 +539,8 @@ export const markOrderReady = mutation({
         const effectiveStage = comp.consumptionStage ?? ct.consumptionStage;
         if (effectiveStage !== "none") continue;
 
-        // Consume "none"-stage packaging at order ready
         const totalNeeded = comp.quantity * item.quantity;
 
-        // Get default location
         const defaultLocation = await ctx.db
           .query("storageLocations")
           .withIndex("by_default", (q) => q.eq("isDefault", true))
@@ -664,7 +559,6 @@ export const markOrderReady = mutation({
       }
     }
 
-    // Transition order status based on delivery type
     const newStatus = order.deliveryType === "Pickup" ? "WaitingPickup" : "WaitingShipment";
     const currentStatus = order.status;
 
