@@ -328,6 +328,11 @@ export {
   useConvexChannelSellThrough,
   useConvexSaveRestockTarget,
   useConvexUpdateManualStock,
+  // Sync health hooks
+  useConvexSyncHealthAlert,
+  // Product mapping hooks
+  useConvexCountMappingImpact,
+  useConvexUpdateProductMapping,
   // Types
   type PeriodPreset,
 } from "./useExternalData";
@@ -337,6 +342,13 @@ export { useKitchenProduction } from "./useKitchenProduction";
 
 // Protected Mutation Wrapper
 export { useProtectedMutation } from "./useProtectedMutation";
+
+// Sales Analytics Health Monitoring
+export {
+  useConvexSyncHealthStatus,
+  useConvexSyncHealthAlert,
+  useConvexCredentialStatusEnhanced,
+} from "./useSalesAnalytics";
 
 // K3 Mart Cockpit (K3 Mart Management Cockpit)
 export {
