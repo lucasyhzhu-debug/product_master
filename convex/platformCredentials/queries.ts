@@ -32,15 +32,59 @@ export const getCredentialStatus = query({
       };
     }
 
+    const tokenExpiresAt = cred.tokenExpiresAt ?? null;
+    const tokenExpiresIn = tokenExpiresAt ? tokenExpiresAt - Date.now() : null;
+
     return {
       hasCredentials: true,
       hasToken: !!cred.currentToken,
       hasRefreshToken: !!cred.refreshToken,
       email: cred.email ?? null,
-      tokenExpiresAt: cred.tokenExpiresAt ?? null,
+      tokenExpiresAt,
+      tokenExpiresIn,
       lastRefreshAt: cred.lastRefreshAt ?? null,
       lastRefreshStatus: cred.lastRefreshStatus ?? null,
       lastRefreshError: cred.lastRefreshError ?? null,
+    };
+  },
+});
+
+/**
+ * Get credential health status for managers.
+ * Returns a subset of data (no token details) -- just health indicators.
+ * Accessible to managers and admins.
+ */
+export const getCredentialStatusForManagers = query({
+  args: {
+    token: v.string(),
+    platformId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    const cred = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+
+    if (!cred) {
+      return {
+        hasToken: false,
+        lastRefreshStatus: null,
+        lastRefreshAt: null,
+        isHealthy: false,
+      };
+    }
+
+    const isHealthy = !!cred.currentToken &&
+      cred.lastRefreshStatus !== "error" &&
+      (!cred.tokenExpiresAt || cred.tokenExpiresAt > Date.now());
+
+    return {
+      hasToken: !!cred.currentToken,
+      lastRefreshStatus: cred.lastRefreshStatus ?? null,
+      lastRefreshAt: cred.lastRefreshAt ?? null,
+      isHealthy,
     };
   },
 });

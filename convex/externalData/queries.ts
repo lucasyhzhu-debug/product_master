@@ -874,6 +874,102 @@ export const getRestockOverview = query({
   },
 });
 
+// ─── SYNC HEALTH STATUS ───
+
+/**
+ * Get per-platform sync health status with 6-hour staleness detection.
+ * Public, no auth -- read-only health data for monitoring.
+ */
+export const getSyncHealthStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const platforms = ["k3mart", "gobiz", "internal"] as const;
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+    const now = Date.now();
+    const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+
+    const result: Record<string, {
+      lastSync: { timestamp: number; status: string; error?: string; productsCount?: number; durationMs?: number } | null;
+      syncHistory: Array<{ timestamp: number; status: string; syncType: string; productsCount?: number; errorMessage?: string; durationMs?: number }>;
+      isStale: boolean;
+      staleSinceMs: number | null;
+    }> = {};
+
+    for (const source of platforms) {
+      // Get last 20 sync logs (for sync history display)
+      const logs = await ctx.db.query("externalSyncLogs")
+        .withIndex("by_source", q => q.eq("source", source))
+        .order("desc")
+        .take(20);
+
+      const lastSuccessLog = logs.find(l => l.status === "success");
+      const lastLog = logs[0] ?? null;
+
+      const isStale = !lastSuccessLog || (now - lastSuccessLog.timestamp > SIX_HOURS_MS);
+      const staleSinceMs = lastSuccessLog ? now - lastSuccessLog.timestamp : null;
+
+      result[source] = {
+        lastSync: lastLog ? {
+          timestamp: lastLog.timestamp,
+          status: lastLog.status,
+          error: lastLog.errorMessage,
+          productsCount: lastLog.productsCount,
+          durationMs: lastLog.durationMs,
+        } : null,
+        syncHistory: logs.filter(l => l.timestamp > twentyFourHoursAgo).map(l => ({
+          timestamp: l.timestamp,
+          status: l.status,
+          syncType: l.syncType,
+          productsCount: l.productsCount,
+          errorMessage: l.errorMessage,
+          durationMs: l.durationMs,
+        })),
+        isStale,
+        staleSinceMs,
+      };
+    }
+
+    return result;
+  },
+});
+
+/**
+ * Get sync health alerts for dashboard banner.
+ * Returns platforms that have been stale for 6+ hours.
+ */
+export const getSyncHealthAlert = query({
+  args: {},
+  handler: async (ctx) => {
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+    const now = Date.now();
+    const alerts: Array<{ platform: string; platformName: string; staleSinceMs: number; lastError?: string }> = [];
+
+    for (const [source, name] of [["k3mart", "K3 Mart"], ["gobiz", "GoFood"]] as const) {
+      const lastSuccess = await ctx.db.query("externalSyncLogs")
+        .withIndex("by_source", q => q.eq("source", source))
+        .filter(q => q.eq(q.field("status"), "success"))
+        .order("desc")
+        .first();
+
+      if (!lastSuccess || now - lastSuccess.timestamp > SIX_HOURS_MS) {
+        const lastLog = await ctx.db.query("externalSyncLogs")
+          .withIndex("by_source", q => q.eq("source", source))
+          .order("desc")
+          .first();
+
+        alerts.push({
+          platform: source,
+          platformName: name,
+          staleSinceMs: lastSuccess ? now - lastSuccess.timestamp : now,
+          lastError: lastLog?.errorMessage,
+        });
+      }
+    }
+
+    return { hasAlert: alerts.length > 0, alerts };
+  },
+});
+
 /**
  * Detailed per-channel sell-through analysis with weekday/weekend split.
  * Called when user drills into a channel/outlet.
