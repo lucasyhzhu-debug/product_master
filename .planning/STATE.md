@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 01 of 06 -- COMPLETE
-Status: Plan 14-01 complete (schema migration + frontend types), 5 plans remaining
-Last activity: 2026-02-15 -- Plan 14-01 executed (7-status model migration)
+Plan: 02 of 06 -- COMPLETE
+Status: Plan 14-02 complete (status transitions TDD + auto-entry), 4 plans remaining
+Last activity: 2026-02-15 -- Plan 14-02 executed (TDD status transitions + auto-entry)
 
 Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 
@@ -31,6 +31,7 @@ Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 | 13 | 04 | 8 min | 2 | 11 |
 | 13 | 05 | 5 min | 3 | 8 |
 | 14 | 01 | 45 min | 2 | 40 |
+| 14 | 02 | 2 min | 2 | 3 |
 
 *Updated after each plan completion*
 
@@ -51,6 +52,7 @@ Recent decisions affecting current work:
 - [Phase 13-04]: SyncHealthBanner gated by canAccessSalesAnalytics; raw Convex query used for menu products to preserve Id types; countMappingImpact uses skip pattern for lazy loading
 - [Phase 13-05]: Recharts added for stacked charts; BarChart for daily/weekly, AreaChart for monthly; platform colors: GoFood=teal, K3Mart=blue, Direct=amber; allTime preset from Jan 2020 with no comparison
 - [Phase 14-01]: 7-status model replaces 12+; getDisplayStatus() removed; STATUS_CATEGORIES has 6 Kanban columns; inventory consolidated to PaymentReceived (reserve) + BeingPrepared (consume all)
+- [Phase 14-02]: shouldAutoEnterKitchen is pure function (no Convex ctx) for testability; canCancelOrder uses string param matching Plan 01 impl
 
 ### Pending Todos
 
@@ -65,7 +67,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 14-01-PLAN.md (schema migration + frontend types)
+Stopped at: Completed 14-02-PLAN.md (status transitions TDD + auto-entry)
 Resume file: None
 
 ---
