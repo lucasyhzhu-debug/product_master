@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 04 of 06 -- COMPLETE
-Status: Plan 14-04 complete (Kanban board UI with slide-over and status transitions), 2 plans remaining
-Last activity: 2026-02-15 -- Plan 14-04 executed (Kanban board, cards, slide-over, status buttons)
+Plan: 05 of 06 -- COMPLETE
+Status: Plan 14-05 complete (dedicated order creation page at /orders/new), 1 plan remaining
+Last activity: 2026-02-15 -- Plan 14-05 executed (order creation page with customer-first layout)
 
-Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
+Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-05 complete)
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress (v1.1): [#####.....] 50% (Phase 12 + 13 complete, Phase 14 in progress)
 | 14 | 02 | 2 min | 2 | 3 |
 | 14 | 03 | 4 min | 2 | 4 |
 | 14 | 04 | 8 min | 2 | 9 |
+| 14 | 05 | 6 min | 1 | 8 |
 
 *Updated after each plan completion*
 
@@ -57,6 +58,7 @@ Recent decisions affecting current work:
 - [Phase 14-02]: shouldAutoEnterKitchen is pure function (no Convex ctx) for testability; canCancelOrder uses string param matching Plan 01 impl
 - [Phase 14-03]: Customer search reused from customers/queries.ts; updateStatus retained as escape hatch; moveForward/moveBackward pattern with FORWARD_TRANSITIONS/BACKWARD_TRANSITIONS maps; token-to-userId via getSessionUser for audit trail
 - [Phase 14-04]: shadcn Sheet for slide-over (not Framer Motion); PaymentReceived uses expediteOrder for manual kitchen entry; BeingPrepared has no forward button (kitchen completes); Copy to New Order placeholder pending Plan 05
+- [Phase 14-05]: Reused existing ProductButtons/DeliveryToggle/VoucherInput; Submit creates Draft then AwaitingPayment; date-fns installed for DueDatePills; customer-first form layout pattern established
 
 ### Pending Todos
 
@@ -71,7 +73,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 14-04-PLAN.md (Kanban board UI with slide-over and status transitions)
+Stopped at: Completed 14-05-PLAN.md (order creation page with customer-first layout)
 Resume file: None
 
 ---
