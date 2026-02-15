@@ -122,7 +122,7 @@ export async function markOrderProductionComplete(
 
 /**
  * Reset all items in an order to not production complete.
- * Used when reverting an order back to Confirmed status.
+ * Used when reverting an order back to PaymentReceived status.
  */
 export async function resetOrderProductionComplete(
   ctx: MutationCtx,

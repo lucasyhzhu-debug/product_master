@@ -6,7 +6,10 @@
  * 2. Partial fills across multiple production batches
  * 3. Mixed ball types (BIG_BALL + MID_BALL)
  * 4. Ghost ball prevention (traceability at every stage)
- * 5. Auto-status transitions (Confirmed -> InProduction -> Packaging)
+ * 5. Status behavior (BeingPrepared eligible, Draft not)
+ *
+ * Phase 14: Ball distribution only operates on "BeingPrepared" orders.
+ * No auto-transitions — status changes happen via Kanban board.
  *
  * Uses completeBalls mutation as the primary entry point, which calls
  * distributeBallsToOrders internally. Tests verify state via direct
@@ -47,7 +50,7 @@ describe('Priority Ordering', () => {
       menuProductId,
       quantity: 5,
       dueDate: Date.now() + 86400000, // Tomorrow
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Order A',
     });
 
@@ -57,7 +60,7 @@ describe('Priority Ordering', () => {
       menuProductId,
       quantity: 5,
       dueDate: Date.now() + 86400000 * 3, // 3 days from now
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Order B',
     });
 
@@ -120,7 +123,7 @@ describe('Priority Ordering', () => {
       quantity: 5,
       dueDate: sameDueDate,
       orderDate: Date.now() - 3600000, // 1 hour ago
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Earlier Order',
     });
 
@@ -131,7 +134,7 @@ describe('Priority Ordering', () => {
       quantity: 5,
       dueDate: sameDueDate,
       orderDate: Date.now(), // Now
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Later Order',
     });
 
@@ -170,68 +173,12 @@ describe('Priority Ordering', () => {
     expect(orderBRecords[0].unitsCompleted).toBe(0);
   });
 
-  test('confirmed orders get priority over InProduction orders with same deadline', async () => {
+  test('BeingPrepared orders with different deadlines get correct sequence', async () => {
     const t = convexTest(schema);
 
     const customerId = await createCustomer(t);
     const { menuProductId } = await createMenuProductWithBOM(t, {
       code: 'PRIO-003',
-      ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
-    });
-
-    const sameDueDate = Date.now() + 86400000;
-
-    // Order A: Confirmed
-    const orderA = await createBasicOrder(t, {
-      customerId,
-      menuProductId,
-      quantity: 5,
-      dueDate: sameDueDate,
-      orderDate: Date.now(),
-      status: 'Confirmed',
-      productName: 'Confirmed Order',
-    });
-
-    // Order B: InProduction (already started)
-    const orderB = await createBasicOrder(t, {
-      customerId,
-      menuProductId,
-      quantity: 5,
-      dueDate: sameDueDate,
-      orderDate: Date.now(),
-      status: 'InProduction',
-      productName: 'InProduction Order',
-    });
-
-    // The algorithm fetches Confirmed first, then InProduction
-    // Both have same deadline and totalUnits
-    await t.mutation(api.orders.mutations.index.completeBalls, {
-      ballType: 'big',
-      count: 3,
-    });
-
-    // Confirmed orders are fetched first in the code, so Order A gets balls first
-    const orderARecords = await t.run(async (ctx) => {
-      const items = await ctx.db
-        .query('orderItems')
-        .withIndex('by_order', (q) => q.eq('orderId', orderA.orderId))
-        .collect();
-      return await ctx.db
-        .query('orderItemProduction')
-        .withIndex('by_order_item', (q) => q.eq('orderItemId', items[0]._id))
-        .collect();
-    });
-
-    // Order A should have received balls (it was Confirmed, which is fetched first)
-    expect(orderARecords[0].unitsCompleted).toBe(3);
-  });
-
-  test('multiple orders with different deadlines get correct sequence', async () => {
-    const t = convexTest(schema);
-
-    const customerId = await createCustomer(t);
-    const { menuProductId } = await createMenuProductWithBOM(t, {
-      code: 'PRIO-004',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -243,7 +190,7 @@ describe('Priority Ordering', () => {
       menuProductId,
       quantity: 2,
       dueDate: now + 86400000 * 3,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Order C (3 days)',
     });
 
@@ -253,7 +200,7 @@ describe('Priority Ordering', () => {
       menuProductId,
       quantity: 2,
       dueDate: now + 86400000,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Order A (1 day)',
     });
 
@@ -263,7 +210,7 @@ describe('Priority Ordering', () => {
       menuProductId,
       quantity: 2,
       dueDate: now + 86400000 * 2,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       productName: 'Order B (2 days)',
     });
 
@@ -305,7 +252,6 @@ describe('Priority Ordering', () => {
     expect(result.ballsUsed).toBe(0);
     expect(result.overflow).toBe(10);
     expect(result.completedOrderIds).toHaveLength(0);
-    expect(result.transitionedToInProduction).toHaveLength(0);
   });
 });
 
@@ -319,7 +265,7 @@ describe('Partial Fills', () => {
 
     const order = await createBasicOrder(t, {
       quantity: 10,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -361,7 +307,7 @@ describe('Partial Fills', () => {
 
     const order = await createBasicOrder(t, {
       quantity: 20,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -390,7 +336,7 @@ describe('Partial Fills', () => {
 
     const order = await createBasicOrder(t, {
       quantity: 15,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -410,37 +356,36 @@ describe('Partial Fills', () => {
     expect(records[0].unitsRemaining).toBe(3); // 15 - 12
   });
 
-  test('order transitions to InProduction on first partial fill', async () => {
+  test('order stays BeingPrepared on partial fill (no auto-transition)', async () => {
     const t = convexTest(schema);
 
     const order = await createBasicOrder(t, {
       quantity: 10,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
     // Verify initial status
     let orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('Confirmed');
+    expect(orderDoc?.status).toBe('BeingPrepared');
 
-    // First ball
-    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
+    // Partial fill
+    await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
-      count: 1,
+      count: 5,
     });
 
-    expect(result.transitionedToInProduction).toHaveLength(1);
-
+    // Phase 14: Status stays BeingPrepared (no auto-transitions)
     orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('InProduction');
+    expect(orderDoc?.status).toBe('BeingPrepared');
   });
 
-  test('order transitions to Packaging when fully filled', async () => {
+  test('order stays BeingPrepared when fully filled (no auto-transition)', async () => {
     const t = convexTest(schema);
 
     const order = await createBasicOrder(t, {
       quantity: 5,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -452,8 +397,18 @@ describe('Partial Fills', () => {
 
     expect(result.completedOrderIds).toHaveLength(1);
 
+    // Phase 14: Status stays BeingPrepared (Kanban board moves to AwaitingDelivery)
     const orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('Packaging');
+    expect(orderDoc?.status).toBe('BeingPrepared');
+
+    // Items should be marked as production complete
+    const items = await t.run(async (ctx) => {
+      return await ctx.db
+        .query('orderItems')
+        .withIndex('by_order', (q) => q.eq('orderId', order.orderId))
+        .collect();
+    });
+    expect(items[0].isProductionComplete).toBe(true);
   });
 
   test('tray exhaustion mid-order leaves remaining orders unfilled', async () => {
@@ -471,7 +426,7 @@ describe('Partial Fills', () => {
       menuProductId,
       quantity: 8,
       dueDate: Date.now() + 86400000,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Order B: needs 5 balls (later deadline)
@@ -480,7 +435,7 @@ describe('Partial Fills', () => {
       menuProductId,
       quantity: 5,
       dueDate: Date.now() + 86400000 * 2,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Only 10 balls: 8 for A, 2 for B (partially)
@@ -537,7 +492,7 @@ describe('Mixed Ball Types', () => {
       customerId,
       menuProductId,
       quantity: 1,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Distribute big balls
@@ -573,7 +528,7 @@ describe('Mixed Ball Types', () => {
 
     const customerId = await createCustomer(t);
 
-    // Product with 1 big, 2 mid, 1 big (total: 2 big, 2 mid per unit)
+    // Product with 3 big, 2 mid per unit
     const { menuProductId } = await createMenuProductWithBOM(t, {
       code: 'MIX-002',
       name: 'Party Pack',
@@ -588,7 +543,7 @@ describe('Mixed Ball Types', () => {
       customerId,
       menuProductId,
       quantity: 2,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Distribute big balls first
@@ -633,7 +588,7 @@ describe('Mixed Ball Types', () => {
     const order = await createBasicOrder(t, {
       menuProductId,
       quantity: 1,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Only produce big balls
@@ -673,7 +628,7 @@ describe('Mixed Ball Types', () => {
     const order = await createBasicOrder(t, {
       menuProductId,
       quantity: 1,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Only produce mid balls
@@ -713,7 +668,7 @@ describe('Mixed Ball Types', () => {
     const order = await createBasicOrder(t, {
       menuProductId,
       quantity: 2, // Needs: 10 BIG, 16 MID
-      status: 'Confirmed',
+      status: 'BeingPrepared',
     });
 
     // Partial fill of big balls (7 of 10)
@@ -783,7 +738,7 @@ describe('Ghost Ball Prevention', () => {
 
     const order = await createBasicOrder(t, {
       quantity: 3,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -808,7 +763,7 @@ describe('Ghost Ball Prevention', () => {
 
     const order = await createBasicOrder(t, {
       quantity: 5,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
@@ -838,20 +793,20 @@ describe('Ghost Ball Prevention', () => {
   test('production pipeline stages all maintain traceability', async () => {
     const t = convexTest(schema);
 
-    // Create multiple orders at different stages
+    // Create multiple orders both BeingPrepared
     const orderA = await createBasicOrder(t, {
       quantity: 3,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
     const orderB = await createBasicOrder(t, {
       quantity: 5,
-      status: 'InProduction',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'MID_BALL', quantity: 1 }],
     });
 
-    // Fill Order A completely (Confirmed -> InProduction -> Packaging)
+    // Fill Order A completely
     await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 3,
@@ -879,13 +834,13 @@ describe('Ghost Ball Prevention', () => {
     // Create orders with mixed types
     const orderA = await createBasicOrder(t, {
       quantity: 4,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 2 }], // Needs 8 big
     });
 
     const orderB = await createBasicOrder(t, {
       quantity: 3,
-      status: 'Confirmed',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'MID_BALL', quantity: 3 }], // Needs 9 mid
     });
 
@@ -907,109 +862,29 @@ describe('Ghost Ball Prevention', () => {
 });
 
 // ============================================
-// 5. Auto-Transitions (4 tests)
+// 5. Status Behavior (2 tests)
 // ============================================
 
-describe('Auto-Transitions', () => {
-  test('confirmed order auto-transitions to InProduction on first ball filled', async () => {
-    const t = convexTest(schema);
-
-    const order = await createBasicOrder(t, {
-      quantity: 10,
-      status: 'Confirmed',
-      ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
-    });
-
-    // Verify starting status
-    let orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('Confirmed');
-
-    // Add just 1 ball
-    const result = await t.mutation(api.orders.mutations.index.completeBalls, {
-      ballType: 'big',
-      count: 1,
-    });
-
-    expect(result.transitionedToInProduction).toContainEqual(order.orderId);
-
-    orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('InProduction');
-
-    // Verify audit event was logged
-    const events = await t.run(async (ctx) => {
-      return await ctx.db
-        .query('orderEvents')
-        .withIndex('by_order', (q) => q.eq('orderId', order.orderId))
-        .collect();
-    });
-
-    const transitionEvent = events.find(
-      (e) => e.eventType === 'status_auto_transition' && e.toStatus === 'InProduction'
-    );
-    expect(transitionEvent).toBeDefined();
-    expect(transitionEvent?.fromStatus).toBe('Confirmed');
-  });
-
-  test('InProduction order stays InProduction on partial fill', async () => {
-    const t = convexTest(schema);
-
-    const order = await createBasicOrder(t, {
-      quantity: 10,
-      status: 'InProduction',
-      ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
-    });
-
-    // Partial fill
-    await t.mutation(api.orders.mutations.index.completeBalls, {
-      ballType: 'big',
-      count: 5,
-    });
-
-    const orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('InProduction');
-  });
-
-  test('InProduction order auto-transitions to Packaging when production complete', async () => {
+describe('Status Behavior', () => {
+  test('BeingPrepared orders receive ball distribution', async () => {
     const t = convexTest(schema);
 
     const order = await createBasicOrder(t, {
       quantity: 5,
-      status: 'InProduction',
+      status: 'BeingPrepared',
       ballConfig: [{ code: 'BIG_BALL', quantity: 1 }],
     });
 
-    // Fill completely
     const result = await t.mutation(api.orders.mutations.index.completeBalls, {
       ballType: 'big',
       count: 5,
     });
 
-    expect(result.completedOrderIds).toContainEqual(order.orderId);
+    expect(result.ballsUsed).toBe(5);
 
+    // Order stays BeingPrepared (no auto-transitions in Phase 14)
     const orderDoc = await t.run(async (ctx) => ctx.db.get(order.orderId));
-    expect(orderDoc?.status).toBe('Packaging');
-
-    // Verify items are marked as production complete
-    const items = await t.run(async (ctx) => {
-      return await ctx.db
-        .query('orderItems')
-        .withIndex('by_order', (q) => q.eq('orderId', order.orderId))
-        .collect();
-    });
-    expect(items[0].isProductionComplete).toBe(true);
-
-    // Verify audit trail
-    const events = await t.run(async (ctx) => {
-      return await ctx.db
-        .query('orderEvents')
-        .withIndex('by_order', (q) => q.eq('orderId', order.orderId))
-        .collect();
-    });
-
-    const packagingEvent = events.find(
-      (e) => e.eventType === 'status_auto_transition' && e.toStatus === 'Packaging'
-    );
-    expect(packagingEvent).toBeDefined();
+    expect(orderDoc?.status).toBe('BeingPrepared');
   });
 
   test('Draft status order does NOT get balls allocated', async () => {

@@ -11,8 +11,8 @@ import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
 export const getKitchenPackingOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Get orders in packable statuses
-    const statuses = ["Confirmed", "InProduction", "Boxed", "Labeled", "Packaging"] as const;
+    // Get orders in packable statuses (Phase 14: simplified)
+    const statuses = ["BeingPrepared"] as const;
 
     const allOrders = [];
     for (const status of statuses) {

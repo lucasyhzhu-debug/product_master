@@ -293,22 +293,14 @@ export default defineSchema({
     // SNAPSHOT: Copied from customers.phone at order creation. Never updated after.
     customerPhone: v.optional(v.string()),
 
-    // PRD-0: Status workflow with type-safe unions
-    // PRD-7: Added InProduction between Confirmed and Packaging
-    // PRD-Kitchen-Workflow: Added Boxed and Labeled statuses for inventory management
+    // Phase 14: Simplified 7-status Kanban workflow
     status: v.union(
       v.literal("Draft"),
       v.literal("AwaitingPayment"),
-      v.literal("Confirmed"),
-      v.literal("InProduction"),        // NEW: Kitchen actively producing
-      v.literal("Boxed"),               // NEW: All packages filled and boxed
-      v.literal("Labeled"),             // NEW: Stickers applied to boxes
-      v.literal("ProductionComplete"),  // DEPRECATED: Use Packaging instead
-      v.literal("Packaging"),           // DEPRECATED: Use Boxed instead
-      v.literal("WaitingShipment"),
-      v.literal("CompleteShipped"),
-      v.literal("WaitingPickup"),
-      v.literal("PickedUp"),
+      v.literal("PaymentReceived"),     // Was "Confirmed"
+      v.literal("BeingPrepared"),       // Replaces InProduction/Boxed/Labeled/Packaging
+      v.literal("AwaitingDelivery"),    // Replaces WaitingShipment/WaitingPickup
+      v.literal("Complete"),            // Replaces CompleteShipped/PickedUp
       v.literal("Cancelled")
     ),
     awaitingPaymentSince: v.optional(v.number()),
@@ -391,13 +383,19 @@ export default defineSchema({
 
     notes: v.optional(v.string()),
     createdBy: v.string(),
+    // Phase 14: Creator attribution (machine-readable link to users table)
+    createdByUserId: v.optional(v.id("users")),
+    // Phase 14: Rush order marking
+    expedited: v.optional(v.boolean()),
+    // Phase 14: Timestamp when order entered kitchen (auto-entry tracking, one-time threshold consumed)
+    kitchenEnteredAt: v.optional(v.number()),
 
     // DERIVED: Count of orderItems for this order. Updated on item add/remove.
     itemCount: v.number(),
 
     // DERIVED: Computed from status. Set on every status transition. Source: statusTransitions.ts computeKitchenVisibility().
     isKitchenVisible: v.boolean(),
-    // DERIVED: Set when order reaches terminal status (CompleteShipped/PickedUp/Cancelled). Cleared on revert.
+    // DERIVED: Set when order reaches terminal status (Complete/Cancelled). Cleared on revert.
     completedAt: v.optional(v.number()),
   })
     .index("by_order_number", ["orderNumber"])
@@ -730,6 +728,8 @@ export default defineSchema({
     metadata: v.optional(v.string()), // JSON string for additional data
     timestamp: v.number(),
     triggeredBy: v.optional(v.string()), // "system", "kitchen", user name, etc.
+    // Phase 14: Who performed the action (machine-readable link to users table)
+    userId: v.optional(v.id("users")),
   })
     .index("by_order", ["orderId"])
     .index("by_type", ["eventType"])

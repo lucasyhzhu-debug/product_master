@@ -55,30 +55,18 @@ export const list = query({
     status: v.optional(v.union(
       v.literal("Draft"),
       v.literal("AwaitingPayment"),
-      v.literal("Confirmed"),
-      v.literal("InProduction"),
-      v.literal("Boxed"),
-      v.literal("Labeled"),
-      v.literal("ProductionComplete"),
-      v.literal("Packaging"),
-      v.literal("WaitingShipment"),
-      v.literal("CompleteShipped"),
-      v.literal("WaitingPickup"),
-      v.literal("PickedUp"),
+      v.literal("PaymentReceived"),
+      v.literal("BeingPrepared"),
+      v.literal("AwaitingDelivery"),
+      v.literal("Complete"),
       v.literal("Cancelled"),
       v.array(v.union(
         v.literal("Draft"),
         v.literal("AwaitingPayment"),
-        v.literal("Confirmed"),
-        v.literal("InProduction"),
-        v.literal("Boxed"),
-        v.literal("Labeled"),
-        v.literal("ProductionComplete"),
-        v.literal("Packaging"),
-        v.literal("WaitingShipment"),
-        v.literal("CompleteShipped"),
-        v.literal("WaitingPickup"),
-        v.literal("PickedUp"),
+        v.literal("PaymentReceived"),
+        v.literal("BeingPrepared"),
+        v.literal("AwaitingDelivery"),
+        v.literal("Complete"),
         v.literal("Cancelled")
       ))
     )),
@@ -156,16 +144,10 @@ export const list = query({
 const orderStatusLiteral = v.union(
   v.literal("Draft"),
   v.literal("AwaitingPayment"),
-  v.literal("Confirmed"),
-  v.literal("InProduction"),
-  v.literal("Boxed"),
-  v.literal("Labeled"),
-  v.literal("ProductionComplete"),
-  v.literal("Packaging"),
-  v.literal("WaitingShipment"),
-  v.literal("CompleteShipped"),
-  v.literal("WaitingPickup"),
-  v.literal("PickedUp"),
+  v.literal("PaymentReceived"),
+  v.literal("BeingPrepared"),
+  v.literal("AwaitingDelivery"),
+  v.literal("Complete"),
   v.literal("Cancelled")
 );
 
@@ -308,15 +290,10 @@ export const getKitchenOrders = query({
     midnightToday.setHours(0, 0, 0, 0);
     const midnightMs = midnightToday.getTime();
 
-    const [completedShipped, pickedUp] = await Promise.all([
-      ctx.db.query("orders")
-        .withIndex("by_status", (q) => q.eq("status", "CompleteShipped"))
-        .collect(),
-      ctx.db.query("orders")
-        .withIndex("by_status", (q) => q.eq("status", "PickedUp"))
-        .collect(),
-    ]);
-    const completedTodayOrders = [...completedShipped, ...pickedUp]
+    const completedOrders = await ctx.db.query("orders")
+      .withIndex("by_status", (q) => q.eq("status", "Complete"))
+      .collect();
+    const completedTodayOrders = completedOrders
       .filter((o) => o.completedAt && o.completedAt >= midnightMs);
 
     const orders = [...activeOrders, ...completedTodayOrders];
@@ -372,8 +349,8 @@ export const getKitchenOrders = query({
     // Sort: active orders by dueDate ascending (most urgent first),
     // completed-today orders always at bottom
     enrichedOrders.sort((a, b) => {
-      const aCompleted = a.status === "CompleteShipped" || a.status === "PickedUp";
-      const bCompleted = b.status === "CompleteShipped" || b.status === "PickedUp";
+      const aCompleted = a.status === "Complete";
+      const bCompleted = b.status === "Complete";
       // Completed orders always sort to bottom
       if (aCompleted && !bCompleted) return 1;
       if (!aCompleted && bCompleted) return -1;
@@ -458,19 +435,20 @@ function calculateProductionStatsByType(
 
 /**
  * Assign priority based on order status.
- * Priority 0: Confirmed, InProduction, Packaging (active orders)
- * Priority 1: Boxed, Labeled (post-production workflow)
+ * Phase 14: Simplified for 7-status model.
+ * Priority 0: BeingPrepared (active production)
+ * Priority 1: PaymentReceived (paid, waiting for kitchen)
  * Priority 2: Draft (de-prioritized)
- * Priority 3: WaitingShipment, WaitingPickup (completed packaging, lowest priority)
+ * Priority 3: AwaitingDelivery (ready for pickup/shipment)
  */
 function getStatusPriority(status: string): number {
-  if (status === "Confirmed" || status === "InProduction" || status === "Packaging") {
+  if (status === "BeingPrepared") {
     return 0;
-  } else if (status === "Boxed" || status === "Labeled") {
+  } else if (status === "PaymentReceived") {
     return 1;
   } else if (status === "Draft") {
     return 2;
-  } else if (status === "WaitingShipment" || status === "WaitingPickup") {
+  } else if (status === "AwaitingDelivery") {
     return 3;
   }
   return 4; // Fallback
@@ -628,26 +606,22 @@ export const getKitchenStats = query({
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    // OPTIMIZED: Fetch only the statuses we need (not all orders)
-    const [draftOrders, confirmedOrders, inProductionOrders, packagingOrders] = await Promise.all([
+    // OPTIMIZED: Fetch only the statuses we need (Phase 14 simplified)
+    const [draftOrders, awaitingPaymentOrders, paymentReceivedOrders, beingPreparedOrders] = await Promise.all([
       ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Draft")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Confirmed")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "InProduction")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Packaging")).collect(),
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "AwaitingPayment")).collect(),
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "PaymentReceived")).collect(),
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "BeingPrepared")).collect(),
     ]);
-    const pendingOrders = [...draftOrders, ...confirmedOrders, ...inProductionOrders, ...packagingOrders];
+    const pendingOrders = [...draftOrders, ...awaitingPaymentOrders, ...paymentReceivedOrders, ...beingPreparedOrders];
 
-    // Completed-today: fetch terminal statuses and filter by completedAt or _creationTime
-    const [completedShipped, pickedUp, productionComplete, waitingShipment, waitingPickup] = await Promise.all([
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "CompleteShipped")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "PickedUp")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "ProductionComplete")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "WaitingShipment")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "WaitingPickup")).collect(),
+    // Completed-today: fetch terminal and near-terminal statuses, filter by creation time
+    const [completedOrders, awaitingDeliveryOrders] = await Promise.all([
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Complete")).collect(),
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "AwaitingDelivery")).collect(),
     ]);
     const completedTodayOrders = [
-      ...completedShipped, ...pickedUp, ...productionComplete, ...waitingShipment, ...waitingPickup,
-      ...packagingOrders, // Packaging is in both pending and completed stats
+      ...completedOrders, ...awaitingDeliveryOrders,
     ].filter((o) => o._creationTime >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)
@@ -789,10 +763,10 @@ export const getKitchenStats = query({
 export const getPackagingOrders = query({
   args: {},
   handler: async (ctx) => {
-    // Get ProductionComplete orders
+    // Phase 14: Get BeingPrepared orders (replaces ProductionComplete)
     const orders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "ProductionComplete"))
+      .withIndex("by_status", (q) => q.eq("status", "BeingPrepared"))
       .collect();
 
     // Fetch items and menu products for each order
@@ -872,27 +846,23 @@ export const debugProductionRecords = query({
   args: {},
   handler: async (ctx) => {
     // Get all orders that might need ball distribution
+    // Phase 14: Simplified status queries
     const draftOrders = await ctx.db
       .query("orders")
       .withIndex("by_status", (q) => q.eq("status", "Draft"))
       .collect();
 
-    const confirmedOrders = await ctx.db
+    const paymentReceivedOrders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .withIndex("by_status", (q) => q.eq("status", "PaymentReceived"))
       .collect();
 
-    const inProductionOrders = await ctx.db
+    const beingPreparedOrders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .withIndex("by_status", (q) => q.eq("status", "BeingPrepared"))
       .collect();
 
-    const packagingOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Packaging"))
-      .collect();
-
-    const orders = [...draftOrders, ...confirmedOrders, ...inProductionOrders, ...packagingOrders];
+    const orders = [...draftOrders, ...paymentReceivedOrders, ...beingPreparedOrders];
 
     const result = await Promise.all(
       orders.map(async (order) => {
@@ -992,19 +962,14 @@ export const getCompletedToday = query({
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    // OPTIMIZED: Targeted status fetches instead of full table scan
-    const [productionComplete, packagingOrders, waitingShipment, waitingPickup, completedShipped, pickedUp] = await Promise.all([
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "ProductionComplete")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Packaging")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "WaitingShipment")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "WaitingPickup")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "CompleteShipped")).collect(),
-      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "PickedUp")).collect(),
+    // Phase 14: Simplified status fetches
+    const [awaitingDeliveryOrders, completedOrders2] = await Promise.all([
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "AwaitingDelivery")).collect(),
+      ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Complete")).collect(),
     ]);
 
     const completedToday = [
-      ...productionComplete, ...packagingOrders, ...waitingShipment,
-      ...waitingPickup, ...completedShipped, ...pickedUp,
+      ...awaitingDeliveryOrders, ...completedOrders2,
     ].filter((o) => o._creationTime >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)

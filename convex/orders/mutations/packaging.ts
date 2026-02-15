@@ -9,7 +9,7 @@ import type { Doc } from "../../_generated/dataModel";
 // Pure helpers
 import { calculatePackageStatus } from "../helpers";
 // Ctx-dependent helpers
-import { logOrderEvent, transitionToBoxed, transitionToInProduction, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
+import { logOrderEvent, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
 
 // ============================================
 // Production record helpers for packaging
@@ -180,9 +180,9 @@ export const completePackaging = mutation({
       throw new Error("Order not found");
     }
 
-    // Validate order is in Packaging status
-    if (order.status !== "Packaging") {
-      throw new Error("Only Packaging orders can be completed. Current status: " + order.status);
+    // Validate order is in BeingPrepared status
+    if (order.status !== "BeingPrepared") {
+      throw new Error("Only BeingPrepared orders can be completed. Current status: " + order.status);
     }
 
     // Verify all packages are packed
@@ -210,8 +210,8 @@ export const completePackaging = mutation({
       throw new Error("Cannot complete packaging: some packages are not yet packed");
     }
 
-    // Determine next status based on delivery type
-    const nextStatus = order.deliveryType === "Delivery" ? "WaitingShipment" : "WaitingPickup";
+    // Phase 14: BeingPrepared -> AwaitingDelivery
+    const nextStatus = "AwaitingDelivery";
 
     // Update order status
     await ctx.db.patch(args.orderId, {
@@ -222,9 +222,9 @@ export const completePackaging = mutation({
 
     // Log the transition event
     await logOrderEvent(ctx, args.orderId, "status_change", {
-      fromStatus: "Packaging",
+      fromStatus: "BeingPrepared",
       toStatus: nextStatus,
-      reason: "Packaging completed - ready for " + (order.deliveryType === "Delivery" ? "shipment" : "pickup"),
+      reason: "Packaging completed - ready for delivery",
       triggeredBy: "kitchen",
     });
 
@@ -251,16 +251,16 @@ export const revertToPackaging = mutation({
       throw new Error("Order not found");
     }
 
-    // Validate order is in WaitingShipment or WaitingPickup status
-    if (order.status !== "WaitingShipment" && order.status !== "WaitingPickup") {
-      throw new Error("Can only revert from WaitingShipment or WaitingPickup. Current status: " + order.status);
+    // Validate order is in AwaitingDelivery status
+    if (order.status !== "AwaitingDelivery") {
+      throw new Error("Can only revert from AwaitingDelivery. Current status: " + order.status);
     }
 
     const previousStatus = order.status;
 
-    // Update order status back to Packaging
+    // Update order status back to BeingPrepared
     await ctx.db.patch(args.orderId, {
-      status: "Packaging",
+      status: "BeingPrepared",
       isKitchenVisible: true,
       completedAt: undefined,
     });
@@ -268,8 +268,8 @@ export const revertToPackaging = mutation({
     // Log the revert event
     await logOrderEvent(ctx, args.orderId, "status_change", {
       fromStatus: previousStatus,
-      toStatus: "Packaging",
-      reason: "Reverted to packaging for corrections",
+      toStatus: "BeingPrepared",
+      reason: "Reverted to BeingPrepared for corrections",
       triggeredBy: "kitchen",
     });
 
@@ -429,56 +429,9 @@ export const fillPackage = mutation({
       packageStatus: newPackageStatus,
     });
 
-    // Check if this is the first ball (transition to InProduction)
-    if (currentBallsFilled === 0 && newBallsFilled > 0) {
-      const order = await ctx.db.get(item.orderId);
-      if (order && order.status === "Confirmed") {
-        await transitionToInProduction(ctx, order, "First ball filled - production started");
-      }
-    }
-
-    // Check if all packages are now filled (auto-transition to Boxed)
-    if (newBallsFilled >= totalBallsRequired && newPackageStatus !== "packed") {
-      const order = await ctx.db.get(item.orderId);
-      if (!order) {
-        throw new Error("Order not found");
-      }
-
-      // Check if ALL items in the order are now filled
-      const allItems = await ctx.db
-        .query("orderItems")
-        .withIndex("by_order", (q) => q.eq("orderId", item.orderId))
-        .collect();
-
-      // Filter to items with production data
-      const productionItems: typeof allItems = [];
-      for (const i of allItems) {
-        if (await hasProductionData(ctx, i)) {
-          productionItems.push(i);
-        }
-      }
-
-      const allItemsFilledChecks = await Promise.all(
-        productionItems.map(async (i) => {
-          if (i._id.toString() === args.orderItemId.toString()) {
-            // Use the updated state for this item
-            return newBallsFilled >= totalBallsRequired;
-          }
-          const ballsFilledInItem = i.ballsFilled ?? 0;
-          // Derive ballsPerPkg from production records
-          const ballsPerPkg = await getBallsPerPackageForItem(ctx, i);
-          const qty = i.quantity ?? 1;
-          const totalRequired = qty * ballsPerPkg;
-          return ballsFilledInItem >= totalRequired;
-        })
-      );
-      const allItemsFilled = allItemsFilledChecks.every(Boolean);
-
-      // Auto-transition to Boxed if all items are filled
-      if (allItemsFilled && order.status === "InProduction") {
-        await transitionToBoxed(ctx, order, "All packages filled - ready for boxing");
-      }
-    }
+    // Phase 14: No auto-transitions for individual ball fills.
+    // All status transitions happen through the Kanban board (forward/backward buttons).
+    // Ball filling is visual progress within BeingPrepared, not a status change trigger.
 
     return {
       orderItemId: args.orderItemId,

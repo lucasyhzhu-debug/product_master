@@ -171,7 +171,6 @@ export const fillPendingOrders = mutation({
       packagesCompleted,
       ordersUpdated,
       completedOrderIds: result.completedOrderIds,
-      transitionedToInProduction: result.transitionedToInProduction,
     };
   },
 });
@@ -559,7 +558,8 @@ export const markOrderReady = mutation({
       }
     }
 
-    const newStatus = order.deliveryType === "Pickup" ? "WaitingPickup" : "WaitingShipment";
+    // Phase 14: BeingPrepared -> AwaitingDelivery (single transition for all delivery types)
+    const newStatus = "AwaitingDelivery";
     const currentStatus = order.status;
 
     await ctx.db.patch(order._id, {
@@ -573,7 +573,7 @@ export const markOrderReady = mutation({
       order._id,
       currentStatus,
       newStatus,
-      "All items packed - order ready",
+      "All items packed - order ready for delivery",
       "kitchen"
     );
 

@@ -4,6 +4,7 @@
  */
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
+import { computeIsKitchenVisible } from "../helpers/statusTransitions";
 
 // Type for documents that may still have deprecated fields (pre-cleanup data).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -354,6 +355,99 @@ export const migratePackagingToBoxed = mutation({
       message: dryRun
         ? `Dry run: Would migrate ${results.migrated} orders from Packaging to Boxed. Run again with dryRun: false to apply.`
         : `Migrated ${results.migrated} orders from Packaging to Boxed status.`,
+    };
+  },
+});
+
+// ============================================
+// Phase 14: Status Migration (12+ statuses -> 7)
+// ============================================
+
+/**
+ * Status mapping from old statuses to new Phase 14 statuses.
+ * Run from Convex dashboard Functions tab: orders:migrateToNewStatuses
+ */
+const STATUS_MIGRATION_MAP: Record<string, string> = {
+  // Direct mappings
+  Confirmed: "PaymentReceived",
+  // All production-related -> BeingPrepared
+  InProduction: "BeingPrepared",
+  Boxed: "BeingPrepared",
+  Labeled: "BeingPrepared",
+  Packaging: "BeingPrepared",
+  ProductionComplete: "BeingPrepared",
+  // All waiting/shipping -> AwaitingDelivery
+  WaitingShipment: "AwaitingDelivery",
+  WaitingPickup: "AwaitingDelivery",
+  // All completed -> Complete
+  CompleteShipped: "Complete",
+  PickedUp: "Complete",
+  // These stay as-is:
+  // Draft -> Draft
+  // AwaitingPayment -> AwaitingPayment
+  // Cancelled -> Cancelled
+};
+
+export const migrateToNewStatuses = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+
+    const allOrders = await ctx.db.query("orders").collect();
+
+    const results = {
+      total: allOrders.length,
+      migrated: 0,
+      alreadyValid: 0,
+      byStatus: {} as Record<string, number>,
+    };
+
+    const validNewStatuses = new Set([
+      "Draft", "AwaitingPayment", "PaymentReceived",
+      "BeingPrepared", "AwaitingDelivery", "Complete", "Cancelled",
+    ]);
+
+    for (const order of allOrders) {
+      const oldStatus = order.status;
+
+      // Skip already-valid statuses
+      if (validNewStatuses.has(oldStatus)) {
+        results.alreadyValid++;
+        continue;
+      }
+
+      const newStatus = STATUS_MIGRATION_MAP[oldStatus];
+      if (!newStatus) {
+        console.warn(`Unknown status "${oldStatus}" for order ${order.orderNumber}`);
+        continue;
+      }
+
+      // Track counts by old status
+      results.byStatus[oldStatus] = (results.byStatus[oldStatus] ?? 0) + 1;
+
+      if (!dryRun) {
+        await ctx.db.patch(order._id, {
+          status: newStatus as "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled",
+          isKitchenVisible: computeIsKitchenVisible(newStatus),
+        });
+      }
+
+      results.migrated++;
+    }
+
+    console.log(`Phase 14 status migration: ${results.migrated} orders migrated`);
+    for (const [status, count] of Object.entries(results.byStatus)) {
+      console.log(`  ${status} -> ${STATUS_MIGRATION_MAP[status]}: ${count} orders`);
+    }
+
+    return {
+      ...results,
+      dryRun,
+      message: dryRun
+        ? `Dry run: Would migrate ${results.migrated} orders. Run again with dryRun: false to apply.`
+        : `Migrated ${results.migrated} orders to new status model.`,
     };
   },
 });

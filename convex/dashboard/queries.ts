@@ -42,9 +42,8 @@ export const getSummary = query({
     }
 
     // Active orders (not completed/cancelled)
-    // Schema statuses: Draft, AwaitingPayment, Confirmed, ProductionComplete, Packaging,
-    // WaitingShipment, CompleteShipped, WaitingPickup, PickedUp, Cancelled
-    const terminalStatuses = ["CompleteShipped", "PickedUp", "Cancelled"];
+    // Phase 14 statuses: Draft, AwaitingPayment, PaymentReceived, BeingPrepared, AwaitingDelivery, Complete, Cancelled
+    const terminalStatuses = ["Complete", "Cancelled"];
     const activeOrders = allOrders.filter(
       (o) => !terminalStatuses.includes(o.status)
     );
@@ -131,9 +130,8 @@ export const getUpcomingDue = query({
 
     // OPTIMIZED: Fetch only non-terminal status orders using parallel indexed queries
     const nonTerminalStatuses = [
-      "Draft", "AwaitingPayment", "Confirmed", "InProduction",
-      "Boxed", "Labeled", "ProductionComplete", "Packaging",
-      "WaitingShipment", "WaitingPickup",
+      "Draft", "AwaitingPayment", "PaymentReceived",
+      "BeingPrepared", "AwaitingDelivery",
     ] as const;
 
     const statusResults = await Promise.all(

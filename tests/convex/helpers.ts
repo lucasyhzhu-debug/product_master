@@ -1080,7 +1080,7 @@ export async function createBasicOrder(
   orderItemIds: Id<'orderItems'>[];
 }> {
   const quantity = overrides.quantity ?? 1;
-  const status = overrides.status ?? 'Confirmed';
+  const status = overrides.status ?? 'BeingPrepared';
   const dueDate = overrides.dueDate ?? Date.now() + 86400000; // Tomorrow
   const orderDate = overrides.orderDate ?? Date.now();
   const productName = overrides.productName ?? 'Test Product';
@@ -1105,12 +1105,12 @@ export async function createBasicOrder(
     const orderNumber = `${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
 
     const totalAmount = quantity * unitPrice;
-    const kitchenVisibleStatuses = ['Confirmed', 'InProduction', 'Boxed', 'Labeled', 'ProductionComplete', 'Packaging'];
+    const kitchenVisibleStatuses = ['BeingPrepared'];
     return await ctx.db.insert('orders', {
       orderNumber,
       customerId,
       customerName: 'Test Customer',
-      status: status as 'Confirmed' | 'InProduction' | 'Draft' | 'AwaitingPayment' | 'Boxed' | 'Labeled' | 'ProductionComplete' | 'Packaging' | 'WaitingShipment' | 'CompleteShipped' | 'WaitingPickup' | 'PickedUp' | 'Cancelled',
+      status: status as 'Draft' | 'AwaitingPayment' | 'PaymentReceived' | 'BeingPrepared' | 'AwaitingDelivery' | 'Complete' | 'Cancelled',
       paymentStatus: 'Unpaid',
       orderDate,
       dueDate,

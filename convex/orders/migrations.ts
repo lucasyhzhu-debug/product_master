@@ -119,22 +119,17 @@ export const getPerformanceBaseline = query({
   handler: async (ctx) => {
     const startTime = Date.now();
 
-    // Simulate kitchen orders query
-    const confirmedOrders = await ctx.db
+    // Simulate kitchen orders query (Phase 14: single status)
+    const beingPreparedOrders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
-      .collect();
-
-    const inProductionOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .withIndex("by_status", (q) => q.eq("status", "BeingPrepared"))
       .collect();
 
     const ordersFetchTime = Date.now() - startTime;
 
     // Fetch items (simulating N+1 pattern)
     const itemsStart = Date.now();
-    const allOrders = [...confirmedOrders, ...inProductionOrders];
+    const allOrders = [...beingPreparedOrders];
     const itemPromises = allOrders.map(order =>
       ctx.db
         .query("orderItems")

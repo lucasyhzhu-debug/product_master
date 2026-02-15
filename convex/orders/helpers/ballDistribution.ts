@@ -9,7 +9,7 @@
 
 import type { MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { logAutoTransition } from "./statusTransitions";
+// logAutoTransition import removed — Phase 14 ball filling has no auto-transitions
 import type { ItemWithProduction } from "./productionRecords";
 
 // ============================================
@@ -20,7 +20,6 @@ export interface BallDistributionResult {
   ballsUsed: number;
   overflow: number;
   completedOrderIds: Id<"orders">[];
-  transitionedToInProduction: Id<"orders">[];
   filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[];
 }
 
@@ -44,19 +43,11 @@ interface OrderWithItems {
 async function fetchEligibleOrdersWithItems(
   ctx: MutationCtx
 ): Promise<OrderWithItems[]> {
-  // Get Confirmed and InProduction orders
-  const confirmedOrders = await ctx.db
+  // Phase 14: All production happens within BeingPrepared status
+  const allEligibleOrders = await ctx.db
     .query("orders")
-    .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+    .withIndex("by_status", (q) => q.eq("status", "BeingPrepared"))
     .collect();
-
-  const inProductionOrders = await ctx.db
-    .query("orders")
-    .withIndex("by_status", (q) => q.eq("status", "InProduction"))
-    .collect();
-
-  // Combine - Confirmed first (they need to transition)
-  const allEligibleOrders = [...confirmedOrders, ...inProductionOrders];
 
   // Fetch items with production records for each order
   return await Promise.all(
@@ -165,7 +156,6 @@ export async function distributeBallsToOrders(
       ballsUsed: 0,
       overflow: 0,
       completedOrderIds: [],
-      transitionedToInProduction: [],
       filledPackages: [],
     };
   }
@@ -186,7 +176,6 @@ export async function distributeBallsToOrders(
   // Initialize tracking
   let remainingBalls = options.count;
   const completedOrderIds: Id<"orders">[] = [];
-  const transitionedToInProduction: Id<"orders">[] = [];
   const filledPackages: { orderItemId: Id<"orderItems">; ballsAdded: number }[] = [];
   // Track updated production record values for completion check
   const updatedUnitsRemaining = new Map<string, number>();
@@ -269,64 +258,29 @@ export async function distributeBallsToOrders(
       }
     }
 
-    // PRD-7: Trigger Confirmed -> InProduction when first ball is filled
-    if (order.status === "Confirmed" && orderReceivedBalls) {
-      await ctx.db.patch(order._id, { status: "InProduction" });
-      await logAutoTransition(
-        ctx,
-        order._id,
-        "Confirmed",
-        "InProduction",
-        "First ball filled - production started",
-        "kitchen"
-      );
-      transitionedToInProduction.push(order._id);
-    }
+    // Phase 14: Ball filling is visual progress within BeingPrepared.
+    // No auto-transitions — status changes happen via Kanban board.
 
-    // Check if ALL items in the order are complete using NEW system (orderItemProduction)
-    // An item is complete when all its production records have unitsRemaining = 0
-    // FIX: Use NEW system (production records) instead of OLD system (productionType field)
+    // Check if ALL items in the order are complete using production records.
+    // An item is complete when all its production records have unitsRemaining = 0.
     const itemsWithProductionData = items.filter((item) => item.productionRecords.length > 0);
 
     if (itemsWithProductionData.length > 0) {
       const allComplete = itemsWithProductionData.every((item) => {
-        // Check NEW system: all production records must have unitsRemaining <= 0
         const activeRecords = item.productionRecords.filter(r => !r.isCancelled);
-        if (activeRecords.length === 0) {
-          // No production records = item complete (or not tracked)
-          return true;
-        }
-        // NEW system check: all records must be complete (use updated values if available)
+        if (activeRecords.length === 0) return true;
         return activeRecords.every(record => {
           const updatedValue = updatedUnitsRemaining.get(record._id.toString());
-          if (updatedValue !== undefined) {
-            return updatedValue <= 0;
-          }
+          if (updatedValue !== undefined) return updatedValue <= 0;
           return record.unitsRemaining <= 0;
         });
       });
 
-      // PRD-7: Transition to Packaging when all balls complete
       if (allComplete) {
-        const currentStatus = transitionedToInProduction.includes(order._id)
-          ? "InProduction"
-          : order.status;
-
-        await ctx.db.patch(order._id, { status: "Packaging" });
-        await logAutoTransition(
-          ctx,
-          order._id,
-          currentStatus,
-          "Packaging",
-          "All balls complete - ready for packaging",
-          "kitchen"
-        );
-
-        // Mark all items as production complete
+        // Mark all items as production complete (visual indicator)
         for (const item of items) {
           await ctx.db.patch(item._id, { isProductionComplete: true });
         }
-
         completedOrderIds.push(order._id);
       }
     }
@@ -336,7 +290,6 @@ export async function distributeBallsToOrders(
     ballsUsed: options.count - remainingBalls,
     overflow: remainingBalls,
     completedOrderIds,
-    transitionedToInProduction,
     filledPackages,
   };
 }

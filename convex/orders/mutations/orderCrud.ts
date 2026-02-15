@@ -14,7 +14,6 @@ import {
   distributeBallsToOrders,
   logOrderEvent,
   isTerminalStatus,
-  incrementChannelUsage,
   createProductionRecordsForItem,
   cancelOrderProductionRecords,
   markOrderProductionComplete,
@@ -26,7 +25,7 @@ import {
 } from "../helpers/index";
 
 // Shared validators
-import { orderItemInput, channelValidator } from "../validators";
+import { orderItemInput } from "../validators";
 
 // ============================================
 // Helper Functions
@@ -95,8 +94,8 @@ export const create = mutation({
       })
     ),
     // Order details
-    channel: v.optional(channelValidator),
     soldBy: v.optional(v.string()),
+    createdByUserId: v.optional(v.id("users")),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),
     deliveryType: v.optional(v.string()),
@@ -304,8 +303,8 @@ export const create = mutation({
       voucherDiscountValue: voucherInfo?.voucherDiscountValue,
       lowPriceConfirmed: isLowPrice ? args.lowPriceConfirmed : undefined,
       // Other fields
-      channel: args.channel,
       soldBy: args.soldBy,
+      createdByUserId: args.createdByUserId,
       deliveryType: args.deliveryType ?? "Pickup",
       pickupLocation: args.pickupLocation,
       deliveryAddress: args.deliveryAddress,
@@ -338,11 +337,6 @@ export const create = mutation({
       if (item.menuProductId) {
         await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
       }
-    }
-
-    // PRD-7: Track channel usage for "Top 4" button selectors
-    if (args.channel) {
-      await incrementChannelUsage(ctx, args.channel);
     }
 
     // Record voucher usage if voucher was applied
@@ -509,13 +503,13 @@ export const completeOrder = mutation({
       throw new Error("Order not found");
     }
 
-    if (order.status !== "Confirmed") {
-      throw new Error("Only Confirmed orders can be completed");
+    if (order.status !== "BeingPrepared") {
+      throw new Error("Only BeingPrepared orders can be completed");
     }
 
-    // Update order status
+    // Update order status - BeingPrepared -> AwaitingDelivery
     await ctx.db.patch(args.orderId, {
-      status: "ProductionComplete",
+      status: "AwaitingDelivery",
       isKitchenVisible: false,
     });
 
@@ -538,13 +532,13 @@ export const revertToConfirmed = mutation({
       throw new Error("Order not found");
     }
 
-    if (order.status !== "ProductionComplete") {
-      throw new Error("Only ProductionComplete orders can be reverted");
+    if (order.status !== "AwaitingDelivery") {
+      throw new Error("Only AwaitingDelivery orders can be reverted to BeingPrepared");
     }
 
-    // Update order status
+    // Update order status - AwaitingDelivery -> BeingPrepared
     await ctx.db.patch(args.orderId, {
-      status: "Confirmed",
+      status: "BeingPrepared",
       isKitchenVisible: true,
       completedAt: undefined,
     });
@@ -600,7 +594,7 @@ export const updateOrderDiscount = mutation({
  *   - Confirmed -> InProduction (first ball filled)
  *   - InProduction -> Packaging (all balls complete)
  *
- * Applies a batch of completed balls (big or mid) to Confirmed/InProduction orders
+ * Applies a batch of completed balls (big or mid) to BeingPrepared orders
  * in priority order.
  */
 export const completeBalls = mutation({
@@ -621,7 +615,6 @@ export const completeBalls = mutation({
 
     return {
       completedOrderIds: result.completedOrderIds,
-      transitionedToInProduction: result.transitionedToInProduction,
       ballsUsed: result.ballsUsed,
       overflow: result.overflow,
     };

@@ -40,6 +40,7 @@ import type * as integrations_k3mart_config from "../integrations/k3mart/config.
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_registry from "../integrations/registry.js";
 import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
+import type * as integrityChecks_queries from "../integrityChecks/queries.js";
 import type * as inventory_fifo from "../inventory/fifo.js";
 import type * as inventory_helpers from "../inventory/helpers.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
@@ -100,6 +101,7 @@ import type * as platformCredentials_mutations from "../platformCredentials/muta
 import type * as platformCredentials_queries from "../platformCredentials/queries.js";
 import type * as productionCounts_mutations from "../productionCounts/mutations.js";
 import type * as productionCounts_queries from "../productionCounts/queries.js";
+import type * as productionLog_helpers from "../productionLog/helpers.js";
 import type * as productionLog_queries from "../productionLog/queries.js";
 import type * as productionTargets_mutations from "../productionTargets/mutations.js";
 import type * as productionTargets_queries from "../productionTargets/queries.js";
@@ -162,6 +164,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/registry": typeof integrations_registry;
   "integrityChecks/mutations": typeof integrityChecks_mutations;
+  "integrityChecks/queries": typeof integrityChecks_queries;
   "inventory/fifo": typeof inventory_fifo;
   "inventory/helpers": typeof inventory_helpers;
   "inventory/mutations": typeof inventory_mutations;
@@ -222,6 +225,7 @@ declare const fullApi: ApiFromModules<{
   "platformCredentials/queries": typeof platformCredentials_queries;
   "productionCounts/mutations": typeof productionCounts_mutations;
   "productionCounts/queries": typeof productionCounts_queries;
+  "productionLog/helpers": typeof productionLog_helpers;
   "productionLog/queries": typeof productionLog_queries;
   "productionTargets/mutations": typeof productionTargets_mutations;
   "productionTargets/queries": typeof productionTargets_queries;

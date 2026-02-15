@@ -7,14 +7,10 @@
 
 /** Order statuses that count as revenue (anything past AwaitingPayment, excluding Cancelled) */
 export const REVENUE_COUNTABLE_STATUSES = [
-  "Confirmed",
-  "InProduction",
-  "Boxed",
-  "Labeled",
-  "WaitingShipment",
-  "WaitingPickup",
-  "CompleteShipped",
-  "PickedUp",
+  "PaymentReceived",
+  "BeingPrepared",
+  "AwaitingDelivery",
+  "Complete",
 ] as const;
 
 export type RevenueCountableStatus = (typeof REVENUE_COUNTABLE_STATUSES)[number];

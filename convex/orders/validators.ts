@@ -36,19 +36,14 @@ export const channelValidator = v.union(
 
 /**
  * Status validator for order status field.
+ * Phase 14: Simplified to 7 statuses for Kanban workflow.
  */
 export const statusValidator = v.union(
   v.literal("Draft"),
   v.literal("AwaitingPayment"),
-  v.literal("Confirmed"),
-  v.literal("InProduction"),
-  v.literal("ProductionComplete"),
-  v.literal("Boxed"),
-  v.literal("Labeled"),
-  v.literal("Packaging"),
-  v.literal("WaitingShipment"),
-  v.literal("CompleteShipped"),
-  v.literal("WaitingPickup"),
-  v.literal("PickedUp"),
+  v.literal("PaymentReceived"),
+  v.literal("BeingPrepared"),
+  v.literal("AwaitingDelivery"),
+  v.literal("Complete"),
   v.literal("Cancelled")
 );

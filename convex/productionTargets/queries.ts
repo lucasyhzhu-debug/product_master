@@ -86,7 +86,7 @@ export const getOrderProductDemand = query({
     const dayAfterTomorrow = todayStart + 2 * 24 * 60 * 60 * 1000;
 
     // Query active orders by status, then filter by dueDate range
-    const statuses = ["Confirmed", "InProduction"] as const;
+    const statuses = ["PaymentReceived", "BeingPrepared"] as const;
     const allOrders = [];
 
     for (const status of statuses) {

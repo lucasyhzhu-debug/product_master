@@ -71,18 +71,18 @@ export const autoCalculate = mutation({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
 
-    // Get all confirmed and in-production orders
-    const confirmedOrders = await ctx.db
+    // Get all payment-received and being-prepared orders
+    const paymentReceivedOrders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "Confirmed"))
+      .withIndex("by_status", (q) => q.eq("status", "PaymentReceived"))
       .collect();
 
-    const inProductionOrders = await ctx.db
+    const beingPreparedOrders = await ctx.db
       .query("orders")
-      .withIndex("by_status", (q) => q.eq("status", "InProduction"))
+      .withIndex("by_status", (q) => q.eq("status", "BeingPrepared"))
       .collect();
 
-    const allOrders = [...confirmedOrders, ...inProductionOrders];
+    const allOrders = [...paymentReceivedOrders, ...beingPreparedOrders];
 
     // Calculate total production units needed per productionUnitType
     const unitTotals = new Map<string, number>(); // productionUnitTypeId -> quantity

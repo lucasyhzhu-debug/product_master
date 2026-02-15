@@ -1,6 +1,11 @@
 /**
  * Order Status Update mutations
- * Status, payment, shipping, and details updates
+ * Phase 14: Simplified for 7-status Kanban workflow.
+ *
+ * Inventory integration:
+ * - PaymentReceived: Reserve stock for packaging components
+ * - BeingPrepared: Consume all materials (production + boxing + sticker)
+ * - Cancelled: Release all reservations
  */
 import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
@@ -31,7 +36,7 @@ import {
 // ============================================
 
 interface OrderStatusUpdate {
-  status: "Draft" | "AwaitingPayment" | "Confirmed" | "InProduction" | "ProductionComplete" | "Boxed" | "Labeled" | "Packaging" | "WaitingShipment" | "CompleteShipped" | "WaitingPickup" | "PickedUp" | "Cancelled";
+  status: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled";
   awaitingPaymentSince?: number;
   confirmedAt?: number;
   isKitchenVisible?: boolean;
@@ -58,9 +63,8 @@ interface OrderDetailsUpdate {
  * Update order status.
  *
  * Integrates with inventory management:
- * - Confirmed: Reserve stock for packaging components
- * - Boxed: Consume boxing materials (boxes, wrappers, ball paper)
- * - Labeled: Consume sticker materials (product/QR stickers)
+ * - PaymentReceived: Reserve stock for packaging components
+ * - BeingPrepared: Consume all materials (production + boxing + sticker) at once
  * - Cancelled: Release all reservations
  */
 export const updateStatus = mutation({
@@ -71,6 +75,9 @@ export const updateStatus = mutation({
     skipStockCheck: v.optional(v.boolean()),
     overrideReason: v.optional(v.string()),
     overrideBy: v.optional(v.string()),
+    // Phase 14: Audit trail for backward transitions
+    reason: v.optional(v.string()),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -93,8 +100,13 @@ export const updateStatus = mutation({
     }
 
     // Track payment confirmation timestamp (revenue recognition date)
-    if (newStatus === "Confirmed" && oldStatus !== "Confirmed" && !order.confirmedAt) {
+    if (newStatus === "PaymentReceived" && oldStatus !== "PaymentReceived" && !order.confirmedAt) {
       updates.confirmedAt = Date.now();
+    }
+
+    // Phase 14: Backward transition from PaymentReceived clears confirmedAt (sales reversal)
+    if (oldStatus === "PaymentReceived" && (newStatus === "AwaitingPayment" || newStatus === "Draft")) {
+      updates.confirmedAt = undefined;
     }
 
     // Update order status first
@@ -104,8 +116,8 @@ export const updateStatus = mutation({
     // Inventory Integration
     // ============================================
 
-    // Reserve stock when confirming order
-    if (newStatus === "Confirmed" && oldStatus !== "Confirmed") {
+    // Reserve stock when payment received
+    if (newStatus === "PaymentReceived" && oldStatus !== "PaymentReceived") {
       try {
         await reserveStockForOrderInternal(ctx, {
           orderId: args.orderId,
@@ -124,6 +136,7 @@ export const updateStatus = mutation({
               shortageDetails: "Stock shortage overridden by user",
             },
             triggeredBy: "user",
+            userId: args.userId,
           });
         }
       } catch (error) {
@@ -137,39 +150,11 @@ export const updateStatus = mutation({
       }
     }
 
-    // Consume production materials when entering production
-    if (newStatus === "InProduction" && oldStatus !== "InProduction") {
+    // Consume ALL materials when entering BeingPrepared (production + boxing + sticker)
+    if (newStatus === "BeingPrepared" && oldStatus !== "BeingPrepared") {
       try {
         await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
-      } catch (error) {
-        // Revert status on failure
-        await ctx.db.patch(args.orderId, {
-          status: oldStatus,
-          isKitchenVisible: computeIsKitchenVisible(oldStatus),
-          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
-        });
-        throw error;
-      }
-    }
-
-    // Consume boxing materials when marking as boxed
-    if (newStatus === "Boxed" && oldStatus !== "Boxed") {
-      try {
         await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
-      } catch (error) {
-        // Revert status on failure
-        await ctx.db.patch(args.orderId, {
-          status: oldStatus,
-          isKitchenVisible: computeIsKitchenVisible(oldStatus),
-          completedAt: isTerminalStatus(oldStatus) ? Date.now() : undefined,
-        });
-        throw error;
-      }
-    }
-
-    // Consume sticker materials when marking as labeled
-    if (newStatus === "Labeled" && oldStatus !== "Labeled") {
-      try {
         await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
       } catch (error) {
         // Revert status on failure
