@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 15 (Kitchen Overhaul) -- IN PROGRESS
-Plan: 02 complete
-Status: Plan 02 dashboard header frontend complete. StatCard, DashboardHeader, TargetConfigPopover components + useKitchenProduction kitchenConfig integration.
-Last activity: 2026-02-16 - Completed 15-02-PLAN.md (dashboard header components)
+Plan: 03 complete
+Status: Plan 03 due-date order list complete. 5 new components + 1 utility for due-date grouped order cards with checklists, K3Mart synthetic card, and action buttons.
+Last activity: 2026-02-16 - Completed 15-03-PLAN.md (due-date order list components)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -43,6 +43,7 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 14.1 | 03 | 1 min | 2 | 2 |
 | 15 | 01 | 4 min | 2 | 7 |
 | 15 | 02 | 5 min | 2 | 5 |
+| 15 | 03 | 6 min | 2 | 7 |
 
 *Updated after each plan completion*
 
@@ -75,6 +76,7 @@ Recent decisions affecting current work:
 - [Phase 14.1-03]: Removed AnimatePresence entirely (0.15s fade adds no UX value, causes blank page bugs); Save as Draft reuses updateDraft + replaceItems (no backend changes)
 - [Phase 15-01]: kitchenConfig is single-row table with .first() (no indexes); WIB date boundaries as UTC timestamps for due-today filtering; sendBackToOrderDesk does not touch confirmedAt (revenue recognition boundary)
 - [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
+- [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
 
 ### Roadmap Evolution
 
@@ -99,9 +101,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 15-02-PLAN.md (dashboard header components)
+Stopped at: Completed 15-03-PLAN.md (due-date order list components)
 Resume file: None
-Resume notes: Plan 02 complete. Ready for Plan 03 (due-date order list). On feature/15-kitchen-overhaul branch.
+Resume notes: Plan 03 complete. Ready for Plan 04 (or next plan). On feature/15-kitchen-overhaul branch.
 
 ---
 *Last updated: 2026-02-16*
