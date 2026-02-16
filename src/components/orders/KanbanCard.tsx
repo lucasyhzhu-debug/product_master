@@ -34,6 +34,8 @@ export interface KanbanOrder {
   totalMargin: number;
   orderLevelDiscount?: number;
   orderLevelDiscountType?: 'amount' | 'percentage';
+  voucherDiscountValue?: number;
+  finalTotal?: number;
   expedited?: boolean;
   deliveryType?: string;
   deliveryAddress?: string;
@@ -77,13 +79,15 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
   const urgency = getUrgencyLevel(order.dueDate);
   const isExpedited = order.expedited === true;
 
-  // Calculate discount
-  const discount = order.orderLevelDiscount && order.orderLevelDiscountType
+  // Calculate discount (order-level + voucher)
+  const orderDiscount = order.orderLevelDiscount && order.orderLevelDiscountType
     ? order.orderLevelDiscountType === 'percentage'
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount
     : 0;
-  const discountedTotal = order.totalAmount - discount;
+  const voucherDiscount = order.voucherDiscountValue ?? 0;
+  const discount = orderDiscount + voucherDiscount;
+  const discountedTotal = order.finalTotal ?? (order.totalAmount - discount);
 
   // Format due date
   const dueDateStr = order.dueDate
