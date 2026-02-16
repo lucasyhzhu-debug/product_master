@@ -46,7 +46,7 @@ export interface KanbanOrder {
 
 interface KanbanCardProps {
   order: KanbanOrder;
-  onCardClick: (orderId: string) => void;
+  onCardClick: (orderId: string, status: string) => void;
 }
 
 // ============================================
@@ -99,7 +99,7 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
       className={`cursor-pointer hover:shadow-md transition-shadow ${
         isExpedited ? 'border-amber-400 border-2' : ''
       }`}
-      onClick={() => onCardClick(order._id)}
+      onClick={() => onCardClick(order._id, order.status)}
     >
       <CardContent className="p-3 space-y-2">
         {/* Header: Customer name + price, order by + discount */}

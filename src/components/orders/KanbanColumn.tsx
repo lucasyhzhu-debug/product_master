@@ -25,7 +25,7 @@ export interface KanbanColumnConfig {
 interface KanbanColumnProps {
   config: KanbanColumnConfig;
   orders: KanbanOrder[];
-  onCardClick: (orderId: string) => void;
+  onCardClick: (orderId: string, status: string) => void;
 }
 
 // ============================================

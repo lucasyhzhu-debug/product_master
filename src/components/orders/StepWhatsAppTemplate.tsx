@@ -56,10 +56,11 @@ export function StepWhatsAppTemplate({
   const [language, setLanguage] = React.useState<Language>('id');
   const [copied, setCopied] = React.useState(false);
 
-  // Fetch WhatsApp message from Convex
+  // Fetch WhatsApp message from Convex (pass language so toggle switches body content)
   const message = useQuery(api.orders.whatsapp.getMessage, {
     orderId,
     template: templateType,
+    language,
   });
 
   const isLoading = message === undefined;

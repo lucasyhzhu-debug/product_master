@@ -14,6 +14,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-16 - Phase 14.1: Draft Order Fixes
+
+Draft orders now save automatically the moment you pick a customer, so you never lose work. Clicking a draft in the Kanban board opens the full edit form (not the read-only slide-over), and the WhatsApp language toggle now correctly switches both the title and message.
+
+### Added
+- Draft auto-creation: selecting a customer in the new order form immediately persists a Draft order
+- Draft editing: clicking a Draft card in Kanban opens the full edit form with all fields pre-filled
+- Delete Draft button in edit mode for easy cleanup of unwanted drafts
+
+### Changed
+- Draft Kanban column sorted by creation date (newest first) instead of due date
+- Draft column click opens edit form instead of read-only slide-over
+- Reverted orders (AwaitingPayment -> Draft) behave identically to new Drafts
+
+### Fixed
+- WhatsApp translate toggle now switches both title AND message body content between languages
+
+---
+
 ## 2026-02-15 - Phase 14: Order QoL
 
 ### Overview

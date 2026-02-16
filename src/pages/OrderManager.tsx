@@ -31,8 +31,14 @@ export function OrderManager() {
     }
   }, [searchParams, setSearchParams]);
 
-  const handleCardClick = (orderId: string) => {
-    setSelectedOrderId(orderId);
+  const handleCardClick = (orderId: string, status: string) => {
+    if (status === 'Draft') {
+      // Draft cards open the edit form
+      navigate(`/orders/new?draft=${orderId}`);
+    } else {
+      // All other cards open the slide-over
+      setSelectedOrderId(orderId);
+    }
   };
 
   const handleCloseSlideOver = () => {

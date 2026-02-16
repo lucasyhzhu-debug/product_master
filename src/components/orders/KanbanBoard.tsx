@@ -29,7 +29,7 @@ export type KanbanData = Record<string, KanbanOrder[]>;
 
 interface KanbanBoardProps {
   data: KanbanData | undefined;
-  onCardClick: (orderId: string) => void;
+  onCardClick: (orderId: string, status: string) => void;
 }
 
 // ============================================
