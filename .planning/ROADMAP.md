@@ -36,7 +36,8 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 13: API Audit & Auth Architecture** - External API integration with token management, sync health, and multi-outlet support
 - [x] **Phase 14: Order QoL** - Order management UX overhaul with Kanban board, simplified statuses, and audit trail
 - [x] **Phase 15: Kitchen Overhaul** - Kitchen dashboard with production targets, due-date ranking, and K3Mart demand integration
-- [ ] **Phase 16: K3Mart Cockpit** - Complete cockpit with outlet-first weekly planning, holiday awareness, and demand push to kitchen
+- [x] **Phase 16: K3Mart Cockpit** - Complete cockpit with outlet-first weekly planning, holiday awareness, and demand push to kitchen
+- [ ] **Phase 16.1: GoBiz OpenAPI Audit & Migration** - Crawl official GoBiz docs, audit current integration, migrate to official APIs, update documentation (INSERTED)
 
 ## Phase Details
 
@@ -130,11 +131,13 @@ Plans:
   3. Holidays and weekends are visually highlighted in the weekly planning grid with adjusted suggested quantities
   4. Manager can record manual stock in/out during the day without full dispatch planning
   5. Confirmed dispatch plans automatically create/update synthetic kitchen orders (linked to KIT-06 in Phase 15)
-**Plans**: 4 plans
-- [ ] 16-01-PLAN.md -- Backend: holiday system extension, outlet-first queries, copy-last-week, outlet settings
-- [ ] 16-02-PLAN.md -- Weekly planner rewrite: outlet-first grid, week navigation, 3-row headers, auto-suggest, totals
-- [ ] 16-03-PLAN.md -- Stock flow: rotation shortcut, confirmation dialog, movement history, outlet settings modal
-- [ ] 16-04-PLAN.md -- Synthetic kitchen orders, BACKLOG stub resolution, documentation, visual verification
+**Plans**: 6 plans
+- [x] 16-01-PLAN.md -- Backend: holiday system extension, outlet-first queries, copy-last-week, outlet settings
+- [x] 16-02-PLAN.md -- Weekly planner rewrite: outlet-first grid, week navigation, 3-row headers, auto-suggest, totals
+- [x] 16-03-PLAN.md -- Stock flow: rotation shortcut, confirmation dialog, movement history, outlet settings modal
+- [x] 16-04-PLAN.md -- Synthetic kitchen orders, BACKLOG stub resolution, documentation, visual verification
+- [x] 16-05-PLAN.md -- [GAP] Backend: fix confirmDayPlan re-confirm, product name resolution, default prices
+- [x] 16-06-PLAN.md -- [GAP] Frontend: layout reorder, collapsibility, past day greying, dark mode, product name display
 
 ## Progress
 
@@ -155,9 +158,19 @@ Plans:
 | 13. API Audit & Auth Architecture | v1.1 | 5/5 | Complete | 2026-02-15 |
 | 14. Order QoL | v1.1 | 8/8 | Complete | 2026-02-16 |
 | 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
-| 16. K3Mart Cockpit | v1.1 | 0/4 | Planned | - |
+| 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
+| 16.1 GoBiz OpenAPI Audit | v1.1 | 0/? | Not Started | - |
 
 ---
 *Roadmap created: 2026-02-13*
 *v1.0 shipped: 2026-02-15*
 *v1.1 roadmap added: 2026-02-15*
+
+### Phase 16.1: GoBiz OpenAPI audit and official API migration (INSERTED)
+
+**Goal:** Crawl the official GoBiz OpenAPI docs (https://app.gobiz.com/files/static/cpp/docs/index.html), audit current integration against official APIs, migrate to official endpoints, and update internal API documentation so Claude always has the reference
+**Depends on:** Phase 16
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16.1 to break down)
