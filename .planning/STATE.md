@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 15 (Kitchen Overhaul) -- IN PROGRESS
-Plan: 03 complete
-Status: Plan 03 due-date order list complete. 5 new components + 1 utility for due-date grouped order cards with checklists, K3Mart synthetic card, and action buttons.
-Last activity: 2026-02-16 - Completed 15-03-PLAN.md (due-date order list components)
+Phase: 15 (Kitchen Overhaul) -- IN PROGRESS (human verification pending)
+Plan: 04 complete (pending visual verification)
+Status: Plan 04 integration complete. KitchenViewV2 wired with dashboard header, due-date order list, inventory override (KIT-08), and send-back mutation. All KIT-01 through KIT-08 implemented. Build passes.
+Last activity: 2026-02-16 - Completed 15-04-PLAN.md (integration + inventory override)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -44,6 +44,7 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 15 | 01 | 4 min | 2 | 7 |
 | 15 | 02 | 5 min | 2 | 5 |
 | 15 | 03 | 6 min | 2 | 7 |
+| 15 | 04 | 6 min | 1 | 9 |
 
 *Updated after each plan completion*
 
@@ -77,6 +78,7 @@ Recent decisions affecting current work:
 - [Phase 15-01]: kitchenConfig is single-row table with .first() (no indexes); WIB date boundaries as UTC timestamps for due-today filtering; sendBackToOrderDesk does not touch confirmedAt (revenue recognition boundary)
 - [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
 - [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
+- [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
 
 ### Roadmap Evolution
 
@@ -101,9 +103,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 15-03-PLAN.md (due-date order list components)
+Stopped at: Completed 15-04-PLAN.md (integration + inventory override)
 Resume file: None
-Resume notes: Plan 03 complete. Ready for Plan 04 (or next plan). On feature/15-kitchen-overhaul branch.
+Resume notes: Plan 04 complete. Human visual verification pending (see 15-04-SUMMARY.md). Phase 15 all plans done. On feature/15-kitchen-overhaul branch. Ready for merge to main after verification.
 
 ---
 *Last updated: 2026-02-16*
