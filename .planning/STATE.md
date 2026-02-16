@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 15 (Kitchen Overhaul) -- COMPLETE
-Plan: 04/04 complete, verified, human-approved
-Status: All 4 plans executed, verification passed (5/5 success criteria), human verification approved 2026-02-16.
-Last activity: 2026-02-16 - Phase 15 marked complete after human approval
+Phase: 16 (K3Mart Cockpit) -- IN PROGRESS
+Plan: 01/04 complete
+Status: Plan 01 (backend data layer) complete. Plans 02-04 remain.
+Last activity: 2026-02-16 - Plan 16-01 executed (holiday system, outlet-first query, mutations)
 
-Progress (v1.1): [#########.] 90% (Phase 12 + 13 + 14 + 14.1 + 15 complete)
+Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 in progress)
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress (v1.1): [#########.] 90% (Phase 12 + 13 + 14 + 14.1 + 15 complete)
 | 15 | 02 | 5 min | 2 | 5 |
 | 15 | 03 | 6 min | 2 | 7 |
 | 15 | 04 | 6 min | 1 | 9 |
+| 16 | 01 | 7 min | 2 | 6 |
 
 *Updated after each plan completion*
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
 - [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
 - [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
+- [Phase 16-01]: Holiday data duplicated in convex helpers (Convex can't import src/); getDayTypeForDate mirrors getDayType; auto-suggest uses baseline/5 weekday rate with 2.5x multiplier; price priority: customPrice > snapshot > 0; copyLastWeek skips existing plans
 
 ### Roadmap Evolution
 
@@ -105,9 +107,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed quick-3 (hourly granularity for revenue chart)
+Stopped at: Completed 16-01-PLAN.md (backend data layer for K3Mart cockpit)
 Resume file: None
-Resume notes: Phase 15 complete and verified. On feature/15-kitchen-overhaul branch. Ready to merge to main, then start Phase 16 (K3Mart Cockpit).
+Resume notes: Phase 16 Plan 01 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 02 (frontend weekly planning grid rewrite).
 
 ---
 *Last updated: 2026-02-16*
