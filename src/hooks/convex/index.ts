@@ -377,4 +377,8 @@ export {
   useConvexConfirmDayPlan,
   useConvexProcessStockOutDestination,
   useConvexToggleOutletActive,
+  useConvexSaveOutletSettings,
+  useConvexCopyLastWeek,
+  useConvexSetProductTarget,
+  useConvexOutletSettings,
 } from "./useK3MartCockpit";

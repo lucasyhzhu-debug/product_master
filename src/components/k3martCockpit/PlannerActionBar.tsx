@@ -1,112 +1,89 @@
 /**
- * PlannerActionBar - Action buttons for the weekly dispatch planner.
+ * PlannerActionBar - Action bar with Copy Last Week button and grand totals row.
  *
- * Provides Save/Confirm/Submit buttons with state indicators for the K3 Mart
- * weekly planner interface.
+ * Contains:
+ * - "Copy Last Week" button (disabled when no previous week plans)
+ * - Grand totals summary row: daily column totals (production targets) + grand total
+ *
+ * Per-day confirm buttons are in PlannerGridHeader, NOT here.
+ * No batch "Save" button (auto-save on blur replaces it).
  */
 
 import React from 'react';
-import { Save, CheckCircle, Send, Loader2 } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PlannerActionBarProps {
-  /** Has the plan been modified since last save? */
-  hasUnsavedChanges: boolean;
-  /** Today's date string for display */
-  todayLabel: string;
-  /** Tomorrow's date string for display */
-  tomorrowLabel: string;
-  /** Whether confirm tomorrow is possible (has draft plans for tomorrow) */
-  canConfirmTomorrow: boolean;
-  /** Whether submit today is possible (has confirmed plans for today) */
-  canSubmitToday: boolean;
-  /** Number of outlets with confirmed plans for today */
-  confirmedOutletCount: number;
-  /** Total outlets */
-  totalOutletCount: number;
-  onSavePlan: () => void;
-  onConfirmTomorrow: () => void;
-  onSubmitToday: () => void;
-  isSaving?: boolean;
-  isConfirming?: boolean;
-  isSubmitting?: boolean;
+  onCopyLastWeek: () => void;
+  hasPreviousWeek: boolean;
+  dailyTotals: Record<string, number>;
+  grandTotal: number;
+  weekDates: string[];
 }
 
 export const PlannerActionBar = React.memo(function PlannerActionBar({
-  hasUnsavedChanges,
-  todayLabel,
-  tomorrowLabel,
-  canConfirmTomorrow,
-  canSubmitToday,
-  confirmedOutletCount,
-  totalOutletCount,
-  onSavePlan,
-  onConfirmTomorrow,
-  onSubmitToday,
-  isSaving = false,
-  isConfirming = false,
-  isSubmitting = false,
+  onCopyLastWeek,
+  hasPreviousWeek,
+  dailyTotals,
+  grandTotal,
+  weekDates,
 }: PlannerActionBarProps) {
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t bg-muted/30">
-      {/* Left: Unsaved changes indicator */}
-      <div className="flex items-center gap-2 min-h-[36px]">
-        {hasUnsavedChanges && (
-          <>
-            <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            <span className="text-sm text-muted-foreground">Unsaved changes</span>
-          </>
-        )}
+    <div className="border-t bg-muted/30">
+      {/* Grand Totals Row (production targets) */}
+      <div className="flex items-stretch border-b border-gray-200">
+        {/* Label */}
+        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-gray-100 border-r border-gray-200 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+          <span className="text-xs font-bold text-gray-800">Daily Target</span>
+        </div>
+        {/* Empty stock column */}
+        <div className="w-[64px] min-w-[64px] border-r border-gray-200 bg-gray-100" />
+        {/* Daily totals */}
+        {weekDates.map((date) => (
+          <div
+            key={date}
+            className="flex-1 min-w-[64px] flex items-center justify-center border-r border-gray-200 last:border-r-0 bg-gray-100 py-2"
+          >
+            <span className="text-sm font-bold tabular-nums text-gray-900">
+              {dailyTotals[date] || 0}
+            </span>
+          </div>
+        ))}
+        {/* Grand total */}
+        <div className="w-[72px] min-w-[72px] flex items-center justify-center bg-gray-200 py-2">
+          <span className="text-sm font-black tabular-nums text-gray-900">{grandTotal}</span>
+        </div>
       </div>
 
-      {/* Right: Action buttons */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-        {/* Save Plan */}
-        <Button
-          onClick={onSavePlan}
-          disabled={!hasUnsavedChanges || isSaving}
-          variant="outline"
-          className="w-full sm:w-auto"
-        >
-          {isSaving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Save Plan
-        </Button>
+      {/* Action buttons row */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={onCopyLastWeek}
+                    disabled={!hasPreviousWeek}
+                    className="gap-2"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Copy Last Week
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!hasPreviousWeek && (
+                <TooltipContent>No plans from previous week</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
-        {/* Confirm Tomorrow */}
-        <Button
-          onClick={onConfirmTomorrow}
-          disabled={!canConfirmTomorrow || isConfirming}
-          className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isConfirming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCircle className="h-4 w-4" />
-          )}
-          Confirm {tomorrowLabel}
-        </Button>
-
-        {/* Submit Today */}
-        <Button
-          onClick={onSubmitToday}
-          disabled={!canSubmitToday || isSubmitting}
-          className={cn(
-            'w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white',
-            'disabled:opacity-50'
-          )}
-        >
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-          Submit {todayLabel} ({confirmedOutletCount}/{totalOutletCount})
-        </Button>
+        <div className="text-sm text-muted-foreground">
+          Week total: <span className="font-bold text-foreground">{grandTotal}</span> units
+        </div>
       </div>
     </div>
   );
