@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 08 of 08 -- gap closure plan 07 complete, 08 pending
-Status: Plan 14-07 backend gaps fixed (creator name, audit trail, auto-expedite), plan 14-08 frontend gaps next
-Last activity: 2026-02-16 -- Executed 14-07 backend gap closure
+Plan: 08 of 08 -- all plans complete, phase ready for verification
+Status: All 8 plans (01-06 core + 07-08 gap closure) executed and UAT approved
+Last activity: 2026-02-16 -- Completed 14-08 frontend gap closure with UAT approval
 
-Progress (v1.1): [#######...] 70% (Phase 12 + 13 complete, Phase 14 plans 01-07 done, 08 gap closure pending)
+Progress (v1.1): [########..] 80% (Phase 12 + 13 complete, Phase 14 all 8 plans done, verification pending)
 
 ## Performance Metrics
 
@@ -37,6 +37,7 @@ Progress (v1.1): [#######...] 70% (Phase 12 + 13 complete, Phase 14 plans 01-07 
 | 14 | 05 | 6 min | 1 | 8 |
 | 14 | 06 | 10 min | 2 | 7 |
 | 14 | 07 | 2 min | 1 | 5 |
+| 14 | 08 | 25 min | 3 | 11 |
 
 *Updated after each plan completion*
 
@@ -63,6 +64,7 @@ Recent decisions affecting current work:
 - [Phase 14-05]: Reused existing ProductButtons/DeliveryToggle/VoucherInput; Submit creates Draft then AwaitingPayment; date-fns installed for DueDatePills; customer-first form layout pattern established
 - [Phase 14-06]: OrderDetail replaced accordion with StatusActionButtons + AuditTrail; Kitchen view unchanged (production workflow, not status-driven); WhatsApp modal on submit callback
 - [Phase 14-07]: WIB timezone via UTC+7 offset for auto-expedite date check; auto-expedite skips PaymentReceived to BeingPrepared with material consumption; AuditTrail expanded for created/auto_expedited events
+- [Phase 14-08]: WhatsApp auto-trigger cancelled → replaced with auto-open slide-over; Kanban card redesigned (price top-right, creator merged); finalTotal preferred over manual discount calc; updateStatus now logs audit trail
 
 ### Pending Todos
 
@@ -77,9 +79,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 14-07-PLAN.md, ready for 14-08
+Stopped at: Phase 14 all plans complete, pending verification
 Resume file: None
-Resume notes: /gsd:execute-phase 14 --gaps-only (plan 08 remaining)
+Resume notes: Phase 14 verification next, then merge to main
 
 ---
 *Last updated: 2026-02-16*
