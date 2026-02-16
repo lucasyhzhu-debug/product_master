@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 06 of 06 -- CHECKPOINT PENDING (visual verification)
-Status: Plan 14-06 auto tasks complete, awaiting human verification of Kanban + audit trail
-Last activity: 2026-02-15 -- Plan 14-06 Tasks 1-2 executed (audit trail, OrderDetail, docs)
+Plan: 08 of 08 -- gap closure plan 07 complete, 08 pending
+Status: Plan 14-07 backend gaps fixed (creator name, audit trail, auto-expedite), plan 14-08 frontend gaps next
+Last activity: 2026-02-16 -- Executed 14-07 backend gap closure
 
-Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-06 code complete, checkpoint pending)
+Progress (v1.1): [#######...] 70% (Phase 12 + 13 complete, Phase 14 plans 01-07 done, 08 gap closure pending)
 
 ## Performance Metrics
 
@@ -36,6 +36,7 @@ Progress (v1.1): [######....] 60% (Phase 12 + 13 complete, Phase 14 plans 01-06 
 | 14 | 04 | 8 min | 2 | 9 |
 | 14 | 05 | 6 min | 1 | 8 |
 | 14 | 06 | 10 min | 2 | 7 |
+| 14 | 07 | 2 min | 1 | 5 |
 
 *Updated after each plan completion*
 
@@ -61,6 +62,7 @@ Recent decisions affecting current work:
 - [Phase 14-04]: shadcn Sheet for slide-over (not Framer Motion); PaymentReceived uses expediteOrder for manual kitchen entry; BeingPrepared has no forward button (kitchen completes); Copy to New Order placeholder pending Plan 05
 - [Phase 14-05]: Reused existing ProductButtons/DeliveryToggle/VoucherInput; Submit creates Draft then AwaitingPayment; date-fns installed for DueDatePills; customer-first form layout pattern established
 - [Phase 14-06]: OrderDetail replaced accordion with StatusActionButtons + AuditTrail; Kitchen view unchanged (production workflow, not status-driven); WhatsApp modal on submit callback
+- [Phase 14-07]: WIB timezone via UTC+7 offset for auto-expedite date check; auto-expedite skips PaymentReceived to BeingPrepared with material consumption; AuditTrail expanded for created/auto_expedited events
 
 ### Pending Todos
 
@@ -74,9 +76,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-15
-Stopped at: 14-06-PLAN.md checkpoint:human-verify (Task 3) -- awaiting visual verification
+Last session: 2026-02-16
+Stopped at: Completed 14-07-PLAN.md, ready for 14-08
 Resume file: None
+Resume notes: /gsd:execute-phase 14 --gaps-only (plan 08 remaining)
 
 ---
-*Last updated: 2026-02-15*
+*Last updated: 2026-02-16*
