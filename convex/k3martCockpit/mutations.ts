@@ -132,25 +132,39 @@ export const confirmDayPlan = mutation({
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
     const now = Date.now();
 
-    // Fetch all draft plans for this date
-    const draftPlans = await ctx.db
+    // Fetch draft plans for this date first
+    let plansToProcess = await ctx.db
       .query("k3martDispatchPlans")
       .withIndex("by_date_status", (q) =>
         q.eq("date", args.date).eq("status", "draft")
       )
       .collect();
 
-    if (draftPlans.length === 0) {
-      throw new Error("No draft plans found for this date");
+    const isReconfirm = plansToProcess.length === 0;
+
+    if (isReconfirm) {
+      // Re-confirm: update kitchen targets from current confirmed plans
+      plansToProcess = await ctx.db
+        .query("k3martDispatchPlans")
+        .withIndex("by_date_status", (q) =>
+          q.eq("date", args.date).eq("status", "confirmed")
+        )
+        .collect();
     }
 
-    // Mark all as confirmed
-    for (const plan of draftPlans) {
-      await ctx.db.patch(plan._id, {
-        status: "confirmed",
-        updatedBy: user.name,
-        updatedAt: now,
-      });
+    if (plansToProcess.length === 0) {
+      throw new Error("No plans found for this date");
+    }
+
+    // Mark as confirmed only for draft plans (skip for already-confirmed)
+    if (!isReconfirm) {
+      for (const plan of plansToProcess) {
+        await ctx.db.patch(plan._id, {
+          status: "confirmed",
+          updatedBy: user.name,
+          updatedAt: now,
+        });
+      }
     }
 
     // Calculate kitchen delta per product
@@ -159,7 +173,7 @@ export const confirmDayPlan = mutation({
       { apiStockInQty: number; transfers: number }
     >();
 
-    for (const plan of draftPlans) {
+    for (const plan of plansToProcess) {
       const key = plan.menuProductId;
 
       if (!productDeltas.has(key)) {
@@ -284,7 +298,8 @@ export const confirmDayPlan = mutation({
     }
 
     return {
-      confirmedCount: draftPlans.length,
+      confirmedCount: plansToProcess.length,
+      isReconfirm,
       kitchenDeltas,
     };
   },

@@ -220,6 +220,12 @@ export const getWeeklyDispatchPlans = query({
       if (mp) menuProducts.set(id, { name: mp.name });
     }
 
+    // 6b. Build K3Mart external name lookup from product mappings
+    const externalNameByCode = new Map<string, string>();
+    for (const m of productMappings) {
+      externalNameByCode.set(m.externalProductCode, m.externalProductName);
+    }
+
     // 7. Get latest stock snapshots per outlet for current stock
     const stockByOutletProduct = new Map<string, number>(); // outletId_externalProductCode -> qty
     const priceByOutletProduct = new Map<string, number>(); // outletId_externalProductCode -> price
@@ -283,6 +289,7 @@ export const getWeeklyDispatchPlans = query({
       products: Array<{
         menuProductId: string;
         productName: string;
+        externalProductName: string;
         externalProductCode: string;
         currentStock: number;
         price: number;
@@ -295,6 +302,7 @@ export const getWeeklyDispatchPlans = query({
       const outletProducts: Array<{
         menuProductId: string;
         productName: string;
+        externalProductName: string;
         externalProductCode: string;
         currentStock: number;
         price: number;
@@ -321,9 +329,13 @@ export const getWeeklyDispatchPlans = query({
         const snapshotPrice = priceByOutletProduct.get(stockKey) ?? 0;
         const price = customPrice ?? snapshotPrice;
 
+        // K3Mart product name from externalProductMappings
+        const k3martName = externalNameByCode.get(productKey) ?? productKey;
+
         outletProducts.push({
           menuProductId: mpId,
-          productName: mp?.name ?? "Unknown",
+          productName: mp?.name ?? k3martName,
+          externalProductName: k3martName,
           externalProductCode: productKey,
           currentStock,
           price,
@@ -890,23 +902,74 @@ export const getOutletSettings = query({
       if (mp) menuProducts.set(id, { name: mp.name });
     }
 
+    // Build mapping from productKey/externalProductCode to product info
+    const mappingByCode = new Map<string, {
+      externalName: string;
+      menuProductName: string | null;
+      snapshotPrice: number;
+    }>();
+    for (const m of productMappings) {
+      const menuProduct = m.menuProductId
+        ? menuProducts.get(m.menuProductId as string)
+        : null;
+      mappingByCode.set(m.externalProductCode, {
+        externalName: m.externalProductName,  // K3Mart name e.g., "Dubai Chewy Cookie"
+        menuProductName: menuProduct?.name ?? null,  // POS name e.g., "Original - Single (45g)"
+        snapshotPrice: 0, // Will be enriched from snapshots below
+      });
+    }
+
+    // Enrich with latest snapshot prices (externalProductMappings has no price field)
+    const k3martOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Get a single snapshot price per product code (from any outlet's latest snapshot)
+    for (const outlet of k3martOutlets) {
+      const latestSnapshot = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_outlet_snapshot", (q) => q.eq("outletId", outlet._id))
+        .order("desc")
+        .first();
+      if (!latestSnapshot) continue;
+      const snapshotProducts = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_batch", (q) => q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId))
+        .filter((q) => q.eq(q.field("outletId"), outlet._id))
+        .collect();
+      for (const sp of snapshotProducts) {
+        const mapping = mappingByCode.get(sp.externalProductCode);
+        if (mapping && mapping.snapshotPrice === 0 && sp.price > 0) {
+          mapping.snapshotPrice = sp.price;
+        }
+      }
+    }
+
     // Build outlet settings
     const outletSettings = outlets.map((outlet) => {
       const outletTargets = targets.filter(
         (t) => t.outletId === outlet._id
       );
 
-      const productSettings = outletTargets.map((t) => ({
-        productKey: t.productKey,
-        menuProductId: t.menuProductId as string | undefined,
-        productName: t.menuProductId
-          ? menuProducts.get(t.menuProductId as string)?.name ?? "Unknown"
-          : t.productKey,
-        weekdayTarget: t.weekdayTarget,
-        weekendTarget: t.weekendTarget,
-        customPrice: t.customPrice ?? null,
-        isHidden: t.isHidden ?? false,
-      }));
+      const productSettings = outletTargets.map((t) => {
+        const mapping = mappingByCode.get(t.productKey);
+        return {
+          productKey: t.productKey,
+          menuProductId: t.menuProductId as string | undefined,
+          // Show K3Mart name (externalProductName) as primary display
+          externalProductName: mapping?.externalName ?? t.productKey,
+          // Show POS/menu product name as secondary
+          productName: mapping?.menuProductName ?? mapping?.externalName ?? t.productKey,
+          // Real default price from snapshot (not 0)
+          defaultPrice: mapping?.snapshotPrice ?? 0,
+          weekdayTarget: t.weekdayTarget,
+          weekendTarget: t.weekendTarget,
+          customPrice: t.customPrice ?? null,
+          isHidden: t.isHidden ?? false,
+        };
+      });
 
       return {
         outletId: outlet._id,

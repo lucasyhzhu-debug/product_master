@@ -392,8 +392,8 @@ export function K3MartCockpit() {
         outletProducts[outletId] = (outlet.products ?? []).map((p: any) => ({
           productKey: p.productKey,
           menuProductId: p.menuProductId,
-          productName: p.productName ?? p.productKey,
-          defaultPrice: p.customPrice ?? 0,
+          productName: p.externalProductName ?? p.productName ?? p.productKey,
+          defaultPrice: p.defaultPrice ?? p.customPrice ?? 0,
           customPrice: p.customPrice ?? undefined,
           isHidden: p.isHidden,
           weekdayTarget: p.weekdayTarget ?? 0,
