@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 Phase: 15 (Kitchen Overhaul) -- IN PROGRESS (human verification pending)
 Plan: 04 complete (pending visual verification)
 Status: Plan 04 integration complete. KitchenViewV2 wired with dashboard header, due-date order list, inventory override (KIT-08), and send-back mutation. All KIT-01 through KIT-08 implemented. Build passes.
-Last activity: 2026-02-16 - Completed 15-04-PLAN.md (integration + inventory override)
+Last activity: 2026-02-16 - Completed quick task 2: Admin Force-Complete mutation and UI button
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -93,7 +93,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
-| 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 5bf0597 | Complete | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
+| 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
 
 ### Blockers/Concerns
 
