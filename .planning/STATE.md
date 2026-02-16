@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 16 (K3Mart Cockpit) -- IN PROGRESS
-Plan: 05 complete, 06 remaining
-Status: Plan 05 committed. Backend bugs fixed (re-confirm, product names, default prices).
-Last activity: 2026-02-16 - Plan 16-05 executed (confirmDayPlan re-confirm, product name resolution, default prices)
+Phase: 16 (K3Mart Cockpit) -- COMPLETE
+Plan: 06/06 complete
+Status: All 6 plans executed. Phase 16 feature-complete, ready for verification and merge.
+Last activity: 2026-02-16 - Plan 16-06 executed (layout reorder, collapsible planner, dark mode, product names)
 
-Progress (v1.1): [#########.] 96% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 awaiting verification)
+Progress (v1.1): [##########] 100% (Phase 12 + 13 + 14 + 14.1 + 15 + 16 complete)
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress (v1.1): [#########.] 96% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 a
 | 16 | 03 | 9 min | 2 | 9 |
 | 16 | 04 | 4 min | 1 | 5 |
 | 16 | 05 | 3 min | 1 | 3 |
+| 16 | 06 | 8 min | 2 | 9 |
 
 *Updated after each plan completion*
 
@@ -89,10 +90,12 @@ Recent decisions affecting current work:
 - [Phase 16-03]: Rotation is two sequential API calls (stock-out then stock-in); price sanity check at form AND dialog level; StockMovementHistory uses inline expandable detail; OutletSettingsModal imported directly (not barrel) for admin-only access
 - [Phase 16-04]: Inlined setProductTarget logic in confirmDayPlan (Convex mutations can't call mutations); production bump uses setProductTarget directly; OutletSettingsModal moved to barrel export for consistency
 - [Phase 16-05]: Re-confirm uses same confirmDayPlan mutation with isReconfirm detection (no new endpoint); default prices from externalStockSnapshots (mapping table has no price field); externalProductName added alongside productName for backward compatibility
+- [Phase 16-06]: Past day greying uses string comparison (date < todayStr) for YYYY-MM-DD; collapsible planner with ChevronDown toggle; K3Mart->POS name display with ArrowRight icon
 
 ### Roadmap Evolution
 
 - Phase 14.1 inserted after Phase 14: draft orderupdate (URGENT)
+- Phase 16.1 inserted after Phase 16: GoBiz OpenAPI audit and official API migration (URGENT)
 
 ### Pending Todos
 
@@ -115,9 +118,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 16-05-PLAN.md
+Stopped at: Completed 16-06-PLAN.md (Phase 16 complete)
 Resume file: None
-Resume notes: Plan 16-05 committed (65105e7). Backend bugs fixed. Plan 06 remaining. On feature/16-k3mart-cockpit branch.
+Resume notes: Phase 16 complete (6/6 plans). Ready for verification and merge to main. On feature/16-k3mart-cockpit branch.
 
 ---
 *Last updated: 2026-02-16*
