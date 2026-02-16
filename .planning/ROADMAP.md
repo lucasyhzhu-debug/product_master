@@ -159,18 +159,27 @@ Plans:
 | 14. Order QoL | v1.1 | 8/8 | Complete | 2026-02-16 |
 | 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
-| 16.1 GoBiz OpenAPI Audit | v1.1 | 0/? | Not Started | - |
+| 16.1 GoBiz OpenAPI Audit | v1.1 | 0/3 | Not Started | - |
 
 ---
 *Roadmap created: 2026-02-13*
 *v1.0 shipped: 2026-02-15*
 *v1.1 roadmap added: 2026-02-15*
 
-### Phase 16.1: GoBiz OpenAPI audit and official API migration (INSERTED)
+### Phase 16.1: GoBiz OpenAPI Audit & Official API Migration (INSERTED)
 
-**Goal:** Crawl the official GoBiz OpenAPI docs (https://app.gobiz.com/files/static/cpp/docs/index.html), audit current integration against official APIs, migrate to official endpoints, and update internal API documentation so Claude always has the reference
+**Goal:** Crawl the official GoBiz developer portal (developer.gobiz.com), audit current integration against official APIs, create comprehensive Claude-first documentation, and produce a formal gap analysis mapping unofficial endpoints to official equivalents
 **Depends on:** Phase 16
-**Plans:** 0 plans
+**Research**: Phase-specific research completed (official API is POS-focused, revenue queries have no official equivalent)
+**Success Criteria** (what must be TRUE):
+  1. All official GoBiz API sections documented in `docs/apiS/gobiz-official/` (12 files) with Claude-first structured markdown
+  2. Gap analysis document maps every current unofficial endpoint to its official equivalent (or lack thereof)
+  3. Every API doc has Integration Status header showing our Convex function mapping
+  4. INTEGRATION_REFERENCE.md points to official docs; old GoBiz docs noted as superseded
+  5. CHANGELOG.md updated with Phase 16.1 entry
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 16.1 to break down)
+- [ ] 16.1-01-PLAN.md -- Crawl developer.gobiz.com and create 12 API documentation files + download images
+- [ ] 16.1-02-PLAN.md -- Create gap analysis document and add Integration Status headers to all docs
+- [ ] 16.1-03-PLAN.md -- Update INTEGRATION_REFERENCE.md cross-references and CHANGELOG.md
