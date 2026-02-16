@@ -1111,7 +1111,8 @@ export const listForKanban = query({
       { key: "payment_received", statuses: ["PaymentReceived"] as const },
       { key: "being_prepared", statuses: ["BeingPrepared"] as const },
       { key: "awaiting_delivery", statuses: ["AwaitingDelivery"] as const },
-      { key: "complete", statuses: ["Complete", "Cancelled"] as const },
+      // Include legacy terminal statuses (CompleteShipped, PickedUp) for unmigrated orders
+      { key: "complete", statuses: ["Complete", "Cancelled", "CompleteShipped", "PickedUp"] as const },
     ];
 
     const result: Record<string, Array<Doc<"orders"> & {

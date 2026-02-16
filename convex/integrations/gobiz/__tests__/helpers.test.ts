@@ -140,7 +140,7 @@ describe("buildJournalSearchBody", () => {
   it("should produce valid structure with GoBiz query format", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 0, 50
+      ["G293156297"], 0, 50
     ) as any;
 
     expect(body.from).toBe(0);
@@ -154,7 +154,7 @@ describe("buildJournalSearchBody", () => {
   it("should use ISO time strings in clauses", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 0, 20
+      ["G293156297"], 0, 20
     ) as any;
 
     const clauses = body.query[0].clauses;
@@ -175,7 +175,7 @@ describe("buildJournalSearchBody", () => {
   it("should include merchant ID filter", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 0, 20
+      ["G293156297"], 0, 20
     ) as any;
 
     const clauses = body.query[0].clauses;
@@ -191,7 +191,7 @@ describe("buildJournalSearchBody", () => {
   it("should exclude GoSave/GoDeals transactions", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 0, 20
+      ["G293156297"], 0, 20
     ) as any;
 
     const clauses = body.query[0].clauses;
@@ -204,7 +204,7 @@ describe("buildJournalSearchBody", () => {
   it("should filter by settlement status", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 0, 20
+      ["G293156297"], 0, 20
     ) as any;
 
     const clauses = body.query[0].clauses;
@@ -220,7 +220,7 @@ describe("buildJournalSearchBody", () => {
   it("should support pagination offsets", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
-      "G293156297", 20, 20
+      ["G293156297"], 20, 20
     ) as any;
 
     expect(body.from).toBe(20);
