@@ -1357,6 +1357,14 @@ function utcToWibMonthStr(utcMs: number): string {
   return `${y}-${m}`;
 }
 
+/** Get "YYYY-MM-DD HH" from UTC epoch ms, WIB-adjusted */
+function utcToWibHourStr(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const date = wib.toISOString().split("T")[0];
+  const hour = wib.getUTCHours().toString().padStart(2, "0");
+  return `${date} ${hour}`;
+}
+
 /** Map source to platform display name */
 function sourceToPlatform(source: string): string {
   switch (source) {
@@ -1370,7 +1378,7 @@ function sourceToPlatform(source: string): string {
 export const getRevenueTimeSeries = query({
   args: {
     preset: periodPresetValidator,
-    granularity: v.union(v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    granularity: v.union(v.literal("hourly"), v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
     metric: v.union(v.literal("gross"), v.literal("net"), v.literal("volume")),
   },
   handler: async (ctx, args) => {
@@ -1406,6 +1414,7 @@ export const getRevenueTimeSeries = query({
     // Bucket key function
     function bucketKey(utcMs: number): string {
       switch (args.granularity) {
+        case "hourly": return utcToWibHourStr(utcMs);
         case "daily": return utcToWibDateStr(utcMs);
         case "weekly": return getIsoWeekNumber(utcMs);
         case "monthly": return utcToWibMonthStr(utcMs);
@@ -1415,6 +1424,13 @@ export const getRevenueTimeSeries = query({
     // Label formatter
     function formatLabel(key: string): string {
       switch (args.granularity) {
+        case "hourly": {
+          // "2026-02-16 14" -> "2pm"
+          const hour = parseInt(key.split(" ")[1], 10);
+          const suffix = hour >= 12 ? "pm" : "am";
+          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+          return `${h12}${suffix}`;
+        }
         case "daily": {
           // YYYY-MM-DD -> "Feb 10"
           const d = new Date(key + "T00:00:00Z");
