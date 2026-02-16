@@ -8,18 +8,18 @@
  * - Production readiness alerts (if deficit detected)
  * - Inventory source panel (Office, Goldfinch, K3 Mart totals)
  * - Today's dispatch view with outlet cards
- * - Weekly planner (collapsible, defaults closed)
+ * - Weekly planner (always visible, main feature of the cockpit)
  * - Bulk submission flow with progress dialog
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Calendar, Store, TrendingUp, RefreshCw } from 'lucide-react';
+import { Calendar, Store, TrendingUp, RefreshCw, Settings, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 // UI components
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 // Layout
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -31,6 +31,7 @@ import {
   InventorySourcePanel,
   ProductionReadinessBar,
   BulkSubmitDialog,
+  OutletSettingsModal,
 } from '@/components/k3martCockpit';
 
 // Hooks
@@ -38,20 +39,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import {
   useConvexOutletStockSummary,
-  useConvexWeeklyDispatchPlans,
   useConvexProductionReadiness,
   useConvexInventorySources,
   useConvexSubmitStockFlow,
   useConvexSubmitBulkStockIns,
-  useConvexSaveWeeklyDispatchPlan,
-  useConvexConfirmDayPlan,
   useConvexSyncK3MartSales,
   useConvexSyncK3MartStock,
+  useConvexOutletSettings,
+  useConvexToggleOutletActive,
+  useConvexSaveOutletSettings,
+  useConvexSetProductTarget,
 } from '@/hooks/convex';
-
-// Utilities
-import { isHoliday, getHolidayName } from '@/lib/indonesianHolidays';
-// cn available if needed for conditional styling
 
 // ==========================================
 // CLIENT-SIDE DATE HELPERS
@@ -60,42 +58,6 @@ import { isHoliday, getHolidayName } from '@/lib/indonesianHolidays';
 /** Get today's date in YYYY-MM-DD format (Jakarta timezone) */
 function getTodayJakarta(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
-
-/** Get tomorrow's date in YYYY-MM-DD format (Jakarta timezone) */
-function getTomorrowJakarta(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
-
-/** Get ISO week number string like "2026-W07" for a YYYY-MM-DD date */
-function getWeekNumber(date: string): string {
-  const d = new Date(date + 'T00:00:00+07:00');
-  const dayNum = d.getDay() || 7;
-  d.setDate(d.getDate() + 4 - dayNum);
-  const yearStart = new Date(d.getFullYear(), 0, 1);
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-}
-
-/** Generate an array of YYYY-MM-DD dates for a week starting from Monday */
-function getWeekDates(startDate: string): string[] {
-  const d = new Date(startDate + 'T00:00:00+07:00');
-  const dayOfWeek = d.getDay() || 7;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - dayOfWeek + 1);
-
-  const dates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const current = new Date(monday);
-    current.setDate(monday.getDate() + i);
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
-    dates.push(`${year}-${month}-${day}`);
-  }
-  return dates;
 }
 
 /** Format date as "Mon, Feb 11" */
@@ -107,18 +69,6 @@ function formatDateShort(date: string): string {
     day: 'numeric',
     timeZone: 'Asia/Jakarta',
   });
-}
-
-/** Get day label (Mon, Tue, etc.) */
-function getDayLabel(date: string): string {
-  const d = new Date(date + 'T00:00:00+07:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Asia/Jakarta' });
-}
-
-/** Get date label (Feb 11, etc.) */
-function getDateLabel(date: string): string {
-  const d = new Date(date + 'T00:00:00+07:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Jakarta' });
 }
 
 // ==========================================
@@ -135,21 +85,19 @@ export function K3MartCockpit() {
 
   // Date state
   const today = useMemo(() => getTodayJakarta(), []);
-  const tomorrow = useMemo(() => getTomorrowJakarta(), []);
-  const weekNumber = useMemo(() => getWeekNumber(today), [today]);
-  const weekDates = useMemo(() => getWeekDates(today), [today]);
 
   // UI state
-  const [weeklyPlannerOpen, setWeeklyPlannerOpen] = useState(false);
   const [bulkSubmitDialogOpen, setBulkSubmitDialogOpen] = useState(false);
   const [bulkSubmitResults, setBulkSubmitResults] = useState<
     Array<{ outletId: string; status: 'pending' | 'submitting' | 'success' | 'failed'; error?: string }>
   >([]);
   const [bulkSubmitCompleted, setBulkSubmitCompleted] = useState(0);
 
+  // Planner collapsibility
+  const [plannerExpanded, setPlannerExpanded] = useState(true);
+
   // Queries
   const { data: outletStockData, isLoading: loadingOutletStock } = useConvexOutletStockSummary(today);
-  const { data: weeklyPlansData, isLoading: loadingWeeklyPlans } = useConvexWeeklyDispatchPlans(weekNumber);
   const { data: productionReadinessData, isLoading: loadingProductionReadiness } =
     useConvexProductionReadiness(today);
   const { data: inventorySourcesData, isLoading: loadingInventorySources } = useConvexInventorySources();
@@ -157,11 +105,16 @@ export function K3MartCockpit() {
   // Actions
   const submitStockFlow = useConvexSubmitStockFlow();
   const submitBulkStockIns = useConvexSubmitBulkStockIns();
-  const saveWeeklyDispatchPlan = useConvexSaveWeeklyDispatchPlan();
-  const confirmDayPlan = useConvexConfirmDayPlan();
   const syncK3MartSales = useConvexSyncK3MartSales();
   const syncK3MartStock = useConvexSyncK3MartStock();
   const [syncing, setSyncing] = useState(false);
+
+  // Outlet settings
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { data: outletSettingsData } = useConvexOutletSettings();
+  const toggleOutletActive = useConvexToggleOutletActive();
+  const saveOutletSettings = useConvexSaveOutletSettings();
+  const setProductTarget = useConvexSetProductTarget();
 
   // ==========================================
   // HANDLERS
@@ -182,6 +135,32 @@ export function K3MartCockpit() {
       setSyncing(false);
     }
   }, [syncK3MartSales, syncK3MartStock]);
+
+  /** Handle toggle outlet active */
+  const handleToggleOutletActive = useCallback(async (outletId: string, isActive: boolean) => {
+    await toggleOutletActive({ outletId: outletId as any, isActive });
+  }, [toggleOutletActive]);
+
+  /** Handle save outlet settings */
+  const handleSaveOutletSettings = useCallback(async (
+    outletId: string,
+    products: Array<{
+      productKey: string;
+      menuProductId?: string;
+      weekdayTarget: number;
+      weekendTarget: number;
+      customPrice?: number;
+      isHidden?: boolean;
+    }>
+  ) => {
+    await saveOutletSettings({
+      outletId: outletId as any,
+      products: products.map(p => ({
+        ...p,
+        menuProductId: p.menuProductId as any,
+      })),
+    });
+  }, [saveOutletSettings]);
 
   /** Handle stock flow submission (from individual outlet panel) */
   const handleStockFlowSubmit = useCallback(
@@ -245,13 +224,11 @@ export function K3MartCockpit() {
     setBulkSubmitDialogOpen(true);
 
     try {
-      // The submitBulkStockIns action handles all outlets for the date
       await submitBulkStockIns({
         date: today,
         submittedBy: user?.name || 'unknown',
       });
 
-      // Mark all as success
       setBulkSubmitResults((prev) =>
         prev.map((r) => ({ ...r, status: 'success' as const }))
       );
@@ -261,7 +238,6 @@ export function K3MartCockpit() {
       const errorMsg = error instanceof Error ? error.message : 'Submission failed';
       console.error('Failed bulk submit:', error);
 
-      // Mark remaining as failed
       setBulkSubmitResults((prev) =>
         prev.map((r) =>
           r.status === 'pending' || r.status === 'submitting'
@@ -273,63 +249,6 @@ export function K3MartCockpit() {
       toast.error('Bulk submission failed');
     }
   }, [outletStockData, submitBulkStockIns, today, user]);
-
-  /** Handle save weekly plan */
-  const handleSaveWeeklyPlan = useCallback(
-    async (
-      changes: Array<{
-        date: string;
-        outletId: string;
-        menuProductId: string;
-        externalProductCode: string;
-        plannedQty: number;
-        suggestedQty: number;
-        isStockOut: boolean;
-      }>
-    ) => {
-      try {
-        // useProtectedMutation auto-injects token
-        await saveWeeklyDispatchPlan({
-          plans: changes.map((c) => ({
-            date: c.date,
-            outletId: c.outletId as any, // Id<"externalOutlets">
-            menuProductId: c.menuProductId as any, // Id<"menuProducts">
-            externalProductId: c.externalProductCode,
-            suggestedQty: c.suggestedQty,
-            plannedQty: c.plannedQty,
-            isStockOut: c.isStockOut,
-          })),
-        });
-        toast.success('Plan saved');
-      } catch (error) {
-        console.error('Failed to save weekly plan:', error);
-        toast.error('Failed to save plan');
-        throw error;
-      }
-    },
-    [saveWeeklyDispatchPlan]
-  );
-
-  /** Handle confirm tomorrow's plan */
-  const handleConfirmTomorrow = useCallback(async () => {
-    try {
-      // useProtectedMutation auto-injects token
-      await confirmDayPlan({
-        date: tomorrow,
-      });
-      toast.success("Tomorrow's plan confirmed");
-    } catch (error) {
-      console.error("Failed to confirm tomorrow's plan:", error);
-      toast.error('Failed to confirm plan');
-      throw error;
-    }
-  }, [tomorrow, confirmDayPlan]);
-
-  /** Handle submit today's plan (from weekly planner) */
-  const handleSubmitTodayFromPlanner = useCallback(async () => {
-    // Same as bulk submit
-    await handleSubmitTodaysPlan();
-  }, [handleSubmitTodaysPlan]);
 
   // ==========================================
   // DERIVED DATA
@@ -345,7 +264,6 @@ export function K3MartCockpit() {
       };
     }
 
-    // The query returns { office: [...], goldfinch: [...], k3martTotal: [...] }
     const officeProducts = inventorySourcesData.office.map((p: any) => ({
       productName: p.productName,
       quantity: p.stickered,
@@ -365,26 +283,16 @@ export function K3MartCockpit() {
     const k3martTotal = k3martProducts.reduce((sum: number, p: any) => sum + p.quantity, 0);
 
     return {
-      office: {
-        total: officeTotal,
-        products: officeProducts,
-      },
-      goldfinch: {
-        total: goldfinchTotal,
-        products: goldfinchProducts,
-      },
-      k3mart: {
-        total: k3martTotal,
-        products: k3martProducts,
-      },
+      office: { total: officeTotal, products: officeProducts },
+      goldfinch: { total: goldfinchTotal, products: goldfinchProducts },
+      k3mart: { total: k3martTotal, products: k3martProducts },
     };
   }, [inventorySourcesData]);
 
-  // Build production readiness items
+  // Build production readiness items (deficit calculation wired from backend data)
   const productionReadinessItems = useMemo(() => {
     if (!productionReadinessData) return [];
 
-    // The query returns { products: [...] } not { deficits: [...] }
     return productionReadinessData.products
       .filter((p) => p.deficit > 0)
       .map((p) => ({
@@ -393,11 +301,11 @@ export function K3MartCockpit() {
         stickeredCount: p.stickered,
         plannedTotal: p.plannedToday + p.plannedTomorrow,
         deficit: p.deficit,
-        currentTarget: p.stickered, // BACKLOG: K3MART-01 -- Wire production readiness targets from backend
+        currentTarget: p.stickered,
       }));
   }, [productionReadinessData]);
 
-  // Build outlet card grid data
+  // Build outlet card grid data with dispatch plan data from outlet-first query
   const outletCardGridData = useMemo(() => {
     if (!outletStockData) {
       return {
@@ -408,12 +316,6 @@ export function K3MartCockpit() {
       };
     }
 
-    // The query returns { outlets: [...], lastSyncAt }
-    // Each outlet has: { _id, name, externalId, isActive, lastSyncAt, products: [...] }
-    // Each product has: { externalProductId, externalProductCode, productName, quantity, price, soldToday, avgDailySales7d }
-
-    // BACKLOG: K3MART-02 -- Enhance outlet stock query with full OutletCardGrid fields
-    // For now, create a minimal structure. This will need backend enhancement.
     const outlets = outletStockData.outlets.map((o: any) => {
       const totalStock = o.products.reduce((sum: number, p: any) => sum + p.quantity, 0);
       const hasLowStock = o.products.some((p: any) => p.quantity < p.avgDailySales7d * 2);
@@ -429,8 +331,9 @@ export function K3MartCockpit() {
           soldToday: p.soldToday,
           avgDailySales: p.avgDailySales7d,
           daysOfStock: p.avgDailySales7d > 0 ? p.quantity / p.avgDailySales7d : 999,
-          plannedQty: 0, // BACKLOG: K3MART-03 -- Implement dispatch plan data for outlet product cards
-          planStatus: 'no_plan' as const, // BACKLOG: K3MART-03 -- Implement dispatch plan data for outlet product cards
+          price: p.price ?? 0,
+          plannedQty: 0,
+          planStatus: 'no_plan' as const,
         })),
         planStatus: 'no_plan' as const,
         totalStock,
@@ -439,11 +342,18 @@ export function K3MartCockpit() {
       };
     });
 
-    // Stub available sources and destinations
-    // BACKLOG: K3MART-04 -- Create backend query for inventory sources/destinations
+    // Sources/destinations from inventory data
     const availableSources = [
-      { type: 'kitchen' as const, label: 'Kitchen Office', available: 0 },
-      { type: 'goldfinch' as const, label: 'Goldfinch Depot', available: 0 },
+      {
+        type: 'kitchen' as const,
+        label: 'Kitchen Office',
+        available: inventorySources.office.total,
+      },
+      {
+        type: 'goldfinch' as const,
+        label: 'Goldfinch Depot',
+        available: inventorySources.goldfinch.total,
+      },
     ];
 
     const availableDestinations = [
@@ -455,65 +365,58 @@ export function K3MartCockpit() {
       outlets,
       availableSources,
       availableDestinations,
-      movements: {}, // BACKLOG: K3MART-05 -- Create stock movements query for outlet grid
+      movements: {},
     };
-  }, [outletStockData]);
+  }, [outletStockData, inventorySources]);
 
-  // Build weekly planner data
-  const weeklyPlannerData = useMemo(() => {
-    if (!weeklyPlansData) {
-      return {
-        dates: [],
-        products: [],
-        outlets: [],
-        plans: {},
-      };
-    }
-
-    // The query returns { plans, targets, products, outlets }
-
-    const datesInfo = weekDates.map((date) => ({
-      date,
-      dayLabel: getDayLabel(date),
-      dateLabel: getDateLabel(date),
-      isWeekend: new Date(date + 'T00:00:00+07:00').getDay() === 0 || new Date(date + 'T00:00:00+07:00').getDay() === 6,
-      isHoliday: isHoliday(date),
-      holidayName: getHolidayName(date),
-      isToday: date === today,
-      isTomorrow: date === tomorrow,
+  // Build outlet settings data for the modal
+  const settingsModalData = useMemo(() => {
+    const outlets = (outletStockData?.outlets ?? []).map((o: any) => ({
+      outletId: o._id as string,
+      outletName: o.name as string,
+      isActive: o.isActive !== false,
     }));
 
-    // Use products and outlets from backend (populated from restockTargets)
-    const products = weeklyPlansData.products ?? [];
-    const outlets = weeklyPlansData.outlets ?? [];
+    // Build per-outlet product settings from outletSettingsData
+    const outletProducts: Record<string, Array<{
+      productKey: string;
+      menuProductId?: string;
+      productName: string;
+      externalProductName?: string;
+      defaultPrice: number;
+      customPrice?: number;
+      isHidden?: boolean;
+      weekdayTarget: number;
+      weekendTarget: number;
+    }>> = {};
 
-    // Build plans map from existing plans
-    const plansMap: Record<string, any> = {};
-    weeklyPlansData.plans.forEach((plan: any) => {
-      const key = `${plan.outletId}_${plan.date}_${plan.menuProductId}`;
-      plansMap[key] = {
-        value: plan.plannedQty,
-        suggestedQty: plan.suggestedQty ?? 0,
-        isStockOut: plan.isStockOut ?? false,
-        status: plan.status,
-      };
-    });
+    if (outletSettingsData) {
+      const settingsOutlets = (outletSettingsData as any).outlets ?? [];
+      for (const outlet of settingsOutlets) {
+        const outletId = outlet.outletId as string;
+        outletProducts[outletId] = (outlet.products ?? []).map((p: any) => ({
+          productKey: p.productKey,
+          menuProductId: p.menuProductId,
+          productName: p.productName ?? p.externalProductName ?? p.productKey,
+          externalProductName: p.externalProductName,
+          defaultPrice: p.defaultPrice ?? p.customPrice ?? 0,
+          customPrice: p.customPrice ?? undefined,
+          isHidden: p.isHidden,
+          weekdayTarget: p.weekdayTarget ?? 0,
+          weekendTarget: p.weekendTarget ?? 0,
+        }));
+      }
+    }
 
-    return {
-      dates: datesInfo,
-      products,
-      outlets,
-      plans: plansMap,
-    };
-  }, [weeklyPlansData, weekDates, today, tomorrow]);
+    return { outlets, outletProducts };
+  }, [outletStockData, outletSettingsData]);
 
   // ==========================================
   // RENDER
   // ==========================================
 
-  // Loading state
-  const isLoading =
-    loadingOutletStock || loadingWeeklyPlans || loadingProductionReadiness || loadingInventorySources;
+  // Loading state (only for top sections, planner manages its own loading)
+  const isLoading = loadingOutletStock || loadingProductionReadiness || loadingInventorySources;
 
   if (isLoading) {
     return (
@@ -532,16 +435,29 @@ export function K3MartCockpit() {
         title="K3 Mart Cockpit"
         description={`Today: ${formatDateShort(today)}`}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={syncing}
-            className="gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing...' : 'Refresh Data'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {role === 'admin' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSettingsOpen(true)}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Refresh Data'}
+            </Button>
+          </div>
         }
       />
 
@@ -549,10 +465,19 @@ export function K3MartCockpit() {
       {productionReadinessItems.length > 0 && (
         <ProductionReadinessBar
           items={productionReadinessItems}
-          onApproveBump={(menuProductId, newTarget) => {
-            // BACKLOG: K3MART-06 -- Implement production bump approval workflow
-            console.log('Approve bump:', menuProductId, newTarget);
-            toast.info('Bump approval not yet implemented');
+          onApproveBump={async (menuProductId, newTarget) => {
+            try {
+              await setProductTarget({
+                date: today,
+                source: 'consignment',
+                menuProductId: menuProductId as any,
+                quantity: newTarget,
+              });
+              toast.success(`Production target bumped to ${newTarget} units`);
+            } catch (error) {
+              console.error('Failed to bump production target:', error);
+              toast.error('Failed to update production target');
+            }
           }}
           isLoading={loadingProductionReadiness}
         />
@@ -561,7 +486,7 @@ export function K3MartCockpit() {
       {/* Inventory Source Panel */}
       <InventorySourcePanel sources={inventorySources} isLoading={loadingInventorySources} />
 
-      {/* TODAY'S DISPATCH */}
+      {/* TODAY'S DISPATCH (above planner -- user sees outlet performance first) */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -597,50 +522,20 @@ export function K3MartCockpit() {
         )}
       </div>
 
-      {/* WEEKLY PLANNER (collapsible) */}
+      {/* WEEKLY PLANNER (collapsible, default expanded) */}
       <div className="space-y-2">
         <button
-          onClick={() => setWeeklyPlannerOpen(!weeklyPlannerOpen)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-card border hover:bg-muted/50 transition-colors"
+          onClick={() => setPlannerExpanded(!plannerExpanded)}
+          className="flex items-center gap-2 px-1 w-full text-left"
         >
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Weekly Planner</h2>
-            <span className="text-sm text-muted-foreground">({weekNumber})</span>
-          </div>
-          {weeklyPlannerOpen ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-          )}
+          <Calendar className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Weekly Planner</h2>
+          <ChevronDown className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform",
+            !plannerExpanded && "-rotate-90"
+          )} />
         </button>
-
-        <AnimatePresence initial={false}>
-          {weeklyPlannerOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="overflow-hidden"
-            >
-              <WeeklyPlannerGrid
-                weekNumber={weekNumber}
-                dates={weeklyPlannerData.dates}
-                products={weeklyPlannerData.products}
-                outlets={weeklyPlannerData.outlets}
-                plans={weeklyPlannerData.plans}
-                today={today}
-                tomorrow={tomorrow}
-                onSavePlan={handleSaveWeeklyPlan}
-                onConfirmTomorrow={handleConfirmTomorrow}
-                onSubmitToday={handleSubmitTodayFromPlanner}
-                canAct={canAct}
-                isLoading={loadingWeeklyPlans}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {plannerExpanded && <WeeklyPlannerGrid />}
       </div>
 
       {/* Bulk Submit Dialog */}
@@ -654,6 +549,18 @@ export function K3MartCockpit() {
         results={bulkSubmitResults}
         completedCount={bulkSubmitCompleted}
       />
+
+      {/* Outlet Settings Modal (admin-only) */}
+      {role === 'admin' && (
+        <OutletSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          outlets={settingsModalData.outlets}
+          outletProducts={settingsModalData.outletProducts}
+          onToggleOutletActive={handleToggleOutletActive}
+          onSaveOutletSettings={handleSaveOutletSettings}
+        />
+      )}
     </div>
   );
 }

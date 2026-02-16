@@ -55,6 +55,7 @@ export const OutletCard = React.memo(function OutletCard({
 }: OutletCardProps) {
   const statusConfig = PLAN_STATUS_CONFIG[planStatus];
   const totalSoldToday = products.reduce((sum, p) => sum + p.soldToday, 0);
+  const avgDailySales = products.reduce((sum, p) => sum + p.avgDailySales, 0);
 
   const lastSyncStr = lastSyncAt
     ? new Date(lastSyncAt).toLocaleTimeString('en-US', {
@@ -68,7 +69,7 @@ export const OutletCard = React.memo(function OutletCard({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left bg-white rounded-xl shadow-sm border border-[#E8E2DB] border-l-4 overflow-hidden transition-all hover:shadow-md',
+        'w-full text-left bg-card rounded-xl shadow-sm border border-border border-l-4 overflow-hidden transition-all hover:shadow-md',
         isExpanded && 'ring-2 ring-offset-2',
       )}
       style={{
@@ -84,7 +85,7 @@ export const OutletCard = React.memo(function OutletCard({
         <div className="flex items-center gap-2 min-w-0">
           <Store className="h-4 w-4 shrink-0" style={{ color: 'var(--color-k3mart)' }} />
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 truncate">{outletName}</h3>
+            <h3 className="text-sm font-semibold text-foreground truncate">{outletName}</h3>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -106,17 +107,23 @@ export const OutletCard = React.memo(function OutletCard({
 
       {/* Stats Grid */}
       <div className="px-3 py-2.5">
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-4 gap-1.5 text-center">
           {/* Total Stock */}
           <div>
-            <div className="text-lg font-bold text-[#1A202C] tabular-nums">{totalStock}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Total Stock</div>
+            <div className="text-lg font-bold text-foreground tabular-nums">{totalStock}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Stock</div>
           </div>
 
           {/* Sold Today */}
           <div>
-            <div className="text-lg font-bold text-[#1A202C] tabular-nums">{totalSoldToday}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5">Sold Today</div>
+            <div className="text-lg font-bold text-foreground tabular-nums">{totalSoldToday}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Sold Today</div>
+          </div>
+
+          {/* Avg Daily Sales */}
+          <div>
+            <div className="text-lg font-bold text-foreground tabular-nums">{avgDailySales.toFixed(1)}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Avg/Day</div>
           </div>
 
           {/* Plan Status Badge */}
@@ -130,7 +137,7 @@ export const OutletCard = React.memo(function OutletCard({
             >
               {statusConfig.label}
             </span>
-            <div className="text-[10px] text-gray-500 mt-0.5">Plan Status</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">Plan</div>
           </div>
         </div>
       </div>
@@ -150,7 +157,7 @@ export const OutletCard = React.memo(function OutletCard({
       )}
 
       {/* Last Sync */}
-      <div className="px-3 pb-2.5 text-[10px] text-gray-500">
+      <div className="px-3 pb-2.5 text-[10px] text-muted-foreground">
         Last sync: {lastSyncStr}
       </div>
     </button>

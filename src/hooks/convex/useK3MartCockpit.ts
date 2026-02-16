@@ -4,7 +4,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { useProtectedMutation } from "./useProtectedMutation";
 
 // ========================
-// Query Hooks (6)
+// Query Hooks (7)
 // ========================
 
 export function useConvexOutletStockSummary(date: string) {
@@ -55,6 +55,14 @@ export function useConvexStockMovementHistory(
   return { data, isLoading: data === undefined };
 }
 
+/**
+ * Fetch outlet settings (active/inactive, product visibility, custom pricing).
+ */
+export function useConvexOutletSettings() {
+  const data = useQuery(api.k3martCockpit.queries.getOutletSettings);
+  return { data, isLoading: data === undefined };
+}
+
 // ========================
 // Action Hooks (8)
 // ========================
@@ -92,7 +100,7 @@ export function useConvexRefreshOutlets() {
 }
 
 // ========================
-// Protected Mutation Hooks (4)
+// Protected Mutation Hooks (7)
 // ========================
 
 export function useConvexSaveWeeklyDispatchPlan() {
@@ -109,4 +117,16 @@ export function useConvexProcessStockOutDestination() {
 
 export function useConvexToggleOutletActive() {
   return useProtectedMutation(api.k3martCockpit.mutations.toggleOutletActive);
+}
+
+export function useConvexSaveOutletSettings() {
+  return useProtectedMutation(api.k3martCockpit.mutations.saveOutletSettings);
+}
+
+export function useConvexCopyLastWeek() {
+  return useProtectedMutation(api.k3martCockpit.mutations.copyLastWeek);
+}
+
+export function useConvexSetProductTarget() {
+  return useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 }

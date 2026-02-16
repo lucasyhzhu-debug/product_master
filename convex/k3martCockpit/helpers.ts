@@ -107,3 +107,92 @@ export function getTomorrowJakarta(): string {
   d.setDate(d.getDate() + 1);
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
+
+// ============================================
+// Day Type Classification (for Convex backend)
+// Mirror of src/lib/indonesianHolidays.ts logic.
+// Convex can't import from src/, so we duplicate the minimal data needed.
+// ============================================
+
+/** Indonesian public holiday dates for 2026 */
+const HOLIDAY_DATES_2026 = new Set([
+  "2026-01-01", "2026-01-16", "2026-02-17", "2026-03-19",
+  "2026-03-21", "2026-03-22", "2026-04-03", "2026-05-01",
+  "2026-05-14", "2026-05-27", "2026-05-31", "2026-06-01",
+  "2026-06-16", "2026-08-17", "2026-08-25", "2026-12-25",
+]);
+
+/** Commercial / sales dates for 2026 */
+const COMMERCIAL_DATES_2026 = new Set([
+  "2026-01-01", "2026-02-02", "2026-02-14", "2026-03-03",
+  "2026-04-04", "2026-05-05", "2026-06-06", "2026-07-07",
+  "2026-08-08", "2026-09-09", "2026-10-10", "2026-11-11", "2026-12-12",
+]);
+
+/**
+ * Classify a YYYY-MM-DD date into a day type for demand patterns.
+ * Priority: holiday > sales_date > weekend > weekday.
+ * Backend version -- mirrors getDayType from indonesianHolidays.ts.
+ */
+export function getDayTypeForDate(
+  date: string
+): "weekday" | "weekend" | "holiday" | "sales_date" {
+  if (HOLIDAY_DATES_2026.has(date)) return "holiday";
+  if (COMMERCIAL_DATES_2026.has(date)) return "sales_date";
+  const day = new Date(date + "T00:00:00+07:00").getDay();
+  if (day === 0 || day === 6) return "weekend";
+  return "weekday";
+}
+
+/**
+ * Calculate auto-suggest quantity for a day based on previous week baseline and day type.
+ *
+ * @param baselineWeeklyTotal - Last week's total planned qty for this outlet+product (default 100 if no data)
+ * @param dayType - The type of day from getDayType()
+ * @returns Suggested quantity for this day (rounded)
+ */
+export function calculateAutoSuggest(
+  baselineWeeklyTotal: number,
+  dayType: "weekday" | "weekend" | "holiday" | "sales_date"
+): number {
+  const baseline = baselineWeeklyTotal > 0 ? baselineWeeklyTotal : 100;
+  const weekdayRate = baseline / 5;
+  if (dayType === "weekday") {
+    return Math.round(weekdayRate);
+  }
+  // Weekend, holiday, sales_date: 2.5x weekday rate
+  return Math.round(weekdayRate * 2.5);
+}
+
+/**
+ * Parse a week number like "2026-W07" to get the Monday date,
+ * then return all 7 dates of that week as YYYY-MM-DD strings.
+ */
+export function getWeekDatesFromWeekNumber(weekNumber: string): string[] {
+  const match = weekNumber.match(/^(\d{4})-W(\d{2})$/);
+  if (!match) {
+    throw new Error(`Invalid week number format: ${weekNumber}`);
+  }
+  const year = parseInt(match[1]);
+  const week = parseInt(match[2]);
+
+  // ISO 8601: Week 1 contains January 4th
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const dayOfWeek = jan4.getUTCDay() || 7; // Sunday = 7
+  const monday = new Date(jan4);
+  monday.setUTCDate(jan4.getUTCDate() - dayOfWeek + 1); // Monday of week 1
+
+  // Add (week-1) * 7 days to get to target week's Monday
+  monday.setUTCDate(monday.getUTCDate() + (week - 1) * 7);
+
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    dates.push(`${y}-${m}-${day}`);
+  }
+  return dates;
+}

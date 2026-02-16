@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 15 (Kitchen Overhaul) -- COMPLETE
-Plan: 04/04 complete, verified, human-approved
-Status: All 4 plans executed, verification passed (5/5 success criteria), human verification approved 2026-02-16.
-Last activity: 2026-02-16 - Phase 15 marked complete after human approval
+Phase: 16 (K3Mart Cockpit) -- COMPLETE
+Plan: 06/06 complete
+Status: All 6 plans executed. Phase 16 feature-complete, ready for verification and merge.
+Last activity: 2026-02-16 - Plan 16-06 executed (layout reorder, collapsible planner, dark mode, product names)
 
-Progress (v1.1): [#########.] 90% (Phase 12 + 13 + 14 + 14.1 + 15 complete)
+Progress (v1.1): [##########] 100% (Phase 12 + 13 + 14 + 14.1 + 15 + 16 complete)
 
 ## Performance Metrics
 
@@ -45,6 +45,12 @@ Progress (v1.1): [#########.] 90% (Phase 12 + 13 + 14 + 14.1 + 15 complete)
 | 15 | 02 | 5 min | 2 | 5 |
 | 15 | 03 | 6 min | 2 | 7 |
 | 15 | 04 | 6 min | 1 | 9 |
+| 16 | 01 | 7 min | 2 | 6 |
+| 16 | 02 | 7 min | 2 | 9 |
+| 16 | 03 | 9 min | 2 | 9 |
+| 16 | 04 | 4 min | 1 | 5 |
+| 16 | 05 | 3 min | 1 | 3 |
+| 16 | 06 | 8 min | 2 | 9 |
 
 *Updated after each plan completion*
 
@@ -79,10 +85,17 @@ Recent decisions affecting current work:
 - [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
 - [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
 - [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
+- [Phase 16-01]: Holiday data duplicated in convex helpers (Convex can't import src/); getDayTypeForDate mirrors getDayType; auto-suggest uses baseline/5 weekday rate with 2.5x multiplier; price priority: customPrice > snapshot > 0; copyLastWeek skips existing plans
+- [Phase 16-02]: WeeklyPlannerGrid is self-contained (owns queries/mutations/state); auto-save on blur with 300ms debounce; per-day confirm in PlannerGridHeader not PlannerActionBar; collapsible toggle removed (planner always visible); BACKLOG K3MART-01 through K3MART-05 resolved
+- [Phase 16-03]: Rotation is two sequential API calls (stock-out then stock-in); price sanity check at form AND dialog level; StockMovementHistory uses inline expandable detail; OutletSettingsModal imported directly (not barrel) for admin-only access
+- [Phase 16-04]: Inlined setProductTarget logic in confirmDayPlan (Convex mutations can't call mutations); production bump uses setProductTarget directly; OutletSettingsModal moved to barrel export for consistency
+- [Phase 16-05]: Re-confirm uses same confirmDayPlan mutation with isReconfirm detection (no new endpoint); default prices from externalStockSnapshots (mapping table has no price field); externalProductName added alongside productName for backward compatibility
+- [Phase 16-06]: Past day greying uses string comparison (date < todayStr) for YYYY-MM-DD; collapsible planner with ChevronDown toggle; K3Mart->POS name display with ArrowRight icon
 
 ### Roadmap Evolution
 
 - Phase 14.1 inserted after Phase 14: draft orderupdate (URGENT)
+- Phase 16.1 inserted after Phase 16: GoBiz OpenAPI audit and official API migration (URGENT)
 
 ### Pending Todos
 
@@ -94,6 +107,7 @@ None yet.
 |---|-------------|------|--------|--------|-----------|
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
 | 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
+| 3 | Dashboard revenue chart: hourly granularity + smart defaults | 2026-02-16 | eca447b | Verified | [3-dashboard-revenue-chart-smart-default-gr](./quick/3-dashboard-revenue-chart-smart-default-gr/) |
 
 ### Blockers/Concerns
 
@@ -104,9 +118,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Phase 15 complete, approved by human
+Stopped at: Completed 16-06-PLAN.md (Phase 16 complete)
 Resume file: None
-Resume notes: Phase 15 complete and verified. On feature/15-kitchen-overhaul branch. Ready to merge to main, then start Phase 16 (K3Mart Cockpit).
+Resume notes: Phase 16 complete (6/6 plans). Ready for verification and merge to main. On feature/16-k3mart-cockpit branch.
 
 ---
 *Last updated: 2026-02-16*

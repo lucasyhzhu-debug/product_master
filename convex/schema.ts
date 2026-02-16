@@ -1171,6 +1171,8 @@ export default defineSchema({
     menuProductId: v.optional(v.id("menuProducts")),
     weekdayTarget: v.number(),
     weekendTarget: v.number(),
+    customPrice: v.optional(v.number()), // Per-outlet price override (null = use menu product default)
+    isHidden: v.optional(v.boolean()), // Whether to hide from planning grid
     updatedBy: v.string(),
     updatedAt: v.number(),
   })

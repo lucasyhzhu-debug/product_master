@@ -9,6 +9,7 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
+import { getWeekNumber, calculateAutoSuggest, getDayTypeForDate, getWeekDatesFromWeekNumber } from "./helpers";
 
 /**
  * Query 1: getOutletStockSummary
@@ -156,65 +157,306 @@ export const getOutletStockSummary = query({
 
 /**
  * Query 2: getWeeklyDispatchPlans
- * Returns all dispatch plans for a given ISO week plus restock targets.
+ * Returns outlet-first weekly dispatch plan data with product sub-rows,
+ * current stock, auto-suggest quantities, and previous week baselines.
  */
 export const getWeeklyDispatchPlans = query({
   args: {
     weekNumber: v.string(), // "2026-W07"
   },
   handler: async (ctx, args) => {
-    // Fetch all dispatch plans for this week
+    // 1. Get week dates from weekNumber
+    // Parse weekNumber to get a date in that week, then compute the full week
+    const weekDates = getWeekDatesFromWeekNumber(args.weekNumber);
+
+    // 2. Fetch all dispatch plans for this week
     const plans = await ctx.db
       .query("k3martDispatchPlans")
       .withIndex("by_week", (q) => q.eq("weekNumber", args.weekNumber))
       .collect();
 
-    // Fetch all K3 Mart restock targets
+    // 3. Fetch all K3 Mart restock targets
     const targets = await ctx.db
       .query("restockTargets")
       .withIndex("by_channel", (q) => q.eq("channel", "k3mart"))
       .collect();
 
-    // Build unique products and outlets from restock targets
-    const productIds = new Set<string>();
-    const outletIds = new Set<string>();
+    // Build target lookup: outletId_productKey -> target
+    const targetLookup = new Map<string, typeof targets[number]>();
     for (const t of targets) {
-      if (t.menuProductId) productIds.add(t.menuProductId as string);
-      if (t.outletId) outletIds.add(t.outletId as string);
+      if (t.outletId && t.productKey) {
+        targetLookup.set(`${t.outletId}_${t.productKey}`, t);
+      }
     }
 
-    // Fetch product names and external codes
-    const products = await Promise.all(
-      Array.from(productIds).map(async (id) => {
-        const mp = await ctx.db.get(id as Id<"menuProducts">);
-        const mapping = await ctx.db
-          .query("externalProductMappings")
-          .withIndex("by_menu_product", (q) => q.eq("menuProductId", id as Id<"menuProducts">))
-          .first();
-        return {
-          menuProductId: id,
-          productName: mp?.name ?? "Unknown",
-          externalProductCode: mapping?.externalProductCode ?? "",
-        };
-      })
-    );
+    // 4. Fetch active K3 Mart outlets
+    const allOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
 
-    // Fetch outlet names
-    const outlets = await Promise.all(
-      Array.from(outletIds).map(async (id) => {
-        const outlet = await ctx.db.get(id as Id<"externalOutlets">);
-        return { outletId: id, outletName: outlet?.name ?? "Unknown" };
-      })
-    );
+    // 5. Fetch product mappings
+    const productMappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .collect();
+
+    // Build code -> mapping lookup
+    const codeToMapping = new Map<string, typeof productMappings[number]>();
+    for (const m of productMappings) {
+      codeToMapping.set(m.externalProductCode, m);
+    }
+
+    // 6. Fetch menu products for names and default prices
+    const menuProductIds = new Set<string>();
+    for (const m of productMappings) {
+      if (m.menuProductId) menuProductIds.add(m.menuProductId as string);
+    }
+
+    const menuProducts = new Map<string, { name: string }>();
+    for (const id of menuProductIds) {
+      const mp = await ctx.db.get(id as Id<"menuProducts">);
+      if (mp) menuProducts.set(id, { name: mp.name });
+    }
+
+    // 6b. Build K3Mart external name lookup from product mappings
+    const externalNameByCode = new Map<string, string>();
+    for (const m of productMappings) {
+      externalNameByCode.set(m.externalProductCode, m.externalProductName);
+    }
+
+    // 7. Get latest stock snapshots per outlet for current stock
+    const stockByOutletProduct = new Map<string, number>(); // outletId_externalProductCode -> qty
+    const priceByOutletProduct = new Map<string, number>(); // outletId_externalProductCode -> price
+
+    for (const outlet of allOutlets) {
+      const latestSnapshot = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_outlet_snapshot", (q) => q.eq("outletId", outlet._id))
+        .order("desc")
+        .first();
+
+      if (!latestSnapshot) continue;
+
+      const snapshotProducts = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_batch", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+        )
+        .filter((q) => q.eq(q.field("outletId"), outlet._id))
+        .collect();
+
+      for (const sp of snapshotProducts) {
+        stockByOutletProduct.set(
+          `${outlet._id}_${sp.externalProductCode}`,
+          sp.quantity
+        );
+        priceByOutletProduct.set(
+          `${outlet._id}_${sp.externalProductCode}`,
+          sp.price
+        );
+      }
+    }
+
+    // 8. Compute previous week totals per outlet+product (for auto-suggest baseline)
+    const prevWeekNumber = getPreviousWeekNumber(args.weekNumber);
+    const prevWeekPlans = await ctx.db
+      .query("k3martDispatchPlans")
+      .withIndex("by_week", (q) => q.eq("weekNumber", prevWeekNumber))
+      .collect();
+
+    // Aggregate previous week: outletId_menuProductId -> total planned qty
+    const prevWeekByOutletProduct = new Map<string, number>();
+    const previousWeekTotals: Record<string, number> = {}; // menuProductId -> total
+    for (const p of prevWeekPlans) {
+      if (!p.isStockOut) {
+        const opKey = `${p.outletId}_${p.menuProductId}`;
+        prevWeekByOutletProduct.set(
+          opKey,
+          (prevWeekByOutletProduct.get(opKey) ?? 0) + p.plannedQty
+        );
+        const mpKey = p.menuProductId as string;
+        previousWeekTotals[mpKey] = (previousWeekTotals[mpKey] ?? 0) + p.plannedQty;
+      }
+    }
+
+    // 9. Build outlet-first response
+    const outletResults: Array<{
+      outletId: Id<"externalOutlets">;
+      outletName: string;
+      isActive: boolean;
+      products: Array<{
+        menuProductId: string;
+        productName: string;
+        externalProductName: string;
+        externalProductCode: string;
+        currentStock: number;
+        price: number;
+        isHidden: boolean;
+      }>;
+      subtotalByDay: Record<string, number>;
+    }> = [];
+
+    for (const outlet of allOutlets) {
+      const outletProducts: Array<{
+        menuProductId: string;
+        productName: string;
+        externalProductName: string;
+        externalProductCode: string;
+        currentStock: number;
+        price: number;
+        isHidden: boolean;
+      }> = [];
+
+      for (const mapping of productMappings) {
+        if (!mapping.menuProductId) continue;
+
+        const mpId = mapping.menuProductId as string;
+        const productKey = mapping.externalProductCode;
+        const targetKey = `${outlet._id}_${productKey}`;
+        const target = targetLookup.get(targetKey);
+
+        // Filter hidden products
+        if (target?.isHidden === true) continue;
+
+        const mp = menuProducts.get(mpId);
+        const stockKey = `${outlet._id}_${productKey}`;
+        const currentStock = stockByOutletProduct.get(stockKey) ?? 0;
+
+        // Price priority: restockTargets.customPrice > K3MART snapshot price > 0
+        const customPrice = target?.customPrice;
+        const snapshotPrice = priceByOutletProduct.get(stockKey) ?? 0;
+        const price = customPrice ?? snapshotPrice;
+
+        // K3Mart product name from externalProductMappings
+        const k3martName = externalNameByCode.get(productKey) ?? productKey;
+
+        outletProducts.push({
+          menuProductId: mpId,
+          productName: mp?.name ?? k3martName,
+          externalProductName: k3martName,
+          externalProductCode: productKey,
+          currentStock,
+          price,
+          isHidden: false,
+        });
+      }
+
+      // Calculate subtotals by day from existing plans
+      const subtotalByDay: Record<string, number> = {};
+      for (const date of weekDates) {
+        subtotalByDay[date] = 0;
+      }
+
+      outletResults.push({
+        outletId: outlet._id,
+        outletName: outlet.name,
+        isActive: outlet.isActive,
+        products: outletProducts,
+        subtotalByDay,
+      });
+    }
+
+    // 10. Build plans lookup and compute subtotals + totals
+    const planCells: Record<
+      string,
+      {
+        plannedQty: number;
+        suggestedQty: number;
+        isStockOut: boolean;
+        status: string;
+        source?: string;
+        destination?: string;
+      }
+    > = {};
+
+    const weekTotalsByDay: Record<string, number> = {};
+    const weekTotalsByProduct: Record<string, number> = {};
+    let grandTotal = 0;
+
+    for (const date of weekDates) {
+      weekTotalsByDay[date] = 0;
+    }
+
+    for (const plan of plans) {
+      if (plan.isStockOut) continue; // Only stock-in counts for planning grid
+
+      const cellKey = `${plan.outletId}_${plan.date}_${plan.menuProductId}`;
+      planCells[cellKey] = {
+        plannedQty: plan.plannedQty,
+        suggestedQty: plan.suggestedQty,
+        isStockOut: plan.isStockOut,
+        status: plan.status,
+        source: plan.source ?? undefined,
+        destination: plan.destination ?? undefined,
+      };
+
+      // Update subtotals per outlet
+      const outletResult = outletResults.find(
+        (o) => o.outletId === plan.outletId
+      );
+      if (outletResult && outletResult.subtotalByDay[plan.date] !== undefined) {
+        outletResult.subtotalByDay[plan.date] += plan.plannedQty;
+      }
+
+      // Update week totals
+      if (weekTotalsByDay[plan.date] !== undefined) {
+        weekTotalsByDay[plan.date] += plan.plannedQty;
+      }
+      const mpKey = plan.menuProductId as string;
+      weekTotalsByProduct[mpKey] = (weekTotalsByProduct[mpKey] ?? 0) + plan.plannedQty;
+      grandTotal += plan.plannedQty;
+    }
+
+    // 11. Compute auto-suggest for empty cells
+    for (const outlet of outletResults) {
+      for (const product of outlet.products) {
+        const opKey = `${outlet.outletId}_${product.menuProductId}`;
+        const baseline = prevWeekByOutletProduct.get(opKey) ?? 0;
+
+        for (const date of weekDates) {
+          const cellKey = `${outlet.outletId}_${date}_${product.menuProductId}`;
+          if (!planCells[cellKey]) {
+            const dayType = getDayTypeForDate(date);
+            const suggestedQty = calculateAutoSuggest(baseline, dayType);
+            planCells[cellKey] = {
+              plannedQty: 0,
+              suggestedQty,
+              isStockOut: false,
+              status: "draft",
+            };
+          }
+        }
+      }
+    }
 
     return {
-      plans,
-      targets,
-      products,
-      outlets,
+      outlets: outletResults,
+      plans: planCells,
+      weekDates,
+      weekTotals: {
+        byDay: weekTotalsByDay,
+        byProduct: weekTotalsByProduct,
+        grandTotal,
+      },
+      previousWeekTotals,
     };
   },
 });
+
+/**
+ * Get the previous week number string from a given week number.
+ * E.g., "2026-W07" -> "2026-W06", "2026-W01" -> "2025-W53" (approximate)
+ */
+function getPreviousWeekNumber(weekNumber: string): string {
+  const dates = getWeekDatesFromWeekNumber(weekNumber);
+  // Get the Monday of this week, subtract 7 days
+  const monday = new Date(dates[0] + "T00:00:00+07:00");
+  monday.setDate(monday.getDate() - 7);
+  const prevDate = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  return getWeekNumber(prevDate);
+}
 
 /**
  * Query 3: getProductionReadiness
@@ -621,5 +863,123 @@ export const getStockMovementHistory = query({
     }
 
     return movements.reverse(); // Return oldest first for chronological audit log
+  },
+});
+
+/**
+ * Query 7: getOutletSettings
+ * Returns all outlet configs (active/inactive, product visibility, custom pricing).
+ */
+export const getOutletSettings = query({
+  args: {},
+  handler: async (ctx) => {
+    // Fetch all K3 Mart outlets
+    const outlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .collect();
+
+    // Fetch all K3 Mart restock targets (contains product settings per outlet)
+    const targets = await ctx.db
+      .query("restockTargets")
+      .withIndex("by_channel", (q) => q.eq("channel", "k3mart"))
+      .collect();
+
+    // Fetch product mappings for product names
+    const productMappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .collect();
+
+    const menuProductIds = new Set<string>();
+    for (const m of productMappings) {
+      if (m.menuProductId) menuProductIds.add(m.menuProductId as string);
+    }
+
+    const menuProducts = new Map<string, { name: string }>();
+    for (const id of menuProductIds) {
+      const mp = await ctx.db.get(id as Id<"menuProducts">);
+      if (mp) menuProducts.set(id, { name: mp.name });
+    }
+
+    // Build mapping from productKey/externalProductCode to product info
+    const mappingByCode = new Map<string, {
+      externalName: string;
+      menuProductName: string | null;
+      snapshotPrice: number;
+    }>();
+    for (const m of productMappings) {
+      const menuProduct = m.menuProductId
+        ? menuProducts.get(m.menuProductId as string)
+        : null;
+      mappingByCode.set(m.externalProductCode, {
+        externalName: m.externalProductName,  // K3Mart name e.g., "Dubai Chewy Cookie"
+        menuProductName: menuProduct?.name ?? null,  // POS name e.g., "Original - Single (45g)"
+        snapshotPrice: 0, // Will be enriched from snapshots below
+      });
+    }
+
+    // Enrich with latest snapshot prices (externalProductMappings has no price field)
+    const k3martOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Get a single snapshot price per product code (from any outlet's latest snapshot)
+    for (const outlet of k3martOutlets) {
+      const latestSnapshot = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_outlet_snapshot", (q) => q.eq("outletId", outlet._id))
+        .order("desc")
+        .first();
+      if (!latestSnapshot) continue;
+      const snapshotProducts = await ctx.db
+        .query("externalStockSnapshots")
+        .withIndex("by_batch", (q) => q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId))
+        .filter((q) => q.eq(q.field("outletId"), outlet._id))
+        .collect();
+      for (const sp of snapshotProducts) {
+        const mapping = mappingByCode.get(sp.externalProductCode);
+        if (mapping && mapping.snapshotPrice === 0 && sp.price > 0) {
+          mapping.snapshotPrice = sp.price;
+        }
+      }
+    }
+
+    // Build outlet settings
+    const outletSettings = outlets.map((outlet) => {
+      const outletTargets = targets.filter(
+        (t) => t.outletId === outlet._id
+      );
+
+      const productSettings = outletTargets.map((t) => {
+        const mapping = mappingByCode.get(t.productKey);
+        return {
+          productKey: t.productKey,
+          menuProductId: t.menuProductId as string | undefined,
+          // Show K3Mart name (externalProductName) as primary display
+          externalProductName: mapping?.externalName ?? t.productKey,
+          // Show POS/menu product name as secondary
+          productName: mapping?.menuProductName ?? mapping?.externalName ?? t.productKey,
+          // Real default price from snapshot (not 0)
+          defaultPrice: mapping?.snapshotPrice ?? 0,
+          weekdayTarget: t.weekdayTarget,
+          weekendTarget: t.weekendTarget,
+          customPrice: t.customPrice ?? null,
+          isHidden: t.isHidden ?? false,
+        };
+      });
+
+      return {
+        outletId: outlet._id,
+        outletName: outlet.name,
+        externalId: outlet.externalId,
+        isActive: outlet.isActive,
+        products: productSettings,
+      };
+    });
+
+    return { outlets: outletSettings };
   },
 });

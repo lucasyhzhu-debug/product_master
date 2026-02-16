@@ -1,26 +1,37 @@
+/**
+ * EditablePlannerCell - Single editable number cell for K3 Mart weekly planner.
+ *
+ * Features:
+ * - Auto-save on blur via onSave callback with 300ms debounce
+ * - Auto-suggest placeholder when cell is empty
+ * - Status-based background colors (draft/confirmed/submitted)
+ * - Past day greying (non-editable, muted appearance)
+ * - Keyboard navigation between cells (arrow keys, Enter, Escape)
+ * - Touch-friendly minimum width
+ * - Dark mode support
+ */
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface EditablePlannerCellProps {
-  /** Current planned quantity */
+  /** Current planned quantity (0 = empty/unplanned) */
   value: number;
-  /** Auto-suggested quantity based on target/stock calculation */
+  /** Auto-suggested quantity based on baseline + day type */
   suggestedQty: number;
-  /** Whether this cell's plan is a stock-out (vs stock-in) */
-  isStockOut: boolean;
   /** Plan status for visual indicator */
-  status?: "draft" | "confirmed" | "submitted" | "approved" | "rejected" | "canceled";
-  /** Whether this day is weekend */
-  isWeekend: boolean;
-  /** Whether this day is a holiday */
-  isHoliday: boolean;
-  /** Whether the cell is editable (not submitted/approved) */
+  status: "draft" | "confirmed" | "submitted";
+  /** Whether the cell is editable */
   isEditable: boolean;
-  /** Called when value changes */
-  onChange: (newValue: number) => void;
+  /** Whether this cell is for a past day (greyed out) */
+  isPastDay?: boolean;
+  /** Called when value changes on blur (auto-save) */
+  onSave: (newValue: number) => void;
+  /** Called when local edit occurs (for unsaved changes tracking) */
+  onDirty: () => void;
   /** Column (day) index for keyboard navigation */
   colIndex: number;
-  /** Row (outlet) index for keyboard navigation */
+  /** Row index for keyboard navigation */
   rowIndex: number;
 }
 
@@ -28,243 +39,189 @@ export const EditablePlannerCell = React.memo(
   ({
     value,
     suggestedQty,
-    isStockOut,
     status = "draft",
-    isWeekend,
-    isHoliday,
     isEditable,
-    onChange,
+    isPastDay = false,
+    onSave,
+    onDirty,
     colIndex,
     rowIndex,
   }: EditablePlannerCellProps) => {
-    const [editValue, setEditValue] = useState<string>(value.toString());
+    const [editValue, setEditValue] = useState<string>(value > 0 ? value.toString() : '');
     const [isFocused, setIsFocused] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Sync with external value changes
+    // Sync with external value changes (e.g., after backend save confirms)
     useEffect(() => {
       if (!isFocused) {
-        setEditValue(value.toString());
+        setEditValue(value > 0 ? value.toString() : '');
+        setIsDirty(false);
       }
     }, [value, isFocused]);
 
-    const handleCommit = useCallback(() => {
-      const parsed = parseInt(editValue, 10);
-      if (!isNaN(parsed) && parsed >= 0) {
-        onChange(parsed);
-      } else {
-        // Revert to original value if invalid
-        setEditValue(value.toString());
-      }
-    }, [editValue, onChange, value]);
-
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (!inputRef.current) return;
-
-      switch (e.key) {
-        case 'Enter':
-          e.preventDefault();
-          handleCommit();
-          // Move to next cell (right)
-          const nextCell = document.querySelector(
-            `input[data-row="${rowIndex}"][data-col="${colIndex + 1}"]`
-          ) as HTMLInputElement;
-          if (nextCell) {
-            nextCell.focus();
-            nextCell.select();
-          } else {
-            inputRef.current.blur();
-          }
-          break;
-
-        case 'Escape':
-          e.preventDefault();
-          setEditValue(value.toString());
-          inputRef.current.blur();
-          break;
-
-        case 'ArrowUp':
-          e.preventDefault();
-          handleCommit();
-          const upCell = document.querySelector(
-            `input[data-row="${rowIndex - 1}"][data-col="${colIndex}"]`
-          ) as HTMLInputElement;
-          if (upCell) {
-            upCell.focus();
-            upCell.select();
-          }
-          break;
-
-        case 'ArrowDown':
-          e.preventDefault();
-          handleCommit();
-          const downCell = document.querySelector(
-            `input[data-row="${rowIndex + 1}"][data-col="${colIndex}"]`
-          ) as HTMLInputElement;
-          if (downCell) {
-            downCell.focus();
-            downCell.select();
-          }
-          break;
-
-        case 'ArrowLeft':
-          // Only navigate if cursor is at start
-          if (inputRef.current.selectionStart === 0 && inputRef.current.selectionEnd === 0) {
-            e.preventDefault();
-            handleCommit();
-            const leftCell = document.querySelector(
-              `input[data-row="${rowIndex}"][data-col="${colIndex - 1}"]`
-            ) as HTMLInputElement;
-            if (leftCell) {
-              leftCell.focus();
-              leftCell.select();
-            }
-          }
-          break;
-
-        case 'ArrowRight':
-          // Only navigate if cursor is at end
-          if (
-            inputRef.current.selectionStart === editValue.length &&
-            inputRef.current.selectionEnd === editValue.length
-          ) {
-            e.preventDefault();
-            handleCommit();
-            const rightCell = document.querySelector(
-              `input[data-row="${rowIndex}"][data-col="${colIndex + 1}"]`
-            ) as HTMLInputElement;
-            if (rightCell) {
-              rightCell.focus();
-              rightCell.select();
-            }
-          }
-          break;
-      }
-    }, [editValue, handleCommit, rowIndex, colIndex, value]);
-
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      // Allow empty string or valid integers only
-      if (val === '' || /^\d+$/.test(val)) {
-        setEditValue(val);
-      }
+    // Cleanup debounce timer
+    useEffect(() => {
+      return () => {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+      };
     }, []);
+
+    const performSave = useCallback((val: string) => {
+      const parsed = parseInt(val, 10);
+      const newValue = !isNaN(parsed) && parsed >= 0 ? parsed : 0;
+
+      // Only save if value actually changed
+      if (newValue !== value) {
+        // Debounce save by 300ms
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(() => {
+          onSave(newValue);
+          setIsDirty(false);
+        }, 300);
+      } else {
+        setIsDirty(false);
+      }
+    }, [value, onSave]);
 
     const handleBlur = useCallback(() => {
       setIsFocused(false);
-      handleCommit();
-    }, [handleCommit]);
+      if (isDirty) {
+        performSave(editValue);
+      }
+    }, [isDirty, editValue, performSave]);
 
     const handleFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
       e.target.select();
     }, []);
 
-    // Determine background color
-    const getBgColor = () => {
-      if (!isEditable) return 'bg-gray-100';
-      if (isHoliday) return 'bg-orange-50';
-      if (isWeekend) return 'bg-amber-50';
-      return 'bg-white';
-    };
-
-    // Determine border style
-    const getBorderStyle = () => {
-      if (isStockOut) return 'border-dashed border-red-300';
-      return 'border-gray-200';
-    };
-
-    // Status indicator dot color
-    const getStatusDotColor = () => {
-      switch (status) {
-        case 'confirmed':
-          return 'bg-blue-500';
-        case 'submitted':
-          return 'bg-amber-500';
-        case 'approved':
-          return 'bg-green-500';
-        case 'rejected':
-          return 'bg-red-500';
-        case 'canceled':
-          return 'bg-gray-400';
-        default:
-          return null;
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      // Allow empty string or valid integers only
+      if (val === '' || /^\d+$/.test(val)) {
+        setEditValue(val);
+        if (!isDirty) {
+          setIsDirty(true);
+          onDirty();
+        }
       }
-    };
+    }, [isDirty, onDirty]);
 
-    const showSuggestion = suggestedQty > 0 && value !== suggestedQty;
-    const statusDotColor = getStatusDotColor();
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (!inputRef.current) return;
+
+      const navigateTo = (row: number, col: number) => {
+        const target = document.querySelector(
+          `input[data-row="${row}"][data-col="${col}"]`
+        ) as HTMLInputElement;
+        if (target) {
+          target.focus();
+          target.select();
+        }
+      };
+
+      switch (e.key) {
+        case 'Enter':
+          e.preventDefault();
+          if (isDirty) performSave(editValue);
+          navigateTo(rowIndex, colIndex + 1);
+          if (!document.querySelector(`input[data-row="${rowIndex}"][data-col="${colIndex + 1}"]`)) {
+            inputRef.current.blur();
+          }
+          break;
+
+        case 'Escape':
+          e.preventDefault();
+          setEditValue(value > 0 ? value.toString() : '');
+          setIsDirty(false);
+          inputRef.current.blur();
+          break;
+
+        case 'ArrowUp':
+          e.preventDefault();
+          if (isDirty) performSave(editValue);
+          navigateTo(rowIndex - 1, colIndex);
+          break;
+
+        case 'ArrowDown':
+          e.preventDefault();
+          if (isDirty) performSave(editValue);
+          navigateTo(rowIndex + 1, colIndex);
+          break;
+
+        case 'Tab':
+          // Let default tab behavior work, but save first
+          if (isDirty) performSave(editValue);
+          break;
+      }
+    }, [editValue, isDirty, performSave, rowIndex, colIndex, value]);
+
+    // Background color based on status and past day
+    const bgColor = isPastDay
+      ? 'bg-muted/50'
+      : !isEditable
+        ? 'bg-muted'
+        : status === 'confirmed'
+          ? 'bg-green-50 dark:bg-green-900/20'
+          : status === 'submitted'
+            ? 'bg-blue-50 dark:bg-blue-900/20'
+            : 'bg-background';
+
+    const textColor = isPastDay
+      ? 'text-muted-foreground'
+      : !isEditable
+        ? 'text-muted-foreground'
+        : status === 'submitted'
+          ? 'text-blue-700 dark:text-blue-300'
+          : status === 'confirmed'
+            ? 'text-green-800 dark:text-green-300'
+            : 'text-foreground';
 
     return (
-      <div className="relative group">
-        <input
-          ref={inputRef}
-          type="text"
-          inputMode="numeric"
-          value={editValue}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          disabled={!isEditable}
-          data-row={rowIndex}
-          data-col={colIndex}
-          className={cn(
-            'w-12 h-9 text-sm tabular-nums text-center border transition-all',
-            getBgColor(),
-            getBorderStyle(),
-            isEditable
-              ? 'focus:ring-2 focus:ring-blue-400 focus:outline-none cursor-text'
-              : 'text-gray-500 cursor-not-allowed',
-            isStockOut && isEditable && 'bg-red-50/30'
-          )}
-          style={{
-            // Remove spinner arrows
-            MozAppearance: 'textfield',
-            WebkitAppearance: 'none',
-            appearance: 'none',
-          }}
-        />
-
-        {/* Status indicator dot */}
-        {statusDotColor && (
-          <div
-            className={cn(
-              'absolute bottom-0.5 right-0.5 w-1 h-1 rounded-full',
-              statusDotColor
-            )}
-          />
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        value={editValue}
+        placeholder={suggestedQty > 0 ? String(suggestedQty) : ''}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
+        disabled={!isEditable}
+        data-row={rowIndex}
+        data-col={colIndex}
+        className={cn(
+          'w-full h-9 min-w-[48px] text-sm tabular-nums text-center border border-border transition-all',
+          bgColor,
+          textColor,
+          isEditable
+            ? 'focus:ring-2 focus:ring-primary focus:outline-none focus:border-primary cursor-text'
+            : 'cursor-not-allowed',
+          isDirty && 'border-amber-400',
+          'placeholder:text-muted-foreground/40 placeholder:italic'
         )}
-
-        {/* Suggestion tooltip */}
-        {showSuggestion && (
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            Suggest: {suggestedQty}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-          </div>
-        )}
-
-        <style>{`
-          input[type="number"]::-webkit-inner-spin-button,
-          input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-          }
-        `}</style>
-      </div>
+        style={{
+          MozAppearance: 'textfield' as any,
+          WebkitAppearance: 'none' as any,
+          appearance: 'none' as any,
+        }}
+      />
     );
   },
   (prevProps, nextProps) => {
-    // Custom comparator: re-render only if these props change
-    // Skip onChange comparison (stable callback via useCallback in parent)
     return (
       prevProps.value === nextProps.value &&
       prevProps.suggestedQty === nextProps.suggestedQty &&
-      prevProps.isStockOut === nextProps.isStockOut &&
       prevProps.status === nextProps.status &&
-      prevProps.isWeekend === nextProps.isWeekend &&
-      prevProps.isHoliday === nextProps.isHoliday &&
       prevProps.isEditable === nextProps.isEditable &&
+      prevProps.isPastDay === nextProps.isPastDay &&
       prevProps.colIndex === nextProps.colIndex &&
       prevProps.rowIndex === nextProps.rowIndex
     );

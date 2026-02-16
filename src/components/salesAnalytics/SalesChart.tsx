@@ -21,7 +21,7 @@ import {
   type PeriodPreset,
 } from "@/hooks/convex";
 
-type Granularity = "daily" | "weekly" | "monthly";
+type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 type Metric = "gross" | "net" | "volume";
 
 const PLATFORM_COLORS = {
@@ -36,6 +36,7 @@ function defaultGranularity(preset: PeriodPreset): Granularity {
     case "past24hours":
     case "today":
     case "yesterday":
+      return "hourly";
     case "thisWeek":
     case "last7days":
       return "daily";
@@ -43,7 +44,7 @@ function defaultGranularity(preset: PeriodPreset): Granularity {
     case "thisMonth":
       return "weekly";
     case "allTime":
-      return "monthly";
+      return "weekly";
   }
 }
 
@@ -140,6 +141,7 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
   ];
 
   const granularityOptions: { value: Granularity; label: string }[] = [
+    { value: "hourly", label: "Hourly" },
     { value: "daily", label: "Daily" },
     { value: "weekly", label: "Weekly" },
     { value: "monthly", label: "Monthly" },

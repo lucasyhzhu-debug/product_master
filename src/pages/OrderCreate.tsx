@@ -327,16 +327,7 @@ export function OrderCreate() {
 
     setIsSubmitting(true);
     try {
-      // Save form state to Draft
-      await updateDraftMutation({
-        orderId: draftOrderId,
-        dueDate: dueDate || undefined,
-        deliveryAddress: deliveryAddress || undefined,
-        notes: notes || undefined,
-        voucherCode: appliedVoucher?.code,
-      });
-
-      // Sync items to database
+      // Sync items first (replaceItems clears voucher and recalculates totals)
       await replaceItemsMutation({
         orderId: draftOrderId,
         items: items.map((item) => ({
@@ -346,6 +337,15 @@ export function OrderCreate() {
           unitCost: item.unitCost || 0,
           menuProductId: item.productId as Id<"menuProducts">,
         })),
+      });
+
+      // Then save form state including voucher (applied on fresh totals)
+      await updateDraftMutation({
+        orderId: draftOrderId,
+        dueDate: dueDate || undefined,
+        deliveryAddress: deliveryAddress || undefined,
+        notes: notes || undefined,
+        voucherCode: appliedVoucher?.code,
       });
 
       toast.success('Draft saved');
@@ -385,17 +385,7 @@ export function OrderCreate() {
     try {
       // If we already have a draft, save changes and submit it
       if (draftOrderId) {
-        // Save current form state to the draft
-        await updateDraftMutation({
-          orderId: draftOrderId,
-          dueDate: dueDate || undefined,
-          deliveryAddress: deliveryAddress || undefined,
-          notes: notes || undefined,
-          voucherCode: appliedVoucher?.code,
-          lowPriceConfirmed: lowPriceConfirmed || undefined,
-        });
-
-        // Sync items to the database
+        // Sync items first (replaceItems clears voucher and recalculates totals)
         await replaceItemsMutation({
           orderId: draftOrderId,
           items: items.map((item) => ({
@@ -405,6 +395,16 @@ export function OrderCreate() {
             unitCost: item.unitCost || 0,
             menuProductId: item.productId as Id<"menuProducts">,
           })),
+        });
+
+        // Then save form state including voucher (applied on fresh totals)
+        await updateDraftMutation({
+          orderId: draftOrderId,
+          dueDate: dueDate || undefined,
+          deliveryAddress: deliveryAddress || undefined,
+          notes: notes || undefined,
+          voucherCode: appliedVoucher?.code,
+          lowPriceConfirmed: lowPriceConfirmed || undefined,
         });
 
         // Move Draft -> AwaitingPayment

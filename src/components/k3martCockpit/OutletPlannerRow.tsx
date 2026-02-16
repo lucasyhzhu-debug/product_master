@@ -1,82 +1,234 @@
 /**
- * OutletPlannerRow - Single outlet row with 7 editable day cells for K3 Mart weekly planner.
+ * OutletPlannerRow - Outlet group with product sub-rows for K3 Mart weekly planner.
  *
- * Renders one outlet's row in the planner grid: outlet name cell (sticky left) + 7 day cells.
- * Uses React.memo and useCallback to optimize re-renders when editing cells.
+ * Renders one outlet as:
+ * - Outlet header row (bold name, sticky left)
+ * - Product sub-rows (one per product, with stock column + 7 day cells + row total)
+ * - Outlet subtotal row (when outlet has >1 product)
+ *
+ * All outlets are always expanded (no collapse/expand per user decision).
+ * Past days (before today) are greyed out and non-editable.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { EditablePlannerCell } from './EditablePlannerCell';
 
+interface PlanCell {
+  plannedQty: number;
+  suggestedQty: number;
+  isStockOut: boolean;
+  status: string;
+}
+
+interface OutletProduct {
+  menuProductId: string;
+  productName: string;
+  externalProductCode: string;
+  currentStock: number;
+  price: number;
+  isHidden: boolean;
+}
+
 interface OutletPlannerRowProps {
-  outletName: string;
   outletId: string;
-  rowIndex: number;
-  cells: Array<{
-    date: string;
-    value: number;
-    suggestedQty: number;
-    isStockOut: boolean;
-    status?: "draft" | "confirmed" | "submitted" | "approved" | "rejected" | "canceled";
-    isWeekend: boolean;
-    isHoliday: boolean;
-    isEditable: boolean;
-  }>;
-  onCellChange: (date: string, outletId: string, newValue: number) => void;
+  outletName: string;
+  products: OutletProduct[];
+  weekDates: string[];
+  plans: Record<string, PlanCell>;
+  canAct: boolean;
+  /** Base row index for keyboard navigation (increments per product sub-row) */
+  baseRowIndex: number;
+  /** Today's date string (YYYY-MM-DD) for past-day greying */
+  todayStr: string;
+  /** Average daily sales per product for low stock warning. Key: menuProductId */
+  avgDailySales?: Record<string, number>;
+  onSaveCell: (
+    outletId: string,
+    menuProductId: string,
+    externalProductCode: string,
+    date: string,
+    plannedQty: number,
+    suggestedQty: number
+  ) => void;
+  onDirty: () => void;
 }
 
 export const OutletPlannerRow = React.memo(function OutletPlannerRow({
-  outletName,
   outletId,
-  rowIndex,
-  cells,
-  onCellChange,
+  outletName,
+  products,
+  weekDates,
+  plans,
+  canAct,
+  baseRowIndex,
+  todayStr,
+  avgDailySales,
+  onSaveCell,
+  onDirty,
 }: OutletPlannerRowProps) {
-  // Memoized cell change handler to prevent unnecessary re-renders
-  const handleCellChange = useCallback(
-    (date: string) => (newValue: number) => {
-      onCellChange(date, outletId, newValue);
+  // Get cell data for a product on a specific date
+  const getCellData = useCallback(
+    (menuProductId: string, date: string): PlanCell => {
+      const key = `${outletId}_${date}_${menuProductId}`;
+      return plans[key] || { plannedQty: 0, suggestedQty: 0, isStockOut: false, status: 'draft' };
     },
-    [onCellChange, outletId]
+    [outletId, plans]
   );
 
+  // Compute row total for a product (sum of 7 days)
+  const getRowTotal = useCallback(
+    (menuProductId: string): number => {
+      return weekDates.reduce((sum, date) => {
+        const cell = getCellData(menuProductId, date);
+        return sum + cell.plannedQty;
+      }, 0);
+    },
+    [weekDates, getCellData]
+  );
+
+  // Compute subtotals per day (sum of all products for this outlet)
+  const daySubtotals = useMemo(() => {
+    return weekDates.map((date) =>
+      products.reduce((sum, product) => {
+        const cell = getCellData(product.menuProductId, date);
+        return sum + cell.plannedQty;
+      }, 0)
+    );
+  }, [weekDates, products, getCellData]);
+
+  const outletTotal = useMemo(
+    () => daySubtotals.reduce((sum, v) => sum + v, 0),
+    [daySubtotals]
+  );
+
+  const showSubtotal = products.length > 1;
+
   return (
-    <div
-      className={cn(
-        'flex items-stretch border-b border-gray-200 transition-colors hover:bg-gray-50/50',
-        rowIndex % 2 === 1 && 'bg-gray-50/30'
-      )}
-    >
-      {/* Outlet Name Cell (Sticky Left) */}
-      <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-white border-r border-gray-200 shadow-sm">
-        <span className="text-xs font-medium text-gray-900 truncate max-w-[120px]">
-          {outletName}
-        </span>
+    <div className="border-b-2 border-border">
+      {/* Outlet Header Row */}
+      <div className="flex items-stretch bg-muted border-b border-border">
+        {/* Sticky outlet name */}
+        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-muted border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+          <span className="text-sm font-bold text-foreground truncate">{outletName}</span>
+        </div>
+        {/* Stock column header (empty for outlet header) */}
+        <div className="w-[64px] min-w-[64px] border-r border-border" />
+        {/* Empty day cells for header */}
+        {weekDates.map((date) => (
+          <div key={date} className="flex-1 min-w-[64px] border-r border-border last:border-r-0" />
+        ))}
+        {/* Total column header */}
+        <div className="w-[72px] min-w-[72px] flex items-center justify-center">
+          <span className="text-xs font-semibold text-muted-foreground">
+            {outletTotal > 0 ? outletTotal : ''}
+          </span>
+        </div>
       </div>
 
-      {/* Day Cells (7 columns) */}
-      <div className="flex flex-1">
-        {cells.map((cell, colIndex) => (
+      {/* Product Sub-rows */}
+      {products.map((product, productIndex) => {
+        const rowIndex = baseRowIndex + productIndex;
+        const rowTotal = getRowTotal(product.menuProductId);
+        const avgSales = avgDailySales?.[product.menuProductId] ?? 0;
+        const isLowStock = avgSales > 0 && product.currentStock < avgSales * 2;
+
+        return (
           <div
-            key={cell.date}
-            className="flex-1 min-w-[100px] border-r border-gray-200 last:border-r-0 flex items-center justify-center p-1"
+            key={product.menuProductId}
+            className={cn(
+              'flex items-stretch border-b border-border/50',
+              productIndex % 2 === 1 && 'bg-muted/30'
+            )}
           >
-            <EditablePlannerCell
-              value={cell.value}
-              suggestedQty={cell.suggestedQty}
-              isStockOut={cell.isStockOut}
-              status={cell.status}
-              isWeekend={cell.isWeekend}
-              isHoliday={cell.isHoliday}
-              isEditable={cell.isEditable}
-              colIndex={colIndex}
-              rowIndex={rowIndex}
-              onChange={handleCellChange(cell.date)}
-            />
+            {/* Product name (indented, sticky left) */}
+            <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-card border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+              <span className="text-xs text-foreground/70 truncate pl-3">{product.productName}</span>
+            </div>
+
+            {/* Stock column */}
+            <div
+              className={cn(
+                'w-[64px] min-w-[64px] flex items-center justify-center border-r border-border text-xs tabular-nums font-medium',
+                isLowStock ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' : 'text-muted-foreground'
+              )}
+            >
+              {product.currentStock}
+            </div>
+
+            {/* 7 day cells */}
+            {weekDates.map((date, colIndex) => {
+              const cell = getCellData(product.menuProductId, date);
+              const isPastDay = date < todayStr;
+              const cellStatus =
+                cell.status === 'confirmed'
+                  ? 'confirmed' as const
+                  : cell.status === 'submitted'
+                    ? 'submitted' as const
+                    : 'draft' as const;
+              const isEditable = canAct && cellStatus !== 'submitted' && !isPastDay;
+
+              return (
+                <div
+                  key={date}
+                  className="flex-1 min-w-[64px] border-r border-border last:border-r-0 flex items-center justify-center p-0.5"
+                >
+                  <EditablePlannerCell
+                    value={cell.plannedQty}
+                    suggestedQty={cell.suggestedQty}
+                    status={cellStatus}
+                    isEditable={isEditable}
+                    isPastDay={isPastDay}
+                    onSave={(newValue) =>
+                      onSaveCell(
+                        outletId,
+                        product.menuProductId,
+                        product.externalProductCode,
+                        date,
+                        newValue,
+                        cell.suggestedQty
+                      )
+                    }
+                    onDirty={onDirty}
+                    colIndex={colIndex}
+                    rowIndex={rowIndex}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Row total */}
+            <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-semibold tabular-nums text-foreground/70 bg-muted/50">
+              {rowTotal > 0 ? rowTotal : ''}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+
+      {/* Outlet Subtotal Row (only when >1 product) */}
+      {showSubtotal && (
+        <div className="flex items-stretch bg-muted/50 border-b border-border">
+          {/* Label */}
+          <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-muted/50 border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+            <span className="text-xs text-muted-foreground italic pl-3">Subtotal</span>
+          </div>
+          {/* Empty stock column */}
+          <div className="w-[64px] min-w-[64px] border-r border-border" />
+          {/* Day subtotals */}
+          {daySubtotals.map((subtotal, idx) => (
+            <div
+              key={weekDates[idx]}
+              className="flex-1 min-w-[64px] flex items-center justify-center border-r border-border last:border-r-0 text-xs font-semibold tabular-nums text-muted-foreground"
+            >
+              {subtotal > 0 ? subtotal : ''}
+            </div>
+          ))}
+          {/* Outlet total */}
+          <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-bold tabular-nums text-foreground/70">
+            {outletTotal > 0 ? outletTotal : ''}
+          </div>
+        </div>
+      )}
     </div>
   );
 });

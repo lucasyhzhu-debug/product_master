@@ -14,6 +14,43 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-16 - Phase 16: K3Mart Cockpit
+
+The K3Mart page now shows a full weekly planning grid organized by outlet, with color-coded columns for weekends and holidays. Managers can plan dispatch quantities per product per outlet, copy last week's plan, confirm day-by-day, and have those confirmed quantities automatically pushed to the kitchen as production targets. Stock flow operations (stock-in, stock-out, rotation) go through a confirmation dialog with price sanity checks, and admins can configure per-outlet product visibility and custom pricing.
+
+### Added
+- Outlet-first weekly planning grid with product sub-rows per outlet
+- Three-row column headers showing day name, date, and holiday/commercial event name
+- Week navigation with prev/next arrows and "Today" button
+- Copy-last-week button duplicates previous week's plan as draft
+- Auto-suggest quantities based on weekday/weekend/holiday demand patterns
+- Current stock column showing K3Mart stock per product per outlet
+- Per-day confirm buttons (day-by-day granularity, not whole week)
+- "Update Kitchen" button when editing already-confirmed plans
+- Confirmed plans push production targets to kitchen via setProductTarget (source="consignment")
+- Production bump approval wired to setProductTarget (source="consignment")
+- Rotation stock shortcut (stock-out remaining + stock-in fresh in one action)
+- Confirmation dialog before every K3Mart API call with price sanity check
+- Stock movement history from K3Mart API with status badges
+- Outlet settings modal: active/inactive toggle, per-outlet product selection, custom pricing
+- Commercial/sales dates (Valentine's, 11/11, sequential dates) in holiday system
+- Daily column totals as production targets
+- Per-outlet product hiding (isHidden) and custom pricing (customPrice) on restockTargets
+
+### Changed
+- Weekly planner reorganized from product-first to outlet-first layout
+- Planner always visible (removed collapsible toggle)
+- Outlet cards show average daily sales from last week
+- Active outlets only shown in planning grid
+
+### Technical
+- Extended indonesianHolidays.ts with commercial dates and day-type classifier
+- Extended restockTargets schema with customPrice and isHidden fields
+- Auto-save on blur replaces batch save for planning cells
+- confirmDayPlan now pushes kitchen production targets (inline setProductTarget logic)
+
+---
+
 ## 2026-02-16 - Phase 15: Kitchen Overhaul
 
 The kitchen page now opens with a dashboard summary showing how many balls to make today, the max target, how many are left, and outstanding orders at a glance. Orders are grouped by due date so the team always knows what to work on first, and managers can override stock shortages when needed.
