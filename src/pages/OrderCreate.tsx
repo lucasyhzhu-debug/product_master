@@ -33,7 +33,7 @@ const LOW_PRICE_THRESHOLD = 20000;
 
 export function OrderCreate() {
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canCreateOverride = hasPermission("canCreateOverrideVoucher");
 
   // ============================================
@@ -233,9 +233,10 @@ export function OrderCreate() {
         await updateOrderStatus.mutate({
           orderId: draftOrderId,
           status: 'AwaitingPayment',
+          userId: user?.userId as Id<"users"> | undefined,
         });
         toast.success('Order submitted');
-        navigate('/orders');
+        navigate(`/orders?whatsapp=${draftOrderId}`);
         return;
       }
 
@@ -257,13 +258,18 @@ export function OrderCreate() {
         })),
       };
 
-      const orderId = await createOrder.mutateAsync(orderData);
+      const orderId = await createOrder.mutateAsync({
+        ...orderData,
+        createdByUserId: user?.userId as Id<"users"> | undefined,
+        createdBy: user?.name ?? "admin",
+      });
       const orderIdTyped = orderId as unknown as Id<"orders">;
 
       // Move to AwaitingPayment
       await updateOrderStatus.mutate({
         orderId: orderIdTyped,
         status: 'AwaitingPayment',
+        userId: user?.userId as Id<"users"> | undefined,
       });
 
       toast.success('Order submitted');

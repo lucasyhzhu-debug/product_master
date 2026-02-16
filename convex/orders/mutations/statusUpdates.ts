@@ -182,6 +182,17 @@ export const updateStatus = mutation({
       }
     }
 
+    // Log status transition for audit trail
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      oldStatus,
+      newStatus,
+      args.reason ?? "Status updated",
+      "user",
+      args.userId
+    );
+
     // Release reservations when cancelling
     if (newStatus === "Cancelled" && oldStatus !== "Cancelled") {
       try {

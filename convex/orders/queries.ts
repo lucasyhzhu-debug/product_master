@@ -1108,7 +1108,7 @@ export const listForKanban = query({
             .collect();
 
           // Resolve creator name from users table
-          let creatorName = order.createdBy;
+          let creatorName = order.createdBy ?? "admin";
           if (order.createdByUserId) {
             const user = await ctx.db.get(order.createdByUserId);
             if (user) creatorName = user.name;

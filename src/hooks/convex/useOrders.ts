@@ -451,7 +451,7 @@ export function useConvexCreateOrder() {
 export function useConvexUpdateOrderStatus() {
   const mutation = useMutation(api.orders.mutations.index.updateStatus);
 
-  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled"; skipStockCheck?: boolean; overrideReason?: string; overrideBy?: string }) => {
+  const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled"; skipStockCheck?: boolean; overrideReason?: string; overrideBy?: string; userId?: Id<"users"> }) => {
     try {
       await mutation(data);
       toast.success("Order status updated");
