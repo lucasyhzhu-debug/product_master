@@ -3,14 +3,14 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-15)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 14.1: Draft Order Update
+**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 15: Kitchen Overhaul
 
 ## Current Position
 
-Phase: 14.1 (Draft Order Update) -- COMPLETE
-Plan: 03 of 03 -- All plans complete (including gap closure)
-Status: Phase 14.1 fully complete. Save as Draft button + blank page navigation fix shipped.
-Last activity: 2026-02-16 - Completed quick task 1: Fix GoBiz sync (outlets, mappings, Customer/Store)
+Phase: 15 (Kitchen Overhaul) -- IN PROGRESS
+Plan: 01 complete
+Status: Plan 01 backend foundation complete. kitchenConfig CRUD, extended kitchen queries, sendBackToOrderDesk mutation.
+Last activity: 2026-02-16 - Completed 15-01-PLAN.md (kitchen backend foundation)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -41,6 +41,7 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 14.1 | 01 | 3 min | 2 | 2 |
 | 14.1 | 02 | 5 min | 2 | 10 |
 | 14.1 | 03 | 1 min | 2 | 2 |
+| 15 | 01 | 4 min | 2 | 7 |
 
 *Updated after each plan completion*
 
@@ -71,6 +72,7 @@ Recent decisions affecting current work:
 - [Phase 14.1-01]: createDraft is minimal (customer only, zero totals); updateDraft handles voucher lifecycle; Draft Kanban column sorted newest-first; WhatsApp language fix is frontend-only (Plan 02)
 - [Phase 14.1-02]: Edit mode uses ?draft=orderId query param; Draft auto-create on customer select; status-aware Kanban click routing; WhatsApp language param fix is one-line
 - [Phase 14.1-03]: Removed AnimatePresence entirely (0.15s fade adds no UX value, causes blank page bugs); Save as Draft reuses updateDraft + replaceItems (no backend changes)
+- [Phase 15-01]: kitchenConfig is single-row table with .first() (no indexes); WIB date boundaries as UTC timestamps for due-today filtering; sendBackToOrderDesk does not touch confirmedAt (revenue recognition boundary)
 
 ### Roadmap Evolution
 
@@ -95,9 +97,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 14.1-03-PLAN.md (Phase 14.1 gap closure complete)
+Stopped at: Completed 15-01-PLAN.md (kitchen backend foundation)
 Resume file: None
-Resume notes: Phase 14.1 fully complete including gap closure. Ready for merge to main. Next: Phase 15 (Kitchen Overhaul)
+Resume notes: Plan 01 complete. Ready for Plan 02 (dashboard header frontend). On feature/15-kitchen-overhaul branch.
 
 ---
 *Last updated: 2026-02-16*
