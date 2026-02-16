@@ -1091,8 +1091,13 @@ export const listForKanban = query({
         sortedOrders = orders
           .sort((a, b) => (b.completedAt ?? b._creationTime) - (a.completedAt ?? a._creationTime))
           .slice(0, 50);
+      } else if (col.key === "draft") {
+        // Draft column: newest first (creation date descending)
+        sortedOrders = orders.sort(
+          (a, b) => b._creationTime - a._creationTime
+        );
       } else {
-        // Sort by dueDate ascending (nearest due first), nulls last
+        // Other columns: dueDate ascending (nearest due first), nulls last
         sortedOrders = orders.sort(
           (a, b) => (a.dueDate ?? Infinity) - (b.dueDate ?? Infinity)
         );
