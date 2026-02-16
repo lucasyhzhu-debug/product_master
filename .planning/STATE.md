@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 14.1 (Draft Order Update) -- COMPLETE
-Plan: 02 of 02 -- All plans complete
-Status: Phase 14.1 complete. Draft auto-save, Draft editing, WhatsApp language fix all shipped.
-Last activity: 2026-02-16 -- Completed 14.1-02 frontend integration (edit mode, Kanban routing, WhatsApp fix)
+Plan: 03 of 03 -- All plans complete (including gap closure)
+Status: Phase 14.1 fully complete. Save as Draft button + blank page navigation fix shipped.
+Last activity: 2026-02-16 -- Completed 14.1-03 gap closure (Save as Draft + AnimatePresence fix)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -40,6 +40,7 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 14 | 08 | 25 min | 3 | 11 |
 | 14.1 | 01 | 3 min | 2 | 2 |
 | 14.1 | 02 | 5 min | 2 | 10 |
+| 14.1 | 03 | 1 min | 2 | 2 |
 
 *Updated after each plan completion*
 
@@ -69,6 +70,7 @@ Recent decisions affecting current work:
 - [Phase 14-08]: WhatsApp auto-trigger cancelled → replaced with auto-open slide-over; Kanban card redesigned (price top-right, creator merged); finalTotal preferred over manual discount calc; updateStatus now logs audit trail
 - [Phase 14.1-01]: createDraft is minimal (customer only, zero totals); updateDraft handles voucher lifecycle; Draft Kanban column sorted newest-first; WhatsApp language fix is frontend-only (Plan 02)
 - [Phase 14.1-02]: Edit mode uses ?draft=orderId query param; Draft auto-create on customer select; status-aware Kanban click routing; WhatsApp language param fix is one-line
+- [Phase 14.1-03]: Removed AnimatePresence entirely (0.15s fade adds no UX value, causes blank page bugs); Save as Draft reuses updateDraft + replaceItems (no backend changes)
 
 ### Roadmap Evolution
 
@@ -87,9 +89,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 14.1-02-PLAN.md (Phase 14.1 complete)
+Stopped at: Completed 14.1-03-PLAN.md (Phase 14.1 gap closure complete)
 Resume file: None
-Resume notes: Phase 14.1 complete. Ready for UAT then merge to main. Next: Phase 15 (Kitchen Overhaul)
+Resume notes: Phase 14.1 fully complete including gap closure. Ready for merge to main. Next: Phase 15 (Kitchen Overhaul)
 
 ---
 *Last updated: 2026-02-16*
