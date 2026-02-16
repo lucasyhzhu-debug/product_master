@@ -8,7 +8,7 @@
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
-import { calculateKitchenDelta, getWeekNumber } from "./helpers";
+import { calculateKitchenDelta, getWeekNumber, getWeekDates, getWeekDatesFromWeekNumber } from "./helpers";
 
 /**
  * Batch upsert weekly dispatch plans.
@@ -442,5 +442,166 @@ export const toggleOutletActive = mutation({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Save outlet settings (product visibility, custom pricing, targets).
+ * Upserts restockTargets entries for outlet+product combinations.
+ * Auth: admin only
+ */
+export const saveOutletSettings = mutation({
+  args: {
+    token: v.string(),
+    outletId: v.id("externalOutlets"),
+    products: v.array(
+      v.object({
+        productKey: v.string(),
+        menuProductId: v.optional(v.id("menuProducts")),
+        weekdayTarget: v.number(),
+        weekendTarget: v.number(),
+        customPrice: v.optional(v.number()),
+        isHidden: v.optional(v.boolean()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const now = Date.now();
+
+    let upsertedCount = 0;
+
+    for (const product of args.products) {
+      // Price sanity check: if provided, must be > 0
+      if (product.customPrice !== undefined && product.customPrice !== null && product.customPrice <= 0) {
+        throw new Error(`Price must be greater than 0 for product ${product.productKey}`);
+      }
+
+      // Check if target exists for this outlet + product
+      const existing = await ctx.db
+        .query("restockTargets")
+        .withIndex("by_outlet_product", (q) =>
+          q.eq("outletId", args.outletId).eq("productKey", product.productKey)
+        )
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          weekdayTarget: product.weekdayTarget,
+          weekendTarget: product.weekendTarget,
+          customPrice: product.customPrice,
+          isHidden: product.isHidden,
+          menuProductId: product.menuProductId,
+          updatedBy: user.name,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("restockTargets", {
+          outletId: args.outletId,
+          channel: "k3mart",
+          productKey: product.productKey,
+          menuProductId: product.menuProductId,
+          weekdayTarget: product.weekdayTarget,
+          weekendTarget: product.weekendTarget,
+          customPrice: product.customPrice,
+          isHidden: product.isHidden,
+          updatedBy: user.name,
+          updatedAt: now,
+        });
+      }
+
+      upsertedCount++;
+    }
+
+    return { upsertedCount };
+  },
+});
+
+/**
+ * Copy last week's dispatch plans to the target week.
+ * Duplicates all plan values (regardless of status) as draft plans shifted by +7 days.
+ * Auth: manager, admin
+ */
+export const copyLastWeek = mutation({
+  args: {
+    token: v.string(),
+    targetWeekNumber: v.string(), // e.g., "2026-W08"
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+    const now = Date.now();
+
+    // 1. Compute target week dates to derive the previous week
+    const targetWeekDates = getWeekDatesFromWeekNumber(args.targetWeekNumber);
+    const targetMonday = new Date(targetWeekDates[0] + "T00:00:00+07:00");
+
+    // Previous week's Monday is 7 days before
+    const prevMonday = new Date(targetMonday);
+    prevMonday.setDate(prevMonday.getDate() - 7);
+    const prevMondayStr = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, "0")}-${String(prevMonday.getDate()).padStart(2, "0")}`;
+    const prevWeekNumber = getWeekNumber(prevMondayStr);
+
+    // 2. Fetch all plans for previous week (regardless of status)
+    const prevPlans = await ctx.db
+      .query("k3martDispatchPlans")
+      .withIndex("by_week", (q) => q.eq("weekNumber", prevWeekNumber))
+      .collect();
+
+    if (prevPlans.length === 0) {
+      return { copiedCount: 0 };
+    }
+
+    // 3. Build date shift map: prevDate -> targetDate (+7 days)
+    const prevWeekDates = getWeekDates(prevMondayStr);
+    const dateShiftMap = new Map<string, string>();
+    for (let i = 0; i < 7; i++) {
+      dateShiftMap.set(prevWeekDates[i], targetWeekDates[i]);
+    }
+
+    // 4. Create draft copies for the target week
+    let copiedCount = 0;
+    for (const plan of prevPlans) {
+      const newDate = dateShiftMap.get(plan.date);
+      if (!newDate) continue;
+
+      // Check if a plan already exists for this slot in the target week
+      const existing = await ctx.db
+        .query("k3martDispatchPlans")
+        .withIndex("by_date_outlet", (q) =>
+          q.eq("date", newDate).eq("outletId", plan.outletId)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("menuProductId"), plan.menuProductId),
+            q.eq(q.field("isStockOut"), plan.isStockOut)
+          )
+        )
+        .first();
+
+      if (existing) continue; // Don't overwrite existing plans
+
+      await ctx.db.insert("k3martDispatchPlans", {
+        date: newDate,
+        weekNumber: args.targetWeekNumber,
+        outletId: plan.outletId,
+        menuProductId: plan.menuProductId,
+        externalProductId: plan.externalProductId,
+        suggestedQty: plan.suggestedQty,
+        plannedQty: plan.plannedQty,
+        isStockOut: plan.isStockOut,
+        source: plan.source,
+        sourceOutletId: plan.sourceOutletId,
+        destinationOutletId: plan.destinationOutletId,
+        destination: plan.destination,
+        status: "draft",
+        createdBy: user.name,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      copiedCount++;
+    }
+
+    return { copiedCount };
   },
 });
