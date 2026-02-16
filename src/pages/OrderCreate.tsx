@@ -1,6 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Send, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Send, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -19,6 +21,7 @@ import {
   useConvexPackagingPosProducts,
   useConvexCreateOrder,
   useConvexUpdateOrderStatus,
+  useConvexDeleteOrder,
   type OrderCreateInput,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,8 +36,21 @@ const LOW_PRICE_THRESHOLD = 20000;
 
 export function OrderCreate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { hasPermission, user } = useAuth();
   const canCreateOverride = hasPermission("canCreateOverrideVoucher");
+
+  // ============================================
+  // Edit mode detection
+  // ============================================
+  const editDraftId = searchParams.get('draft') as Id<"orders"> | null;
+  const isEditMode = !!editDraftId;
+
+  // Fetch existing Draft data when in edit mode
+  const existingOrder = useQuery(
+    api.orders.queries.get,
+    editDraftId ? { id: editDraftId as Id<"orders"> } : 'skip'
+  );
 
   // ============================================
   // State
@@ -72,8 +88,65 @@ export function OrderCreate() {
   // Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-save draft ID (for future use when auto-save is implemented)
-  const [draftOrderId] = useState<Id<"orders"> | null>(null);
+  // Draft order ID (set from edit mode or auto-create)
+  const [draftOrderId, setDraftOrderId] = useState<Id<"orders"> | null>(null);
+
+  // Track whether we've loaded Draft data (prevent re-setting on re-render)
+  const hasLoadedDraft = useRef(false);
+
+  // ============================================
+  // Pre-fill form state from existing Draft
+  // ============================================
+  useEffect(() => {
+    if (!editDraftId || !existingOrder || hasLoadedDraft.current) return;
+    if (existingOrder.status !== 'Draft') return;
+
+    hasLoadedDraft.current = true;
+    setDraftOrderId(editDraftId);
+    setCustomerId(existingOrder.customerId);
+    setCustomerName(existingOrder.customerName);
+    setCustomerPhone(existingOrder.customerPhone ?? '');
+    setCustomerSet(true);
+    setIsNewCustomer(false);
+    setDueDate(existingOrder.dueDate);
+    setDeliveryAddress(existingOrder.deliveryAddress ?? '');
+    setNotes(existingOrder.notes ?? '');
+
+    // Convert items to OrderLineItem format
+    if (existingOrder.items && existingOrder.items.length > 0) {
+      const loadedItems: OrderLineItem[] = existingOrder.items.map((item: {
+        _id: string;
+        productName: string;
+        quantity: number;
+        unitPrice: number;
+        unitCost: number;
+        lineTotal: number;
+        menuProductId?: string;
+      }) => ({
+        productId: item.menuProductId ?? item._id,
+        productCode: '',
+        productName: item.productName,
+        grams: 0,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unitCost: item.unitCost,
+        lineTotal: item.lineTotal,
+      }));
+      setItems(loadedItems);
+    }
+
+    // Restore voucher if applied
+    if (existingOrder.voucherCode && existingOrder.voucherDiscountValue) {
+      setAppliedVoucher({
+        id: existingOrder.voucherId ?? '',
+        code: existingOrder.voucherCode,
+        name: existingOrder.voucherCode,
+        discountType: 'amount',
+        discountValue: existingOrder.voucherDiscountValue,
+        calculatedDiscount: existingOrder.voucherDiscountValue,
+      });
+    }
+  }, [editDraftId, existingOrder]);
 
   // ============================================
   // Queries & Mutations
@@ -87,6 +160,10 @@ export function OrderCreate() {
 
   const createOrder = useConvexCreateOrder();
   const updateOrderStatus = useConvexUpdateOrderStatus();
+  const deleteOrder = useConvexDeleteOrder();
+  const createDraftMutation = useMutation(api.orders.mutations.orderCrud.createDraft);
+  const updateDraftMutation = useMutation(api.orders.mutations.orderCrud.updateDraft);
+  const replaceItemsMutation = useMutation(api.orders.mutations.itemCrud.replaceItems);
 
   // ============================================
   // Calculated Values
@@ -106,21 +183,51 @@ export function OrderCreate() {
   // Handlers
   // ============================================
 
-  const handleCustomerSelect = useCallback((id: Id<"customers">, name: string, phone?: string) => {
+  const handleCustomerSelect = useCallback(async (id: Id<"customers">, name: string, phone?: string) => {
     setCustomerId(id);
     setCustomerName(name);
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(false);
     setCustomerSet(true);
-  }, []);
 
-  const handleNewCustomer = useCallback((name: string, phone?: string) => {
+    // Auto-create draft if not already editing an existing draft
+    if (!draftOrderId && !editDraftId) {
+      try {
+        const newDraftId = await createDraftMutation({
+          customerId: id,
+          createdByUserId: user?.userId as Id<"users"> | undefined,
+          createdBy: user?.name ?? "admin",
+        });
+        setDraftOrderId(newDraftId);
+      } catch (error) {
+        console.error('Failed to create draft:', error);
+        toast.error('Failed to save draft');
+      }
+    }
+  }, [draftOrderId, editDraftId, createDraftMutation, user]);
+
+  const handleNewCustomer = useCallback(async (name: string, phone?: string) => {
     setCustomerId(null);
     setCustomerName(name);
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(true);
     setCustomerSet(true);
-  }, []);
+
+    // Auto-create draft for new customer if not already editing
+    if (!draftOrderId && !editDraftId) {
+      try {
+        const newDraftId = await createDraftMutation({
+          newCustomer: { name, phone: phone || undefined },
+          createdByUserId: user?.userId as Id<"users"> | undefined,
+          createdBy: user?.name ?? "admin",
+        });
+        setDraftOrderId(newDraftId);
+      } catch (error) {
+        console.error('Failed to create draft:', error);
+        toast.error('Failed to save draft');
+      }
+    }
+  }, [draftOrderId, editDraftId, createDraftMutation, user]);
 
   const handleAddProduct = useCallback((product: ProductButtonProduct, quantity: number) => {
     setAppliedVoucher(null);
@@ -203,6 +310,18 @@ export function OrderCreate() {
     setLowPriceConfirmed(false);
   }, []);
 
+  const handleDeleteDraft = useCallback(async () => {
+    if (!draftOrderId) return;
+    try {
+      await deleteOrder.mutate(draftOrderId);
+      toast.success('Draft deleted');
+      navigate('/orders');
+    } catch (error) {
+      console.error('Failed to delete draft:', error);
+      toast.error('Failed to delete draft');
+    }
+  }, [draftOrderId, deleteOrder, navigate]);
+
   const handleSubmit = async () => {
     if (!hasItems) {
       toast.error('Add at least one product');
@@ -228,8 +347,31 @@ export function OrderCreate() {
   const executeSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // If we already have a draft, submit it (move to AwaitingPayment)
+      // If we already have a draft, save changes and submit it
       if (draftOrderId) {
+        // Save current form state to the draft
+        await updateDraftMutation({
+          orderId: draftOrderId,
+          dueDate: dueDate || undefined,
+          deliveryAddress: deliveryAddress || undefined,
+          notes: notes || undefined,
+          voucherCode: appliedVoucher?.code,
+          lowPriceConfirmed: lowPriceConfirmed || undefined,
+        });
+
+        // Sync items to the database
+        await replaceItemsMutation({
+          orderId: draftOrderId,
+          items: items.map((item) => ({
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            unitCost: item.unitCost || 0,
+            menuProductId: item.productId as Id<"menuProducts">,
+          })),
+        });
+
+        // Move Draft -> AwaitingPayment
         await updateOrderStatus.mutate({
           orderId: draftOrderId,
           status: 'AwaitingPayment',
@@ -240,7 +382,7 @@ export function OrderCreate() {
         return;
       }
 
-      // Create new order as Draft, then submit
+      // Create new order as Draft, then submit (fallback for when draft was not auto-created)
       const orderData: OrderCreateInput = {
         customerId: !isNewCustomer && customerId ? customerId : undefined,
         newCustomer: isNewCustomer ? { name: customerName, phone: customerPhone || undefined } : undefined,
@@ -296,10 +438,24 @@ export function OrderCreate() {
     );
   }
 
+  // Show loading when editing and waiting for draft data
+  if (isEditMode && existingOrder === undefined) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
-      <PageHeader title="New Order" description="Create a new order" backTo="/orders" backLabel="Orders" />
+      <PageHeader
+        title={isEditMode ? "Edit Draft" : "New Order"}
+        description={isEditMode ? "Resume editing draft order" : "Create a new order"}
+        backTo="/orders"
+        backLabel="Orders"
+      />
 
       {/* 1. Customer Section (TOP) */}
       <Card className="p-5">
@@ -312,10 +468,17 @@ export function OrderCreate() {
             <p className="text-xs text-muted-foreground">Who is this order for?</p>
           </div>
         </div>
-        <CustomerSearch
-          onCustomerSelect={handleCustomerSelect}
-          onNewCustomer={handleNewCustomer}
-        />
+        {isEditMode && customerSet ? (
+          <div className="p-3 rounded-lg border bg-muted/30">
+            <p className="font-medium text-sm">{customerName}</p>
+            {customerPhone && <p className="text-xs text-muted-foreground">{customerPhone}</p>}
+          </div>
+        ) : (
+          <CustomerSearch
+            onCustomerSelect={handleCustomerSelect}
+            onNewCustomer={handleNewCustomer}
+          />
+        )}
       </Card>
 
       {/* 2. Due Date Section */}
@@ -555,24 +718,39 @@ export function OrderCreate() {
           </div>
         )}
 
-        <Button
-          className="w-full h-12 text-base font-semibold"
-          onClick={handleSubmit}
-          disabled={isSubmitting || !hasItems || !customerSet || total <= 0}
-          size="lg"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              Submitting...
-            </>
-          ) : (
-            <>
-              <Send className="h-5 w-5 mr-2" />
-              Submit Order
-            </>
+        <div className="flex gap-2">
+          {/* Delete Draft button (edit mode only) */}
+          {isEditMode && draftOrderId && (
+            <Button
+              variant="destructive"
+              className="h-12"
+              onClick={handleDeleteDraft}
+              disabled={isSubmitting}
+            >
+              <Trash2 className="h-5 w-5 mr-2" />
+              Delete Draft
+            </Button>
           )}
-        </Button>
+
+          <Button
+            className="flex-1 h-12 text-base font-semibold"
+            onClick={handleSubmit}
+            disabled={isSubmitting || !hasItems || !customerSet || total <= 0}
+            size="lg"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Send className="h-5 w-5 mr-2" />
+                Submit Order
+              </>
+            )}
+          </Button>
+        </div>
       </Card>
 
       {/* Dialogs */}

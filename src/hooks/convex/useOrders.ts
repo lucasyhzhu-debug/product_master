@@ -426,6 +426,22 @@ export function useConvexOrderTemplate() {
 // ============================================
 
 /**
+ * Create a minimal Draft order (customer only, no items).
+ * Phase 14.1: Auto-creates Draft on customer selection.
+ */
+export function useCreateDraft() {
+  return useMutation(api.orders.mutations.orderCrud.createDraft);
+}
+
+/**
+ * Update all editable fields on a Draft order.
+ * Phase 14.1: Full Draft editing support.
+ */
+export function useUpdateDraft() {
+  return useMutation(api.orders.mutations.orderCrud.updateDraft);
+}
+
+/**
  * Create a new order with items.
  */
 export function useConvexCreateOrder() {
