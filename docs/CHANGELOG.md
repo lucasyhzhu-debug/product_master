@@ -14,6 +14,17 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-16 - GoBiz Sync Fixes
+
+GoBiz (GoFood) revenue sync now properly registers outlets and populates product mappings automatically. The Sales Analytics table shows the actual outlet name (Legato Goldfinch / GoFood Crystal) instead of a blank dash.
+
+### Fixed
+- GoBiz outlets (Goldfinch, Crystal) now auto-register on every sync run (no manual seed required)
+- Product mappings from GoFood transactions now saved to externalProductMappings table
+- Customer/Store column in Sales Analytics now shows outlet name for GoBiz revenue records
+
+---
+
 ## 2026-02-16 - Phase 14.1: Draft Order Fixes
 
 Draft orders now save automatically the moment you pick a customer, so you never lose work. Clicking a draft in the Kanban board opens the full edit form (not the read-only slide-over), and the WhatsApp language toggle now correctly switches both the title and message.
@@ -30,6 +41,8 @@ Draft orders now save automatically the moment you pick a customer, so you never
 
 ### Fixed
 - WhatsApp translate toggle now switches both title AND message body content between languages
+- Removed AnimatePresence fade transitions that caused blank page on navigation
+- Save as Draft button now persists all order fields (items, delivery, notes) without requiring status change
 
 ---
 
