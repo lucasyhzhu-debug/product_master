@@ -7,6 +7,7 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { calculateKitchenDelta, getWeekNumber, getWeekDates, getWeekDatesFromWeekNumber } from "./helpers";
 
@@ -189,6 +190,98 @@ export const confirmDayPlan = mutation({
         };
       }
     );
+
+    // Push kitchen production targets for each product with kitchenOrderQty > 0
+    for (const delta of kitchenDeltas) {
+      if (delta.kitchenOrderQty <= 0) continue;
+
+      const menuProductId = delta.menuProductId as Id<"menuProducts">;
+
+      // Upsert productionProductTargets for this date + source="consignment" + product
+      const existingTarget = await ctx.db
+        .query("productionProductTargets")
+        .withIndex("by_date_source_product", (q) =>
+          q.eq("date", args.date).eq("source", "consignment").eq("menuProductId", menuProductId)
+        )
+        .first();
+
+      const previousQuantity = existingTarget?.quantity ?? 0;
+
+      if (existingTarget) {
+        await ctx.db.patch(existingTarget._id, {
+          quantity: delta.kitchenOrderQty,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("productionProductTargets", {
+          date: args.date,
+          source: "consignment",
+          menuProductId,
+          quantity: delta.kitchenOrderQty,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      // Log the target change
+      if (previousQuantity !== delta.kitchenOrderQty) {
+        await ctx.db.insert("productionTargetLogs", {
+          date: args.date,
+          timestamp: now,
+          source: "consignment",
+          menuProductId,
+          previousQuantity,
+          newQuantity: delta.kitchenOrderQty,
+        });
+      }
+    }
+
+    // Recompute ball totals from ALL manual product targets for this date
+    const allProductTargets = await ctx.db
+      .query("productionProductTargets")
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .collect();
+
+    const ballTotals = new Map<string, number>();
+    for (const pt of allProductTargets) {
+      const components = await ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_menu_product", (q) => q.eq("menuProductId", pt.menuProductId))
+        .collect();
+      for (const comp of components) {
+        const componentType = await ctx.db.get(comp.componentTypeId);
+        if (!componentType || componentType.category !== "production") continue;
+        const unitType = await ctx.db
+          .query("productionUnitTypes")
+          .withIndex("by_code", (q) => q.eq("code", componentType.code))
+          .first();
+        if (unitType) {
+          ballTotals.set(unitType._id, (ballTotals.get(unitType._id) ?? 0) + comp.quantity * pt.quantity);
+        }
+      }
+    }
+
+    const allUnitTypes = await ctx.db.query("productionUnitTypes").collect();
+    for (const unitType of allUnitTypes) {
+      const ballCount = ballTotals.get(unitType._id) ?? 0;
+      const existingBallTarget = await ctx.db
+        .query("productionTargets")
+        .withIndex("by_type_date", (q) =>
+          q.eq("productionUnitTypeId", unitType._id).eq("date", args.date)
+        )
+        .first();
+      if (existingBallTarget) {
+        await ctx.db.patch(existingBallTarget._id, { manualOverride: ballCount });
+      } else {
+        await ctx.db.insert("productionTargets", {
+          date: args.date,
+          productionUnitTypeId: unitType._id,
+          autoTargetQuantity: 0,
+          manualOverride: ballCount,
+          createdAt: now,
+        });
+      }
+    }
 
     return {
       confirmedCount: draftPlans.length,

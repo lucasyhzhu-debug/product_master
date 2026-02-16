@@ -321,6 +321,59 @@ productionCounts.mutations.resetCounts({ token, menuProductId? })
 { reset: number }  // Number of products reset
 ```
 
+### K3 Mart Cockpit (Phase 16)
+
+#### Queries
+```typescript
+// convex/k3martCockpit/queries.ts
+k3martCockpit.queries.getWeeklyDispatchPlans({ weekNumber })
+  // Outlet-first weekly dispatch plans with product sub-rows, stock, pricing, auto-suggest
+  // Hidden products (isHidden on restockTargets) are filtered out
+  // Returns: { outlets: [{ outletId, outletName, isActive, products: [{ menuProductId, productName,
+  //   externalProductCode, price, currentStock, avgDailySales }] }],
+  //   plans: Record<string, { plannedQty, suggestedQty, status }>,
+  //   weekDates: string[], dayTypes: Record<string, string> }
+
+k3martCockpit.queries.getOutletSettings()
+  // Per-outlet product visibility, custom pricing, and restock targets
+  // Returns: { outlets: [{ outletId, outletName, products: [{ productKey, menuProductId,
+  //   productName, customPrice?, isHidden?, weekdayTarget, weekendTarget }] }] }
+
+k3martCockpit.queries.getOutletStockSummary({ date })
+  // Today's stock summary per outlet with product breakdown
+k3martCockpit.queries.getProductionReadiness({ date })
+  // Production readiness with deficit detection (stickered vs planned)
+k3martCockpit.queries.getInventorySources()
+  // Office, Goldfinch, K3Mart total stock by product
+k3martCockpit.queries.getStockMovementHistory({ outletId, limit? })
+  // Stock movement history per outlet with status badges
+```
+
+#### Mutations (Auth Required: manager, admin)
+```typescript
+// convex/k3martCockpit/mutations.ts
+k3martCockpit.mutations.saveWeeklyDispatchPlan({ plans: [...] })
+  // Batch upsert dispatch plans (auto-save on blur from planner cells)
+
+k3martCockpit.mutations.confirmDayPlan({ date })
+  // Confirms all draft plans for a date, computes kitchen deltas,
+  // pushes to productionProductTargets (source="consignment"),
+  // recomputes ball totals into productionTargets.manualOverride
+  // Returns: { confirmedCount, kitchenDeltas: [{ menuProductId, kitchenOrderQty, apiStockInQty }] }
+
+k3martCockpit.mutations.copyLastWeek({ targetWeekNumber })
+  // Duplicates previous week's plans as drafts (+7 day shift)
+  // Skips slots where plan already exists in target week
+  // Returns: { copiedCount }
+
+k3martCockpit.mutations.saveOutletSettings({ outletId, products: [...] })
+  // Upserts restockTargets with customPrice, isHidden, weekday/weekendTarget
+  // Price sanity check: customPrice must be > 0 if provided
+
+k3martCockpit.mutations.toggleOutletActive({ outletId, isActive })
+  // Toggle outlet active/inactive (admin only)
+```
+
 ### K3 Mart Kitchen
 
 #### Queries

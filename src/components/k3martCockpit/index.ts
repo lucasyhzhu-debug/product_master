@@ -14,3 +14,4 @@ export { PlannerActionBar } from './PlannerActionBar';
 export { WeeklyPlannerGrid } from './WeeklyPlannerGrid';
 export { BulkSubmitDialog } from './BulkSubmitDialog';
 export { WeekNavigator } from './WeekNavigator';
+export { OutletSettingsModal } from './OutletSettingsModal';

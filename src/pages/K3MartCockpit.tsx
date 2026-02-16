@@ -30,8 +30,8 @@ import {
   InventorySourcePanel,
   ProductionReadinessBar,
   BulkSubmitDialog,
+  OutletSettingsModal,
 } from '@/components/k3martCockpit';
-import { OutletSettingsModal } from '@/components/k3martCockpit/OutletSettingsModal';
 
 // Hooks
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +47,7 @@ import {
   useConvexOutletSettings,
   useConvexToggleOutletActive,
   useConvexSaveOutletSettings,
+  useConvexSetProductTarget,
 } from '@/hooks/convex';
 
 // ==========================================
@@ -109,6 +110,7 @@ export function K3MartCockpit() {
   const { data: outletSettingsData } = useConvexOutletSettings();
   const toggleOutletActive = useConvexToggleOutletActive();
   const saveOutletSettings = useConvexSaveOutletSettings();
+  const setProductTarget = useConvexSetProductTarget();
 
   // ==========================================
   // HANDLERS
@@ -457,10 +459,19 @@ export function K3MartCockpit() {
       {productionReadinessItems.length > 0 && (
         <ProductionReadinessBar
           items={productionReadinessItems}
-          onApproveBump={(menuProductId, newTarget) => {
-            // BACKLOG: K3MART-06 -- Implement production bump approval workflow
-            console.log('Approve bump:', menuProductId, newTarget);
-            toast.info('Bump approval not yet implemented');
+          onApproveBump={async (menuProductId, newTarget) => {
+            try {
+              await setProductTarget({
+                date: today,
+                source: 'consignment',
+                menuProductId: menuProductId as any,
+                quantity: newTarget,
+              });
+              toast.success(`Production target bumped to ${newTarget} units`);
+            } catch (error) {
+              console.error('Failed to bump production target:', error);
+              toast.error('Failed to update production target');
+            }
           }}
           isLoading={loadingProductionReadiness}
         />
