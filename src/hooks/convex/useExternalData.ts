@@ -257,7 +257,7 @@ export function useConvexUpdateProductMapping() {
  */
 export function useConvexRevenueTimeSeries(
   preset: PeriodPreset,
-  granularity: "daily" | "weekly" | "monthly",
+  granularity: "hourly" | "daily" | "weekly" | "monthly",
   metric: "gross" | "net" | "volume"
 ) {
   const data = useQuery(api.externalData.queries.getRevenueTimeSeries, {
