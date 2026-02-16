@@ -169,6 +169,8 @@ export const getRevenue = query({
         customerStoreName = outletNameMap.get(r.outletId);
       } else if (r.source === "internal" && r.externalTransactionId) {
         customerStoreName = customerNameMap.get(r.externalTransactionId);
+      } else if (r.source === "gobiz" && r.outletId) {
+        customerStoreName = outletNameMap.get(r.outletId);
       }
 
       // Override gross/net for internal orders using real order data
