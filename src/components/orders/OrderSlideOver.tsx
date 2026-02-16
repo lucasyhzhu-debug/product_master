@@ -141,7 +141,7 @@ export function OrderSlideOver({ orderId, open, onClose }: OrderSlideOverProps) 
               </div>
               <SheetDescription>
                 Created {format(new Date(order._creationTime), 'MMM d, yyyy h:mm a')}
-                {order.createdBy && ` by ${order.createdBy}`}
+                {(order as any).creatorName ? ` by ${(order as any).creatorName}` : order.createdBy ? ` by ${order.createdBy}` : ''}
               </SheetDescription>
             </SheetHeader>
 

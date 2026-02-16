@@ -62,7 +62,10 @@ function getEventDirection(event: {
   if (event.eventType === 'status_backward' || event.eventType === 'status_revert') {
     return 'backward';
   }
-  if (event.eventType === 'status_change' || event.eventType === 'status_auto_transition') {
+  if (event.eventType === 'status_change' || event.eventType === 'status_auto_transition' || event.eventType === 'auto_expedited') {
+    return 'forward';
+  }
+  if (event.eventType === 'created' || event.eventType === 'order_created') {
     return 'forward';
   }
   return 'neutral';
@@ -143,7 +146,10 @@ export function AuditTrail({ orderId }: AuditTrailProps) {
       e.eventType === 'status_auto_transition' ||
       e.eventType === 'status_backward' ||
       e.eventType === 'status_revert' ||
-      e.eventType === 'cancelled'
+      e.eventType === 'cancelled' ||
+      e.eventType === 'created' ||
+      e.eventType === 'order_created' ||
+      e.eventType === 'auto_expedited'
   );
 
   const eventCount = statusEvents?.length ?? 0;
@@ -214,7 +220,10 @@ export function AuditTrail({ orderId }: AuditTrailProps) {
                             variant="outline"
                             className={`text-xs font-medium ${badgeClass}`}
                           >
-                            {event.eventType === 'cancelled' ? 'Cancelled' : event.eventType}
+                            {event.eventType === 'cancelled' ? 'Cancelled' :
+                            event.eventType === 'created' || event.eventType === 'order_created' ? 'Order Created' :
+                            event.eventType === 'auto_expedited' ? 'Auto-Expedited' :
+                            event.eventType}
                           </Badge>
                         )}
 

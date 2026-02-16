@@ -348,6 +348,13 @@ export const create = mutation({
       await recordVoucherUsage(ctx, voucherInfo.voucherId, customerId, orderId);
     }
 
+    // GAP-02: Log audit event for Draft creation so audit trail starts from order creation
+    await logOrderEvent(ctx, orderId, "created", {
+      toStatus: "Draft",
+      triggeredBy: "user",
+      userId: args.createdByUserId,
+    });
+
     return orderId;
   },
 });

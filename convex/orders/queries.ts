@@ -220,7 +220,7 @@ export const countOrders = query({
  */
 export const get = query({
   args: { id: v.id("orders") },
-  handler: async (ctx, args): Promise<OrderWithItems | null> => {
+  handler: async (ctx, args): Promise<(OrderWithItems & { creatorName: string }) | null> => {
     const order = await ctx.db.get(args.id);
     if (!order) return null;
 
@@ -231,10 +231,18 @@ export const get = query({
 
     const customer = await ctx.db.get(order.customerId);
 
+    // GAP-01: Resolve createdByUserId to user name for slide-over display
+    let creatorName = order.createdBy;
+    if (order.createdByUserId) {
+      const user = await ctx.db.get(order.createdByUserId);
+      if (user) creatorName = user.name;
+    }
+
     return {
       ...order,
       items,
       customer,
+      creatorName,
     };
   },
 });

@@ -376,11 +376,34 @@ export const moveForward = mutation({
       updates.completedAt = Date.now();
     }
 
+    // GAP-03: Auto-expedite orders due today or tomorrow when reaching PaymentReceived
+    let autoExpedited = false;
+    if (nextStatus === "PaymentReceived" && order.dueDate) {
+      // Calculate today and tomorrow boundaries in WIB (UTC+7)
+      const nowMs = Date.now();
+      const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+      const nowWIB = new Date(nowMs + WIB_OFFSET_MS);
+      const todayStartWIB = new Date(
+        Date.UTC(nowWIB.getUTCFullYear(), nowWIB.getUTCMonth(), nowWIB.getUTCDate())
+      ).getTime() - WIB_OFFSET_MS;
+      const dayAfterTomorrowStartWIB = todayStartWIB + 2 * 24 * 60 * 60 * 1000;
+
+      // Due date is today or tomorrow if it falls before day-after-tomorrow start
+      if (order.dueDate >= todayStartWIB && order.dueDate < dayAfterTomorrowStartWIB) {
+        autoExpedited = true;
+        // Skip PaymentReceived, go straight to BeingPrepared (like expediteOrder)
+        updates.status = "BeingPrepared" as OrderStatusUpdate["status"];
+        updates.isKitchenVisible = true;
+        (updates as any).expedited = true;
+        (updates as any).kitchenEnteredAt = Date.now();
+      }
+    }
+
     // Apply status update
     await ctx.db.patch(args.orderId, updates);
 
-    // Inventory integration: reserve stock on PaymentReceived
-    if (nextStatus === "PaymentReceived" && order.status !== "PaymentReceived") {
+    // Inventory integration: reserve stock on PaymentReceived (also needed for auto-expedited)
+    if ((nextStatus === "PaymentReceived" || autoExpedited) && order.status !== "PaymentReceived") {
       try {
         await reserveStockForOrderInternal(ctx, {
           orderId: args.orderId,
@@ -407,8 +430,8 @@ export const moveForward = mutation({
       }
     }
 
-    // Inventory integration: consume all materials on BeingPrepared
-    if (nextStatus === "BeingPrepared" && order.status !== "BeingPrepared") {
+    // Inventory integration: consume all materials on BeingPrepared (including auto-expedited)
+    if ((nextStatus === "BeingPrepared" || autoExpedited) && order.status !== "BeingPrepared") {
       try {
         await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
         await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
@@ -423,15 +446,39 @@ export const moveForward = mutation({
     }
 
     // Audit trail
-    await logStatusTransition(
-      ctx,
-      args.orderId,
-      order.status,
-      nextStatus,
-      "Moved forward",
-      "user",
-      userId
-    );
+    if (autoExpedited) {
+      // Log the auto-expedite as a system-triggered transition
+      await logStatusTransition(
+        ctx,
+        args.orderId,
+        order.status,
+        "BeingPrepared",
+        "Auto-expedited: due date is today or tomorrow",
+        "system",
+        userId
+      );
+      await logOrderEvent(ctx, args.orderId, "auto_expedited", {
+        fromStatus: order.status,
+        toStatus: "BeingPrepared",
+        reason: "Order due today or tomorrow - auto-expedited to kitchen",
+        triggeredBy: "system",
+        userId,
+        metadata: {
+          dueDate: order.dueDate,
+          skippedStatus: "PaymentReceived",
+        },
+      });
+    } else {
+      await logStatusTransition(
+        ctx,
+        args.orderId,
+        order.status,
+        nextStatus,
+        "Moved forward",
+        "user",
+        userId
+      );
+    }
 
     return args.orderId;
   },
