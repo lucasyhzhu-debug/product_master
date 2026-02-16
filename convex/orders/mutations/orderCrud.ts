@@ -633,6 +633,196 @@ export const completeBalls = mutation({
 });
 
 // ============================================
+// Phase 14.1: Draft Order Mutations
+// ============================================
+
+/**
+ * Create a minimal Draft order with just a customer.
+ * No items required -- Draft persists immediately on customer selection.
+ *
+ * Phase 14.1: Auto-creates Draft the moment a customer is selected in the new order form.
+ */
+export const createDraft = mutation({
+  args: {
+    customerId: v.optional(v.id("customers")),
+    newCustomer: v.optional(
+      v.object({
+        name: v.string(),
+        phone: v.optional(v.string()),
+      })
+    ),
+    createdByUserId: v.optional(v.id("users")),
+    createdBy: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Resolve customer (same pattern as existing create mutation)
+    let customerId: Id<"customers">;
+    let customerName: string;
+    let customerPhone: string | undefined;
+
+    if (args.customerId) {
+      const customer = await ctx.db.get(args.customerId);
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      customerId = args.customerId;
+      customerName = customer.name;
+      customerPhone = customer.phone;
+    } else if (args.newCustomer) {
+      customerId = await ctx.db.insert("customers", {
+        name: args.newCustomer.name,
+        phone: args.newCustomer.phone,
+        createdBy: args.createdBy ?? "admin",
+      });
+      customerName = args.newCustomer.name;
+      customerPhone = args.newCustomer.phone;
+    } else {
+      throw new Error("Either customerId or newCustomer is required");
+    }
+
+    // Generate order number
+    const orderNumber = await generateOrderNumber(ctx);
+
+    // Create minimal Draft order
+    const orderId = await ctx.db.insert("orders", {
+      orderNumber,
+      customerId,
+      customerName,
+      customerPhone,
+      status: "Draft",
+      isKitchenVisible: false,
+      paymentStatus: "Unpaid",
+      orderDate: Date.now(),
+      totalAmount: 0,
+      totalCost: 0,
+      totalMargin: 0,
+      finalTotal: 0,
+      itemCount: 0,
+      deliveryType: "Pickup",
+      createdBy: args.createdBy ?? "admin",
+      createdByUserId: args.createdByUserId,
+    });
+
+    // Log audit event
+    await logOrderEvent(ctx, orderId, "created", {
+      toStatus: "Draft",
+      triggeredBy: "user",
+      userId: args.createdByUserId,
+    });
+
+    return orderId;
+  },
+});
+
+/**
+ * Update all editable fields on a Draft order.
+ * Does NOT handle items -- frontend uses replaceItems from itemCrud.ts for that.
+ *
+ * Phase 14.1: Full Draft editing (customer change, due date, delivery, voucher, notes).
+ */
+export const updateDraft = mutation({
+  args: {
+    orderId: v.id("orders"),
+    customerId: v.optional(v.id("customers")),
+    newCustomer: v.optional(
+      v.object({
+        name: v.string(),
+        phone: v.optional(v.string()),
+      })
+    ),
+    dueDate: v.optional(v.number()),
+    deliveryAddress: v.optional(v.string()),
+    deliveryType: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    voucherCode: v.optional(v.string()),
+    lowPriceConfirmed: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+    if (order.status !== "Draft") {
+      throw new Error("Can only update Draft orders via updateDraft");
+    }
+
+    // Build patch object from provided optional fields
+    const patch: Record<string, unknown> = {};
+
+    // Handle customer change
+    if (args.customerId) {
+      const customer = await ctx.db.get(args.customerId);
+      if (!customer) {
+        throw new Error("Customer not found");
+      }
+      patch.customerId = args.customerId;
+      patch.customerName = customer.name;
+      patch.customerPhone = customer.phone;
+    } else if (args.newCustomer) {
+      const newCustomerId = await ctx.db.insert("customers", {
+        name: args.newCustomer.name,
+        phone: args.newCustomer.phone,
+        createdBy: order.createdBy ?? "admin",
+      });
+      patch.customerId = newCustomerId;
+      patch.customerName = args.newCustomer.name;
+      patch.customerPhone = args.newCustomer.phone;
+    }
+
+    // Patch simple fields (only if explicitly provided)
+    if (args.dueDate !== undefined) patch.dueDate = args.dueDate;
+    if (args.deliveryAddress !== undefined) patch.deliveryAddress = args.deliveryAddress;
+    if (args.deliveryType !== undefined) patch.deliveryType = args.deliveryType;
+    if (args.notes !== undefined) patch.notes = args.notes;
+    if (args.lowPriceConfirmed !== undefined) patch.lowPriceConfirmed = args.lowPriceConfirmed;
+
+    // Handle voucher change
+    if (args.voucherCode !== undefined) {
+      const currentCustomerId = (patch.customerId as Id<"customers"> | undefined) ?? order.customerId;
+
+      if (args.voucherCode === "") {
+        // Clear voucher
+        if (order.voucherId) {
+          await releaseVoucherUsage(ctx, order.voucherId, args.orderId);
+        }
+        patch.voucherId = undefined;
+        patch.voucherCode = undefined;
+        patch.voucherDiscountValue = undefined;
+        // Recalculate finalTotal without voucher
+        patch.finalTotal = order.totalAmount;
+      } else if (args.voucherCode !== order.voucherCode) {
+        // New/changed voucher
+        // Release old voucher if exists
+        if (order.voucherId) {
+          await releaseVoucherUsage(ctx, order.voucherId, args.orderId);
+        }
+        // Validate and apply new voucher
+        const voucherInfo = await validateAndApplyVoucher(
+          ctx,
+          args.voucherCode,
+          order.totalAmount,
+          currentCustomerId
+        );
+        patch.voucherId = voucherInfo.voucherId;
+        patch.voucherCode = voucherInfo.voucherCode;
+        patch.voucherDiscountValue = voucherInfo.voucherDiscountValue;
+        // Record usage
+        await recordVoucherUsage(ctx, voucherInfo.voucherId, currentCustomerId, args.orderId);
+        // Recalculate finalTotal with new voucher
+        patch.finalTotal = order.totalAmount - voucherInfo.voucherDiscountValue;
+      }
+    }
+
+    // Apply patch if there are changes
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(args.orderId, patch);
+    }
+
+    return args.orderId;
+  },
+});
+
+// ============================================
 // Phase 14: Order Lifecycle Mutations
 // ============================================
 
