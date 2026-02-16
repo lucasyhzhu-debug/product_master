@@ -32,6 +32,7 @@ import {
 
 // Auth helper for token -> userId resolution
 import { getSessionUser } from "../../lib/auth";
+import { requireRole } from "../../lib/auth";
 
 // Inventory integration (internal helpers)
 import {
@@ -651,6 +652,71 @@ export const expediteOrder = mutation({
       "Expedited - manual production entry",
       "user",
       userId
+    );
+
+    return args.orderId;
+  },
+});
+
+/**
+ * Admin-only: Force-complete a stuck order to Complete+Paid.
+ * Does NOT trigger any inventory side effects (no stock reservation, no material consumption).
+ * Use only for data fixes (e.g., orders already delivered but stuck in non-terminal status).
+ *
+ * Quick Task 2: Admin escape hatch for stuck orders.
+ */
+export const forceComplete = mutation({
+  args: {
+    orderId: v.id("orders"),
+    token: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Admin-only
+    const user = await requireRole(ctx, args.token, ["admin"]);
+
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+
+    if (isTerminalStatus(order.status)) {
+      throw new Error(`Order is already ${order.status}`);
+    }
+
+    const oldStatus = order.status;
+
+    // Force to Complete + Paid, no inventory side effects
+    await ctx.db.patch(args.orderId, {
+      status: "Complete",
+      completedAt: Date.now(),
+      isKitchenVisible: false,
+      paymentStatus: "Paid",
+      // Ensure confirmedAt exists for revenue tracking
+      ...(order.confirmedAt ? {} : { confirmedAt: Date.now() }),
+    });
+
+    // Audit: log the force-complete event
+    await logOrderEvent(ctx, args.orderId, "admin_force_complete", {
+      fromStatus: oldStatus,
+      toStatus: "Complete",
+      reason: args.reason ?? "Admin force complete - data fix",
+      category: "data_fix",
+      triggeredBy: "user",
+      userId: user._id,
+      metadata: {
+        paymentStatusSet: "Paid",
+        inventorySideEffects: false,
+      },
+    });
+
+    // Also log as a status transition for the status history timeline
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      oldStatus,
+      "Complete",
+      args.reason ?? "Admin force complete - data fix",
+      "user",
+      user._id
     );
 
     return args.orderId;

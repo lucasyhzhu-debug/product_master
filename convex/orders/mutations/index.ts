@@ -32,6 +32,7 @@ export {
   updatePayment,
   updateShipping,
   updateDetails,
+  forceComplete,
 } from "./statusUpdates";
 
 // Kitchen Operations
