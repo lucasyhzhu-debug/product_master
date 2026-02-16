@@ -580,3 +580,67 @@ export const markOrderReady = mutation({
     return { newStatus };
   },
 });
+
+/**
+ * Send an order back from kitchen to order desk.
+ * Resets all packageStatus to "empty", writes unpack log entries for packed items,
+ * transitions BeingPrepared -> PaymentReceived, and logs audit event.
+ * Does NOT touch confirmedAt (no revenue recognition boundary crossed).
+ */
+export const sendBackToOrderDesk = mutation({
+  args: {
+    token: v.string(),
+    orderId: v.id("orders"),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new ConvexError("Order not found");
+    if (order.status !== "BeingPrepared") {
+      throw new ConvexError("Only orders in 'Being Prepared' can be sent back");
+    }
+
+    // Reset all package statuses AND write unpack log entries
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    for (const item of items) {
+      if (item.packageStatus && item.packageStatus !== "empty" && item.menuProductId) {
+        // Write unpack log entry to keep productionLog accurate
+        if (item.packageStatus === "packed") {
+          await ctx.db.insert("productionLog", {
+            menuProductId: item.menuProductId,
+            action: "unpack",
+            quantity: item.quantity,
+            timestamp: Date.now(),
+            performedBy: user.name,
+            orderId: args.orderId,
+            orderItemId: item._id,
+          });
+        }
+        await ctx.db.patch(item._id, { packageStatus: "empty" });
+      }
+    }
+
+    // Transition BeingPrepared -> PaymentReceived
+    await ctx.db.patch(order._id, {
+      status: "PaymentReceived",
+      isKitchenVisible: computeIsKitchenVisible("PaymentReceived"),
+    });
+
+    // Log audit trail
+    await logAutoTransition(
+      ctx,
+      order._id,
+      "BeingPrepared",
+      "PaymentReceived",
+      args.reason ?? "Sent back from kitchen to order desk",
+      "kitchen"
+    );
+
+    return { newStatus: "PaymentReceived" as const };
+  },
+});

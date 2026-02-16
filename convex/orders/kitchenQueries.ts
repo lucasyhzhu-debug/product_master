@@ -146,6 +146,13 @@ export const getKitchenPackingOrders = query({
         // Check if all products are packed
         const allProductsPacked = productItems.every((item) => item.isPacked);
 
+        // Phase 15: Resolve creator name from users table
+        let creatorName = order.createdBy ?? "admin";
+        if (order.createdByUserId) {
+          const creator = await ctx.db.get(order.createdByUserId);
+          if (creator) creatorName = creator.name;
+        }
+
         return {
           _id: order._id,
           orderNumber: order.orderNumber,
@@ -154,6 +161,9 @@ export const getKitchenPackingOrders = query({
           status: order.status,
           deliveryType: order.deliveryType,
           dueDate: order.dueDate,
+          // Phase 15: expedited flag and creator name
+          expedited: order.expedited ?? false,
+          creatorName,
           productItems,
           packagingMaterials,
           allProductsPacked,

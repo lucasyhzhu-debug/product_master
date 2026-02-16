@@ -751,6 +751,41 @@ export const getKitchenStats = query({
         };
       });
 
+    // Phase 15: Calculate minTargetToday -- balls needed from orders due today only
+    // Use WIB timezone (UTC+7) for date comparison
+    const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const wibTodayStr = wibNow.toISOString().split("T")[0]; // "YYYY-MM-DD" in WIB
+    // WIB day boundaries in UTC timestamps
+    const wibDayStartUtc = new Date(wibTodayStr + "T00:00:00+07:00").getTime();
+    const wibDayEndUtc = wibDayStartUtc + 24 * 60 * 60 * 1000;
+
+    let bigBallsNeededToday = 0;
+    let midBallsNeededToday = 0;
+    let dueTodayOrderCount = 0;
+
+    for (const order of pendingOrders) {
+      if (!order.dueDate) continue;
+      if (order.dueDate >= wibDayStartUtc && order.dueDate < wibDayEndUtc) {
+        dueTodayOrderCount++;
+        const items = itemsByOrder.get(order._id.toString()) ?? [];
+        for (const item of items) {
+          if (item.isCancelled) continue;
+          const records = productionByItem.get(item._id.toString()) ?? [];
+          const activeRecords = records.filter(r => !r.isCancelled);
+          for (const record of activeRecords) {
+            if (record.productionUnitCode === "BIG_BALL") {
+              bigBallsNeededToday += record.unitsRemaining;
+            } else if (record.productionUnitCode === "MID_BALL") {
+              midBallsNeededToday += record.unitsRemaining;
+            }
+          }
+        }
+      }
+    }
+
+    // Phase 15: Count non-terminal, non-cancelled orders still left to complete
+    const ordersLeftToComplete = pendingOrders.length;
+
     return {
       bigBallsNeeded,
       bigBallsCompleted,
@@ -760,6 +795,15 @@ export const getKitchenStats = query({
       ordersCompletedToday: completedTodayOrders.length,
       // PRD-5: Dynamic production type stats
       productionByType,
+      // Phase 15: Due-today ball targets
+      minTargetToday: {
+        totalBalls: bigBallsNeededToday + midBallsNeededToday,
+        bigBalls: bigBallsNeededToday,
+        midBalls: midBallsNeededToday,
+        orderCount: dueTodayOrderCount,
+      },
+      // Phase 15: Orders left to complete (non-terminal)
+      ordersLeftToComplete,
     };
   },
 });
