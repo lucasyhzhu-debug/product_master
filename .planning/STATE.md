@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 16 (K3Mart Cockpit) -- IN PROGRESS
-Plan: 01/04 complete
-Status: Plan 01 (backend data layer) complete. Plans 02-04 remain.
-Last activity: 2026-02-16 - Plan 16-01 executed (holiday system, outlet-first query, mutations)
+Plan: 02/04 complete
+Status: Plan 02 (frontend weekly planning grid) complete. Plans 03-04 remain.
+Last activity: 2026-02-16 - Plan 16-02 executed (outlet-first grid, week nav, auto-save, headers)
 
 Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 in progress)
 
@@ -46,6 +46,7 @@ Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 i
 | 15 | 03 | 6 min | 2 | 7 |
 | 15 | 04 | 6 min | 1 | 9 |
 | 16 | 01 | 7 min | 2 | 6 |
+| 16 | 02 | 7 min | 2 | 9 |
 
 *Updated after each plan completion*
 
@@ -81,6 +82,7 @@ Recent decisions affecting current work:
 - [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
 - [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
 - [Phase 16-01]: Holiday data duplicated in convex helpers (Convex can't import src/); getDayTypeForDate mirrors getDayType; auto-suggest uses baseline/5 weekday rate with 2.5x multiplier; price priority: customPrice > snapshot > 0; copyLastWeek skips existing plans
+- [Phase 16-02]: WeeklyPlannerGrid is self-contained (owns queries/mutations/state); auto-save on blur with 300ms debounce; per-day confirm in PlannerGridHeader not PlannerActionBar; collapsible toggle removed (planner always visible); BACKLOG K3MART-01 through K3MART-05 resolved
 
 ### Roadmap Evolution
 
@@ -107,9 +109,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 16-01-PLAN.md (backend data layer for K3Mart cockpit)
+Stopped at: Completed 16-02-PLAN.md (frontend weekly planning grid rewrite)
 Resume file: None
-Resume notes: Phase 16 Plan 01 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 02 (frontend weekly planning grid rewrite).
+Resume notes: Phase 16 Plan 02 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 03 (outlet management and stock movement UI).
 
 ---
 *Last updated: 2026-02-16*

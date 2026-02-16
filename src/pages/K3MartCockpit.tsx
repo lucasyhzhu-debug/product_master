@@ -325,6 +325,7 @@ export function K3MartCockpit() {
           soldToday: p.soldToday,
           avgDailySales: p.avgDailySales7d,
           daysOfStock: p.avgDailySales7d > 0 ? p.quantity / p.avgDailySales7d : 999,
+          price: p.price ?? 0,
           plannedQty: 0,
           planStatus: 'no_plan' as const,
         })),
@@ -362,6 +363,46 @@ export function K3MartCockpit() {
     };
   }, [outletStockData, inventorySources]);
 
+  // Build outlet settings data for the modal
+  const settingsModalData = useMemo(() => {
+    const outlets = (outletStockData?.outlets ?? []).map((o: any) => ({
+      outletId: o._id as string,
+      outletName: o.name as string,
+      isActive: o.isActive !== false,
+    }));
+
+    // Build per-outlet product settings from outletSettingsData
+    const outletProducts: Record<string, Array<{
+      productKey: string;
+      menuProductId?: string;
+      productName: string;
+      defaultPrice: number;
+      customPrice?: number;
+      isHidden?: boolean;
+      weekdayTarget: number;
+      weekendTarget: number;
+    }>> = {};
+
+    if (outletSettingsData) {
+      const settingsOutlets = (outletSettingsData as any).outlets ?? [];
+      for (const outlet of settingsOutlets) {
+        const outletId = outlet.outletId as string;
+        outletProducts[outletId] = (outlet.products ?? []).map((p: any) => ({
+          productKey: p.productKey,
+          menuProductId: p.menuProductId,
+          productName: p.productName ?? p.productKey,
+          defaultPrice: p.customPrice ?? 0,
+          customPrice: p.customPrice ?? undefined,
+          isHidden: p.isHidden,
+          weekdayTarget: p.weekdayTarget ?? 0,
+          weekendTarget: p.weekendTarget ?? 0,
+        }));
+      }
+    }
+
+    return { outlets, outletProducts };
+  }, [outletStockData, outletSettingsData]);
+
   // ==========================================
   // RENDER
   // ==========================================
@@ -386,16 +427,29 @@ export function K3MartCockpit() {
         title="K3 Mart Cockpit"
         description={`Today: ${formatDateShort(today)}`}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={syncing}
-            className="gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing...' : 'Refresh Data'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {role === 'admin' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSettingsOpen(true)}
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Refresh Data'}
+            </Button>
+          </div>
         }
       />
 
@@ -471,6 +525,18 @@ export function K3MartCockpit() {
         results={bulkSubmitResults}
         completedCount={bulkSubmitCompleted}
       />
+
+      {/* Outlet Settings Modal (admin-only) */}
+      {role === 'admin' && (
+        <OutletSettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          outlets={settingsModalData.outlets}
+          outletProducts={settingsModalData.outletProducts}
+          onToggleOutletActive={handleToggleOutletActive}
+          onSaveOutletSettings={handleSaveOutletSettings}
+        />
+      )}
     </div>
   );
 }
