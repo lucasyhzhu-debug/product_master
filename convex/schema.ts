@@ -1218,6 +1218,19 @@ export default defineSchema({
   // Weekly dispatch plans and stock movement audit log
   // ============================================
 
+  // ============================================
+  // KITCHEN CONFIG
+  // Single-row table for kitchen production targets
+  // ============================================
+
+  kitchenConfig: defineTable({
+    maxProductionTarget: v.number(),  // Default 200
+    bigBallTarget: v.number(),        // Absolute number, default 150
+    midBallTarget: v.number(),        // Absolute number, default 50
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  }),
+
   k3martDispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD
     weekNumber: v.string(), // ISO week e.g. "2026-W07"
