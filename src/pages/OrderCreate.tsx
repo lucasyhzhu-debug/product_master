@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Send, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
+import { Send, Save, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
@@ -321,6 +321,42 @@ export function OrderCreate() {
       toast.error('Failed to delete draft');
     }
   }, [draftOrderId, deleteOrder, navigate]);
+
+  const handleSaveDraft = async () => {
+    if (!draftOrderId) return;
+
+    setIsSubmitting(true);
+    try {
+      // Save form state to Draft
+      await updateDraftMutation({
+        orderId: draftOrderId,
+        dueDate: dueDate || undefined,
+        deliveryAddress: deliveryAddress || undefined,
+        notes: notes || undefined,
+        voucherCode: appliedVoucher?.code,
+      });
+
+      // Sync items to database
+      await replaceItemsMutation({
+        orderId: draftOrderId,
+        items: items.map((item) => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          unitCost: item.unitCost || 0,
+          menuProductId: item.productId as Id<"menuProducts">,
+        })),
+      });
+
+      toast.success('Draft saved');
+      navigate('/orders');
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      toast.error('Failed to save draft');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!hasItems) {
@@ -729,6 +765,23 @@ export function OrderCreate() {
             >
               <Trash2 className="h-5 w-5 mr-2" />
               Delete Draft
+            </Button>
+          )}
+
+          {/* Save as Draft button (edit mode only) */}
+          {isEditMode && draftOrderId && (
+            <Button
+              variant="secondary"
+              className="h-12"
+              onClick={handleSaveDraft}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              ) : (
+                <Save className="h-5 w-5 mr-2" />
+              )}
+              Save as Draft
             </Button>
           )}
 
