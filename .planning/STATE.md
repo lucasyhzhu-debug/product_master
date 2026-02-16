@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-15)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 14: Order QoL
+**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 14.1: Draft Order Update
 
 ## Current Position
 
-Phase: 14 (Order QoL) -- third of 5 phases in v1.1
-Plan: 08 of 08 -- all plans complete, phase ready for verification
-Status: All 8 plans (01-06 core + 07-08 gap closure) executed and UAT approved
-Last activity: 2026-02-16 -- Completed 14-08 frontend gap closure with UAT approval
+Phase: 14.1 (Draft Order Update) -- inserted after Phase 14
+Plan: 01 of 02 -- Plan 01 complete
+Status: Plan 01 backend mutations complete, Plan 02 frontend integration next
+Last activity: 2026-02-16 -- Completed 14.1-01 backend mutations (createDraft, updateDraft, Kanban sort fix)
 
-Progress (v1.1): [########..] 80% (Phase 12 + 13 complete, Phase 14 all 8 plans done, verification pending)
+Progress (v1.1): [########..] 80% (Phase 12 + 13 + 14 complete, Phase 14.1 plan 01/02 done)
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Progress (v1.1): [########..] 80% (Phase 12 + 13 complete, Phase 14 all 8 plans 
 | 14 | 06 | 10 min | 2 | 7 |
 | 14 | 07 | 2 min | 1 | 5 |
 | 14 | 08 | 25 min | 3 | 11 |
+| 14.1 | 01 | 3 min | 2 | 2 |
 
 *Updated after each plan completion*
 
@@ -65,6 +66,11 @@ Recent decisions affecting current work:
 - [Phase 14-06]: OrderDetail replaced accordion with StatusActionButtons + AuditTrail; Kitchen view unchanged (production workflow, not status-driven); WhatsApp modal on submit callback
 - [Phase 14-07]: WIB timezone via UTC+7 offset for auto-expedite date check; auto-expedite skips PaymentReceived to BeingPrepared with material consumption; AuditTrail expanded for created/auto_expedited events
 - [Phase 14-08]: WhatsApp auto-trigger cancelled → replaced with auto-open slide-over; Kanban card redesigned (price top-right, creator merged); finalTotal preferred over manual discount calc; updateStatus now logs audit trail
+- [Phase 14.1-01]: createDraft is minimal (customer only, zero totals); updateDraft handles voucher lifecycle; Draft Kanban column sorted newest-first; WhatsApp language fix is frontend-only (Plan 02)
+
+### Roadmap Evolution
+
+- Phase 14.1 inserted after Phase 14: draft orderupdate (URGENT)
 
 ### Pending Todos
 
@@ -79,9 +85,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Phase 14 all plans complete, pending verification
+Stopped at: Completed 14.1-01-PLAN.md
 Resume file: None
-Resume notes: Phase 14 verification next, then merge to main
+Resume notes: Phase 14.1 Plan 02 (frontend integration) next
 
 ---
 *Last updated: 2026-02-16*
