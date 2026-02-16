@@ -107,3 +107,23 @@ export function getTomorrowJakarta(): string {
   d.setDate(d.getDate() + 1);
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
+
+/**
+ * Calculate auto-suggest quantity for a day based on previous week baseline and day type.
+ *
+ * @param baselineWeeklyTotal - Last week's total planned qty for this outlet+product (default 100 if no data)
+ * @param dayType - The type of day from getDayType()
+ * @returns Suggested quantity for this day (rounded)
+ */
+export function calculateAutoSuggest(
+  baselineWeeklyTotal: number,
+  dayType: "weekday" | "weekend" | "holiday" | "sales_date"
+): number {
+  const baseline = baselineWeeklyTotal > 0 ? baselineWeeklyTotal : 100;
+  const weekdayRate = baseline / 5;
+  if (dayType === "weekday") {
+    return Math.round(weekdayRate);
+  }
+  // Weekend, holiday, sales_date: 2.5x weekday rate
+  return Math.round(weekdayRate * 2.5);
+}
