@@ -93,6 +93,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
+| 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 5bf0597 | Complete | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
 
 ### Blockers/Concerns
 
@@ -103,9 +104,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 15-04-PLAN.md (integration + inventory override)
+Stopped at: Completed quick task 2 (admin force-complete)
 Resume file: None
-Resume notes: Plan 04 complete. Human visual verification pending (see 15-04-SUMMARY.md). Phase 15 all plans done. On feature/15-kitchen-overhaul branch. Ready for merge to main after verification.
+Resume notes: Quick task 2 complete. Phase 15 still pending visual verification. On feature/15-kitchen-overhaul branch. Pre-existing OrderSlideOver.tsx type error in tsc -b (not tsc --noEmit).
 
 ---
 *Last updated: 2026-02-16*
