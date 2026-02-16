@@ -12,7 +12,9 @@ interface DueDateOrderListProps {
   onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => void;
   onMarkReady: (orderId: string, event?: React.MouseEvent) => void;
   onSendBack: (orderId: string) => void;
+  onOverride?: (orderId: string, orderItemId: string, reason: string) => void;
   onK3MartQuantityChange?: (menuProductId: string, quantity: number) => void;
+  canOverride?: boolean;
   canEdit: boolean;
   disabled: boolean;
 }
@@ -23,7 +25,9 @@ export function DueDateOrderList({
   onTogglePack,
   onMarkReady,
   onSendBack,
+  onOverride,
   onK3MartQuantityChange,
+  canOverride,
   canEdit,
   disabled,
 }: DueDateOrderListProps) {
@@ -86,6 +90,8 @@ export function DueDateOrderList({
               onTogglePack={onTogglePack}
               onMarkReady={onMarkReady}
               onSendBack={onSendBack}
+              onOverride={onOverride}
+              canOverride={canOverride}
               disabled={disabled}
             />
           ))}

@@ -432,6 +432,8 @@ export const togglePackOrderLineItem = mutation({
     token: v.string(),
     orderId: v.id("orders"),
     orderItemId: v.id("orderItems"),
+    forceOverride: v.optional(v.boolean()),
+    overrideReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["kitchen", "manager", "admin"]);
@@ -472,7 +474,16 @@ export const togglePackOrderLineItem = mutation({
       // PACK
       const availableForPacking = currentCounts.stickered - currentCounts.packed;
       if (availableForPacking < neededQty) {
-        throw new ConvexError(`Insufficient stickered products: need ${neededQty}, available ${availableForPacking}`);
+        // KIT-08: Manager/admin can force override stock shortage
+        if (args.forceOverride) {
+          // Verify override caller is manager or admin
+          await requireRole(ctx, args.token, ["manager", "admin"]);
+          if (!args.overrideReason) {
+            throw new ConvexError("Override reason is required");
+          }
+        } else {
+          throw new ConvexError(`Insufficient stickered products: need ${neededQty}, available ${availableForPacking}`);
+        }
       }
 
       await ctx.db.patch(args.orderItemId, {
@@ -487,6 +498,7 @@ export const togglePackOrderLineItem = mutation({
         performedBy: user.name,
         orderId: args.orderId,
         orderItemId: args.orderItemId,
+        ...(args.forceOverride ? { note: `manager-override:${args.overrideReason}` } : {}),
       });
     }
 

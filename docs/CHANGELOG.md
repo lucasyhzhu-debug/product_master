@@ -14,6 +14,28 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-02-16 - Phase 15: Kitchen Overhaul
+
+The kitchen page now opens with a dashboard summary showing how many balls to make today, the max target, how many are left, and outstanding orders at a glance. Orders are grouped by due date so the team always knows what to work on first, and managers can override stock shortages when needed.
+
+### Added
+- KIT-01: Dashboard summary header with 4 stat cards (Min Target, Max Target, Remaining, Orders Left) sticky below the page header
+- KIT-02: Min target auto-calculated from orders due today, showing ball count and order count
+- KIT-03: Max target defaults to 200, configurable by manager via gear icon popover with auto-adjusting ball composition
+- KIT-04: Remaining balls shown with green/amber/red color urgency (red = overdue orders, amber = behind, green = on track)
+- KIT-05: Orders left to complete counter
+- KIT-06: K3Mart synthetic card with purple dashed border, outlet breakdown, and inline-editable consignment quantity
+- KIT-07: Due-date grouped order list with per-item checklists, OVERDUE pinned at top, EXPEDITED badge on fast-tracked orders
+- KIT-08: Manager/admin can override stock shortages with a required reason (logged in production audit trail)
+- Send Back button to return an order from kitchen to order desk
+
+### Changed
+- Kitchen page structure: dashboard header + order list above existing 4-panel swipeable layout
+- Desktop layout: order list visible below the 4-panel grid
+- ConfirmDialog now supports children content and disabled confirm button
+
+---
+
 ## 2026-02-16 - GoBiz Sync Fixes
 
 GoBiz (GoFood) revenue sync now properly registers outlets and populates product mappings automatically. The Sales Analytics table shows the actual outlet name (Legato Goldfinch / GoFood Crystal) instead of a blank dash.

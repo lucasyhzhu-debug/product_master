@@ -7,6 +7,8 @@
  * Panel 3: To Sticker (batch stickering by product type)
  * Panel 4: To Pack (per-order packing checklist)
  *
+ * Phase 15: Dashboard header with stat cards + due-date order list
+ *
  * Desktop (1024px+): side-by-side panels with sidebar
  * Mobile (<768px): swipeable panels with station pill bar
  */
@@ -22,6 +24,8 @@ import {
   BoxingPanel,
   StickeringPanel,
   PackingPanel,
+  DashboardHeader,
+  DueDateOrderList,
 } from '@/components/kitchen';
 import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
 import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
@@ -31,6 +35,7 @@ import { api } from '../../convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
+import { startOfDay } from 'date-fns';
 import type { Id } from '../../convex/_generated/dataModel';
 
 /** Extract error message from ConvexError or regular Error */
@@ -56,8 +61,9 @@ function friendlyCopy(msg: string): string {
 export function KitchenViewV2() {
   useDocumentTitle('Kitchen Production');
 
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
+  const canConfigure = canEditKitchen && (user?.role === 'manager' || user?.role === 'admin');
 
   // Active panel for mobile swipe
   const [activePanel, setActivePanel] = useState(0);
@@ -69,6 +75,7 @@ export function KitchenViewV2() {
     packingOrders,
     trayInventory,
     kitchenStats,
+    kitchenConfig,
     productionTargets,
     productTargets,
     orderProductDemand,
@@ -90,6 +97,7 @@ export function KitchenViewV2() {
   const stickerProducts = useProtectedMutation(api.orders.mutations.index.stickerProducts);
   const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.index.togglePackOrderLineItem);
   const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
+  const sendBack = useProtectedMutation(api.orders.mutations.index.sendBackToOrderDesk);
 
   // GoFood depot mutations
   const recordShipment = useProtectedMutation(api.gofoodDepot.mutations.recordShipment);
@@ -127,7 +135,46 @@ export function KitchenViewV2() {
     };
   }, []);
 
+  // ============================================
+  // Dashboard header computed values
+  // ============================================
+
+  // Max target from config
+  const maxTarget = useMemo(() => ({
+    total: kitchenConfig?.maxProductionTarget ?? 200,
+    big: kitchenConfig?.bigBallTarget ?? 150,
+    mid: kitchenConfig?.midBallTarget ?? 50,
+  }), [kitchenConfig]);
+
+  // Min target from kitchen stats (due-today orders)
+  const minTarget = kitchenStats?.minTargetToday;
+
+  // Remaining balls = min target - balls produced today
+  const remainingBalls = useMemo(() => ({
+    total: Math.max(0, (minTarget?.totalBalls ?? 0) - ((kitchenStats?.bigBallsCompleted ?? 0) + (kitchenStats?.midBallsCompleted ?? 0))),
+    big: Math.max(0, (minTarget?.bigBalls ?? 0) - (kitchenStats?.bigBallsCompleted ?? 0)),
+    mid: Math.max(0, (minTarget?.midBalls ?? 0) - (kitchenStats?.midBallsCompleted ?? 0)),
+  }), [minTarget, kitchenStats]);
+
+  // Has overdue: check if any packing order has dueDate in the past
+  const hasOverdueOrders = useMemo(() => {
+    if (!packingOrders) return false;
+    return packingOrders.some(o => {
+      if (!o.dueDate) return false;
+      const wibOffset = 7 * 60 * 60 * 1000;
+      const dueWIB = new Date(o.dueDate + wibOffset);
+      const nowWIB = new Date(Date.now() + wibOffset);
+      return dueWIB < startOfDay(nowWIB);
+    });
+  }, [packingOrders]);
+
+  // Orders left = from kitchenStats.ordersLeftToComplete (added in Plan 01)
+  const ordersLeft = kitchenStats?.ordersLeftToComplete ?? 0;
+
+  // ============================================
   // Handlers - Ball tray
+  // ============================================
+
   const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => {
     try {
       await addBallsToTray({ ballType, count });
@@ -195,6 +242,31 @@ export function KitchenViewV2() {
       actionToast('Order marked as ready!', event);
     } catch (error) {
       actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to mark order ready')), event, 'error');
+    }
+  };
+
+  // Handler - Send Back to order desk
+  const handleSendBack = async (orderId: string) => {
+    try {
+      await sendBack({ orderId: orderId as Id<'orders'> });
+      toast.success('Order sent back to order desk');
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Failed to send back'));
+    }
+  };
+
+  // Handler - Manager inventory override (KIT-08)
+  const handleOverride = async (orderId: string, orderItemId: string, reason: string) => {
+    try {
+      await togglePackOrderLineItem({
+        orderId: orderId as Id<'orders'>,
+        orderItemId: orderItemId as Id<'orderItems'>,
+        forceOverride: true,
+        overrideReason: reason,
+      });
+      toast.success('Override applied - item packed');
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Override failed'));
     }
   };
 
@@ -466,6 +538,32 @@ export function KitchenViewV2() {
         </div>
       </header>
 
+      {/* Dashboard Summary Header - sticky below page header */}
+      <DashboardHeader
+        minTargetToday={minTarget}
+        maxTarget={maxTarget}
+        remainingBalls={remainingBalls}
+        ordersLeft={ordersLeft}
+        hasOverdueOrders={hasOverdueOrders}
+        canConfigure={canConfigure}
+      />
+
+      {/* Mobile: Due-Date Order List */}
+      <div className="md:hidden">
+        <DueDateOrderList
+          orders={packingOrders ?? []}
+          k3MartSummary={k3MartSummary}
+          onTogglePack={handleTogglePack}
+          onMarkReady={handleMarkOrderReady}
+          onSendBack={handleSendBack}
+          onOverride={canConfigure ? handleOverride : undefined}
+          onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+          canOverride={canConfigure}
+          canEdit={canConfigure}
+          disabled={!canEditKitchen}
+        />
+      </div>
+
       {/* Mobile: Swipeable Panels */}
       <SwipeableKitchenLayout
         activeIndex={activePanel}
@@ -581,6 +679,25 @@ export function KitchenViewV2() {
               disabled={!canEditKitchen}
             />
           </div>
+        </div>
+
+        {/* Desktop: Due-Date Order List below panels */}
+        <div className="mt-6">
+          <h2 className="text-lg font-bold text-foreground mb-3 px-1">
+            Orders by Due Date
+          </h2>
+          <DueDateOrderList
+            orders={packingOrders ?? []}
+            k3MartSummary={k3MartSummary}
+            onTogglePack={handleTogglePack}
+            onMarkReady={handleMarkOrderReady}
+            onSendBack={handleSendBack}
+            onOverride={canConfigure ? handleOverride : undefined}
+            onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+            canOverride={canConfigure}
+            canEdit={canConfigure}
+            disabled={!canEditKitchen}
+          />
         </div>
       </div>
     </div>

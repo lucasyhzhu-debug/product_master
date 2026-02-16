@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { StatCard } from './StatCard';
+import { TargetConfigPopover } from './TargetConfigPopover';
 
 interface DashboardHeaderProps {
   minTargetToday: { totalBalls: number; bigBalls: number; midBalls: number; orderCount: number } | undefined;
@@ -8,7 +9,6 @@ interface DashboardHeaderProps {
   remainingBalls: { total: number; big: number; mid: number };
   ordersLeft: number;
   hasOverdueOrders: boolean;
-  onOpenConfig: () => void;
   canConfigure: boolean;
 }
 
@@ -28,10 +28,10 @@ export function DashboardHeader({
   remainingBalls,
   ordersLeft,
   hasOverdueOrders,
-  onOpenConfig,
   canConfigure,
 }: DashboardHeaderProps) {
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
 
   // Loading state: show skeleton cards
   if (minTargetToday === undefined) {
@@ -73,16 +73,25 @@ export function DashboardHeader({
           value={maxTarget.total}
           icon={
             canConfigure ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenConfig();
+              <TargetConfigPopover
+                open={configOpen}
+                onOpenChange={setConfigOpen}
+                currentConfig={{
+                  maxProductionTarget: maxTarget.total,
+                  bigBallTarget: maxTarget.big,
+                  midBallTarget: maxTarget.mid,
                 }}
-                className="p-1 rounded-md hover:bg-accent transition-colors"
-                aria-label="Configure production targets"
               >
-                <Settings className="h-4 w-4" />
-              </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="p-1 rounded-md hover:bg-accent transition-colors"
+                  aria-label="Configure production targets"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </TargetConfigPopover>
             ) : undefined
           }
         />

@@ -41,6 +41,8 @@ interface KitchenOrderCardProps {
   onTogglePack: (orderId: string, orderItemId: string, event?: React.MouseEvent) => void;
   onMarkReady: (orderId: string, event?: React.MouseEvent) => void;
   onSendBack: (orderId: string) => void;
+  onOverride?: (orderId: string, orderItemId: string, reason: string) => void;
+  canOverride?: boolean;
   disabled: boolean;
 }
 
@@ -49,6 +51,8 @@ export function KitchenOrderCard({
   onTogglePack,
   onMarkReady,
   onSendBack,
+  onOverride,
+  canOverride,
   disabled,
 }: KitchenOrderCardProps) {
   const [showSendBackConfirm, setShowSendBackConfirm] = useState(false);
@@ -102,6 +106,8 @@ export function KitchenOrderCard({
           <KitchenOrderChecklist
             items={checklistItems}
             onToggle={(orderItemId, event) => onTogglePack(order._id, orderItemId, event)}
+            onOverride={onOverride ? (orderItemId, reason) => onOverride(order._id, orderItemId, reason) : undefined}
+            canOverride={canOverride}
             disabled={disabled}
           />
         </div>
