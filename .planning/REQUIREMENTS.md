@@ -87,6 +87,28 @@ Deferred from v1.1. Tracked for next milestone.
 - **FB-01**: Fix element identification (component name, data-testid, aria-label)
 - **FB-02**: Re-enable feedback overlay in Layout.tsx
 
+### Sales Channel Consolidation (deferred)
+- **SCH-01**: Manual sales entry for non-API platforms (Tamtem, Legato Goldfinch, Shopee, TikTok Shop) with per-outlet revenue input
+- **SCH-02**: Per-outlet commission rate configuration for non-API platforms (Legato Goldfinch = 10%, Legato Tamtem = 17%)
+
+### Voucher System (deferred)
+- **VCH-01**: Line-item specific voucher codes — per-product discounts (e.g., "10k off per Original product") instead of order-level percentage. Significant voucher system rework.
+
+### Financial Reporting (deferred)
+- **FIN-01**: Payment channel tracking on orders (BCA/QRIS/Cash) — removed in v1.1 Phase 14 for simplicity, revisit if financial reporting needs it
+- **FIN-02**: Sales channel tracking on orders (GoFood/Direct/K3Mart) — removed in v1.1 Phase 14; GoFood/K3Mart tracked via sync systems but no per-order attribution
+
+### Kitchen UX (deferred)
+- **KUX-01**: Audio/visual alert for new kitchen orders — notification when new order enters kitchen queue
+- **KUX-02**: Batch production panel redesign — existing panels unchanged in v1.1, may need modernization
+- **KUX-03**: Historical production analytics and trends — production data over time for planning
+
+### Notifications (deferred)
+- **NTF-01**: Centralized notification bell — icon near account/logout consolidating key alerts (pending orders, low stock, sync failures) with actionable links. Requires notification aggregation system, read/unread state, entity linking.
+
+### Tech Debt (deferred)
+- **TDT-01**: Migrate complex entities (orders, inventory, kitchen, recipes, packaging, products, vouchers) to backend factory pattern — Phase 5 covered simple entities only
+
 ## Out of Scope
 
 | Feature | Reason |

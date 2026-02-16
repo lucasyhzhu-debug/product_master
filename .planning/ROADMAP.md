@@ -95,7 +95,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Goal:** Fix Draft order persistence and editing -- auto-create Draft on customer select, enable full Draft editing from Kanban, fix WhatsApp translation toggle
 **Depends on:** Phase 14
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 14.1-01-PLAN.md -- Backend: createDraft + updateDraft mutations, Draft column sort fix
