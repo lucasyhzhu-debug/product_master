@@ -7,6 +7,7 @@
  * - Outlet subtotal row (when outlet has >1 product)
  *
  * All outlets are always expanded (no collapse/expand per user decision).
+ * Past days (before today) are greyed out and non-editable.
  */
 
 import React, { useCallback, useMemo } from 'react';
@@ -38,6 +39,8 @@ interface OutletPlannerRowProps {
   canAct: boolean;
   /** Base row index for keyboard navigation (increments per product sub-row) */
   baseRowIndex: number;
+  /** Today's date string (YYYY-MM-DD) for past-day greying */
+  todayStr: string;
   /** Average daily sales per product for low stock warning. Key: menuProductId */
   avgDailySales?: Record<string, number>;
   onSaveCell: (
@@ -59,6 +62,7 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
   plans,
   canAct,
   baseRowIndex,
+  todayStr,
   avgDailySales,
   onSaveCell,
   onDirty,
@@ -101,22 +105,22 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
   const showSubtotal = products.length > 1;
 
   return (
-    <div className="border-b-2 border-gray-200">
+    <div className="border-b-2 border-border">
       {/* Outlet Header Row */}
-      <div className="flex items-stretch bg-gray-50 border-b border-gray-200">
+      <div className="flex items-stretch bg-muted border-b border-border">
         {/* Sticky outlet name */}
-        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-gray-50 border-r border-gray-200 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-          <span className="text-sm font-bold text-gray-900 truncate">{outletName}</span>
+        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-muted border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+          <span className="text-sm font-bold text-foreground truncate">{outletName}</span>
         </div>
         {/* Stock column header (empty for outlet header) */}
-        <div className="w-[64px] min-w-[64px] border-r border-gray-200" />
+        <div className="w-[64px] min-w-[64px] border-r border-border" />
         {/* Empty day cells for header */}
         {weekDates.map((date) => (
-          <div key={date} className="flex-1 min-w-[64px] border-r border-gray-200 last:border-r-0" />
+          <div key={date} className="flex-1 min-w-[64px] border-r border-border last:border-r-0" />
         ))}
         {/* Total column header */}
         <div className="w-[72px] min-w-[72px] flex items-center justify-center">
-          <span className="text-xs font-semibold text-gray-500">
+          <span className="text-xs font-semibold text-muted-foreground">
             {outletTotal > 0 ? outletTotal : ''}
           </span>
         </div>
@@ -133,20 +137,20 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
           <div
             key={product.menuProductId}
             className={cn(
-              'flex items-stretch border-b border-gray-100',
-              productIndex % 2 === 1 && 'bg-gray-50/30'
+              'flex items-stretch border-b border-border/50',
+              productIndex % 2 === 1 && 'bg-muted/30'
             )}
           >
             {/* Product name (indented, sticky left) */}
-            <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-white border-r border-gray-200 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-              <span className="text-xs text-gray-700 truncate pl-3">{product.productName}</span>
+            <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-card border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+              <span className="text-xs text-foreground/70 truncate pl-3">{product.productName}</span>
             </div>
 
             {/* Stock column */}
             <div
               className={cn(
-                'w-[64px] min-w-[64px] flex items-center justify-center border-r border-gray-200 text-xs tabular-nums font-medium',
-                isLowStock ? 'text-red-600 bg-red-50' : 'text-gray-600'
+                'w-[64px] min-w-[64px] flex items-center justify-center border-r border-border text-xs tabular-nums font-medium',
+                isLowStock ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20' : 'text-muted-foreground'
               )}
             >
               {product.currentStock}
@@ -155,24 +159,26 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
             {/* 7 day cells */}
             {weekDates.map((date, colIndex) => {
               const cell = getCellData(product.menuProductId, date);
+              const isPastDay = date < todayStr;
               const cellStatus =
                 cell.status === 'confirmed'
                   ? 'confirmed' as const
                   : cell.status === 'submitted'
                     ? 'submitted' as const
                     : 'draft' as const;
-              const isEditable = canAct && cellStatus !== 'submitted';
+              const isEditable = canAct && cellStatus !== 'submitted' && !isPastDay;
 
               return (
                 <div
                   key={date}
-                  className="flex-1 min-w-[64px] border-r border-gray-200 last:border-r-0 flex items-center justify-center p-0.5"
+                  className="flex-1 min-w-[64px] border-r border-border last:border-r-0 flex items-center justify-center p-0.5"
                 >
                   <EditablePlannerCell
                     value={cell.plannedQty}
                     suggestedQty={cell.suggestedQty}
                     status={cellStatus}
                     isEditable={isEditable}
+                    isPastDay={isPastDay}
                     onSave={(newValue) =>
                       onSaveCell(
                         outletId,
@@ -192,7 +198,7 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
             })}
 
             {/* Row total */}
-            <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-semibold tabular-nums text-gray-700 bg-gray-50/50">
+            <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-semibold tabular-nums text-foreground/70 bg-muted/50">
               {rowTotal > 0 ? rowTotal : ''}
             </div>
           </div>
@@ -201,24 +207,24 @@ export const OutletPlannerRow = React.memo(function OutletPlannerRow({
 
       {/* Outlet Subtotal Row (only when >1 product) */}
       {showSubtotal && (
-        <div className="flex items-stretch bg-gray-100/50 border-b border-gray-200">
+        <div className="flex items-stretch bg-muted/50 border-b border-border">
           {/* Label */}
-          <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-gray-100/50 border-r border-gray-200 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-            <span className="text-xs text-gray-500 italic pl-3">Subtotal</span>
+          <div className="sticky left-0 z-10 flex items-center px-3 py-1 bg-muted/50 border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+            <span className="text-xs text-muted-foreground italic pl-3">Subtotal</span>
           </div>
           {/* Empty stock column */}
-          <div className="w-[64px] min-w-[64px] border-r border-gray-200" />
+          <div className="w-[64px] min-w-[64px] border-r border-border" />
           {/* Day subtotals */}
           {daySubtotals.map((subtotal, idx) => (
             <div
               key={weekDates[idx]}
-              className="flex-1 min-w-[64px] flex items-center justify-center border-r border-gray-200 last:border-r-0 text-xs font-semibold tabular-nums text-gray-600"
+              className="flex-1 min-w-[64px] flex items-center justify-center border-r border-border last:border-r-0 text-xs font-semibold tabular-nums text-muted-foreground"
             >
               {subtotal > 0 ? subtotal : ''}
             </div>
           ))}
           {/* Outlet total */}
-          <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-bold tabular-nums text-gray-700">
+          <div className="w-[72px] min-w-[72px] flex items-center justify-center text-xs font-bold tabular-nums text-foreground/70">
             {outletTotal > 0 ? outletTotal : ''}
           </div>
         </div>

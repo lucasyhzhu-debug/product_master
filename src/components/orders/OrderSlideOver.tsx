@@ -138,8 +138,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
             <SheetHeader>
               <div className="flex items-center gap-3">
                 <SheetTitle className="font-mono">{order.orderNumber}</SheetTitle>
-                <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
-                  {STATUS_LABELS[order.status] ?? order.status}
+                <Badge className={`${getStatusColor(order.status as import('@/lib/types').OrderStatus)} text-white text-xs`}>
+                  {STATUS_LABELS[order.status as import('@/lib/types').OrderStatus] ?? order.status}
                 </Badge>
                 {order.expedited && (
                   <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">

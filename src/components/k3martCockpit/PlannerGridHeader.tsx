@@ -8,10 +8,11 @@
  *
  * Color coding:
  * - Weekday: default bg-card
- * - Weekend: bg-blue-50 with blue text
- * - Holiday: bg-red-50 with red text
- * - Sales date: bg-purple-50 with purple text
+ * - Weekend: bg-blue-50 / dark:bg-blue-900/20
+ * - Holiday: bg-red-50 / dark:bg-red-900/20
+ * - Sales date: bg-purple-50 / dark:bg-purple-900/20
  * - Today: ring highlight
+ * - Past day: muted/greyed out
  *
  * Per-day confirm buttons at bottom of header (NOT in PlannerActionBar).
  */
@@ -37,6 +38,7 @@ interface PlannerGridHeaderProps {
   dayStatuses: Record<string, 'draft' | 'confirmed' | 'submitted'>;
   onConfirmDay: (date: string) => void;
   hasEditsForDay: Record<string, boolean>;
+  todayStr: string;
 }
 
 export const PlannerGridHeader = React.memo(function PlannerGridHeader({
@@ -45,46 +47,53 @@ export const PlannerGridHeader = React.memo(function PlannerGridHeader({
   dayStatuses,
   onConfirmDay,
   hasEditsForDay,
+  todayStr,
 }: PlannerGridHeaderProps) {
   return (
-    <div className="border-b-2 border-gray-300">
+    <div className="border-b-2 border-border">
       {/* Main header row with 3-row day info */}
       <div className="flex">
         {/* Sticky left: Outlet / Product label */}
-        <div className="sticky left-0 z-10 flex items-center justify-center bg-white border-r border-gray-200 px-3 py-2 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-          <span className="text-xs font-semibold text-gray-700">Outlet / Product</span>
+        <div className="sticky left-0 z-10 flex items-center justify-center bg-card border-r border-border px-3 py-2 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+          <span className="text-xs font-semibold text-foreground/70">Outlet / Product</span>
         </div>
 
         {/* Stock column label */}
-        <div className="w-[64px] min-w-[64px] flex items-center justify-center bg-white border-r border-gray-200">
-          <span className="text-xs font-semibold text-gray-700">Stock</span>
+        <div className="w-[64px] min-w-[64px] flex items-center justify-center bg-card border-r border-border">
+          <span className="text-xs font-semibold text-foreground/70">Stock</span>
         </div>
 
         {/* Day columns */}
         {dateInfos.map((info) => {
-          // Color scheme based on day type
+          const isPastDay = info.date < todayStr;
+
+          // Color scheme based on day type and past status
           let bgClass = 'bg-card';
-          let dayNameClass = 'text-gray-900';
+          let dayNameClass = 'text-foreground';
           let eventClass = '';
 
-          if (info.dayType === 'holiday') {
-            bgClass = 'bg-red-50';
-            dayNameClass = 'text-red-700';
-            eventClass = 'text-red-600';
+          if (isPastDay) {
+            bgClass = 'bg-muted/30';
+            dayNameClass = 'text-muted-foreground';
+            eventClass = 'text-muted-foreground/70';
+          } else if (info.dayType === 'holiday') {
+            bgClass = 'bg-red-50 dark:bg-red-900/20';
+            dayNameClass = 'text-red-700 dark:text-red-300';
+            eventClass = 'text-red-600 dark:text-red-400';
           } else if (info.dayType === 'sales_date') {
-            bgClass = 'bg-purple-50';
-            dayNameClass = 'text-purple-700';
-            eventClass = 'text-purple-600';
+            bgClass = 'bg-purple-50 dark:bg-purple-900/20';
+            dayNameClass = 'text-purple-700 dark:text-purple-300';
+            eventClass = 'text-purple-600 dark:text-purple-400';
           } else if (info.isWeekend) {
-            bgClass = 'bg-blue-50';
-            dayNameClass = 'text-blue-700';
+            bgClass = 'bg-blue-50 dark:bg-blue-900/20';
+            dayNameClass = 'text-blue-700 dark:text-blue-300';
           }
 
           return (
             <div
               key={info.date}
               className={cn(
-                'flex-1 min-w-[64px] flex flex-col items-center justify-center py-2 px-1 border-r border-gray-200 last:border-r-0',
+                'flex-1 min-w-[64px] flex flex-col items-center justify-center py-2 px-1 border-r border-border last:border-r-0',
                 bgClass,
                 info.isToday && 'ring-2 ring-primary ring-inset'
               )}
@@ -92,7 +101,7 @@ export const PlannerGridHeader = React.memo(function PlannerGridHeader({
               {/* Row 1: Day name */}
               <span className={cn('text-xs font-semibold', dayNameClass)}>{info.dayName}</span>
               {/* Row 2: Date */}
-              <span className="text-[10px] text-gray-500">{info.dateLabel}</span>
+              <span className={cn('text-[10px]', isPastDay ? 'text-muted-foreground/70' : 'text-muted-foreground')}>{info.dateLabel}</span>
               {/* Row 3: Event name */}
               <span
                 className={cn(
@@ -107,30 +116,38 @@ export const PlannerGridHeader = React.memo(function PlannerGridHeader({
         })}
 
         {/* Total column label */}
-        <div className="w-[72px] min-w-[72px] flex items-center justify-center bg-white">
-          <span className="text-xs font-semibold text-gray-700">Total</span>
+        <div className="w-[72px] min-w-[72px] flex items-center justify-center bg-card">
+          <span className="text-xs font-semibold text-foreground/70">Total</span>
         </div>
       </div>
 
       {/* Per-day confirm buttons row */}
-      <div className="flex border-t border-gray-200 bg-gray-50/50">
+      <div className="flex border-t border-border bg-muted/30">
         {/* Empty sticky left spacer */}
-        <div className="sticky left-0 z-10 min-w-[160px] w-[160px] border-r border-gray-200 bg-gray-50/50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" />
+        <div className="sticky left-0 z-10 min-w-[160px] w-[160px] border-r border-border bg-muted/30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" />
         {/* Empty stock column spacer */}
-        <div className="w-[64px] min-w-[64px] border-r border-gray-200" />
+        <div className="w-[64px] min-w-[64px] border-r border-border" />
 
         {/* Confirm button per day */}
         {weekDates.map((date) => {
           const status = dayStatuses[date] || 'draft';
           const hasEdits = hasEditsForDay[date] || false;
+          const isPastDay = date < todayStr;
 
           return (
             <div
               key={date}
-              className="flex-1 min-w-[64px] flex flex-col items-center justify-center py-1.5 px-0.5 border-r border-gray-200 last:border-r-0 gap-1"
+              className="flex-1 min-w-[64px] flex flex-col items-center justify-center py-1.5 px-0.5 border-r border-border last:border-r-0 gap-1"
             >
               {/* Status badge */}
-              {status === 'submitted' ? (
+              {isPastDay ? (
+                // Past days: show muted status only, no action buttons
+                status !== 'draft' ? (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground">
+                    {status === 'submitted' ? 'Submitted' : status === 'confirmed' ? 'Confirmed' : 'Draft'}
+                  </Badge>
+                ) : null
+              ) : status === 'submitted' ? (
                 <Badge variant="default" className="text-[9px] px-1.5 py-0 bg-blue-600 hover:bg-blue-600">
                   Submitted
                 </Badge>
@@ -139,13 +156,13 @@ export const PlannerGridHeader = React.memo(function PlannerGridHeader({
                   Confirmed
                 </Badge>
               ) : (
-                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-amber-100 text-amber-800">
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
                   Draft
                 </Badge>
               )}
 
-              {/* Action button */}
-              {status === 'draft' && (
+              {/* Action button (not for past days) */}
+              {!isPastDay && status === 'draft' && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -155,11 +172,11 @@ export const PlannerGridHeader = React.memo(function PlannerGridHeader({
                   Confirm
                 </Button>
               )}
-              {status === 'confirmed' && hasEdits && (
+              {!isPastDay && status === 'confirmed' && hasEdits && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-5 text-[9px] px-1.5 text-amber-700 border-amber-300"
+                  className="h-5 text-[9px] px-1.5 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700"
                   onClick={() => onConfirmDay(date)}
                 >
                   Update Kitchen

@@ -32,27 +32,27 @@ export const PlannerActionBar = React.memo(function PlannerActionBar({
   return (
     <div className="border-t bg-muted/30">
       {/* Grand Totals Row (production targets) */}
-      <div className="flex items-stretch border-b border-gray-200">
+      <div className="flex items-stretch border-b border-border">
         {/* Label */}
-        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-gray-100 border-r border-gray-200 min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
-          <span className="text-xs font-bold text-gray-800">Daily Target</span>
+        <div className="sticky left-0 z-10 flex items-center px-3 py-2 bg-muted border-r border-border min-w-[160px] w-[160px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+          <span className="text-xs font-bold text-foreground">Daily Target</span>
         </div>
         {/* Empty stock column */}
-        <div className="w-[64px] min-w-[64px] border-r border-gray-200 bg-gray-100" />
+        <div className="w-[64px] min-w-[64px] border-r border-border bg-muted" />
         {/* Daily totals */}
         {weekDates.map((date) => (
           <div
             key={date}
-            className="flex-1 min-w-[64px] flex items-center justify-center border-r border-gray-200 last:border-r-0 bg-gray-100 py-2"
+            className="flex-1 min-w-[64px] flex items-center justify-center border-r border-border last:border-r-0 bg-muted py-2"
           >
-            <span className="text-sm font-bold tabular-nums text-gray-900">
+            <span className="text-sm font-bold tabular-nums text-foreground">
               {dailyTotals[date] || 0}
             </span>
           </div>
         ))}
         {/* Grand total */}
-        <div className="w-[72px] min-w-[72px] flex items-center justify-center bg-gray-200 py-2">
-          <span className="text-sm font-black tabular-nums text-gray-900">{grandTotal}</span>
+        <div className="w-[72px] min-w-[72px] flex items-center justify-center bg-muted/80 py-2">
+          <span className="text-sm font-black tabular-nums text-foreground">{grandTotal}</span>
         </div>
       </div>
 

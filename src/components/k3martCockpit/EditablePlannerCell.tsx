@@ -5,8 +5,10 @@
  * - Auto-save on blur via onSave callback with 300ms debounce
  * - Auto-suggest placeholder when cell is empty
  * - Status-based background colors (draft/confirmed/submitted)
+ * - Past day greying (non-editable, muted appearance)
  * - Keyboard navigation between cells (arrow keys, Enter, Escape)
  * - Touch-friendly minimum width
+ * - Dark mode support
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
@@ -21,6 +23,8 @@ interface EditablePlannerCellProps {
   status: "draft" | "confirmed" | "submitted";
   /** Whether the cell is editable */
   isEditable: boolean;
+  /** Whether this cell is for a past day (greyed out) */
+  isPastDay?: boolean;
   /** Called when value changes on blur (auto-save) */
   onSave: (newValue: number) => void;
   /** Called when local edit occurs (for unsaved changes tracking) */
@@ -37,6 +41,7 @@ export const EditablePlannerCell = React.memo(
     suggestedQty,
     status = "draft",
     isEditable,
+    isPastDay = false,
     onSave,
     onDirty,
     colIndex,
@@ -157,22 +162,26 @@ export const EditablePlannerCell = React.memo(
       }
     }, [editValue, isDirty, performSave, rowIndex, colIndex, value]);
 
-    // Background color based on status
-    const bgColor = !isEditable
-      ? 'bg-gray-100'
-      : status === 'confirmed'
-        ? 'bg-green-50'
-        : status === 'submitted'
-          ? 'bg-blue-50'
-          : 'bg-white';
-
-    const textColor = !isEditable
-      ? 'text-gray-500'
-      : status === 'submitted'
-        ? 'text-blue-700'
+    // Background color based on status and past day
+    const bgColor = isPastDay
+      ? 'bg-muted/50'
+      : !isEditable
+        ? 'bg-muted'
         : status === 'confirmed'
-          ? 'text-green-800'
-          : 'text-gray-900';
+          ? 'bg-green-50 dark:bg-green-900/20'
+          : status === 'submitted'
+            ? 'bg-blue-50 dark:bg-blue-900/20'
+            : 'bg-background';
+
+    const textColor = isPastDay
+      ? 'text-muted-foreground'
+      : !isEditable
+        ? 'text-muted-foreground'
+        : status === 'submitted'
+          ? 'text-blue-700 dark:text-blue-300'
+          : status === 'confirmed'
+            ? 'text-green-800 dark:text-green-300'
+            : 'text-foreground';
 
     return (
       <input
@@ -189,14 +198,14 @@ export const EditablePlannerCell = React.memo(
         data-row={rowIndex}
         data-col={colIndex}
         className={cn(
-          'w-full h-9 min-w-[48px] text-sm tabular-nums text-center border border-gray-200 transition-all',
+          'w-full h-9 min-w-[48px] text-sm tabular-nums text-center border border-border transition-all',
           bgColor,
           textColor,
           isEditable
             ? 'focus:ring-2 focus:ring-primary focus:outline-none focus:border-primary cursor-text'
             : 'cursor-not-allowed',
           isDirty && 'border-amber-400',
-          'placeholder:text-gray-300 placeholder:italic'
+          'placeholder:text-muted-foreground/40 placeholder:italic'
         )}
         style={{
           MozAppearance: 'textfield' as any,
@@ -212,6 +221,7 @@ export const EditablePlannerCell = React.memo(
       prevProps.suggestedQty === nextProps.suggestedQty &&
       prevProps.status === nextProps.status &&
       prevProps.isEditable === nextProps.isEditable &&
+      prevProps.isPastDay === nextProps.isPastDay &&
       prevProps.colIndex === nextProps.colIndex &&
       prevProps.rowIndex === nextProps.rowIndex
     );

@@ -308,6 +308,7 @@ export function WeeklyPlannerGrid() {
             dayStatuses={dayStatuses}
             onConfirmDay={handleConfirmDay}
             hasEditsForDay={hasEditsForDay}
+            todayStr={todayStr}
           />
 
           {/* Outlet Rows */}
@@ -321,6 +322,7 @@ export function WeeklyPlannerGrid() {
               plans={plans}
               canAct={canAct}
               baseRowIndex={outletBaseRowIndices[outletIndex]}
+              todayStr={todayStr}
               onSaveCell={handleSaveCell}
               onDirty={handleDirty}
             />
