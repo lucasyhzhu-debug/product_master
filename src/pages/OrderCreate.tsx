@@ -271,7 +271,8 @@ export function OrderCreate() {
       });
 
       toast.success('Order submitted');
-      navigate('/orders');
+      // Navigate with whatsapp param to auto-open WhatsApp modal
+      navigate(`/orders?whatsapp=${orderIdTyped}`);
     } catch (error) {
       console.error('Failed to submit order:', error);
       const message = error instanceof Error ? error.message : 'Failed to submit order';

@@ -8,10 +8,22 @@ import { useState } from 'react';
 import { ChevronLeft, Loader2, Send, DollarSign, Zap, Truck, Copy } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { useNavigate } from 'react-router-dom';
+import { ConvexError } from 'convex/values';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { BackwardTransitionModal } from './BackwardTransitionModal';
 import { getErrorMessage } from '@/lib/utils';
@@ -58,7 +70,14 @@ export function StatusActionButtons({ orderId, status, onStatusChange }: StatusA
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [showBackwardModal, setShowBackwardModal] = useState(false);
 
+  // Stock override dialog state
+  const [showStockOverride, setShowStockOverride] = useState(false);
+  const [stockShortageMessage, setStockShortageMessage] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [isOverrideLoading, setIsOverrideLoading] = useState(false);
+
   const backwardTarget = BACKWARD_TARGETS[status];
+  const isManagerOrAdmin = user?.role === 'manager' || user?.role === 'admin';
 
   // ============================================
   // Forward Action
@@ -77,9 +96,32 @@ export function StatusActionButtons({ orderId, status, onStatusChange }: StatusA
       }
       onStatusChange?.();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Failed to update status'));
+      // Check for insufficient stock error -> show override dialog
+      const errMsg = error instanceof ConvexError ? String(error.data) : error instanceof Error ? error.message : '';
+      if (errMsg.includes('Insufficient packaging stock') && isManagerOrAdmin) {
+        setStockShortageMessage(errMsg);
+        setOverrideReason('');
+        setShowStockOverride(true);
+      } else {
+        toast.error(getErrorMessage(error, 'Failed to update status'));
+      }
     } finally {
       setIsForwardLoading(false);
+    }
+  };
+
+  const handleStockOverride = async () => {
+    if (!overrideReason.trim()) return;
+    setIsOverrideLoading(true);
+    try {
+      await moveForward({ orderId, token, skipStockCheck: true, overrideReason: overrideReason.trim() });
+      toast.success('Order moved forward (stock override)');
+      setShowStockOverride(false);
+      onStatusChange?.();
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to override'));
+    } finally {
+      setIsOverrideLoading(false);
     }
   };
 
@@ -244,6 +286,50 @@ export function StatusActionButtons({ orderId, status, onStatusChange }: StatusA
           isLoading={isBackwardLoading}
         />
       )}
+
+      {/* Stock override dialog */}
+      <AlertDialog open={showStockOverride} onOpenChange={setShowStockOverride}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Insufficient Packaging Stock</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {stockShortageMessage
+                  .replace('Insufficient packaging stock:\n', '')
+                  .replace('\n\nAuthorized staff can override to proceed.', '')
+                  .split('\n')
+                  .filter(Boolean)
+                  .map((line, i) => (
+                    <p key={i} className="text-sm">{line}</p>
+                  ))}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="Reason for override (required)..."
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              rows={2}
+              className="resize-none"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isOverrideLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleStockOverride();
+              }}
+              disabled={!overrideReason.trim() || isOverrideLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isOverrideLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Override & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

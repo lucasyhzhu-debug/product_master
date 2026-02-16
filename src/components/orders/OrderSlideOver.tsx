@@ -10,7 +10,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { Phone, MapPin, Copy, FileText, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -45,6 +45,7 @@ interface OrderSlideOverProps {
   orderId: Id<"orders"> | null;
   open: boolean;
   onClose: () => void;
+  autoShowWhatsApp?: boolean;
 }
 
 // ============================================
@@ -100,13 +101,20 @@ function SlideOverSkeleton() {
 // Component
 // ============================================
 
-export function OrderSlideOver({ orderId, open, onClose }: OrderSlideOverProps) {
+export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: OrderSlideOverProps) {
   const order = useQuery(
     api.orders.queries.get,
     orderId ? { id: orderId } : 'skip'
   );
 
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
+  // Auto-show WhatsApp modal when order loads and autoShowWhatsApp is set
+  useEffect(() => {
+    if (autoShowWhatsApp && order && order.status === 'AwaitingPayment') {
+      setShowWhatsAppModal(true);
+    }
+  }, [autoShowWhatsApp, order]);
 
   const handleCopyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone);
@@ -224,51 +232,63 @@ export function OrderSlideOver({ orderId, open, onClose }: OrderSlideOverProps) 
               <Separator />
 
               {/* Pricing summary */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(order.totalAmount)}</span>
-                </div>
-                {order.orderLevelDiscount && order.orderLevelDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-orange-600">
-                    <span>
-                      Discount
-                      {order.orderLevelDiscountType === 'percentage'
-                        ? ` (${order.orderLevelDiscount}%)`
-                        : ''}
-                    </span>
-                    <span>
-                      -{formatCurrency(
-                        order.orderLevelDiscountType === 'percentage'
-                          ? order.totalAmount * (order.orderLevelDiscount / 100)
-                          : order.orderLevelDiscount
-                      )}
-                    </span>
-                  </div>
-                )}
-                {order.voucherCode && (
-                  <div className="flex justify-between text-sm text-purple-600">
-                    <span>Voucher ({order.voucherCode})</span>
-                    <span>-{formatCurrency(order.voucherDiscountValue ?? 0)}</span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex justify-between text-base font-bold">
-                  <span>Total</span>
-                  <span className="text-brand">
-                    {formatCurrency(
-                      order.finalTotal ??
-                        order.totalAmount -
-                          (order.orderLevelDiscount && order.orderLevelDiscountType
-                            ? order.orderLevelDiscountType === 'percentage'
-                              ? order.totalAmount * (order.orderLevelDiscount / 100)
-                              : order.orderLevelDiscount
-                            : 0) -
-                          (order.voucherDiscountValue ?? 0)
+              {(() => {
+                const orderDiscount =
+                  order.orderLevelDiscount && order.orderLevelDiscountType
+                    ? order.orderLevelDiscountType === 'percentage'
+                      ? order.totalAmount * (order.orderLevelDiscount / 100)
+                      : order.orderLevelDiscount
+                    : 0;
+                const voucherDiscount = order.voucherDiscountValue ?? 0;
+                const totalDiscount = orderDiscount + voucherDiscount;
+                const finalTotal = order.finalTotal ?? (order.totalAmount - totalDiscount);
+                const hasDiscount = totalDiscount > 0;
+
+                return (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{formatCurrency(order.totalAmount)}</span>
+                    </div>
+                    {order.orderLevelDiscount != null && order.orderLevelDiscount > 0 && (
+                      <div className="flex justify-between text-sm text-orange-600">
+                        <span>
+                          Discount
+                          {order.orderLevelDiscountType === 'percentage'
+                            ? ` (${order.orderLevelDiscount}%)`
+                            : ''}
+                        </span>
+                        <span>-{formatCurrency(orderDiscount)}</span>
+                      </div>
                     )}
-                  </span>
-                </div>
-              </div>
+                    {order.voucherCode && (
+                      <div className="flex justify-between text-sm text-purple-600">
+                        <span>Voucher ({order.voucherCode})</span>
+                        <span>-{formatCurrency(voucherDiscount)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between items-baseline text-base font-bold">
+                      <span>Total</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-brand text-lg">
+                          {formatCurrency(finalTotal)}
+                        </span>
+                        {hasDiscount && (
+                          <>
+                            <Badge variant="secondary" className="text-[10px] text-orange-600">
+                              -{formatCurrency(totalDiscount)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground line-through">
+                              {formatCurrency(order.totalAmount)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <Separator />
 

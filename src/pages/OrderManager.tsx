@@ -4,8 +4,8 @@
  *
  * Phase 14 Plan 04: Kanban board UI.
  */
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,21 @@ import type { Id } from '../../convex/_generated/dataModel';
 export function OrderManager() {
   useDocumentTitle('Orders');
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const kanbanData = useKanbanOrders();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [autoWhatsApp, setAutoWhatsApp] = useState(false);
+
+  // Auto-open slide-over with WhatsApp from query param (after order submit)
+  useEffect(() => {
+    const whatsappOrderId = searchParams.get('whatsapp');
+    if (whatsappOrderId) {
+      setSelectedOrderId(whatsappOrderId);
+      setAutoWhatsApp(true);
+      // Clear the query param
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleCardClick = (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -27,6 +40,7 @@ export function OrderManager() {
 
   const handleCloseSlideOver = () => {
     setSelectedOrderId(null);
+    setAutoWhatsApp(false);
   };
 
   return (
@@ -56,6 +70,7 @@ export function OrderManager() {
         orderId={selectedOrderId as Id<"orders"> | null}
         open={selectedOrderId !== null}
         onClose={handleCloseSlideOver}
+        autoShowWhatsApp={autoWhatsApp}
       />
     </div>
   );
