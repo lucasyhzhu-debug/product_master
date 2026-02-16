@@ -4,12 +4,13 @@
  * Two tabs:
  * 1. Outlets: Active/inactive toggle for all K3Mart outlets
  * 2. Product Settings: Per-outlet product selection (isHidden), custom pricing (customPrice)
+ *    Shows K3Mart product name -> POS product name with real default prices.
  *
  * Admin-only access. Uses shadcn Dialog, Tabs, Switch, Select, Input.
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Settings, Store, Package, Loader2 } from "lucide-react";
+import { Settings, Store, Package, Loader2, ArrowRight, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ interface OutletProduct {
   productKey: string;
   menuProductId?: string;
   productName: string;
+  externalProductName?: string;
   defaultPrice: number;
   customPrice?: number;
   isHidden?: boolean;
@@ -327,15 +329,18 @@ export function OutletSettingsModal({
               <div className="space-y-3">
                 {editedProducts.map((product) => {
                   const hasCustomPrice = product.customPrice !== undefined;
+                  const k3martName = product.externalProductName;
+                  const posName = product.productName;
+                  const showBothNames = k3martName && k3martName !== posName;
 
                   return (
                     <div
                       key={product.productKey}
-                      className="border rounded-lg p-3 space-y-2"
+                      className="border border-border rounded-lg p-3 space-y-2"
                     >
                       {/* Product name + visibility checkbox */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
                           <Checkbox
                             id={`visible-${product.productKey}`}
                             checked={!product.isHidden}
@@ -345,22 +350,43 @@ export function OutletSettingsModal({
                                 !!checked
                               )
                             }
+                            className="mt-0.5"
                           />
-                          <Label
-                            htmlFor={`visible-${product.productKey}`}
-                            className="text-sm font-medium cursor-pointer"
-                          >
-                            {product.productName}
-                          </Label>
+                          <div className="min-w-0">
+                            {showBothNames ? (
+                              <Label
+                                htmlFor={`visible-${product.productKey}`}
+                                className="text-sm font-medium cursor-pointer flex items-center gap-1.5 flex-wrap"
+                              >
+                                <span className="text-foreground">{k3martName}</span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground">{posName}</span>
+                              </Label>
+                            ) : (
+                              <Label
+                                htmlFor={`visible-${product.productKey}`}
+                                className="text-sm font-medium cursor-pointer"
+                              >
+                                {posName}
+                              </Label>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       {/* Pricing row */}
                       <div className="flex items-center gap-3 pl-6">
-                        <span className="text-xs text-muted-foreground">
-                          Default: Rp{" "}
-                          {product.defaultPrice.toLocaleString("id-ID")}
-                        </span>
+                        {product.defaultPrice > 0 ? (
+                          <span className="text-xs text-muted-foreground">
+                            Default: Rp{" "}
+                            {product.defaultPrice.toLocaleString("id-ID")}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Price not mapped
+                          </span>
+                        )}
 
                         <div className="flex items-center gap-2 ml-auto">
                           <Label

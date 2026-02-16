@@ -382,6 +382,7 @@ export function K3MartCockpit() {
       productKey: string;
       menuProductId?: string;
       productName: string;
+      externalProductName?: string;
       defaultPrice: number;
       customPrice?: number;
       isHidden?: boolean;
@@ -396,7 +397,8 @@ export function K3MartCockpit() {
         outletProducts[outletId] = (outlet.products ?? []).map((p: any) => ({
           productKey: p.productKey,
           menuProductId: p.menuProductId,
-          productName: p.externalProductName ?? p.productName ?? p.productKey,
+          productName: p.productName ?? p.externalProductName ?? p.productKey,
+          externalProductName: p.externalProductName,
           defaultPrice: p.defaultPrice ?? p.customPrice ?? 0,
           customPrice: p.customPrice ?? undefined,
           isHidden: p.isHidden,
