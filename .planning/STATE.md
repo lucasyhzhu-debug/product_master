@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 15 (Kitchen Overhaul) -- IN PROGRESS
-Plan: 01 complete
-Status: Plan 01 backend foundation complete. kitchenConfig CRUD, extended kitchen queries, sendBackToOrderDesk mutation.
-Last activity: 2026-02-16 - Completed 15-01-PLAN.md (kitchen backend foundation)
+Plan: 02 complete
+Status: Plan 02 dashboard header frontend complete. StatCard, DashboardHeader, TargetConfigPopover components + useKitchenProduction kitchenConfig integration.
+Last activity: 2026-02-16 - Completed 15-02-PLAN.md (dashboard header components)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -42,6 +42,7 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 14.1 | 02 | 5 min | 2 | 10 |
 | 14.1 | 03 | 1 min | 2 | 2 |
 | 15 | 01 | 4 min | 2 | 7 |
+| 15 | 02 | 5 min | 2 | 5 |
 
 *Updated after each plan completion*
 
@@ -73,6 +74,7 @@ Recent decisions affecting current work:
 - [Phase 14.1-02]: Edit mode uses ?draft=orderId query param; Draft auto-create on customer select; status-aware Kanban click routing; WhatsApp language param fix is one-line
 - [Phase 14.1-03]: Removed AnimatePresence entirely (0.15s fade adds no UX value, causes blank page bugs); Save as Draft reuses updateDraft + replaceItems (no backend changes)
 - [Phase 15-01]: kitchenConfig is single-row table with .first() (no indexes); WIB date boundaries as UTC timestamps for due-today filtering; sendBackToOrderDesk does not touch confirmedAt (revenue recognition boundary)
+- [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
 
 ### Roadmap Evolution
 
@@ -97,9 +99,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 15-01-PLAN.md (kitchen backend foundation)
+Stopped at: Completed 15-02-PLAN.md (dashboard header components)
 Resume file: None
-Resume notes: Plan 01 complete. Ready for Plan 02 (dashboard header frontend). On feature/15-kitchen-overhaul branch.
+Resume notes: Plan 02 complete. Ready for Plan 03 (due-date order list). On feature/15-kitchen-overhaul branch.
 
 ---
 *Last updated: 2026-02-16*
