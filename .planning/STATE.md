@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 16 (K3Mart Cockpit) -- IN PROGRESS
-Plan: 03/04 complete
-Status: Plan 03 (outlet cards, stock flow, settings) complete. Plan 04 remains.
-Last activity: 2026-02-16 - Plan 16-03 executed (stock flow rotation, confirmation dialog, outlet settings modal)
+Plan: 05 complete, 06 remaining
+Status: Plan 05 committed. Backend bugs fixed (re-confirm, product names, default prices).
+Last activity: 2026-02-16 - Plan 16-05 executed (confirmDayPlan re-confirm, product name resolution, default prices)
 
-Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 in progress)
+Progress (v1.1): [#########.] 96% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 awaiting verification)
 
 ## Performance Metrics
 
@@ -48,6 +48,8 @@ Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 i
 | 16 | 01 | 7 min | 2 | 6 |
 | 16 | 02 | 7 min | 2 | 9 |
 | 16 | 03 | 9 min | 2 | 9 |
+| 16 | 04 | 4 min | 1 | 5 |
+| 16 | 05 | 3 min | 1 | 3 |
 
 *Updated after each plan completion*
 
@@ -85,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 16-01]: Holiday data duplicated in convex helpers (Convex can't import src/); getDayTypeForDate mirrors getDayType; auto-suggest uses baseline/5 weekday rate with 2.5x multiplier; price priority: customPrice > snapshot > 0; copyLastWeek skips existing plans
 - [Phase 16-02]: WeeklyPlannerGrid is self-contained (owns queries/mutations/state); auto-save on blur with 300ms debounce; per-day confirm in PlannerGridHeader not PlannerActionBar; collapsible toggle removed (planner always visible); BACKLOG K3MART-01 through K3MART-05 resolved
 - [Phase 16-03]: Rotation is two sequential API calls (stock-out then stock-in); price sanity check at form AND dialog level; StockMovementHistory uses inline expandable detail; OutletSettingsModal imported directly (not barrel) for admin-only access
+- [Phase 16-04]: Inlined setProductTarget logic in confirmDayPlan (Convex mutations can't call mutations); production bump uses setProductTarget directly; OutletSettingsModal moved to barrel export for consistency
+- [Phase 16-05]: Re-confirm uses same confirmDayPlan mutation with isReconfirm detection (no new endpoint); default prices from externalStockSnapshots (mapping table has no price field); externalProductName added alongside productName for backward compatibility
 
 ### Roadmap Evolution
 
@@ -111,9 +115,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 16-03-PLAN.md (outlet cards, stock flow, settings)
+Stopped at: Completed 16-05-PLAN.md
 Resume file: None
-Resume notes: Phase 16 Plan 03 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 04 (final integration and polish).
+Resume notes: Plan 16-05 committed (65105e7). Backend bugs fixed. Plan 06 remaining. On feature/16-k3mart-cockpit branch.
 
 ---
 *Last updated: 2026-02-16*
