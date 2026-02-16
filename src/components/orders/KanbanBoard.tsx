@@ -42,7 +42,7 @@ function KanbanSkeleton() {
       {KANBAN_COLUMNS.map((col) => (
         <div
           key={col.key}
-          className="min-w-[85vw] md:min-w-[280px] md:max-w-[320px] snap-center bg-muted/30 rounded-lg p-3 space-y-3"
+          className="min-w-[calc(100vw-2rem)] md:min-w-[280px] md:max-w-[320px] snap-center bg-muted/30 rounded-lg p-3 space-y-3"
         >
           <div className="flex items-center gap-2">
             <Skeleton className="h-5 w-28" />

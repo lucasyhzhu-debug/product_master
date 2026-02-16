@@ -30,6 +30,10 @@ export function DueDatePills({ value, onChange }: DueDatePillsProps) {
 
   const selectedTimestamp = value ? startOfDay(new Date(value)).getTime() : undefined;
 
+  // Check if selected date is Today or Tomorrow
+  const selectedDate = selectedTimestamp ? new Date(selectedTimestamp) : undefined;
+  const isExpediteDate = selectedDate ? isToday(selectedDate) || isTomorrow(selectedDate) : false;
+
   return (
     <div className="space-y-3">
       {/* Scrollable pill row */}
@@ -49,6 +53,13 @@ export function DueDatePills({ value, onChange }: DueDatePillsProps) {
           );
         })}
       </div>
+
+      {/* Expedite warning for Today/Tomorrow */}
+      {isExpediteDate && (
+        <p className="text-xs text-amber-600">
+          Orders due today/tomorrow are auto-expedited when payment is received
+        </p>
+      )}
 
       {/* Manual date picker fallback */}
       {showManual ? (

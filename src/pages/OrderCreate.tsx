@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { CustomerSearch } from '@/components/orders/CustomerSearch';
 import { DueDatePills } from '@/components/orders/DueDatePills';
 import { QuickAddressButtons } from '@/components/orders/QuickAddressButtons';
-import { DeliveryToggle } from '@/components/orders/DeliveryToggle';
 import { ProductButtons, type ProductButtonProduct } from '@/components/orders/ProductButtons';
 import { VoucherInput, type AppliedVoucher } from '@/components/orders/VoucherInput';
 import { ManagerOverrideDialog } from '@/components/orders/ManagerOverrideDialog';
@@ -52,7 +51,6 @@ export function OrderCreate() {
   const [dueDate, setDueDate] = useState<number | undefined>(undefined);
 
   // Delivery
-  const [deliveryType, setDeliveryType] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
 
   // Items
@@ -173,9 +171,8 @@ export function OrderCreate() {
     setItems((prev) => prev.filter((item) => item.productId !== productId));
   }, []);
 
-  const handleQuickAddress = useCallback((address: string, type: string) => {
+  const handleQuickAddress = useCallback((address: string, _type: string) => {
     setDeliveryAddress(address);
-    setDeliveryType(type as 'Pickup' | 'Delivery');
   }, []);
 
   const handleApplyVoucher = useCallback((voucher: AppliedVoucher) => {
@@ -246,7 +243,6 @@ export function OrderCreate() {
       const orderData: OrderCreateInput = {
         customerId: !isNewCustomer && customerId ? customerId : undefined,
         newCustomer: isNewCustomer ? { name: customerName, phone: customerPhone || undefined } : undefined,
-        deliveryType,
         deliveryAddress: deliveryAddress || undefined,
         dueDate: dueDate || undefined,
         notes: notes || undefined,
@@ -330,41 +326,28 @@ export function OrderCreate() {
         <DueDatePills value={dueDate} onChange={setDueDate} />
       </Card>
 
-      {/* 3. Delivery Section */}
+      {/* 3. Delivery / Pickup Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-9 w-9 rounded-full bg-purple-50 flex items-center justify-center">
             <MapPin className="h-4 w-4 text-purple-600" />
           </div>
           <div>
-            <h3 className="text-base font-semibold">Delivery</h3>
-            <p className="text-xs text-muted-foreground">Pickup or delivery?</p>
+            <h3 className="text-base font-semibold">Delivery / Pickup</h3>
+            <p className="text-xs text-muted-foreground">Where should this order go?</p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <DeliveryToggle value={deliveryType} onChange={setDeliveryType} />
+          <input
+            type="text"
+            value={deliveryAddress}
+            onChange={(e) => setDeliveryAddress(e.target.value)}
+            placeholder="Enter delivery address or pickup location..."
+            className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
 
           <QuickAddressButtons onSelect={handleQuickAddress} />
-
-          {deliveryType === 'Delivery' && (
-            <div className="space-y-1.5">
-              <Label className="text-sm">Delivery Address</Label>
-              <Textarea
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder="Enter delivery address..."
-                rows={2}
-                className="resize-none"
-              />
-            </div>
-          )}
-
-          {deliveryAddress && deliveryType === 'Pickup' && (
-            <p className="text-xs text-muted-foreground">
-              Pickup at: {deliveryAddress}
-            </p>
-          )}
         </div>
       </Card>
 

@@ -48,7 +48,7 @@ export function KanbanColumn({ config, orders, onCardClick }: KanbanColumnProps)
   }, [orders, isCompleteColumn, showCancelled]);
 
   return (
-    <div className="flex flex-col min-w-[85vw] md:min-w-[280px] md:max-w-[320px] snap-center bg-muted/30 rounded-lg">
+    <div className="flex flex-col min-w-[calc(100vw-2rem)] md:min-w-[280px] md:max-w-[320px] snap-center bg-muted/30 rounded-lg">
       {/* Column header */}
       <div className="px-3 pt-3 pb-2 flex-shrink-0">
         <div className="flex items-center justify-between">
