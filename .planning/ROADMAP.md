@@ -95,11 +95,12 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Goal:** Fix Draft order persistence and editing -- auto-create Draft on customer select, enable full Draft editing from Kanban, fix WhatsApp translation toggle
 **Depends on:** Phase 14
-**Plans:** 2/2 plans complete
+**Plans:** 3 plans
 
 Plans:
 - [ ] 14.1-01-PLAN.md -- Backend: createDraft + updateDraft mutations, Draft column sort fix
 - [ ] 14.1-02-PLAN.md -- Frontend: Draft auto-save, Kanban Draft routing to edit form, WhatsApp language fix
+- [ ] 14.1-03-PLAN.md -- [GAP] Add Save as Draft button to persist changes without status transition
 
 ### Phase 15: Kitchen Overhaul
 **Goal**: Kitchen staff see production targets, due-date-ranked orders, and K3Mart demand at a glance above the existing batch production panels
