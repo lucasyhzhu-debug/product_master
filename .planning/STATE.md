@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 ## Current Position
 
-Phase: 14.1 (Draft Order Update) -- inserted after Phase 14
-Plan: 01 of 02 -- Plan 01 complete
-Status: Plan 01 backend mutations complete, Plan 02 frontend integration next
-Last activity: 2026-02-16 -- Completed 14.1-01 backend mutations (createDraft, updateDraft, Kanban sort fix)
+Phase: 14.1 (Draft Order Update) -- COMPLETE
+Plan: 02 of 02 -- All plans complete
+Status: Phase 14.1 complete. Draft auto-save, Draft editing, WhatsApp language fix all shipped.
+Last activity: 2026-02-16 -- Completed 14.1-02 frontend integration (edit mode, Kanban routing, WhatsApp fix)
 
-Progress (v1.1): [########..] 80% (Phase 12 + 13 + 14 complete, Phase 14.1 plan 01/02 done)
+Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
 ## Performance Metrics
 
@@ -39,6 +39,7 @@ Progress (v1.1): [########..] 80% (Phase 12 + 13 + 14 complete, Phase 14.1 plan 
 | 14 | 07 | 2 min | 1 | 5 |
 | 14 | 08 | 25 min | 3 | 11 |
 | 14.1 | 01 | 3 min | 2 | 2 |
+| 14.1 | 02 | 5 min | 2 | 10 |
 
 *Updated after each plan completion*
 
@@ -67,6 +68,7 @@ Recent decisions affecting current work:
 - [Phase 14-07]: WIB timezone via UTC+7 offset for auto-expedite date check; auto-expedite skips PaymentReceived to BeingPrepared with material consumption; AuditTrail expanded for created/auto_expedited events
 - [Phase 14-08]: WhatsApp auto-trigger cancelled → replaced with auto-open slide-over; Kanban card redesigned (price top-right, creator merged); finalTotal preferred over manual discount calc; updateStatus now logs audit trail
 - [Phase 14.1-01]: createDraft is minimal (customer only, zero totals); updateDraft handles voucher lifecycle; Draft Kanban column sorted newest-first; WhatsApp language fix is frontend-only (Plan 02)
+- [Phase 14.1-02]: Edit mode uses ?draft=orderId query param; Draft auto-create on customer select; status-aware Kanban click routing; WhatsApp language param fix is one-line
 
 ### Roadmap Evolution
 
@@ -85,9 +87,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 14.1-01-PLAN.md
+Stopped at: Completed 14.1-02-PLAN.md (Phase 14.1 complete)
 Resume file: None
-Resume notes: Phase 14.1 Plan 02 (frontend integration) next
+Resume notes: Phase 14.1 complete. Ready for UAT then merge to main. Next: Phase 15 (Kitchen Overhaul)
 
 ---
 *Last updated: 2026-02-16*
