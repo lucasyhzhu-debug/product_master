@@ -1,375 +1,341 @@
 /**
- * WeeklyPlannerGrid - Main orchestrator grid for weekly dispatch planning with product tabs.
+ * WeeklyPlannerGrid - Outlet-first weekly dispatch planning grid orchestrator.
  *
- * Composes PlannerGridHeader, OutletPlannerRow (x8), and PlannerActionBar into a complete
- * editable grid interface with product tabs, local state management, and optimistic UI updates.
+ * Composes WeekNavigator, PlannerGridHeader, OutletPlannerRow (per outlet),
+ * and PlannerActionBar into a complete editable grid with:
+ * - Week navigation (prev/next/today) defaulting to current week
+ * - Outlet-first layout with product sub-rows
+ * - Auto-save on blur (no batch save button)
+ * - Copy-last-week functionality
+ * - Daily column totals as production targets
+ * - Unsaved changes warning on navigate away
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { WeekNavigator } from './WeekNavigator';
 import { PlannerGridHeader } from './PlannerGridHeader';
 import { OutletPlannerRow } from './OutletPlannerRow';
 import { PlannerActionBar } from './PlannerActionBar';
+import { getWeekNumber, getWeekDates, getTodayJakarta } from '@/../../convex/k3martCockpit/helpers';
+import { getDayType, getEventName } from '@/lib/indonesianHolidays';
+import {
+  useConvexWeeklyDispatchPlans,
+  useConvexSaveWeeklyDispatchPlan,
+  useConvexCopyLastWeek,
+  useConvexConfirmDayPlan,
+} from '@/hooks/convex';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface DateInfo {
-  date: string; // YYYY-MM-DD
-  dayLabel: string; // "Mon", "Tue", etc.
-  dateLabel: string; // "Feb 11"
-  isWeekend: boolean;
-  isHoliday: boolean;
-  holidayName?: string;
-  isToday: boolean;
-  isTomorrow: boolean;
-}
+export function WeeklyPlannerGrid() {
+  const { user } = useAuth();
+  const canAct = user?.role === 'manager' || user?.role === 'admin';
 
-interface ProductInfo {
-  menuProductId: string;
-  productName: string;
-  externalProductCode: string;
-}
+  // Week navigation state
+  const [weekOffset, setWeekOffset] = useState(0);
+  const currentWeekNumber = useMemo(() => {
+    const today = getTodayJakarta();
+    const d = new Date(today + 'T00:00:00+07:00');
+    d.setDate(d.getDate() + weekOffset * 7);
+    return getWeekNumber(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }));
+  }, [weekOffset]);
+  const isCurrentWeek = weekOffset === 0;
 
-interface OutletInfo {
-  outletId: string;
-  outletName: string;
-}
+  // Compute week dates from week number
+  const weekDates = useMemo(() => {
+    const today = getTodayJakarta();
+    const d = new Date(today + 'T00:00:00+07:00');
+    d.setDate(d.getDate() + weekOffset * 7);
+    return getWeekDates(d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }));
+  }, [weekOffset]);
 
-interface PlanData {
-  value: number;
-  suggestedQty: number;
-  isStockOut: boolean;
-  status?: "draft" | "confirmed" | "submitted" | "approved" | "rejected" | "canceled";
-}
+  const todayStr = useMemo(() => getTodayJakarta(), []);
 
-interface WeeklyPlannerGridProps {
-  /** ISO week string like "2026-W07" */
-  weekNumber: string;
-  /** The 7 dates for this week */
-  dates: DateInfo[];
-  /** Products to show as tabs */
-  products: ProductInfo[];
-  /** All outlets */
-  outlets: OutletInfo[];
-  /** Plans from the backend, keyed by `${outletId}_${date}_${menuProductId}` */
-  plans: Record<string, PlanData>;
-  /** Today date string YYYY-MM-DD */
-  today: string;
-  /** Tomorrow date string YYYY-MM-DD */
-  tomorrow: string;
-  onSavePlan: (changes: Array<{
-    date: string;
-    outletId: string;
-    menuProductId: string;
-    externalProductCode: string;
-    plannedQty: number;
-    suggestedQty: number;
-    isStockOut: boolean;
-  }>) => Promise<void>;
-  onConfirmTomorrow: () => Promise<void>;
-  onSubmitToday: () => Promise<void>;
-  canAct: boolean;
-  isLoading?: boolean;
-}
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
-export function WeeklyPlannerGrid({
-  weekNumber,
-  dates,
-  products,
-  outlets,
-  plans,
-  today,
-  tomorrow,
-  onSavePlan,
-  onConfirmTomorrow,
-  onSubmitToday,
-  canAct,
-  isLoading = false,
-}: WeeklyPlannerGridProps) {
-  // weekNumber used for API calls from parent; not needed locally
-  void weekNumber;
-  // Active product tab (default: first product)
-  const [activeProductId, setActiveProductId] = useState<string>(
-    products.length > 0 ? products[0].menuProductId : ''
+  // Data query
+  const { data: weeklyData, isLoading } = useConvexWeeklyDispatchPlans(currentWeekNumber);
+
+  // Mutations
+  const saveDispatchPlan = useConvexSaveWeeklyDispatchPlan();
+  const copyLastWeek = useConvexCopyLastWeek();
+  const confirmDayPlan = useConvexConfirmDayPlan();
+
+  // Track which days have local edits (for "Update Kitchen" button)
+  const [editedDays, setEditedDays] = useState<Set<string>>(new Set());
+
+  // Reset edited days when week changes
+  useEffect(() => {
+    setEditedDays(new Set());
+    setHasUnsavedChanges(false);
+  }, [currentWeekNumber]);
+
+  // Handlers
+  const handlePrev = useCallback(() => setWeekOffset((o) => o - 1), []);
+  const handleNext = useCallback(() => setWeekOffset((o) => o + 1), []);
+  const handleToday = useCallback(() => setWeekOffset(0), []);
+
+  const handleSaveCell = useCallback(
+    async (
+      outletId: string,
+      menuProductId: string,
+      externalProductCode: string,
+      date: string,
+      plannedQty: number,
+      suggestedQty: number
+    ) => {
+      try {
+        await saveDispatchPlan({
+          plans: [
+            {
+              date,
+              outletId: outletId as any,
+              menuProductId: menuProductId as any,
+              externalProductId: externalProductCode,
+              suggestedQty,
+              plannedQty,
+              isStockOut: false,
+            },
+          ],
+        });
+        // Track that this day has been edited (for "Update Kitchen" on confirmed days)
+        setEditedDays((prev) => new Set(prev).add(date));
+        setHasUnsavedChanges(false);
+      } catch (error) {
+        console.error('Failed to save cell:', error);
+        toast.error('Failed to save');
+      }
+    },
+    [saveDispatchPlan]
   );
 
-  // Local changes: Map<`${outletId}_${date}`, number>
-  const [localChanges, setLocalChanges] = useState<Map<string, number>>(new Map());
-
-  // Action states
-  const [isSaving, setIsSaving] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Derived: has unsaved changes
-  const hasUnsavedChanges = localChanges.size > 0;
-
-  // Active product
-  const activeProduct = useMemo(
-    () => products.find((p) => p.menuProductId === activeProductId),
-    [products, activeProductId]
-  );
-
-  // Cell change handler
-  const handleCellChange = useCallback((date: string, outletId: string, newValue: number) => {
-    const key = `${outletId}_${date}`;
-    setLocalChanges((prev) => {
-      const updated = new Map(prev);
-      updated.set(key, newValue);
-      return updated;
-    });
+  const handleDirty = useCallback(() => {
+    setHasUnsavedChanges(true);
   }, []);
 
-  // Save handler
-  const handleSave = useCallback(async () => {
-    if (!activeProduct || localChanges.size === 0) return;
-
-    setIsSaving(true);
+  const handleCopyLastWeek = useCallback(async () => {
     try {
-      const changes = Array.from(localChanges.entries()).map(([key, plannedQty]) => {
-        const [outletId, date] = key.split('_');
-        const fullKey = `${outletId}_${date}_${activeProduct.menuProductId}`;
-        const plan = plans[fullKey] || { value: 0, suggestedQty: 0, isStockOut: false };
+      const result = await copyLastWeek({ targetWeekNumber: currentWeekNumber });
+      if (result.copiedCount > 0) {
+        toast.success(`Copied ${result.copiedCount} plans from last week`);
+      } else {
+        toast.info('No plans to copy from last week');
+      }
+    } catch (error) {
+      console.error('Failed to copy last week:', error);
+      toast.error('Failed to copy last week');
+    }
+  }, [copyLastWeek, currentWeekNumber]);
 
+  const handleConfirmDay = useCallback(
+    async (date: string) => {
+      try {
+        const result = await confirmDayPlan({ date });
+        toast.success(`Confirmed ${result.confirmedCount} plans for ${date}`);
+        // Clear edited state for this day
+        setEditedDays((prev) => {
+          const next = new Set(prev);
+          next.delete(date);
+          return next;
+        });
+      } catch (error) {
+        console.error('Failed to confirm day:', error);
+        toast.error('Failed to confirm day');
+      }
+    },
+    [confirmDayPlan]
+  );
+
+  // Derived data
+  const outlets = weeklyData?.outlets ?? [];
+  const plans = weeklyData?.plans ?? {};
+  const hasPreviousWeek = (weeklyData?.previousWeekTotals &&
+    Object.values(weeklyData.previousWeekTotals).some((v) => v > 0)) ?? false;
+
+  // Compute daily totals (production targets) and grand total
+  const dailyTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const date of weekDates) {
+      totals[date] = 0;
+    }
+    for (const outlet of outlets) {
+      for (const product of outlet.products) {
+        for (const date of weekDates) {
+          const key = `${outlet.outletId}_${date}_${product.menuProductId}`;
+          const cell = plans[key];
+          if (cell && !cell.isStockOut) {
+            totals[date] += cell.plannedQty;
+          }
+        }
+      }
+    }
+    return totals;
+  }, [weekDates, outlets, plans]);
+
+  const grandTotal = useMemo(
+    () => Object.values(dailyTotals).reduce((sum, v) => sum + v, 0),
+    [dailyTotals]
+  );
+
+  // Compute day statuses (draft/confirmed/submitted) by checking all plans for each day
+  const dayStatuses = useMemo(() => {
+    const statuses: Record<string, 'draft' | 'confirmed' | 'submitted'> = {};
+    for (const date of weekDates) {
+      let hasDraft = false;
+      let hasConfirmed = false;
+      let hasSubmitted = false;
+      let hasAnyPlan = false;
+
+      for (const outlet of outlets) {
+        for (const product of outlet.products) {
+          const key = `${outlet.outletId}_${date}_${product.menuProductId}`;
+          const cell = plans[key];
+          if (cell && cell.plannedQty > 0) {
+            hasAnyPlan = true;
+            if (cell.status === 'submitted') hasSubmitted = true;
+            else if (cell.status === 'confirmed') hasConfirmed = true;
+            else hasDraft = true;
+          }
+        }
+      }
+
+      if (hasSubmitted && !hasDraft && !hasConfirmed) {
+        statuses[date] = 'submitted';
+      } else if (hasConfirmed && !hasDraft) {
+        statuses[date] = 'confirmed';
+      } else {
+        statuses[date] = hasAnyPlan ? 'draft' : 'draft';
+      }
+    }
+    return statuses;
+  }, [weekDates, outlets, plans]);
+
+  // Track which confirmed days have been locally edited (for "Update Kitchen" button)
+  const hasEditsForDay = useMemo(() => {
+    const result: Record<string, boolean> = {};
+    for (const date of weekDates) {
+      result[date] = editedDays.has(date) && dayStatuses[date] === 'confirmed';
+    }
+    return result;
+  }, [weekDates, editedDays, dayStatuses]);
+
+  // Build enriched date info for header
+  const dateInfos = useMemo(
+    () =>
+      weekDates.map((date) => {
+        const d = new Date(date + 'T00:00:00+07:00');
+        const dayOfWeek = d.getDay();
         return {
           date,
-          outletId,
-          menuProductId: activeProduct.menuProductId,
-          externalProductCode: activeProduct.externalProductCode,
-          plannedQty,
-          suggestedQty: plan.suggestedQty,
-          isStockOut: plan.isStockOut,
+          dayName: d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Asia/Jakarta' }),
+          dateLabel: d.toLocaleDateString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            timeZone: 'Asia/Jakarta',
+          }),
+          dayType: getDayType(date),
+          eventName: getEventName(date),
+          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isToday: date === todayStr,
         };
-      });
+      }),
+    [weekDates, todayStr]
+  );
 
-      await onSavePlan(changes);
-      setLocalChanges(new Map()); // Clear local changes on success
-    } catch (error) {
-      console.error('Failed to save plan:', error);
-      // Keep local changes on error so user can retry
-    } finally {
-      setIsSaving(false);
+  // Compute base row index for each outlet (for keyboard navigation)
+  const outletBaseRowIndices = useMemo(() => {
+    const indices: number[] = [];
+    let rowIndex = 0;
+    for (const outlet of outlets) {
+      indices.push(rowIndex);
+      rowIndex += outlet.products.length;
     }
-  }, [activeProduct, localChanges, plans, onSavePlan]);
-
-  // Confirm tomorrow handler
-  const handleConfirmTomorrow = useCallback(async () => {
-    setIsConfirming(true);
-    try {
-      await onConfirmTomorrow();
-    } catch (error) {
-      console.error('Failed to confirm tomorrow:', error);
-    } finally {
-      setIsConfirming(false);
-    }
-  }, [onConfirmTomorrow]);
-
-  // Submit today handler
-  const handleSubmitToday = useCallback(async () => {
-    setIsSubmitting(true);
-    try {
-      await onSubmitToday();
-    } catch (error) {
-      console.error('Failed to submit today:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [onSubmitToday]);
-
-  // Compute action bar state for active product
-  const actionBarState = useMemo(() => {
-    if (!activeProduct) {
-      return {
-        canConfirmTomorrow: false,
-        canSubmitToday: false,
-        confirmedOutletCount: 0,
-        totalOutletCount: outlets.length,
-      };
-    }
-
-    let tomorrowDrafts = 0;
-    let todayConfirmed = 0;
-
-    outlets.forEach((outlet) => {
-      // Check tomorrow's plan status
-      const tomorrowKey = `${outlet.outletId}_${tomorrow}_${activeProduct.menuProductId}`;
-      const tomorrowPlan = plans[tomorrowKey];
-      if (tomorrowPlan && tomorrowPlan.status === 'draft') {
-        tomorrowDrafts++;
-      }
-
-      // Check today's plan status
-      const todayKey = `${outlet.outletId}_${today}_${activeProduct.menuProductId}`;
-      const todayPlan = plans[todayKey];
-      if (todayPlan && todayPlan.status === 'confirmed') {
-        todayConfirmed++;
-      }
-    });
-
-    return {
-      canConfirmTomorrow: tomorrowDrafts > 0,
-      canSubmitToday: todayConfirmed > 0,
-      confirmedOutletCount: todayConfirmed,
-      totalOutletCount: outlets.length,
-    };
-  }, [activeProduct, outlets, plans, today, tomorrow]);
+    return indices;
+  }, [outlets]);
 
   // Loading state
   if (isLoading) {
     return (
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        {/* Skeleton tabs */}
-        <div className="flex gap-2 p-4 border-b bg-muted/30">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-8 w-24" />
-          ))}
-        </div>
-
-        {/* Skeleton header */}
-        <div className="flex border-b-2">
-          <Skeleton className="h-12 w-[120px]" />
-          <div className="flex flex-1 gap-px">
-            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <Skeleton key={i} className="h-12 flex-1" />
-            ))}
-          </div>
-        </div>
-
-        {/* Skeleton rows */}
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
-          <div key={row} className="flex border-b">
-            <Skeleton className="h-16 w-[120px]" />
-            <div className="flex flex-1 gap-px">
-              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
-                <Skeleton key={col} className="h-16 flex-1" />
-              ))}
-            </div>
-          </div>
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-12 w-full" />
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-20 w-full" />
         ))}
-
-        {/* Skeleton action bar */}
-        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-16 w-full" />
       </div>
     );
   }
 
-  // No products state
-  if (products.length === 0) {
+  // No data state
+  if (outlets.length === 0) {
     return (
       <div className="rounded-xl border bg-card shadow-sm p-8 text-center text-muted-foreground">
-        No products available for planning
+        No outlets available for planning. Configure outlets in K3Mart settings.
       </div>
     );
   }
-
-  // No active product (should not happen)
-  if (!activeProduct) {
-    return null;
-  }
-
-  // Build row data for active product
-  const rowsData = outlets.map((outlet, rowIndex) => {
-    const cells = dates.map((dateInfo) => {
-      const localKey = `${outlet.outletId}_${dateInfo.date}`;
-      const fullKey = `${outlet.outletId}_${dateInfo.date}_${activeProduct.menuProductId}`;
-      const plan = plans[fullKey] || { value: 0, suggestedQty: 0, isStockOut: false };
-
-      // Value: local change if exists, otherwise plan value
-      const value = localChanges.has(localKey) ? localChanges.get(localKey)! : plan.value;
-
-      // Editable: only if canAct and status is draft or undefined
-      const isEditable = canAct && (!plan.status || plan.status === 'draft');
-
-      return {
-        date: dateInfo.date,
-        value,
-        suggestedQty: plan.suggestedQty,
-        isStockOut: plan.isStockOut,
-        status: plan.status,
-        isWeekend: dateInfo.isWeekend,
-        isHoliday: dateInfo.isHoliday,
-        isEditable,
-      };
-    });
-
-    return {
-      outletId: outlet.outletId,
-      outletName: outlet.outletName,
-      rowIndex,
-      cells,
-    };
-  });
-
-  // Today/tomorrow labels for action bar
-  const todayDate = dates.find((d) => d.isToday);
-  const tomorrowDate = dates.find((d) => d.isTomorrow);
-  const todayLabel = todayDate ? todayDate.dateLabel : today;
-  const tomorrowLabel = tomorrowDate ? tomorrowDate.dateLabel : tomorrow;
 
   return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-      {/* Product Tabs */}
-      <div className="flex gap-1 p-3 border-b bg-muted/30 overflow-x-auto">
-        {products.map((product) => {
-          const isActive = product.menuProductId === activeProductId;
-          return (
-            <button
-              key={product.menuProductId}
-              onClick={() => {
-                setActiveProductId(product.menuProductId);
-                setLocalChanges(new Map()); // Clear local changes when switching products
-              }}
-              className={cn(
-                'px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap',
-                'border-b-2',
-                isActive
-                  ? 'border-amber-500 text-gray-900 font-bold bg-white shadow-sm'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-              )}
-            >
-              {product.productName}
-            </button>
-          );
-        })}
-      </div>
+      {/* Week Navigator */}
+      <WeekNavigator
+        weekNumber={currentWeekNumber}
+        weekDates={weekDates}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onToday={handleToday}
+        isCurrentWeek={isCurrentWeek}
+      />
 
       {/* Grid Area */}
-      <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+      <div className="overflow-x-auto">
         <div className="min-w-[800px]">
-          {/* Header */}
-          <PlannerGridHeader dates={dates} />
+          {/* Header with 3-row day columns + per-day confirm buttons */}
+          <PlannerGridHeader
+            weekDates={weekDates}
+            dateInfos={dateInfos}
+            dayStatuses={dayStatuses}
+            onConfirmDay={handleConfirmDay}
+            hasEditsForDay={hasEditsForDay}
+          />
 
           {/* Outlet Rows */}
-          {rowsData.map((row) => (
+          {outlets.map((outlet, outletIndex) => (
             <OutletPlannerRow
-              key={row.outletId}
-              outletName={row.outletName}
-              outletId={row.outletId}
-              rowIndex={row.rowIndex}
-              cells={row.cells}
-              onCellChange={handleCellChange}
+              key={outlet.outletId as string}
+              outletId={outlet.outletId as string}
+              outletName={outlet.outletName}
+              products={outlet.products}
+              weekDates={weekDates}
+              plans={plans}
+              canAct={canAct}
+              baseRowIndex={outletBaseRowIndices[outletIndex]}
+              onSaveCell={handleSaveCell}
+              onDirty={handleDirty}
             />
           ))}
         </div>
       </div>
 
-      {/* Action Bar */}
-      {canAct && (
-        <PlannerActionBar
-          hasUnsavedChanges={hasUnsavedChanges}
-          todayLabel={todayLabel}
-          tomorrowLabel={tomorrowLabel}
-          canConfirmTomorrow={actionBarState.canConfirmTomorrow}
-          canSubmitToday={actionBarState.canSubmitToday}
-          confirmedOutletCount={actionBarState.confirmedOutletCount}
-          totalOutletCount={actionBarState.totalOutletCount}
-          onSavePlan={handleSave}
-          onConfirmTomorrow={handleConfirmTomorrow}
-          onSubmitToday={handleSubmitToday}
-          isSaving={isSaving}
-          isConfirming={isConfirming}
-          isSubmitting={isSubmitting}
-        />
-      )}
+      {/* Action Bar with Copy Last Week + Grand Totals */}
+      <PlannerActionBar
+        onCopyLastWeek={handleCopyLastWeek}
+        hasPreviousWeek={hasPreviousWeek}
+        dailyTotals={dailyTotals}
+        grandTotal={grandTotal}
+        weekDates={weekDates}
+      />
     </div>
   );
 }
