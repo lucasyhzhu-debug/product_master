@@ -45,7 +45,7 @@ interface OrderSlideOverProps {
   orderId: Id<"orders"> | null;
   open: boolean;
   onClose: () => void;
-  autoShowWhatsApp?: boolean;
+  autoShowWhatsApp?: boolean; // Deprecated: kept for backward compatibility
 }
 
 // ============================================

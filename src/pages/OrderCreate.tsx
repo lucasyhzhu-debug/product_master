@@ -236,7 +236,7 @@ export function OrderCreate() {
           userId: user?.userId as Id<"users"> | undefined,
         });
         toast.success('Order submitted');
-        navigate(`/orders?whatsapp=${draftOrderId}`);
+        navigate(`/orders?open=${draftOrderId}`);
         return;
       }
 
@@ -273,8 +273,8 @@ export function OrderCreate() {
       });
 
       toast.success('Order submitted');
-      // Navigate with whatsapp param to auto-open WhatsApp modal
-      navigate(`/orders?whatsapp=${orderIdTyped}`);
+      // Navigate with open param to auto-open slide-over for the new order
+      navigate(`/orders?open=${orderIdTyped}`);
     } catch (error) {
       console.error('Failed to submit order:', error);
       const message = error instanceof Error ? error.message : 'Failed to submit order';

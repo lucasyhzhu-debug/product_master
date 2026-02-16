@@ -20,14 +20,12 @@ export function OrderManager() {
   const [searchParams, setSearchParams] = useSearchParams();
   const kanbanData = useKanbanOrders();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [autoWhatsApp, setAutoWhatsApp] = useState(false);
 
-  // Auto-open slide-over with WhatsApp from query param (after order submit)
+  // Auto-open slide-over from query param (after order submit)
   useEffect(() => {
-    const whatsappOrderId = searchParams.get('whatsapp');
-    if (whatsappOrderId) {
-      setSelectedOrderId(whatsappOrderId);
-      setAutoWhatsApp(true);
+    const openOrderId = searchParams.get('open');
+    if (openOrderId) {
+      setSelectedOrderId(openOrderId);
       // Clear the query param
       setSearchParams({}, { replace: true });
     }
@@ -39,7 +37,6 @@ export function OrderManager() {
 
   const handleCloseSlideOver = () => {
     setSelectedOrderId(null);
-    setAutoWhatsApp(false);
   };
 
   return (
@@ -70,7 +67,7 @@ export function OrderManager() {
         orderId={selectedOrderId as Id<"orders"> | null}
         open={selectedOrderId !== null}
         onClose={handleCloseSlideOver}
-        autoShowWhatsApp={autoWhatsApp}
+        autoShowWhatsApp={false}
       />
     </div>
   );
