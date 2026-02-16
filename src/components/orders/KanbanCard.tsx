@@ -102,50 +102,53 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
       onClick={() => onCardClick(order._id)}
     >
       <CardContent className="p-3 space-y-2">
-        {/* Top row: Customer + Order # + Expedited badge */}
+        {/* Header: Customer name + price, order by + discount */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sm truncate">{order.customerName}</p>
-            <p className="font-mono text-xs text-muted-foreground">{order.orderNumber}</p>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-mono">{order.orderNumber}</span>
+              {order.creatorName && <span> &middot; by {order.creatorName}</span>}
+            </p>
           </div>
-          {isExpedited && (
-            <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] flex-shrink-0">
-              EXPEDITED
-            </Badge>
-          )}
+          <div className="text-right flex-shrink-0">
+            <p className="text-base font-bold text-brand">
+              {formatCurrency(discountedTotal)}
+            </p>
+            {discount > 0 && (
+              <div className="flex items-center justify-end gap-1.5">
+                <Badge variant="secondary" className="text-[10px] text-orange-600 px-1">
+                  -{formatCurrency(discount)}
+                </Badge>
+                <span className="text-[11px] text-muted-foreground line-through">
+                  {formatCurrency(order.totalAmount)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Due date with urgency coloring */}
-        {dueDateStr && (
-          <div>
-            <Badge
-              variant="outline"
-              className={`text-xs ${URGENCY_BADGE_CLASSES[urgency]}`}
-            >
-              {dueDateStr}
-              {urgency === 'overdue' && ' (overdue)'}
-            </Badge>
+        {/* Due date + expedited badge */}
+        {(dueDateStr || isExpedited) && (
+          <div className="flex items-center gap-1.5">
+            {dueDateStr && (
+              <Badge
+                variant="outline"
+                className={`text-xs ${URGENCY_BADGE_CLASSES[urgency]}`}
+              >
+                {dueDateStr}
+                {urgency === 'overdue' && ' (overdue)'}
+              </Badge>
+            )}
+            {isExpedited && (
+              <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
+                EXPEDITED
+              </Badge>
+            )}
           </div>
         )}
 
-        {/* Price row */}
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-bold text-brand">
-            {formatCurrency(discountedTotal)}
-          </span>
-          {discount > 0 && (
-            <>
-              <Badge variant="secondary" className="text-[10px] text-orange-600">
-                -{formatCurrency(discount)}
-              </Badge>
-              <span className="text-xs text-muted-foreground line-through">
-                {formatCurrency(order.totalAmount)}
-              </span>
-            </>
-          )}
-        </div>
-
-        {/* Items section - all line items, no truncation */}
+        {/* Items section */}
         <div className="space-y-0.5">
           {order.items.map((item) => (
             <p key={item._id} className="text-xs text-muted-foreground">
@@ -154,11 +157,6 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
             </p>
           ))}
         </div>
-
-        {/* Footer: creator */}
-        <p className="text-[11px] text-muted-foreground/60">
-          by {order.creatorName}
-        </p>
       </CardContent>
     </Card>
   );
