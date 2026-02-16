@@ -78,7 +78,7 @@ export const ProductionReadinessBar = React.memo(function ProductionReadinessBar
               {/* Product name and deficit */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900 truncate block">
+                  <span className="text-sm font-medium text-foreground truncate block">
                     {item.productName}
                   </span>
                 </div>
@@ -100,13 +100,13 @@ export const ProductionReadinessBar = React.memo(function ProductionReadinessBar
 
               {/* Progress bar */}
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
                   <div
                     className={cn('h-full transition-all duration-300', barColor)}
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-                <span className="text-xs text-gray-600 tabular-nums shrink-0">
+                <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                   {item.stickeredCount} / {item.plannedTotal} stickered
                 </span>
               </div>

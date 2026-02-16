@@ -121,7 +121,7 @@ export function StockFlowConfirmDialog({
             {data.note && (
               <>
                 <span className="text-muted-foreground">Note</span>
-                <span className="text-gray-600 italic">{data.note}</span>
+                <span className="text-muted-foreground italic">{data.note}</span>
               </>
             )}
           </div>

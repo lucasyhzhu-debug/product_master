@@ -45,7 +45,7 @@ const STATUS_ICONS = {
 };
 
 const STATUS_COLORS = {
-  pending: 'text-gray-400',
+  pending: 'text-muted-foreground/70',
   submitting: 'text-amber-600',
   success: 'text-green-600',
   failed: 'text-red-600',
@@ -102,7 +102,7 @@ export const BulkSubmitDialog = React.memo(function BulkSubmitDialog({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: index * 0.05 }}
-                  className="flex items-start gap-2 p-2 rounded-lg bg-gray-50"
+                  className="flex items-start gap-2 p-2 rounded-lg bg-muted"
                 >
                   {/* Icon */}
                   <div className="shrink-0 pt-0.5">
@@ -115,7 +115,7 @@ export const BulkSubmitDialog = React.memo(function BulkSubmitDialog({
 
                   {/* Outlet name and error message */}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">
+                    <div className="text-sm font-medium text-foreground truncate">
                       {outlet.outletName}
                     </div>
                     {result?.error && (

@@ -78,15 +78,15 @@ export const ExpandedOutletPanel = React.memo(function ExpandedOutletPanel({
       transition={{ duration: 0.2, ease: 'easeInOut' }}
       className="overflow-hidden"
     >
-      <div className="bg-white border-t border-gray-100">
+      <div className="bg-card border-t border-border">
         {/* Section 1: Stock Detail - Always visible */}
-        <div className="border-b border-gray-100">
+        <div className="border-b border-border">
           <OutletStockDetail products={products} outletName={outletName} />
         </div>
 
         {/* Section 2: Stock Flow Form - Only for users with canAct permission */}
         {canAct && (
-          <div className="border-b border-gray-100">
+          <div className="border-b border-border">
             <StockFlowForm
               outletId={outletId}
               outletName={outletName}

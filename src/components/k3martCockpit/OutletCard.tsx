@@ -34,7 +34,7 @@ interface OutletCardProps {
 }
 
 const PLAN_STATUS_CONFIG = {
-  no_plan: { label: 'No Plan', bg: 'bg-gray-100', text: 'text-gray-500' },
+  no_plan: { label: 'No Plan', bg: 'bg-muted', text: 'text-muted-foreground' },
   draft: { label: 'Draft', bg: 'bg-amber-100', text: 'text-amber-700' },
   confirmed: { label: 'Confirmed', bg: 'bg-blue-100', text: 'text-blue-700' },
   submitted: { label: 'Submitted', bg: 'bg-green-100', text: 'text-green-700' },
