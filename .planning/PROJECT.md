@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Shipped v1.0 cleanup milestone resolving 41 concerns across security, performance, schema, testing, UI brand, and factories.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Now with Kanban order management, kitchen production targets, multi-platform API integration (GoBiz/GoFood), and K3Mart outlet dispatch planning.
 
 ## Core Value
 
@@ -37,19 +37,26 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ Production counts consolidated to productionLog as single source of truth — v1.0
 - ✓ Automated weekly integrity checks for production data — v1.0
 - ✓ Dependency audit with 6 safe upgrades applied — v1.0
+- ✓ GoBiz token auto-refresh cron (30-min), Crystal+Goldfinch dual-outlet sync, sync health monitoring — v1.1
+- ✓ Unified product mapping: auto-match by type across GoFood+K3Mart, admin-editable — v1.1
+- ✓ Dashboard sync health alerts for stale API connections — v1.1
+- ✓ API integration reference documentation (GoBiz, GoFood, K3Mart) — v1.1
+- ✓ Kanban board order management with 7-status model (Draft→Complete) — v1.1
+- ✓ Dedicated order creation page with customer-first layout, due date pills — v1.1
+- ✓ Order audit trail: every status change records who/when — v1.1
+- ✓ Draft order lifecycle with auto-save and edit-from-Kanban — v1.1
+- ✓ Kitchen dashboard header: min/max targets, remaining balls, orders left — v1.1
+- ✓ Due-date grouped kitchen orders with per-item production checklists — v1.1
+- ✓ K3Mart synthetic demand in kitchen (auto from dispatch plans) — v1.1
+- ✓ Manager inventory override with reason logging — v1.1
+- ✓ K3Mart cockpit: outlet-first weekly planner with holiday awareness — v1.1
+- ✓ Stock rotation shortcuts and manual stock in/out for K3Mart — v1.1
+- ✓ Dispatch-to-kitchen pipeline (confirmDayPlan → production targets) — v1.1
+- ✓ Sales analytics: Recharts, platform stacked charts, hourly/daily/weekly/monthly — v1.1
 
 ### Active
 
-## Current Milestone: v1.1 "Stabilization & QoL"
-
-**Goal:** Stabilize production workflows, integrate external APIs with auto-auth, and improve daily UX for kitchen staff, order managers, and K3Mart operators.
-
-**Target features:**
-- API audit & auto-auth architecture for GoBiz/GoFood
-- Order UX improvements (layout, audit trail, date handling)
-- Kitchen overhaul (due dates, targets, inventory fixes)
-- K3Mart cockpit completion (manual stock, demand push, weekly planning)
-- GoFood API integrations (Crystal outlet, token refresh, product mapping)
+(Next milestone requirements to be defined via `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -57,29 +64,36 @@ Production reliability — the system is the single source of truth for recipes,
 - Moving to HTTP-only cookies or Convex Auth — token-in-args pattern acceptable for internal tool
 - Error monitoring integration (Sentry/LogRocket) — separate initiative
 - Archival strategy for old orders — separate initiative after backup automation is in place
+- GoBiz programmatic login (password grant) — API blocks non-browser clients; manual paste + refresh cron sufficient
+- Full GoFood POS integration (accept orders) — requires GoFood Facilitator Model partnership; massive scope for 2 outlets
+- GoBiz official OAuth2 migration — GoBiz stopped issuing new client credentials (Phase 16.1 dropped)
+- Mobile app (React Native) — responsive web design covers kitchen mobile use
+- Multi-language i18n — all users are Indonesian staff comfortable with English UI
 
 ## Context
 
-Shipped v1.0 with 92,416 lines of TypeScript across 37 Convex tables.
-Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui.
+Shipped v1.1 with ~100k lines of TypeScript across 59 Convex tables.
+Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
 Deployed via Vercel with GitHub Actions CI.
 
-**Current state after v1.0:**
-- All 41 codebase concerns resolved or explicitly accepted
-- Test coverage: ball distribution (25 tests), FIFO inventory (20 tests), order lifecycle (30 tests), vouchers (15 tests), plus existing status transitions (51 tests)
-- Schema: 37 tables, all optional fields audited, denormalization documented
-- UI: 19 pages unified under teal brand with dark mode, skeleton screens, mobile-first layout
-- Frontend: EntityManager factory covers 5 simple CRUD entities; createMutationHook factory for typed hooks
-- Backend: protectedMutation wrappers on simple entities; query helpers for list/getById/textSearch
-- Performance: cursor pagination, indexed kitchen queries, cached COGS
-- Infrastructure: weekly integrity checks, dependency audit complete
+**Current state after v1.1:**
+- 29/29 v1.1 requirements satisfied, all integration paths verified
+- Order management: 7-status Kanban model with audit trail, draft lifecycle, dedicated creation page
+- Kitchen: dashboard header with production targets, due-date order grouping, K3Mart synthetic demand
+- K3Mart: outlet-first weekly planner, holiday awareness, stock rotation, dispatch-to-kitchen pipeline
+- API: GoBiz auto-refresh cron, dual-outlet GoFood sync, sync health monitoring, unified product mapping
+- Sales analytics: Recharts with platform-colored stacked charts, hourly granularity
+- Schema: 59 tables (expanded from 37 with kitchenConfig, orderEvents, platformCredentials, etc.)
+- UI: 26 pages under teal brand with dark mode
 
 **Known technical debt:**
-- K3 Mart cockpit queries are placeholder stubs (K3MART-01 through K3MART-06)
 - E2E Playwright tests not yet written
-- Generic query factory not applied to all 31 query files (only simple entities)
+- Generic query factory not applied to all query files (only simple entities)
 - protectedMutation not applied to complex entities (orders, recipes, products)
-- `useConvex` prefix not removed from hook names (cosmetic, deferred)
+- `useConvex` prefix not removed from hook names (cosmetic)
+- 1.8MB JS bundle size triggers Vite warning
+- Partial dark mode coverage in some K3Mart components
+- 27 deferred requirements tracked in v1.1 REQUIREMENTS archive
 
 ## Constraints
 
@@ -104,6 +118,12 @@ Deployed via Vercel with GitHub Actions CI.
 | BOM strangler fig migration | Gradual migration avoids breaking existing orders | ✓ Good — dual-read pattern worked cleanly |
 | isKitchenVisible denormalization | Avoids multi-status loop in kitchen queries | ✓ Good — significant query simplification |
 | Eager COGS caching on unitCost | Avoids recalculating on every product list view | ✓ Good — stale badge for transparency |
+| 7-status Kanban model | 12+ statuses too complex; 7 covers all real workflows | ✓ Good — simpler schema, cleaner UI, audit trail built-in |
+| GoBiz manual paste + cron refresh | Password grant blocked by API; refresh token keeps session alive | ✓ Good — 30-min cron works reliably |
+| Outlet-first K3Mart calendar | Users think in outlets, not products across outlets | ✓ Good — natural workflow for dispatch planning |
+| Kitchen dashboard above existing panels | Kitchen staff need both metrics and batch production | ✓ Good — non-disruptive addition to proven V2 layout |
+| Unified product mapping by type | GoFood prices differ from internal; match by type not price | ✓ Good — auto-match + admin-editable covers all platforms |
+| Drop Phase 16.1 GoBiz OAuth2 | GoBiz stopped issuing new client credentials | — Accepted — unofficial integration maintained |
 
 ---
-*Last updated: 2026-02-15 after v1.0 milestone*
+*Last updated: 2026-02-16 after v1.1 milestone*

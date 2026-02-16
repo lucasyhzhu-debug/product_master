@@ -20,3 +20,26 @@
 
 ---
 
+
+## v1.1 Stabilization & QoL (Shipped: 2026-02-16)
+
+**Phases completed:** 6 phases (12-16, including 14.1 inserted), 27 plans, 49 tasks
+**Timeline:** 2 days (2026-02-15 to 2026-02-16)
+**Execution time:** ~3.3 hours (197 minutes across 27 plans)
+**Commits:** 133 | **Files changed:** 129 | **Lines:** +12,127 / -4,615 (net +7,512)
+**Requirements:** 29/29 satisfied | **Audit:** PASSED (all integration paths verified)
+
+**Key accomplishments:**
+1. Multi-platform API integration with auto-auth — GoBiz token auto-refresh cron, Crystal+Goldfinch dual-outlet sync, sync health monitoring, unified product mapping
+2. Order management Kanban overhaul — 12+ statuses simplified to 7, horizontal-scroll Kanban board, dedicated creation page, audit trail on every status change
+3. Draft order lifecycle — Persistent drafts with auto-save, edit-from-Kanban, incremental updates preserving vouchers
+4. Kitchen dashboard with production targets — 4-stat sticky header, due-date grouped orders with checklists, K3Mart synthetic demand cards, manager inventory override
+5. K3Mart cockpit completion — Outlet-first weekly planner with auto-suggest, holiday awareness, stock rotation shortcuts, dispatch-to-kitchen pipeline
+6. Sales analytics command center — Recharts integration, platform-colored stacked charts, daily/weekly/monthly granularity with drill-down
+
+**Delivered:** Stabilized production workflows with external API auto-auth (GoBiz/GoFood), overhauled order management to Kanban with 7-status model, added kitchen production targets with due-date grouping and K3Mart demand integration, and completed the K3Mart cockpit with outlet-first weekly planning and dispatch-to-kitchen pipeline. Build passes, 29/29 requirements satisfied, zero critical gaps.
+
+**Dropped:** Phase 16.1 (GoBiz OpenAPI Audit) — GoBiz stopped issuing new OAuth2 client credentials; current unofficial integration maintained.
+
+---
+

@@ -2,142 +2,44 @@
 
 ## Milestones
 
-- **v1.0 Concerns Cleanup & Refactor** -- Phases 1-11 (shipped 2026-02-15)
-- **v1.1 Stabilization & QoL** -- Phases 12-16 (in progress)
+- ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
+- ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 
 ## Phases
 
 <details>
-<summary>v1.0 Concerns Cleanup & Refactor (Phases 1-11) -- SHIPPED 2026-02-15</summary>
+<summary>✅ v1.0 Concerns Cleanup & Refactor (Phases 1-11) — SHIPPED 2026-02-15</summary>
 
-- [x] Phase 1: Test Infrastructure (4/4 plans) -- completed 2026-02-13
-- [x] Phase 2: Quick Fixes -- Security & Docs (2/2 plans) -- completed 2026-02-13
-- [x] Phase 3: Quick Fixes -- Tech Debt (4/4 plans) -- completed 2026-02-13
-- [x] Phase 4: Quick Fixes -- Bugs (2/2 plans) -- completed 2026-02-13
-- [x] Phase 5: Backend Factories (3/3 plans) -- completed 2026-02-13
-- [x] Phase 6: BOM Migration (3/3 plans) -- completed 2026-02-14
-- [x] Phase 7: Query Optimization (3/3 plans) -- completed 2026-02-14
-- [x] Phase 8: Schema Cleanup (4/4 plans) -- completed 2026-02-14
-- [x] Phase 9: UI Brand Consolidation (5/5 plans) -- completed 2026-02-14
-- [x] Phase 10: Frontend Factories (3/3 plans) -- completed 2026-02-14
-- [x] Phase 11: Infrastructure & Consolidation (3/3 plans) -- completed 2026-02-14
+- [x] Phase 1: Test Infrastructure (4/4 plans) — completed 2026-02-13
+- [x] Phase 2: Quick Fixes — Security & Docs (2/2 plans) — completed 2026-02-13
+- [x] Phase 3: Quick Fixes — Tech Debt (4/4 plans) — completed 2026-02-13
+- [x] Phase 4: Quick Fixes — Bugs (2/2 plans) — completed 2026-02-13
+- [x] Phase 5: Backend Factories (3/3 plans) — completed 2026-02-13
+- [x] Phase 6: BOM Migration (3/3 plans) — completed 2026-02-14
+- [x] Phase 7: Query Optimization (3/3 plans) — completed 2026-02-14
+- [x] Phase 8: Schema Cleanup (4/4 plans) — completed 2026-02-14
+- [x] Phase 9: UI Brand Consolidation (5/5 plans) — completed 2026-02-14
+- [x] Phase 10: Frontend Factories (3/3 plans) — completed 2026-02-14
+- [x] Phase 11: Infrastructure & Consolidation (3/3 plans) — completed 2026-02-14
 
 Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
-### v1.1 Stabilization & QoL (In Progress)
+<details>
+<summary>✅ v1.1 Stabilization & QoL (Phases 12-16) — SHIPPED 2026-02-16</summary>
 
-**Milestone Goal:** Stabilize production workflows, integrate external APIs with auto-auth, and improve daily UX for kitchen staff, order managers, and K3Mart operators.
+- [x] Phase 12: UI Brand Verification (1/1 plan) — completed 2026-02-15
+- [x] Phase 13: API Audit & Auth Architecture (5/5 plans) — completed 2026-02-15
+- [x] Phase 14: Order QoL (8/8 plans) — completed 2026-02-16
+- [x] Phase 14.1: Draft Order Update (3/3 plans) — completed 2026-02-16
+- [x] Phase 15: Kitchen Overhaul (4/4 plans) — completed 2026-02-16
+- [x] Phase 16: K3Mart Cockpit (6/6 plans) — completed 2026-02-16
+- ~~Phase 16.1: GoBiz OpenAPI Audit~~ — DROPPED (GoBiz stopped issuing OAuth2 keys)
 
-**Research note:** All phases flagged as "skip research-phase" -- internal system with complete codebase access, all patterns proven in v1.0, no external research needed. Use `/gsd:plan-phase` directly.
+Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
-- [x] **Phase 12: UI Brand Verification** - Verify brand reference doc covers v1.1 new pages
-- [x] **Phase 13: API Audit & Auth Architecture** - External API integration with token management, sync health, and multi-outlet support
-- [x] **Phase 14: Order QoL** - Order management UX overhaul with Kanban board, simplified statuses, and audit trail
-- [x] **Phase 15: Kitchen Overhaul** - Kitchen dashboard with production targets, due-date ranking, and K3Mart demand integration
-- [x] **Phase 16: K3Mart Cockpit** - Complete cockpit with outlet-first weekly planning, holiday awareness, and demand push to kitchen
-- [ ] **Phase 16.1: GoBiz OpenAPI Audit & Migration** - Crawl official GoBiz docs, audit current integration, migrate to official APIs, update documentation (INSERTED)
-
-## Phase Details
-
-### Phase 12: UI Brand Verification
-**Goal**: New v1.1 pages (Kanban board, kitchen dashboard header, outlet calendar) follow established teal brand, Inter typography, and dark mode patterns
-**Depends on**: Nothing (verification of existing brand doc)
-**Requirements**: UIB-01
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. Brand reference doc (`docs/UI_BRAND_REFERENCE.md`) is reviewed and confirmed current for v1.1 scope
-  2. Brand doc includes guidance for new UI patterns introduced in v1.1 (Kanban columns, dashboard summary headers, calendar grids)
-**Plans**: 1 plan
-- [ ] 12-01-PLAN.md -- Audit brand doc and add v1.1 component patterns (Kanban, dashboard header, calendar grid)
-
-### Phase 13: API Audit & Auth Architecture
-**Goal**: Admin can monitor platform health, GoBiz token stays alive automatically, Crystal outlet syncs revenue, and all API integrations are documented
-**Depends on**: Phase 12
-**Requirements**: API-01, API-02, API-03, API-04, API-05, API-06
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. Admin sees token health and last-sync status for K3Mart and GoBiz on the Sales Analytics settings page
-  2. GoBiz token auto-refreshes via cron every 30 minutes; manual re-paste only needed if refresh chain breaks
-  3. Dashboard shows a sync health alert when GoFood or K3Mart sync fails for 6+ hours
-  4. GoFood revenue syncs from both Crystal (G347061572) and Goldfinch (G293156297) outlets
-  5. Unified product mapping system auto-matches external products to internal menuProducts by type (Original→Original, Triple→Triple, Jumbo→Jumbo) independent of price differences; admin can edit/add/delete mappings via UI; covers GoFood and K3Mart
-  6. All external API integrations documented with SOPs, automation status, and refresh token flow in docs/apiS/
-**Plans**: 5 plans
-- [ ] 13-01-PLAN.md -- Backend: multi-outlet GoBiz sync, token auto-refresh cron, sync health queries
-- [ ] 13-02-PLAN.md -- API documentation: comprehensive integration reference
-- [ ] 13-03-PLAN.md -- Integration settings dashboard with health monitoring and token management UX
-- [ ] 13-04-PLAN.md -- Dashboard sync failure banner and product mapping UI
-- [ ] 13-05-PLAN.md -- Sales analytics enhancement: summary cards, charts, date ranges, drill-down
-
-### Phase 14: Order QoL
-**Goal**: Order staff can manage orders through a Kanban board, create orders in a dedicated form, and track every status change with an audit trail
-**Depends on**: Phase 13 (status simplification affects API sync references)
-**Requirements**: ORD-01, ORD-02, ORD-03, ORD-04, ORD-05, ORD-06, ORD-07, ORD-08
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. Order manager displays a horizontal-scrolling Kanban board with ~5-6 grouped columns (Awaiting Payment, Confirmed, In Kitchen, Waiting for Delivery, Complete)
-  2. Order creation is a separate page/section from the Kanban board, with customer name and phone at the top of the form
-  3. WaitingShipment/WaitingPickup merged into WaitingDelivery and CompleteShipped/PickedUp merged into Complete (schema migrated, all status references updated)
-  4. Due date input offers day-name quick-tap pills (Today, Tomorrow, Saturday, Sunday, Monday...) with manual date fallback
-  5. Order cards show discounted total prominently with discount amount and struck-through gross price, and every status change records who/when in a viewable audit trail
-**Plans**: 8 plans
-- [ ] 14-01-PLAN.md -- Schema migration + status engine rewrite (7 statuses, creator attribution, expedited flag)
-- [ ] 14-02-PLAN.md -- TDD: Status transition state machine tests + auto-entry logic
-- [ ] 14-03-PLAN.md -- Kanban backend queries + order lifecycle mutations (forward/backward/expedite/copy)
-- [ ] 14-04-PLAN.md -- Kanban board UI + order cards + slide-over panel + status action buttons
-- [ ] 14-05-PLAN.md -- Order creation page with customer search, due date pills, POS grid
-- [ ] 14-06-PLAN.md -- Audit trail timeline + kitchen view updates + documentation
-- [ ] 14-07-PLAN.md -- [GAP] Backend: creator name resolution, audit trail Draft event, auto-expedite
-- [ ] 14-08-PLAN.md -- [GAP] Frontend: stock override dialog, discount display, mobile responsive, delivery UX, WhatsApp trigger
-
-### Phase 14.1: draft orderupdate (INSERTED)
-
-**Goal:** Fix Draft order persistence and editing -- auto-create Draft on customer select, enable full Draft editing from Kanban, fix WhatsApp translation toggle
-**Depends on:** Phase 14
-**Plans:** 3 plans
-
-Plans:
-- [ ] 14.1-01-PLAN.md -- Backend: createDraft + updateDraft mutations, Draft column sort fix
-- [ ] 14.1-02-PLAN.md -- Frontend: Draft auto-save, Kanban Draft routing to edit form, WhatsApp language fix
-- [ ] 14.1-03-PLAN.md -- [GAP] Add Save as Draft button to persist changes without status transition
-
-### Phase 15: Kitchen Overhaul
-**Goal**: Kitchen staff see production targets, due-date-ranked orders, and K3Mart demand at a glance above the existing batch production panels
-**Depends on**: Phase 14 (uses simplified statuses from ORD-03)
-**Requirements**: KIT-01, KIT-02, KIT-03, KIT-04, KIT-05, KIT-06, KIT-07, KIT-08
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. New dashboard summary header appears above existing swipeable batch panels showing minimum target today, max production target, remaining balls needed, and orders left to complete
-  2. Minimum target auto-calculates from confirmed/in-production orders due today; max target defaults to 200 balls with manager-configurable composition; both targets are adjustable by manager
-  3. Kitchen orders are grouped by due-date headers ("Due Today", "Due Tomorrow", etc.) with per-item production checklists
-  4. K3Mart demand appears as a synthetic order in the kitchen view, auto-generated from confirmed K3Mart dispatch plans with manager-adjustable quantity
-  5. Manager can override "unavailable" inventory with a reason (manager role required)
-**Plans**: 4 plans
-- [x] 15-01-PLAN.md -- Backend: kitchenConfig schema, queries/mutations, sendBackToOrderDesk, extend getKitchenStats
-- [x] 15-02-PLAN.md -- Dashboard header components: DashboardHeader, StatCard, TargetConfigPopover
-- [x] 15-03-PLAN.md -- Due-date order list: KitchenOrderCard, checklist, K3MartSyntheticCard, DueDateOrderList
-- [x] 15-04-PLAN.md -- Wire into KitchenViewV2, inventory override, documentation, visual verification
-
-### Phase 16: K3Mart Cockpit
-**Goal**: Manager can plan weekly dispatches per outlet with holiday awareness, record manual stock movements, and push confirmed plans to kitchen
-**Depends on**: Phase 15 (KIT-06 receives demand from K3M-05)
-**Requirements**: K3M-01, K3M-02, K3M-03, K3M-04, K3M-05
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. All cockpit stub implementations (K3MART-01 through K3MART-06) show real data from backend queries
-  2. Weekly calendar view is outlet-first: select/tab an outlet, then see all products for that outlet across a 7-day grid
-  3. Holidays and weekends are visually highlighted in the weekly planning grid with adjusted suggested quantities
-  4. Manager can record manual stock in/out during the day without full dispatch planning
-  5. Confirmed dispatch plans automatically create/update synthetic kitchen orders (linked to KIT-06 in Phase 15)
-**Plans**: 6 plans
-- [x] 16-01-PLAN.md -- Backend: holiday system extension, outlet-first queries, copy-last-week, outlet settings
-- [x] 16-02-PLAN.md -- Weekly planner rewrite: outlet-first grid, week navigation, 3-row headers, auto-suggest, totals
-- [x] 16-03-PLAN.md -- Stock flow: rotation shortcut, confirmation dialog, movement history, outlet settings modal
-- [x] 16-04-PLAN.md -- Synthetic kitchen orders, BACKLOG stub resolution, documentation, visual verification
-- [x] 16-05-PLAN.md -- [GAP] Backend: fix confirmDayPlan re-confirm, product name resolution, default prices
-- [x] 16-06-PLAN.md -- [GAP] Frontend: layout reorder, collapsibility, past day greying, dark mode, product name display
+</details>
 
 ## Progress
 
@@ -155,31 +57,14 @@ Plans:
 | 10. Frontend Factories | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 12. UI Brand Verification | v1.1 | 1/1 | Complete | 2026-02-15 |
-| 13. API Audit & Auth Architecture | v1.1 | 5/5 | Complete | 2026-02-15 |
+| 13. API Audit & Auth | v1.1 | 5/5 | Complete | 2026-02-15 |
 | 14. Order QoL | v1.1 | 8/8 | Complete | 2026-02-16 |
+| 14.1. Draft Order Update | v1.1 | 3/3 | Complete | 2026-02-16 |
 | 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
-| 16.1 GoBiz OpenAPI Audit | v1.1 | 0/3 | Not Started | - |
+| ~~16.1. GoBiz OpenAPI~~ | v1.1 | — | Dropped | 2026-02-16 |
 
 ---
 *Roadmap created: 2026-02-13*
 *v1.0 shipped: 2026-02-15*
-*v1.1 roadmap added: 2026-02-15*
-
-### Phase 16.1: GoBiz OpenAPI Audit & Official API Migration (INSERTED)
-
-**Goal:** Crawl the official GoBiz developer portal (developer.gobiz.com), audit current integration against official APIs, create comprehensive Claude-first documentation, and produce a formal gap analysis mapping unofficial endpoints to official equivalents
-**Depends on:** Phase 16
-**Research**: Phase-specific research completed (official API is POS-focused, revenue queries have no official equivalent)
-**Success Criteria** (what must be TRUE):
-  1. All official GoBiz API sections documented in `docs/apiS/gobiz-official/` (12 files) with Claude-first structured markdown
-  2. Gap analysis document maps every current unofficial endpoint to its official equivalent (or lack thereof)
-  3. Every API doc has Integration Status header showing our Convex function mapping
-  4. INTEGRATION_REFERENCE.md points to official docs; old GoBiz docs noted as superseded
-  5. CHANGELOG.md updated with Phase 16.1 entry
-**Plans:** 3 plans
-
-Plans:
-- [ ] 16.1-01-PLAN.md -- Crawl developer.gobiz.com and create 12 API documentation files + download images
-- [ ] 16.1-02-PLAN.md -- Create gap analysis document and add Integration Status headers to all docs
-- [ ] 16.1-03-PLAN.md -- Update INTEGRATION_REFERENCE.md cross-references and CHANGELOG.md
+*v1.1 shipped: 2026-02-16*
