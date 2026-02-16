@@ -3,10 +3,10 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action, internalAction, internalMutation } from "../../_generated/server";
+import { action, internalAction } from "../../_generated/server";
 import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
-import { GOBIZ_CONFIG } from "./config";
+import { GOBIZ_CONFIG, GOBIZ_OUTLET_SEED } from "./config";
 import {
   wibDateToUtcRange,
   wibDateToUtcIsoRange,
@@ -19,7 +19,6 @@ import {
   getMerchantName,
   type JournalMetrics,
 } from "./helpers";
-import { GOBIZ_OUTLET_SEED } from "./config";
 
 type ActionCtx = {
   runQuery: (...args: any[]) => Promise<any>;
@@ -365,12 +364,13 @@ async function fetchAndSaveOrderDetails(
   newRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }>,
   accessToken: string,
   refreshToken: string | null
-): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number> }> {
+): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number>; productNames: string[] }> {
   let itemsSaved = 0;
   let ordersFetched = 0;
   const matchResults: Record<string, number> = {
     exact: 0, price_only: 0, name_only: 0, none: 0,
   };
+  const uniqueProductNames = new Set<string>();
 
   for (const { revenueId, orderNumber } of newRecords) {
     try {
@@ -398,6 +398,7 @@ async function fetchAndSaveOrderDetails(
 
           matchResults[matchResult.matchConfidence]++;
 
+          uniqueProductNames.add(item.productName);
           enrichedItems.push({
             externalItemId: item.externalItemId,
             productName: item.productName,
@@ -430,7 +431,7 @@ async function fetchAndSaveOrderDetails(
     }
   }
 
-  return { itemsSaved, ordersFetched, matchResults };
+  return { itemsSaved, ordersFetched, matchResults, productNames: Array.from(uniqueProductNames) };
 }
 
 // ─── Main Sync Action ────────────────────────────────────────────────────────
@@ -478,6 +479,16 @@ export const syncGoBizRevenue = action({
     try {
       const dates = generateWibDateRange(daysBack);
       console.log(`GoBiz Sync: ${dates.length} days (${dates[0]} to ${dates[dates.length - 1]})`);
+
+      // Auto-seed outlets (idempotent upsert ensures they exist)
+      for (const outlet of GOBIZ_OUTLET_SEED) {
+        await ctx.runMutation(internal.externalData.mutations.internalUpsertOutlet, {
+          source: outlet.source,
+          externalId: outlet.externalId,
+          name: outlet.name,
+          isActive: true,
+        });
+      }
 
       // Build outlet map: merchantId -> outletId for revenue attribution
       const outletMap = new Map<string, Id<"externalOutlets">>();
@@ -549,6 +560,18 @@ export const syncGoBizRevenue = action({
           `${orderResults.itemsSaved} items saved`
         );
         console.log(`  Match results: ${JSON.stringify(orderResults.matchResults)}`);
+
+        // Save product mappings for mapping UI
+        if (orderResults.productNames.length > 0) {
+          await ctx.runMutation(internal.externalData.mutations.saveProductMappings, {
+            mappings: orderResults.productNames.map(name => ({
+              source: "gobiz" as const,
+              externalProductCode: name,
+              externalProductName: name,
+            })),
+          });
+          console.log(`  Saved ${orderResults.productNames.length} product mappings`);
+        }
       }
 
       // ── Phase C: Auto-consume stickers for GoFood sales ──
@@ -700,6 +723,16 @@ export const autoSyncGoBizRevenue = internalAction({
       const dates = generateWibDateRange(daysBack);
       const { refreshToken } = await resolveGoBizToken(ctx);
 
+      // Auto-seed outlets (idempotent upsert ensures they exist)
+      for (const outlet of GOBIZ_OUTLET_SEED) {
+        await ctx.runMutation(internal.externalData.mutations.internalUpsertOutlet, {
+          source: outlet.source,
+          externalId: outlet.externalId,
+          name: outlet.name,
+          isActive: true,
+        });
+      }
+
       // Build outlet map for revenue attribution
       const outletMap = new Map<string, Id<"externalOutlets">>();
       const gobizOutlets: Array<{ _id: Id<"externalOutlets">; externalId: string }> = await ctx.runQuery(
@@ -728,7 +761,18 @@ export const autoSyncGoBizRevenue = internalAction({
 
       // Phase B
       if (allNewRecords.length > 0) {
-        await fetchAndSaveOrderDetails(ctx, allNewRecords, currentToken, refreshToken);
+        const orderResults = await fetchAndSaveOrderDetails(ctx, allNewRecords, currentToken, refreshToken);
+
+        // Save product mappings for mapping UI
+        if (orderResults.productNames.length > 0) {
+          await ctx.runMutation(internal.externalData.mutations.saveProductMappings, {
+            mappings: orderResults.productNames.map(name => ({
+              source: "gobiz" as const,
+              externalProductCode: name,
+              externalProductName: name,
+            })),
+          });
+        }
       }
 
       // Phase C: Auto-consume stickers for GoFood sales
@@ -836,46 +880,5 @@ export const autoRefreshGoBizToken = internalAction({
 
 // ─── Outlet Seed Mutation ────────────────────────────────────────────────────
 
-/**
- * Seed GoBiz outlets (Crystal + Goldfinch) into externalOutlets table.
- * Idempotent: only creates outlets that don't already exist.
- *
- * Run from Convex dashboard Functions tab during initial setup:
- *   integrations.gobiz.adapter.seedGoBizOutlets
- */
-export const seedGoBizOutlets = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const created: string[] = [];
-    const skipped: string[] = [];
-
-    for (const outlet of GOBIZ_OUTLET_SEED) {
-      // Check if outlet already exists by source + externalId
-      const existing = await ctx.db
-        .query("externalOutlets")
-        .withIndex("by_source_external_id", (q) =>
-          q.eq("source", outlet.source).eq("externalId", outlet.externalId)
-        )
-        .first();
-
-      if (existing) {
-        skipped.push(`${outlet.name} (${outlet.externalId})`);
-        continue;
-      }
-
-      await ctx.db.insert("externalOutlets", {
-        source: outlet.source,
-        externalId: outlet.externalId,
-        name: outlet.name,
-        isActive: true,
-        createdBy: "system:seed",
-        createdAt: Date.now(),
-      });
-
-      created.push(`${outlet.name} (${outlet.externalId})`);
-    }
-
-    console.log(`seedGoBizOutlets: created ${created.length}, skipped ${skipped.length}`);
-    return { created, skipped };
-  },
-});
+// seedGoBizOutlets moved to convex/integrations/gobiz/mutations.ts
+// (internalMutation not allowed in "use node" files)
