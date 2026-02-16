@@ -34,8 +34,8 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 - [x] **Phase 12: UI Brand Verification** - Verify brand reference doc covers v1.1 new pages
 - [x] **Phase 13: API Audit & Auth Architecture** - External API integration with token management, sync health, and multi-outlet support
-- [ ] **Phase 14: Order QoL** - Order management UX overhaul with Kanban board, simplified statuses, and audit trail
-- [ ] **Phase 15: Kitchen Overhaul** - Kitchen dashboard with production targets, due-date ranking, and K3Mart demand integration
+- [x] **Phase 14: Order QoL** - Order management UX overhaul with Kanban board, simplified statuses, and audit trail
+- [x] **Phase 15: Kitchen Overhaul** - Kitchen dashboard with production targets, due-date ranking, and K3Mart demand integration
 - [ ] **Phase 16: K3Mart Cockpit** - Complete cockpit with outlet-first weekly planning, holiday awareness, and demand push to kitchen
 
 ## Phase Details
@@ -114,10 +114,10 @@ Plans:
   4. K3Mart demand appears as a synthetic order in the kitchen view, auto-generated from confirmed K3Mart dispatch plans with manager-adjustable quantity
   5. Manager can override "unavailable" inventory with a reason (manager role required)
 **Plans**: 4 plans
-- [ ] 15-01-PLAN.md -- Backend: kitchenConfig schema, queries/mutations, sendBackToOrderDesk, extend getKitchenStats
-- [ ] 15-02-PLAN.md -- Dashboard header components: DashboardHeader, StatCard, TargetConfigPopover
-- [ ] 15-03-PLAN.md -- Due-date order list: KitchenOrderCard, checklist, K3MartSyntheticCard, DueDateOrderList
-- [ ] 15-04-PLAN.md -- Wire into KitchenViewV2, inventory override, documentation, visual verification
+- [x] 15-01-PLAN.md -- Backend: kitchenConfig schema, queries/mutations, sendBackToOrderDesk, extend getKitchenStats
+- [x] 15-02-PLAN.md -- Dashboard header components: DashboardHeader, StatCard, TargetConfigPopover
+- [x] 15-03-PLAN.md -- Due-date order list: KitchenOrderCard, checklist, K3MartSyntheticCard, DueDateOrderList
+- [x] 15-04-PLAN.md -- Wire into KitchenViewV2, inventory override, documentation, visual verification
 
 ### Phase 16: K3Mart Cockpit
 **Goal**: Manager can plan weekly dispatches per outlet with holiday awareness, record manual stock movements, and push confirmed plans to kitchen
@@ -153,8 +153,8 @@ Plans:
 | 11. Infrastructure | v1.0 | 3/3 | Complete | 2026-02-14 |
 | 12. UI Brand Verification | v1.1 | 1/1 | Complete | 2026-02-15 |
 | 13. API Audit & Auth Architecture | v1.1 | 5/5 | Complete | 2026-02-15 |
-| 14. Order QoL | v1.1 | 6/8 | In Progress | - |
-| 15. Kitchen Overhaul | v1.1 | 0/TBD | Not started | - |
+| 14. Order QoL | v1.1 | 8/8 | Complete | 2026-02-16 |
+| 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
 | 16. K3Mart Cockpit | v1.1 | 0/4 | Planned | - |
 
 ---

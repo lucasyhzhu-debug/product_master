@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon } from 'lucide-react';
+import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
@@ -32,6 +32,9 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
 import type { CancellationCategory } from '@/lib/types';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // ============================================
 // Status Display Labels
@@ -90,6 +93,13 @@ export function OrderDetail() {
     return orderEvents.filter(e => e.eventType === 'stock_override');
   }, [orderEvents]);
 
+  // Admin force-complete
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
+  const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
+  const [forceCompleteReason, setForceCompleteReason] = useState('');
+
   // ============================================
   // Handlers
   // ============================================
@@ -129,6 +139,22 @@ export function OrderDetail() {
 
   const handleCopyPhone = (phone: string) => {
     navigator.clipboard.writeText(phone);
+  };
+
+  const handleForceComplete = async () => {
+    if (!orderId) return;
+    try {
+      await forceCompleteMutation({
+        orderId,
+        token: user?.token ?? '',
+        reason: forceCompleteReason || undefined,
+      });
+      toast.success('Order force-completed successfully');
+      setShowForceCompleteDialog(false);
+      setForceCompleteReason('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to force-complete order');
+    }
   };
 
   // ============================================
@@ -474,6 +500,21 @@ export function OrderDetail() {
               </HoldButton>
             </div>
           )}
+
+          {/* Admin: Force Complete (data fix) */}
+          {isAdmin && !['Complete', 'Cancelled'].includes(order.status) && (
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                onClick={() => setShowForceCompleteDialog(true)}
+              >
+                <ShieldAlert className="h-3 w-3 mr-1" />
+                Force Complete (Admin)
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -495,6 +536,29 @@ export function OrderDetail() {
         impact={cancellationImpact}
         onConfirm={handleCancelConfirm}
       />
+
+      <ConfirmDialog
+        open={showForceCompleteDialog}
+        onOpenChange={(open) => {
+          setShowForceCompleteDialog(open);
+          if (!open) setForceCompleteReason('');
+        }}
+        title="Force Complete Order?"
+        description="This will mark the order as Complete and Paid without affecting inventory. Use only for data fixes."
+        onConfirm={handleForceComplete}
+        confirmLabel="Force Complete"
+        variant="destructive"
+      >
+        <div className="space-y-2 pt-2">
+          <Label className="text-sm">Reason (optional)</Label>
+          <Textarea
+            placeholder="e.g., Order already delivered but stuck in AwaitingPayment"
+            value={forceCompleteReason}
+            onChange={(e) => setForceCompleteReason(e.target.value)}
+            rows={2}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

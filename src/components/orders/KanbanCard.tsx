@@ -76,8 +76,9 @@ const URGENCY_BADGE_CLASSES: Record<UrgencyLevel, string> = {
 // ============================================
 
 export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
-  const urgency = getUrgencyLevel(order.dueDate);
-  const isExpedited = order.expedited === true;
+  const isCancelled = order.status === 'Cancelled';
+  const urgency = isCancelled ? 'default' : getUrgencyLevel(order.dueDate);
+  const isExpedited = !isCancelled && order.expedited === true;
 
   // Calculate discount (order-level + voucher)
   const orderDiscount = order.orderLevelDiscount && order.orderLevelDiscountType
@@ -97,7 +98,7 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
   return (
     <Card
       className={`cursor-pointer hover:shadow-md transition-shadow ${
-        isExpedited ? 'border-amber-400 border-2' : ''
+        isCancelled ? 'opacity-50 border-muted' : isExpedited ? 'border-amber-400 border-2' : ''
       }`}
       onClick={() => onCardClick(order._id, order.status)}
     >
@@ -128,22 +129,30 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
           </div>
         </div>
 
-        {/* Due date + expedited badge */}
-        {(dueDateStr || isExpedited) && (
+        {/* Due date + status badges */}
+        {(dueDateStr || isExpedited || isCancelled) && (
           <div className="flex items-center gap-1.5">
-            {dueDateStr && (
-              <Badge
-                variant="outline"
-                className={`text-xs ${URGENCY_BADGE_CLASSES[urgency]}`}
-              >
-                {dueDateStr}
-                {urgency === 'overdue' && ' (overdue)'}
+            {isCancelled ? (
+              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-500 border-gray-300">
+                Cancelled
               </Badge>
-            )}
-            {isExpedited && (
-              <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
-                EXPEDITED
-              </Badge>
+            ) : (
+              <>
+                {dueDateStr && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${URGENCY_BADGE_CLASSES[urgency]}`}
+                  >
+                    {dueDateStr}
+                    {urgency === 'overdue' && ' (overdue)'}
+                  </Badge>
+                )}
+                {isExpedited && (
+                  <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
+                    EXPEDITED
+                  </Badge>
+                )}
+              </>
             )}
           </div>
         )}

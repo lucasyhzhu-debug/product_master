@@ -42,6 +42,8 @@ interface KitchenProductionData {
         status: string;
         deliveryType?: string;
         dueDate?: number;
+        expedited?: boolean;
+        creatorName?: string;
         productItems: Array<{
           _id: string;
           productName: string;
@@ -82,6 +84,27 @@ interface KitchenProductionData {
         midBallsCompleted: number;
         ordersPending: number;
         ordersCompletedToday: number;
+        // Phase 15: Due-today ball targets
+        minTargetToday?: {
+          totalBalls: number;
+          bigBalls: number;
+          midBalls: number;
+          orderCount: number;
+        };
+        // Phase 15: Orders left to complete
+        ordersLeftToComplete?: number;
+      }
+    | undefined;
+
+  // Kitchen configuration (max target + ball composition)
+  kitchenConfig:
+    | {
+        _id: string | null;
+        maxProductionTarget: number;
+        bigBallTarget: number;
+        midBallTarget: number;
+        updatedAt: number | null;
+        updatedBy: string | null;
       }
     | undefined;
 
@@ -148,6 +171,7 @@ export function useKitchenProduction(): KitchenProductionData {
   );
   const trayInventory = useQuery(api.orders.queries.getTrayInventory, {});
   const kitchenStats = useQuery(api.orders.queries.getKitchenStats, {});
+  const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
   const productionTargets = useQuery(api.productionTargets.queries.getProductionSummary, {
     date: today,
   });
@@ -177,7 +201,8 @@ export function useKitchenProduction(): KitchenProductionData {
     productionCounts === undefined ||
     packingOrders === undefined ||
     trayInventory === undefined ||
-    kitchenStats === undefined;
+    kitchenStats === undefined ||
+    kitchenConfig === undefined;
 
   return {
     isLoading,
@@ -185,6 +210,7 @@ export function useKitchenProduction(): KitchenProductionData {
     packingOrders,
     trayInventory,
     kitchenStats,
+    kitchenConfig,
     productionTargets,
     productTargets,
     orderProductDemand,

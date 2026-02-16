@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-15)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 14.1: Draft Order Update
+**Current focus:** Milestone v1.1 "Stabilization & QoL" -- Phase 16: K3Mart Cockpit
 
 ## Current Position
 
-Phase: 14.1 (Draft Order Update) -- COMPLETE
-Plan: 03 of 03 -- All plans complete (including gap closure)
-Status: Phase 14.1 fully complete. Save as Draft button + blank page navigation fix shipped.
-Last activity: 2026-02-16 - Completed quick task 1: Fix GoBiz sync (outlets, mappings, Customer/Store)
+Phase: 15 (Kitchen Overhaul) -- COMPLETE
+Plan: 04/04 complete, verified, human-approved
+Status: All 4 plans executed, verification passed (5/5 success criteria), human verification approved 2026-02-16.
+Last activity: 2026-02-16 - Phase 15 marked complete after human approval
 
-Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
+Progress (v1.1): [#########.] 90% (Phase 12 + 13 + 14 + 14.1 + 15 complete)
 
 ## Performance Metrics
 
@@ -41,6 +41,10 @@ Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 | 14.1 | 01 | 3 min | 2 | 2 |
 | 14.1 | 02 | 5 min | 2 | 10 |
 | 14.1 | 03 | 1 min | 2 | 2 |
+| 15 | 01 | 4 min | 2 | 7 |
+| 15 | 02 | 5 min | 2 | 5 |
+| 15 | 03 | 6 min | 2 | 7 |
+| 15 | 04 | 6 min | 1 | 9 |
 
 *Updated after each plan completion*
 
@@ -71,6 +75,10 @@ Recent decisions affecting current work:
 - [Phase 14.1-01]: createDraft is minimal (customer only, zero totals); updateDraft handles voucher lifecycle; Draft Kanban column sorted newest-first; WhatsApp language fix is frontend-only (Plan 02)
 - [Phase 14.1-02]: Edit mode uses ?draft=orderId query param; Draft auto-create on customer select; status-aware Kanban click routing; WhatsApp language param fix is one-line
 - [Phase 14.1-03]: Removed AnimatePresence entirely (0.15s fade adds no UX value, causes blank page bugs); Save as Draft reuses updateDraft + replaceItems (no backend changes)
+- [Phase 15-01]: kitchenConfig is single-row table with .first() (no indexes); WIB date boundaries as UTC timestamps for due-today filtering; sendBackToOrderDesk does not touch confirmedAt (revenue recognition boundary)
+- [Phase 15-02]: StatCard value-above-label layout for quick scanning; TargetConfigPopover ratio-preserving auto-calc; Remaining balls urgency: red=overdue, green=on track, amber=behind
+- [Phase 15-03]: DueDateGroup made generic to preserve PackingOrder type; K3Mart checkmarks visual-only local state (no mutation until Phase 16); K3Mart card placed at top of Due Today group
+- [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
 
 ### Roadmap Evolution
 
@@ -85,6 +93,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
+| 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
 
 ### Blockers/Concerns
 
@@ -95,9 +104,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 14.1-03-PLAN.md (Phase 14.1 gap closure complete)
+Stopped at: Phase 15 complete, approved by human
 Resume file: None
-Resume notes: Phase 14.1 fully complete including gap closure. Ready for merge to main. Next: Phase 15 (Kitchen Overhaul)
+Resume notes: Phase 15 complete and verified. On feature/15-kitchen-overhaul branch. Ready to merge to main, then start Phase 16 (K3Mart Cockpit).
 
 ---
 *Last updated: 2026-02-16*

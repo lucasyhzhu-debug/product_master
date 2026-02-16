@@ -67,10 +67,14 @@ export default defineSchema({
     // BOM Refactor: Packaging POS slot (positive integer) for packaging-only products
     packagingPosSlot: v.optional(v.number()),
     // BOM Refactor: Derived product type (food = has production components, packaging = only packaging)
-    productType: v.union(
+    productType: v.optional(v.union(
       v.literal("food"),       // Has >= 1 production component
       v.literal("packaging")   // Only packaging components
-    ),
+    )),
+    // DEPRECATED: Legacy fields kept for schema compat with existing docs. Use BOM instead.
+    productionType: v.optional(v.string()),
+    productionUnits: v.optional(v.number()),
+    isFixed: v.optional(v.boolean()),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
@@ -301,7 +305,17 @@ export default defineSchema({
       v.literal("BeingPrepared"),       // Replaces InProduction/Boxed/Labeled/Packaging
       v.literal("AwaitingDelivery"),    // Replaces WaitingShipment/WaitingPickup
       v.literal("Complete"),            // Replaces CompleteShipped/PickedUp
-      v.literal("Cancelled")
+      v.literal("Cancelled"),
+      // LEGACY: Old statuses kept for unmigrated production docs
+      v.literal("Confirmed"),
+      v.literal("InProduction"),
+      v.literal("Boxed"),
+      v.literal("Labeled"),
+      v.literal("Packaging"),
+      v.literal("WaitingShipment"),
+      v.literal("WaitingPickup"),
+      v.literal("CompleteShipped"),
+      v.literal("PickedUp")
     ),
     awaitingPaymentSince: v.optional(v.number()),
     confirmedAt: v.optional(v.number()), // When payment was confirmed (revenue recognition date)
@@ -396,7 +410,7 @@ export default defineSchema({
     itemCount: v.number(),
 
     // DERIVED: Computed from status. Set on every status transition. Source: statusTransitions.ts computeKitchenVisibility().
-    isKitchenVisible: v.boolean(),
+    isKitchenVisible: v.optional(v.boolean()),
     // DERIVED: Set when order reaches terminal status (Complete/Cancelled). Cleared on revert.
     completedAt: v.optional(v.number()),
   })
@@ -444,6 +458,9 @@ export default defineSchema({
     // PRD-6: Track which individual packages are packed (indices 0 to quantity-1)
     // When all packages are packed, packageStatus becomes "packed"
     packedPackageIndices: v.optional(v.array(v.number())),
+    // DEPRECATED: Legacy fields kept for schema compat with existing docs. Use BOM instead.
+    productionType: v.optional(v.string()),
+    productionUnits: v.optional(v.number()),
   })
     .index("by_order", ["orderId"])
     .index("by_menu_product", ["menuProductId"]),
@@ -565,10 +582,10 @@ export default defineSchema({
     date: v.string(), // YYYY-MM-DD format
     originalBallCount: v.number(), // Current Original (45g, MID_BALL) balls in tray
     biteSizedBallCount: v.number(), // Current Jumbo (80g, BIG_BALL) balls in tray
-    totalProducedOriginal: v.number(), // Cumulative balls produced today (never decremented)
-    totalProducedBiteSized: v.number(), // Cumulative balls produced today (never decremented)
+    totalProducedOriginal: v.optional(v.number()), // Cumulative balls produced today (never decremented)
+    totalProducedBiteSized: v.optional(v.number()), // Cumulative balls produced today (never decremented)
     lastUpdated: v.number(), // Timestamp
-    updatedBy: v.string(),
+    updatedBy: v.optional(v.string()),
   })
     .index("by_date", ["date"]),
 
@@ -1217,6 +1234,19 @@ export default defineSchema({
   // K3 MART COCKPIT - Dispatch Planning & Stock Movements
   // Weekly dispatch plans and stock movement audit log
   // ============================================
+
+  // ============================================
+  // KITCHEN CONFIG
+  // Single-row table for kitchen production targets
+  // ============================================
+
+  kitchenConfig: defineTable({
+    maxProductionTarget: v.number(),  // Default 200
+    bigBallTarget: v.number(),        // Absolute number, default 150
+    midBallTarget: v.number(),        // Absolute number, default 50
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  }),
 
   k3martDispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD

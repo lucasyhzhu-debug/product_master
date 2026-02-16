@@ -32,6 +32,7 @@ export {
   updatePayment,
   updateShipping,
   updateDetails,
+  forceComplete,
 } from "./statusUpdates";
 
 // Kitchen Operations
@@ -43,6 +44,7 @@ export {
   stickerProducts,
   togglePackOrderLineItem,
   markOrderReady,
+  sendBackToOrderDesk,
 } from "./kitchen";
 
 // Packaging Operations

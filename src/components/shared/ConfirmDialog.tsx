@@ -18,6 +18,8 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   variant?: 'default' | 'destructive';
   loading?: boolean;
+  disabled?: boolean;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -30,6 +32,8 @@ export function ConfirmDialog({
   onConfirm,
   variant = 'default',
   loading = false,
+  disabled = false,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,6 +42,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button
             variant="outline"
@@ -49,7 +54,7 @@ export function ConfirmDialog({
           <Button
             variant={variant === 'destructive' ? 'destructive' : 'default'}
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || disabled}
           >
             {loading ? 'Loading...' : confirmLabel}
           </Button>

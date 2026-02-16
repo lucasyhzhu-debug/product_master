@@ -5,10 +5,12 @@
  * Panel 1: Production Log (ball input + targets)
  * Panel 2: To Box (batch boxing by product type)
  * Panel 3: To Sticker (batch stickering by product type)
- * Panel 4: To Pack (per-order packing checklist)
+ * + DueDateOrderList (per-order packing checklist, always visible)
  *
- * Desktop (1024px+): side-by-side panels with sidebar
- * Mobile (<768px): swipeable panels with station pill bar
+ * Phase 15: Dashboard header with stat cards + due-date order list
+ *
+ * Desktop (1024px+): 4-column grid (Production | Boxing | Stickering | Orders by Due Date)
+ * Mobile (<768px): 3 swipeable panels + DueDateOrderList below
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,7 +23,8 @@ import {
   ProductionLogPanel,
   BoxingPanel,
   StickeringPanel,
-  PackingPanel,
+  DashboardHeader,
+  DueDateOrderList,
 } from '@/components/kitchen';
 import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
 import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
@@ -31,6 +34,7 @@ import { api } from '../../convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
+import { startOfDay } from 'date-fns';
 import type { Id } from '../../convex/_generated/dataModel';
 
 /** Extract error message from ConvexError or regular Error */
@@ -56,8 +60,9 @@ function friendlyCopy(msg: string): string {
 export function KitchenViewV2() {
   useDocumentTitle('Kitchen Production');
 
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
+  const canConfigure = canEditKitchen && (user?.role === 'manager' || user?.role === 'admin');
 
   // Active panel for mobile swipe
   const [activePanel, setActivePanel] = useState(0);
@@ -69,6 +74,7 @@ export function KitchenViewV2() {
     packingOrders,
     trayInventory,
     kitchenStats,
+    kitchenConfig,
     productionTargets,
     productTargets,
     orderProductDemand,
@@ -90,9 +96,7 @@ export function KitchenViewV2() {
   const stickerProducts = useProtectedMutation(api.orders.mutations.index.stickerProducts);
   const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.index.togglePackOrderLineItem);
   const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
-
-  // GoFood depot mutations
-  const recordShipment = useProtectedMutation(api.gofoodDepot.mutations.recordShipment);
+  const sendBack = useProtectedMutation(api.orders.mutations.index.sendBackToOrderDesk);
 
   // GoBiz sync action
   const syncGoBizAction = useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
@@ -127,7 +131,46 @@ export function KitchenViewV2() {
     };
   }, []);
 
+  // ============================================
+  // Dashboard header computed values
+  // ============================================
+
+  // Max target from config
+  const maxTarget = useMemo(() => ({
+    total: kitchenConfig?.maxProductionTarget ?? 200,
+    big: kitchenConfig?.bigBallTarget ?? 0,
+    mid: kitchenConfig?.midBallTarget ?? 200,
+  }), [kitchenConfig]);
+
+  // Min target from kitchen stats (due-today orders)
+  const minTarget = kitchenStats?.minTargetToday;
+
+  // Remaining balls = min target - balls produced today
+  const remainingBalls = useMemo(() => ({
+    total: Math.max(0, (minTarget?.totalBalls ?? 0) - ((kitchenStats?.bigBallsCompleted ?? 0) + (kitchenStats?.midBallsCompleted ?? 0))),
+    big: Math.max(0, (minTarget?.bigBalls ?? 0) - (kitchenStats?.bigBallsCompleted ?? 0)),
+    mid: Math.max(0, (minTarget?.midBalls ?? 0) - (kitchenStats?.midBallsCompleted ?? 0)),
+  }), [minTarget, kitchenStats]);
+
+  // Has overdue: check if any packing order has dueDate in the past
+  const hasOverdueOrders = useMemo(() => {
+    if (!packingOrders) return false;
+    return packingOrders.some(o => {
+      if (!o.dueDate) return false;
+      const wibOffset = 7 * 60 * 60 * 1000;
+      const dueWIB = new Date(o.dueDate + wibOffset);
+      const nowWIB = new Date(Date.now() + wibOffset);
+      return dueWIB < startOfDay(nowWIB);
+    });
+  }, [packingOrders]);
+
+  // Orders left = from kitchenStats.ordersLeftToComplete (added in Plan 01)
+  const ordersLeft = kitchenStats?.ordersLeftToComplete ?? 0;
+
+  // ============================================
   // Handlers - Ball tray
+  // ============================================
+
   const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => {
     try {
       await addBallsToTray({ ballType, count });
@@ -198,6 +241,31 @@ export function KitchenViewV2() {
     }
   };
 
+  // Handler - Send Back to order desk
+  const handleSendBack = async (orderId: string) => {
+    try {
+      await sendBack({ orderId: orderId as Id<'orders'> });
+      toast.success('Order sent back to order desk');
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Failed to send back'));
+    }
+  };
+
+  // Handler - Manager inventory override (KIT-08)
+  const handleOverride = async (orderId: string, orderItemId: string, reason: string) => {
+    try {
+      await togglePackOrderLineItem({
+        orderId: orderId as Id<'orders'>,
+        orderItemId: orderItemId as Id<'orderItems'>,
+        forceOverride: true,
+        overrideReason: reason,
+      });
+      toast.success('Override applied - item packed');
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Override failed'));
+    }
+  };
+
   // Handler - Set product target (source: "consignment" | "gofood")
   const handleSetProductTarget = async (menuProductId: string, source: string, quantity: number) => {
     try {
@@ -209,34 +277,6 @@ export function KitchenViewV2() {
       });
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to set target';
-      toast.error(msg);
-    }
-  };
-
-  // Handler - Ship to Goldfinch
-  const handleShipToGoldfinch = async (
-    selectedItems: Array<{
-      menuProductId: string;
-      quantity: number;
-      stickerTransfers: Array<{ componentTypeId: string; quantity: number }>;
-    }>
-  ) => {
-    try {
-      const items = selectedItems.map((item) => ({
-        menuProductId: item.menuProductId as Id<'menuProducts'>,
-        quantity: item.quantity,
-        stickerTransfers: item.stickerTransfers.map((s) => ({
-          componentTypeId: s.componentTypeId as Id<'componentTypes'>,
-          quantity: s.quantity,
-        })),
-      }));
-
-      const result = await recordShipment({ items });
-      actionToast(
-        `Shipped ${result.totalBoxes} boxes + ${result.totalStickers} stickers to Goldfinch`
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to ship to Goldfinch';
       toast.error(msg);
     }
   };
@@ -296,57 +336,6 @@ export function KitchenViewV2() {
     });
   }, [goFoodDailyOrder, goldfinchStickerInventory]);
 
-  // Build GoFood packing card data for PackingPanel
-  const goFoodPackingData = useMemo(() => {
-    if (!goFoodDailyOrder?.items || goFoodDailyOrder.items.length === 0) return null;
-
-    // Find if already shipped today
-    const shippedItems = goFoodDailyOrder.items.filter((i: any) => i.shippedToday > 0);
-    const shippedAt = shippedItems.length > 0 ? undefined : undefined; // Will be set from shipments query
-
-    // Build items with boxed counts from productionCounts
-    const pcMap = new Map(
-      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
-    );
-
-    const items = goFoodDailyOrder.items.map((item: any) => ({
-      menuProductId: item.menuProductId,
-      productName: item.productName,
-      targetQty: item.targetQty,
-      existingAtDepot: item.existingAtDepot,
-      toShipToday: item.toShipToday,
-      shippedToday: item.shippedToday,
-      freshness: 'fresh' as const,
-      boxedCount: pcMap.get(item.menuProductId)?.boxed ?? 0,
-    }));
-
-    // Build sticker transfer suggestions
-    const totalToShip = items.reduce((sum: number, i: any) => sum + i.toShipToday, 0);
-    const stickerTransfers = goldfinchStickerInventory?.map((s: any) => ({
-      componentTypeId: s.componentTypeId,
-      componentName: s.componentName,
-      quantity: totalToShip, // 1:1 sticker per box
-      officeStock: s.totalStock,
-    })) ?? [];
-
-    // Build current depot stock display
-    const depotCurrentStock = goFoodDailyOrder.items.map((item: any) => ({
-      productName: item.productName,
-      boxes: item.currentDepotStock,
-      stickers: 0, // Simplified
-      freshness: 'fresh' as const,
-    }));
-
-    return {
-      orderNumber: goFoodDailyOrder.orderNumber,
-      date: goFoodDailyOrder.date,
-      items,
-      stickerTransfers,
-      depotCurrentStock,
-      shippedAt,
-    };
-  }, [goFoodDailyOrder, productionCounts, goldfinchStickerInventory]);
-
   // Build K3 Mart outlet stock map for ProductionLogPanel + BoxingPanel
   const k3MartStockMap = useMemo(() => {
     if (!k3MartSummary?.items?.length) return undefined;
@@ -365,36 +354,7 @@ export function KitchenViewV2() {
     return k3MartSummary.items;
   }, [k3MartSummary]);
 
-  // Build K3 Mart packing data for PackingPanel
-  const k3MartPackingData = useMemo(() => {
-    if (!k3MartSummary?.items?.length) return null;
 
-    // Only include items with consignment targets
-    const targetItems = k3MartSummary.items.filter(
-      (i: any) => i.consignmentTarget > 0
-    );
-    if (targetItems.length === 0) return null;
-
-    const pcMap = new Map(
-      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
-    );
-
-    const items = targetItems.map((item: any) => {
-      const pc = pcMap.get(item.menuProductId);
-      const boxed = pc?.boxed ?? 0;
-      const stickered = pc?.stickered ?? 0;
-      return {
-        menuProductId: item.menuProductId,
-        productName: item.productName,
-        consignmentTarget: item.consignmentTarget,
-        boxed,
-        stickered,
-        isReady: stickered >= item.consignmentTarget,
-      };
-    });
-
-    return { date: today, items };
-  }, [k3MartSummary, productionCounts, today]);
 
   // Compute per-product total target (orders + consignment + gofood) for BoxingPanel
   const productTargetTotals = useMemo(() => {
@@ -428,12 +388,11 @@ export function KitchenViewV2() {
     return map;
   }, [packingOrders]);
 
-  // Station counts for pill bar badges
-  const stationCounts: [number, number, number, number] = [
+  // Station counts for pill bar badges (3 panels: Production, Boxing, Stickering)
+  const stationCounts: [number, number, number] = [
     0, // Production: no count needed
     productionCounts?.length ?? 0, // Boxing: products to box
     productionCounts?.filter(p => p.availableForStickering > 0).length ?? 0, // Stickering
-    packingOrders?.length ?? 0, // Packing: orders to pack
   ];
 
   if (isLoading) {
@@ -465,6 +424,32 @@ export function KitchenViewV2() {
           </div>
         </div>
       </header>
+
+      {/* Dashboard Summary Header - sticky below page header */}
+      <DashboardHeader
+        minTargetToday={minTarget}
+        maxTarget={maxTarget}
+        remainingBalls={remainingBalls}
+        ordersLeft={ordersLeft}
+        hasOverdueOrders={hasOverdueOrders}
+        canConfigure={canConfigure}
+      />
+
+      {/* Mobile: Due-Date Order List */}
+      <div className="md:hidden">
+        <DueDateOrderList
+          orders={packingOrders ?? []}
+          k3MartSummary={k3MartSummary}
+          onTogglePack={handleTogglePack}
+          onMarkReady={handleMarkOrderReady}
+          onSendBack={handleSendBack}
+          onOverride={canConfigure ? handleOverride : undefined}
+          onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+          canOverride={canConfigure}
+          canEdit={canConfigure}
+          disabled={!canEditKitchen}
+        />
+      </div>
 
       {/* Mobile: Swipeable Panels */}
       <SwipeableKitchenLayout
@@ -504,15 +489,6 @@ export function KitchenViewV2() {
           onStickerProducts={handleStickerProducts}
           onSyncNow={handleSyncNow}
           onSyncK3Mart={handleSyncK3Mart}
-          disabled={!canEditKitchen}
-        />
-        <PackingPanel
-          packingOrders={packingOrders}
-          goFoodPackingData={goFoodPackingData}
-          k3MartPackingData={k3MartPackingData}
-          onTogglePack={handleTogglePack}
-          onMarkOrderReady={handleMarkOrderReady}
-          onShipToGoldfinch={handleShipToGoldfinch}
           disabled={!canEditKitchen}
         />
       </SwipeableKitchenLayout>
@@ -568,16 +544,19 @@ export function KitchenViewV2() {
             />
           </div>
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-packing-accent)' }}>
-              To Pack
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1">
+              Orders by Due Date
             </h2>
-            <PackingPanel
-              packingOrders={packingOrders}
-              goFoodPackingData={goFoodPackingData}
-              k3MartPackingData={k3MartPackingData}
+            <DueDateOrderList
+              orders={packingOrders ?? []}
+              k3MartSummary={k3MartSummary}
               onTogglePack={handleTogglePack}
-              onMarkOrderReady={handleMarkOrderReady}
-              onShipToGoldfinch={handleShipToGoldfinch}
+              onMarkReady={handleMarkOrderReady}
+              onSendBack={handleSendBack}
+              onOverride={canConfigure ? handleOverride : undefined}
+              onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+              canOverride={canConfigure}
+              canEdit={canConfigure}
               disabled={!canEditKitchen}
             />
           </div>
