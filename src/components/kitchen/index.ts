@@ -24,3 +24,10 @@ export { K3MartPackingCard } from './K3MartPackingCard';
 export { DashboardHeader } from './DashboardHeader';
 export { StatCard } from './StatCard';
 export { TargetConfigPopover } from './TargetConfigPopover';
+
+// Kitchen V3 Due-date order list
+export { DueDateGroupHeader } from './DueDateGroupHeader';
+export { KitchenOrderCard } from './KitchenOrderCard';
+export { KitchenOrderChecklist } from './KitchenOrderChecklist';
+export { K3MartSyntheticCard } from './K3MartSyntheticCard';
+export { DueDateOrderList } from './DueDateOrderList';

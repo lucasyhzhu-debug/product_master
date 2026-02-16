@@ -1,11 +1,11 @@
 import { isToday, isTomorrow, isBefore, startOfDay, format } from 'date-fns';
 
-export interface DueDateGroup {
+export interface DueDateGroup<T = { _id: string; dueDate?: number; expedited?: boolean; [key: string]: unknown }> {
   key: string;
   label: string;
   isOverdue: boolean;
   orderCount: number;
-  orders: Array<{ _id: string; dueDate?: number; expedited?: boolean; [key: string]: unknown }>;
+  orders: T[];
 }
 
 /**
@@ -18,13 +18,13 @@ export interface DueDateGroup {
  */
 export function groupByDueDate<T extends { _id: string; dueDate?: number; expedited?: boolean }>(
   orders: T[]
-): DueDateGroup[] {
+): DueDateGroup<T>[] {
   // Use WIB (UTC+7) for date comparisons
   const wibOffset = 7 * 60 * 60 * 1000;
   const nowWIB = new Date(Date.now() + wibOffset);
   const todayStartWIB = startOfDay(nowWIB);
 
-  const groups = new Map<string, DueDateGroup>();
+  const groups = new Map<string, DueDateGroup<T>>();
 
   for (const order of orders) {
     const due = order.dueDate ? new Date(order.dueDate + wibOffset) : null;
