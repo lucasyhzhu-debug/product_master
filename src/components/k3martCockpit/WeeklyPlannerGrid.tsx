@@ -18,7 +18,7 @@ import { WeekNavigator } from './WeekNavigator';
 import { PlannerGridHeader } from './PlannerGridHeader';
 import { OutletPlannerRow } from './OutletPlannerRow';
 import { PlannerActionBar } from './PlannerActionBar';
-import { getWeekNumber, getWeekDates, getTodayJakarta } from '@/../../convex/k3martCockpit/helpers';
+import { getWeekNumber, getWeekDates, getTodayJakarta } from '../../../convex/k3martCockpit/helpers';
 import { getDayType, getEventName } from '@/lib/indonesianHolidays';
 import {
   useConvexWeeklyDispatchPlans,
