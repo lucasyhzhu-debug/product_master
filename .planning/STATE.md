@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 Phase: 14.1 (Draft Order Update) -- COMPLETE
 Plan: 03 of 03 -- All plans complete (including gap closure)
 Status: Phase 14.1 fully complete. Save as Draft button + blank page navigation fix shipped.
-Last activity: 2026-02-16 -- Completed 14.1-03 gap closure (Save as Draft + AnimatePresence fix)
+Last activity: 2026-02-16 - Completed quick task 1: Fix GoBiz sync (outlets, mappings, Customer/Store)
 
 Progress (v1.1): [#########.] 85% (Phase 12 + 13 + 14 + 14.1 complete)
 
@@ -79,6 +79,12 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
 
 ### Blockers/Concerns
 
