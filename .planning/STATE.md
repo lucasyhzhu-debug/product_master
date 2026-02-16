@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 Phase: 16 (K3Mart Cockpit) -- IN PROGRESS
-Plan: 02/04 complete
-Status: Plan 02 (frontend weekly planning grid) complete. Plans 03-04 remain.
-Last activity: 2026-02-16 - Plan 16-02 executed (outlet-first grid, week nav, auto-save, headers)
+Plan: 03/04 complete
+Status: Plan 03 (outlet cards, stock flow, settings) complete. Plan 04 remains.
+Last activity: 2026-02-16 - Plan 16-03 executed (stock flow rotation, confirmation dialog, outlet settings modal)
 
 Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 in progress)
 
@@ -47,6 +47,7 @@ Progress (v1.1): [#########.] 92% (Phase 12 + 13 + 14 + 14.1 + 15 complete, 16 i
 | 15 | 04 | 6 min | 1 | 9 |
 | 16 | 01 | 7 min | 2 | 6 |
 | 16 | 02 | 7 min | 2 | 9 |
+| 16 | 03 | 9 min | 2 | 9 |
 
 *Updated after each plan completion*
 
@@ -83,6 +84,7 @@ Recent decisions affecting current work:
 - [Phase 15-04]: DashboardHeader self-manages TargetConfigPopover (no parent state); manager override reuses togglePackOrderLineItem with forceOverride+overrideReason; override logged in productionLog note; DueDateOrderList on both mobile and desktop
 - [Phase 16-01]: Holiday data duplicated in convex helpers (Convex can't import src/); getDayTypeForDate mirrors getDayType; auto-suggest uses baseline/5 weekday rate with 2.5x multiplier; price priority: customPrice > snapshot > 0; copyLastWeek skips existing plans
 - [Phase 16-02]: WeeklyPlannerGrid is self-contained (owns queries/mutations/state); auto-save on blur with 300ms debounce; per-day confirm in PlannerGridHeader not PlannerActionBar; collapsible toggle removed (planner always visible); BACKLOG K3MART-01 through K3MART-05 resolved
+- [Phase 16-03]: Rotation is two sequential API calls (stock-out then stock-in); price sanity check at form AND dialog level; StockMovementHistory uses inline expandable detail; OutletSettingsModal imported directly (not barrel) for admin-only access
 
 ### Roadmap Evolution
 
@@ -109,9 +111,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed 16-02-PLAN.md (frontend weekly planning grid rewrite)
+Stopped at: Completed 16-03-PLAN.md (outlet cards, stock flow, settings)
 Resume file: None
-Resume notes: Phase 16 Plan 02 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 03 (outlet management and stock movement UI).
+Resume notes: Phase 16 Plan 03 complete. On feature/16-k3mart-cockpit branch. Ready for Plan 04 (final integration and polish).
 
 ---
 *Last updated: 2026-02-16*
