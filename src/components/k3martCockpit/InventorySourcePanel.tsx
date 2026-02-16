@@ -35,28 +35,28 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] p-4">
+      <div className="bg-card rounded-xl shadow-sm border border-border p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-20 bg-gray-100 rounded-lg animate-pulse" />
-          <div className="h-20 bg-gray-100 rounded-lg animate-pulse" />
-          <div className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+          <div className="h-20 bg-muted rounded-lg animate-pulse" />
+          <div className="h-20 bg-muted rounded-lg animate-pulse" />
+          <div className="h-20 bg-muted rounded-lg animate-pulse" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-[#E8E2DB] overflow-hidden">
+    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted transition-colors"
       >
-        <h3 className="font-semibold text-sm text-gray-900">Inventory Sources</h3>
+        <h3 className="font-semibold text-sm text-foreground">Inventory Sources</h3>
         {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-500" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-500" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
@@ -64,7 +64,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
       <div className="px-4 pb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Office Available */}
-          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800/30">
             <div className="flex items-start justify-between mb-2">
               <Building2 className="h-5 w-5 text-blue-600" />
               {sources.office.total === 0 && (
@@ -74,16 +74,16 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                 </div>
               )}
             </div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-xl font-bold text-foreground">
               {sources.office.total}
             </div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
               Office
             </div>
           </div>
 
           {/* Goldfinch Depot */}
-          <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800/30">
             <div className="flex items-start justify-between mb-2">
               <Warehouse className="h-5 w-5 text-purple-600" />
               {sources.goldfinch.total === 0 && (
@@ -93,10 +93,10 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                 </div>
               )}
             </div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-xl font-bold text-foreground">
               {sources.goldfinch.total}
             </div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
               Goldfinch
             </div>
           </div>
@@ -118,10 +118,10 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                 </div>
               )}
             </div>
-            <div className="text-xl font-bold text-gray-900">
+            <div className="text-xl font-bold text-foreground">
               {sources.k3mart.total}
             </div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
               At Outlets
             </div>
           </div>
@@ -136,7 +136,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="border-t border-gray-100 overflow-hidden"
+            className="border-t border-border overflow-hidden"
           >
             <div className="px-4 py-3 space-y-4">
               {/* Office Breakdown */}
@@ -150,17 +150,17 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                     {sources.office.products.map((product) => (
                       <div
                         key={product.productName}
-                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-blue-50"
+                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-900/20"
                       >
-                        <span className="text-gray-700 truncate">{product.productName}</span>
-                        <span className="font-bold text-gray-900 tabular-nums ml-2">
+                        <span className="text-foreground truncate">{product.productName}</span>
+                        <span className="font-bold text-foreground tabular-nums ml-2">
                           {product.quantity}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 italic px-2 py-1.5">No stock</div>
+                  <div className="text-xs text-muted-foreground italic px-2 py-1.5">No stock</div>
                 )}
               </div>
 
@@ -175,17 +175,17 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                     {sources.goldfinch.products.map((product) => (
                       <div
                         key={product.productName}
-                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-purple-50"
+                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-purple-50 dark:bg-purple-900/20"
                       >
-                        <span className="text-gray-700 truncate">{product.productName}</span>
-                        <span className="font-bold text-gray-900 tabular-nums ml-2">
+                        <span className="text-foreground truncate">{product.productName}</span>
+                        <span className="font-bold text-foreground tabular-nums ml-2">
                           {product.quantity}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 italic px-2 py-1.5">No stock</div>
+                  <div className="text-xs text-muted-foreground italic px-2 py-1.5">No stock</div>
                 )}
               </div>
 
@@ -206,15 +206,15 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                         className="flex items-center justify-between text-xs px-2 py-1.5 rounded"
                         style={{ backgroundColor: 'var(--color-k3mart-light)' }}
                       >
-                        <span className="text-gray-700 truncate">{product.productName}</span>
-                        <span className="font-bold text-gray-900 tabular-nums ml-2">
+                        <span className="text-foreground truncate">{product.productName}</span>
+                        <span className="font-bold text-foreground tabular-nums ml-2">
                           {product.quantity}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 italic px-2 py-1.5">No stock</div>
+                  <div className="text-xs text-muted-foreground italic px-2 py-1.5">No stock</div>
                 )}
               </div>
             </div>

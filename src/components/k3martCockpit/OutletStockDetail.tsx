@@ -88,12 +88,12 @@ export const OutletStockDetail = React.memo(function OutletStockDetail({
   return (
     <div className="space-y-1.5">
       {/* Section Header */}
-      <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 px-3 pt-2">
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-2">
         Stock Details
       </h4>
 
       {/* Product Rows */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-border">
         {products.map((product, index) => {
           const { textColor, bgColor } = getDaysColor(product.daysOfStock);
 
@@ -101,8 +101,8 @@ export const OutletStockDetail = React.memo(function OutletStockDetail({
             <div
               key={product.menuProductId}
               className={cn(
-                "py-1.5 px-3 flex items-center gap-3 transition-colors hover:bg-gray-50/50",
-                index % 2 === 1 && "bg-gray-50/50"
+                "py-1.5 px-3 flex items-center gap-3 transition-colors hover:bg-muted/50",
+                index % 2 === 1 && "bg-muted/50"
               )}
             >
               {/* Product Icon */}
@@ -124,13 +124,13 @@ export const OutletStockDetail = React.memo(function OutletStockDetail({
                 <p className="text-sm font-medium truncate">{product.productName}</p>
 
                 {/* Stats Row */}
-                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-600">
+                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-muted-foreground">
                   <span className="font-mono tabular-nums">
-                    <span className="font-semibold text-gray-900">{product.currentStock}</span> stock
+                    <span className="font-semibold text-foreground">{product.currentStock}</span> stock
                   </span>
-                  <span className="text-gray-400">•</span>
+                  <span className="text-muted-foreground/70">•</span>
                   <span className="font-mono tabular-nums">{product.soldToday} sold</span>
-                  <span className="text-gray-400">•</span>
+                  <span className="text-muted-foreground/70">•</span>
                   <span className="font-mono tabular-nums">{product.avgDailySales.toFixed(1)}/day</span>
                 </div>
               </div>

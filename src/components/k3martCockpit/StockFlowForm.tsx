@@ -280,7 +280,7 @@ export function StockFlowForm({
     if (selectableProducts.length > 1) {
       return (
         <div className="space-y-1.5">
-          <Label htmlFor={`product-select-${idSuffix}`} className="text-xs text-gray-600">
+          <Label htmlFor={`product-select-${idSuffix}`} className="text-xs text-muted-foreground">
             Product
           </Label>
           <Select value={selectedProductId} onValueChange={setSelectedProductId}>
@@ -304,7 +304,7 @@ export function StockFlowForm({
         <div className="flex items-center justify-between">
           <div className="text-sm font-medium">{selectableProducts[0].productName}</div>
           {idSuffix === "out" && (
-            <div className="text-xs text-gray-600 tabular-nums">
+            <div className="text-xs text-muted-foreground tabular-nums">
               Stock: {selectableProducts[0].currentStock}
             </div>
           )}
@@ -318,7 +318,7 @@ export function StockFlowForm({
   // Shared quantity controls
   const renderQuantityControls = (idSuffix: string, max?: number) => (
     <div className="space-y-1.5">
-      <Label htmlFor={`quantity-${idSuffix}`} className="text-xs text-gray-600">
+      <Label htmlFor={`quantity-${idSuffix}`} className="text-xs text-muted-foreground">
         Quantity
       </Label>
       <div className="flex items-center gap-2">
@@ -364,7 +364,7 @@ export function StockFlowForm({
   // Shared note field
   const renderNoteField = (idSuffix: string) => (
     <div className="space-y-1.5">
-      <Label htmlFor={`note-${idSuffix}`} className="text-xs text-gray-600">
+      <Label htmlFor={`note-${idSuffix}`} className="text-xs text-muted-foreground">
         Note (optional)
       </Label>
       <Textarea
@@ -376,7 +376,7 @@ export function StockFlowForm({
         maxLength={200}
         disabled={isSubmitting}
       />
-      <div className="text-[10px] text-gray-400 text-right">{note.length}/200</div>
+      <div className="text-[10px] text-muted-foreground/70 text-right">{note.length}/200</div>
     </div>
   );
 
@@ -384,7 +384,7 @@ export function StockFlowForm({
   const renderErrorRetry = () => {
     if (!lastError) return null;
     return (
-      <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md">
+      <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md">
         <span className="text-xs text-red-700 flex-1">{lastError}</span>
         {retryFn && (
           <Button
@@ -403,7 +403,7 @@ export function StockFlowForm({
   };
 
   return (
-    <div className="border-t border-gray-100 bg-white">
+    <div className="border-t border-border bg-card">
       {/* Rotation Shortcut Button */}
       <div className="px-3 pt-3 pb-1">
         <Button
@@ -414,7 +414,7 @@ export function StockFlowForm({
             "w-full gap-2 font-semibold",
             mode === "rotation"
               ? "bg-amber-500 hover:bg-amber-600 text-white"
-              : "border-amber-300 text-amber-700 hover:bg-amber-50"
+              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
           )}
           onClick={() => setMode(mode === "rotation" ? "stock_in" : "rotation")}
           disabled={isSubmitting}
@@ -430,7 +430,7 @@ export function StockFlowForm({
           {renderProductSelector("rot")}
 
           {selectedProduct && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 p-3 space-y-2">
               <div className="text-xs font-semibold text-amber-800 uppercase">Rotation Summary</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -483,12 +483,12 @@ export function StockFlowForm({
       {mode !== "rotation" && (
         <Tabs value={direction} onValueChange={handleTabChange}>
           {/* Tab Headers */}
-          <TabsList className="w-full grid grid-cols-2 h-10 bg-gray-50/50">
+          <TabsList className="w-full grid grid-cols-2 h-10 bg-muted/50">
             <TabsTrigger
               value="stock_in"
               className={cn(
                 "text-xs font-semibold gap-1.5",
-                direction === "stock_in" && "text-green-700 bg-green-50"
+                direction === "stock_in" && "text-green-700 bg-green-50 dark:bg-green-900/20"
               )}
             >
               <ArrowDownToLine className="h-3.5 w-3.5" />
@@ -498,7 +498,7 @@ export function StockFlowForm({
               value="stock_out"
               className={cn(
                 "text-xs font-semibold gap-1.5",
-                direction === "stock_out" && "text-amber-700 bg-amber-50"
+                direction === "stock_out" && "text-amber-700 bg-amber-50 dark:bg-amber-900/20"
               )}
             >
               <ArrowUpFromLine className="h-3.5 w-3.5" />
@@ -514,7 +514,7 @@ export function StockFlowForm({
 
               {/* Source Selector */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-gray-600">Source</Label>
+                <Label className="text-xs text-muted-foreground">Source</Label>
                 <RadioGroup value={source} onValueChange={setSource} disabled={isSubmitting}>
                   <div className="space-y-2">
                     {availableSources.map((src) => (
@@ -525,7 +525,7 @@ export function StockFlowForm({
                           className="text-sm font-normal cursor-pointer flex-1"
                         >
                           {src.label}
-                          <span className="ml-2 text-xs text-gray-500 tabular-nums">
+                          <span className="ml-2 text-xs text-muted-foreground tabular-nums">
                             ({src.available} available)
                           </span>
                         </Label>
@@ -563,7 +563,7 @@ export function StockFlowForm({
 
               {/* Destination Selector */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-gray-600">Destination</Label>
+                <Label className="text-xs text-muted-foreground">Destination</Label>
                 <RadioGroup value={destination} onValueChange={setDestination} disabled={isSubmitting}>
                   <div className="space-y-2">
                     {availableDestinations.map((dest) => (

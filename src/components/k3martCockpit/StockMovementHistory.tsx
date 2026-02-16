@@ -157,10 +157,10 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
   if (isLoading) {
     return (
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase text-gray-600">Recent Movements</h3>
+        <h3 className="text-xs font-semibold uppercase text-muted-foreground">Recent Movements</h3>
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded animate-pulse" />
           ))}
         </div>
       </div>
@@ -171,8 +171,8 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
   if (movements.length === 0) {
     return (
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase text-gray-600">Recent Movements</h3>
-        <div className="text-center py-8 text-sm text-gray-500">No recent movements</div>
+        <h3 className="text-xs font-semibold uppercase text-muted-foreground">Recent Movements</h3>
+        <div className="text-center py-8 text-sm text-muted-foreground">No recent movements</div>
       </div>
     );
   }
@@ -181,8 +181,8 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
     <TooltipProvider>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold uppercase text-gray-600">Recent Movements</h3>
-          <span className="text-[10px] text-gray-400 tabular-nums">{sortedMovements.length} total</span>
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">Recent Movements</h3>
+          <span className="text-[10px] text-muted-foreground/70 tabular-nums">{sortedMovements.length} total</span>
         </div>
         <div className="space-y-2">
           {visibleMovements.map((movement) => {
@@ -194,12 +194,12 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
             return (
               <div
                 key={movement._id}
-                className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+                className="bg-card rounded-lg border border-border overflow-hidden"
               >
                 {/* Main row - clickable to expand */}
                 <button
                   onClick={() => toggleExpand(movement._id)}
-                  className="w-full text-left p-3 hover:bg-gray-50/50 transition-colors"
+                  className="w-full text-left p-3 hover:bg-muted/50 transition-colors"
                 >
                   {/* Row 1: Direction icon + Product + Status + Cancel */}
                   <div className="flex items-start justify-between gap-2">
@@ -210,10 +210,10 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
                         <ArrowUpFromLine className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">
+                        <div className="text-sm font-medium text-foreground truncate">
                           {movement.productName || "Unknown Product"}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           {movement.direction === "stock_in" ? "Stock In" : "Stock Out"} &bull;{" "}
                           {movement.quantity} units
                         </div>
@@ -249,9 +249,9 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
 
                       {/* Expand indicator */}
                       {isExpanded ? (
-                        <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+                        <ChevronUp className="h-3.5 w-3.5 text-muted-foreground/70" />
                       ) : (
-                        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/70" />
                       )}
                     </div>
                   </div>
@@ -259,7 +259,7 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
                   {/* Row 2: Source/Destination + Timestamp */}
                   <div className="flex items-center justify-between gap-2 mt-1 pl-6">
                     {(movement.source || movement.destination) && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {movement.direction === "stock_in"
                           ? `From: ${movement.source || "Unknown"}`
                           : `To: ${movement.destination || "Unknown"}`}
@@ -267,7 +267,7 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
                     )}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {formatRelativeTime(movement.submittedAt)}
                         </span>
                       </TooltipTrigger>
@@ -279,7 +279,7 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
 
                   {/* Note preview */}
                   {movement.note && !isExpanded && (
-                    <div className="text-xs text-gray-500 pl-6 mt-1 truncate italic">
+                    <div className="text-xs text-muted-foreground pl-6 mt-1 truncate italic">
                       {movement.note}
                     </div>
                   )}
@@ -287,36 +287,36 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
 
                 {/* Expanded details */}
                 {isExpanded && (
-                  <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
+                  <div className="px-3 pb-3 pt-1 border-t border-border space-y-2">
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       {movement.priceAtSubmission !== undefined && movement.priceAtSubmission > 0 && (
                         <>
-                          <span className="text-gray-500">Price/unit</span>
+                          <span className="text-muted-foreground">Price/unit</span>
                           <span className="tabular-nums">{formatCurrency(movement.priceAtSubmission)}</span>
                         </>
                       )}
                       {movement.currentStockAtSubmission !== undefined && (
                         <>
-                          <span className="text-gray-500">Stock at submission</span>
+                          <span className="text-muted-foreground">Stock at submission</span>
                           <span className="tabular-nums">{movement.currentStockAtSubmission}</span>
                         </>
                       )}
                       {movement.submittedBy && (
                         <>
-                          <span className="text-gray-500">Submitted by</span>
+                          <span className="text-muted-foreground">Submitted by</span>
                           <span>{movement.submittedBy}</span>
                         </>
                       )}
                       {movement.dataSource && (
                         <>
-                          <span className="text-gray-500">Source</span>
+                          <span className="text-muted-foreground">Source</span>
                           <span>{movement.dataSource === "api" ? "K3Mart API" : "Local"}</span>
                         </>
                       )}
                     </div>
                     {movement.note && (
-                      <div className="text-xs text-gray-600 pt-1 border-t border-gray-100">
-                        <span className="text-gray-500">Note: </span>
+                      <div className="text-xs text-muted-foreground pt-1 border-t border-border">
+                        <span className="text-muted-foreground">Note: </span>
                         {movement.note}
                       </div>
                     )}
@@ -332,7 +332,7 @@ export const StockMovementHistory = React.memo(function StockMovementHistory({
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs text-gray-500"
+            className="w-full text-xs text-muted-foreground"
             onClick={() => setVisibleCount((prev) => prev + PAGE_SIZE)}
           >
             Load more ({sortedMovements.length - visibleCount} remaining)
