@@ -108,6 +108,7 @@ None yet.
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
 | 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
 | 3 | Dashboard revenue chart: hourly granularity + smart defaults | 2026-02-16 | eca447b | Verified | [3-dashboard-revenue-chart-smart-default-gr](./quick/3-dashboard-revenue-chart-smart-default-gr/) |
+| 4 | K3Mart cockpit dark mode: replace hardcoded light tokens in 9 components | 2026-02-16 | b10272e | Complete | [4-fix-k3mart-cockpit-dark-mode-replace-rem](./quick/4-fix-k3mart-cockpit-dark-mode-replace-rem/) |
 
 ### Blockers/Concerns
 
@@ -120,7 +121,7 @@ None yet.
 Last session: 2026-02-16
 Stopped at: Phase 16.1 context gathered
 Resume file: .planning/phases/16.1-gobiz-openapi-audit-and-official-api-migration/16.1-CONTEXT.md
-Resume notes: Phase 16.1 context captured. Next: /gsd:plan-phase 16.1. Need Firecrawl MCP or similar for developer.gobiz.com crawl.
+Resume notes: Phase 16.1 context captured. Firecrawl MCP available. Next: /gsd:plan-phase 16.1.
 
 ---
 *Last updated: 2026-02-16*
