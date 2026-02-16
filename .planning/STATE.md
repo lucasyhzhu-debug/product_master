@@ -94,6 +94,7 @@ None yet.
 |---|-------------|------|--------|--------|-----------|
 | 1 | Fix GoBiz sync: auto-seed outlets, product mappings, Customer/Store column, CHANGELOG | 2026-02-16 | 72f302b | Verified | [1-fix-gobiz-sync-register-goldfinch-outlet](./quick/1-fix-gobiz-sync-register-goldfinch-outlet/) |
 | 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified | [2-admin-force-complete-mutation-and-ui-but](./quick/2-admin-force-complete-mutation-and-ui-but/) |
+| 3 | Dashboard revenue chart: hourly granularity + smart defaults | 2026-02-16 | eca447b | Verified | [3-dashboard-revenue-chart-smart-default-gr](./quick/3-dashboard-revenue-chart-smart-default-gr/) |
 
 ### Blockers/Concerns
 
@@ -104,7 +105,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Phase 15 complete, approved by human
+Stopped at: Completed quick-3 (hourly granularity for revenue chart)
 Resume file: None
 Resume notes: Phase 15 complete and verified. On feature/15-kitchen-overhaul branch. Ready to merge to main, then start Phase 16 (K3Mart Cockpit).
 
