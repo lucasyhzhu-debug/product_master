@@ -3,17 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Planning next milestone
+**Current focus:** Milestone v1.2 "Unified Planning & Revenue" -- Defining requirements
 
 ## Current Position
 
-Phase: -- (between milestones)
+Phase: Not started (defining requirements)
 Plan: --
-Status: v1.1 shipped, ready for v1.2 planning
-Last activity: 2026-02-16 - Completed v1.1 milestone archival
+Status: Defining requirements
+Last activity: 2026-02-16 -- Milestone v1.2 started
 
-Progress (v1.0): [##########] 100% (11 phases, 36 plans)
-Progress (v1.1): [##########] 100% (6 phases, 27 plans)
+Progress (v1.2): [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -88,14 +87,17 @@ None yet.
 
 ### Blockers/Concerns
 
-(Cleared for next milestone)
+- [Pitfall]: 3rd GoJek outlet (G958262444 Tamtem/Legato) needs product mapping like Crystal+Goldfinch
+- [Strategic]: Kitchen simplification is a workflow redesign, not just UI changes -- aggregate target replaces per-order ball allocation
+- [Strategic]: Unified dispatch planner evolves K3Mart cockpit into multi-channel system -- backwards compatibility needed
+- [Pitfall]: Consignment revenue recognition has 3 timing layers: production, sale confirmation, cash collection
 
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: v1.1 milestone archived
-Resume file: .planning/ROADMAP.md
-Resume notes: v1.1 shipped and archived. All archives in .planning/milestones/. REQUIREMENTS.md deleted (fresh for next milestone). Ready for /gsd:new-milestone to start v1.2.
+Stopped at: Defining v1.2 requirements
+Resume file: .planning/REQUIREMENTS.md
+Resume notes: v1.2 "Unified Planning & Revenue" milestone started. Scope: 3rd GoJek outlet, unified planner, kitchen simplification, cross-channel analytics, consignment revenue. Research decision pending.
 
 ---
 *Last updated: 2026-02-16*

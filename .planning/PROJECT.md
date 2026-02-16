@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Now with Kanban order management, kitchen production targets, multi-platform API integration (GoBiz/GoFood), and K3Mart outlet dispatch planning.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, kitchen production targets, multi-platform API integration (GoBiz/GoFood across 3 outlets), and K3Mart outlet dispatch planning. Moving toward unified multi-channel production planning and consignment revenue tracking.
 
 ## Core Value
 
@@ -25,7 +25,7 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ K3 Mart integration for external stock management — existing
 - ✓ Customer management — existing
 - ✓ Real-time dashboard with reactive queries — existing
-- ✓ Visual feedback overlay for user reporting — existing
+- ~~✓ Visual feedback overlay for user reporting — existing~~ (removed v1.2 — element identification too imprecise)
 - ✓ BOM as single source of truth for ball composition — v1.0
 - ✓ Comprehensive test coverage for ball distribution, FIFO, order lifecycle, vouchers — v1.0
 - ✓ Security hardened: env files removed from VCS, credentials rotated, security patterns documented — v1.0
@@ -56,7 +56,16 @@ Production reliability — the system is the single source of truth for recipes,
 
 ### Active
 
-(Next milestone requirements to be defined via `/gsd:new-milestone`)
+## Current Milestone: v1.2 "Unified Planning & Revenue"
+
+**Goal:** Unify production planning across all sales channels, add 3rd GoJek outlet, simplify kitchen targets, enable cross-channel analytics, and close consignment revenue recognition gaps.
+
+**Target features:**
+- 3rd GoJek outlet sync (Tamtem/Legato G958262444)
+- Unified dispatch planner (evolve K3Mart cockpit into multi-channel weekly planner)
+- Kitchen simplification (aggregate daily target, audio alerts, over/under warnings)
+- Cross-channel sales analytics (all channels with manual entry for non-API platforms)
+- Consignment revenue workflow (production → sale recognition → cash collection)
 
 ### Out of Scope
 
@@ -126,4 +135,4 @@ Deployed via Vercel with GitHub Actions CI.
 | Drop Phase 16.1 GoBiz OAuth2 | GoBiz stopped issuing new client credentials | — Accepted — unofficial integration maintained |
 
 ---
-*Last updated: 2026-02-16 after v1.1 milestone*
+*Last updated: 2026-02-16 after v1.2 milestone start*
