@@ -11,7 +11,7 @@ import { motion } from 'framer-motion';
 
 import { OutletStockDetail } from './OutletStockDetail';
 import { StockFlowForm } from './StockFlowForm';
-import { StockMovementHistory } from './StockMovementHistory';
+import { StockMovementHistory, type StockMovement } from './StockMovementHistory';
 
 interface ExpandedOutletPanelProps {
   outletId: string;
@@ -26,6 +26,8 @@ interface ExpandedOutletPanelProps {
     daysOfStock: number;
     plannedQty?: number;
     planStatus?: 'draft' | 'confirmed' | 'submitted' | 'partial' | 'failed';
+    /** Price per unit for this product at this outlet */
+    price?: number;
   }>;
   availableSources: Array<{
     type: 'kitchen' | 'goldfinch' | 'outlet';
@@ -38,18 +40,7 @@ interface ExpandedOutletPanelProps {
     label: string;
     outletId?: string;
   }>;
-  movements: Array<{
-    _id: string;
-    direction: 'stock_in' | 'stock_out';
-    quantity: number;
-    menuProductId: string;
-    productName?: string;
-    source?: string;
-    destination?: string;
-    k3martStatus?: 'pending' | 'approved' | 'rejected' | 'canceled';
-    submittedAt?: number;
-    note?: string;
-  }>;
+  movements: StockMovement[];
   onStockFlowSubmit: (data: {
     direction: 'stock_in' | 'stock_out';
     menuProductId: string;
@@ -99,7 +90,13 @@ export const ExpandedOutletPanel = React.memo(function ExpandedOutletPanel({
             <StockFlowForm
               outletId={outletId}
               outletName={outletName}
-              products={products}
+              products={products.map(p => ({
+                menuProductId: p.menuProductId,
+                externalProductCode: p.externalProductCode,
+                productName: p.productName,
+                currentStock: p.currentStock,
+                price: p.price,
+              }))}
               availableSources={availableSources}
               availableDestinations={availableDestinations}
               onSubmit={onStockFlowSubmit}

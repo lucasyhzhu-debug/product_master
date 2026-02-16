@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { OutletCard } from './OutletCard';
 import { ExpandedOutletPanel } from './ExpandedOutletPanel';
+import type { StockMovement } from './StockMovementHistory';
 
 interface OutletCardGridProps {
   outlets: Array<{
@@ -24,6 +25,7 @@ interface OutletCardGridProps {
       daysOfStock: number;
       plannedQty?: number;
       planStatus?: "draft" | "confirmed" | "submitted" | "partial" | "failed";
+      price?: number;
     }>;
     planStatus: "no_plan" | "draft" | "confirmed" | "submitted" | "partial" | "failed";
     totalStock: number;
@@ -41,18 +43,7 @@ interface OutletCardGridProps {
     label: string;
     outletId?: string;
   }>;
-  movements: Record<string, Array<{
-    _id: string;
-    direction: "stock_in" | "stock_out";
-    quantity: number;
-    menuProductId: string;
-    productName?: string;
-    source?: string;
-    destination?: string;
-    k3martStatus?: "pending" | "approved" | "rejected" | "canceled";
-    submittedAt?: number;
-    note?: string;
-  }>>;
+  movements: Record<string, StockMovement[]>;
   onStockFlowSubmit: (outletId: string, data: {
     direction: "stock_in" | "stock_out";
     menuProductId: string;
