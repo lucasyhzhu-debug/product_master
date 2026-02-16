@@ -149,9 +149,12 @@ export function K3MartSyntheticCard({
 
               {/* Outlet breakdown */}
               {item.outletBreakdown.length > 0 && (
-                <div className="ml-9 text-xs text-muted-foreground space-x-3">
+                <div className="ml-9 flex flex-wrap gap-1">
                   {item.outletBreakdown.map((outlet) => (
-                    <span key={outlet.outletName}>
+                    <span
+                      key={outlet.outletName}
+                      className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >
                       {outlet.outletName}: {outlet.stock}
                     </span>
                   ))}

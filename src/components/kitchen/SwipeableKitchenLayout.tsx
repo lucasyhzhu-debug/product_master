@@ -6,7 +6,7 @@ interface SwipeableKitchenLayoutProps {
   children: React.ReactNode[];
   activeIndex: number;
   onIndexChange: (index: number) => void;
-  stationCounts?: [number, number, number, number];
+  stationCounts?: number[];
 }
 
 const STATIONS = [
@@ -31,20 +31,13 @@ const STATIONS = [
     lightBg: 'var(--color-station-stickering-light)',
     accent: 'var(--color-station-stickering-accent)',
   },
-  {
-    label: 'Pak',
-    fullName: 'Packing',
-    color: 'var(--color-station-packing)',
-    lightBg: 'var(--color-station-packing-light)',
-    accent: 'var(--color-station-packing-accent)',
-  },
 ];
 
 export function SwipeableKitchenLayout({
   children,
   activeIndex,
   onIndexChange,
-  stationCounts = [0, 0, 0, 0],
+  stationCounts = [0, 0, 0],
 }: SwipeableKitchenLayoutProps) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [isDragging, setIsDragging] = useState(false);

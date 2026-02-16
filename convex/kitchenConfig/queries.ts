@@ -6,8 +6,8 @@ import { query } from "../_generated/server";
  */
 const DEFAULTS = {
   maxProductionTarget: 200,
-  bigBallTarget: 150,
-  midBallTarget: 50,
+  bigBallTarget: 0,
+  midBallTarget: 200,
 } as const;
 
 /**

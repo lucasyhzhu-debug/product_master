@@ -13,17 +13,14 @@ const urgencyStyles = {
   green: {
     text: 'text-emerald-600',
     border: 'border-emerald-300',
-    bg: 'bg-emerald-50/50',
   },
   amber: {
     text: 'text-amber-500',
     border: 'border-amber-300',
-    bg: 'bg-amber-50/50',
   },
   red: {
     text: 'text-red-600',
     border: 'border-red-300',
-    bg: 'bg-red-50/50',
   },
 } as const;
 
@@ -34,7 +31,7 @@ export function StatCard({ label, value, subtitle, urgency, onClick, icon }: Sta
     <div
       className={cn(
         'rounded-lg border px-3 py-2.5 min-h-[60px] flex flex-col justify-center transition-colors',
-        style ? `${style.border} ${style.bg}` : 'border-border bg-card',
+        style ? `${style.border} bg-card` : 'border-border bg-card',
         onClick && 'cursor-pointer active:scale-[0.98] hover:bg-accent/50'
       )}
       onClick={onClick}

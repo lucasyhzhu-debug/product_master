@@ -54,7 +54,7 @@ export function KitchenOrderChecklist({ items, onToggle, onOverride, canOverride
                 }}
                 disabled={isDisabled && !needsOverride}
                 className={cn(
-                  'flex-1 min-h-[48px] px-3 py-2 rounded-lg flex items-center gap-3 text-left transition-colors touch-manipulation',
+                  'flex-1 min-h-[36px] px-2 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors touch-manipulation',
                   item.isPacked
                     ? 'bg-green-50 dark:bg-green-900/20'
                     : 'hover:bg-muted/50 active:bg-muted',
@@ -64,26 +64,26 @@ export function KitchenOrderChecklist({ items, onToggle, onOverride, canOverride
                 {/* Checkbox circle */}
                 <div
                   className={cn(
-                    'flex-shrink-0 w-6 h-6 rounded-full transition-all flex items-center justify-center',
+                    'flex-shrink-0 w-5 h-5 rounded-full transition-all flex items-center justify-center',
                     item.isPacked
                       ? 'bg-green-600 dark:bg-green-500'
                       : 'border-2 border-border'
                   )}
                 >
-                  {item.isPacked && <Check className="w-4 h-4 text-white" />}
+                  {item.isPacked && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
 
                 {/* Product info */}
                 <div className="flex-1 min-w-0">
                   <p
                     className={cn(
-                      'text-base font-medium',
+                      'text-sm font-medium',
                       item.isPacked && 'line-through text-muted-foreground'
                     )}
                   >
                     {item.quantity}x {item.productName}
                     {item.productVariant && (
-                      <span className="text-sm text-muted-foreground ml-1">
+                      <span className="text-xs text-muted-foreground ml-1">
                         ({item.productVariant})
                       </span>
                     )}

@@ -5,12 +5,12 @@
  * Panel 1: Production Log (ball input + targets)
  * Panel 2: To Box (batch boxing by product type)
  * Panel 3: To Sticker (batch stickering by product type)
- * Panel 4: To Pack (per-order packing checklist)
+ * + DueDateOrderList (per-order packing checklist, always visible)
  *
  * Phase 15: Dashboard header with stat cards + due-date order list
  *
- * Desktop (1024px+): side-by-side panels with sidebar
- * Mobile (<768px): swipeable panels with station pill bar
+ * Desktop (1024px+): 4-column grid (Production | Boxing | Stickering | Orders by Due Date)
+ * Mobile (<768px): 3 swipeable panels + DueDateOrderList below
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -23,7 +23,6 @@ import {
   ProductionLogPanel,
   BoxingPanel,
   StickeringPanel,
-  PackingPanel,
   DashboardHeader,
   DueDateOrderList,
 } from '@/components/kitchen';
@@ -99,9 +98,6 @@ export function KitchenViewV2() {
   const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
   const sendBack = useProtectedMutation(api.orders.mutations.index.sendBackToOrderDesk);
 
-  // GoFood depot mutations
-  const recordShipment = useProtectedMutation(api.gofoodDepot.mutations.recordShipment);
-
   // GoBiz sync action
   const syncGoBizAction = useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
 
@@ -142,8 +138,8 @@ export function KitchenViewV2() {
   // Max target from config
   const maxTarget = useMemo(() => ({
     total: kitchenConfig?.maxProductionTarget ?? 200,
-    big: kitchenConfig?.bigBallTarget ?? 150,
-    mid: kitchenConfig?.midBallTarget ?? 50,
+    big: kitchenConfig?.bigBallTarget ?? 0,
+    mid: kitchenConfig?.midBallTarget ?? 200,
   }), [kitchenConfig]);
 
   // Min target from kitchen stats (due-today orders)
@@ -285,34 +281,6 @@ export function KitchenViewV2() {
     }
   };
 
-  // Handler - Ship to Goldfinch
-  const handleShipToGoldfinch = async (
-    selectedItems: Array<{
-      menuProductId: string;
-      quantity: number;
-      stickerTransfers: Array<{ componentTypeId: string; quantity: number }>;
-    }>
-  ) => {
-    try {
-      const items = selectedItems.map((item) => ({
-        menuProductId: item.menuProductId as Id<'menuProducts'>,
-        quantity: item.quantity,
-        stickerTransfers: item.stickerTransfers.map((s) => ({
-          componentTypeId: s.componentTypeId as Id<'componentTypes'>,
-          quantity: s.quantity,
-        })),
-      }));
-
-      const result = await recordShipment({ items });
-      actionToast(
-        `Shipped ${result.totalBoxes} boxes + ${result.totalStickers} stickers to Goldfinch`
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to ship to Goldfinch';
-      toast.error(msg);
-    }
-  };
-
   // Handler - GoBiz Sync Now
   const handleSyncNow = async () => {
     try {
@@ -368,57 +336,6 @@ export function KitchenViewV2() {
     });
   }, [goFoodDailyOrder, goldfinchStickerInventory]);
 
-  // Build GoFood packing card data for PackingPanel
-  const goFoodPackingData = useMemo(() => {
-    if (!goFoodDailyOrder?.items || goFoodDailyOrder.items.length === 0) return null;
-
-    // Find if already shipped today
-    const shippedItems = goFoodDailyOrder.items.filter((i: any) => i.shippedToday > 0);
-    const shippedAt = shippedItems.length > 0 ? undefined : undefined; // Will be set from shipments query
-
-    // Build items with boxed counts from productionCounts
-    const pcMap = new Map(
-      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
-    );
-
-    const items = goFoodDailyOrder.items.map((item: any) => ({
-      menuProductId: item.menuProductId,
-      productName: item.productName,
-      targetQty: item.targetQty,
-      existingAtDepot: item.existingAtDepot,
-      toShipToday: item.toShipToday,
-      shippedToday: item.shippedToday,
-      freshness: 'fresh' as const,
-      boxedCount: pcMap.get(item.menuProductId)?.boxed ?? 0,
-    }));
-
-    // Build sticker transfer suggestions
-    const totalToShip = items.reduce((sum: number, i: any) => sum + i.toShipToday, 0);
-    const stickerTransfers = goldfinchStickerInventory?.map((s: any) => ({
-      componentTypeId: s.componentTypeId,
-      componentName: s.componentName,
-      quantity: totalToShip, // 1:1 sticker per box
-      officeStock: s.totalStock,
-    })) ?? [];
-
-    // Build current depot stock display
-    const depotCurrentStock = goFoodDailyOrder.items.map((item: any) => ({
-      productName: item.productName,
-      boxes: item.currentDepotStock,
-      stickers: 0, // Simplified
-      freshness: 'fresh' as const,
-    }));
-
-    return {
-      orderNumber: goFoodDailyOrder.orderNumber,
-      date: goFoodDailyOrder.date,
-      items,
-      stickerTransfers,
-      depotCurrentStock,
-      shippedAt,
-    };
-  }, [goFoodDailyOrder, productionCounts, goldfinchStickerInventory]);
-
   // Build K3 Mart outlet stock map for ProductionLogPanel + BoxingPanel
   const k3MartStockMap = useMemo(() => {
     if (!k3MartSummary?.items?.length) return undefined;
@@ -437,36 +354,7 @@ export function KitchenViewV2() {
     return k3MartSummary.items;
   }, [k3MartSummary]);
 
-  // Build K3 Mart packing data for PackingPanel
-  const k3MartPackingData = useMemo(() => {
-    if (!k3MartSummary?.items?.length) return null;
 
-    // Only include items with consignment targets
-    const targetItems = k3MartSummary.items.filter(
-      (i: any) => i.consignmentTarget > 0
-    );
-    if (targetItems.length === 0) return null;
-
-    const pcMap = new Map(
-      productionCounts?.map((p) => [p.menuProductId, p]) ?? []
-    );
-
-    const items = targetItems.map((item: any) => {
-      const pc = pcMap.get(item.menuProductId);
-      const boxed = pc?.boxed ?? 0;
-      const stickered = pc?.stickered ?? 0;
-      return {
-        menuProductId: item.menuProductId,
-        productName: item.productName,
-        consignmentTarget: item.consignmentTarget,
-        boxed,
-        stickered,
-        isReady: stickered >= item.consignmentTarget,
-      };
-    });
-
-    return { date: today, items };
-  }, [k3MartSummary, productionCounts, today]);
 
   // Compute per-product total target (orders + consignment + gofood) for BoxingPanel
   const productTargetTotals = useMemo(() => {
@@ -500,12 +388,11 @@ export function KitchenViewV2() {
     return map;
   }, [packingOrders]);
 
-  // Station counts for pill bar badges
-  const stationCounts: [number, number, number, number] = [
+  // Station counts for pill bar badges (3 panels: Production, Boxing, Stickering)
+  const stationCounts: [number, number, number] = [
     0, // Production: no count needed
     productionCounts?.length ?? 0, // Boxing: products to box
     productionCounts?.filter(p => p.availableForStickering > 0).length ?? 0, // Stickering
-    packingOrders?.length ?? 0, // Packing: orders to pack
   ];
 
   if (isLoading) {
@@ -604,15 +491,6 @@ export function KitchenViewV2() {
           onSyncK3Mart={handleSyncK3Mart}
           disabled={!canEditKitchen}
         />
-        <PackingPanel
-          packingOrders={packingOrders}
-          goFoodPackingData={goFoodPackingData}
-          k3MartPackingData={k3MartPackingData}
-          onTogglePack={handleTogglePack}
-          onMarkOrderReady={handleMarkOrderReady}
-          onShipToGoldfinch={handleShipToGoldfinch}
-          disabled={!canEditKitchen}
-        />
       </SwipeableKitchenLayout>
 
       {/* Desktop: Side-by-side layout */}
@@ -666,38 +544,22 @@ export function KitchenViewV2() {
             />
           </div>
           <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-packing-accent)' }}>
-              To Pack
+            <h2 className="text-lg font-bold text-foreground mb-3 px-1">
+              Orders by Due Date
             </h2>
-            <PackingPanel
-              packingOrders={packingOrders}
-              goFoodPackingData={goFoodPackingData}
-              k3MartPackingData={k3MartPackingData}
+            <DueDateOrderList
+              orders={packingOrders ?? []}
+              k3MartSummary={k3MartSummary}
               onTogglePack={handleTogglePack}
-              onMarkOrderReady={handleMarkOrderReady}
-              onShipToGoldfinch={handleShipToGoldfinch}
+              onMarkReady={handleMarkOrderReady}
+              onSendBack={handleSendBack}
+              onOverride={canConfigure ? handleOverride : undefined}
+              onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+              canOverride={canConfigure}
+              canEdit={canConfigure}
               disabled={!canEditKitchen}
             />
           </div>
-        </div>
-
-        {/* Desktop: Due-Date Order List below panels */}
-        <div className="mt-6">
-          <h2 className="text-lg font-bold text-foreground mb-3 px-1">
-            Orders by Due Date
-          </h2>
-          <DueDateOrderList
-            orders={packingOrders ?? []}
-            k3MartSummary={k3MartSummary}
-            onTogglePack={handleTogglePack}
-            onMarkReady={handleMarkOrderReady}
-            onSendBack={handleSendBack}
-            onOverride={canConfigure ? handleOverride : undefined}
-            onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
-            canOverride={canConfigure}
-            canEdit={canConfigure}
-            disabled={!canEditKitchen}
-          />
         </div>
       </div>
     </div>
