@@ -85,6 +85,18 @@ interface KitchenProductionData {
       }
     | undefined;
 
+  // Kitchen configuration (max target + ball composition)
+  kitchenConfig:
+    | {
+        _id: string | null;
+        maxProductionTarget: number;
+        bigBallTarget: number;
+        midBallTarget: number;
+        updatedAt: number | null;
+        updatedBy: string | null;
+      }
+    | undefined;
+
   // Production targets for today (enriched with unit type info)
   productionTargets:
     | Array<{
@@ -148,6 +160,7 @@ export function useKitchenProduction(): KitchenProductionData {
   );
   const trayInventory = useQuery(api.orders.queries.getTrayInventory, {});
   const kitchenStats = useQuery(api.orders.queries.getKitchenStats, {});
+  const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
   const productionTargets = useQuery(api.productionTargets.queries.getProductionSummary, {
     date: today,
   });
@@ -177,7 +190,8 @@ export function useKitchenProduction(): KitchenProductionData {
     productionCounts === undefined ||
     packingOrders === undefined ||
     trayInventory === undefined ||
-    kitchenStats === undefined;
+    kitchenStats === undefined ||
+    kitchenConfig === undefined;
 
   return {
     isLoading,
@@ -185,6 +199,7 @@ export function useKitchenProduction(): KitchenProductionData {
     packingOrders,
     trayInventory,
     kitchenStats,
+    kitchenConfig,
     productionTargets,
     productTargets,
     orderProductDemand,

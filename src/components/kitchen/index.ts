@@ -19,3 +19,8 @@ export { GoFoodStickerCard } from './GoFoodStickerCard';
 export { GoFoodPackingCard } from './GoFoodPackingCard';
 export { K3MartStockCard } from './K3MartStockCard';
 export { K3MartPackingCard } from './K3MartPackingCard';
+
+// Kitchen V3 Dashboard Header
+export { DashboardHeader } from './DashboardHeader';
+export { StatCard } from './StatCard';
+export { TargetConfigPopover } from './TargetConfigPopover';
