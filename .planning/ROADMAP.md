@@ -90,7 +90,7 @@ Plans:
   6. Receiving new ingredient stock (batches) works identically to packaging inventory — same receive modal, vendor, cost per unit, FIFO tracking
   7. Dispatch planner usage simulation includes ingredient consumption alongside packaging consumption — shows projected ingredient depletion and resupply dates
   8. Historical orders are not impacted — COGS calculations apply forward only, no retroactive recalculation
-**Plans:** 6 plans
+**Plans:** 9 plans (6 original + 3 UAT gap closure)
 Plans:
 - [x] 20-01-PLAN.md -- Schema extensions (2 new tables + componentTypes fields) + hierarchy traversal utility
 - [x] 20-02-PLAN.md -- Production recipe CRUD backend + COGS calculation + cost invalidation cascade
@@ -98,6 +98,9 @@ Plans:
 - [x] 20-04-PLAN.md -- Recipe editor modal frontend + ProductionComponentsManager tier sorting
 - [x] 20-05-PLAN.md -- Inventory page ingredient display + COGS tooltip + dispatch planner simulation
 - [x] 20-06-PLAN.md -- Materials Check panel wiring + build verification + documentation
+- [ ] 20-07-PLAN.md -- UAT gap closure (backend): hierarchy cost-leaf, production inventory mutation, dispatchPlans outletId union
+- [ ] 20-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
+- [ ] 20-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
 
 ### Phase 18: GoFood Depot Management
 **Goal**: Manager can track per-outlet depot stock, get restock suggestions, and receive low-stock alerts across all 3 GoFood outlets
@@ -147,7 +150,7 @@ Phases execute in priority order: 17 → 20 → 18 → 19
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
 | ~~16.1. GoBiz OpenAPI~~ | v1.1 | — | Dropped | 2026-02-16 |
 | 17. Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
-| 20. Production Ingredient Tracking & COGS | v1.2 | 6/6 | Complete | 2026-02-17 |
+| 20. Production Ingredient Tracking & COGS | v1.2 | 6/9 | In Progress (UAT gaps) | - |
 | 18. GoFood Depot Management | v1.2 | 0/? | Not started | - |
 | 19. Kitchen Target Link | v1.2 | 0/? | Not started | - |
 
