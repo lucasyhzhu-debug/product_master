@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 — Production Ingredient Tracking & COGS
-Plan: 01 of 6 (COMPLETE)
+Plan: 03 of 6 (COMPLETE)
 Status: Executing Phase 20
-Last activity: 2026-02-17 — Plan 20-01 complete (schema + hierarchy traversal)
+Last activity: 2026-02-17 — Plan 20-03 complete (ingredient inventory + fulfillment deduction)
 
-Progress (Phase 20): [█░░░░░░░░░] 17%
+Progress (Phase 20): [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -52,6 +52,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-06] Packaging-only products filtered from dispatch planner grid
 - [20-01] Used new Set(visited) per branch in DFS to avoid cross-branch false positives
 - [20-01] batchSize conversion: childUnits = (qty * multiplier) / batchSize when batchSize > 0
+- [20-02] recalculateComponentCogs only writes to componentTypes (forward-only COGS, historical orders keep original costs)
+- [20-02] Cost invalidation walks upward via productionComponentLinks.by_child to cascade stale markers
+- [20-02] cogsMode toggle preserves manualUnitCostIdr as fallback when switching to calculated
 
 ### Roadmap Evolution
 
@@ -74,9 +77,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-01-PLAN.md
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-01-SUMMARY.md
-Resume notes: Plan 20-01 complete. Schema + hierarchy traversal ready. Continue with 20-02.
+Stopped at: Completed 20-02-PLAN.md
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-02-SUMMARY.md
+Resume notes: Plan 20-02 complete. Production recipe CRUD + COGS calculation ready. Continue with 20-03.
 
 ---
-*Last updated: 2026-02-17 (20-01)*
+*Last updated: 2026-02-17 (20-02)*
