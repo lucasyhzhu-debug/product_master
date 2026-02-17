@@ -1264,7 +1264,6 @@ export default defineSchema({
     displayName: v.string(), // "Direct Sales", "GoFood", etc.
     color: v.string(), // Hex color for capacity bar segment
     priority: v.number(), // Lower = higher priority (1 = highest)
-    commissionRate: v.number(), // Percentage (e.g., 19 for 19%)
     isBuiltIn: v.boolean(), // true for Direct/GoFood/K3Mart, false for custom
     isEnabled: v.boolean(),
     updatedBy: v.string(),
@@ -1282,7 +1281,6 @@ export default defineSchema({
       externalName: v.string(),
       externalPrice: v.number(),
     })),
-    commissionRate: v.optional(v.number()), // Override channel-level rate
     createdBy: v.string(),
     createdAt: v.number(),
     updatedBy: v.string(),

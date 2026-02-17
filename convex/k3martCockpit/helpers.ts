@@ -75,19 +75,32 @@ export function formatDateShort(date: string): string {
  * @returns Array of 7 date strings [Monday..Sunday]
  */
 export function getWeekDates(startDate: string): string[] {
-  const d = new Date(startDate + "T00:00:00+07:00");
-  const dayOfWeek = d.getDay() || 7; // Sunday = 7
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - dayOfWeek + 1);
+  // Parse in Jakarta timezone to get correct day-of-week
+  const d = new Date(startDate + "T12:00:00+07:00"); // Use noon to avoid edge cases
+
+  // Get day of week from Jakarta perspective using Intl
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(d);
+
+  const dayMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const dayOfWeek = dayMap[dayName] ?? 0;
+  const adjustedDow = dayOfWeek === 0 ? 7 : dayOfWeek; // Sunday = 7
+
+  // Calculate Monday from Jakarta-perspective date
+  const jakartaDateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+  const jakartaDate = new Date(jakartaDateStr + "T12:00:00+07:00");
+  const monday = new Date(jakartaDate);
+  monday.setDate(jakartaDate.getDate() - adjustedDow + 1);
 
   const dates: string[] = [];
   for (let i = 0; i < 7; i++) {
     const current = new Date(monday);
     current.setDate(monday.getDate() + i);
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, "0");
-    const day = String(current.getDate()).padStart(2, "0");
-    dates.push(`${year}-${month}-${day}`);
+    dates.push(current.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }));
   }
   return dates;
 }

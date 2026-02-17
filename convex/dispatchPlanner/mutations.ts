@@ -21,10 +21,10 @@ export const seedDefaults = mutation({
 
     // Seed channel config with default priorities
     const channels = [
-      { channelKey: "direct", displayName: "Direct Sales", color: "#3B82F6", priority: 1, commissionRate: 0, isBuiltIn: true, isEnabled: true },
-      { channelKey: "gofood", displayName: "GoFood", color: "#22C55E", priority: 2, commissionRate: 19, isBuiltIn: true, isEnabled: true },
-      { channelKey: "k3mart", displayName: "K3Mart", color: "#F97316", priority: 3, commissionRate: 30, isBuiltIn: true, isEnabled: true },
-      { channelKey: "consignment", displayName: "Other Consignment", color: "#6B7280", priority: 4, commissionRate: 15, isBuiltIn: false, isEnabled: true },
+      { channelKey: "direct", displayName: "Direct Sales", color: "#3B82F6", priority: 1, isBuiltIn: true, isEnabled: true },
+      { channelKey: "gofood", displayName: "GoFood", color: "#22C55E", priority: 2, isBuiltIn: true, isEnabled: true },
+      { channelKey: "k3mart", displayName: "K3Mart", color: "#F97316", priority: 3, isBuiltIn: true, isEnabled: true },
+      { channelKey: "consignment", displayName: "Other Consignment", color: "#6B7280", priority: 4, isBuiltIn: false, isEnabled: true },
     ];
 
     for (const ch of channels) {
@@ -150,7 +150,6 @@ export const updateChannelConfig = mutation({
     channelKey: v.string(),
     updates: v.object({
       priority: v.optional(v.number()),
-      commissionRate: v.optional(v.number()),
       isEnabled: v.optional(v.boolean()),
       displayName: v.optional(v.string()),
       color: v.optional(v.string()),
@@ -174,7 +173,6 @@ export const updateChannelConfig = mutation({
       updatedAt: now,
     };
     if (args.updates.priority !== undefined) patch.priority = args.updates.priority;
-    if (args.updates.commissionRate !== undefined) patch.commissionRate = args.updates.commissionRate;
     if (args.updates.isEnabled !== undefined) patch.isEnabled = args.updates.isEnabled;
     if (args.updates.displayName !== undefined) patch.displayName = args.updates.displayName;
     if (args.updates.color !== undefined) patch.color = args.updates.color;
@@ -271,7 +269,6 @@ export const addConsignmentOutlet = mutation({
         externalPrice: v.number(),
       })
     ),
-    commissionRate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin"]);
@@ -282,7 +279,6 @@ export const addConsignmentOutlet = mutation({
       channelKey: "consignment" as const,
       isEnabled: true,
       productMappings: args.productMappings,
-      commissionRate: args.commissionRate,
       createdBy: user.name,
       createdAt: now,
       updatedBy: user.name,
@@ -310,7 +306,6 @@ export const updateConsignmentOutlet = mutation({
         })
       )
     ),
-    commissionRate: v.optional(v.number()),
     isEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -328,7 +323,6 @@ export const updateConsignmentOutlet = mutation({
     };
     if (args.name !== undefined) patch.name = args.name;
     if (args.productMappings !== undefined) patch.productMappings = args.productMappings;
-    if (args.commissionRate !== undefined) patch.commissionRate = args.commissionRate;
     if (args.isEnabled !== undefined) patch.isEnabled = args.isEnabled;
 
     await ctx.db.patch(args.outletId, patch);

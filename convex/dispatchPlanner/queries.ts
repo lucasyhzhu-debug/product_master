@@ -149,6 +149,8 @@ export const getUnifiedWeeklyPlan = query({
       .collect();
     const menuProductMap = new Map<string, Doc<"menuProducts">>();
     for (const mp of allMenuProducts) {
+      // Skip packaging-only products (e.g., Brochure-How to Eat)
+      if (mp.productType === "packaging") continue;
       menuProductMap.set(mp._id, mp);
     }
 
@@ -226,8 +228,8 @@ async function assembleDirectChannel(
   dates: string[],
   todayStr: string,
   dailyTotals: Record<string, Record<string, number>>,
-  _menuProductMap: Map<string, Doc<"menuProducts">>,
-  _allDispatchPlans: Doc<"dispatchPlans">[],
+  menuProductMap: Map<string, Doc<"menuProducts">>,
+  allDispatchPlans: Doc<"dispatchPlans">[],
 ) {
   const dateSet = new Set(dates);
   const firstDate = dates[0];
@@ -335,6 +337,50 @@ async function assembleDirectChannel(
       dueDate: dueDateStr,
       productionStartDate: prodStartStr,
       products,
+    });
+  }
+
+  // Add a "Planned (Manual)" outlet for ad-hoc direct sales planning
+  const manualProducts: ProductRow[] = [];
+  const manualDirectPlans = allDispatchPlans.filter(
+    (p) => p.channel === "direct" && !p.orderId
+  );
+
+  for (const [mpId, mp] of menuProductMap) {
+    const mpPlans = manualDirectPlans.filter(
+      (p) => (p.menuProductId as string) === mpId
+    );
+
+    const cells: Record<string, PlanCell> = {};
+    for (const date of dates) {
+      const isPast = date < todayStr;
+      const plan = mpPlans.find((p) => p.date === date);
+      cells[date] = {
+        plannedQty: plan?.plannedQty ?? 0,
+        source: plan?.source ?? "none",
+        isReadOnly: isPast,
+      };
+
+      // Add manual planned qty to daily totals
+      if ((plan?.plannedQty ?? 0) > 0) {
+        dailyTotals[date]["direct"] =
+          (dailyTotals[date]["direct"] ?? 0) + (plan?.plannedQty ?? 0);
+      }
+    }
+
+    manualProducts.push({
+      menuProductId: mpId as Id<"menuProducts">,
+      productName: mp.name,
+      cells,
+    });
+  }
+
+  if (manualProducts.length > 0) {
+    section.outlets.push({
+      id: "direct-manual",
+      name: "Planned (Manual)",
+      type: "outlet",
+      products: manualProducts,
     });
   }
 }
