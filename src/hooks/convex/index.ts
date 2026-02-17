@@ -392,6 +392,7 @@ export {
   useDispatchConsignmentOutlets,
   useDispatchSimulateInventory,
   // Mutation hooks
+  useDispatchSeedDefaults,
   useDispatchSavePlanCell,
   useDispatchUpdateChannelConfig,
   useDispatchReorderPriorities,

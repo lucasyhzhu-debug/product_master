@@ -8,7 +8,7 @@
  * Desktop-only. Requires canAccessDashboard permission.
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Settings, FlaskConical, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +32,8 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   useDispatchPlannerWeekly,
   useDispatchPlannerSettings,
+  useDispatchChannelConfig,
+  useDispatchSeedDefaults,
   useDispatchSavePlanCell,
   useDispatchSimulateInventory,
 } from "@/hooks/convex";
@@ -75,9 +77,24 @@ export function DispatchPlanner() {
   const { data: weeklyData, isLoading: loadingWeekly } =
     useDispatchPlannerWeekly(startDate);
   const { data: settingsData } = useDispatchPlannerSettings();
+  const { data: channelConfig } = useDispatchChannelConfig();
+  const seedDefaults = useDispatchSeedDefaults();
   const savePlanCell = useDispatchSavePlanCell();
   const { data: simulationResults, isLoading: loadingSimulation } =
     useDispatchSimulateInventory(simulationStartDate);
+
+  // Auto-seed on first visit when no channel config exists
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (channelConfig !== undefined && channelConfig.length === 0 && !seededRef.current) {
+      seededRef.current = true;
+      seedDefaults({}).then(() => {
+        toast.success("Dispatch planner initialized with default settings");
+      }).catch((err: unknown) => {
+        console.error("Failed to seed defaults:", err);
+      });
+    }
+  }, [channelConfig, seedDefaults]);
 
   // Handle week navigation
   const handleNavigate = useCallback((newStart: string) => {

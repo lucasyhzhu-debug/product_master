@@ -66,8 +66,15 @@ export function useDispatchSimulateInventory(startDate: string) {
 }
 
 // ========================
-// Mutation Hooks (7)
+// Mutation Hooks (8)
 // ========================
+
+/**
+ * Seed default dispatch planner config. Auto-called on first page visit when no config exists.
+ */
+export function useDispatchSeedDefaults() {
+  return useProtectedMutation(api.dispatchPlanner.mutations.seedDefaults);
+}
 
 /**
  * Save or update a single plan cell (quantity for a channel/outlet/product/date).
