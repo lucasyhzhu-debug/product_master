@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 03 of 5
+Plan: 04 of 5
 Status: Executing
-Last activity: 2026-02-17 — Completed 17-02 (dispatch planner backend queries + mutations)
+Last activity: 2026-02-17 — Completed 17-03 (frontend hooks + channel settings dialog)
 
-Progress (v1.2): [██░░░░░░░░] 13%
+Progress (v1.2): [███░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -38,6 +38,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-02] Reuse getWeekDates from k3martCockpit helpers (no duplication)
 - [17-02] Direct order quantities count only at dueDate in dailyTotals (avoid double-counting)
 - [17-02] K3Mart channel always read-only in unified planner
+- [17-03] Up/down arrows for priority reorder (4 items don't need DnD)
+- [17-03] 4-tab settings dialog (priorities, channels, outlets, capacity)
+- [17-03] Direct useQuery for menu products in settings to avoid type transform
 
 ### Roadmap Evolution
 
@@ -59,9 +62,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-02-PLAN.md
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-02-SUMMARY.md
-Resume notes: Plan 02 complete. Backend API ready (5 queries, 8 mutations, pure helpers). Next: Plan 03 (frontend hooks + UI).
+Stopped at: Completed 17-03-PLAN.md
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-03-SUMMARY.md
+Resume notes: Plan 03 complete. 12 hooks and ChannelSettingsDialog ready. Next: Plan 04 (main planner grid page).
 
 ---
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-17 (17-03)*
