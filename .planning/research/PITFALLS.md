@@ -1,252 +1,267 @@
-# Pitfalls Research: v1.1 Stabilization & QoL
+# Domain Pitfalls: v1.2 Multi-Channel Expansion
 
-**Domain:** External API integrations, order QoL, kitchen mobile UX, weekly planning, multi-outlet aggregation on Convex serverless
-**Researched:** 2026-02-15
-**Confidence:** HIGH (based on codebase analysis, existing integration code review, Convex docs, GoBiz API docs)
+**Domain:** Unified dispatch planning, kitchen simplification, consignment revenue, cross-channel analytics, 3rd GoFood outlet
+**Researched:** 2026-02-16
+**Confidence:** HIGH (based on deep codebase analysis of 59-table schema, existing integration code, production tracking logic)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: GoBiz Token Cascade Silently Fails, Cron Syncs Stop for Days Unnoticed
+Mistakes that cause data corruption, revenue misreporting, or production disruption requiring emergency fixes.
+
+### Pitfall 1: Kitchen Simplification Destroys Per-Order Traceability
 
 **What goes wrong:**
-The GoBiz token refresh uses a 3-method cascade (cookie, rotate, API). All three methods rely on the refresh token, which GoBiz expires after **9 months** of session inactivity -- but the access token expires every **1 hour**. If the underlying GoBiz session expires (password change, account lockout, Gojek server-side invalidation), all three refresh methods fail silently. The cron job (`autoSyncGoBizRevenue`) logs "no_token" and returns -- but there is **no alerting mechanism**. Revenue data silently stops syncing. The team only discovers the gap days later when sales reports show zero GoFood revenue.
+The current kitchen tracking is deeply per-order: `orderItemProduction` tracks exact `unitsRequired`/`unitsCompleted`/`unitsRemaining` per order item per ball type. `ballDistribution.ts` allocates produced balls to specific orders via `fetchEligibleOrdersWithItems()`. `orderItems` tracks `packageStatus` (empty/filling/filled/packed), `ballsFilled`, and `packedPackageIndices` per individual order item. Moving to aggregate production targets (e.g., "make 200 balls total today") without preserving this per-order linkage means: (a) you cannot determine which orders are fulfilled, (b) the `BeingPrepared -> AwaitingDelivery` status transition loses its trigger (currently driven by all items having `isProductionComplete = true`), and (c) the production log's `orderId`/`orderItemId` fields become meaningless.
 
 **Why it happens:**
-The current `autoSyncGoBizRevenue` cron logs the skip to console but does not surface it to any user. There is no "last successful sync" dashboard indicator, no staleness warning, and no notification system. The cron runs 7 times daily, so console logs scroll past quickly.
+The phrase "simplify kitchen" suggests removing complexity. But the complexity exists for a reason: the business needs to know WHICH orders are ready to ship. If kitchen staff just "make 200 balls" without tracking which orders those balls fulfill, the order management system cannot advance orders through the pipeline. The Kanban board stalls at "BeingPrepared" because nothing triggers the transition to "AwaitingDelivery."
 
-**How to avoid:**
-1. Add a `syncHealth` query that checks `externalSyncLogs` for the most recent successful GoBiz sync. If the last success is older than 6 hours, surface a warning banner on the Dashboard.
-2. Track consecutive cron failures in `platformCredentials`. After 3 consecutive failures, mark the credential as `status: "stale"` which triggers a UI banner: "GoFood sync stopped -- re-authenticate in Settings."
-3. The existing `externalSyncLogs` table already has the data. Just need a query + UI indicator.
+**Consequences:**
+- Order pipeline freezes: all orders stuck in "BeingPrepared" with no automatic progression
+- Customer-facing order status (WhatsApp receipts, order detail) shows permanently "Being Prepared"
+- Manager cannot identify which specific orders are ready for dispatch
+- Revenue recognition delayed because orders never reach "Complete"
+- `productionLog` entries lose order attribution, breaking production-per-order analytics
 
-**Warning signs:**
-- `externalSyncLogs` shows multiple consecutive `status: "success"` entries with `productsCount: 0` for GoBiz
-- `platformCredentials` for "gobiz" has `lastRefreshStatus: "error"` with recent timestamps
-- Dashboard sales reports show zero GoFood revenue for recent days
+**Prevention:**
+1. **Keep the per-order tracking as the source of truth but simplify the UI.** The kitchen UI can show aggregate targets ("150 Original balls needed today") while the backend still allocates balls to specific orders via `ballDistribution.ts`. Staff enters "I made 20 balls" and the system auto-distributes them to pending orders -- this is exactly what the current `addBallsToTray` mutation does.
+2. **Simplification should be in the UI layer only:** Replace the complex per-item checklist with a simpler "add balls" interface that shows aggregate progress. The existing `kitchenInventory` table already tracks aggregate counts per day.
+3. **Never remove `orderItemProduction` records.** They are the bridge between "kitchen produced X balls" and "order Y is ready to ship."
+4. **Test the transition chain:** After any kitchen UI change, verify: staff adds balls -> balls auto-allocate to orders -> order items mark `isProductionComplete` -> order advances to `AwaitingDelivery`.
 
-**Phase to address:**
-Phase 2 (API Audit & Auth Architecture) -- design the health check system. Phase 6 (API Integrations) -- implement it.
+**Detection:**
+- Orders stuck in "BeingPrepared" for >24 hours with production counts showing sufficient output
+- `orderItemProduction.unitsRemaining > 0` for orders where kitchen reports all balls are made
+- `kitchenInventory` shows high ball counts but `orderItemProduction` shows nothing completed
 
 ---
 
-### Pitfall 2: Convex Action Timeout (10 min) Hit During Large GoBiz Sync
+### Pitfall 2: Consignment Revenue Triple-Counted Across Timing Layers
 
 **What goes wrong:**
-Convex actions have a hard **10-minute timeout**. The current `syncGoBizRevenue` action processes days sequentially: for each day it fetches journals (paginated), saves transactions, then fetches individual order details with 200ms rate-limiting delays. With `daysBack=7` (default) and ~50 transactions/day, Phase B alone needs ~50 orders x 200ms = 10 seconds per day. But on catch-up after a token failure (e.g., `daysBack=30`), the action processes 30 days x (journal fetch + transaction save + order details). This easily exceeds 10 minutes and the action is **killed mid-execution**, leaving partial data.
+Consignment has three distinct revenue timing events: (1) **Production/Dispatch** -- product sent to outlet (cost incurred, no revenue yet), (2) **Sale** -- outlet sells to end customer (revenue recognized, cash not yet received), (3) **Cash Collection** -- outlet pays us (cash received). The existing order system recognizes revenue at `confirmedAt` (payment received for direct orders). If consignment orders use the same `orders` table with the same `confirmedAt` field, the revenue shows up at dispatch time (when order is "confirmed"), again when K3Mart reports a sale via `externalRevenue`, and potentially again when cash is collected. Three entries for the same economic event.
 
 **Why it happens:**
-The action does both Phase A (journals) and Phase B (order details) in a single execution. There is no checkpointing. If the action times out in Phase B after Phase A completed, the sync log shows "started" forever (never updated to success/error because the catch block never runs).
+The current `externalRevenue` table already tracks K3Mart sales (source: "k3mart", dataOrigin: "stock_delta"). If consignment orders are also created as regular `orders` with K3Mart as the channel, the same sale appears in both the internal orders revenue and the external K3Mart revenue. The `SalesAnalytics` page aggregates both sources, leading to double (or triple) counting.
 
-**How to avoid:**
-1. Split into two separate actions: `syncJournals` (Phase A) and `syncOrderDetails` (Phase B). Phase A creates revenue records, Phase B enriches them. Chain via `ctx.scheduler.runAfter(0, ...)`.
-2. Limit `daysBack` to 3 for cron runs. Only allow larger ranges for manual sync with explicit user action.
-3. Add a "stale sync log" cleanup: any `externalSyncLogs` entry with `status: "started"` older than 15 minutes should be marked as `status: "timeout"` by an integrity check.
-4. For catch-up scenarios, use Convex's scheduler to process one day per action invocation, chaining the next day via `ctx.scheduler.runAfter`.
+**Consequences:**
+- Sales reports show 2-3x actual revenue for consignment channels
+- Margin analysis is meaningless (COGS correct but revenue inflated)
+- Cash flow projections wildly inaccurate
+- Tax reporting errors if reports are used for accounting
 
-**Warning signs:**
-- `externalSyncLogs` entries stuck in `status: "started"` with no corresponding success/error
-- Convex dashboard shows action timeouts in the logs
-- Revenue data has gaps (some days have journals but no order items)
+**Prevention:**
+1. **Consignment dispatches are NOT orders.** Do not create entries in the `orders` table when sending product to K3Mart. The dispatch is tracked via `k3martDispatchPlans` (already exists). Revenue is recognized only when `externalRevenue` records arrive from K3Mart stock delta sync.
+2. **Add an `orderType` field to distinguish direct vs consignment IF you must use the orders table:** `orderType: v.union(v.literal("direct"), v.literal("consignment"))`. Consignment orders have `paymentStatus: "Unpaid"` until the outlet reports the sale. Revenue recognition happens at sale, not dispatch.
+3. **Exclude consignment dispatches from `getDailySalesSummary` and `SalesAnalytics`.** Only count them when the corresponding `externalRevenue` record with `dataOrigin: "stock_delta"` or `"api_revenue"` arrives.
+4. **Create a dedicated `consignmentDispatches` table** that tracks: what was sent, to which outlet, when, and links to the corresponding `externalRevenue` records when sales are reported. This is cleaner than overloading the `orders` table.
 
-**Phase to address:**
-Phase 6 (API Integrations) -- refactor sync into chained actions before scaling up.
+**Detection:**
+- Total revenue in SalesAnalytics exceeds sum of bank deposits + outstanding receivables
+- Same product appears in both "Internal Orders" and "K3Mart" revenue for the same date
+- K3Mart outlet revenue doubled after consignment flow was enabled
 
 ---
 
-### Pitfall 3: Modifying Active Order Form Breaks Kitchen Staff Mid-Shift
+### Pitfall 3: Manual Sales Entry Creates Unreconcilable Data with API Sync
 
 **What goes wrong:**
-The order creation form is used daily by order staff. Moving fields around (customer info to top, dates to RHS, hiding creation date) changes muscle memory. If deployed during business hours, staff who have the old UI open get the new layout on next Convex reactive update. Orders in progress may have fields in unexpected positions, leading to missed fields, wrong dates, or abandoned orders. Worse: if the schema changes (e.g., adding `createdBy` to order status transitions), existing in-flight orders may fail validation on the next mutation.
+v1.2 adds manual sales entry for non-API platforms (Tamtem, Legato Goldfinch, Shopee, TikTok Shop) alongside existing API-synced data (GoBiz, K3Mart). If someone manually enters "Legato Goldfinch sold 5 Original today" and then the GoBiz sync also records GoFood sales from the Goldfinch outlet, the revenue is double-counted. Worse: if manual entry uses different product names ("Dubai Cookie" vs "Dubai Chewy Cookie - Regular Size" in GoBiz), the product mapping cannot detect the overlap. Over time, the `externalRevenue` table accumulates entries from both manual and API sources for the same outlet with no way to reconcile.
 
 **Why it happens:**
-Convex's real-time nature means frontend updates are **instant** for all connected clients. There is no "deploy during maintenance window" -- Vercel deploys the new frontend and Convex deploys the new backend, and all connected browsers get the new code within seconds. Order staff cannot "finish what they're doing" on the old UI.
+The `externalRevenue` table uses `externalTransactionId` for dedup within the same source (e.g., two GoBiz syncs for the same order). But there is no cross-source dedup: a manual entry for Goldfinch has `source: "internal"` or a new source literal, while GoBiz sync has `source: "gobiz"`. The dedup key `by_source_txn` index only deduplicates within the same source.
 
-**How to avoid:**
-1. **Never change field semantics in the same deploy as UI changes.** If adding required fields to order mutations, make them optional first, deploy, then make the UI use them, then make them required in a later deploy.
-2. **Deploy UI changes during off-hours** (after 8 PM WIB / 1 PM UTC). The Convex backend can be deployed anytime since it's backward-compatible, but the Vite frontend bundle is what changes the UI.
-3. **Feature flag the new layout.** Add a `useNewOrderLayout` flag (even a simple `localStorage` toggle) so staff can switch back if confused. Remove the flag after 1 week.
-4. **Test with actual order staff before deploying.** Have one staff member use the new layout for a day before rolling out to all.
+**Consequences:**
+- Revenue double-counted for outlets that have both manual entry and API sync
+- No reliable way to reconcile: manual entries have no external transaction IDs to match against
+- Over months, data drift becomes significant and undetectable without manual audit
+- Manager loses trust in analytics ("the numbers don't match what K3Mart says")
 
-**Warning signs:**
-- Order staff complaining about "the form changed"
-- Increase in draft orders that are never completed
-- Orders missing customer information or dates after deployment
+**Prevention:**
+1. **Clear channel ownership:** Each sales channel has exactly ONE data source. GoBiz outlets (Goldfinch, Crystal) get data ONLY from GoBiz sync, never manual entry. K3Mart outlets get data ONLY from K3Mart sync. Manual entry is ONLY for platforms with no API (Tamtem, Shopee, TikTok Shop).
+2. **Enforce this in the UI:** The manual entry form should only show channels that are NOT API-synced. Grey out "GoFood Goldfinch" and "K3Mart" with tooltip "Data synced automatically via API."
+3. **Add `dataSource` metadata to all revenue entries:** `dataSource: "api_auto" | "manual_entry" | "csv_upload"`. If both API and manual entries exist for the same outlet+date, surface a reconciliation warning.
+4. **Implement a daily reconciliation check:** Compare manual entry totals vs API sync totals per outlet. Flag discrepancies >10% for manager review.
 
-**Phase to address:**
-Phase 3 (QoL Fixes Batch) -- implement all order form changes with backward-compatible backend mutations.
+**Detection:**
+- Same outlet has entries from multiple sources for the same date
+- Revenue totals from app exceed outlet-reported totals
+- `externalRevenue` entries with `dataOrigin: "manual_entry"` for outlets that also have `dataOrigin: "api_revenue"` or `"stock_delta"`
 
 ---
 
-### Pitfall 4: WIB Timezone Bugs at Day Boundaries Corrupt Date-Dependent Features
+## Moderate Pitfalls
+
+### Pitfall 4: Evolving K3Mart Cockpit to Multi-Channel Breaks Existing URLs, Names, and Queries
 
 **What goes wrong:**
-The codebase has **multiple independent WIB conversion implementations**: `wibDateToUtcRange()` in gobiz helpers, `getTodayJakarta()` in k3mart helpers, manual `+7 hours` arithmetic in `generateWibDateRange()`, `Date.UTC(..., -7, ...)` in periodRange.ts, and `toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })` in the K3Mart adapter. Each handles edge cases differently. The `getWeekNumber()` function parses dates as `new Date(date + "T00:00:00+07:00")` but `getProductionReadiness` uses `new Date(args.date + "T12:00:00Z")` -- these give different dates at certain times. Adding kitchen due-date display, weekly planning with holiday detection, and day-name quick-tap all introduce more date logic. One wrong timezone conversion means kitchen targets show for the wrong day, dispatch plans land on the wrong week, or due dates show "Saturday" when it is Friday in Jakarta.
+The K3Mart cockpit (K3MartCockpit.tsx, `convex/k3martCockpit/`) is deeply K3Mart-specific: table names (`k3martDispatchPlans`, `k3martStockMovements`), query names (`getOutletStockSummary` hardcodes `source: "k3mart"`), route path (`/k3mart-cockpit`), and component names all have "k3mart" baked in. Expanding to a "multi-channel dispatch planner" means either: (a) renaming everything (breaking existing bookmarks, stored data references, and muscle memory), or (b) keeping K3Mart names for a system that handles GoBiz depots and other outlets (confusing).
 
-**Why it happens:**
-JavaScript `Date` is notoriously bad with timezones. Convex runs on UTC servers. The codebase mixes three approaches: (a) manual `+7 hours` offset, (b) `toLocaleDateString` with `timeZone` option, and (c) explicit `+07:00` in date strings. These work in isolation but produce subtle 1-day-off errors when combined or when one function's output feeds another function that assumes a different convention.
+**Prevention:**
+1. **Do NOT rename existing tables or routes.** The K3Mart cockpit stays as `/k3mart-cockpit` for K3Mart outlets. Create a NEW multi-channel dispatch view at a separate route (e.g., `/dispatch-planner`) that aggregates data from K3Mart cockpit + GoFood depot + any new channels.
+2. **If you must generalize:** Add a `channel` parameter to cockpit queries rather than hardcoding `source: "k3mart"`. The `externalOutlets` table already has a `source` field that supports multiple values. But DO NOT change the table names.
+3. **Keep backward compatibility:** Existing K3Mart dispatch plans use `k3martDispatchPlans` table. If you add GoFood depot dispatch plans, either use the same table with a `channel` field or create `gofoodDispatchPlans`. The former is cleaner but requires a migration to add the field to existing records.
+4. **Route naming convention:** Use the feature name, not the channel name. `/dispatch-planner` not `/multi-channel-cockpit`. The K3Mart cockpit can redirect to the planner with `?channel=k3mart` pre-selected.
 
-**How to avoid:**
-1. **Centralize ALL WIB date logic into a single `convex/lib/wibDate.ts` utility.** Functions: `nowWib()`, `toWibDateString(utcMs)`, `wibDateToUtcRange(dateStr)`, `getWibWeekNumber(dateStr)`, `isWibWeekend(dateStr)`. Delete the scattered implementations.
-2. **Convention:** All dates stored in Convex are either UTC epoch milliseconds or `YYYY-MM-DD` strings that represent WIB dates (never UTC dates). Document this convention in `CLAUDE.md`.
-3. **Test at boundary times.** Write unit tests that run at 23:30 WIB (16:30 UTC), 00:30 WIB (17:30 UTC previous day), and WIB midnight exactly. The existing `periodRange.test.ts` does this -- extend to all new date functions.
-4. **For kitchen due-date display:** Always show the WIB date explicitly (e.g., "Sat, Feb 15") -- never show relative dates like "tomorrow" which depend on the viewer's timezone.
-
-**Warning signs:**
-- Kitchen view shows targets for "yesterday" early in the morning (before WIB midnight rolls over)
-- K3Mart dispatch plans appear in wrong week when created near WIB midnight
-- Production readiness query shows wrong day's data
-
-**Phase to address:**
-Phase 4 (Kitchen Overhaul) and Phase 5 (K3Mart Cockpit) -- centralize before building new date-dependent features.
+**Detection:**
+- 404 errors when staff access bookmarked `/k3mart-cockpit` URL
+- Queries return empty results because source filter changed
+- Existing K3Mart data invisible in new "multi-channel" view
 
 ---
 
-### Pitfall 5: K3Mart Cockpit "Stubs to Real" Transition Breaks Existing Data
+### Pitfall 5: Adding 3rd GoFood Outlet (Crystal) Breaks Existing Dual-Outlet Sync
 
 **What goes wrong:**
-The K3Mart cockpit already has real data in `k3martDispatchPlans`, `k3martStockMovements`, `k3martRestockTargets`, `externalOutlets`, and `externalRevenue` tables. The weekly planning uses `getWeekNumber()` to index plans by ISO week. If the implementation of "complete weekly planning section with public holidays" changes the week numbering, date format, or adds new required fields to dispatch plans, existing data becomes orphaned or invalid. Plans saved as `weekNumber: "2026-W07"` will not match if the function changes its algorithm.
+The GoBiz sync currently handles 2 outlets via `GOBIZ_CONFIG.merchantIds: ["G293156297", "G347061572"]`. Adding a 3rd outlet seems like just appending to this array. But: (a) the `buildJournalSearchBody` passes ALL merchant IDs in a single API request -- if the API has a limit on merchant IDs per request, it silently drops one, (b) the `saveJournalTransactions` matches transactions to outlets via `outletMap` built from `externalOutlets` -- if the 3rd outlet is not seeded in `GOBIZ_OUTLET_SEED`, transactions are logged with warning and revenue is unattributed, (c) the `gofoodDepotStock` table tracks per-product stock at "Goldfinch depot" specifically -- a 3rd outlet needs its own depot stock tracking, (d) Phase C (auto-consume stickers) assumes all GoFood sales deduct from a single depot -- with multiple depots, which depot's stickers get consumed?
 
-**Why it happens:**
-The stubs are not empty -- they already have production data from the K3Mart integration built in v1.0. Developers treat "cockpit stubs" as greenfield when they are actually brownfield. Changing helpers like `getWeekNumber()` retroactively changes the semantics of stored data.
+**Prevention:**
+1. **Seed the outlet before enabling sync.** Add the new merchant to `GOBIZ_OUTLET_SEED` AND deploy before adding to `GOBIZ_CONFIG.merchantIds`. The outlet auto-seeder in `syncGoBizRevenue` runs first, so if both are deployed together it should work -- but test this explicitly.
+2. **Verify the GoBiz journal API accepts 3+ merchant IDs.** Test manually with a curl request before coding. If limited to 2, split into parallel requests per merchant.
+3. **Extend `gofoodDepotStock` to support multiple depots.** Currently it is a flat table keyed by `menuProductId` only. Add a `depotId` or `outletId` field to track per-depot stock separately. This is a schema migration that must happen BEFORE the 3rd outlet goes live.
+4. **Phase C sticker deduction must be depot-aware.** When a GoFood sale happens at Crystal, stickers should be consumed from Crystal's stock, not Goldfinch's. This requires knowing which depot serves which outlet -- currently hardcoded in `gofoodDepot/mutations.ts`.
 
-**How to avoid:**
-1. **Never change `getWeekNumber()`'s algorithm.** It uses ISO week numbering with WIB timezone. This is already correct and matches the stored `weekNumber` field values. If you need a different week system, add a new function; do not modify the existing one.
-2. **New fields on existing tables must be optional.** For example, adding `isPublicHoliday` to dispatch plans: make it `v.optional(v.boolean())`, not `v.boolean()`.
-3. **Before any cockpit work, snapshot the current data.** Run `npx convex export` to backup. Then verify the new code reads existing plans correctly.
-4. **Holiday calendar should be a separate table** (`publicHolidays`), not inline on dispatch plans. This way existing plans are not affected.
-
-**Warning signs:**
-- Weekly dispatch plan view shows empty weeks that previously had data
-- `getWeeklyDispatchPlans` returns empty for weeks that have plans in the DB
-- Stock movement history shows "undefined" for new fields
-
-**Phase to address:**
-Phase 5 (K3Mart Cockpit) -- verify backward compatibility before any schema changes.
+**Detection:**
+- Revenue for new outlet shows `outletId: undefined` in `externalRevenue`
+- `gofoodDepotStock` shows negative quantities unexpectedly (stickers consumed from wrong depot)
+- Console warnings: "No registered outlet for merchant_id: Gxxxxxxxxx"
 
 ---
 
-### Pitfall 6: Multi-Outlet Revenue Aggregation Double-Counts on Re-Sync
+### Pitfall 6: Cross-Channel Analytics Comparing Apples to Oranges
 
 **What goes wrong:**
-Both GoBiz and K3Mart sync use deduplication keys (`externalTransactionId`) to prevent duplicate revenue entries. The GoBiz dedup key is built from `orderNumber + transactionTimeMs`. The K3Mart dedup key is built from `transDate + outletName + productCode + qty + total`. If the external API returns slightly different data on re-sync (e.g., a timestamp shifted by 1ms due to rounding, or a product name changed), the dedup key changes and a duplicate record is created. Sales reports then show inflated revenue.
+Different channels report revenue differently: (a) GoBiz reports `revenueGross` (before commission) and `revenueNet` (after commission, what you receive), (b) K3Mart revenue from stock delta is inferred (`quantity * price`), with no commission tracking, (c) Direct orders have `finalTotal` (what customer pays) and `totalCost` (COGS). Combining these in a single analytics dashboard without normalizing creates misleading comparisons: "GoFood made Rp 5M" (gross) vs "K3Mart made Rp 3M" (net at retail price) vs "Direct made Rp 2M" (after discounts). Are we comparing gross? Net? After commission? The `externalRevenue` table has both `revenueGross` and `revenueNet` fields but they are optional and not consistently populated across sources.
 
-**Why it happens:**
-The dedup strategy relies on exact field matching. External APIs are not guaranteed to return byte-identical responses on subsequent calls. GoBiz journal timestamps may have millisecond precision that varies between calls. K3Mart may update product names or prices retroactively.
+**Prevention:**
+1. **Define a standard revenue metric for cross-channel comparison.** Recommendation: "Net Revenue" = what Frollie actually receives after all platform commissions, discounts, and fees. For GoFood: `revenueNet` (merchant_share). For K3Mart: `quantity * price - commission` (need to add commission rate per outlet). For Direct: `finalTotal`.
+2. **Per-channel commission rates must be stored in the system.** The deferred requirement SCH-02 mentions "Legato Goldfinch = 10%, Legato Tamtem = 17%". Add a `commissionRate` field to `externalOutlets` or `restockTargets`.
+3. **Always show "Gross" and "Net" side by side in analytics.** Never show a single revenue number without indicating which metric it is.
+4. **For K3Mart specifically:** The stock delta method infers sales from stock changes. If stock is moved between outlets (not sold), the delta incorrectly registers as a sale. Add a `movementType` filter: only `stock_out` without a corresponding `stock_in` at another outlet counts as a sale.
 
-**How to avoid:**
-1. **Use stable identifiers for dedup keys.** For GoBiz: use `orderNumber` alone (not `orderNumber + timestamp`), since order numbers are unique per merchant. For K3Mart: use `transDate + outletName + productCode + qty` (drop `total` since price may be corrected).
-2. **Add a revenue reconciliation query** that detects potential duplicates: same source + same date + same amount + different dedup keys.
-3. **For the Crystal outlet addition:** When adding the second GoFood merchant (`G347061572`), include the `merchantId` in the dedup key so transactions from different merchants are never confused even if they have the same order number format.
-4. **Add a "total revenue vs expected" sanity check** in the integrity check cron.
-
-**Warning signs:**
-- Revenue totals from the app exceed what GoBiz/K3Mart portals show
-- `externalRevenue` table has entries with near-identical fields but different `_id`s
-- Daily revenue shows unexpected spikes after manual re-sync
-
-**Phase to address:**
-Phase 2 (API Audit) -- audit current dedup keys. Phase 6 (API Integrations) -- fix before adding Crystal outlet.
+**Detection:**
+- Analytics show one channel dramatically outperforming others when real-world experience says otherwise
+- GoFood appears most profitable but after commission is actually least profitable
+- Revenue totals from analytics don't match bank account deposits
 
 ---
 
-## Technical Debt Patterns
+### Pitfall 7: Consignment Commission Rates Silently Default to Zero
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Duplicate sync logic between `syncGoBizRevenue` and `autoSyncGoBizRevenue` | Working cron quickly | 200+ lines of duplicated code, bugs fixed in one but not other | Never -- already exists, must refactor in Phase 6 |
-| Using `any` casts in K3Mart adapter (`items: batchItems as any`) | Bypasses strict typing | Silent type errors, runtime failures on shape mismatch | Only during rapid prototyping, must clean up in Phase 5 |
-| Hardcoded merchant IDs in config files | Fast initial setup | Adding Crystal outlet requires code change + deploy | Acceptable for v1.1 MVP, migrate to DB-stored config in v1.2 |
-| Manual `+7 hours` timezone arithmetic | No dependency on Intl API | Off-by-one day bugs, impossible to handle DST if Indonesia ever adopts it | Never -- centralize into wibDate utility |
-| `console.log` as only observability | Zero setup | No alerting, logs disappear after Convex log retention | Acceptable for v1.1, add structured logging in v1.2 |
-| Rate-limit via `setTimeout(200ms)` in sync actions | Simple, prevents throttling | Wastes action execution time (billed), may still hit rate limits under load | Acceptable for current volume (<100 orders/day) |
+**What goes wrong:**
+Consignment outlets take a commission (K3Mart, Legato Tamtem at 17%, Legato Goldfinch at 10%). If the commission rate is not configured when the outlet is set up, the system calculates net revenue as `grossRevenue - 0 = grossRevenue`, making consignment appear far more profitable than it is. This is especially dangerous because the `externalRevenue` table's `commission` field is `v.optional(v.number())` -- it defaults to `undefined`, which in calculations becomes `0`.
 
-## Integration Gotchas
+**Prevention:**
+1. **Make commission rate a required field for consignment outlets.** Add `commissionRate: v.number()` to `externalOutlets` (or a new `outletConfig` table). Require it when `source` is not "internal".
+2. **Validate on revenue record creation:** If `commission` is undefined or 0 for a non-internal source, log a warning and flag the record for review.
+3. **Display "commission not configured" warning in analytics** when outlet has no commission rate rather than silently showing inflated margins.
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| GoBiz Token API | Storing password in code (already in `docs/apiS/` reference file) | Move to Convex environment variable via `npx convex env set GOBIZ_EMAIL xxx`. The current `platformCredentials` table approach is correct for tokens but credentials should never be in source. |
-| GoBiz Journal Search | Assuming `total` field in response is reliable for pagination | Always paginate until `hits.length < pageSize` (already done correctly in current code). |
-| GoBiz Order Search | Fetching order details for every transaction including old ones | Only fetch for NEW revenue records (already done -- `allNewRecords` filtering). Keep this pattern. |
-| K3Mart Stock Flow | Submitting stock-in without fetching fresh dashboard first | Always fetch current stock before submission (already done with `dashboardCache`). Stale stock leads to K3Mart rejecting the request. |
-| K3Mart JWT Token | Assuming JWT expiry from `exp` claim is reliable | K3Mart may invalidate tokens server-side before expiry. Always handle 401 and trigger refresh. The 12-hour cron refresh is a good safety net. |
-| Convex Actions + fetch | Assuming `fetch` responses are JSON | Always check `Content-Type` header before `.json()` parse. K3Mart sometimes returns HTML during maintenance (already handled in `performK3MartRefresh`). |
-| Multi-merchant GoBiz | Using same dedup key format across merchants | Include `merchantId` in dedup key when adding Crystal outlet to prevent cross-merchant collisions. |
+**Detection:**
+- Consignment margin analysis shows 80%+ margins (impossible for consignment)
+- `externalRevenue` records for K3Mart with `commission: undefined` or `commission: 0`
+- Net revenue equals gross revenue for consignment channels
 
-## Performance Traps
+---
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Fetching all `externalRevenue` records for aggregation queries | Slow dashboard load, query timeout (1s limit) | Use Convex indexes on `[source, periodStart]`. Pre-aggregate daily totals in a separate table. | >10,000 revenue records (~6 months of data) |
-| K3Mart `discoverK3MartOutlets` scanning all products x all outlets | Action takes >30s, UI feels frozen | Already mitigated by product-centric approach (N API calls for N products). Keep product count low. | >20 configured products |
-| Kitchen view querying `productionLog` without time-bounded index | Full table scan on every kitchen page load | Ensure `productionLog` has index on `[menuProductId, _creationTime]` and queries filter to current reset period only | >50,000 production log entries (~6 months) |
-| Weekly dispatch plan queries scanning all plans | Slow cockpit load | Already indexed by `by_week` and `by_date_outlet`. Maintain these indexes when adding features. | >5,000 dispatch plans (~1 year of daily plans for 10 outlets) |
-| `autoMatchMenuProduct` calling DB for every order item individually | N+1 query pattern inside sync action | Batch-load all product mappings at start of sync, match in-memory | >50 items per sync batch |
+## Minor Pitfalls
 
-## Security Mistakes
+### Pitfall 8: Production Target Auto-Calculation Ignores Consignment Demand
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| GoBiz credentials in `docs/apiS/` reference file committed to git | Email/password for GoBiz merchant portal exposed in repo | Already flagged in `NEXT-MILESTONE-DRAFT.md`. Phase 2 MUST extract to `.env.local` before any work. Add to `.gitignore`. Run `git filter-branch` or BFG to scrub from history if repo is public. |
-| K3Mart token stored in `platformCredentials` table without encryption | Anyone with DB read access sees the JWT | Acceptable risk for internal tool with PIN auth. If multi-tenant or public-facing in future, encrypt at rest. |
-| Public actions (`syncGoBizRevenue`, `discoverK3MartOutlets`) lack auth checks | Any authenticated user could trigger expensive API syncs | Add `requireRole(ctx, args.token, ["admin"])` to all sync actions. Currently only `refreshK3MartToken` has auth. |
-| Rate-limiting not enforced on manual sync triggers | Staff could spam "Sync Now" button, hitting external API rate limits | Add client-side debounce (disable button for 30s after click) and server-side check (reject if last sync was <5 min ago). |
+**What goes wrong:**
+The current `productionTargets` auto-calculation counts balls needed from confirmed orders (`orderItemProduction.unitsRemaining`). K3Mart demand appears as synthetic kitchen orders via `productionProductTargets` with `source: "consignment"`. If new consignment channels are added but their demand is not fed into `productionProductTargets`, kitchen targets underestimate production needs. Staff make enough for orders but not enough for consignment dispatches, leading to stock-outs at outlets.
 
-## UX Pitfalls
+**Prevention:**
+1. **All consignment demand sources must feed into `productionProductTargets`.** When adding a new consignment channel, add a demand aggregation query that feeds the targets table.
+2. **The kitchen dashboard summary should show demand breakdown:** "Orders: 80 balls, K3Mart: 50 balls, GoFood depot: 30 balls, TOTAL: 160 balls."
+3. **Test with multiple demand sources active simultaneously.** Current system may only handle "consignment" + "gofood" sources. Verify the aggregation sums across all sources.
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Changing order form layout without visual migration cues | Staff confused, orders take longer, errors increase | Add subtle highlights on moved fields for first week ("NEW: Customer info moved here"). Remove after 7 days via localStorage flag. |
-| Kitchen due-date display using relative dates ("tomorrow") | Ambiguous near midnight, different for UTC vs WIB users | Always show absolute dates with day name: "Sat, Feb 15". Highlight overdue in red, today in yellow, future in default. |
-| Day-name quick-tap for due dates showing wrong day names | Quick-tap shows "Saturday" but server stores Friday's date | Calculate day names in WIB timezone, display WIB date alongside day name for verification. |
-| K3Mart weekly planner assuming Monday-Sunday weeks | Some outlet deliveries happen on specific days, not all 7 | Show all 7 days but grey out days with no scheduled deliveries. Let user configure delivery days per outlet. |
-| "Sync Now" button with no progress indicator | Staff thinks it is broken, clicks multiple times | Show spinner, disable button, display last sync time and record count on completion. Already partially done for K3Mart but not for GoBiz. |
-| Mobile kitchen UI with small tap targets | Wet hands, small screens, kitchen staff makes wrong selections | Minimum 48px tap targets (current shadcn/ui buttons may be 32px). Test on actual kitchen device before deploy. |
-| Inventory "brochure unavailable" bug with no override | Manager cannot correct inventory errors, blocks kitchen | Add manager override button that logs the correction with reason. Never silently adjust -- always require a note. |
+---
 
-## "Looks Done But Isn't" Checklist
+### Pitfall 9: Dispatch Plan Confirmation Timing Mismatch with Kitchen Schedule
 
-- [ ] **GoBiz Crystal outlet:** Adding merchantId to config is NOT enough -- also need: dedup key update, product mapping table entries for Crystal-specific products, outlet display name mapping, commission rate verification (may differ from Goldfinch)
-- [ ] **Kitchen due dates:** Showing due dates requires not just display changes but also sorting logic change -- orders must sort by due date ascending, not creation date. Verify the `kitchenOrders` query supports this sort order.
-- [ ] **Weekly planning holidays:** A holiday calendar table is NOT enough -- also need: holiday-aware suggested quantity calculation (lower targets on holidays), visual indicators in the weekly grid, and handling of "holiday on delivery day" edge case (skip or move to next day?)
-- [ ] **Order audit trail:** Adding "who placed order" requires: user reference on order creation, status transition logging (not just final status), and display of history timeline on order detail page. The `orders` table may need a `statusHistory` array or separate `orderStatusTransitions` table.
-- [ ] **K3Mart manual stock in/out:** The API submission works, but the UI needs: confirmation dialog, loading state during API call, error handling for TOKEN_EXPIRED (redirect to settings), and rollback UI if API succeeds but DB save fails.
-- [ ] **Consignment flow:** Revenue recognition for consignment is fundamentally different from direct sales -- consignment revenue is recognized on SALE by the outlet, not on DELIVERY. This affects all revenue reports and requires a separate accounting path.
-- [ ] **Sync health dashboard:** Showing "last sync: 2 hours ago" looks done but is NOT useful without also showing: records synced, error count, data coverage (which dates have data), and quick-action to re-sync.
+**What goes wrong:**
+K3Mart dispatch plans are confirmed in the cockpit and push synthetic demand to kitchen. But if the manager confirms a dispatch plan for "tomorrow" at 8 PM, and the kitchen team has already finished their shift at 6 PM, the demand appears in kitchen targets the next morning when it is already too late to produce. Kitchen staff sees "need 50 Original for K3Mart by 10 AM" at 8 AM with no time to produce.
+
+**Prevention:**
+1. **Add lead time to dispatch plan confirmation.** Plans for date D must be confirmed by D-1 at a configurable cutoff (e.g., 2 PM WIB). After cutoff, confirmation for D is blocked with message "Too late -- confirm for D+1 instead."
+2. **Show unconfirmed demand separately in kitchen:** "Pending demand (not yet confirmed): 50 Original." This gives kitchen a heads-up even before formal confirmation.
+
+---
+
+### Pitfall 10: Schema Migration for New Tables Breaks Existing Convex Deploy
+
+**What goes wrong:**
+Adding new tables (`consignmentDispatches`, generalizing `gofoodDepotStock` with new fields) requires schema changes in `convex/schema.ts`. Convex schema changes are validated at deploy time. If a new required field is added to an existing table that already has data (e.g., adding `channel: v.string()` to `k3martDispatchPlans`), the deploy fails because existing rows lack the field. The error is cryptic and blocks all deploys until resolved.
+
+**Prevention:**
+1. **Always add new fields as `v.optional()` first.** Deploy. Then backfill via migration mutation. Then optionally make required in a later deploy.
+2. **New tables are safe** -- they can have required fields since no existing data conflicts.
+3. **Test schema changes against production data** by running `npm run deploy:check` (dry run) before actual deploy.
+4. **For table generalizations (e.g., renaming k3mart-specific tables):** Do NOT rename. Create new generalized tables, migrate data, update queries to read from new tables, then mark old tables as deprecated.
+
+---
+
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Kitchen simplification | Destroying per-order traceability (Pitfall 1) | Simplify UI only, keep `orderItemProduction` as backend source of truth |
+| Consignment revenue workflow | Triple-counting across dispatch/sale/cash (Pitfall 2) | Consignment dispatches are NOT orders; revenue recognized only at outlet sale |
+| Manual sales entry | Unreconcilable data with API sync (Pitfall 3) | Enforce channel ownership: each outlet has exactly one data source |
+| Multi-channel cockpit | Breaking existing K3Mart URLs and queries (Pitfall 4) | Do NOT rename existing tables/routes; create new generalized view |
+| 3rd GoFood outlet | Breaking dual-outlet sync assumptions (Pitfall 5) | Seed outlet before enabling sync; extend `gofoodDepotStock` to multi-depot |
+| Cross-channel analytics | Comparing gross vs net vs after-discount (Pitfall 6) | Standardize on "Net Revenue" metric; require commission rates per outlet |
+| Commission configuration | Silent zero-commission defaults (Pitfall 7) | Make commission rate required for non-internal outlets |
+| Production targets | Ignoring consignment demand sources (Pitfall 8) | All demand sources feed into `productionProductTargets` |
+| Dispatch planning | Kitchen sees demand too late (Pitfall 9) | Add confirmation cutoff time; show pending demand separately |
+| Schema migration | Required fields on existing tables break deploy (Pitfall 10) | Always `v.optional()` first, backfill, then make required |
+
+## Integration Pitfalls Specific to v1.2
+
+| Integration Point | Mistake | Correct Approach |
+|-------------------|---------|------------------|
+| Consignment + Orders table | Creating orders for consignment dispatches | Use `k3martDispatchPlans` or new `consignmentDispatches` table; orders table is for DIRECT sales only |
+| Manual entry + GoBiz sync | Allowing manual entry for GoFood outlets | UI blocks manual entry for API-synced outlets; grey out with explanation |
+| Multi-depot sticker tracking | Consuming stickers from single global pool | Track stickers per depot via `gofoodDepotStock` with `outletId` field |
+| Kitchen targets + multiple demand sources | Only counting `orders` table for targets | Aggregate from: active orders + K3Mart dispatch + GoFood depot needs + any new consignment channels |
+| Analytics + mixed revenue sources | Summing `revenueGross` from some sources and `finalTotal` from others | Normalize all to "Net Revenue" (after commission/fees) before aggregation |
+| New outlet + existing product mappings | Assuming same products map identically at new outlet | Each outlet may have different product names/codes in external systems; create per-outlet mappings |
+
+## Existing Technical Debt That Amplifies v1.2 Risks
+
+These pre-existing issues from v1.1 become more dangerous with v1.2 features:
+
+| Debt Item | v1.1 Impact | v1.2 Amplification |
+|-----------|-------------|---------------------|
+| Duplicate sync logic in `syncGoBizRevenue` vs `autoSyncGoBizRevenue` (200+ lines) | Bugs fixed in one not the other | 3rd outlet requires changes in BOTH copies; high risk of inconsistency |
+| Hardcoded merchant IDs in `GOBIZ_CONFIG` | Works for 2 outlets | Adding/removing outlets requires code change + deploy; should be DB-configurable |
+| `gofoodDepotStock` has no `outletId` | Implicitly "Goldfinch only" | Cannot track per-depot stock for Crystal or future outlets |
+| `productionProductTargets.source` is `v.string()` not union | Any string accepted | New consignment channels could use inconsistent source names |
+| No cross-source dedup in `externalRevenue` | Each source dedupes independently | Manual entry + API sync for same outlet creates invisible duplicates |
+| WIB timezone implementations scattered across 5+ files | Occasional off-by-one day bugs | More date-dependent features (dispatch planning, analytics date ranges) multiply the bug surface |
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| GoBiz token expired, days of missing data | LOW | Re-authenticate manually, run `syncGoBizRevenue` with `daysBack: 30`. Dedup keys prevent duplicates. Data gap fills automatically. |
-| Double-counted revenue from dedup key collision | MEDIUM | Query `externalRevenue` for duplicates (same source + date + amount). Delete newer duplicate. Re-run aggregation queries. |
-| Wrong dates in dispatch plans from timezone bug | HIGH | Must identify all affected plans by comparing stored dates vs expected WIB dates. Manual correction in Convex dashboard. May need to void and recreate plans. |
-| Order form deployment breaks active orders | MEDIUM | Revert Vercel deployment to previous build. Convex backend stays compatible since mutations accept optional fields. In-flight orders resume on old UI. |
-| K3Mart API submission succeeds but DB save fails | MEDIUM | Check K3Mart stock flow history via `fetchStockFlowHistory`. Compare with `k3martStockMovements` table. Add missing records manually or re-run stock sync. |
-| Action timeout during sync leaves orphaned sync log | LOW | Run integrity check to find `status: "started"` sync logs older than 15 min. Mark as `status: "timeout"`. Re-trigger sync. |
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| GoBiz token failure unnoticed | Phase 2 (design) + Phase 6 (implement) | Dashboard shows sync health indicator; test by revoking token and verifying warning appears within 6 hours |
-| Action timeout on large sync | Phase 6 (API Integrations) | Run `syncGoBizRevenue` with `daysBack: 30`; verify it completes without timeout by checking sync log status |
-| Order form breaks staff workflow | Phase 3 (QoL Fixes) | Deploy during off-hours; verify all existing draft orders can still be completed after deployment |
-| WIB timezone bugs | Phase 4 (Kitchen) + Phase 5 (K3Mart) | Unit tests at WIB boundary times; integration test comparing app dates with `date` command in Asia/Jakarta |
-| K3Mart stub-to-real data breakage | Phase 5 (K3Mart Cockpit) | Export data before changes; verify existing dispatch plans load correctly after deployment |
-| Revenue double-counting | Phase 2 (audit dedup keys) + Phase 6 (fix) | Compare app revenue totals with GoBiz/K3Mart portal totals for same date range; variance should be <1% |
-| GoBiz credentials in git | Phase 2 (API Audit) | First task of Phase 2: move secrets to env vars, verify `.gitignore` covers API docs with credentials |
+| Consignment revenue double-counted | HIGH | Must identify all affected `externalRevenue` entries, determine which are "real" (outlet sale) vs "phantom" (dispatch), delete phantoms, recalculate all analytics for affected period |
+| Kitchen traceability destroyed | CRITICAL | If `orderItemProduction` records were deleted or stopped being created, must reconstruct from `productionLog` entries (which have `orderId`). If `productionLog` also lost order linkage, recovery is manual order-by-order |
+| Manual+API double entries | MEDIUM | Query for overlapping outlet+date+product across sources. Deduplicate manually. Establish channel ownership rules. Prevent future occurrences. |
+| 3rd outlet unattributed revenue | LOW | Run `syncGoBizRevenue` after seeding outlet. Existing dedup keys prevent duplicates; unattributed records get `outletId: undefined` which can be retroactively fixed |
+| Commission rates missing | LOW | Backfill `commissionRate` on all outlets. Recalculate net revenue for affected `externalRevenue` records. Fix analytics queries to use commission. |
+| Schema migration failure | LOW | Revert `convex/schema.ts` change. Deploy. Fix field to `v.optional()`. Deploy again. |
 
 ## Sources
 
-- Convex action timeout: 10 minutes ([Convex Limits](https://docs.convex.dev/production/state/limits)) -- HIGH confidence
-- Convex query/mutation timeout: 1 second ([Convex Limits](https://docs.convex.dev/production/state/limits)) -- HIGH confidence
-- GoBiz token expiry: 1 hour access token, 9-month refresh session ([GoBiz Developer Portal](https://developer.gobiz.com/docs/docs/authentication/index.html)) -- MEDIUM confidence (public docs may differ from internal merchant API used by this project)
-- Codebase analysis: `convex/integrations/gobiz/adapter.ts`, `convex/integrations/k3mart/adapter.ts`, `convex/k3martCockpit/helpers.ts`, `convex/crons.ts` -- HIGH confidence (direct code review)
-- GoBiz API reference documentation: `docs/apiS/gojek search transactions documentation.txt` -- HIGH confidence (captured from real API calls)
-- Existing WIB date handling patterns: `convex/lib/periodRange.ts`, `convex/integrations/gobiz/helpers.ts`, `convex/k3martCockpit/helpers.ts` -- HIGH confidence (direct code review)
+- Codebase analysis: `convex/schema.ts` (59 tables), `convex/orders/helpers/ballDistribution.ts`, `convex/orders/helpers/statusTransitions.ts`, `convex/k3martCockpit/queries.ts`, `convex/integrations/gobiz/adapter.ts`, `convex/integrations/gobiz/config.ts`, `convex/integrations/registry.ts`, `convex/crons.ts`, `convex/reports/dailySales.ts` -- HIGH confidence (direct code review)
+- Production tracking data model: `orderItemProduction`, `productionLog`, `productionTargets`, `productionProductTargets`, `productionCounts`, `kitchenInventory` tables -- HIGH confidence (schema analysis)
+- External integration model: `externalRevenue`, `externalOutlets`, `externalProductMappings`, `externalSyncLogs`, `gofoodDepotStock` tables -- HIGH confidence (schema analysis)
+- K3Mart dispatch model: `k3martDispatchPlans`, `k3martStockMovements`, `restockTargets` tables -- HIGH confidence (schema analysis)
+- v1.2 deferred requirements: `.planning/milestones/v1.1-REQUIREMENTS.md` (ORD-D02, SCH-01, SCH-02, KIF-01) -- HIGH confidence (requirements doc)
+- GoBiz API configuration: `convex/integrations/gobiz/config.ts` (merchant IDs, API endpoints) -- HIGH confidence (direct code review)
 
 ---
-*Pitfalls research for: v1.1 Stabilization & QoL*
-*Researched: 2026-02-15*
+*Pitfalls research for: v1.2 Multi-Channel Expansion*
+*Researched: 2026-02-16*
