@@ -1,0 +1,3883 @@
+GoFood / GoBiz API Documentation
+==================================
+
+Base URL: https://api.gobiz.co.id
+Portal: https://portal.gofoodmerchant.co.id
+
+Merchants:
+  - G293156297 = "Legato Gf" (Legato GoFood)
+  - G347061572 = "GoFood Crystal" (Crystal GoFood)
+
+Account: malostudio.id@gmail.com
+SECURITY: Password and tokens must NEVER be committed to git. Use env vars or Convex platformCredentials table.
+
+
+=====================================
+SECTION 1: AUTHENTICATION
+=====================================
+
+The GoBiz authentication uses a 2-step browser login flow, then refresh tokens for ongoing access.
+All auth endpoints use: POST https://api.gobiz.co.id/goid/...
+
+
+--- 1A: Login Request (Step 1 of 2) ---
+Purpose: Tell the API we're starting an email/password login.
+This MUST be called before the token request (Step 2).
+
+POST /goid/login/request
+
+Required Headers:
+  Content-Type: application/json
+  Authentication-Type: go-id
+  Authorization: Bearer
+  Gojek-Country-Code: ID
+  Gojek-Timezone: Asia/Jakarta
+  Origin: https://portal.gofoodmerchant.co.id
+  Referer: https://portal.gofoodmerchant.co.id/
+  X-AppVersion: platform-v3.98.1-bf97ae9c
+  X-PhoneMake: Windows 10 64-bit
+  X-PhoneModel: Chrome 144.0.0.0 on Windows 10 64-bit
+  X-Platform: Web
+  X-User-Locale: en-US
+  X-User-Type: merchant
+  x-DeviceOS: Web
+  x-appId: go-biz-web-dashboard
+  x-uniqueid: e682966a-55b6-4699-a0f7-cb6a5415896b
+  User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36
+
+Payload:
+{
+  "email": "malostudio.id@gmail.com",
+  "login_type": "password",
+  "client_id": "go-biz-web-new"
+}
+
+Response (201 Created):
+{
+  "data": {},
+  "success": true,
+  "errors": []
+}
+
+Notable response headers:
+  x-verification-method: password
+  transaction-id: <uuid>  (may be needed for audit trail)
+
+Automation note: This endpoint WORKS from curl/Node.js (no TLS fingerprint check).
+
+
+--- 1B: Token Request - Password Login (Step 2 of 2) ---
+Purpose: Submit password to get access_token + refresh_token.
+Must be called AFTER login/request (Step 1).
+
+POST /goid/token
+
+Same headers as Step 1.
+
+Payload:
+{
+  "client_id": "go-biz-web-new",
+  "grant_type": "password",
+  "data": {
+    "email": "<EMAIL_FROM_ENV>",
+    "password": "<PASSWORD_FROM_ENV>"
+  }
+}
+
+Response (201 Created):
+{
+  "access_token": "<JWE token, ~1500 chars>",
+  "refresh_token": "<JWE token, ~500 chars>",
+  "dbl_enabled": true
+}
+
+AUTOMATION NOTE - BLOCKED FROM CURL/NODE.JS:
+  This endpoint uses TLS fingerprinting (JA3) to detect non-browser clients.
+  curl and Node.js fetch both get rejected with:
+    401 {"errors":[{"code":"goid:error:unauthorized","message":"Please update to the latest official app version"}]}
+
+  This means password login can ONLY be done from a real browser.
+  Workaround: Use the refresh token flow below (1C) for automated access.
+
+
+--- 1C: Token Refresh (AUTOMATABLE) ---
+Purpose: Get a new access_token using a refresh_token. No TLS fingerprint check.
+This is the KEY endpoint for automation.
+
+POST /goid/token
+
+Same headers as above.
+
+Payload:
+{
+  "client_id": "go-biz-web-new",
+  "grant_type": "refresh_token",
+  "data": {
+    "refresh_token": "<REFRESH_TOKEN>"
+  }
+}
+
+Response (201 Created):
+{
+  "access_token": "<NEW access token>",
+  "refresh_token": "<NEW refresh token>",
+  "dbl_enabled": true
+}
+
+IMPORTANT: Each refresh returns BOTH a new access_token AND a new refresh_token.
+You must store the new refresh_token for the next refresh cycle.
+The old refresh_token becomes invalid after use.
+
+AUTOMATION NOTE - WORKS FROM CURL/NODE.JS:
+  Tested 2026-02-15: curl and Node.js fetch both successfully refresh tokens.
+  This is the recommended path for server-side automation.
+
+Automation Strategy:
+  1. ONE-TIME (manual): Login via browser, copy access_token + refresh_token
+  2. Store refresh_token in Convex platformCredentials table (platformId: "gobiz")
+  3. Before any GoBiz API call:
+     a. Try the API with stored access_token
+     b. If 401, call /goid/token with grant_type=refresh_token
+     c. Store the NEW access_token + refresh_token back to DB
+     d. Retry the original API call
+  4. If refresh also fails (token expired), alert user to re-login via browser
+
+Token Lifetime (observed):
+  - access_token: ~24 hours (needs confirmation)
+  - refresh_token: ~2-3 days (needs confirmation, expired tokens seen after 3 days of no use)
+  - Recommendation: Refresh proactively every 12 hours to keep the chain alive
+
+
+--- Common Headers Reference ---
+All GoBiz API calls should include these headers:
+
+{
+  "Content-Type": "application/json",
+  "Accept": "application/json, text/plain, */*, application/vnd.journal.v1+json",
+  "Authentication-Type": "go-id",
+  "Authorization": "Bearer <ACCESS_TOKEN>",
+  "Origin": "https://portal.gofoodmerchant.co.id",
+  "Referer": "https://portal.gofoodmerchant.co.id/",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+  "X-AppVersion": "platform-v3.98.1-bf97ae9c",
+  "X-PhoneMake": "Windows 10 64-bit",
+  "X-PhoneModel": "Chrome 144.0.0.0 on Windows 10 64-bit",
+  "X-Platform": "Web",
+  "X-User-Locale": "en-US",
+  "X-User-Type": "merchant",
+  "Gojek-Country-Code": "ID",
+  "Gojek-Timezone": "Asia/Jakarta",
+  "x-DeviceOS": "Web",
+  "x-appId": "go-biz-web-dashboard",
+  "x-uniqueid": "e682966a-55b6-4699-a0f7-cb6a5415896b"
+}
+
+
+=====================================
+SECTION 2: TRANSACTION SEARCH
+=====================================
+
+
+Searching through all transactions 
+Request URL
+https://api.gobiz.co.id/journals/search
+Request Method
+POST
+
+response headers 
+access-control-allow-credentials
+true
+access-control-allow-origin
+https://portal.gofoodmerchant.co.id
+cache-control
+max-age=0, private, must-revalidate
+connection
+keep-alive
+content-encoding
+gzip
+content-type
+application/json; charset=utf-8
+date
+Thu, 12 Feb 2026 03:10:54 GMT
+etag
+W/"ffe1c28f07e4220cff566f6ce5e6634b"
+request-id
+afd0a24f-3c99-4f46-98e5-0bf696b94f36
+set-cookie
+_mkra_ctxt=0c11cc90149247c2351c79cdc84c050f--200; path=/; max-age=5; HttpOnly
+transfer-encoding
+chunked
+vary
+Accept-Encoding
+vary
+Origin
+x-envoy-upstream-service-time
+113
+x-kong-proxy-latency
+0
+x-kong-upstream-latency
+129
+x-request-id
+acf690c7-e98d-98c4-922f-cef9b87c2446
+x-runtime
+0.110818
+x-tencent
+true
+
+request headers
+POST /journals/search HTTP/1.1
+Accept: application/json, text/plain, */*, application/vnd.journal.v1+json
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-US,en;q=0.9
+Authentication-Type: go-id
+Authorization: Bearer eyJhbGciOiJkaXIiLCJjdHkiOiJKV1QiLCJlbmMiOiJBMTI4R0NNIiwidHlwIjoiSldUIiwiemlwIjoiREVGIn0..AQD2vf1K4QN2vUe0.cQ2t9lts_e8ln4nWnsC8nJry3CJxK4YLO0hKDZWloPHBrGjyOuyQNqW2E_BdZLEhfCes8xITMpOcinItEnCpbPcOPF4Aqwz5Pczkn7QVkLSQRjQcilfeTj45RidW4DKb8dCkDIKKHVOiVISeLBrBcItlws94YZEzo7oA5a7feL9iJYxmZgmL1VXFF-dyBOf5vCsKR6VXemgST5mApcRm75pY8Zp9VgKXamVXHa2FxN7Nk7HL7bnf4DEwbwGW3sXVxzOtLRxZsvgNoVUhmbv0QSuQk4VD-S3BknmvoDn8YEubS15uuCxQKG6e72x6_PAP9ARVba80c_IuRfcSpmWOMcw7MLIwxUksqNihmoV51GtzQIWO5zsQZySfRxURRZBkcvp3cUZPBvK4TlOhd4ZZociJVBepmxneibKrK-k9YT8sMJMs9ctsK10aTSpPVZgfkRYKASDP5ktOev71rd6s8deW-kxCeoSgHijwBfjHAfAhgrzK6QdiYKDYW78c_BjNjSZV4JiI8Zxe-dkSge3bEhj_J_J7sRwzDAk1T-QlXLzcrm9HYxiVpvQRFs5C0bjXPwTdDzIlTHAIE6sjsUhyPDAeDLBuJgjVsoFwcWPSxR7p5Hl7mKW40Zyz0WXKPeAYU60v7dg_fYaWb3r5pREJf6PXNkbX0KGva9ll0ET8mR6NM12g7vGmxTIhVBfhbjnZRzUqZ5egHMhCJ4Fki5h1HEaK-ZKfxdknxjHxInq9ImYd0Ex5CmrbsgDM2ZLzcdBAO3E6R-YiEBdZ_VWMGFRfBCTs1a5sSTRoQW4tfaAeN5aWzXqT59w9cWWg09vEvadOBXhfS7N0gUIqJS6gDi0wRwFxhkuTn0cGUEGmHhvzX4f5e0e1IkvxdVrMpRWYeVvexqvh1_xC29_wVJLhUHUmBxbrHzJ6E66MPGX_1AqsJjUABxmYjc4nNGtAfxUgvUcsogZnFjz_FqLz0kJo_PLvjMV6DPlhS7xoECoJ7WSJpubNC1DyAcgT0VFrRL6Xe8Faws2aHdlkhSRoQmXS86hbKj0-Gz0nHaV64t_ypBgAAg48leny9eJtAqPpoQRinboS8W4HkkeI69FWg0B-PxEmGXZG7dfF1WVHnEAlL__RNVkjP0qaSehKp7YlJPAQ3booiUW_G4nZcAzsimDy-C96vbUs4e3bFGj_hYQZot5mMsTqN_7NyabIZv--aIgLC57jYOL7YLpNi6Dp7S2wPHKWE4c5KrBG0_wHPi1Qv5j0iNiYhOetiZaiDryTpqn9R_96u-F4REh9HjnPCaCMuzGczRWjwdoriJpAoRxsDKeekrrGjML28PmOnzZNol4pyhOBnopYUou4TlsrJaMWzAf3WOmA8dfILtR8dWFXAxw3R01pbPzGeWcBFX6Pw-LOP1vMIBYlIACsI1h2rSbPI9tWBC-6RnoLqz-G5qfSxcgAeKr2cPa0IxPOtYcmiw3gCVFNa2sTMyWraKKuSsb3ROVYs3SPDXZBfUwCBwq0ufUwf5vtt994iQD_vcQjfON864ByMOQC4veYEKmmZ1vI8oMLyE0he-v6ouDhA1oKyhkowuMHqBLlj2zGNGEkJ8GOwV22yweovbBVx-WVgKlyU-AuOLAPs2GPUO0p_LBRiPBeSgeNbuMDXEp_44x5T36opmqdlBgbEKDdfbPYk8lfppRUgHR5QE0w5-q2AI_-Z61a8rywboK76MYVbAAwRN3zEfTv-ZxsZRnps6lToDL1j1Q4SW2tYuz2fT0F_gTNzs-iJmtzzyX45B9tPXEs-CqcRZ11vTFIkl3rESlJViEjnZ6X4s6QqvRhysVRgmxNWwxgHSbOyP1XFiHsR-ft7vl34iwrwILvZU0DVJCFx02L5Yhv94gs2Or1lueClRV554o2P-gxVfDTe_wcm_9iGh9Jon2kOoBPzyBWiMWAAUy2LG2I9QBLEIySTUmogFCa6m8cUH4WtwDpTL4q5bPP9uE9jyQ8-1tyo6OX37gVX5kn5QNrNIZI_08pdGYx4yNxbMQdQKeteEUVyQ.4LtAFRBmdoY4gh1ViAIA0g
+Connection: keep-alive
+Content-Length: 967
+Content-Type: application/json
+Host: api.gobiz.co.id
+Origin: https://portal.gofoodmerchant.co.id
+Referer: https://portal.gofoodmerchant.co.id/
+Sec-Fetch-Dest: empty
+Sec-Fetch-Mode: cors
+Sec-Fetch-Site: cross-site
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36
+sec-ch-ua: "Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "Windows"
+
+Payload
+{"from":0,"size":20,"sort":{"time":{"order":"desc"}},"included_categories":{"incoming":["transaction_share","action"]},"query":[{"clauses":[{"op":"not","clauses":[{"clauses":[{"field":"metadata.source","op":"in","value":["GOSAVE_ONLINE","GoSave","GODEALS_ONLINE"]},{"field":"metadata.gopay.source","op":"in","value":["GOSAVE_ONLINE","GoSave","GODEALS_ONLINE"]}],"op":"or"}]},{"field":"metadata.transaction.status","op":"in","value":["settlement","capture","refund","partial_refund"]},{"op":"or","clauses":[{"op":"or","clauses":[{"field":"metadata.transaction.payment_type","op":"in","value":["qris","gopay","offline_credit_card","offline_debit_card","credit_card"]}]}]},{"field":"metadata.transaction.transaction_time","op":"gte","value":"2026-02-10T17:00:00.000Z"},{"field":"metadata.transaction.transaction_time","op":"lte","value":"2026-02-11T16:59:59.999Z"},{"field":"metadata.transaction.merchant_id","op":"in","value":["G293156297","G347061572"]}],"op":"and"}]}
+the payload clause (5) of the query is important IMPORTANT - << the Merchant ID we need to save - 0 - "G293156297" is our Goldfinch store (Merchant - labelled Frollie Dubai Chewy Cookie, Legato Gelato) and 1 -"G347061572" is our new store actually the Office but it's called (Frollie Dubai Chewy Cookie, Crystal) I think for the Location column - let' start using 'Legato Gf', and 'GoFood Crystal' respectively
+The transaction times are also key clauses 3 and 4 - i trust you know how to use them properly based on our filters
+{from: 0, size: 20, sort: {time: {order: "desc"}},…}
+from
+: 
+0
+included_categories
+: 
+{incoming: ["transaction_share", "action"]}
+query
+: 
+[{clauses: [{op: "not", clauses: [{,…}]}, {field: "metadata.transaction.status", op: "in",…},…],…}]
+0
+: 
+{clauses: [{op: "not", clauses: [{,…}]}, {field: "metadata.transaction.status", op: "in",…},…],…}
+clauses
+: 
+[{op: "not", clauses: [{,…}]}, {field: "metadata.transaction.status", op: "in",…},…]
+0
+: 
+{op: "not", clauses: [{,…}]}
+clauses
+: 
+[{,…}]
+0
+: 
+{,…}
+clauses
+: 
+[{field: "metadata.source", op: "in", value: ["GOSAVE_ONLINE", "GoSave", "GODEALS_ONLINE"]},…]
+0
+: 
+{field: "metadata.source", op: "in", value: ["GOSAVE_ONLINE", "GoSave", "GODEALS_ONLINE"]}
+field
+: 
+"metadata.source"
+op
+: 
+"in"
+value
+: 
+["GOSAVE_ONLINE", "GoSave", "GODEALS_ONLINE"]
+0
+: 
+"GOSAVE_ONLINE"
+1
+: 
+"GoSave"
+2
+: 
+"GODEALS_ONLINE"
+1
+: 
+{field: "metadata.gopay.source", op: "in", value: ["GOSAVE_ONLINE", "GoSave", "GODEALS_ONLINE"]}
+op
+: 
+"or"
+op
+: 
+"not"
+1
+: 
+{field: "metadata.transaction.status", op: "in",…}
+field
+: 
+"metadata.transaction.status"
+op
+: 
+"in"
+value
+: 
+["settlement", "capture", "refund", "partial_refund"]
+0
+: 
+"settlement"
+1
+: 
+"capture"
+2
+: 
+"refund"
+3
+: 
+"partial_refund"
+2
+: 
+{op: "or", clauses: [{op: "or", clauses: [{field: "metadata.transaction.payment_type", op: "in",…}]}]}
+clauses
+: 
+[{op: "or", clauses: [{field: "metadata.transaction.payment_type", op: "in",…}]}]
+0
+: 
+{op: "or", clauses: [{field: "metadata.transaction.payment_type", op: "in",…}]}
+clauses
+: 
+[{field: "metadata.transaction.payment_type", op: "in",…}]
+0
+: 
+{field: "metadata.transaction.payment_type", op: "in",…}
+field
+: 
+"metadata.transaction.payment_type"
+op
+: 
+"in"
+value
+: 
+["qris", "gopay", "offline_credit_card", "offline_debit_card", "credit_card"]
+0
+: 
+"qris"
+1
+: 
+"gopay"
+2
+: 
+"offline_credit_card"
+3
+: 
+"offline_debit_card"
+4
+: 
+"credit_card"
+op
+: 
+"or"
+op
+: 
+"or"
+3
+: 
+{field: "metadata.transaction.transaction_time", op: "gte", value: "2026-02-10T17:00:00.000Z"}
+field
+: 
+"metadata.transaction.transaction_time"
+op
+: 
+"gte"
+value
+: 
+"2026-02-10T17:00:00.000Z"
+4
+: 
+{field: "metadata.transaction.transaction_time", op: "lte", value: "2026-02-11T16:59:59.999Z"}
+field
+: 
+"metadata.transaction.transaction_time"
+op
+: 
+"lte"
+value
+: 
+"2026-02-11T16:59:59.999Z"
+5
+: 
+{field: "metadata.transaction.merchant_id", op: "in", value: ["G293156297", "G347061572"]}
+field
+: 
+"metadata.transaction.merchant_id"
+op
+: 
+"in"
+value
+: 
+["G293156297", "G347061572"]
+0
+: 
+"G293156297"
+1
+: 
+"G347061572"
+op
+: 
+"and"
+size
+: 
+20
+sort
+: 
+{time: {order: "desc"}}
+time
+: 
+{order: "desc"}
+order
+: 
+"desc"
+
+response outputs: These are the detailed transactions by transaction ID of each transaction based on the filters NOTE - this does not show the actual products purchased so that'as the next api call 
+
+
+
+{
+    "success": true,
+    "total": 9,
+    "total_relation": "eq",
+    "hits": [
+        {
+            "version": 1770823057350,
+            "updated_at": "2026-02-11T15:17:38.045762Z",
+            "type": "payin",
+            "time": "2026-02-11T15:17:37Z",
+            "status": "success",
+            "reference_id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+            "metadata": {
+                "updated_at": "2026-02-11T15:17:37.000Z",
+                "transaction": {
+                    "version": 1770823057350,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T15:17:37Z"
+                    },
+                    "transaction_time": "2026-02-11T15:17:37.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T15:17:37.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 4500000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3128128589",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3128128589",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                    "gross_amount": 4500000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3128128589",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 4500000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "AIjMID",
+                "gopay_transaction_id": "0120260211151737ZuDbEaAIjMID",
+                "event_id": "9b673610-2596-3903-b504-d846a588629d",
+                "crc": 1195545128
+            },
+            "merchant_id": "G293156297",
+            "id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+            "currency": "IDR",
+            "created_at": "2026-02-11T15:17:38.045762Z",
+            "category": "incoming",
+            "amount": 4500000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T22:17:37.000+07:00",
+                    "status": "success",
+                    "reference_id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                    "merchant_id": "G293156297",
+                    "id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 3550950.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 94050.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 4500000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 949050.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 949050.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T22:17:37.000+07:00",
+                        "transaction_id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                        "total_fee": 949050.0,
+                        "settlement_time": "2026-02-11T22:17:37.367+07:00",
+                        "provider_share": 949050.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3128128589",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "3550950.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "4500000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 949050.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 949050.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 4500000
+                                }
+                            ],
+                            "gopay_transaction_id": "0120260211151737ZuDbEaAIjMID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 3550950.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 4500000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T22:17:39.685+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770823057350,
+                    "updated_at": "2026-02-11T15:17:37.463648Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T15:17:37.367762Z",
+                    "status": "success",
+                    "reference_id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                    "metadata": {
+                        "transaction_version": 1770823057350,
+                        "transaction_id": "f82cd603-ed15-3ace-8a49-c73abdeeb48c",
+                        "time": "2026-02-11T15:17:37.367762Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "9b673610-2596-3903-b504-d846a588629d",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 4500000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "9b673610-2596-3903-b504-d846a588629d",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T15:17:37.463648Z",
+                    "category": "action",
+                    "amount": 4500000
+                }
+            ]
+        },
+        {
+            "version": 1770815183206,
+            "updated_at": "2026-02-11T13:06:23.889923Z",
+            "type": "payin",
+            "time": "2026-02-11T13:06:23Z",
+            "status": "success",
+            "reference_id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+            "metadata": {
+                "updated_at": "2026-02-11T13:06:23.000Z",
+                "transaction": {
+                    "version": 1770815183206,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T13:06:23Z"
+                    },
+                    "transaction_time": "2026-02-11T13:06:23.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T13:06:23.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 8000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3128024623",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3128024623",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                    "gross_amount": 8000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3128024623",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 8000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "RudcID",
+                "gopay_transaction_id": "0220260211130623Biv8W5RudcID",
+                "event_id": "bd26e28a-fc46-3be5-9559-676185c9b6b2",
+                "crc": 1660596569
+            },
+            "merchant_id": "G293156297",
+            "id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+            "currency": "IDR",
+            "created_at": "2026-02-11T13:06:23.889923Z",
+            "category": "incoming",
+            "amount": 8000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T20:06:23.000+07:00",
+                    "status": "success",
+                    "reference_id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                    "merchant_id": "G293156297",
+                    "id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 6312800.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 167200.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 8000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 1687200.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 1687200.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T20:06:23.000+07:00",
+                        "transaction_id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                        "total_fee": 1687200.0,
+                        "settlement_time": "2026-02-11T20:06:23.242+07:00",
+                        "provider_share": 1687200.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3128024623",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "6312800.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "8000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 1687200.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 1687200.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 8000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0220260211130623Biv8W5RudcID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 6312800.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 8000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T20:06:24.240+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770815183206,
+                    "updated_at": "2026-02-11T13:06:23.450996Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T13:06:23.242620Z",
+                    "status": "success",
+                    "reference_id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                    "metadata": {
+                        "transaction_version": 1770815183206,
+                        "transaction_id": "224e0a2e-3b97-3d97-bc14-73b72fe664b4",
+                        "time": "2026-02-11T13:06:23.242620Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "bd26e28a-fc46-3be5-9559-676185c9b6b2",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 8000000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "bd26e28a-fc46-3be5-9559-676185c9b6b2",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T13:06:23.450996Z",
+                    "category": "action",
+                    "amount": 8000000
+                }
+            ]
+        },
+        {
+            "version": 1770814393093,
+            "updated_at": "2026-02-11T12:53:14.125182Z",
+            "type": "payin",
+            "time": "2026-02-11T12:53:13Z",
+            "status": "success",
+            "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+            "metadata": {
+                "updated_at": "2026-02-11T12:53:13.000Z",
+                "transaction": {
+                    "version": 1770814393093,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T12:53:13Z"
+                    },
+                    "transaction_time": "2026-02-11T12:53:13.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T12:53:13.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 11000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127945807",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127945807",
+                        "merchant_id": "G347061572",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G347061572",
+                    "items": [],
+                    "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "gross_amount": 11000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127945807",
+                        "merchant_id": "G347061572",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 11000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "hzgAID",
+                "gopay_transaction_id": "0420260211125313ckEH1ahzgAID",
+                "event_id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                "crc": 3596354912
+            },
+            "merchant_id": "G347061572",
+            "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+            "currency": "IDR",
+            "created_at": "2026-02-11T12:53:14.125182Z",
+            "category": "incoming",
+            "amount": 11000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T19:53:13.000+07:00",
+                    "status": "success",
+                    "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "merchant_id": "G347061572",
+                    "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 8680100.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 229900.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 11000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 2319900.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 2319900.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T19:53:13.000+07:00",
+                        "transaction_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                        "total_fee": 2319900.0,
+                        "settlement_time": "2026-02-11T19:53:13.117+07:00",
+                        "provider_share": 2319900.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127945807",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G347061572",
+                                    "source": "goresto_online",
+                                    "nett": "8680100.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G347061572/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "11000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 2319900.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 2319900.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G347061572/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 11000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0420260211125313ckEH1ahzgAID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 8680100.0,
+                        "merchant_id": "G347061572",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 11000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T19:53:14.776+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770814393093,
+                    "updated_at": "2026-02-11T12:53:13.724544Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T12:53:13.117163Z",
+                    "status": "success",
+                    "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "metadata": {
+                        "transaction_version": 1770814393093,
+                        "transaction_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                        "time": "2026-02-11T12:53:13.117163Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G347061572",
+                        "id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 11000000
+                    },
+                    "merchant_id": "G347061572",
+                    "id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T12:53:13.724544Z",
+                    "category": "action",
+                    "amount": 11000000
+                }
+            ]
+        },
+        {
+            "version": 1770810732896,
+            "updated_at": "2026-02-11T11:52:13.223194Z",
+            "type": "payin",
+            "time": "2026-02-11T11:52:12Z",
+            "status": "success",
+            "reference_id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+            "metadata": {
+                "updated_at": "2026-02-11T11:52:12.000Z",
+                "transaction": {
+                    "version": 1770810732896,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T11:52:12Z"
+                    },
+                    "transaction_time": "2026-02-11T11:52:12.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T11:52:12.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 4500000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127787011",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127787011",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                    "gross_amount": 4500000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127787011",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 4500000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "yKpmID",
+                "gopay_transaction_id": "0220260211115212pBeeENyKpmID",
+                "event_id": "cd3fe4a8-4c30-3675-bef9-96606f9c5c66",
+                "crc": 211141052
+            },
+            "merchant_id": "G293156297",
+            "id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+            "currency": "IDR",
+            "created_at": "2026-02-11T11:52:13.223194Z",
+            "category": "incoming",
+            "amount": 4500000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T18:52:12.000+07:00",
+                    "status": "success",
+                    "reference_id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                    "merchant_id": "G293156297",
+                    "id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 3550950.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 94050.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 4500000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 949050.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 949050.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T18:52:12.000+07:00",
+                        "transaction_id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                        "total_fee": 949050.0,
+                        "settlement_time": "2026-02-11T18:52:12.917+07:00",
+                        "provider_share": 949050.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127787011",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "3550950.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "4500000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 949050.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 949050.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 4500000
+                                }
+                            ],
+                            "gopay_transaction_id": "0220260211115212pBeeENyKpmID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 3550950.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 4500000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T18:52:14.057+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770810732896,
+                    "updated_at": "2026-02-11T11:52:13.624441Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T11:52:12.917892Z",
+                    "status": "success",
+                    "reference_id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                    "metadata": {
+                        "transaction_version": 1770810732896,
+                        "transaction_id": "631f0a95-5c2b-31d7-b2a9-68d1dbf130a4",
+                        "time": "2026-02-11T11:52:12.917892Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "cd3fe4a8-4c30-3675-bef9-96606f9c5c66",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 4500000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "cd3fe4a8-4c30-3675-bef9-96606f9c5c66",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T11:52:13.624441Z",
+                    "category": "action",
+                    "amount": 4500000
+                }
+            ]
+        },
+        {
+            "version": 1770808895143,
+            "updated_at": "2026-02-11T11:21:35.996667Z",
+            "type": "payin",
+            "time": "2026-02-11T11:21:35Z",
+            "status": "success",
+            "reference_id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+            "metadata": {
+                "updated_at": "2026-02-11T11:21:35.000Z",
+                "transaction": {
+                    "version": 1770808895143,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T11:21:35Z"
+                    },
+                    "transaction_time": "2026-02-11T11:21:35.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T11:21:35.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 4500000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127746903",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127746903",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                    "gross_amount": 4500000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127746903",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 4500000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "lAyFID",
+                "gopay_transaction_id": "0420260211112135CctbG0lAyFID",
+                "event_id": "7579ebe8-bf16-3a68-b00d-ca8cd6441709",
+                "crc": 1720941655
+            },
+            "merchant_id": "G293156297",
+            "id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+            "currency": "IDR",
+            "created_at": "2026-02-11T11:21:35.996667Z",
+            "category": "incoming",
+            "amount": 4500000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T18:21:35.000+07:00",
+                    "status": "success",
+                    "reference_id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                    "merchant_id": "G293156297",
+                    "id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 3550950.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 94050.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 4500000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 949050.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 949050.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T18:21:35.000+07:00",
+                        "transaction_id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                        "total_fee": 949050.0,
+                        "settlement_time": "2026-02-11T18:21:35.164+07:00",
+                        "provider_share": 949050.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127746903",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "3550950.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "4500000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 949050.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 949050.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 4500000
+                                }
+                            ],
+                            "gopay_transaction_id": "0420260211112135CctbG0lAyFID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 3550950.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 4500000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T18:21:35.569+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770808895143,
+                    "updated_at": "2026-02-11T11:21:36.033128Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T11:21:35.164092Z",
+                    "status": "success",
+                    "reference_id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                    "metadata": {
+                        "transaction_version": 1770808895143,
+                        "transaction_id": "4d240b15-768f-3b68-ae28-1ff9e83d30f5",
+                        "time": "2026-02-11T11:21:35.164092Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "7579ebe8-bf16-3a68-b00d-ca8cd6441709",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 4500000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "7579ebe8-bf16-3a68-b00d-ca8cd6441709",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T11:21:36.033128Z",
+                    "category": "action",
+                    "amount": 4500000
+                }
+            ]
+        },
+        {
+            "version": 1770803146347,
+            "updated_at": "2026-02-11T09:45:47.117869Z",
+            "type": "payin",
+            "time": "2026-02-11T09:45:46Z",
+            "status": "success",
+            "reference_id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+            "metadata": {
+                "updated_at": "2026-02-11T09:45:46.000Z",
+                "transaction": {
+                    "version": 1770803146347,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T09:45:46Z"
+                    },
+                    "transaction_time": "2026-02-11T09:45:46.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T09:45:46.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 22000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127636430",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127636430",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                    "gross_amount": 22000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127636430",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 22000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "Sx1BID",
+                "gopay_transaction_id": "0320260211094546f2FN3iSx1BID",
+                "event_id": "bf00424a-c185-388e-9fb9-8a515e81316e",
+                "crc": 3577122225
+            },
+            "merchant_id": "G293156297",
+            "id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+            "currency": "IDR",
+            "created_at": "2026-02-11T09:45:47.117869Z",
+            "category": "incoming",
+            "amount": 22000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T16:45:46.000+07:00",
+                    "status": "success",
+                    "reference_id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                    "merchant_id": "G293156297",
+                    "id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 17360200.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 459800.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 22000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 4639800.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 4639800.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T16:45:46.000+07:00",
+                        "transaction_id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                        "total_fee": 4639800.0,
+                        "settlement_time": "2026-02-11T16:45:46.369+07:00",
+                        "provider_share": 4639800.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127636430",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "17360200.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "22000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 4639800.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 4639800.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 22000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0320260211094546f2FN3iSx1BID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 17360200.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 22000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T16:45:47.296+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770803146347,
+                    "updated_at": "2026-02-11T09:45:46.588060Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T09:45:46.369516Z",
+                    "status": "success",
+                    "reference_id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                    "metadata": {
+                        "transaction_version": 1770803146347,
+                        "transaction_id": "dbd43eb3-b284-3d36-926c-8f7fa54ad0a9",
+                        "time": "2026-02-11T09:45:46.369516Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "bf00424a-c185-388e-9fb9-8a515e81316e",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 22000000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "bf00424a-c185-388e-9fb9-8a515e81316e",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T09:45:46.588060Z",
+                    "category": "action",
+                    "amount": 22000000
+                }
+            ]
+        },
+        {
+            "version": 1770803101779,
+            "updated_at": "2026-02-11T09:45:02.343250Z",
+            "type": "payin",
+            "time": "2026-02-11T09:45:01Z",
+            "status": "success",
+            "reference_id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+            "metadata": {
+                "updated_at": "2026-02-11T09:45:01.000Z",
+                "transaction": {
+                    "version": 1770803101779,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T09:45:01Z"
+                    },
+                    "transaction_time": "2026-02-11T09:45:01.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T09:45:01.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 33000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127629885",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127629885",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                    "gross_amount": 33000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127629885",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 33000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "eZrLID",
+                "gopay_transaction_id": "0120260211094501infVyLeZrLID",
+                "event_id": "d6d580a3-acab-33da-92f9-eee8d955cb2d",
+                "crc": 2640352958
+            },
+            "merchant_id": "G293156297",
+            "id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+            "currency": "IDR",
+            "created_at": "2026-02-11T09:45:02.343250Z",
+            "category": "incoming",
+            "amount": 33000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T16:45:01.000+07:00",
+                    "status": "success",
+                    "reference_id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                    "merchant_id": "G293156297",
+                    "id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 26040300.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 689700.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 33000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 6959700.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 6959700.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T16:45:01.000+07:00",
+                        "transaction_id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                        "total_fee": 6959700.0,
+                        "settlement_time": "2026-02-11T16:45:01.814+07:00",
+                        "provider_share": 6959700.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127629885",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "26040300.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "33000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 6959700.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 6959700.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 33000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0120260211094501infVyLeZrLID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 26040300.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 33000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T16:45:03.129+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770803101779,
+                    "updated_at": "2026-02-11T09:45:02.556057Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T09:45:01.814494Z",
+                    "status": "success",
+                    "reference_id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                    "metadata": {
+                        "transaction_version": 1770803101779,
+                        "transaction_id": "8216e091-25fc-36c6-8689-38846cd9c3d4",
+                        "time": "2026-02-11T09:45:01.814494Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "d6d580a3-acab-33da-92f9-eee8d955cb2d",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 33000000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "d6d580a3-acab-33da-92f9-eee8d955cb2d",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T09:45:02.556057Z",
+                    "category": "action",
+                    "amount": 33000000
+                }
+            ]
+        },
+        {
+            "version": 1770797296209,
+            "updated_at": "2026-02-11T08:08:16.578667Z",
+            "type": "payin",
+            "time": "2026-02-11T08:08:16Z",
+            "status": "success",
+            "reference_id": "e8dc65f5-ed32-336e-8880-092666bde477",
+            "metadata": {
+                "updated_at": "2026-02-11T08:08:16.000Z",
+                "transaction": {
+                    "version": 1770797296209,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T08:08:16Z"
+                    },
+                    "transaction_time": "2026-02-11T08:08:16.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T08:08:16.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 11000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127544321",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127544321",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                    "gross_amount": 11000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127544321",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 11000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "cbCnID",
+                "gopay_transaction_id": "0120260211080816luTvFzcbCnID",
+                "event_id": "3052489a-0780-3b8d-9e85-03f62f1fe7cd",
+                "crc": 2871477397
+            },
+            "merchant_id": "G293156297",
+            "id": "e8dc65f5-ed32-336e-8880-092666bde477",
+            "currency": "IDR",
+            "created_at": "2026-02-11T08:08:16.578667Z",
+            "category": "incoming",
+            "amount": 11000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T15:08:16.000+07:00",
+                    "status": "success",
+                    "reference_id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                    "merchant_id": "G293156297",
+                    "id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 8680100.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 229900.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 11000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 2319900.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 2319900.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T15:08:16.000+07:00",
+                        "transaction_id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                        "total_fee": 2319900.0,
+                        "settlement_time": "2026-02-11T15:08:16.228+07:00",
+                        "provider_share": 2319900.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127544321",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "8680100.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "11000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 2319900.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 2319900.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 11000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0120260211080816luTvFzcbCnID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 8680100.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 11000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T15:08:17.608+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770797296209,
+                    "updated_at": "2026-02-11T08:08:17.001224Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T08:08:16.228657Z",
+                    "status": "success",
+                    "reference_id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                    "metadata": {
+                        "transaction_version": 1770797296209,
+                        "transaction_id": "e8dc65f5-ed32-336e-8880-092666bde477",
+                        "time": "2026-02-11T08:08:16.228657Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "3052489a-0780-3b8d-9e85-03f62f1fe7cd",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 11000000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "3052489a-0780-3b8d-9e85-03f62f1fe7cd",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T08:08:17.001224Z",
+                    "category": "action",
+                    "amount": 11000000
+                }
+            ]
+        },
+        {
+            "version": 1770796300865,
+            "updated_at": "2026-02-11T07:51:41.605877Z",
+            "type": "payin",
+            "time": "2026-02-11T07:51:40Z",
+            "status": "success",
+            "reference_id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+            "metadata": {
+                "updated_at": "2026-02-11T07:51:40.000Z",
+                "transaction": {
+                    "version": 1770796300865,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T07:51:40Z"
+                    },
+                    "transaction_time": "2026-02-11T07:51:40.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T07:51:40.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 11000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127534259",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127534259",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G293156297",
+                    "items": [],
+                    "id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                    "gross_amount": 11000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127534259",
+                        "merchant_id": "G293156297",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 11000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "R8X8ID",
+                "gopay_transaction_id": "0120260211075140sh85zuR8X8ID",
+                "event_id": "c9984806-6e63-385d-bf3d-bc967d5fdc1f",
+                "crc": 754094925
+            },
+            "merchant_id": "G293156297",
+            "id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+            "currency": "IDR",
+            "created_at": "2026-02-11T07:51:41.605877Z",
+            "category": "incoming",
+            "amount": 11000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T14:51:40.000+07:00",
+                    "status": "success",
+                    "reference_id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                    "merchant_id": "G293156297",
+                    "id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 8680100.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 229900.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 11000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 2319900.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 2319900.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T14:51:40.000+07:00",
+                        "transaction_id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                        "total_fee": 2319900.0,
+                        "settlement_time": "2026-02-11T14:51:40.884+07:00",
+                        "provider_share": 2319900.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127534259",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G293156297",
+                                    "source": "goresto_online",
+                                    "nett": "8680100.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "11000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 2319900.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 2319900.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G293156297/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 11000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0120260211075140sh85zuR8X8ID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 8680100.0,
+                        "merchant_id": "G293156297",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 11000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T14:51:41.486+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770796300865,
+                    "updated_at": "2026-02-11T07:51:41.477115Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T07:51:40.884742Z",
+                    "status": "success",
+                    "reference_id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                    "metadata": {
+                        "transaction_version": 1770796300865,
+                        "transaction_id": "d8e55a9e-9e2e-3dc3-a236-8695ff4d622a",
+                        "time": "2026-02-11T07:51:40.884742Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G293156297",
+                        "id": "c9984806-6e63-385d-bf3d-bc967d5fdc1f",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 11000000
+                    },
+                    "merchant_id": "G293156297",
+                    "id": "c9984806-6e63-385d-bf3d-bc967d5fdc1f",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T07:51:41.477115Z",
+                    "category": "action",
+                    "amount": 11000000
+                }
+            ]
+        }
+    ],
+    "aggregations": null
+}
+
+
+
+Example 2 of a search - this time only with our Crystal branch for yesterday's transsactions results
+https://api.gobiz.co.id/journals/search
+
+payload:
+{"from":0,"size":20,"sort":{"time":{"order":"desc"}},"included_categories":{"incoming":["transaction_share","action"]},"query":[{"clauses":[{"op":"not","clauses":[{"clauses":[{"field":"metadata.source","op":"in","value":["GOSAVE_ONLINE","GoSave","GODEALS_ONLINE"]},{"field":"metadata.gopay.source","op":"in","value":["GOSAVE_ONLINE","GoSave","GODEALS_ONLINE"]}],"op":"or"}]},{"field":"metadata.transaction.status","op":"in","value":["settlement","capture","refund","partial_refund"]},{"op":"or","clauses":[{"op":"or","clauses":[{"field":"metadata.transaction.payment_type","op":"in","value":["qris","gopay","offline_credit_card","offline_debit_card","credit_card"]}]}]},{"field":"metadata.transaction.transaction_time","op":"gte","value":"2026-02-10T17:00:00.000Z"},{"field":"metadata.transaction.transaction_time","op":"lte","value":"2026-02-11T16:59:59.999Z"},{"field":"metadata.transaction.merchant_id","op":"in","value":["G347061572"]}],"op":"and"}]}
+response:
+{
+    "success": true,
+    "total": 1,
+    "total_relation": "eq",
+    "hits": [
+        {
+            "version": 1770814393093,
+            "updated_at": "2026-02-11T12:53:14.125182Z",
+            "type": "payin",
+            "time": "2026-02-11T12:53:13Z",
+            "status": "success",
+            "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+            "metadata": {
+                "updated_at": "2026-02-11T12:53:13.000Z",
+                "transaction": {
+                    "version": 1770814393093,
+                    "transaction_times": {
+                        "settlement_time": "2026-02-11T12:53:13Z"
+                    },
+                    "transaction_time": "2026-02-11T12:53:13.000Z",
+                    "transaction_source": {},
+                    "transaction_notification": {},
+                    "status": "settlement",
+                    "settlement_time": "2026-02-11T12:53:13.000Z",
+                    "refunds": [],
+                    "real_gross_amount": 11000000,
+                    "pop": {},
+                    "payment_type": "gopay",
+                    "order_id": "F-3127945807",
+                    "open_api_transaction": false,
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127945807",
+                        "merchant_id": "G347061572",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "merchant_id": "G347061572",
+                    "items": [],
+                    "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "gross_amount": 11000000,
+                    "external_promo_details": [],
+                    "customer": {},
+                    "currency": "idr",
+                    "business_type": "b2c",
+                    "api_response_code": "200"
+                },
+                "system": {
+                    "url": "https://api.midtrans.com",
+                    "dc": "gopay"
+                },
+                "source": "goresto_online",
+                "provider_metadata": {
+                    "metadata": {
+                        "tags": "{\"service_type\":\"GO_FOOD\"}",
+                        "service_type": "GO_FOOD",
+                        "order_source": "GO-RESTO",
+                        "order_id": "F-3127945807",
+                        "merchant_id": "G347061572",
+                        "channel_type": "GORESTO_ONLINE"
+                    },
+                    "acquired_by": "GOPAY"
+                },
+                "payment_details": [
+                    {
+                        "option": "GOPAY_WALLET",
+                        "currency": "IDR",
+                        "amount": 11000000
+                    }
+                ],
+                "oms_source": "GOPAY",
+                "oms_channel_type": "GOFOOD_DELIVERY",
+                "midtrans_partner_id": "",
+                "merchant_type": "smb_unmanaged",
+                "gopay_transaction_reference": "hzgAID",
+                "gopay_transaction_id": "0420260211125313ckEH1ahzgAID",
+                "event_id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                "crc": 3596354912
+            },
+            "merchant_id": "G347061572",
+            "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+            "currency": "IDR",
+            "created_at": "2026-02-11T12:53:14.125182Z",
+            "category": "incoming",
+            "amount": 11000000,
+            "transaction_share": [
+                {
+                    "version": 2,
+                    "type": "embedded",
+                    "time": "2026-02-11T19:53:13.000+07:00",
+                    "status": "success",
+                    "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "merchant_id": "G347061572",
+                    "id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "currency": "IDR",
+                    "category": "transaction_share",
+                    "amount": 8680100.0,
+                    "metadata": {
+                        "variables": {
+                            "withholding_tax_new": 0.0,
+                            "withholding_tax": 0.0,
+                            "withdrawal_fee_discount": 0.0,
+                            "wht": 0.0,
+                            "voucher_commission": 0.0,
+                            "voucher_amount": 0.0,
+                            "vat": 0.11,
+                            "value_added_tax": 229900.0,
+                            "tax": 0.0,
+                            "sharing_percentage": 0.0,
+                            "service_charge": 0.0,
+                            "restaurant_tax": 0.0,
+                            "merchant_percentage_fee": 0.19,
+                            "merchant_fixed_fee": 0.0,
+                            "mdr_profile_id": 0.0,
+                            "gross_amount": 11000000.0,
+                            "extra_commission_percentage": 0.0,
+                            "extra_commission_amount": 0.0,
+                            "exclude_vat": 1.0,
+                            "dynamic_commission_amount": 0.0,
+                            "commission": 2319900.0,
+                            "comfee_exclude_mfp": 0.0,
+                            "X_PARTNER_FEE_AKAB": 2319900.0
+                        },
+                        "transaction_types": [],
+                        "transaction_time": "2026-02-11T19:53:13.000+07:00",
+                        "transaction_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                        "total_fee": 2319900.0,
+                        "settlement_time": "2026-02-11T19:53:13.117+07:00",
+                        "provider_share": 2319900.0,
+                        "payout_type": "aggregator",
+                        "payment_type": "gopay",
+                        "order_id": "F-3127945807",
+                        "order": 1,
+                        "money_moving_order": {
+                            "wallets": [
+                                {
+                                    "wallet_id": "G347061572",
+                                    "source": "goresto_online",
+                                    "nett": "8680100.0",
+                                    "is_partner": false,
+                                    "handle_name": "2026-02-11/G347061572/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": "11000000.0",
+                                    "currency": "IDR"
+                                },
+                                {
+                                    "wallet_id": "G973602953",
+                                    "source": "goresto_online",
+                                    "nett": 2319900.0,
+                                    "is_partner": true,
+                                    "handle_name": "2026-02-11/G973602953/gopay/gojek/goresto_online/hold-1days",
+                                    "gross": 2319900.0,
+                                    "currency": "IDR"
+                                }
+                            ],
+                            "handle": "2026-02-11/G347061572/gopay/gojek/goresto_online/hold-1days",
+                            "auto_commit": "2026-02-12T00:00:00+07:00"
+                        },
+                        "midtrans_percentage_share": 0.0,
+                        "midtrans_fixed_share": 0.0,
+                        "metadata": {
+                            "transaction_status": "settlement",
+                            "service_type": "GO_FOOD",
+                            "payment_option": "GOPAY_WALLET",
+                            "payment_details": [
+                                {
+                                    "option": "GOPAY_WALLET",
+                                    "currency": "IDR",
+                                    "amount": 11000000
+                                }
+                            ],
+                            "gopay_transaction_id": "0420260211125313ckEH1ahzgAID",
+                            "gopay_source_type": "goresto_online",
+                            "channel_type": "GOFOOD_DELIVERY"
+                        },
+                        "merchant_share": 8680100.0,
+                        "merchant_id": "G347061572",
+                        "is_reincarnated": false,
+                        "is_refund_action": false,
+                        "is_manual_adjustment": false,
+                        "is_chargeback": false,
+                        "gross_amount": 11000000.0,
+                        "cutoff_days": 1,
+                        "created_at": "2026-02-11T19:53:14.776+07:00",
+                        "acquiring_provider": "gojek"
+                    }
+                }
+            ],
+            "action": [
+                {
+                    "version": 1770814393093,
+                    "updated_at": "2026-02-11T12:53:13.724544Z",
+                    "type": "embedded",
+                    "time": "2026-02-11T12:53:13.117163Z",
+                    "status": "success",
+                    "reference_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                    "metadata": {
+                        "transaction_version": 1770814393093,
+                        "transaction_id": "b444256b-e657-31d0-95d3-db2b87cb69f9",
+                        "time": "2026-02-11T12:53:13.117163Z",
+                        "status_after_action": "settlement",
+                        "status": "success",
+                        "name": "Settlement Transaction",
+                        "metadata": {},
+                        "merchant_id": "G347061572",
+                        "id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                        "currency": "IDR",
+                        "channel_response_code": null,
+                        "api_response_code": "200",
+                        "amount": 11000000
+                    },
+                    "merchant_id": "G347061572",
+                    "id": "9abd83e5-92d1-34de-a645-df06260d1723",
+                    "currency": "IDR",
+                    "created_at": "2026-02-11T12:53:13.724544Z",
+                    "category": "action",
+                    "amount": 11000000
+                }
+            ]
+        }
+    ],
+    "aggregations": null
+}
+
+
+
+Next important API - is the transaction details - this one is actually more crucial and has all the details we need for each trasnaction that we would liek to store in our database
+the response is very detailed - we should store the key fields including name of the merchant for reporting, order number, product specifics, the merchant_id should match the merchant_name, and match the service_area_id (1), we have the merchant name, this is linked to our merchant store ID later on in the json, and we even have the event_timestamp which is exactly when the transaction occured so we should use that for the actual time of payment  then of course the actual detail of the product is important as well: 
+it shows that in the items section: name of the item is "name": "Dubai Chewy Cookie - Regular Pack Of 3", < this matches to our Original - Triple product in our POS , please make sure this is saved as a product mapping between Gojek and our menuproducts 
+if the name is "Dubai Chewy Cookie - Regular Size" then this matches our Original - Single product 45k in or POS < make sure there is a mapping between gojek food products and our menuproducts for food 
+it even has cancellations - if there is anything in the cancellations we can flag it in our transaction data as well and not have it count towards our revenue but track it as a cancellation (similar to the refund in k3mart transactions)
+Request URL
+https://api.gobiz.co.id/cosmo/v1/orders/search
+Request Method
+POST
+Status Code
+200 OK
+Remote Address
+43.152.108.30:443
+
+request payload:
+{"query":{"term":{"order_number":"F-3128128589"}}}
+
+response for above payload :
+{
+    "status": "success",
+    "data": {
+        "hits": [
+            {
+                "analytic_temp": {
+                    "acceptance_time": 58,
+                    "delivery_time": 2187,
+                    "food_prepare_time": 1463,
+                    "food_prepared_at": {
+                        "seconds": 1770823034
+                    },
+                    "merchant_accepted_at": {
+                        "seconds": 1770821571
+                    },
+                    "merchant_name": "Frollie Dubai Chewy Cookie, Legato Gelato",
+                    "order_day_of_week": 3,
+                    "order_hour_of_day": 21,
+                    "pickup_at": {
+                        "seconds": 1770823116
+                    }
+                },
+                "currency": "IDR",
+                "event_timestamp": "2026-02-11T15:55:03Z",
+                "gross_amount": 45000,
+                "items": [
+                    {
+                        "id": "a60ddc29-8069-4ceb-8afb-c79d89925de2",
+                        "name": "Dubai Chewy Cookie - Regular Size",
+                        "note": "",
+                        "price": 45000,
+                        "promo_id": "",
+                        "quantity": 1,
+                        "variants": []
+                    }
+                ],
+                "merchant_id": "G293156297",
+                "order_number": "F-3128128589",
+                "ordered_at": "2026-02-11T14:51:40Z",
+                "product_specific": {
+                    "goresto": {
+                        "accept_on_timeout_enabled": true,
+                        "accepted_by": "SYSTEM",
+                        "acknowledge_at": {
+                            "nanos": 156683000,
+                            "seconds": 1770821578
+                        },
+                        "activity_source": "1",
+                        "auto_acceptance_enabled": false,
+                        "campaign_discounts": [],
+                        "cancel_reason_description": "",
+                        "cancel_reason_id": 0,
+                        "commission_price": 0,
+                        "convenience_fee": 0,
+                        "customer_id": "596248612",
+                        "customer_name": "C********* V***** S*********",
+                        "customer_phone": "**********5673",
+                        "driver_arrived_at": {
+                            "nanos": 888840000,
+                            "seconds": 1770822798
+                        },
+                        "driver_entered_price": 45000,
+                        "driver_id": "541143071",
+                        "driver_name": "A** S******",
+                        "driver_order_placed_at": {
+                            "nanos": 203391000,
+                            "seconds": 1770823057
+                        },
+                        "driver_phone": "**********6544",
+                        "experiments": [
+                            "m2c_chat",
+                            "cutlery_excluded",
+                            "system_acceptance"
+                        ],
+                        "food_prepared_at": {
+                            "nanos": 45538000,
+                            "seconds": 1770823034
+                        },
+                        "has_promo": false,
+                        "manual_acceptance_enabled": true,
+                        "merchant_accepted_at": {
+                            "nanos": 299716000,
+                            "seconds": 1770821571
+                        },
+                        "merchant_cancel_reason": "",
+                        "otp": "5735",
+                        "pickup_at": {
+                            "nanos": 165266000,
+                            "seconds": 1770823116
+                        },
+                        "previous_sub_status": "OTW_DESTINATION",
+                        "service_area_id": "1",
+                        "shopping_price": 45000,
+                        "sub_status": "COMPLETED",
+                        "voucher_batch_id": "",
+                        "voucher_commission": 0,
+                        "voucher_id": "",
+                        "voucher_redeemed_value": 0,
+                        "voucher_title": "",
+                        "withholding_income_tax": 0
+                    }
+                },
+                "source": "GORESTO",
+                "status": {
+                    "goresto": "COMPLETED"
+                },
+                "transactions": []
+            }
+        ],
+        "total": 1
+    }
+}
+
+
+
+response example 2 - where the payload order_number was "F-3127945807"
+
+
+
+{
+    "status": "success",
+    "data": {
+        "hits": [
+            {
+                "analytic_temp": {
+                    "acceptance_time": 58,
+                    "delivery_time": 941,
+                    "food_prepare_time": 416,
+                    "food_prepared_at": {
+                        "seconds": 1770813473
+                    },
+                    "merchant_accepted_at": {
+                        "seconds": 1770813057
+                    },
+                    "merchant_name": "Frollie Dubai Chewy Cookie, Crystal",
+                    "order_day_of_week": 3,
+                    "order_hour_of_day": 19,
+                    "pickup_at": {
+                        "seconds": 1770813626
+                    }
+                },
+                "currency": "IDR",
+                "event_timestamp": "2026-02-11T12:56:07Z",
+                "gross_amount": 110000,
+                "items": [
+                    {
+                        "id": "e00c41c0-17ee-4d6d-9e1a-343ba9ef27a0",
+                        "name": "Dubai Chewy Cookie - Regular Pack Of 3",
+                        "note": "",
+                        "price": 110000,
+                        "promo_id": "",
+                        "quantity": 1,
+                        "variants": []
+                    }
+                ],
+                "merchant_id": "G347061572",
+                "order_number": "F-3127945807",
+                "ordered_at": "2026-02-11T12:29:46Z",
+                "product_specific": {
+                    "goresto": {
+                        "accept_on_timeout_enabled": true,
+                        "accepted_by": "SYSTEM",
+                        "acknowledge_at": {
+                            "nanos": 274248000,
+                            "seconds": 1770813373
+                        },
+                        "activity_source": "1",
+                        "auto_acceptance_enabled": false,
+                        "campaign_discounts": [
+                            {
+                                "campaign_discount_scope": "TripAmount",
+                                "campaign_id": "aa42aaef-0f38-4b84-b227-c1b769c9221b",
+                                "discount_amount": 9000,
+                                "merchant_budget_share_percent": 0,
+                                "payment_type": "GOPAY",
+                                "redeemed_amount": 9000,
+                                "subscription_id": ""
+                            }
+                        ],
+                        "cancel_reason_description": "",
+                        "cancel_reason_id": 0,
+                        "commission_price": 0,
+                        "convenience_fee": 1000,
+                        "customer_id": "724930476",
+                        "customer_name": "k****",
+                        "customer_phone": "*********4637",
+                        "driver_arrived_at": {
+                            "nanos": 659347000,
+                            "seconds": 1770813370
+                        },
+                        "driver_entered_price": 110000,
+                        "driver_id": "700740623",
+                        "driver_name": "M******",
+                        "driver_order_placed_at": {
+                            "nanos": 562028000,
+                            "seconds": 1770813517
+                        },
+                        "driver_phone": "**********7080",
+                        "experiments": [
+                            "m2c_chat",
+                            "cutlery_excluded",
+                            "system_acceptance"
+                        ],
+                        "food_prepared_at": {
+                            "nanos": 914592000,
+                            "seconds": 1770813473
+                        },
+                        "has_promo": false,
+                        "manual_acceptance_enabled": true,
+                        "merchant_accepted_at": {
+                            "nanos": 419894000,
+                            "seconds": 1770813057
+                        },
+                        "merchant_cancel_reason": "",
+                        "otp": "7798",
+                        "pickup_at": {
+                            "nanos": 939075000,
+                            "seconds": 1770813626
+                        },
+                        "previous_sub_status": "OTW_DESTINATION",
+                        "service_area_id": "1",
+                        "shopping_price": 110000,
+                        "sub_status": "COMPLETED",
+                        "voucher_batch_id": "",
+                        "voucher_commission": 0,
+                        "voucher_id": "",
+                        "voucher_redeemed_value": 0,
+                        "voucher_title": "",
+                        "withholding_income_tax": 0
+                    }
+                },
+                "source": "GORESTO",
+                "status": {
+                    "goresto": "COMPLETED"
+                },
+                "transactions": []
+            }
+        ],
+        "total": 1
+    }
+}
+
+
+This api pulls through all of our outlets metadata if your payload is the below
+Request URL
+https://api.gobiz.co.id/v1/merchants/search
+Request Method
+POST
+{"from":0,"size":1000,"_source":["id","director_name","merchant_name","email","feature_types","phone","outlet_address","outlet_name","outlet_city","payment_settings.GOPAY","tags","bank_account","applications","pops","aspi","business_type","metadata","id_type","merchant_type"]}
+
+
+
+
+here is the response - the key areas for us are  "outlet_name": "Frollie Dubai Chewy Cookie, Crystal Timur A",
+            "outlet_city": "TANGERANG",
+            "outlet_address": "Cluster Crystal, Jl. Crystal Timur A No. 7, Kelapa Dua, Tangerang",
+            "metadata": null,
+            "merchant_type": "smb_unmanaged",
+            "merchant_name": "Frollie Dubai Chewy Cookie, Crystal",
+            "id_type": "KTP",
+			
+			+ Phone number by merchant! 
+			
+			
+			Full response below::: 
+
+
+
+
+{
+    "total": 2,
+    "success": true,
+    "hits": [
+        {
+            "tags": {
+                "pop": [],
+                "outlet_type": [],
+                "outlet": [],
+                "organization": [
+                    "gojek"
+                ],
+                "merchant_id": [
+                    "G293156297"
+                ],
+                "goresto_merchant_type": [],
+                "gopay_merchant_type": [],
+                "generic_internal": [
+                    "gopay_merchants_all_tag",
+                    "gopay_merchants_qris_ul",
+                    "gopay_offline_merchant"
+                ],
+                "generic_external": [],
+                "entity": [
+                    "7f191cac-ecfd-4474-bc6a-ad229c57e3cf"
+                ],
+                "brand": [
+                    "7f191cac-ecfd-4474-bc6a-ad229c57e3cf"
+                ]
+            },
+            "pops": [
+                {
+                    "version": 4,
+                    "updated_at": "2026-02-02T12:34:53.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "e869b9e6-ef4b-41ab-bd4f-078f59e79811",
+                    "name": null,
+                    "merchant_id": "G293156297",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "EDC",
+                        "gopay_receiver_id": "143cce37-b49f-4ec0-88c9-bac71785c824",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"143cce37-b49f-4ec0-88c9-bac71785c824\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": "0703A01",
+                        "aspi_qr_string": "00020101021126610014COM.GO-JEK.WWW01189360091432931562970210G2931562970303UKE51440014ID.CO.QRIS.WWW0215ID10264794761150303UKE5204581253033605802ID5907Frollie6009TANGERANG61051581062070703A016304C252",
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-02T09:20:50.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-02T09:26:39.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "0cc0deeb-ce0c-4927-95f3-cb5e5c7d500a",
+                    "name": null,
+                    "merchant_id": "G293156297",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODDINEIN",
+                        "gopay_receiver_id": "c1918afe-c7dd-4d06-ad66-a7c06ee8f24b",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"c1918afe-c7dd-4d06-ad66-a7c06ee8f24b\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-02T09:20:54.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-02T09:26:39.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "7041c738-d383-452a-aa43-3ef7cb62c71f",
+                    "name": null,
+                    "merchant_id": "G293156297",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODDELIVERY",
+                        "gopay_receiver_id": "5609152b-2662-4c67-815b-7b6acf65463c",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"5609152b-2662-4c67-815b-7b6acf65463c\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-02T09:20:54.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-02T09:26:39.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "8e4f7292-406c-48c0-8ace-33c21b1ab521",
+                    "name": null,
+                    "merchant_id": "G293156297",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODPICKUP",
+                        "gopay_receiver_id": "bae62f66-23c6-4124-9489-92f257114aee",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"bae62f66-23c6-4124-9489-92f257114aee\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-02T09:20:54.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                }
+            ],
+            "phone": "+6285111601535",
+            "payment_settings": {
+                "GOPAY": {
+                    "pops": [
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 50669815,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "143cce37-b49f-4ec0-88c9-bac71785c824",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"143cce37-b49f-4ec0-88c9-bac71785c824\"}}",
+                            "gopay_channel": "offline",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 50669830,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "c1918afe-c7dd-4d06-ad66-a7c06ee8f24b",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"c1918afe-c7dd-4d06-ad66-a7c06ee8f24b\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 50669833,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "5609152b-2662-4c67-815b-7b6acf65463c",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"5609152b-2662-4c67-815b-7b6acf65463c\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 50669836,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "bae62f66-23c6-4124-9489-92f257114aee",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"bae62f66-23c6-4124-9489-92f257114aee\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        }
+                    ],
+                    "gopay_intent": "EWALLET_QR",
+                    "active": true
+                }
+            },
+            "outlet_name": "Frollie Dubai Chewy Cookie, Legato Gelato",
+            "outlet_city": "Tangerang",
+            "outlet_address": "PJGP+F5F, Jl. Springs Boulevard, Cihuni, Kec. Pagedangan, Kabupaten Tangerang, Banten 15332, Indonesia",
+            "metadata": null,
+            "merchant_type": "smb_unmanaged",
+            "merchant_name": "Frollie Dubai Chewy Cookie, Legato Gelato",
+            "id_type": "KTP",
+            "id": "G293156297",
+            "feature_types": [
+                "DISABLE_SMS_NOTIFICATIONS",
+                "ENABLE_PUSH_NOTIFICATIONS",
+                "KRONOS",
+                "NEW_BILLING",
+                "SNAP"
+            ],
+            "email": "malostudio.id@gmail.com",
+            "director_name": null,
+            "business_type": "individual",
+            "bank_account": {
+                "validated": false,
+                "kyc_status": "FRS_APPROVED",
+                "branch_name": null,
+                "bank_name": "PT. BANK CENTRAL ASIA TBK.",
+                "bank_code": "bca",
+                "approved": true,
+                "account_no": "6044830994",
+                "account_name": "MALO GROUP BAHAGIA PT"
+            },
+            "aspi": {
+                "version": "v3.0.2026.02.02",
+                "reject_reason": null,
+                "reject_attempt": null,
+                "postal_code": "610515810",
+                "point_of_initiation": "010211",
+                "payload_format": "000201",
+                "onboarding_status": "registered",
+                "nmid": "ID1026479476115",
+                "mpan": "9360091432931562973",
+                "merchant_name_50": "Frollie",
+                "merchant_name": "5907Frollie",
+                "merchant_criteria": "0303UKE",
+                "merchant_city": "6009TANGERANG",
+                "mcc": "52045812",
+                "deactivation_reason": null,
+                "currency": "5303360",
+                "country_code": "5802ID",
+                "acquirer_informations": [
+                    {
+                        "merchant_pan": "0118936009143293156297",
+                        "merchant_criteria": "0303UKE",
+                        "is_gojek_acquirer": true,
+                        "identifier_bit": "26",
+                        "id": 41252728,
+                        "global_unique_identifier": "0014COM.GO-JEK.WWW",
+                        "aspi_merchant_id": "0210G293156297"
+                    },
+                    {
+                        "merchant_pan": null,
+                        "merchant_criteria": "0303UKE",
+                        "is_gojek_acquirer": false,
+                        "identifier_bit": "51",
+                        "id": 41252731,
+                        "global_unique_identifier": "0014ID.CO.QRIS.WWW",
+                        "aspi_merchant_id": "0215ID1026479476115"
+                    }
+                ]
+            },
+            "applications": {
+                "soundbox": {
+                    "devices": []
+                },
+                "promo": {
+                    "status": "active",
+                    "sanctions": {
+                        "gopay_cashback": "active"
+                    }
+                },
+                "ppob": {
+                    "updated_at": null,
+                    "status": "unregistered",
+                    "activate_at": null
+                },
+                "pos": {
+                    "status": "unregistered",
+                    "spk_url": null,
+                    "device_serial_number": null,
+                    "active": "inactive"
+                },
+                "payout": {
+                    "status": "active"
+                },
+                "mokapos": {
+                    "status": "unregistered",
+                    "moka_outlet_id": null,
+                    "moka_business_id": null
+                },
+                "midtrans": {
+                    "status": "unregistered",
+                    "skip_express_onboarding": false,
+                    "onboard_at": null,
+                    "deactivate_at": null,
+                    "approved": null,
+                    "agreement_no": null,
+                    "agreement_date": null,
+                    "activate_at": null
+                },
+                "lombok": {
+                    "status": "unregistered",
+                    "onboard_at": null,
+                    "agreement_url": null,
+                    "agreement_at": null
+                },
+                "iris": {
+                    "tnc_ver": null,
+                    "status": "inactive",
+                    "agreement_date": null
+                },
+                "gpt": {
+                    "status": "unregistered",
+                    "jago_kyc_status": null,
+                    "deactivate_at": null,
+                    "activate_at": null
+                },
+                "gosave": {
+                    "status": "unregistered",
+                    "open": true,
+                    "onboard_at": null
+                },
+                "goresto": {
+                    "tax_rate": 0.0,
+                    "status": "active",
+                    "service_charge_rate": 0.0,
+                    "receipt_sample_url": null,
+                    "pickup_enabled": false,
+                    "partnership_status": null,
+                    "partnership_start_date": null,
+                    "partnership_end_date": null,
+                    "onboard_at": "2026-02-02T09:21:00.000Z",
+                    "non_partner_rejected_partnership": null,
+                    "non_compliant_partner": null,
+                    "maf_enabled": true,
+                    "maf_auto_accept": false,
+                    "inactive_reason_detail": null,
+                    "inactive_reason": null,
+                    "goresto_id": "fc3e5cb2-d74f-4f3a-8009-ce0f01fd6acc",
+                    "gofood_partner": true,
+                    "gofood_active_status": true,
+                    "exclusive_partner": null,
+                    "deactivate_at": "2076-02-02T09:21:00.000Z",
+                    "billing_group_id": "52942c7c-493a-471e-9f5d-b55c4e4ed763",
+                    "agreement_at": "2026-01-27T05:59:36.000Z",
+                    "activate_at": "2026-02-02T09:21:00.000Z"
+                },
+                "gopay_sof": {
+                    "status": "unregistered",
+                    "deactivate_at": null,
+                    "activate_at": null
+                },
+                "gopay": {
+                    "status": "active",
+                    "onboard_at": "2026-02-02T12:34:53.000Z",
+                    "kyc_approved": "approved",
+                    "follow_up_reason": null,
+                    "default_fee": null,
+                    "deactivate_at": null,
+                    "agreement_version": null,
+                    "agreement_user_id": null,
+                    "agreement_url": "https://portal.gofoodmerchant.co.id/files/terms-and-condition/gopay-v04.2025",
+                    "agreement_photo_url": null,
+                    "agreement_at": "2026-02-02T09:22:49.000Z",
+                    "activate_at": "2026-02-02T12:34:53.000Z"
+                },
+                "gomodal": {
+                    "status": "inactive",
+                    "data_sharing_consent": {
+                        "url": null,
+                        "time": null,
+                        "enabled": false
+                    }
+                },
+                "gomart": {
+                    "status": "unregistered",
+                    "onboard_at": null
+                },
+                "golife": {
+                    "status": "active",
+                    "services": [],
+                    "open": true,
+                    "onboard_at": null
+                },
+                "eim": {
+                    "status": "unregistered",
+                    "partners": [],
+                    "external_outlet_id": null
+                },
+                "cashin_cashout": {
+                    "status": "unregistered",
+                    "deactivate_at": null,
+                    "consent_link": null,
+                    "agent_id": null,
+                    "activate_at": null
+                }
+            }
+        },
+        {
+            "tags": {
+                "pop": [],
+                "outlet_type": [],
+                "outlet": [],
+                "organization": [
+                    "gojek"
+                ],
+                "merchant_id": [
+                    "G347061572"
+                ],
+                "goresto_merchant_type": [],
+                "gopay_merchant_type": [
+                    "smb_unmanaged"
+                ],
+                "generic_internal": [
+                    "gopay_merchants_all_tag",
+                    "gopay_merchants_qris_ul",
+                    "gopay_offline_merchant"
+                ],
+                "generic_external": [],
+                "entity": [
+                    "7f191cac-ecfd-4474-bc6a-ad229c57e3cf"
+                ],
+                "brand": [
+                    "7f191cac-ecfd-4474-bc6a-ad229c57e3cf"
+                ]
+            },
+            "pops": [
+                {
+                    "version": 5,
+                    "updated_at": "2026-02-11T12:53:11.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "85b9f4c8-dc0f-4847-ac59-dcd95d9d6f7b",
+                    "name": null,
+                    "merchant_id": "G347061572",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "EDC",
+                        "gopay_receiver_id": "7e7eb0fd-77cf-490b-b694-8a399aada539",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"7e7eb0fd-77cf-490b-b694-8a399aada539\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": "0703A01",
+                        "aspi_qr_string": "00020101021126610014COM.GO-JEK.WWW01189360091433470615720210G3470615720303UKE51440014ID.CO.QRIS.WWW0215ID10264830964870303UKE5204581253033605802ID5916Frollie, Crystal6009TANGERANG61051581062070703A0163049ACE",
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-11T10:01:50.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-11T10:05:34.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "aa276b92-f162-4489-9248-2fa5112a094f",
+                    "name": null,
+                    "merchant_id": "G347061572",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODDINEIN",
+                        "gopay_receiver_id": "553a0442-c3ba-4101-b8ee-8c30e920b736",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"553a0442-c3ba-4101-b8ee-8c30e920b736\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-11T10:02:01.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-11T10:05:39.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "b0839cec-0a2c-4b68-9b46-ab05a8049c55",
+                    "name": null,
+                    "merchant_id": "G347061572",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODDELIVERY",
+                        "gopay_receiver_id": "37adffc2-49ef-4fe2-b0ba-e5aedf88a3e5",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"37adffc2-49ef-4fe2-b0ba-e5aedf88a3e5\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-11T10:02:06.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                },
+                {
+                    "version": 2,
+                    "updated_at": "2026-02-11T10:05:44.000Z",
+                    "status": "active",
+                    "shopeepay": {
+                        "qris": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        },
+                        "deeplink": {
+                            "terminal_external_id": null,
+                            "store_external_id": null,
+                            "status": "inactive",
+                            "merchant_external_id": null
+                        }
+                    },
+                    "pop_id": "460cfa98-c1a6-4f2a-bf2c-191ec6cfa723",
+                    "name": null,
+                    "merchant_id": "G347061572",
+                    "kredivo": {
+                        "sub_merchant_id": null,
+                        "status": "inactive",
+                        "server_key": null,
+                        "client_key": null
+                    },
+                    "identifier": null,
+                    "gopay": {
+                        "status": "active",
+                        "product_identifier": "GOFOODPICKUP",
+                        "gopay_receiver_id": "5fd82f1f-95f9-4c1f-a66c-f76b9d180403",
+                        "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"5fd82f1f-95f9-4c1f-a66c-f76b9d180403\"}}",
+                        "gopay_provider": null,
+                        "gopay_pop_type": "static",
+                        "aspi_terminal_id": null,
+                        "aspi_qr_string": null,
+                        "acquired_by": "GOPAY"
+                    },
+                    "device_serial_number": null,
+                    "created_at": "2026-02-11T10:02:11.000Z",
+                    "card_payment": {
+                        "debit_card": {
+                            "status": "inactive"
+                        },
+                        "credit_card": {
+                            "status": "inactive"
+                        }
+                    }
+                }
+            ],
+            "phone": "+6285173430863",
+            "payment_settings": {
+                "GOPAY": {
+                    "pops": [
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 51218092,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "7e7eb0fd-77cf-490b-b694-8a399aada539",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"7e7eb0fd-77cf-490b-b694-8a399aada539\"}}",
+                            "gopay_channel": "offline",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 51218161,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "553a0442-c3ba-4101-b8ee-8c30e920b736",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"553a0442-c3ba-4101-b8ee-8c30e920b736\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 51218188,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "37adffc2-49ef-4fe2-b0ba-e5aedf88a3e5",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"37adffc2-49ef-4fe2-b0ba-e5aedf88a3e5\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        },
+                        {
+                            "provider": null,
+                            "pop_type": "static",
+                            "id": 51218209,
+                            "gopay_receiver_name": null,
+                            "gopay_receiver_id": "5fd82f1f-95f9-4c1f-a66c-f76b9d180403",
+                            "gopay_qr_string": "{\"activity\":\"GP:MT\",\"data\":{\"receiverid\":\"5fd82f1f-95f9-4c1f-a66c-f76b9d180403\"}}",
+                            "gopay_channel": "online",
+                            "device_serial_number": null,
+                            "active": true
+                        }
+                    ],
+                    "gopay_intent": "EWALLET_QR",
+                    "active": true
+                }
+            },
+            "outlet_name": "Frollie Dubai Chewy Cookie, Crystal Timur A",
+            "outlet_city": "TANGERANG",
+            "outlet_address": "Cluster Crystal, Jl. Crystal Timur A No. 7, Kelapa Dua, Tangerang",
+            "metadata": null,
+            "merchant_type": "smb_unmanaged",
+            "merchant_name": "Frollie Dubai Chewy Cookie, Crystal",
+            "id_type": "KTP",
+            "id": "G347061572",
+            "feature_types": [
+                "DISABLE_SMS_NOTIFICATIONS",
+                "ENABLE_PUSH_NOTIFICATIONS",
+                "KRONOS",
+                "NEW_BILLING",
+                "SNAP"
+            ],
+            "email": "malostudio.id@gmail.com",
+            "director_name": null,
+            "business_type": "individual",
+            "bank_account": {
+                "validated": false,
+                "kyc_status": null,
+                "branch_name": null,
+                "bank_name": "PT. BANK CENTRAL ASIA TBK.",
+                "bank_code": "bca",
+                "approved": true,
+                "account_no": "6044830994",
+                "account_name": "MALO GROUP BAHAGIA PT"
+            },
+            "aspi": {
+                "version": "v3.0.2026.02.11",
+                "reject_reason": null,
+                "reject_attempt": null,
+                "postal_code": "610515810",
+                "point_of_initiation": "010211",
+                "payload_format": "000201",
+                "onboarding_status": "registered",
+                "nmid": "ID1026483096487",
+                "mpan": "9360091433470615727",
+                "merchant_name_50": "Frollie, Crystal",
+                "merchant_name": "5916Frollie, Crystal",
+                "merchant_criteria": "0303UKE",
+                "merchant_city": "6009TANGERANG",
+                "mcc": "52045812",
+                "deactivation_reason": null,
+                "currency": "5303360",
+                "country_code": "5802ID",
+                "acquirer_informations": [
+                    {
+                        "merchant_pan": "0118936009143347061572",
+                        "merchant_criteria": "0303UKE",
+                        "is_gojek_acquirer": true,
+                        "identifier_bit": "26",
+                        "id": 42093070,
+                        "global_unique_identifier": "0014COM.GO-JEK.WWW",
+                        "aspi_merchant_id": "0210G347061572"
+                    },
+                    {
+                        "merchant_pan": null,
+                        "merchant_criteria": "0303UKE",
+                        "is_gojek_acquirer": false,
+                        "identifier_bit": "51",
+                        "id": 42093073,
+                        "global_unique_identifier": "0014ID.CO.QRIS.WWW",
+                        "aspi_merchant_id": "0215ID1026483096487"
+                    }
+                ]
+            },
+            "applications": {
+                "soundbox": {
+                    "devices": []
+                },
+                "promo": {
+                    "status": "active",
+                    "sanctions": {
+                        "gopay_cashback": "active"
+                    }
+                },
+                "ppob": {
+                    "updated_at": null,
+                    "status": "unregistered",
+                    "activate_at": null
+                },
+                "pos": {
+                    "status": "unregistered",
+                    "spk_url": null,
+                    "device_serial_number": null,
+                    "active": "inactive"
+                },
+                "payout": {
+                    "status": "active"
+                },
+                "mokapos": {
+                    "status": "unregistered",
+                    "moka_outlet_id": null,
+                    "moka_business_id": null
+                },
+                "midtrans": {
+                    "status": "unregistered",
+                    "skip_express_onboarding": false,
+                    "onboard_at": null,
+                    "deactivate_at": null,
+                    "approved": null,
+                    "agreement_no": null,
+                    "agreement_date": null,
+                    "activate_at": null
+                },
+                "lombok": {
+                    "status": "unregistered",
+                    "onboard_at": null,
+                    "agreement_url": null,
+                    "agreement_at": null
+                },
+                "iris": {
+                    "tnc_ver": null,
+                    "status": "inactive",
+                    "agreement_date": null
+                },
+                "gpt": {
+                    "status": "unregistered",
+                    "jago_kyc_status": null,
+                    "deactivate_at": null,
+                    "activate_at": null
+                },
+                "gosave": {
+                    "status": "unregistered",
+                    "open": true,
+                    "onboard_at": null
+                },
+                "goresto": {
+                    "tax_rate": 0.0,
+                    "status": "active",
+                    "service_charge_rate": 0.0,
+                    "receipt_sample_url": null,
+                    "pickup_enabled": false,
+                    "partnership_status": null,
+                    "partnership_start_date": null,
+                    "partnership_end_date": null,
+                    "onboard_at": "2026-02-11T10:02:26.000Z",
+                    "non_partner_rejected_partnership": null,
+                    "non_compliant_partner": null,
+                    "maf_enabled": true,
+                    "maf_auto_accept": false,
+                    "inactive_reason_detail": null,
+                    "inactive_reason": null,
+                    "goresto_id": "fe63db88-a9af-478f-8a61-8f797f733a8b",
+                    "gofood_partner": true,
+                    "gofood_active_status": true,
+                    "exclusive_partner": null,
+                    "deactivate_at": "2076-02-11T10:02:26.000Z",
+                    "billing_group_id": "52942c7c-493a-471e-9f5d-b55c4e4ed763",
+                    "agreement_at": "2026-02-02T09:22:49.000Z",
+                    "activate_at": "2026-02-11T10:02:26.000Z"
+                },
+                "gopay_sof": {
+                    "status": "unregistered",
+                    "deactivate_at": null,
+                    "activate_at": null
+                },
+                "gopay": {
+                    "status": "active",
+                    "onboard_at": "2026-02-11T12:53:11.000Z",
+                    "kyc_approved": "approved",
+                    "follow_up_reason": null,
+                    "default_fee": null,
+                    "deactivate_at": null,
+                    "agreement_version": null,
+                    "agreement_user_id": null,
+                    "agreement_url": "https://portal.gofoodmerchant.co.id/files/terms-and-condition/gopay-v04.2025",
+                    "agreement_photo_url": null,
+                    "agreement_at": "2026-02-02T09:22:49.000Z",
+                    "activate_at": "2026-02-11T12:53:11.000Z"
+                },
+                "gomodal": {
+                    "status": "inactive",
+                    "data_sharing_consent": {
+                        "url": null,
+                        "time": null,
+                        "enabled": false
+                    }
+                },
+                "gomart": {
+                    "status": "unregistered",
+                    "onboard_at": null
+                },
+                "golife": {
+                    "status": "active",
+                    "services": [],
+                    "open": true,
+                    "onboard_at": null
+                },
+                "eim": {
+                    "status": "unregistered",
+                    "partners": [],
+                    "external_outlet_id": null
+                },
+                "cashin_cashout": {
+                    "status": "unregistered",
+                    "deactivate_at": null,
+                    "consent_link": null,
+                    "agent_id": null,
+                    "activate_at": null
+                }
+            }
+        }
+    ]
+}

@@ -3,6 +3,7 @@
  * Uses EntityManager generic component with factory mutation hooks.
  */
 
+import { useState } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Leaf } from 'lucide-react';
 import { EntityManager } from '@/components/shared/EntityManager';
@@ -12,28 +13,18 @@ import {
   useConvexCreateIngredient,
   useConvexUpdateIngredient,
   useConvexDeleteIngredient,
+  useConvexCreateIngredientComponentType,
 } from '@/hooks/convex';
 import { formatCurrency } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import type { Id } from '../../convex/_generated/dataModel';
 
 type Ingredient = NonNullable<ReturnType<typeof useConvexIngredients>>[number];
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
-
-const columns: EntityColumn<Ingredient>[] = [
-  { key: 'name', header: 'Name', sortable: true },
-  { key: 'brand', header: 'Brand', render: (item) => item.brand || '-' },
-  {
-    key: 'volume',
-    header: 'Volume',
-    render: (item) => `${item.volumePurchased} ${item.unitType}`,
-  },
-  {
-    key: 'cost',
-    header: 'Cost/Unit',
-    render: (item) => formatCurrency(item.costPerBaseUnit ?? 0),
-  },
-];
 
 /** Convert empty strings to undefined for optional mutation fields */
 function transformData(data: Record<string, any>) {
@@ -45,6 +36,34 @@ function transformData(data: Record<string, any>) {
   };
 }
 
+function EnableTrackingButton({ ingredient }: { ingredient: Ingredient }) {
+  const { user } = useAuth();
+  const createIngredientComponentType = useConvexCreateIngredientComponentType();
+  const [loading, setLoading] = useState(false);
+
+  const handleEnable = async () => {
+    if (!user?.token) return;
+    setLoading(true);
+    try {
+      await createIngredientComponentType({
+        ingredientId: ingredient._id,
+        token: user.token,
+      });
+      toast.success(`Inventory tracking enabled for ${ingredient.name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to enable tracking');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleEnable} disabled={loading}>
+      {loading ? 'Enabling...' : 'Enable Tracking'}
+    </Button>
+  );
+}
+
 export function IngredientsManager() {
   useDocumentTitle('Ingredients');
 
@@ -52,6 +71,33 @@ export function IngredientsManager() {
   const create = useConvexCreateIngredient();
   const update = useConvexUpdateIngredient();
   const del = useConvexDeleteIngredient();
+
+  const columns: EntityColumn<Ingredient>[] = [
+    { key: 'name', header: 'Name', sortable: true },
+    { key: 'brand', header: 'Brand', render: (item) => item.brand || '-' },
+    {
+      key: 'volume',
+      header: 'Volume',
+      render: (item) => `${item.volumePurchased} ${item.unitType}`,
+    },
+    {
+      key: 'cost',
+      header: 'Cost/Unit',
+      render: (item) => formatCurrency(item.costPerBaseUnit ?? 0),
+    },
+    {
+      key: 'tracking',
+      header: 'Inventory',
+      render: (item) =>
+        item.ingredientComponentTypeId ? (
+          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50">
+            Tracked
+          </Badge>
+        ) : (
+          <EnableTrackingButton ingredient={item} />
+        ),
+    },
+  ];
 
   return (
     <EntityManager<Ingredient>
@@ -78,7 +124,13 @@ export function IngredientsManager() {
               label: 'Unit',
               type: 'select',
               required: true,
-              options: UNITS.map((u) => ({ value: u, label: u })),
+              options: UNITS.map((u) => ({
+                value: u,
+                label: u === 'g' ? 'Grams (g)' :
+                       u === 'kg' ? 'Kilograms (kg)' :
+                       u === 'ml' ? 'Milliliters (ml)' :
+                       u === 'l' ? 'Liters (l)' : u,
+              })),
             },
             { name: 'volumePurchased', label: 'Volume Purchased', type: 'number', required: true },
             { name: 'priceExclShipping', label: 'Price (Excl. Shipping)', type: 'number', required: true, placeholder: 'IDR' },

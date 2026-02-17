@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
-- 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-19 (in progress)
+- 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-20 (in progress)
 
 ## Phases
 
@@ -46,9 +46,10 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 **Milestone Goal:** Unify production planning across all sales channels, add 3rd GoJek outlet, simplify kitchen targets, and enable cross-channel dispatch planning.
 
-**Priority order:** Dispatch planner first (core value), then 3rd outlet + depot management, then kitchen link.
+**Priority order:** Dispatch planner first (core value), then production ingredient tracking & COGS, then depot management, then kitchen link.
 
 - [ ] **Phase 17: Unified Dispatch Planner & 3rd Outlet** - Multi-channel weekly planner with demand waterfall, direct order integration, channel config, and 3rd GoFood outlet (Tamtem). Inventory sufficiency check at end.
+- [x] **Phase 20: Production Ingredient Tracking & COGS** - Extend BOM pattern to production components: ingredient recipes per ball type, FIFO inventory for food ingredients, calculated COGS from ingredient costs, and usage simulation for production planning (completed 2026-02-17)
 - [ ] **Phase 18: GoFood Depot Management** - Per-outlet product mapping, depot stock tracking with alerts, and restock suggestion formula
 - [ ] **Phase 19: Kitchen Target Link** - Default production targets and dispatch-driven kitchen display
 
@@ -75,6 +76,32 @@ Plans:
 - [x] 17-05-PLAN.md -- Routing, page wiring, documentation updates
 - [x] 17-06-PLAN.md -- UAT gap closure: 7 fixes (timezone, editability, commission removal, tab merge, product filter, simulate inventory, tooltip)
 
+### Phase 20: Production Ingredient Tracking & COGS
+**Goal**: Extend the packaging BOM/inventory pattern to production components — each production component (Big Ball, Mid Ball) gets ingredient recipes with quantities, FIFO inventory tracking for food ingredients, auto-calculated COGS from ingredient costs, and usage simulation for production planning
+**Depends on**: Phase 17 (dispatch planner needed for usage simulation); independent of 18/19
+**Requirements**: TBD (new feature — derives from existing BOM architecture)
+**Research**: Research-phase recommended — must audit current componentTypes, inventory, and costCalculator patterns
+**Success Criteria** (what must be TRUE):
+  1. Each production component (BIG_BALL, MID_BALL) can have one or more ingredient links specifying ingredient, unit, and quantity per component (e.g., Mid Ball = Xg marshmallow + Xg pistachio spread + Xg kunafa + Xg cocoa powder)
+  2. Production component ingredients use the same modal flow as packaging components — click a production component, add existing or new ingredients with unit selection and quantity per component
+  3. New ingredients appear in the Inventory page under the existing "Production" tab with the same UI/UX as packaging inventory (stock bars, batch tracking, FIFO)
+  4. Production component COGS is auto-calculated from its ingredient costs (weighted average from FIFO batches) instead of manual number input; cached on the component and lazily updated
+  5. Menu product COGS flows unchanged — links production + packaging components; production component COGS now comes from ingredients instead of manual entry
+  6. Receiving new ingredient stock (batches) works identically to packaging inventory — same receive modal, vendor, cost per unit, FIFO tracking
+  7. Dispatch planner usage simulation includes ingredient consumption alongside packaging consumption — shows projected ingredient depletion and resupply dates
+  8. Historical orders are not impacted — COGS calculations apply forward only, no retroactive recalculation
+**Plans:** 9 plans (6 original + 3 UAT gap closure)
+Plans:
+- [x] 20-01-PLAN.md -- Schema extensions (2 new tables + componentTypes fields) + hierarchy traversal utility
+- [x] 20-02-PLAN.md -- Production recipe CRUD backend + COGS calculation + cost invalidation cascade
+- [x] 20-03-PLAN.md -- Ingredient inventory infrastructure (FIFO tracking + order fulfillment deduction)
+- [x] 20-04-PLAN.md -- Recipe editor modal frontend + ProductionComponentsManager tier sorting
+- [x] 20-05-PLAN.md -- Inventory page ingredient display + COGS tooltip + dispatch planner simulation
+- [x] 20-06-PLAN.md -- Materials Check panel wiring + build verification + documentation
+- [x] 20-07-PLAN.md -- UAT gap closure (backend): hierarchy cost-leaf, production inventory mutation, dispatchPlans outletId union
+- [x] 20-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
+- [x] 20-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
+
 ### Phase 18: GoFood Depot Management
 **Goal**: Manager can track per-outlet depot stock, get restock suggestions, and receive low-stock alerts across all 3 GoFood outlets
 **Depends on**: Phase 17 (3rd outlet must be syncing)
@@ -100,7 +127,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 17 → 18 → 19
+Phases execute in priority order: 17 → 20 → 18 → 19
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -123,6 +150,7 @@ Phases execute in numeric order: 17 → 18 → 19
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
 | ~~16.1. GoBiz OpenAPI~~ | v1.1 | — | Dropped | 2026-02-16 |
 | 17. Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
+| 20. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-17 |
 | 18. GoFood Depot Management | v1.2 | 0/? | Not started | - |
 | 19. Kitchen Target Link | v1.2 | 0/? | Not started | - |
 

@@ -60,13 +60,18 @@ export function ComponentTypeDialog({
       setName("");
       setCategory(defaultCategory);
       setUnitCost("");
-      setUnit("pcs");
+      setUnit(defaultCategory === "production" ? "g" : "pcs");
       setGramsPerUnit("");
       setReorderPoint("");
       setTrackInventory(defaultCategory !== "production");
       setConsumptionStage("boxing");
     }
   }, [open, defaultCategory]);
+
+  // Update unit default when category changes mid-dialog
+  useEffect(() => {
+    setUnit(category === "production" ? "g" : "pcs");
+  }, [category]);
 
   const handleSubmit = async () => {
     if (!code.trim() || !name.trim()) {
@@ -179,12 +184,21 @@ export function ComponentTypeDialog({
 
             <div className="space-y-2">
               <Label htmlFor="unit">Unit *</Label>
-              <Input
-                id="unit"
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                placeholder="pcs"
-              />
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger id="unit">
+                  <SelectValue placeholder="Select unit..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="g">Grams (g)</SelectItem>
+                  <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                  <SelectItem value="ml">Milliliters (ml)</SelectItem>
+                  <SelectItem value="l">Liters (l)</SelectItem>
+                  <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+                  <SelectItem value="box">Box</SelectItem>
+                  <SelectItem value="roll">Roll</SelectItem>
+                  <SelectItem value="sheet">Sheet</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -64,6 +64,8 @@ export const getLowStockAlerts = query({
           alarmType = "percentage";
         }
 
+        const isIngredient = component.category === "production" && component.trackInventory;
+
         alerts.push({
           component,
           location,
@@ -74,6 +76,7 @@ export const getLowStockAlerts = query({
           alarmType,
           percentRemaining,
           alarmPercentage: component.alarmPercentage,
+          isIngredient,
         });
       }
     }
@@ -195,6 +198,7 @@ export const getLocationInventory = query({
         if (!component) return null;
 
         const available = stock.totalStock - stock.totalReserved;
+        const isIngredient = component.category === "production" && component.trackInventory;
 
         return {
           ...stock,
@@ -203,6 +207,7 @@ export const getLocationInventory = query({
           isLowStock: component.reorderPoint
             ? available < component.reorderPoint
             : false,
+          isIngredient,
         };
       })
     );
@@ -293,6 +298,9 @@ export const getInventoryReport = query({
         const totalAvailable =
           totalAcrossLocations - totalReservedAcrossLocations;
 
+        // Check if this component is ingredient-linked (Phase 20)
+        const isIngredient = component.category === "production" && component.trackInventory;
+
         return {
           component,
           stockByLocation,
@@ -302,6 +310,7 @@ export const getInventoryReport = query({
           isLowStock: component.reorderPoint
             ? totalAvailable < component.reorderPoint
             : false,
+          isIngredient,
         };
       })
     );

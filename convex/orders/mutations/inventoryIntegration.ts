@@ -16,6 +16,9 @@ import type { MutationCtx } from "../../_generated/server";
 import { consumeFromFIFO, applyFIFOConsumption } from "../../inventory/fifo";
 import { updateComponentStock } from "../../inventory/helpers";
 
+// Import hierarchy traversal for ingredient deduction (Phase 20)
+import { collectLeafIngredients } from "../../lib/hierarchyTraversal";
+
 // ============================================
 // Helper Types
 // ============================================
@@ -496,6 +499,200 @@ export async function consumeStickerMaterialsInternal(
   args: { orderId: Id<"orders"> }
 ): Promise<{ consumed: number }> {
   return await consumeMaterialsByStageInternal(ctx, args, "labeling");
+}
+
+/**
+ * Internal helper: Consume ingredient materials when order enters BeingPrepared.
+ *
+ * Walks the production hierarchy for each order item's production BOM components,
+ * collects all leaf ingredients, aggregates requirements, and deducts from FIFO
+ * inventory. Insufficient stock warns but does NOT block (allows negative stock).
+ *
+ * Phase 20: Ingredient deduction on order fulfillment.
+ */
+export async function consumeIngredientMaterialsInternal(
+  ctx: MutationCtx,
+  args: { orderId: Id<"orders"> }
+): Promise<{ consumed: number; warnings: string[] }> {
+  const order = await ctx.db.get(args.orderId);
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  const orderItems = await ctx.db
+    .query("orderItems")
+    .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+    .collect();
+
+  // Aggregate ingredient requirements: ingredientId -> { totalQuantity, unit, name }
+  const ingredientNeeds = new Map<
+    string,
+    { ingredientId: Id<"ingredients">; totalQuantity: number; unit: string; name: string }
+  >();
+
+  for (const item of orderItems) {
+    if (!item.menuProductId || item.isCancelled) continue;
+
+    // Get production BOM components (ball types -- not ingredient trackers)
+    const menuProductComponents = await ctx.db
+      .query("menuProductComponents")
+      .withIndex("by_menu_product", (q) => q.eq("menuProductId", item.menuProductId!))
+      .collect();
+
+    for (const comp of menuProductComponents) {
+      if (!comp.componentTypeId) continue;
+
+      const componentType = await ctx.db.get(comp.componentTypeId);
+      if (!componentType) continue;
+
+      // Only traverse production components that DON'T track inventory
+      // (these are ball types like BIG_BALL, MID_BALL -- the hierarchy roots)
+      if (componentType.category !== "production" || componentType.trackInventory) continue;
+
+      // Collect all leaf ingredients through the hierarchy
+      const leafIngredients = await collectLeafIngredients(ctx, comp.componentTypeId);
+
+      for (const leaf of leafIngredients) {
+        // Multiply by BOM quantity and order item quantity
+        const totalQty = leaf.totalQuantity * comp.quantity * item.quantity;
+        const key = leaf.ingredientId as string;
+        const existing = ingredientNeeds.get(key);
+
+        if (existing) {
+          existing.totalQuantity += totalQty;
+        } else {
+          ingredientNeeds.set(key, {
+            ingredientId: leaf.ingredientId,
+            totalQuantity: totalQty,
+            unit: leaf.unit,
+            name: leaf.ingredientName,
+          });
+        }
+      }
+    }
+  }
+
+  if (ingredientNeeds.size === 0) {
+    return { consumed: 0, warnings: [] };
+  }
+
+  // Find the kitchen location for ingredient inventory
+  const kitchenLocation = await ctx.db
+    .query("storageLocations")
+    .withIndex("by_type", (q) => q.eq("locationType", "kitchen"))
+    .first();
+
+  let kitchenLocationId: Id<"storageLocations">;
+
+  if (kitchenLocation) {
+    kitchenLocationId = kitchenLocation._id;
+  } else {
+    // Auto-create kitchen location if none exists
+    kitchenLocationId = await ctx.db.insert("storageLocations", {
+      name: "Kitchen",
+      locationType: "kitchen",
+      isActive: true,
+      isDefault: false,
+      createdBy: "system",
+      createdAt: Date.now(),
+    });
+  }
+
+  let consumedCount = 0;
+  const warnings: string[] = [];
+  const now = Date.now();
+
+  for (const [, need] of ingredientNeeds) {
+    // Find the linked componentType for this ingredient
+    const ingredient = await ctx.db.get(need.ingredientId);
+    if (!ingredient || !ingredient.ingredientComponentTypeId) continue;
+
+    const componentType = await ctx.db.get(ingredient.ingredientComponentTypeId);
+    if (!componentType || !componentType.trackInventory) continue;
+
+    // Try to consume using FIFO
+    try {
+      const fifoResult = await consumeFromFIFO(
+        ctx,
+        ingredient.ingredientComponentTypeId,
+        kitchenLocationId,
+        need.totalQuantity
+      );
+
+      await applyFIFOConsumption(
+        ctx,
+        fifoResult,
+        ingredient.ingredientComponentTypeId,
+        kitchenLocationId,
+        args.orderId,
+        `Ingredient consumption for order ${order.orderNumber}`,
+        "system"
+      );
+
+      await updateComponentStock(ctx, ingredient.ingredientComponentTypeId, kitchenLocationId);
+      consumedCount++;
+    } catch {
+      // Insufficient stock: allow negative stock
+      // Get current available stock
+      const stockRecord = await ctx.db
+        .query("componentStock")
+        .withIndex("by_component_location", (q) =>
+          q.eq("componentTypeId", ingredient.ingredientComponentTypeId!).eq("locationId", kitchenLocationId)
+        )
+        .first();
+
+      const available = stockRecord ? stockRecord.totalStock - stockRecord.totalReserved : 0;
+
+      warnings.push(
+        `Insufficient stock for ${need.name}: needed ${need.totalQuantity.toFixed(2)} ${need.unit}, available ${available.toFixed(2)}`
+      );
+
+      // Consume whatever is available via FIFO, then create a negative adjustment
+      if (available > 0) {
+        try {
+          const partialResult = await consumeFromFIFO(
+            ctx,
+            ingredient.ingredientComponentTypeId,
+            kitchenLocationId,
+            available
+          );
+          await applyFIFOConsumption(
+            ctx,
+            partialResult,
+            ingredient.ingredientComponentTypeId,
+            kitchenLocationId,
+            args.orderId,
+            `Partial ingredient consumption for order ${order.orderNumber}`,
+            "system"
+          );
+        } catch {
+          // Even partial consumption failed, skip
+        }
+      }
+
+      // Create a negative adjustment transaction for the shortfall
+      const shortfall = need.totalQuantity - Math.max(available, 0);
+      if (shortfall > 0) {
+        await ctx.db.insert("componentTransactions", {
+          componentTypeId: ingredient.ingredientComponentTypeId,
+          locationId: kitchenLocationId,
+          transactionType: "adjust",
+          quantity: -shortfall,
+          unitCostAtTime: componentType.unitCostIdr,
+          orderId: args.orderId,
+          referenceNote: `Negative adjustment: insufficient ingredient stock for order ${order.orderNumber}`,
+          createdBy: "system",
+          createdAt: now,
+        });
+      }
+
+      // Update stock aggregates (will reflect negative if applicable)
+      await updateComponentStock(ctx, ingredient.ingredientComponentTypeId, kitchenLocationId);
+      consumedCount++;
+    }
+  }
+
+  return { consumed: consumedCount, warnings };
 }
 
 /**

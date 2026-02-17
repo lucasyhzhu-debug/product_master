@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { ChevronDown, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, AlertTriangle, MapPin, MoreVertical, Archive, RotateCcw, Truck, Plus, Pencil, Trash2, Calculator } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,8 @@ import { ReceiveStockDialog } from "./ReceiveStockDialog";
 import { EditComponentDialog } from "./EditComponentDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useConvexComponentBatches, useConvexUpdateComponentType, useConvexDeleteComponentType } from "@/hooks/convex";
+import { useProductionCogs } from "@/hooks/convex/useProductionRecipes";
+import { COGSBreakdownTooltip } from "@/components/shared/COGSBreakdownTooltip";
 import { toast } from "sonner";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ComponentType } from "@/hooks/convex";
@@ -100,6 +102,19 @@ export function ComponentRow({
     }
   };
 
+  // Determine if this is an ingredient (production + trackInventory)
+  const isIngredient = component.category === "production" && component.trackInventory;
+  const isProductionBall = component.category === "production" && !component.trackInventory;
+  const hasCalculatedCogs = (component as Record<string, unknown>).cogsMode === "calculated";
+
+  // COGS query for calculated mode
+  const cogs = useProductionCogs(
+    component.category === "production" && hasCalculatedCogs ? component._id : undefined
+  );
+
+  // Negative stock detection
+  const isNegativeStock = totalAvailable < 0;
+
   const isCritical =
     isLowStock &&
     component.reorderPoint &&
@@ -163,11 +178,13 @@ export function ComponentRow({
         expanded && "shadow-sm",
         isLegacy
           ? "border-border/50 bg-muted/20"
-          : isCritical
-            ? "border-red-300 bg-red-50/50"
-            : isLowStock
-              ? "border-amber-300 bg-amber-50/30"
-              : "border-border hover:border-border/80 hover:shadow-sm"
+          : isNegativeStock
+            ? "border-red-400 bg-red-50/60"
+            : isCritical
+              ? "border-red-300 bg-red-50/50"
+              : isLowStock
+                ? "border-amber-300 bg-amber-50/30"
+                : "border-border hover:border-border/80 hover:shadow-sm"
       )}
     >
       {/* Collapsed Row */}
@@ -199,6 +216,22 @@ export function ComponentRow({
                 >
                   {CONSUMPTION_STAGE_LABELS[(component as Record<string, unknown>).consumptionStage as string] ?? component.category.replace("_", " ")}
                 </Badge>
+                {isIngredient && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 border-emerald-400 text-emerald-700 bg-emerald-50"
+                  >
+                    Ingredient
+                  </Badge>
+                )}
+                {isProductionBall && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 border-blue-400 text-blue-700 bg-blue-50"
+                  >
+                    Ball
+                  </Badge>
+                )}
                 {isLegacy && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     Legacy
@@ -216,6 +249,20 @@ export function ComponentRow({
               <p className="text-xs text-muted-foreground mt-0.5">
                 {component.unit} &middot; {formatCurrency(component.unitCostIdr)}/unit
                 {component.reorderPoint ? ` \u00B7 Reorder at ${component.reorderPoint}` : ""}
+                {hasCalculatedCogs && cogs && (
+                  <COGSBreakdownTooltip
+                    componentTypeId={component._id}
+                    componentName={component.name}
+                  >
+                    <span className="inline-flex items-center gap-0.5 ml-1 cursor-help text-emerald-600 hover:text-emerald-700">
+                      <Calculator className="h-3 w-3" />
+                      COGS {formatCurrency(cogs.totalCogs)}
+                      {cogs.missingCount > 0 && (
+                        <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                      )}
+                    </span>
+                  </COGSBreakdownTooltip>
+                )}
               </p>
             </div>
 
@@ -225,16 +272,21 @@ export function ComponentRow({
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avail</div>
                 <div
                   className={cn(
-                    "text-lg font-bold leading-none",
+                    "text-lg font-bold leading-none flex items-center justify-end gap-1",
                     isLegacy
                       ? "text-muted-foreground"
-                      : isCritical
+                      : isNegativeStock
                         ? "text-red-600"
-                        : isLowStock
-                          ? "text-amber-600"
-                          : "text-emerald-600"
+                        : isCritical
+                          ? "text-red-600"
+                          : isLowStock
+                            ? "text-amber-600"
+                            : "text-emerald-600"
                   )}
                 >
+                  {isNegativeStock && (
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                  )}
                   {totalAvailable}
                 </div>
               </div>

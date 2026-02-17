@@ -63,7 +63,7 @@ export function ReceiveStockDialog({
 
   // New component fields
   const [newComponentName, setNewComponentName] = useState("");
-  const [newComponentCategory] = useState<"packaging">("packaging"); // Always packaging
+  const [newComponentCategory, setNewComponentCategory] = useState<"packaging" | "production">("packaging");
   const [newComponentUnit, setNewComponentUnit] = useState("");
   const [customUnit, setCustomUnit] = useState(""); // For custom unit input
   const [reorderPointType, setReorderPointType] = useState<"units" | "percentage">("units");
@@ -102,13 +102,18 @@ export function ReceiveStockDialog({
     // Auto-populate supplier info will happen via useEffect when latestBatch updates
   };
 
-  // Set default location
+  // Set default location based on category
   useEffect(() => {
     if (locations.length > 0 && !selectedLocationId) {
-      const defaultLoc = locations.find((l) => l.isDefault) || locations[0];
-      setSelectedLocationId(defaultLoc._id);
+      if (newComponentCategory === "production") {
+        const kitchen = locations.find((l) => l.name.toLowerCase().includes("kitchen"));
+        setSelectedLocationId(kitchen?._id ?? locations[0]._id);
+      } else {
+        const defaultLoc = locations.find((l) => l.isDefault) || locations[0];
+        setSelectedLocationId(defaultLoc._id);
+      }
     }
-  }, [locations, selectedLocationId]);
+  }, [locations, selectedLocationId, newComponentCategory]);
 
   // Auto-populate supplier info and batch details from latest batch
   useEffect(() => {
@@ -137,6 +142,7 @@ export function ReceiveStockDialog({
       setMode(forceCreateMode ? 'create-new' : 'select');
       setSelectedComponentId(preselectedComponentId ?? null);
       setNewComponentName("");
+      setNewComponentCategory("packaging");
       setNewComponentUnit("pcs"); // Default to pieces
       setCustomUnit("");
       setReorderPointType("units");
@@ -234,7 +240,7 @@ export function ReceiveStockDialog({
           category: newComponentCategory,
           unit: finalUnit,
           reorderPoint,
-          consumptionStage: newComponentStage,
+          consumptionStage: newComponentCategory === "production" ? "production" : newComponentStage,
           locationId: selectedLocationId,
           purchaseDate: Date.now(),
           supplierName: supplierName.trim(),
@@ -269,7 +275,9 @@ export function ReceiveStockDialog({
           <DialogDescription>
             {mode === 'select'
               ? 'Add new inventory batch for existing component'
-              : 'Create new packaging component on first receipt'}
+              : newComponentCategory === 'production'
+                ? 'Create new ingredient component on first receipt'
+                : 'Create new packaging component on first receipt'}
           </DialogDescription>
         </DialogHeader>
 
@@ -350,7 +358,7 @@ export function ReceiveStockDialog({
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Create New Packaging Component
+                Create New Component
               </Button>
               )}
             </>
@@ -392,52 +400,124 @@ export function ReceiveStockDialog({
                   </p>
                 </div>
 
-                {/* Unit Selection - Quick Buttons + Custom */}
+                {/* Category Selector */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Category</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={newComponentCategory === "packaging" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setNewComponentCategory("packaging");
+                        setNewComponentUnit("pcs");
+                        setSelectedLocationId(null);
+                      }}
+                      className={cn(
+                        "flex-1",
+                        newComponentCategory === "packaging" &&
+                          "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                      )}
+                    >
+                      Packaging
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={newComponentCategory === "production" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setNewComponentCategory("production");
+                        setNewComponentUnit("g");
+                        setSelectedLocationId(null);
+                      }}
+                      className={cn(
+                        "flex-1",
+                        newComponentCategory === "production" &&
+                          "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                      )}
+                    >
+                      Ingredient
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Unit Selection - conditional based on category */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-foreground">
                     Unit of Measurement *
                   </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {["pcs", "box", "sheet", "roll"].map((unitOption) => (
-                      <Button
-                        key={unitOption}
-                        type="button"
-                        variant={newComponentUnit === unitOption ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => {
-                          setNewComponentUnit(unitOption);
-                          setCustomUnit("");
-                        }}
-                        className={cn(
-                          "px-4",
-                          newComponentUnit === unitOption &&
-                            "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
-                        )}
-                      >
-                        {unitOption}
-                      </Button>
-                    ))}
-                    <Button
-                      type="button"
-                      variant={newComponentUnit === "custom" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setNewComponentUnit("custom")}
-                      className={cn(
-                        "px-4",
-                        newComponentUnit === "custom" &&
-                          "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                  {newComponentCategory === "production" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "g", label: "Grams (g)" },
+                        { value: "kg", label: "Kilograms (kg)" },
+                        { value: "ml", label: "Milliliters (ml)" },
+                        { value: "l", label: "Liters (l)" },
+                      ].map(({ value: unitValue, label }) => (
+                        <Button
+                          key={unitValue}
+                          type="button"
+                          variant={newComponentUnit === unitValue ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setNewComponentUnit(unitValue);
+                            setCustomUnit("");
+                          }}
+                          className={cn(
+                            "px-4",
+                            newComponentUnit === unitValue &&
+                              "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                          )}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {["pcs", "box", "sheet", "roll"].map((unitOption) => (
+                          <Button
+                            key={unitOption}
+                            type="button"
+                            variant={newComponentUnit === unitOption ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setNewComponentUnit(unitOption);
+                              setCustomUnit("");
+                            }}
+                            className={cn(
+                              "px-4",
+                              newComponentUnit === unitOption &&
+                                "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                            )}
+                          >
+                            {unitOption}
+                          </Button>
+                        ))}
+                        <Button
+                          type="button"
+                          variant={newComponentUnit === "custom" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setNewComponentUnit("custom")}
+                          className={cn(
+                            "px-4",
+                            newComponentUnit === "custom" &&
+                              "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                          )}
+                        >
+                          Other...
+                        </Button>
+                      </div>
+                      {newComponentUnit === "custom" && (
+                        <Input
+                          value={customUnit}
+                          onChange={(e) => setCustomUnit(e.target.value)}
+                          placeholder="Enter custom unit (e.g., kg, meter)"
+                          className="mt-2"
+                        />
                       )}
-                    >
-                      Other...
-                    </Button>
-                  </div>
-                  {newComponentUnit === "custom" && (
-                    <Input
-                      value={customUnit}
-                      onChange={(e) => setCustomUnit(e.target.value)}
-                      placeholder="Enter custom unit (e.g., kg, meter)"
-                      className="mt-2"
-                    />
+                    </>
                   )}
                 </div>
 

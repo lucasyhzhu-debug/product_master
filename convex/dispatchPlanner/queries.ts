@@ -15,6 +15,7 @@ import {
   CHANNEL_COLORS,
 } from "./helpers";
 import { getTodayJakarta } from "../k3martCockpit/helpers";
+import { collectLeafIngredients } from "../lib/hierarchyTraversal";
 
 // ============================================
 // Simple config queries
@@ -151,6 +152,8 @@ export const getUnifiedWeeklyPlan = query({
     for (const mp of allMenuProducts) {
       // Skip packaging-only products (e.g., Brochure-How to Eat)
       if (mp.productType === "packaging") continue;
+      // Skip products not assigned to a food POS slot (legacy / inactive in POS)
+      if (!mp.posSlot) continue;
       menuProductMap.set(mp._id, mp);
     }
 
@@ -696,6 +699,7 @@ async function assembleConsignmentChannel(
 /**
  * Simulate inventory sufficiency for the 7-day planning window.
  * Walks BOM for each product in dispatch plans, compares against componentStock.
+ * Also walks production component hierarchy to calculate ingredient requirements.
  */
 export const simulateInventory = query({
   args: { startDate: v.string() },
@@ -749,8 +753,36 @@ export const simulateInventory = query({
       );
     }
 
+    // ---- Ingredient simulation: collect leaf ingredients per production component ----
+    // Cache leaf ingredients per production component to avoid repeated traversals
+    const ingredientCache = new Map<string, Awaited<ReturnType<typeof collectLeafIngredients>>>();
+
+    // Identify production components (balls) -- category=production, trackInventory=false
+    const productionComponentIds = new Set<string>();
+    for (const ct of componentTypes) {
+      if (ct.category === "production" && !ct.trackInventory) {
+        productionComponentIds.add(ct._id as string);
+      }
+    }
+
+    // Build ingredient stock map: ingredient-type componentTypes (category=production, trackInventory=true)
+    const ingredientComponentTypes = componentTypes.filter(
+      (ct) => ct.category === "production" && ct.trackInventory
+    );
+    const ingredientStockMap = new Map<string, number>(); // ingredientComponentTypeId -> available
+    for (const ict of ingredientComponentTypes) {
+      ingredientStockMap.set(
+        ict._id as string,
+        stockByComponent.get(ict._id as string) ?? 0
+      );
+    }
+
     // Walk through days cumulatively
     const cumulativeRequired = new Map<string, number>();
+    const cumulativeIngredientRequired = new Map<string, number>(); // ingredientName -> cumulative qty needed
+    // Track by ingredient name for display, keyed by a composite of ingredientName
+    const ingredientNameMap = new Map<string, { name: string; unit: string }>(); // ingredientId -> info
+
     const result: Array<{
       date: string;
       status: "ok" | "low" | "out";
@@ -760,14 +792,24 @@ export const simulateInventory = query({
         available: number;
         deficit: number;
       }>;
+      ingredientShortages: Array<{
+        ingredientName: string;
+        required: number;
+        available: number;
+        deficit: number;
+        runsOutDate: string | null;
+      }>;
     }> = [];
+
+    // Track when each ingredient first goes negative
+    const ingredientRunsOutDate = new Map<string, string>(); // ingredientId -> date string
 
     for (const date of dates) {
       const dayPlans = allPlans.filter(
         (p: Doc<"dispatchPlans">) => p.date === date
       );
 
-      // Calculate required components for this day
+      // Calculate required components and ingredients for this day
       for (const plan of dayPlans) {
         const bom = bomByProduct.get(plan.menuProductId as string);
         if (!bom) continue;
@@ -777,16 +819,47 @@ export const simulateInventory = query({
           const ct = componentTypeMap.get(ctId);
           if (!ct) continue;
 
-          // Only check components that track inventory or are production type
+          // Track packaging/component requirements
           const unitsNeeded = plan.plannedQty * entry.quantity;
           cumulativeRequired.set(
             ctId,
             (cumulativeRequired.get(ctId) ?? 0) + unitsNeeded
           );
+
+          // For production components (balls), walk hierarchy to get ingredient requirements
+          if (productionComponentIds.has(ctId)) {
+            if (!ingredientCache.has(ctId)) {
+              try {
+                const leaves = await collectLeafIngredients(ctx, ct._id);
+                ingredientCache.set(ctId, leaves);
+              } catch {
+                ingredientCache.set(ctId, []);
+              }
+            }
+
+            const leaves = ingredientCache.get(ctId) ?? [];
+            for (const leaf of leaves) {
+              const ingKey = leaf.ingredientId as string;
+              const ingQtyPerUnit = leaf.totalQuantity; // per 1 unit of this component
+              const totalIngNeeded = ingQtyPerUnit * plan.plannedQty;
+
+              cumulativeIngredientRequired.set(
+                ingKey,
+                (cumulativeIngredientRequired.get(ingKey) ?? 0) + totalIngNeeded
+              );
+
+              if (!ingredientNameMap.has(ingKey)) {
+                ingredientNameMap.set(ingKey, {
+                  name: leaf.ingredientName,
+                  unit: leaf.unit,
+                });
+              }
+            }
+          }
         }
       }
 
-      // Check sufficiency
+      // Check packaging/component sufficiency
       const shortages: Array<{
         componentTypeName: string;
         required: number;
@@ -824,13 +897,103 @@ export const simulateInventory = query({
         }
       }
 
+      // Check ingredient sufficiency
+      // Note: ingredient stock is tracked via componentTypes with trackInventory=true
+      // We need to find the componentType that corresponds to each ingredient
+      // For now, match by name since ingredient-linked componentTypes share names
+      const ingredientShortages: Array<{
+        ingredientName: string;
+        required: number;
+        available: number;
+        deficit: number;
+        runsOutDate: string | null;
+      }> = [];
+
+      for (const [ingId, required] of cumulativeIngredientRequired) {
+        const ingInfo = ingredientNameMap.get(ingId);
+        if (!ingInfo) continue;
+
+        // Find matching ingredient componentType by looking for production + trackInventory
+        // that links to this ingredient (via productionComponentIngredients)
+        // For simplicity, we use the ingredientId to find all componentTypes that might track this ingredient
+        // But the actual stock is on the componentType, so we need the mapping
+        // The ingredient stock is in componentStock for the ingredient-tracker componentType
+        // We check the cumulative ingredient consumption against available ingredient stock
+
+        // For ingredient stock: look for componentTypes where trackInventory=true
+        // and have this ingredient linked. Since we are using raw ingredient quantities from hierarchy,
+        // the stock tracking is per ingredient-tracker componentType, not per raw ingredient.
+        // This is a simplified check -- assume ingredient names map to componentType names
+        const matchingCt = ingredientComponentTypes.find(
+          (ct) => ct.name.toLowerCase() === ingInfo.name.toLowerCase()
+        );
+
+        const available = matchingCt
+          ? (ingredientStockMap.get(matchingCt._id as string) ?? 0)
+          : 0;
+
+        if (available < required) {
+          if (dayStatus !== "out") dayStatus = "out";
+
+          // Track first runs-out date
+          if (!ingredientRunsOutDate.has(ingId)) {
+            ingredientRunsOutDate.set(ingId, date);
+          }
+
+          ingredientShortages.push({
+            ingredientName: ingInfo.name,
+            required,
+            available,
+            deficit: required - available,
+            runsOutDate: ingredientRunsOutDate.get(ingId) ?? date,
+          });
+        } else if (available < required * 1.2) {
+          if (dayStatus !== "out") dayStatus = "low";
+          ingredientShortages.push({
+            ingredientName: ingInfo.name,
+            required,
+            available,
+            deficit: 0,
+            runsOutDate: null,
+          });
+        }
+      }
+
       result.push({
         date,
         status: dayStatus,
         shortages,
+        ingredientShortages,
       });
     }
 
-    return result;
+    // Build top-level ingredientStatus summary
+    const ingredientStatus: Array<{
+      ingredientName: string;
+      currentStock: number;
+      totalRequired7Days: number;
+      runsOutDate: string | null;
+    }> = [];
+
+    for (const [ingId, totalRequired] of cumulativeIngredientRequired) {
+      const ingInfo = ingredientNameMap.get(ingId);
+      if (!ingInfo) continue;
+
+      const matchingCt = ingredientComponentTypes.find(
+        (ct) => ct.name.toLowerCase() === ingInfo.name.toLowerCase()
+      );
+      const currentStock = matchingCt
+        ? (ingredientStockMap.get(matchingCt._id as string) ?? 0)
+        : 0;
+
+      ingredientStatus.push({
+        ingredientName: ingInfo.name,
+        currentStock,
+        totalRequired7Days: totalRequired,
+        runsOutDate: ingredientRunsOutDate.get(ingId) ?? null,
+      });
+    }
+
+    return { days: result, ingredientStatus };
   },
 });

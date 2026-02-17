@@ -38,6 +38,9 @@ export const create = mutation({
       v.literal("none")
     )),
     alarmPercentage: v.optional(v.number()),
+    // Phase 20: Batch size and COGS mode
+    batchSize: v.optional(v.number()),
+    batchSizeUnit: v.optional(v.string()),
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
@@ -67,10 +70,9 @@ export const create = mutation({
       throw new Error("Packaging components must track inventory");
     }
 
-    // Validate: production components should NOT track inventory
-    if (resolvedCategory === "production" && args.trackInventory) {
-      throw new Error("Production components should not track inventory (made to order)");
-    }
+    // Note: Production components CAN track inventory when they represent
+    // ingredient-linked items (Phase 20). The trackInventory flag is explicitly
+    // set at creation time, so no artificial constraint is needed.
 
     // Get max sortOrder if not provided
     let sortOrder = args.sortOrder;
@@ -100,6 +102,11 @@ export const create = mutation({
       color: args.color,
       sortOrder,
       isActive: args.isActive ?? true,
+      // Phase 20: Batch size and COGS mode
+      batchSize: args.batchSize,
+      batchSizeUnit: args.batchSizeUnit,
+      cogsMode: resolvedCategory === "production" ? "manual" : undefined,
+      manualUnitCostIdr: resolvedCategory === "production" ? args.unitCostIdr : undefined,
       createdBy: args.createdBy,
       createdAt: Date.now(),
     });
@@ -131,6 +138,10 @@ export const update = mutation({
       v.literal("none")
     )),
     alarmPercentage: v.optional(v.number()),
+    // Phase 20: Batch size and COGS mode toggle
+    batchSize: v.optional(v.number()),
+    batchSizeUnit: v.optional(v.string()),
+    cogsMode: v.optional(v.union(v.literal("manual"), v.literal("calculated"))),
   },
   handler: async (ctx, args) => {
     const component = await ctx.db.get(args.id);
@@ -138,8 +149,8 @@ export const update = mutation({
       throw new Error("Component not found");
     }
 
-    // Build update object (omit id)
-    const { id, ...updates } = args;
+    // Build update object (omit id and cogsMode -- handled separately)
+    const { id, cogsMode: newCogsMode, ...updates } = args;
 
     // Validate: production components must have gramsPerUnit
     if (
@@ -150,11 +161,29 @@ export const update = mutation({
       throw new Error("Production components must have gramsPerUnit");
     }
 
+    // Phase 20: COGS mode toggle
+    if (newCogsMode !== undefined && newCogsMode !== component.cogsMode) {
+      if (newCogsMode === "calculated") {
+        // Switching to calculated: save current unitCostIdr as manual fallback
+        (updates as Record<string, unknown>).cogsMode = "calculated";
+        (updates as Record<string, unknown>).manualUnitCostIdr =
+          component.unitCostIdr;
+      } else {
+        // Switching to manual: restore from manualUnitCostIdr if available
+        (updates as Record<string, unknown>).cogsMode = "manual";
+        if (component.manualUnitCostIdr !== undefined) {
+          (updates as Record<string, unknown>).unitCostIdr =
+            component.manualUnitCostIdr;
+        }
+        (updates as Record<string, unknown>).cachedCalculatedCogs = undefined;
+      }
+    }
+
     await ctx.db.patch(args.id, updates);
 
     // COGS cascade: when unitCostIdr changes, mark affected menuProducts as stale
     // then schedule recalculation to update their cached unitCost
-    if (args.unitCostIdr !== undefined) {
+    if (args.unitCostIdr !== undefined || (newCogsMode === "manual" && component.manualUnitCostIdr !== undefined)) {
       // Find all menuProductComponents using this componentType
       const usages = await ctx.db
         .query("menuProductComponents")
@@ -171,6 +200,15 @@ export const update = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.lib.costInvalidation.invalidateMenuProductCosts,
+        { componentTypeId: args.id }
+      );
+    }
+
+    // Phase 20: When switching to calculated mode, schedule COGS recalculation
+    if (newCogsMode === "calculated" && newCogsMode !== component.cogsMode) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.productionRecipes.mutations.recalculateComponentCogs,
         { componentTypeId: args.id }
       );
     }
@@ -299,6 +337,92 @@ export const createPackagingQuick = mutation({
       isActive: true,
       createdBy: args.createdBy,
       createdAt: Date.now(),
+    });
+
+    return componentId;
+  },
+});
+
+/**
+ * Create an ingredient-tracking component type.
+ *
+ * Links a food ingredient to the inventory/BOM system by creating a componentType
+ * with category="production" and trackInventory=true. Updates the ingredient's
+ * ingredientComponentTypeId field to complete the bidirectional link.
+ *
+ * Phase 20: Ingredient inventory tracking.
+ */
+export const createIngredientComponentType = mutation({
+  args: {
+    ingredientId: v.id("ingredients"),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate ingredient exists
+    const ingredient = await ctx.db.get(args.ingredientId);
+    if (!ingredient) {
+      throw new Error("Ingredient not found");
+    }
+
+    // Check if ingredient already has a linked componentType
+    if (ingredient.ingredientComponentTypeId) {
+      const existing = await ctx.db.get(ingredient.ingredientComponentTypeId);
+      if (existing) {
+        return existing._id; // Already linked, return existing
+      }
+    }
+
+    // Auto-generate code from ingredient name
+    const baseCode = `ING_${ingredient.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30)}`;
+
+    // Check for duplicate code and append suffix if needed
+    let code = baseCode;
+    let suffix = 0;
+    while (true) {
+      const existingCode = await ctx.db
+        .query("componentTypes")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (!existingCode) break;
+      suffix++;
+      code = `${baseCode}_${suffix}`;
+    }
+
+    // Get max sortOrder
+    const allComponents = await ctx.db.query("componentTypes").collect();
+    const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
+
+    // Resolve createdBy from token
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    const user = session?.userId ? await ctx.db.get(session.userId) : null;
+    const createdBy = user?.name ?? "system";
+
+    // Create the componentType
+    const componentId = await ctx.db.insert("componentTypes", {
+      code,
+      name: ingredient.name,
+      category: "production",
+      trackInventory: true,
+      unitCostIdr: ingredient.costPerBaseUnit,
+      unit: ingredient.baseUnit,
+      gramsPerUnit: undefined,
+      reorderPoint: 0,
+      reorderQuantity: undefined,
+      consumptionStage: "production",
+      alarmPercentage: undefined,
+      color: undefined,
+      sortOrder: maxSort + 1,
+      isActive: true,
+      createdBy,
+      createdAt: Date.now(),
+    });
+
+    // Link ingredient to the new componentType
+    await ctx.db.patch(args.ingredientId, {
+      ingredientComponentTypeId: componentId,
     });
 
     return componentId;

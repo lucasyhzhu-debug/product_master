@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-17)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.2 "Unified Planning & Revenue" -- Phase 17: Unified Dispatch Planner & 3rd Outlet
+**Current focus:** Phase 20: Production Ingredient Tracking & COGS
 
 ## Current Position
 
-Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 06 of 6 (COMPLETE)
-Status: Phase Complete — Verified (6/6 must-haves + 7/7 UAT gaps closed)
-Last activity: 2026-02-17 — Phase 17 verified complete, ready to merge
+Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
+Plan: 09 of 9 (COMPLETE — all gap-closure plans done)
+Status: Phase 20 complete — all 9 plans executed, ready for merge review
+Last activity: 2026-02-17 — Completed 20-09 (dispatch planner posSlot filter + K3Mart cockpit WeeklyPlannerGrid removal)
 
-Progress (v1.2): [███░░░░░░░] 33%
+Progress (v1.2): [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -25,6 +25,10 @@ Progress (v1.2): [███░░░░░░░] 33%
 - Total plans completed: 27
 - Average duration: 7.3 min
 - Total execution time: ~3.3 hours
+
+**Velocity (v1.2 Phase 20):**
+- Plans completed: 9 (01-09)
+- Estimated average: ~8 min
 
 ## Accumulated Context
 
@@ -50,30 +54,64 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-06] commissionRate removed from schema (unused; net/gross tracked from external APIs)
 - [17-06] Direct Sales has "Planned (Manual)" outlet for ad-hoc planning
 - [17-06] Packaging-only products filtered from dispatch planner grid
+- [20-01] Used new Set(visited) per branch in DFS to avoid cross-branch false positives
+- [20-01] batchSize conversion: childUnits = (qty * multiplier) / batchSize when batchSize > 0
+- [20-02] recalculateComponentCogs only writes to componentTypes (forward-only COGS, historical orders keep original costs)
+- [20-02] Cost invalidation walks upward via productionComponentLinks.by_child to cascade stale markers
+- [20-02] cogsMode toggle preserves manualUnitCostIdr as fallback when switching to calculated
+- [20-03] Removed production+trackInventory restriction entirely (simpler than isIngredientTracker flag)
+- [20-03] Negative stock via adjustment transaction on shortfall (never blocks fulfillment)
+- [20-03] Ingredient deduction fires at BeingPrepared matching existing material consumption pattern
+- [20-04] Row click opens recipe modal; separate Edit button opens settings dialog (dual interaction)
+- [20-04] Tier-grouped view with section headers when sorted by tier
+- [20-04] COGS mode toggle only in edit dialog (not create -- defaults to manual)
+- [20-04] __create_new__ sentinel value in Select dropdown for inline creation
+- [20-05] Type badges: Ball (blue) for non-tracking production, Ingredient (green) for trackInventory
+- [20-05] Negative stock: red-50 bg + red text + AlertTriangle, prioritized over low-stock styling
+- [20-05] simulateInventory return shape changed to { days, ingredientStatus } for ingredient simulation
+- [20-05] Ingredient stock matching uses case-insensitive name comparison between ingredients and componentTypes
+- [20-06] MaterialsCheckPanel as standalone card below main grid (not embedded in PlannerGrid)
+- [20-06] Collapsible sections via useState toggle (no accordion dependency)
+- [20-06] Ingredient resupply forecast uses day name (e.g., "Wednesday") for runs-out-by display
+- [20-07] Cost-leaf uses isCostLeaf (no ingredients + no sub-links) OR cogsMode=manual to synthesize entry from stored unit cost
+- [20-07] Category canonicalization in createComponentAndReceiveStock: production passes through, legacy packaging variants map to "packaging"
+- [20-07] dispatchPlans.outletId union type (externalOutlets OR dispatchConsignmentOutlets) replaces single-table ID
+- [20-08] SubComponentSection display formula: (qty/batchSize)*unitCost not qty*unitCost for correct COGS per-batch economics
+- [20-08] EnableTrackingButton as top-level component (not inline render fn) to safely call React hooks
+- [20-08] ReceiveStockDialog category toggle resets selectedLocationId=null so useEffect re-fires with Kitchen/default preference
+- [20-09] posSlot filter in menuProductMap build loop hides legacy unslotted products from Planned Manual
+- [20-09] WeeklyPlannerGrid removed from K3MartCockpit; /dispatch-planner is now sole planning interface
+- [20-09] GoFood gobiz outlets confirmed present in production DB -- no seeding required
 
 ### Roadmap Evolution
 
 - v1.0: Phases 1-11 shipped 2026-02-15
 - v1.1: Phases 12-16 shipped 2026-02-16 (Phase 14.1 inserted, Phase 16.1 dropped)
 - v1.2: Phases 17-19 planned 2026-02-17 (GoFood + Dispatch + Kitchen)
+- Phase 20 added: Production Ingredient Tracking & COGS (extends BOM/inventory pattern to food ingredients)
 
 ### Pending Todos
 
 None yet.
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
+
 ### Blockers/Concerns
 
 - [Pitfall]: Tamtem merchant ID (G958262444) must be verified against GoBiz portal before Phase 17 implementation
 - [Pitfall]: `gofoodDepotStock` table has no `outletId` field -- Phase 17 must extend schema for per-depot tracking
-- [Strategic]: Phase 18 (Dispatch Planning) is the most complex phase -- 6 requirements, demand waterfall, inventory sufficiency
-- [Strategic]: K3Mart cockpit stays as-is; unified planner reads from K3Mart data but does not replace cockpit
+- [Resolved]: K3Mart cockpit duplicate WeeklyPlannerGrid removed in 20-09
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 17 verified complete (6/6 must-haves + 7/7 UAT gaps)
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-VERIFICATION.md
-Resume notes: Phase 17 fully complete and verified. All 6 plans executed. Merge feature branch to main, then start Phase 18.
+Stopped at: Phase 20 gap closure execution + verification complete (9/9 gaps closed, 8/8 must-haves passed)
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-GAP-VERIFICATION.md
+Resume notes: Phase 20 fully verified. Branch feature/production-ingredient-tracking-cogs ready to merge to main. After merge: update CHANGELOG.md, then start Phase 18 (GoFood Depot Management).
 
 ---
-*Last updated: 2026-02-17 (17-06)*
+*Last updated: 2026-02-17 (20-gap-closure-verified)*

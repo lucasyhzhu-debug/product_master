@@ -79,7 +79,7 @@ export const savePlanCell = mutation({
     token: v.string(),
     date: v.string(),
     channel: v.string(),
-    outletId: v.optional(v.id("externalOutlets")),
+    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets"))),
     orderId: v.optional(v.id("orders")),
     menuProductId: v.id("menuProducts"),
     plannedQty: v.number(),
@@ -355,7 +355,7 @@ export const removeConsignmentOutlet = mutation({
       .collect();
 
     const consignmentPlans = allPlans.filter(
-      (p) => p.channel === "consignment" && (p.outletId as unknown as string) === (args.outletId as string)
+      (p) => p.channel === "consignment" && p.outletId === args.outletId
     );
 
     for (const plan of consignmentPlans) {

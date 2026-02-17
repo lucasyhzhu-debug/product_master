@@ -1378,7 +1378,7 @@ dispatchPlanner.simulateInventory({ token, weekStartDate })     // BOM-walk inve
 - `dailyTotals` — Per-date aggregate of all planned quantities across channels
 - `todayStr` — Current date in Jakarta timezone
 
-**`simulateInventory`** — Walks the BOM for each planned product quantity, checks `componentStock` for production and packaging components, returns per-component sufficiency status.
+**`simulateInventory`** — Walks the BOM for each planned product quantity, checks `componentStock` for production and packaging components, returns per-component sufficiency status. Also walks production component hierarchy via `collectLeafIngredients` to calculate ingredient requirements per day, returning `{ days, ingredientStatus }` where `ingredientStatus` shows projected resupply dates.
 
 ```typescript
 // convex/dispatchPlanner/mutations.ts
@@ -1401,6 +1401,37 @@ epochToDateString(epoch)            // Convert epoch ms to YYYY-MM-DD in Jakarta
 orderDueDateToProductionStart(dueDate)  // Subtract 2 days for production window
 CHANNEL_COLORS                      // Default color map for channels
 ```
+
+---
+
+### Production Recipes (Phase 20)
+
+```typescript
+// convex/productionRecipes/queries.ts
+productionRecipes.queries.getRecipeForComponent({ componentTypeId })     // Get sub-components + ingredients for a production component
+productionRecipes.queries.calculateCogs({ componentTypeId })              // Calculate COGS by traversing hierarchy (returns { totalCogs, missingCount, breakdown })
+productionRecipes.queries.getComponentsWithTiers({})                      // List all production components with computed tier depth, sorted tier desc
+
+// convex/productionRecipes/mutations.ts
+productionRecipes.mutations.addSubComponent({ parentId, childId, quantity, unit? })           // Add sub-component link
+productionRecipes.mutations.removeSubComponent({ linkId })                                    // Remove sub-component link
+productionRecipes.mutations.updateSubComponentQuantity({ linkId, quantity, unit? })            // Update quantity on sub-component link
+productionRecipes.mutations.addIngredient({ componentTypeId, ingredientId, quantity, unit? })  // Add direct ingredient
+productionRecipes.mutations.removeIngredient({ linkId })                                      // Remove direct ingredient
+productionRecipes.mutations.updateIngredientQuantity({ linkId, quantity, unit? })              // Update quantity on ingredient link
+```
+
+**Internal functions:**
+```typescript
+// convex/productionRecipes/internal.ts (not exposed as API)
+recalculateComponentCogs(ctx, componentTypeId)      // Recalculate and cache COGS for a component
+invalidateProductionComponentCosts(ctx, componentTypeId)  // Walk upward via productionComponentLinks.by_child to cascade stale markers
+```
+
+**`calculateCogs`** returns:
+- `totalCogs` — Total COGS in IDR per unit (or null if all ingredients missing)
+- `missingCount` — Number of ingredients without cost data
+- `breakdown` — Array of `{ ingredientName, quantity, unit, costPerUnit, lineCost }` for each leaf ingredient
 
 ---
 

@@ -24,6 +24,8 @@ export default defineSchema({
     costPerBaseUnit: v.number(),
     // CACHE: Derived from unitType (kg->g, l->ml). Updated: on ingredient edit.
     baseUnit: v.string(),
+    // Phase 20: Links ingredient to an inventory-tracking componentType (for production ingredient tracking)
+    ingredientComponentTypeId: v.optional(v.id("componentTypes")),
   })
     .index("by_name", ["name"]),
   // QFIX-05: removed by_brand -- zero withIndex references in codebase
@@ -858,6 +860,15 @@ export default defineSchema({
     sortOrder: v.number(),
     isActive: v.boolean(),
 
+    // Phase 20: Batch size and COGS fields for production ingredient tracking
+    batchSize: v.optional(v.number()),            // e.g., 100g for marshmallow, 45g for Mid Ball
+    batchSizeUnit: v.optional(v.string()),        // "g", "ml", "pcs"
+    cogsMode: v.optional(v.union(v.literal("manual"), v.literal("calculated"))),
+    manualUnitCostIdr: v.optional(v.number()),    // Preserved manual cost fallback
+    cachedCalculatedCogs: v.optional(v.number()), // Calculated COGS per unit
+    cogsCacheUpdatedAt: v.optional(v.number()),   // When cache was last updated
+    cogsMissingCount: v.optional(v.number()),     // Count of ingredients missing cost data
+
     // Metadata
     createdBy: v.string(),
     createdAt: v.number(),
@@ -866,6 +877,36 @@ export default defineSchema({
     .index("by_category", ["category"])
     .index("by_active", ["isActive"])
     .index("by_track_inventory", ["trackInventory"]),
+
+  // ============================================
+  // Production Component Recipes (Hierarchical BOM)
+  // Links production components to sub-components and direct ingredients
+  // Supports up to 3 tiers of nesting with circular reference detection
+  // ============================================
+
+  // Links production components to sub-components (hierarchical BOM)
+  productionComponentLinks: defineTable({
+    parentComponentId: v.id("componentTypes"),    // Parent production component
+    childComponentId: v.id("componentTypes"),     // Child sub-component
+    quantityPerUnit: v.number(),                  // Qty of child per 1 unit of parent
+    unit: v.string(),                             // Unit (g, ml, pcs)
+    sortOrder: v.number(),
+  })
+    .index("by_parent", ["parentComponentId"])
+    .index("by_child", ["childComponentId"]),
+
+  // Links production components to direct ingredients
+  productionComponentIngredients: defineTable({
+    componentTypeId: v.id("componentTypes"),      // Parent production component
+    ingredientId: v.id("ingredients"),            // Direct ingredient
+    quantityPerUnit: v.number(),                  // Qty per 1 unit of parent
+    unit: v.string(),                             // Unit (g, ml, pcs)
+    sortOrder: v.number(),
+    ingredientName: v.optional(v.string()),       // SNAPSHOT from ingredients.name
+    cachedLineCost: v.optional(v.number()),        // CACHE: ingredientCost * quantityPerUnit
+  })
+    .index("by_component", ["componentTypeId"])
+    .index("by_ingredient", ["ingredientId"]),
 
   // Storage locations (Kitchen, Office, Legato Goldfinch)
   storageLocations: defineTable({
@@ -1245,7 +1286,7 @@ export default defineSchema({
   dispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD
     channel: v.string(), // "direct" | "gofood" | "k3mart" | "consignment"
-    outletId: v.optional(v.id("externalOutlets")), // For GoFood/K3Mart/Consignment outlets
+    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets"))), // For GoFood/K3Mart/Consignment outlets
     orderId: v.optional(v.id("orders")), // For Direct Sales (links to specific order)
     menuProductId: v.id("menuProducts"),
     plannedQty: v.number(),
@@ -1268,6 +1309,7 @@ export default defineSchema({
     isEnabled: v.boolean(),
     updatedBy: v.string(),
     updatedAt: v.number(),
+    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
@@ -1285,6 +1327,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedBy: v.string(),
     updatedAt: v.number(),
+    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
   })
     .index("by_enabled", ["isEnabled"]),
 

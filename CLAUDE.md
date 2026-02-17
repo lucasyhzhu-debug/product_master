@@ -20,6 +20,12 @@ npm run build                 # tsc + vite build (MUST pass before merge)
 npm run type-check            # TypeScript only (no build)
 npm run lint                  # ESLint
 npm run test                  # Vitest (unit tests)
+npm run test:watch            # Vitest watch mode
+npm run test:coverage         # Vitest with coverage
+
+# Deployment
+npm run deploy:check          # Pre-deploy validation (dry run)
+npm run deploy:safe           # Validated deploy to production
 
 # Convex
 npx convex deploy             # Deploy to production
@@ -114,6 +120,13 @@ git push origin feature/{name}
 | **Component types (BOM)** | `convex/componentTypes/` | `src/pages/ComponentTypesManager.tsx`, `src/hooks/convex/useComponentTypes.ts` |
 | **Inventory** | `convex/inventory/`, `convex/storageLocations/` | `src/pages/InventoryManager.tsx`, `src/pages/LocationsManager.tsx`, `src/hooks/convex/useInventory.ts` |
 | **Vouchers** | `convex/vouchers/` | `src/pages/VouchersManager.tsx`, `src/hooks/convex/useVouchers.ts` |
+| **Customers** | `convex/customers/` | `src/pages/CustomersManager.tsx`, `src/hooks/convex/useCustomers.ts` |
+| **Sales analytics** | `convex/reports/` | `src/pages/SalesAnalytics.tsx`, `src/hooks/convex/useSalesAnalytics.ts` |
+| **K3Mart cockpit** | `convex/k3martCockpit/`, `convex/k3martKitchen/` | `src/pages/K3MartCockpit.tsx`, `src/hooks/convex/useK3MartCockpit.ts` |
+| **External data (GoFood)** | `convex/externalData/`, `convex/gofoodDepot/`, `convex/integrations/` | `src/hooks/convex/useExternalData.ts` |
+| **Production targets** | `convex/productionTargets/`, `convex/productionLog/` | -- |
+| **Restock planning** | `convex/restock/` | `src/pages/RestockPlanner.tsx` |
+| **Tags** | `convex/tags/` | `src/pages/TagsManager.tsx`, `src/hooks/convex/useTags.ts` |
 | **Auth / Users** | `convex/auth/`, `convex/lib/auth.ts` | `src/pages/Login.tsx`, `src/pages/UsersManager.tsx`, `src/contexts/AuthContext.tsx` |
 | **Cost calculation** | `convex/lib/costCalculator.ts` | `src/components/shared/CostTooltip.tsx` |
 | **Add new page** | `convex/schema.ts`, `convex/[entity]/queries.ts`, `mutations.ts` | `src/App.tsx` (route), `src/pages/[Page].tsx`, `src/hooks/convex/use[Entity].ts` |
@@ -123,7 +136,7 @@ git push origin feature/{name}
 
 ## Critical File Paths
 
-**Backend (Convex) -- 37 tables in `convex/schema.ts`:**
+**Backend (Convex) -- 59 tables in `convex/schema.ts`:**
 - `convex/schema.ts` -- Database schema definition
 - `convex/lib/costCalculator.ts` -- Cost calculation logic
 - `convex/lib/auth.ts` -- `requireRole()` authorization helper
@@ -132,7 +145,7 @@ git push origin feature/{name}
 - `convex/orders/helpers/` -- Ctx-dependent helpers (ballDistribution, statusTransitions, usageTracking, productionRecords, voucherHandling, batchFetching, statusFetching)
 - `convex/orders/mutations/` -- Order mutations (split into orderCrud, inventoryIntegration)
 
-**Frontend (19 pages, 21 hooks):**
+**Frontend (26 pages, 24 hooks):**
 - `src/App.tsx` -- Router setup (all routes use ProtectedRoute)
 - `src/main.tsx` -- Entry point with ConvexProvider
 - `src/contexts/AuthContext.tsx` -- Auth state management
@@ -163,7 +176,7 @@ git push origin feature/{name}
 
 ```
 product_master/
-+-- convex/                           # Backend (37 tables)
++-- convex/                           # Backend (59 tables)
 |   +-- _generated/                   # Auto-generated types & API
 |   +-- lib/
 |   |   +-- costCalculator.ts         # Cost calculation logic
@@ -173,9 +186,16 @@ product_master/
 |   +-- componentTypes/               # Unified BOM component types
 |   +-- customers/                    # Customer CRUD
 |   +-- dashboard/                    # Dashboard aggregation queries
+|   +-- externalData/                 # External data sync (GoFood, etc.)
 |   +-- feedback/                     # Visual feedback overlay
+|   +-- gofoodDepot/                  # GoFood depot integration
 |   +-- ingredients/                  # Ingredient CRUD
+|   +-- integrations/                 # Third-party integrations (GoBiz)
+|   +-- integrityChecks/              # Data integrity validation
 |   +-- inventory/                    # Inventory batches, stock, transactions
+|   +-- k3martCockpit/                # K3Mart cockpit dashboard
+|   +-- k3martKitchen/                # K3Mart kitchen operations
+|   +-- kitchenConfig/                # Kitchen configuration settings
 |   +-- materials/                    # Packaging materials CRUD
 |   +-- menuProductComponents/        # Menu product -> component type links
 |   +-- menuProducts/                 # Menu product definitions
@@ -187,15 +207,23 @@ product_master/
 |   |   +-- helpers.ts               # Pure functions (no ctx)
 |   |   +-- helpers/                  # Ctx-dependent helpers
 |   +-- packaging/                    # Packaging recipes
+|   +-- platformCredentials/          # Platform API credentials
+|   +-- productionCounts/             # Production counts (archived, read-only)
+|   +-- productionLog/                # Production log entries (source of truth)
+|   +-- productionTargets/            # Daily production targets
 |   +-- productionUnitTypes/          # Production unit types (Big Ball, Mid Ball)
 |   +-- products/                     # Product management
 |   +-- recipes/                      # Recipe management
+|   +-- reports/                      # Report generation
+|   +-- restock/                      # Restock planning
 |   +-- shipping/                     # Shipping agency tracking
 |   +-- storageLocations/             # Storage location CRUD
 |   +-- tags/                         # Tag management
 |   +-- vouchers/                     # Voucher codes + usage tracking
 |   +-- whatsappTemplates/            # Editable WhatsApp templates
-|   +-- schema.ts                     # Database schema (37 tables)
+|   +-- crons.ts                      # Scheduled jobs
+|   +-- http.ts                       # HTTP endpoints
+|   +-- schema.ts                     # Database schema (59 tables)
 +-- src/                              # Frontend
 |   +-- components/
 |   |   +-- ui/                       # shadcn/ui primitives
@@ -215,7 +243,7 @@ product_master/
 |   |   +-- products/
 |   |   +-- recipes/
 |   |   +-- whatsappTemplates/
-|   +-- pages/                        # 19 page components
+|   +-- pages/                        # 26 page components
 |   |   +-- Dashboard.tsx
 |   |   +-- Login.tsx
 |   |   +-- RecipeEditor.tsx
@@ -225,18 +253,25 @@ product_master/
 |   |   +-- IngredientsManager.tsx
 |   |   +-- MaterialsManager.tsx
 |   |   +-- OrderManager.tsx
+|   |   +-- OrderCreate.tsx
 |   |   +-- OrderDetail.tsx
-|   |   +-- KitchenView.tsx
 |   |   +-- KitchenViewV2.tsx
+|   |   +-- K3MartCockpit.tsx
 |   |   +-- MenuProductsManager.tsx
+|   |   +-- CustomersManager.tsx
 |   |   +-- UsersManager.tsx
 |   |   +-- WhatsAppTemplatesManager.tsx
 |   |   +-- VouchersManager.tsx
 |   |   +-- InventoryManager.tsx
 |   |   +-- LocationsManager.tsx
 |   |   +-- ComponentTypesManager.tsx
+|   |   +-- PackagingComponentsManager.tsx
+|   |   +-- ProductionComponentsManager.tsx
+|   |   +-- RestockPlanner.tsx
+|   |   +-- SalesAnalytics.tsx
+|   |   +-- TagsManager.tsx
 |   +-- hooks/
-|   |   +-- convex/                   # 21 Convex hooks + index.ts
+|   |   +-- convex/                   # 24 Convex hooks + index.ts
 |   +-- contexts/
 |   |   +-- AuthContext.tsx           # Auth state (useAuth)
 |   +-- lib/
@@ -275,6 +310,11 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 | WhatsApp Templates | `canManageWhatsAppTemplates` | Manager, Admin |
 | Vouchers | `canAccessVouchers` | Admin |
 | Inventory / Locations / Components | `canAccessInventory` | Manager, Admin |
+| Customers | `canAccessOrders` | Order Staff, Manager, Admin |
+| Sales Analytics | `canAccessDashboard` | Manager, Admin |
+| K3Mart Cockpit | `canAccessDashboard` | Manager, Admin |
+| Tags | `canAccessIngredients` | Manager, Admin |
+| Restock Planner | `canAccessInventory` | Manager, Admin |
 
 **Backend enforcement:** Use `requireRole(ctx, args.token, ["admin"])` from `convex/lib/auth.ts`. Add `token: v.string()` to protected mutation args.
 

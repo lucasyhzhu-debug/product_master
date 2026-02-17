@@ -40,6 +40,7 @@ import {
   consumeProductionMaterialsInternal,
   consumeBoxingMaterialsInternal,
   consumeStickerMaterialsInternal,
+  consumeIngredientMaterialsInternal,
   releaseReservationInternal,
 } from "./inventoryIntegration";
 
@@ -166,12 +167,17 @@ export const updateStatus = mutation({
       }
     }
 
-    // Consume ALL materials when entering BeingPrepared (production + boxing + sticker)
+    // Consume ALL materials when entering BeingPrepared (production + boxing + sticker + ingredients)
     if (newStatus === "BeingPrepared" && oldStatus !== "BeingPrepared") {
       try {
         await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
         await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
         await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+        // Phase 20: Deduct ingredient inventory through production hierarchy
+        const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
+        if (ingredientResult.warnings.length > 0) {
+          console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+        }
       } catch (error) {
         // Revert status on failure
         await ctx.db.patch(args.orderId, {
@@ -448,6 +454,11 @@ export const moveForward = mutation({
         await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
         await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
         await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+        // Phase 20: Deduct ingredient inventory through production hierarchy
+        const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
+        if (ingredientResult.warnings.length > 0) {
+          console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+        }
       } catch (error) {
         await ctx.db.patch(args.orderId, {
           status: order.status,
@@ -633,6 +644,11 @@ export const expediteOrder = mutation({
       await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
       await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
       await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+      // Phase 20: Deduct ingredient inventory through production hierarchy
+      const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
+      if (ingredientResult.warnings.length > 0) {
+        console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+      }
     } catch (error) {
       // Revert on failure
       await ctx.db.patch(args.orderId, {
