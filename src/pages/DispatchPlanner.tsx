@@ -26,6 +26,7 @@ import {
   ChannelSettingsDialog,
 } from "@/components/dispatchPlanner";
 import type { SaveCellFn } from "@/components/dispatchPlanner";
+import { MaterialsCheckPanel } from "@/components/dispatchPlanner/MaterialsCheckPanel";
 
 // Hooks
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
@@ -240,6 +241,9 @@ export function DispatchPlanner() {
           No data available for this week.
         </div>
       )}
+
+      {/* Materials Check Panel */}
+      <MaterialsCheckPanel startDate={startDate} />
 
       {/* Channel Settings Dialog */}
       <ChannelSettingsDialog

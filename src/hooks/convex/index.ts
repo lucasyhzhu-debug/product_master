@@ -383,6 +383,21 @@ export {
   useConvexOutletSettings,
 } from "./useK3MartCockpit";
 
+// Production Recipes (Production Component Hierarchy & COGS)
+export {
+  // Query hooks
+  useProductionRecipe,
+  useProductionCogs,
+  useProductionComponentsWithTiers,
+  // Mutation hooks
+  useAddSubComponent,
+  useRemoveSubComponent,
+  useUpdateSubComponentQuantity,
+  useAddIngredient,
+  useRemoveIngredient,
+  useUpdateIngredientQuantity,
+} from "./useProductionRecipes";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
