@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: --
-Status: Ready to plan
-Last activity: 2026-02-17 — v1.2 roadmap created and reprioritized (dispatch planner first)
+Plan: 02 of 5
+Status: Executing
+Last activity: 2026-02-17 — Completed 17-01 (schema + Tamtem outlet + seed mutation)
 
-Progress (v1.2): [░░░░░░░░░░] 0%
+Progress (v1.2): [██░░░░░░░░] 7%
 
 ## Performance Metrics
 
@@ -31,6 +31,10 @@ Progress (v1.2): [░░░░░░░░░░] 0%
 ### Decisions
 
 All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
+
+- [17-01] 4 separate dispatch planner tables (plans, channelConfig, consignmentOutlets, plannerSettings)
+- [17-01] Consignment outlets as dedicated table with embedded product mappings array
+- [17-01] Default daily capacity 200 balls in planner settings
 
 ### Roadmap Evolution
 
@@ -52,9 +56,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-CONTEXT.md
-Resume notes: Phase 17 context captured. Rich decisions on planner layout (rolling 7-day grid), demand waterfall (integrated segmented bar), channel config (settings dialog, drag-to-reorder, consignment product mapping), and inventory simulation (manual, advisory, BOM-based). Ready to plan.
+Stopped at: Completed 17-01-PLAN.md
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-01-SUMMARY.md
+Resume notes: Plan 01 complete. Schema tables and Tamtem outlet ready. Next: Plan 02 (dispatch planner queries and UI).
 
 ---
 *Last updated: 2026-02-17*
