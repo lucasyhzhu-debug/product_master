@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
-Plan: 07 of 9 (IN PROGRESS — gap closure)
-Status: Executing gap-closure plans (07-09) from UAT diagnosis
-Last activity: 2026-02-17 - Completed quick task 7: Verify and seed GoBiz external outlets for Dispatch Planner
+Plan: 09 of 9 (COMPLETE — all gap-closure plans done)
+Status: Phase 20 complete — all 9 plans executed, ready for merge review
+Last activity: 2026-02-17 — Completed 20-09 (dispatch planner posSlot filter + K3Mart cockpit WeeklyPlannerGrid removal)
 
-Progress (v1.2): [█████░░░░░] 50%
+Progress (v1.2): [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -25,6 +25,10 @@ Progress (v1.2): [█████░░░░░] 50%
 - Total plans completed: 27
 - Average duration: 7.3 min
 - Total execution time: ~3.3 hours
+
+**Velocity (v1.2 Phase 20):**
+- Plans completed: 9 (01-09)
+- Estimated average: ~8 min
 
 ## Accumulated Context
 
@@ -72,6 +76,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-07] Cost-leaf uses isCostLeaf (no ingredients + no sub-links) OR cogsMode=manual to synthesize entry from stored unit cost
 - [20-07] Category canonicalization in createComponentAndReceiveStock: production passes through, legacy packaging variants map to "packaging"
 - [20-07] dispatchPlans.outletId union type (externalOutlets OR dispatchConsignmentOutlets) replaces single-table ID
+- [20-09] posSlot filter in menuProductMap build loop hides legacy unslotted products from Planned Manual
+- [20-09] WeeklyPlannerGrid removed from K3MartCockpit; /dispatch-planner is now sole planning interface
+- [20-09] GoFood gobiz outlets confirmed present in production DB -- no seeding required
 
 ### Roadmap Evolution
 
@@ -94,15 +101,14 @@ None yet.
 
 - [Pitfall]: Tamtem merchant ID (G958262444) must be verified against GoBiz portal before Phase 17 implementation
 - [Pitfall]: `gofoodDepotStock` table has no `outletId` field -- Phase 17 must extend schema for per-depot tracking
-- [Strategic]: Phase 18 (Dispatch Planning) is the most complex phase -- 6 requirements, demand waterfall, inventory sufficiency
-- [Strategic]: K3Mart cockpit stays as-is; unified planner reads from K3Mart data but does not replace cockpit
+- [Resolved]: K3Mart cockpit duplicate WeeklyPlannerGrid removed in 20-09
 
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-07-PLAN.md (3 backend bug fixes: hierarchy cost-leaf, production inventory, dispatch outletId union)
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-07-SUMMARY.md
-Resume notes: 20-07 complete. Continue with 20-08 and 20-09 gap-closure plans to fully resolve UAT issues.
+Stopped at: Completed 20-09-PLAN.md (posSlot filter in dispatch planner + WeeklyPlannerGrid removal from K3MartCockpit)
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-09-SUMMARY.md
+Resume notes: Phase 20 all 9 plans complete. Branch feature/production-ingredient-tracking-cogs ready for merge review. Update CHANGELOG.md after merge.
 
 ---
-*Last updated: 2026-02-17 (20-07-complete)*
+*Last updated: 2026-02-17 (20-09-complete)*
