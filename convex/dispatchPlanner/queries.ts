@@ -438,7 +438,7 @@ async function assembleGofoodChannel(
       (p: Doc<"dispatchPlans">) => p.outletId === outlet._id
     );
 
-    // Build product rows from existing plans and revenue
+    // Build product rows from existing plans, revenue, and all POS-active products
     const productIds = new Set<string>();
     for (const plan of outletPlans) {
       productIds.add(plan.menuProductId as string);
@@ -447,6 +447,10 @@ async function assembleGofoodChannel(
       if (rev.linkedMenuProductId) {
         productIds.add(rev.linkedMenuProductId as string);
       }
+    }
+    // Always show all active POS products so managers can plan even without prior data
+    for (const mpId of menuProductMap.keys()) {
+      productIds.add(mpId as string);
     }
 
     const products: ProductRow[] = [];
@@ -558,10 +562,14 @@ async function assembleK3martChannel(
       (p: Doc<"k3martDispatchPlans">) => p.outletId === outlet._id
     );
 
-    // Group by menuProductId
+    // Group by menuProductId — always include all POS-active products as baseline
     const productIds = new Set<string>();
     for (const plan of outletPlans) {
       productIds.add(plan.menuProductId as string);
+    }
+    // Always show all active POS products so managers can plan even without prior data
+    for (const mpId of menuProductMap.keys()) {
+      productIds.add(mpId as string);
     }
 
     const products: ProductRow[] = [];
@@ -638,13 +646,17 @@ async function assembleConsignmentChannel(
       (p: Doc<"dispatchPlans">) => (p.outletId as unknown as string) === (outlet._id as string)
     );
 
-    // Get product IDs from outlet's product mappings + existing plans
+    // Get product IDs from outlet's product mappings + existing plans + all POS-active products
     const productIds = new Set<string>();
     for (const mapping of outlet.productMappings) {
       productIds.add(mapping.menuProductId as string);
     }
     for (const plan of outletPlans) {
       productIds.add(plan.menuProductId as string);
+    }
+    // Always show all active POS products as baseline even if no mappings/plans exist
+    for (const mpId of menuProductMap.keys()) {
+      productIds.add(mpId as string);
     }
 
     const products: ProductRow[] = [];
