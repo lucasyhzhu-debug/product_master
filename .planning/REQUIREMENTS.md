@@ -1,0 +1,111 @@
+# Requirements: Frollie Recipe Master v1.2
+
+**Defined:** 2026-02-17
+**Core Value:** Production reliability — single source of truth for recipes, orders, kitchen production, and inventory
+
+## v1.2 Requirements
+
+Requirements for v1.2 "Unified Planning & Revenue". Each maps to roadmap phases.
+
+### GoFood Integration (GF)
+
+- [ ] **GF-01**: 3rd GoJek outlet (Tamtem/Legato G958262444) syncs transactions alongside Goldfinch (G293156297) and Crystal (G347061572)
+- [ ] **GF-02**: Product mapping supports per-outlet configuration — mapping tab has outlet selector; new outlets default to previous depot's mapping (same products). Admin can customize per outlet.
+- [ ] **GF-03**: GoFood depot stock tracking extended to per-outlet inventory — admin sets starting stock for each depot per day, system reduces based on synced sales. Alert when any depot drops below 5 total products remaining.
+- [ ] **GF-04**: GoFood depot restock suggestion algorithm: n+1 where n = average daily sales over last 3 days (rounded up). Friday/Saturday: n+2. Monday: reset to previous Thursday's total.
+
+### Dispatch Planning (DSP)
+
+- [ ] **DSP-01**: Channel configuration with priority levels (Direct > GoFood > K3Mart > Other Consignment) and per-channel commission rates. Shows current planned target for tomorrow and next 7 days at the top.
+- [ ] **DSP-02**: Unified weekly planner as independent page combining all channels (K3Mart dispatch, Legato consignment, GoFood depot restock, Direct orders). K3Mart cockpit stays as-is for K3Mart-specific API workflows; unified planner reads from both.
+- [ ] **DSP-03**: Direct orders auto-populate in planner at due date minus 2 days. Each direct order appears as its own sub-row in the Direct channel, showing which product at which quantity for which day.
+- [ ] **DSP-04**: Demand waterfall visualization showing how daily production capacity (default 200 balls) is allocated across channels by priority order. Over-capacity days highlighted.
+- [ ] **DSP-05**: Inventory sufficiency check during planning — as each day's plan is finalized, verify sufficient boxes, stickers, and packaging materials exist. Assuming no new procurement, flag any date where packaging inventory is insufficient to fulfill the plan.
+- [ ] **DSP-06**: Over/under target warning — alert when daily demand across all channels exceeds production capacity, or when planned target is insufficient for committed orders + confirmed dispatch plans.
+
+### Kitchen (KIT)
+
+- [ ] **KIT-09**: Default daily production target: 200 units = 110 Original singles + 30 Original triples. No Jumbo. Configurable by manager.
+- [ ] **KIT-12**: Link dispatch planning output to kitchen targets — kitchen displays two numbers: (1) total Original singles to produce today, (2) total Original triples to produce today. Driven by dispatch planner output.
+
+## v1.3 Requirements
+
+First priority for next milestone. All details captured here for continuity.
+
+### Sales Analytics (SA)
+
+- [ ] **SA-01**: Template-based sales upload for non-API channels (Shopee, TikTok Shop, Legato walk-in). System defines ideal template with required fields, manager downloads template, fills in data, and uploads. Staging screen shows: (a) new records, (b) likely duplicates of previous uploads, (c) failed records, (d) records needing clarification. Manager confirms before integration.
+- [ ] **SA-02**: Channel ownership enforcement — API-synced outlets (GoFood, K3Mart) blocked from manual upload to prevent duplication
+- [ ] **SA-03**: Cross-channel revenue dashboard combining API-synced and manually-uploaded data with confidence indicators (exact/inferred/manual)
+- [ ] **SA-04**: Product-level breakdown across all channels — total balls sold, by product type, by channel
+- [ ] **SA-05**: Channel profitability comparison — net margin after commissions and COGS per channel, side-by-side
+
+### Consignment Revenue (CON)
+
+- [ ] **CON-01**: Generalize K3Mart cockpit pattern (individual outlet tabs with inventory + daily sales) to all consignment outlets. Each outlet has stock-ins, stock-outs, rotations, inventory view. Non-API outlets managed locally as "synthetic outlets" in own database.
+- [ ] **CON-02**: Sale confirmation layer — K3Mart uses API data (already exists), non-API outlets use daily plan + previous day leftover - sold. Retroactive data entry acceptable (revenue recognized when data uploaded, not at dispatch).
+- [ ] **CON-03**: Cash collection tracking — K3Mart already provides gross/net/commission via API. Legato: same data format (ask them to provide it). Generalize the metrics: gross revenue, net revenue, commission %, amount owed, amount paid.
+- [ ] **CON-04**: Settlement metrics flagging — show commission percentage taken per outlet for eyeball review. No automated reconciliation for now; manual review of flagged metrics.
+- [ ] **CON-05**: Consignment aging report with global configurable threshold for "old" inventory. FIFO assumed for all stock ins/outs. Log of all inventory movements per outlet. Dashboard shows: oldest batch age, total units at outlet, units approaching threshold.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Kitchen integration from dispatch planner (auto-push) | Deferred until dispatch planner is validated. v1.2 outputs targets only; kitchen integration in v1.3. |
+| Audio alerts for kitchen | Deferred to v1.3+ — KIT-11 dropped from v1.2 |
+| Automated settlement reconciliation | CON-04 simplified to metric flagging; auto-reconciliation is v1.3+ |
+| Full double-entry accounting for consignment | Production system, not accounting system. Export summaries to spreadsheets instead. |
+| Automated production scheduling | At ~200 balls/day, kitchen lead decides in 30 seconds. Show demand, don't automate. |
+| Per-unit consignment serialization | Batch tracking sufficient; per-package scanning is overhead for Rp 40-120k product |
+| Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts are v1.3+ |
+| Customer management (CUST-01/02/03) | Deferred |
+| CRM / Sales pipeline (CRM-01/02/03) | Deferred |
+| Notifications bell (NTF-01) | Deferred |
+| Tech debt dedicated phase (TDT-*) | Background work, not dedicated phase |
+| Feedback overlay | Removed from project — element identification too imprecise |
+
+## Clarification Log
+
+Decisions made during requirements review (2026-02-17):
+
+| Topic | Decision | Rationale |
+|-------|----------|-----------|
+| GoFood model | Direct sale with 0 lead time (NOT consignment) | Customer pays GoFood at order time. Depot stocking is inventory management, not consignment. |
+| GoFood restock formula | n+1 avg last 3 days; n+2 Fri/Sat; Monday reset to prev Thursday | Accounts for weekend demand surge and Monday reset |
+| Product mapping | Per-outlet selector, default to previous depot's mapping | All depots sell same products; mapping tab just needs outlet dropdown |
+| Depot stock alert | <5 products remaining triggers alert | Simple threshold; prevents zero-stock situations |
+| Direct orders in planner | Auto-populate at due date minus 2 days | Gives 2 days lead time for production planning |
+| Kitchen push deferred | Don't push to kitchen until planner validated | De-risk: validate planning workflow before integration |
+| KIT-11 audio deferred | Web Audio alerts nice but not urgent | Kitchen simplification is about targets, not notifications |
+| KIT-10 → DSP-06 | Over/under warning is dispatch planning concern | Warning during planning, not in kitchen |
+| Manual sales upload | Template + staging screen, not live entry form | Batch processing is more practical for non-daily data entry |
+| Consignment outlets | Synthetic outlets (local data) for non-API channels | Treat Legato like K3Mart but without API — same cockpit, local data |
+| CON-04 simplified | Metric flagging only, no auto-reconciliation | Eyeball review sufficient at this scale |
+| v1.2 scope | GF + DSP + KIT only | De-risk by validating planning first; SA + CON are v1.3 first priority |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| GF-01 | Phase 17 | Pending |
+| GF-02 | Phase 17 | Pending |
+| GF-03 | Phase 17 | Pending |
+| GF-04 | Phase 17 | Pending |
+| DSP-01 | Phase 18 | Pending |
+| DSP-02 | Phase 18 | Pending |
+| DSP-03 | Phase 18 | Pending |
+| DSP-04 | Phase 18 | Pending |
+| DSP-05 | Phase 18 | Pending |
+| DSP-06 | Phase 18 | Pending |
+| KIT-09 | Phase 19 | Pending |
+| KIT-12 | Phase 19 | Pending |
+
+**Coverage:**
+- v1.2 requirements: 12 total
+- Mapped to phases: 12
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-02-17*
+*Last updated: 2026-02-17 after initial definition*
