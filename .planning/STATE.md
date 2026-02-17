@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 Phase: Not started (defining requirements)
 Plan: --
 Status: Defining requirements
-Last activity: 2026-02-16 -- Milestone v1.2 started
+Last activity: 2026-02-17 - Completed quick task 5: Revenue chart stacked/grouped toggle and clickable legend
 
 Progress (v1.2): [░░░░░░░░░░] 0%
 
@@ -84,6 +84,7 @@ None yet.
 | 2 | Admin force-complete mutation and UI button for stuck orders | 2026-02-16 | 91768e3 | Verified |
 | 3 | Dashboard revenue chart: hourly granularity + smart defaults | 2026-02-16 | eca447b | Verified |
 | 4 | K3Mart cockpit dark mode: replace hardcoded light tokens in 9 components | 2026-02-16 | b10272e | Complete |
+| 5 | Revenue chart: add stacked/grouped toggle and clickable legend to show/hide platforms | 2026-02-17 | 1865def | Complete |
 
 ### Blockers/Concerns
 
