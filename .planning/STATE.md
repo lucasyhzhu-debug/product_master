@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 05 of 5 (COMPLETE)
-Status: Phase Complete — Verified (6/6 must-haves passed)
-Last activity: 2026-02-17 — Phase 17 verified and complete
+Plan: 06 of 6 (COMPLETE)
+Status: Phase Complete — UAT gaps closed (7/7 fixes applied)
+Last activity: 2026-02-17 — Phase 17 UAT fixes complete (Plan 17-06)
 
 Progress (v1.2): [███░░░░░░░] 33%
 
@@ -39,13 +39,17 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-02] Direct order quantities count only at dueDate in dailyTotals (avoid double-counting)
 - [17-02] K3Mart channel always read-only in unified planner
 - [17-03] Up/down arrows for priority reorder (4 items don't need DnD)
-- [17-03] 4-tab settings dialog (priorities, channels, outlets, capacity)
+- [17-03] 3-tab settings dialog (channels, outlets, capacity) -- merged from original 4-tab in 17-06
 - [17-03] Direct useQuery for menu products in settings to avoid type transform
 - [17-04] Route at /dispatch-planner with canAccessDashboard permission (manager + admin)
 - [17-04] HTML flex layout matching K3Mart cockpit (no grid library)
 - [17-04] CHANNEL_COLORS defined inline in CapacityBar (cannot import from convex/ in frontend)
 - [17-05] Nav label shortened to "Dispatch" for space efficiency in header
 - [17-05] CalendarRange icon from lucide-react for Dispatch Planner nav entry
+- [17-06] Intl.DateTimeFormat for timezone-safe day-of-week (replaces Date.getDay())
+- [17-06] commissionRate removed from schema (unused; net/gross tracked from external APIs)
+- [17-06] Direct Sales has "Planned (Manual)" outlet for ad-hoc planning
+- [17-06] Packaging-only products filtered from dispatch planner grid
 
 ### Roadmap Evolution
 
@@ -67,9 +71,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-05-PLAN.md (Phase 17 complete)
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-05-SUMMARY.md
-Resume notes: Phase 17 fully complete. All 5 plans executed. Dispatch Planner accessible at /dispatch-planner. Merge feature branch to main, then start Phase 18.
+Stopped at: Completed 17-06-PLAN.md (Phase 17 UAT fixes complete)
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-06-SUMMARY.md
+Resume notes: Phase 17 fully complete including UAT fixes. All 6 plans executed. Merge feature branch to main, then start Phase 18.
 
 ---
-*Last updated: 2026-02-17 (17-05)*
+*Last updated: 2026-02-17 (17-06)*
