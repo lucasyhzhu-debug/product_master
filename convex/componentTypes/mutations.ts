@@ -67,10 +67,9 @@ export const create = mutation({
       throw new Error("Packaging components must track inventory");
     }
 
-    // Validate: production components should NOT track inventory
-    if (resolvedCategory === "production" && args.trackInventory) {
-      throw new Error("Production components should not track inventory (made to order)");
-    }
+    // Note: Production components CAN track inventory when they represent
+    // ingredient-linked items (Phase 20). The trackInventory flag is explicitly
+    // set at creation time, so no artificial constraint is needed.
 
     // Get max sortOrder if not provided
     let sortOrder = args.sortOrder;
@@ -299,6 +298,92 @@ export const createPackagingQuick = mutation({
       isActive: true,
       createdBy: args.createdBy,
       createdAt: Date.now(),
+    });
+
+    return componentId;
+  },
+});
+
+/**
+ * Create an ingredient-tracking component type.
+ *
+ * Links a food ingredient to the inventory/BOM system by creating a componentType
+ * with category="production" and trackInventory=true. Updates the ingredient's
+ * ingredientComponentTypeId field to complete the bidirectional link.
+ *
+ * Phase 20: Ingredient inventory tracking.
+ */
+export const createIngredientComponentType = mutation({
+  args: {
+    ingredientId: v.id("ingredients"),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate ingredient exists
+    const ingredient = await ctx.db.get(args.ingredientId);
+    if (!ingredient) {
+      throw new Error("Ingredient not found");
+    }
+
+    // Check if ingredient already has a linked componentType
+    if (ingredient.ingredientComponentTypeId) {
+      const existing = await ctx.db.get(ingredient.ingredientComponentTypeId);
+      if (existing) {
+        return existing._id; // Already linked, return existing
+      }
+    }
+
+    // Auto-generate code from ingredient name
+    const baseCode = `ING_${ingredient.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30)}`;
+
+    // Check for duplicate code and append suffix if needed
+    let code = baseCode;
+    let suffix = 0;
+    while (true) {
+      const existingCode = await ctx.db
+        .query("componentTypes")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (!existingCode) break;
+      suffix++;
+      code = `${baseCode}_${suffix}`;
+    }
+
+    // Get max sortOrder
+    const allComponents = await ctx.db.query("componentTypes").collect();
+    const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
+
+    // Resolve createdBy from token
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    const user = session?.userId ? await ctx.db.get(session.userId) : null;
+    const createdBy = user?.name ?? "system";
+
+    // Create the componentType
+    const componentId = await ctx.db.insert("componentTypes", {
+      code,
+      name: ingredient.name,
+      category: "production",
+      trackInventory: true,
+      unitCostIdr: ingredient.costPerBaseUnit,
+      unit: ingredient.baseUnit,
+      gramsPerUnit: undefined,
+      reorderPoint: 0,
+      reorderQuantity: undefined,
+      consumptionStage: "production",
+      alarmPercentage: undefined,
+      color: undefined,
+      sortOrder: maxSort + 1,
+      isActive: true,
+      createdBy,
+      createdAt: Date.now(),
+    });
+
+    // Link ingredient to the new componentType
+    await ctx.db.patch(args.ingredientId, {
+      ingredientComponentTypeId: componentId,
     });
 
     return componentId;
