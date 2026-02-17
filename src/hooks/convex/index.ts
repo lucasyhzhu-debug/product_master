@@ -382,3 +382,21 @@ export {
   useConvexSetProductTarget,
   useConvexOutletSettings,
 } from "./useK3MartCockpit";
+
+// Dispatch Planner (Unified Dispatch Planner)
+export {
+  // Query hooks
+  useDispatchPlannerWeekly,
+  useDispatchChannelConfig,
+  useDispatchPlannerSettings,
+  useDispatchConsignmentOutlets,
+  useDispatchSimulateInventory,
+  // Mutation hooks
+  useDispatchSavePlanCell,
+  useDispatchUpdateChannelConfig,
+  useDispatchReorderPriorities,
+  useDispatchUpdateSettings,
+  useDispatchAddConsignmentOutlet,
+  useDispatchUpdateConsignmentOutlet,
+  useDispatchRemoveConsignmentOutlet,
+} from "./useDispatchPlanner";
