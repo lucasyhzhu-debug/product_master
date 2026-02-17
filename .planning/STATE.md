@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-16)
 Phase: Not started (defining requirements)
 Plan: --
 Status: Defining requirements
-Last activity: 2026-02-17 - Completed quick task 5: Revenue chart stacked/grouped toggle and clickable legend
+Last activity: 2026-02-17 - Completed quick task 6: Show disabled outlets in K3Mart outlet settings
 
 Progress (v1.2): [░░░░░░░░░░] 0%
 
@@ -85,6 +85,7 @@ None yet.
 | 3 | Dashboard revenue chart: hourly granularity + smart defaults | 2026-02-16 | eca447b | Verified |
 | 4 | K3Mart cockpit dark mode: replace hardcoded light tokens in 9 components | 2026-02-16 | b10272e | Complete |
 | 5 | Revenue chart: add stacked/grouped toggle and clickable legend to show/hide platforms | 2026-02-17 | 1865def | Complete |
+| 6 | Show disabled outlets in K3Mart outlet settings dialog | 2026-02-17 | 97785ef | Complete |
 
 ### Blockers/Concerns
 
