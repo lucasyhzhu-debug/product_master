@@ -73,7 +73,7 @@ Plans:
 - [x] 17-03-PLAN.md -- Frontend hooks + Channel Settings Dialog
 - [x] 17-04-PLAN.md -- Main planner grid page with all sub-components
 - [x] 17-05-PLAN.md -- Routing, page wiring, documentation updates
-- [ ] 17-06-PLAN.md -- UAT gap closure: 7 fixes (timezone, editability, commission removal, tab merge, product filter, simulate inventory, tooltip)
+- [x] 17-06-PLAN.md -- UAT gap closure: 7 fixes (timezone, editability, commission removal, tab merge, product filter, simulate inventory, tooltip)
 
 ### Phase 18: GoFood Depot Management
 **Goal**: Manager can track per-outlet depot stock, get restock suggestions, and receive low-stock alerts across all 3 GoFood outlets
@@ -122,7 +122,7 @@ Phases execute in numeric order: 17 → 18 → 19
 | 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
 | ~~16.1. GoBiz OpenAPI~~ | v1.1 | — | Dropped | 2026-02-16 |
-| 17. Dispatch Planner & 3rd Outlet | v1.2 | 5/6 | UAT Fixes | 2026-02-17 |
+| 17. Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
 | 18. GoFood Depot Management | v1.2 | 0/? | Not started | - |
 | 19. Kitchen Target Link | v1.2 | 0/? | Not started | - |
 

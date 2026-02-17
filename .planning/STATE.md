@@ -9,8 +9,8 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
 Plan: 06 of 6 (COMPLETE)
-Status: Phase Complete — UAT gaps closed (7/7 fixes applied)
-Last activity: 2026-02-17 — Phase 17 UAT fixes complete (Plan 17-06)
+Status: Phase Complete — Verified (6/6 must-haves + 7/7 UAT gaps closed)
+Last activity: 2026-02-17 — Phase 17 verified complete, ready to merge
 
 Progress (v1.2): [███░░░░░░░] 33%
 
@@ -71,9 +71,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-06-PLAN.md (Phase 17 UAT fixes complete)
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-06-SUMMARY.md
-Resume notes: Phase 17 fully complete including UAT fixes. All 6 plans executed. Merge feature branch to main, then start Phase 18.
+Stopped at: Phase 17 verified complete (6/6 must-haves + 7/7 UAT gaps)
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-VERIFICATION.md
+Resume notes: Phase 17 fully complete and verified. All 6 plans executed. Merge feature branch to main, then start Phase 18.
 
 ---
 *Last updated: 2026-02-17 (17-06)*
