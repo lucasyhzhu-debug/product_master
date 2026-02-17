@@ -39,6 +39,7 @@ interface SubComponentData {
   childName: string;
   childCode: string;
   childBatchSize?: number;
+  childBatchSizeUnit?: string;
   childUnitCostIdr: number;
 }
 
@@ -251,9 +252,9 @@ export function SubComponentSection({
                     onClick={() => handleStartEdit(sc)}
                   >
                     {sc.quantityPerUnit} {sc.unit} per 1 {parentName}
-                    {sc.childUnitCostIdr > 0 && (
+                    {sc.childBatchSize && sc.childBatchSize > 0 && sc.childUnitCostIdr > 0 && (
                       <span className="ml-2">
-                        ({formatCurrency(sc.childUnitCostIdr * sc.quantityPerUnit)})
+                        ({formatCurrency((sc.quantityPerUnit / sc.childBatchSize) * sc.childUnitCostIdr)} COGS)
                       </span>
                     )}
                   </div>
@@ -336,7 +337,21 @@ export function SubComponentSection({
             <>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <Select value={selectedChildId} onValueChange={setSelectedChildId}>
+                  <Select
+                    value={selectedChildId}
+                    onValueChange={(value) => {
+                      if (value === "__create_new__") {
+                        setSelectedChildId(value);
+                        return;
+                      }
+                      setSelectedChildId(value);
+                      const child = availableComponents.find((c) => c._id === value);
+                      if (child) {
+                        if (child.batchSizeUnit) setAddUnit(child.batchSizeUnit);
+                        if (child.batchSize && child.batchSize > 0) setAddQuantity(child.batchSize.toString());
+                      }
+                    }}
+                  >
                     <SelectTrigger className="h-8 text-sm">
                       <SelectValue placeholder="Select sub-component..." />
                     </SelectTrigger>
@@ -362,15 +377,33 @@ export function SubComponentSection({
                   value={addQuantity}
                   onChange={(e) => setAddQuantity(e.target.value)}
                   className="h-8 w-20 text-sm"
-                  placeholder="Qty"
+                  placeholder={addUnit ? `Qty (${addUnit})` : "Qty"}
                 />
-                <Input
-                  value={addUnit}
-                  onChange={(e) => setAddUnit(e.target.value)}
-                  className="h-8 w-16 text-sm"
-                  placeholder="unit"
-                />
+                {selectedChildId && selectedChildId !== "__create_new__" && addUnit ? (
+                  <div className="h-8 w-16 flex items-center px-2 text-sm border rounded bg-muted text-muted-foreground">
+                    {addUnit}
+                  </div>
+                ) : (
+                  <Input
+                    value={addUnit}
+                    onChange={(e) => setAddUnit(e.target.value)}
+                    className="h-8 w-16 text-sm"
+                    placeholder="unit"
+                  />
+                )}
               </div>
+
+              {selectedChildId && selectedChildId !== "__create_new__" && (() => {
+                const child = availableComponents.find((c) => c._id === selectedChildId);
+                const qty = Number(addQuantity) || 0;
+                if (!child || !child.batchSize || child.batchSize <= 0 || !child.unitCostIdr) return null;
+                const cogsContrib = (qty / child.batchSize) * child.unitCostIdr;
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    COGS contribution: {formatCurrency(cogsContrib)} ({qty} {addUnit} ÷ {child.batchSize} batch × {formatCurrency(child.unitCostIdr)})
+                  </p>
+                );
+              })()}
 
               {selectedChildId === "__create_new__" ? (
                 <Button
