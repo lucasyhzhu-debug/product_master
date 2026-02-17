@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 04 of 5
+Plan: 05 of 5
 Status: Executing
-Last activity: 2026-02-17 — Completed 17-03 (frontend hooks + channel settings dialog)
+Last activity: 2026-02-17 — Completed 17-04 (dispatch planner grid UI)
 
-Progress (v1.2): [███░░░░░░░] 20%
+Progress (v1.2): [████░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -41,6 +41,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-03] Up/down arrows for priority reorder (4 items don't need DnD)
 - [17-03] 4-tab settings dialog (priorities, channels, outlets, capacity)
 - [17-03] Direct useQuery for menu products in settings to avoid type transform
+- [17-04] Route at /dispatch-planner with canAccessDashboard permission (manager + admin)
+- [17-04] HTML flex layout matching K3Mart cockpit (no grid library)
+- [17-04] CHANNEL_COLORS defined inline in CapacityBar (cannot import from convex/ in frontend)
 
 ### Roadmap Evolution
 
@@ -62,9 +65,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-03-PLAN.md
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-03-SUMMARY.md
-Resume notes: Plan 03 complete. 12 hooks and ChannelSettingsDialog ready. Next: Plan 04 (main planner grid page).
+Stopped at: Completed 17-04-PLAN.md
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-04-SUMMARY.md
+Resume notes: Plan 04 complete. Full dispatch planner page with grid, capacity bars, channel groups. Next: Plan 05 (navigation and final polish).
 
 ---
-*Last updated: 2026-02-17 (17-03)*
+*Last updated: 2026-02-17 (17-04)*
