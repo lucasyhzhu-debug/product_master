@@ -152,6 +152,8 @@ export const getUnifiedWeeklyPlan = query({
     for (const mp of allMenuProducts) {
       // Skip packaging-only products (e.g., Brochure-How to Eat)
       if (mp.productType === "packaging") continue;
+      // Skip products not assigned to a food POS slot (legacy / inactive in POS)
+      if (!mp.posSlot) continue;
       menuProductMap.set(mp._id, mp);
     }
 
