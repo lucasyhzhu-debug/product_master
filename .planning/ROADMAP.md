@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
+- 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-19 (in progress)
 
 ## Phases
 
@@ -41,7 +42,58 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 </details>
 
+### 🚧 v1.2 Unified Planning & Revenue (In Progress)
+
+**Milestone Goal:** Unify production planning across all sales channels, add 3rd GoJek outlet, simplify kitchen targets, and enable cross-channel dispatch planning.
+
+**Priority order:** Dispatch planner first (core value), then 3rd outlet + depot management, then kitchen link.
+
+- [ ] **Phase 17: Unified Dispatch Planner & 3rd Outlet** - Multi-channel weekly planner with demand waterfall, direct order integration, channel config, and 3rd GoFood outlet (Tamtem). Inventory sufficiency check at end.
+- [ ] **Phase 18: GoFood Depot Management** - Per-outlet product mapping, depot stock tracking with alerts, and restock suggestion formula
+- [ ] **Phase 19: Kitchen Target Link** - Default production targets and dispatch-driven kitchen display
+
+## Phase Details
+
+### Phase 17: Unified Dispatch Planner & 3rd Outlet
+**Goal**: Manager can plan the entire week's production dispatch across all channels in one page, see demand waterfall, and the 3rd GoFood outlet (Tamtem) syncs transactions
+**Depends on**: Nothing (first v1.2 phase)
+**Requirements**: DSP-01, DSP-02, DSP-03, DSP-04, DSP-06, GF-01, DSP-05 (lower priority)
+**Research**: Skip research-phase — extends proven K3Mart cockpit pattern
+**Success Criteria** (what must be TRUE):
+  1. Manager can configure channels with priority levels (Direct > GoFood > K3Mart > Other Consignment) and per-channel commission rates, and sees planned target for tomorrow and next 7 days at top of page
+  2. A standalone weekly planner page shows all channels side-by-side (K3Mart dispatch, GoFood depot restock, Direct orders, other consignment) without replacing the existing K3Mart cockpit
+  3. Direct orders with due dates automatically appear in the planner at due-date minus 2 days, each as its own sub-row showing product, quantity, and target day
+  4. Demand waterfall visualization shows how the daily production capacity (default 200 balls) is allocated across channels by priority, with over-capacity days highlighted in red
+  5. Tamtem (G958262444) transactions sync automatically alongside Goldfinch and Crystal on the existing cron schedule
+  6. (Lower priority) When finalizing a day's plan, system checks sufficient boxes/stickers/packaging materials and flags insufficient dates
+**Plans**: TBD
+
+### Phase 18: GoFood Depot Management
+**Goal**: Manager can track per-outlet depot stock, get restock suggestions, and receive low-stock alerts across all 3 GoFood outlets
+**Depends on**: Phase 17 (3rd outlet must be syncing)
+**Requirements**: GF-02, GF-03, GF-04
+**Research**: Skip research-phase
+**Success Criteria** (what must be TRUE):
+  1. Manager can select an outlet in the product mapping tab and customize which internal products map to which GoFood menu items per outlet; new outlets default to previous depot's mapping
+  2. Manager can set starting depot stock per outlet per day, and the system reduces it as synced sales arrive, showing current remaining stock per depot
+  3. System alerts when any depot drops below 5 total products remaining
+  4. Restock suggestion shows n+1 (avg last 3 days, rounded up) for normal days, n+2 for Fri/Sat, and resets to previous Thursday's total on Monday
+**Plans**: TBD
+
+### Phase 19: Kitchen Target Link
+**Goal**: Kitchen staff see clear daily production targets driven by dispatch planning output
+**Depends on**: Phase 17 (dispatch planner generates the targets kitchen displays)
+**Requirements**: KIT-09, KIT-12
+**Research**: Skip research-phase
+**Success Criteria** (what must be TRUE):
+  1. Default daily production target is 200 units (110 Original singles + 30 Original triples, no Jumbo), configurable by manager in kitchen settings
+  2. Kitchen dashboard displays two numbers driven by dispatch planner output: total Original singles to produce today and total Original triples to produce today
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 17 → 18 → 19
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -63,8 +115,12 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 | 15. Kitchen Overhaul | v1.1 | 4/4 | Complete | 2026-02-16 |
 | 16. K3Mart Cockpit | v1.1 | 6/6 | Complete | 2026-02-16 |
 | ~~16.1. GoBiz OpenAPI~~ | v1.1 | — | Dropped | 2026-02-16 |
+| 17. Dispatch Planner & 3rd Outlet | v1.2 | 0/? | Not started | - |
+| 18. GoFood Depot Management | v1.2 | 0/? | Not started | - |
+| 19. Kitchen Target Link | v1.2 | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-13*
 *v1.0 shipped: 2026-02-15*
 *v1.1 shipped: 2026-02-16*
+*v1.2 roadmap created: 2026-02-17*

@@ -88,24 +88,24 @@ Decisions made during requirements review (2026-02-17):
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| DSP-01 | Phase 17 | Pending |
+| DSP-02 | Phase 17 | Pending |
+| DSP-03 | Phase 17 | Pending |
+| DSP-04 | Phase 17 | Pending |
+| DSP-06 | Phase 17 | Pending |
 | GF-01 | Phase 17 | Pending |
-| GF-02 | Phase 17 | Pending |
-| GF-03 | Phase 17 | Pending |
-| GF-04 | Phase 17 | Pending |
-| DSP-01 | Phase 18 | Pending |
-| DSP-02 | Phase 18 | Pending |
-| DSP-03 | Phase 18 | Pending |
-| DSP-04 | Phase 18 | Pending |
-| DSP-05 | Phase 18 | Pending |
-| DSP-06 | Phase 18 | Pending |
+| DSP-05 | Phase 17 | Pending |
+| GF-02 | Phase 18 | Pending |
+| GF-03 | Phase 18 | Pending |
+| GF-04 | Phase 18 | Pending |
 | KIT-09 | Phase 19 | Pending |
 | KIT-12 | Phase 19 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 12 total
 - Mapped to phases: 12
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after initial definition*
+*Last updated: 2026-02-17 after roadmap creation*
