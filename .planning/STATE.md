@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 — Production Ingredient Tracking & COGS
-Plan: 04 of 6 (COMPLETE)
+Plan: 05 of 6 (COMPLETE)
 Status: Executing Phase 20
-Last activity: 2026-02-17 — Plan 20-04 complete (recipe editor modal + tier sorting)
+Last activity: 2026-02-17 — Plan 20-05 complete (inventory ingredient display + COGS tooltip + dispatch simulation)
 
-Progress (Phase 20): [██████░░░░] 67%
+Progress (Phase 20): [████████░░] 83%
 
 ## Performance Metrics
 
@@ -62,6 +62,10 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-04] Tier-grouped view with section headers when sorted by tier
 - [20-04] COGS mode toggle only in edit dialog (not create -- defaults to manual)
 - [20-04] __create_new__ sentinel value in Select dropdown for inline creation
+- [20-05] Type badges: Ball (blue) for non-tracking production, Ingredient (green) for trackInventory
+- [20-05] Negative stock: red-50 bg + red text + AlertTriangle, prioritized over low-stock styling
+- [20-05] simulateInventory return shape changed to { days, ingredientStatus } for ingredient simulation
+- [20-05] Ingredient stock matching uses case-insensitive name comparison between ingredients and componentTypes
 
 ### Roadmap Evolution
 
@@ -84,9 +88,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-04-PLAN.md
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-04-SUMMARY.md
-Resume notes: Plan 20-04 complete. Recipe editor modal + tier sorting ready. Continue with 20-05.
+Stopped at: Completed 20-05-PLAN.md
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-05-SUMMARY.md
+Resume notes: Plan 20-05 complete. Inventory ingredient display + COGS tooltip + dispatch simulation. Continue with 20-06.
 
 ---
-*Last updated: 2026-02-17 (20-04)*
+*Last updated: 2026-02-17 (20-05)*
