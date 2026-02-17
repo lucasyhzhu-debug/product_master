@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 02 of 5
+Plan: 03 of 5
 Status: Executing
-Last activity: 2026-02-17 — Completed 17-01 (schema + Tamtem outlet + seed mutation)
+Last activity: 2026-02-17 — Completed 17-02 (dispatch planner backend queries + mutations)
 
-Progress (v1.2): [██░░░░░░░░] 7%
+Progress (v1.2): [██░░░░░░░░] 13%
 
 ## Performance Metrics
 
@@ -35,6 +35,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-01] 4 separate dispatch planner tables (plans, channelConfig, consignmentOutlets, plannerSettings)
 - [17-01] Consignment outlets as dedicated table with embedded product mappings array
 - [17-01] Default daily capacity 200 balls in planner settings
+- [17-02] Reuse getWeekDates from k3martCockpit helpers (no duplication)
+- [17-02] Direct order quantities count only at dueDate in dailyTotals (avoid double-counting)
+- [17-02] K3Mart channel always read-only in unified planner
 
 ### Roadmap Evolution
 
@@ -56,9 +59,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-01-PLAN.md
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-01-SUMMARY.md
-Resume notes: Plan 01 complete. Schema tables and Tamtem outlet ready. Next: Plan 02 (dispatch planner queries and UI).
+Stopped at: Completed 17-02-PLAN.md
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-02-SUMMARY.md
+Resume notes: Plan 02 complete. Backend API ready (5 queries, 8 mutations, pure helpers). Next: Plan 03 (frontend hooks + UI).
 
 ---
 *Last updated: 2026-02-17*
