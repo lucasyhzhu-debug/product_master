@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 20 — Production Ingredient Tracking & COGS
+Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
 Plan: 06 of 6 (COMPLETE)
-Status: Phase 20 Complete
-Last activity: 2026-02-17 — Plan 20-06 complete (Materials Check panel + build verification + documentation)
+Status: Phase Complete — Verified (8/8 must-haves passed)
+Last activity: 2026-02-17 — Phase 20 verified complete, ready to merge
 
-Progress (Phase 20): [██████████] 100%
+Progress (v1.2): [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -91,9 +91,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-06-PLAN.md — Phase 20 fully complete
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-06-SUMMARY.md
-Resume notes: Phase 20 complete (all 6 plans). Materials Check panel + docs + build verified. Ready to merge feature branch to main.
+Stopped at: Phase 20 verified complete
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-VERIFICATION.md
+Resume notes: Phase 20 verified (8/8 must-haves). Feature branch ready to merge to main. Next: Phase 18 (GoFood Depot Management).
 
 ---
-*Last updated: 2026-02-17 (20-06)*
+*Last updated: 2026-02-17 (20-verified)*
