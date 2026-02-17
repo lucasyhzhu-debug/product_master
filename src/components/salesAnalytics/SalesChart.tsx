@@ -23,6 +23,7 @@ import {
 
 type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 type Metric = "gross" | "net" | "volume";
+type ChartMode = "stacked" | "grouped";
 
 const PLATFORM_COLORS = {
   GoFood: "#14b8a6", // teal-500
@@ -62,20 +63,25 @@ function TooltipContent({
   payload,
   label,
   metric,
+  hiddenPlatforms,
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: string;
   metric: Metric;
+  hiddenPlatforms?: Set<string>;
 }) {
   if (!active || !payload) return null;
 
-  const total = payload.reduce((sum, p) => sum + p.value, 0);
+  const visible = hiddenPlatforms
+    ? payload.filter((p) => !hiddenPlatforms.has(p.name))
+    : payload;
+  const total = visible.reduce((sum, p) => sum + p.value, 0);
 
   return (
     <div className="rounded-lg border bg-background p-3 shadow-md">
       <p className="text-sm font-medium mb-2">{label}</p>
-      {payload.map((entry) => (
+      {visible.map((entry) => (
         <div key={entry.name} className="flex items-center justify-between gap-4 text-sm">
           <div className="flex items-center gap-1.5">
             <span
@@ -108,6 +114,8 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [metric, setMetric] = useState<Metric>("gross");
   const [granularity, setGranularity] = useState<Granularity>(defaultGranularity(preset));
+  const [chartMode, setChartMode] = useState<ChartMode>("stacked");
+  const [hiddenPlatforms, setHiddenPlatforms] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useConvexRevenueTimeSeries(
     preset,
@@ -133,6 +141,24 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
   }, [data]);
 
   const useAreaChart = granularity === "monthly";
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleLegendClick = (entry: any) => {
+    const platform = String(entry.dataKey || entry.value || "");
+    if (!platform) return;
+    setHiddenPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(platform)) next.delete(platform);
+      else next.add(platform);
+      return next;
+    });
+  };
+
+  const legendFormatter = (value: string) => (
+    <span style={{ opacity: hiddenPlatforms.has(value) ? 0.3 : 1, cursor: "pointer" }}>
+      {value}
+    </span>
+  );
 
   const metricOptions: { value: Metric; label: string }[] = [
     { value: "gross", label: "Gross" },
@@ -178,6 +204,21 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                   </Badge>
                 ))}
               </div>
+              {/* Chart mode toggle (only for bar charts) */}
+              {!useAreaChart && (
+                <div className="flex items-center gap-1">
+                  {(["stacked", "grouped"] as const).map((mode) => (
+                    <Badge
+                      key={mode}
+                      variant={chartMode === mode ? "secondary" : "outline"}
+                      className="cursor-pointer text-xs capitalize"
+                      onClick={() => setChartMode(mode)}
+                    >
+                      {mode}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               {/* Granularity toggle */}
               <div className="flex items-center gap-1">
                 {granularityOptions.map((g) => (
@@ -215,16 +256,17 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                 />
                 <Tooltip
                   content={(props: any) => (
-                    <TooltipContent {...props} metric={metric} />
+                    <TooltipContent {...props} metric={metric} hiddenPlatforms={hiddenPlatforms} />
                   )}
                 />
-                <Legend />
+                <Legend onClick={handleLegendClick} formatter={legendFormatter} />
                 {platforms.map((platform) => (
                   <Area
                     key={platform}
                     type="monotone"
                     dataKey={platform}
                     stackId="1"
+                    hide={hiddenPlatforms.has(platform)}
                     fill={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
                     stroke={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
                     fillOpacity={0.6}
@@ -244,17 +286,18 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                 />
                 <Tooltip
                   content={(props: any) => (
-                    <TooltipContent {...props} metric={metric} />
+                    <TooltipContent {...props} metric={metric} hiddenPlatforms={hiddenPlatforms} />
                   )}
                 />
-                <Legend />
+                <Legend onClick={handleLegendClick} formatter={legendFormatter} />
                 {platforms.map((platform) => (
                   <Bar
                     key={platform}
                     dataKey={platform}
-                    stackId="stack"
+                    hide={hiddenPlatforms.has(platform)}
+                    {...(chartMode === "stacked" ? { stackId: "stack" } : {})}
                     fill={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
-                    radius={[0, 0, 0, 0]}
+                    radius={chartMode === "grouped" ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                   />
                 ))}
               </BarChart>
