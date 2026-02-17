@@ -24,9 +24,11 @@ export const createComponentAndReceiveStock = mutation({
     category: v.union(
       v.literal("packaging"),
       v.literal("direct_packaging"),   // Legacy compat
-      v.literal("indirect_packaging")  // Legacy compat
+      v.literal("indirect_packaging"), // Legacy compat
+      v.literal("production")          // Ingredient/production component
     ),
     unit: v.string(),
+    gramsPerUnit: v.optional(v.number()),
     reorderPoint: v.optional(v.number()),
     consumptionStage: v.optional(v.union(
       v.literal("production"),
@@ -69,8 +71,8 @@ export const createComponentAndReceiveStock = mutation({
     const allComponents = await ctx.db.query("componentTypes").collect();
     const maxSort = Math.max(...allComponents.map((c) => c.sortOrder), 0);
 
-    // Map legacy category values to canonical value
-    const category: "packaging" = "packaging";
+    // Canonicalize legacy packaging variants; pass production through
+    const category = args.category === "production" ? "production" : "packaging";
 
     // Create component type (NO unitCostIdr - comes from batches!)
     const componentId = await ctx.db.insert("componentTypes", {
@@ -79,11 +81,11 @@ export const createComponentAndReceiveStock = mutation({
       category,
       unitCostIdr: 0, // Placeholder - will be calculated from batches
       unit: args.unit,
-      gramsPerUnit: undefined, // Packaging doesn't need grams
-      trackInventory: true, // Always true for packaging
+      gramsPerUnit: args.gramsPerUnit, // Passed through for production ingredients
+      trackInventory: true, // Always true
       reorderPoint: args.reorderPoint,
       reorderQuantity: undefined,
-      consumptionStage: args.consumptionStage ?? "boxing",
+      consumptionStage: category === "production" ? (args.consumptionStage ?? undefined) : (args.consumptionStage ?? "boxing"),
       color: args.color,
       sortOrder: maxSort + 1,
       isActive: true,
