@@ -54,7 +54,8 @@ import {
   useDispatchUpdateConsignmentOutlet,
   useDispatchRemoveConsignmentOutlet,
 } from "@/hooks/convex/useDispatchPlanner";
-import { useConvexMenuProducts } from "@/hooks/convex/useMenuProducts";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 // ========================
@@ -62,7 +63,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 // ========================
 
 interface ProductMapping {
-  menuProductId: string;
+  menuProductId: Id<"menuProducts">;
   externalName: string;
   externalPrice: number;
 }
@@ -96,7 +97,12 @@ export function ChannelSettingsDialog({
   const { data: channels, isLoading: channelsLoading } = useDispatchChannelConfig();
   const { data: settings, isLoading: settingsLoading } = useDispatchPlannerSettings();
   const { data: outlets, isLoading: outletsLoading } = useDispatchConsignmentOutlets();
-  const { data: menuProducts } = useConvexMenuProducts(true);
+  const rawMenuProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
+  const menuProducts = rawMenuProducts?.map((mp) => ({
+    _id: mp._id as unknown as string,
+    name: mp.name,
+    defaultPrice: mp.defaultPrice,
+  }));
 
   // Mutation hooks
   const reorderPriorities = useDispatchReorderPriorities();
@@ -498,11 +504,7 @@ function ConsignmentOutletManager({
     name: string;
     isEnabled: boolean;
     commissionRate?: number;
-    productMappings: Array<{
-      menuProductId: string;
-      externalName: string;
-      externalPrice: number;
-    }>;
+    productMappings: ProductMapping[];
   }>;
   menuProducts: Array<{ _id: string; name: string; defaultPrice: number }>;
   onAdd: (args: {
@@ -711,7 +713,7 @@ function OutletEditForm({
   const handleAddMapping = useCallback(() => {
     setMappings((prev) => [
       ...prev,
-      { menuProductId: "", externalName: "", externalPrice: 0 },
+      { menuProductId: "" as Id<"menuProducts">, externalName: "", externalPrice: 0 },
     ]);
   }, []);
 
@@ -720,7 +722,7 @@ function OutletEditForm({
   }, []);
 
   const handleMappingChange = useCallback(
-    (index: number, field: keyof ProductMapping, value: string | number) => {
+    (index: number, field: keyof ProductMapping, value: string | number | Id<"menuProducts">) => {
       setMappings((prev) =>
         prev.map((m, i) => (i === index ? { ...m, [field]: value } : m))
       );
@@ -788,9 +790,9 @@ function OutletEditForm({
           <div key={index} className="flex items-center gap-2">
             {/* Menu product selector */}
             <Select
-              value={mapping.menuProductId}
+              value={mapping.menuProductId as string}
               onValueChange={(val) =>
-                handleMappingChange(index, "menuProductId", val)
+                handleMappingChange(index, "menuProductId", val as Id<"menuProducts">)
               }
             >
               <SelectTrigger className="h-8 text-xs flex-1">
