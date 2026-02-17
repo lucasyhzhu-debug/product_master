@@ -56,6 +56,7 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - v1.0: Phases 1-11 shipped 2026-02-15
 - v1.1: Phases 12-16 shipped 2026-02-16 (Phase 14.1 inserted, Phase 16.1 dropped)
 - v1.2: Phases 17-19 planned 2026-02-17 (GoFood + Dispatch + Kitchen)
+- Phase 20 added: Production Ingredient Tracking & COGS (extends BOM/inventory pattern to food ingredients)
 
 ### Pending Todos
 
@@ -71,9 +72,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 17 verified complete (6/6 must-haves + 7/7 UAT gaps)
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-VERIFICATION.md
-Resume notes: Phase 17 fully complete and verified. All 6 plans executed. Merge feature branch to main, then start Phase 18.
+Stopped at: Phase 20 context gathered
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-CONTEXT.md
+Resume notes: Phase 20 context captured. Ready for /gsd:plan-phase 20. Phase 17 complete and merged.
 
 ---
-*Last updated: 2026-02-17 (17-06)*
+*Last updated: 2026-02-17 (20-context)*
