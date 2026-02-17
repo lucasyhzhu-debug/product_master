@@ -125,6 +125,8 @@
       "Bash(scoop *)",
       "Bash(powershell *)",
       "Bash(CONVEX_DEPLOYMENT=*)",
+      "Bash(firecrawl *)",
+      "Bash(FIRECRAWL_API_KEY=*)",
 
       "Bash(cd * && ls *)",
       "Bash(cd * && cat *)",
