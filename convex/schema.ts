@@ -1238,6 +1238,65 @@ export default defineSchema({
   // ============================================
 
   // ============================================
+  // DISPATCH PLANNER
+  // Multi-channel production dispatch planning
+  // ============================================
+
+  dispatchPlans: defineTable({
+    date: v.string(), // YYYY-MM-DD
+    channel: v.string(), // "direct" | "gofood" | "k3mart" | "consignment"
+    outletId: v.optional(v.id("externalOutlets")), // For GoFood/K3Mart/Consignment outlets
+    orderId: v.optional(v.id("orders")), // For Direct Sales (links to specific order)
+    menuProductId: v.id("menuProducts"),
+    plannedQty: v.number(),
+    actualQty: v.optional(v.number()), // Filled from actual sales data (past days)
+    source: v.string(), // "manual" | "auto_suggest" | "redistributed"
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_date_channel", ["date", "channel"])
+    .index("by_date", ["date"])
+    .index("by_order", ["orderId"])
+    .index("by_outlet_date", ["outletId", "date"]),
+
+  dispatchChannelConfig: defineTable({
+    channelKey: v.string(), // "direct" | "gofood" | "k3mart" | "consignment"
+    displayName: v.string(), // "Direct Sales", "GoFood", etc.
+    color: v.string(), // Hex color for capacity bar segment
+    priority: v.number(), // Lower = higher priority (1 = highest)
+    commissionRate: v.number(), // Percentage (e.g., 19 for 19%)
+    isBuiltIn: v.boolean(), // true for Direct/GoFood/K3Mart, false for custom
+    isEnabled: v.boolean(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_channel", ["channelKey"])
+    .index("by_priority", ["priority"]),
+
+  dispatchConsignmentOutlets: defineTable({
+    name: v.string(), // "Legato Tamtem", "Legato Goldfinch"
+    channelKey: v.literal("consignment"),
+    isEnabled: v.boolean(),
+    productMappings: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      externalName: v.string(),
+      externalPrice: v.number(),
+    })),
+    commissionRate: v.optional(v.number()), // Override channel-level rate
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_enabled", ["isEnabled"]),
+
+  dispatchPlannerSettings: defineTable({
+    dailyCapacity: v.number(), // Default 200 balls
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  }),
+
+  // ============================================
   // KITCHEN CONFIG
   // Single-row table for kitchen production targets
   // ============================================

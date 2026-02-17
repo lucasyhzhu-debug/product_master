@@ -12,10 +12,11 @@
 export const GOBIZ_CONFIG = {
   /** @deprecated Use merchantIds instead */
   merchantId: "G293156297" as const,
-  merchantIds: ["G293156297", "G347061572"] as const,
+  merchantIds: ["G293156297", "G347061572", "G958262444"] as const,
   merchantNames: {
     "G293156297": "Legato Goldfinch",
     "G347061572": "GoFood Crystal",
+    "G958262444": "Legato Tamtem",
   } as Record<string, string>,
   portalBaseUrl: "https://portal.gofoodmerchant.co.id",
   dashboardApi: {
@@ -94,4 +95,5 @@ export interface GoBizDashboardMetrics {
 export const GOBIZ_OUTLET_SEED = [
   { externalId: "G293156297", name: "Legato Goldfinch", source: "gobiz" as const },
   { externalId: "G347061572", name: "GoFood Crystal", source: "gobiz" as const },
+  { externalId: "G958262444", name: "Legato Tamtem", source: "gobiz" as const },
 ] as const;
