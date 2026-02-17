@@ -40,6 +40,14 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
                 <span key={a.component._id}>
                   {i > 0 && ", "}
                   {a.component.name}
+                  {a.component.category === "production" && a.component.trackInventory && (
+                    <Badge
+                      variant="outline"
+                      className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 bg-emerald-50 inline-flex"
+                    >
+                      Ingredient
+                    </Badge>
+                  )}
                 </span>
               ))}
               {alerts.length > 3 && ` +${alerts.length - 3} more`}
