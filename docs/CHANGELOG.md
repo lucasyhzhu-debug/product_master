@@ -14,25 +14,42 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.0-fix1] - 2026-02-17 - Phase 17 UAT Fixes (Plan 17-06)
+
+Seven bug fixes and improvements discovered during user acceptance testing of the Dispatch Planner. Week navigation now always shows correct Jakarta dates, the capacity bar tooltip is fully visible, Direct Sales cells can be edited for planning, and the Simulate Inventory button works properly with toast feedback.
+
+### Fixed
+- **Week navigation timezone bug**: Dates now always use Jakarta timezone for day-of-week calculation, preventing misaligned columns when accessed from different timezones
+- **Capacity bar tooltip clipping**: Tooltip now renders above channel section borders with proper z-index
+- **Direct Sales cells not editable**: Added "Planned (Manual)" outlet in Direct Sales channel with editable future cells for ad-hoc planning
+- **Packaging-only products in grid**: Products like "Brochure-How to Eat" (productType=packaging) are now excluded from the dispatch planner grid
+- **Simulate Inventory button broken**: Fixed render-time setState violation; button now shows toast feedback with shortage count or success message
+
+### Changed
+- **Settings dialog reduced from 4 tabs to 3**: Merged "Priorities" and "Channels" tabs into a single "Channels" tab with priority reorder + enable/disable toggle + name editing in one unified row
+- **Commission rate removed**: Removed `commissionRate` from `dispatchChannelConfig` and `dispatchConsignmentOutlets` schema, mutations, and all UI (unused -- net/gross tracked from external APIs instead)
+
+---
+
 ## [v1.2.0] - 2026-02-17 - Phase 17: Unified Dispatch Planner & 3rd Outlet
 
 Plan production across all sales channels from one screen. The Dispatch Planner shows a rolling 7-day grid where managers can allocate ball production to Direct Sales, GoFood, K3Mart, and consignment outlets -- with a capacity bar that shows how each day's 200-ball limit is divided. A third GoFood outlet (Tamtem) now syncs automatically alongside Goldfinch and Crystal.
 
 ### Added
 - **Unified Dispatch Planner** (`/dispatch-planner`): Multi-channel weekly production planning page combining Direct Sales, GoFood, K3Mart, and Other Consignment channels into a single rolling 7-day grid
-  - Channel configuration with arrow-based priority reorder and per-channel commission rates
+  - Channel configuration with arrow-based priority reorder and enable/disable toggle
   - Segmented capacity bar per day showing demand waterfall across channels (default 200 balls/day, configurable)
   - Direct orders auto-populate at due date with production window visualization (due date - 2 days)
   - Editable cells with auto-save on blur for future days; read-only past days with actual sales data
   - Collapsible channel groups with subtotals
   - Consignment outlet management with product mapping (name + price)
   - Inventory simulation: manual BOM walk checking packaging and production components against current stock
-  - 4-tab settings dialog (priorities, channels, outlets, capacity)
+  - 3-tab settings dialog (channels, outlets, capacity)
 - **3rd GoFood outlet (Tamtem)**: Merchant ID G958262444 syncs automatically on existing cron schedule alongside Goldfinch and Crystal
 
 ### Schema Changes
 - Added `dispatchPlans` table -- multi-channel dispatch plan cells with date/channel/product indexes
-- Added `dispatchChannelConfig` table -- channel priority, commission rates, colors
+- Added `dispatchChannelConfig` table -- channel priority, colors, enable/disable
 - Added `dispatchConsignmentOutlets` table -- configurable consignment outlets with product mapping
 - Added `dispatchPlannerSettings` table -- daily capacity and planner configuration
 
