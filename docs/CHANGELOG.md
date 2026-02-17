@@ -14,6 +14,37 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.0] - 2026-02-17 - Phase 20: Production Ingredient Tracking & COGS
+
+Now you can build recipes for production components (like Mid Ball or Big Ball) with sub-components and ingredients, see exactly how much each one costs to make, and the dispatch planner checks whether you have enough ingredients for the week ahead -- not just packaging materials.
+
+### Added
+- Hierarchical production component recipes (sub-components + direct ingredients, up to 3 tiers deep)
+- Recipe editor modal on ProductionComponentsManager (click row to open)
+- COGS toggle per-component: Manual vs Calculated (with manual value preserved as fallback)
+- Live COGS preview in recipe editor with partial calculation warnings
+- COGS breakdown tooltip showing full ingredient hierarchy
+- Food ingredient FIFO inventory tracking (same as packaging -- batches, receive dialog, low-stock alerts)
+- Ingredient deduction on order fulfillment (full hierarchy trace, warn-but-allow for insufficient stock)
+- Negative stock display with red highlight and warning icon
+- Combined Materials Check panel in dispatch planner (packaging + ingredients)
+- 7-day ingredient resupply forecast with projected depletion dates
+
+### Changed
+- ProductionComponentsManager: tier-based sorting (highest first), batchSize and cogsMode fields in create/edit dialogs
+- Inventory Production tab: includes ingredient rows with type badges
+- Dispatch planner: simulateInventory returns both packaging and ingredient sufficiency data
+- componentTypes: relaxed production+trackInventory restriction for ingredient tracking
+- Cost invalidation: cascades ingredient price changes through production component hierarchy to menu products
+
+### Schema
+- New table: productionComponentLinks (hierarchical sub-component links)
+- New table: productionComponentIngredients (direct ingredient links)
+- Extended: componentTypes (+batchSize, batchSizeUnit, cogsMode, manualUnitCostIdr, cachedCalculatedCogs, cogsCacheUpdatedAt, cogsMissingCount)
+- Extended: ingredients (+ingredientComponentTypeId for inventory tracking link)
+
+---
+
 ## [v1.2.0-fix1] - 2026-02-17 - Phase 17 UAT Fixes (Plan 17-06)
 
 Seven bug fixes and improvements discovered during user acceptance testing of the Dispatch Planner. Week navigation now always shows correct Jakarta dates, the capacity bar tooltip is fully visible, Direct Sales cells can be edited for planning, and the Simulate Inventory button works properly with toast feedback.

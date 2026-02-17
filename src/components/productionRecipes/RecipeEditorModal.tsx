@@ -55,11 +55,11 @@ export function RecipeEditorModal({
           </DialogTitle>
           <DialogDescription className="flex items-center gap-2 flex-wrap">
             <span>Recipe editor for production component</span>
-            {(componentType as Record<string, unknown>).batchSize && (
+            {Boolean((componentType as Record<string, unknown>).batchSize) && (
               <Badge variant="secondary" className="text-xs">
                 Batch: {String((componentType as Record<string, unknown>).batchSize)}
                 {(componentType as Record<string, unknown>).batchSizeUnit
-                  ? String((componentType as Record<string, unknown>).batchSizeUnit)
+                  ? ` ${String((componentType as Record<string, unknown>).batchSizeUnit)}`
                   : ""}
               </Badge>
             )}

@@ -9,8 +9,8 @@
  *   Mid Ball -> Chocolate Coating -> Cocoa Powder, Butter
  */
 
-import { Id } from "../_generated/dataModel";
-import { QueryCtx, MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { calculateLineCost } from "./costCalculator";
 
 const MAX_DEPTH = 3;

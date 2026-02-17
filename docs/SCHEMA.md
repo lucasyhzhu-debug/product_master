@@ -48,7 +48,7 @@ Convex Database (automatic)
 
 ---
 
-## Complete Database Schema (25 Tables)
+## Complete Database Schema (27 Tables)
 
 Schema defined in `convex/schema.ts` using Convex's type-safe schema definition.
 
@@ -66,6 +66,8 @@ ingredients: defineTable({
   // Denormalized for fast queries
   costPerBaseUnit: v.optional(v.number()),
   baseUnit: v.optional(v.string()),
+  // Inventory tracking link (Phase 20)
+  ingredientComponentTypeId: v.optional(v.id("componentTypes")), // Links to componentType for inventory tracking
 })
   .index("by_name", ["name"])
 ```
@@ -1234,4 +1236,65 @@ dispatchPlannerSettings: defineTable({
   updatedBy: v.string(),
   updatedAt: v.number(),
 })
+```
+
+### `productionComponentLinks` - Hierarchical Sub-Component Links (Phase 20)
+
+Links production components to their sub-components in a hierarchy (up to 3 tiers deep). E.g., Mid Ball -> Marshmallow Mix -> individual ingredients.
+
+```typescript
+productionComponentLinks: defineTable({
+  parentComponentTypeId: v.id("componentTypes"), // Parent production component
+  childComponentTypeId: v.id("componentTypes"),  // Child sub-component
+  quantity: v.number(),                          // How many child units per parent
+  unit: v.optional(v.string()),                  // Unit label (e.g., "g", "pcs")
+})
+  .index("by_parent", ["parentComponentTypeId"])
+  .index("by_child", ["childComponentTypeId"])
+```
+
+**Indexes:**
+- `by_parent` -- (parentComponentTypeId) for walking hierarchy downward
+- `by_child` -- (childComponentTypeId) for reverse lookup / cost invalidation cascade
+
+**Relationships:**
+- `parentComponentTypeId` -> `componentTypes._id`
+- `childComponentTypeId` -> `componentTypes._id`
+
+### `productionComponentIngredients` - Direct Ingredient Links (Phase 20)
+
+Links production components directly to raw ingredients (leaf nodes in the hierarchy).
+
+```typescript
+productionComponentIngredients: defineTable({
+  componentTypeId: v.id("componentTypes"),       // Parent production component
+  ingredientId: v.id("ingredients"),             // Raw ingredient
+  quantity: v.number(),                          // Quantity per batch
+  unit: v.optional(v.string()),                  // Unit label
+})
+  .index("by_component", ["componentTypeId"])
+  .index("by_ingredient", ["ingredientId"])
+```
+
+**Indexes:**
+- `by_component` -- (componentTypeId) for recipe lookup
+- `by_ingredient` -- (ingredientId) for reverse lookup / cost invalidation
+
+**Relationships:**
+- `componentTypeId` -> `componentTypes._id`
+- `ingredientId` -> `ingredients._id`
+
+### componentTypes Extended Fields (Phase 20)
+
+The following fields were added to the `componentTypes` table for production recipe and COGS support:
+
+```typescript
+// Added to componentTypes (Phase 20)
+batchSize: v.optional(v.number()),               // Production batch size (e.g., 100 balls)
+batchSizeUnit: v.optional(v.string()),           // Unit for batch size (e.g., "pcs", "g")
+cogsMode: v.optional(v.string()),                // "manual" | "calculated"
+manualUnitCostIdr: v.optional(v.number()),       // Manual COGS value (IDR per unit)
+cachedCalculatedCogs: v.optional(v.number()),    // Cached calculated COGS from hierarchy
+cogsCacheUpdatedAt: v.optional(v.number()),      // When COGS cache was last refreshed
+cogsMissingCount: v.optional(v.number()),        // Number of ingredients with missing costs
 ```
