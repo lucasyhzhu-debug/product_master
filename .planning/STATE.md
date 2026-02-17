@@ -76,6 +76,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-07] Cost-leaf uses isCostLeaf (no ingredients + no sub-links) OR cogsMode=manual to synthesize entry from stored unit cost
 - [20-07] Category canonicalization in createComponentAndReceiveStock: production passes through, legacy packaging variants map to "packaging"
 - [20-07] dispatchPlans.outletId union type (externalOutlets OR dispatchConsignmentOutlets) replaces single-table ID
+- [20-08] SubComponentSection display formula: (qty/batchSize)*unitCost not qty*unitCost for correct COGS per-batch economics
+- [20-08] EnableTrackingButton as top-level component (not inline render fn) to safely call React hooks
+- [20-08] ReceiveStockDialog category toggle resets selectedLocationId=null so useEffect re-fires with Kitchen/default preference
 - [20-09] posSlot filter in menuProductMap build loop hides legacy unslotted products from Planned Manual
 - [20-09] WeeklyPlannerGrid removed from K3MartCockpit; /dispatch-planner is now sole planning interface
 - [20-09] GoFood gobiz outlets confirmed present in production DB -- no seeding required
