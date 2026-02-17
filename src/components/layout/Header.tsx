@@ -15,6 +15,7 @@ import {
   Tag,
   TrendingUp,
   Store,
+  CalendarRange,
   Settings,
   Shield,
   ChevronDown,
@@ -70,6 +71,7 @@ const mainNavItems: NavItem[] = [
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
   { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/dispatch-planner', label: 'Dispatch', icon: CalendarRange, permission: 'canAccessDashboard' },
 ];
 
 // Configurations dropdown - Manager + Admin
