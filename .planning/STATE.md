@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
-Plan: 06 of 6 (COMPLETE)
-Status: Phase Complete — Verified (8/8 must-haves passed)
-Last activity: 2026-02-17 — Phase 20 verified complete, ready to merge
+Plan: 07 of 9 (IN PROGRESS — gap closure)
+Status: Executing gap-closure plans (07-09) from UAT diagnosis
+Last activity: 2026-02-17 — Completed 20-07 (3 backend bug fixes)
 
 Progress (v1.2): [█████░░░░░] 50%
 
@@ -69,6 +69,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-06] MaterialsCheckPanel as standalone card below main grid (not embedded in PlannerGrid)
 - [20-06] Collapsible sections via useState toggle (no accordion dependency)
 - [20-06] Ingredient resupply forecast uses day name (e.g., "Wednesday") for runs-out-by display
+- [20-07] Cost-leaf uses isCostLeaf (no ingredients + no sub-links) OR cogsMode=manual to synthesize entry from stored unit cost
+- [20-07] Category canonicalization in createComponentAndReceiveStock: production passes through, legacy packaging variants map to "packaging"
+- [20-07] dispatchPlans.outletId union type (externalOutlets OR dispatchConsignmentOutlets) replaces single-table ID
 
 ### Roadmap Evolution
 
@@ -91,9 +94,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 20 verified complete
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-VERIFICATION.md
-Resume notes: Phase 20 verified (8/8 must-haves). Feature branch ready to merge to main. Next: Phase 18 (GoFood Depot Management).
+Stopped at: Completed 20-07-PLAN.md (3 backend bug fixes: hierarchy cost-leaf, production inventory, dispatch outletId union)
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-07-SUMMARY.md
+Resume notes: 20-07 complete. Continue with 20-08 and 20-09 gap-closure plans to fully resolve UAT issues.
 
 ---
-*Last updated: 2026-02-17 (20-verified)*
+*Last updated: 2026-02-17 (20-07-complete)*
