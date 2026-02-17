@@ -52,9 +52,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: v1.2 roadmap created, ready to plan Phase 17
-Resume file: .planning/ROADMAP.md
-Resume notes: 3 phases planned for v1.2. All skip research-phase (internal system, proven patterns). Phase 17 is ready to plan first.
+Stopped at: Phase 17 context gathered
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-CONTEXT.md
+Resume notes: Phase 17 context captured. Rich decisions on planner layout (rolling 7-day grid), demand waterfall (integrated segmented bar), channel config (settings dialog, drag-to-reorder, consignment product mapping), and inventory simulation (manual, advisory, BOM-based). Ready to plan.
 
 ---
 *Last updated: 2026-02-17*
