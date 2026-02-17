@@ -1137,3 +1137,101 @@ Values computed from other fields in the same or related records. Updated as par
 | orderItems | lineMargin | lineTotal - lineCost | On creation/update |
 | orderItemProduction | unitsRemaining | unitsRequired - unitsCompleted | On ball completion |
 | inventoryBatches | unitCostIdr | totalCostIdr / quantityPurchased | On batch creation |
+
+---
+
+## Dispatch Planner Tables (4 Tables)
+
+Added in Phase 17 for multi-channel production dispatch planning.
+
+### `dispatchPlans` - Dispatch Plan Cells
+
+Individual plan cells in the weekly dispatch grid. Each cell represents a planned quantity of a menu product for a specific channel/outlet on a specific date.
+
+```typescript
+dispatchPlans: defineTable({
+  date: v.string(),                              // YYYY-MM-DD
+  channel: v.string(),                           // "direct" | "gofood" | "k3mart" | "consignment"
+  outletId: v.optional(v.id("externalOutlets")), // For GoFood/K3Mart/Consignment outlets
+  orderId: v.optional(v.id("orders")),           // For Direct Sales (links to specific order)
+  menuProductId: v.id("menuProducts"),           // Which product
+  plannedQty: v.number(),                        // Planned ball quantity
+  actualQty: v.optional(v.number()),             // Filled from actual sales data (past days)
+  source: v.string(),                            // "manual" | "auto_suggest" | "redistributed"
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+})
+```
+
+**Indexes:**
+- `by_date_channel` — (date, channel) for querying all plans for a date+channel
+- `by_date` — (date) for querying all plans for a given date
+- `by_order` — (orderId) for finding plans linked to a specific order
+- `by_outlet_date` — (outletId, date) for per-outlet daily plans
+
+**Relationships:**
+- `menuProductId` → `menuProducts._id`
+- `outletId` → `externalOutlets._id` (optional)
+- `orderId` → `orders._id` (optional, Direct Sales only)
+
+### `dispatchChannelConfig` - Channel Configuration
+
+Configuration for each sales channel including priority ordering, commission rates, and display settings.
+
+```typescript
+dispatchChannelConfig: defineTable({
+  channelKey: v.string(),     // "direct" | "gofood" | "k3mart" | "consignment"
+  displayName: v.string(),    // "Direct Sales", "GoFood", etc.
+  color: v.string(),          // Hex color for capacity bar segment
+  priority: v.number(),       // Lower = higher priority (1 = highest)
+  commissionRate: v.number(), // Percentage (e.g., 19 for 19%)
+  isBuiltIn: v.boolean(),     // true for Direct/GoFood/K3Mart, false for custom
+  isEnabled: v.boolean(),
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+})
+```
+
+**Indexes:**
+- `by_channel` — (channelKey) for looking up a specific channel
+- `by_priority` — (priority) for ordered display
+
+### `dispatchConsignmentOutlets` - Consignment Outlets
+
+Configurable consignment outlets with per-product name/price mappings.
+
+```typescript
+dispatchConsignmentOutlets: defineTable({
+  name: v.string(),                         // "Legato Tamtem", "Legato Goldfinch"
+  channelKey: v.literal("consignment"),
+  isEnabled: v.boolean(),
+  productMappings: v.array(v.object({
+    menuProductId: v.id("menuProducts"),
+    externalName: v.string(),               // Product name at this outlet
+    externalPrice: v.number(),              // Price at this outlet
+  })),
+  commissionRate: v.optional(v.number()),   // Override channel-level rate
+  createdBy: v.string(),
+  createdAt: v.number(),
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+})
+```
+
+**Indexes:**
+- `by_enabled` — (isEnabled) for filtering active outlets
+
+**Relationships:**
+- `productMappings[].menuProductId` → `menuProducts._id`
+
+### `dispatchPlannerSettings` - Planner Settings
+
+Single-row settings table for global planner configuration.
+
+```typescript
+dispatchPlannerSettings: defineTable({
+  dailyCapacity: v.number(), // Default 200 balls
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+})
+```

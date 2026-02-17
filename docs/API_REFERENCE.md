@@ -1359,6 +1359,51 @@ Defined in `convex/crons.ts`.
 
 ---
 
+### Dispatch Planner
+
+```typescript
+// convex/dispatchPlanner/queries.ts
+dispatchPlanner.getChannelConfig({ token })           // Get all channel configs ordered by priority
+dispatchPlanner.getPlannerSettings({ token })          // Get planner settings (daily capacity)
+dispatchPlanner.getConsignmentOutlets({ token })       // Get all consignment outlets
+dispatchPlanner.getUnifiedWeeklyPlan({ token, weekStartDate })  // Full weekly plan with all channels, outlets, products, direct orders
+dispatchPlanner.simulateInventory({ token, weekStartDate })     // BOM-walk inventory simulation for planned quantities
+```
+
+**`getUnifiedWeeklyPlan`** — The main query. Returns:
+- `channels[]` — Channel configs with outlets and per-day/per-product plan cells
+- `directOrders[]` — Confirmed orders with due dates in the week, auto-populated as direct channel rows
+- `menuProducts[]` — All active menu products
+- `weekDates[]` — Array of 7 date strings (YYYY-MM-DD)
+- `dailyTotals` — Per-date aggregate of all planned quantities across channels
+- `todayStr` — Current date in Jakarta timezone
+
+**`simulateInventory`** — Walks the BOM for each planned product quantity, checks `componentStock` for production and packaging components, returns per-component sufficiency status.
+
+```typescript
+// convex/dispatchPlanner/mutations.ts
+dispatchPlanner.seedDefaults({ token })                              // Seed default channel config + settings
+dispatchPlanner.savePlanCell({ token, date, channel, outletId?, orderId?, menuProductId, plannedQty, source })  // Create/update a single plan cell
+dispatchPlanner.updateChannelConfig({ token, channelId, displayName?, color?, commissionRate?, isEnabled? })    // Update channel settings
+dispatchPlanner.reorderChannelPriorities({ token, orderedIds })      // Reorder channel priorities
+dispatchPlanner.updatePlannerSettings({ token, dailyCapacity })      // Update daily capacity
+dispatchPlanner.addConsignmentOutlet({ token, name, productMappings, commissionRate? })    // Add consignment outlet
+dispatchPlanner.updateConsignmentOutlet({ token, outletId, name?, isEnabled?, productMappings?, commissionRate? })  // Update outlet
+dispatchPlanner.removeConsignmentOutlet({ token, outletId })         // Delete consignment outlet
+```
+
+**Auth:** All queries and mutations require `token` (Manager or Admin via `requireRole`).
+
+```typescript
+// convex/dispatchPlanner/helpers.ts (pure functions, not exposed as API)
+generateWeekDates(startDate)        // Generate 7 consecutive YYYY-MM-DD strings
+epochToDateString(epoch)            // Convert epoch ms to YYYY-MM-DD in Jakarta timezone
+orderDueDateToProductionStart(dueDate)  // Subtract 2 days for production window
+CHANNEL_COLORS                      // Default color map for channels
+```
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

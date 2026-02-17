@@ -14,6 +14,41 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.0] - 2026-02-17 - Phase 17: Unified Dispatch Planner & 3rd Outlet
+
+Plan production across all sales channels from one screen. The Dispatch Planner shows a rolling 7-day grid where managers can allocate ball production to Direct Sales, GoFood, K3Mart, and consignment outlets -- with a capacity bar that shows how each day's 200-ball limit is divided. A third GoFood outlet (Tamtem) now syncs automatically alongside Goldfinch and Crystal.
+
+### Added
+- **Unified Dispatch Planner** (`/dispatch-planner`): Multi-channel weekly production planning page combining Direct Sales, GoFood, K3Mart, and Other Consignment channels into a single rolling 7-day grid
+  - Channel configuration with arrow-based priority reorder and per-channel commission rates
+  - Segmented capacity bar per day showing demand waterfall across channels (default 200 balls/day, configurable)
+  - Direct orders auto-populate at due date with production window visualization (due date - 2 days)
+  - Editable cells with auto-save on blur for future days; read-only past days with actual sales data
+  - Collapsible channel groups with subtotals
+  - Consignment outlet management with product mapping (name + price)
+  - Inventory simulation: manual BOM walk checking packaging and production components against current stock
+  - 4-tab settings dialog (priorities, channels, outlets, capacity)
+- **3rd GoFood outlet (Tamtem)**: Merchant ID G958262444 syncs automatically on existing cron schedule alongside Goldfinch and Crystal
+
+### Schema Changes
+- Added `dispatchPlans` table -- multi-channel dispatch plan cells with date/channel/product indexes
+- Added `dispatchChannelConfig` table -- channel priority, commission rates, colors
+- Added `dispatchConsignmentOutlets` table -- configurable consignment outlets with product mapping
+- Added `dispatchPlannerSettings` table -- daily capacity and planner configuration
+
+### Backend
+- `convex/dispatchPlanner/queries.ts` -- 5 queries (unified weekly plan, channel config, settings, consignment outlets, inventory simulation)
+- `convex/dispatchPlanner/mutations.ts` -- 8 mutations (seed, save cell, channel config CRUD, settings, consignment CRUD)
+- `convex/dispatchPlanner/helpers.ts` -- Pure business logic (redistribution, pre-fill, date helpers)
+
+### Frontend
+- `src/pages/DispatchPlanner.tsx` -- Main page with PlannerGrid orchestrator
+- `src/hooks/convex/useDispatchPlanner.ts` -- Query/mutation hooks
+- `src/components/dispatch/` -- CapacityBar, ChannelGroup, DayColumn, PlannerGrid, SettingsDialog
+- Navigation entry added to Header for Manager/Admin roles
+
+---
+
 ## 2026-02-16 - Phase 16: K3Mart Cockpit
 
 The K3Mart page now shows a full weekly planning grid organized by outlet, with color-coded columns for weekends and holidays. Managers can plan dispatch quantities per product per outlet, copy last week's plan, confirm day-by-day, and have those confirmed quantities automatically pushed to the kitchen as production targets. Stock flow operations (stock-in, stock-out, rotation) go through a confirmation dialog with price sanity checks, and admins can configure per-outlet product visibility and custom pricing.
