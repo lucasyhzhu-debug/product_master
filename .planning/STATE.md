@@ -102,4 +102,4 @@ Resume file: .planning/REQUIREMENTS.md
 Resume notes: v1.2 "Unified Planning & Revenue" milestone started. Scope: 3rd GoJek outlet, unified planner, kitchen simplification, cross-channel analytics, consignment revenue. Research decision pending.
 
 ---
-*Last updated: 2026-02-16*
+*Last updated: 2026-02-17*
