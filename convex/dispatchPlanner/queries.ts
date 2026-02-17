@@ -226,8 +226,8 @@ async function assembleDirectChannel(
   dates: string[],
   todayStr: string,
   dailyTotals: Record<string, Record<string, number>>,
-  menuProductMap: Map<string, Doc<"menuProducts">>,
-  allDispatchPlans: Doc<"dispatchPlans">[],
+  _menuProductMap: Map<string, Doc<"menuProducts">>,
+  _allDispatchPlans: Doc<"dispatchPlans">[],
 ) {
   const dateSet = new Set(dates);
   const firstDate = dates[0];
@@ -483,7 +483,7 @@ async function assembleK3martChannel(
   ctx: { db: any },
   section: ChannelSection,
   dates: string[],
-  todayStr: string,
+  _todayStr: string,
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
 ) {

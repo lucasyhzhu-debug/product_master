@@ -345,7 +345,7 @@ export const removeConsignmentOutlet = mutation({
     outletId: v.id("dispatchConsignmentOutlets"),
   },
   handler: async (ctx, args) => {
-    const user = await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["admin"]);
 
     const outlet = await ctx.db.get(args.outletId);
     if (!outlet) {

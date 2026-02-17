@@ -173,9 +173,9 @@ export const PlannerCell = React.memo(
           "placeholder:text-muted-foreground/40 placeholder:italic"
         )}
         style={{
-          MozAppearance: "textfield" as unknown as string,
-          WebkitAppearance: "none" as unknown as string,
-          appearance: "none" as unknown as string,
+          MozAppearance: "textfield" as any,
+          WebkitAppearance: "none" as any,
+          appearance: "none" as any,
         }}
       />
     );
