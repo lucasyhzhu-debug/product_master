@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 05 of 5
-Status: Executing
-Last activity: 2026-02-17 — Completed 17-04 (dispatch planner grid UI)
+Plan: 05 of 5 (COMPLETE)
+Status: Phase Complete — Ready to merge to main
+Last activity: 2026-02-17 — Completed 17-05 (navigation wiring & documentation)
 
-Progress (v1.2): [████░░░░░░] 25%
+Progress (v1.2): [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -44,6 +44,8 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-04] Route at /dispatch-planner with canAccessDashboard permission (manager + admin)
 - [17-04] HTML flex layout matching K3Mart cockpit (no grid library)
 - [17-04] CHANNEL_COLORS defined inline in CapacityBar (cannot import from convex/ in frontend)
+- [17-05] Nav label shortened to "Dispatch" for space efficiency in header
+- [17-05] CalendarRange icon from lucide-react for Dispatch Planner nav entry
 
 ### Roadmap Evolution
 
@@ -65,9 +67,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 17-04-PLAN.md
-Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-04-SUMMARY.md
-Resume notes: Plan 04 complete. Full dispatch planner page with grid, capacity bars, channel groups. Next: Plan 05 (navigation and final polish).
+Stopped at: Completed 17-05-PLAN.md (Phase 17 complete)
+Resume file: .planning/phases/17-unified-dispatch-planner-3rd-outlet/17-05-SUMMARY.md
+Resume notes: Phase 17 fully complete. All 5 plans executed. Dispatch Planner accessible at /dispatch-planner. Merge feature branch to main, then start Phase 18.
 
 ---
-*Last updated: 2026-02-17 (17-04)*
+*Last updated: 2026-02-17 (17-05)*
