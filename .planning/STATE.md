@@ -9,8 +9,8 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
 Plan: 05 of 5 (COMPLETE)
-Status: Phase Complete — Ready to merge to main
-Last activity: 2026-02-17 — Completed 17-05 (navigation wiring & documentation)
+Status: Phase Complete — Verified (6/6 must-haves passed)
+Last activity: 2026-02-17 — Phase 17 verified and complete
 
 Progress (v1.2): [███░░░░░░░] 33%
 
