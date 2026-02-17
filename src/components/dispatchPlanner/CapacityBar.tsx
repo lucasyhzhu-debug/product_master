@@ -49,6 +49,7 @@ export const CapacityBar = React.memo(function CapacityBar({
   return (
     <div
       className="relative w-full px-1"
+      style={{ overflow: "visible" }}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
@@ -97,7 +98,7 @@ export const CapacityBar = React.memo(function CapacityBar({
 
       {/* Tooltip */}
       {showTooltip && activeSegments.length > 0 && (
-        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover text-popover-foreground border rounded-md shadow-md px-3 py-2 text-xs whitespace-nowrap">
+        <div className="absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover text-popover-foreground border rounded-md shadow-md px-3 py-2 text-xs whitespace-nowrap">
           <div className="font-semibold mb-1">
             {total} / {capacity} units
             {isOverCapacity && (

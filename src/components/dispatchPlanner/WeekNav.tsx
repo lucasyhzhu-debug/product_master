@@ -58,9 +58,20 @@ function getCurrentMonday(): string {
   const todayStr = now.toLocaleDateString("en-CA", {
     timeZone: "Asia/Jakarta",
   });
-  const today = new Date(todayStr + "T00:00:00+07:00");
-  const dayOfWeek = today.getDay();
+
+  // Get Jakarta day-of-week using Intl (safe regardless of browser timezone)
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(now);
+
+  const dayMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const dayOfWeek = dayMap[dayName] ?? 0;
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const today = new Date(todayStr + "T12:00:00+07:00");
   today.setDate(today.getDate() + mondayOffset);
   return today.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }

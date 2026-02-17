@@ -48,9 +48,20 @@ function getCurrentMonday(): string {
   const todayStr = now.toLocaleDateString("en-CA", {
     timeZone: "Asia/Jakarta",
   });
-  const today = new Date(todayStr + "T00:00:00+07:00");
-  const dayOfWeek = today.getDay();
+
+  // Get Jakarta day-of-week using Intl (safe regardless of browser timezone)
+  const dayName = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone: "Asia/Jakarta",
+  }).format(now);
+
+  const dayMap: Record<string, number> = {
+    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+  };
+  const dayOfWeek = dayMap[dayName] ?? 0;
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const today = new Date(todayStr + "T12:00:00+07:00");
   today.setDate(today.getDate() + mondayOffset);
   return today.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
@@ -130,11 +141,19 @@ export function DispatchPlanner() {
   }, [startDate]);
 
   // Stop showing loading once simulation data arrives
-  const simLoading = simulationLoading && loadingSimulation;
-  if (simulationLoading && !loadingSimulation) {
-    // Simulation data has arrived
-    setSimulationLoading(false);
-  }
+  useEffect(() => {
+    if (simulationLoading && simulationStartDate && !loadingSimulation) {
+      setSimulationLoading(false);
+      if (simulationResults) {
+        const shortageCount = simulationResults.filter(d => d.status !== "ok").length;
+        if (shortageCount > 0) {
+          toast.warning(`Inventory simulation: ${shortageCount} day(s) have shortages`);
+        } else {
+          toast.success("Inventory simulation: all days have sufficient stock");
+        }
+      }
+    }
+  }, [simulationLoading, simulationStartDate, loadingSimulation, simulationResults]);
 
   // Derive capacity from settings
   const capacity = settingsData?.dailyCapacity ?? 200;
@@ -173,10 +192,10 @@ export function DispatchPlanner() {
               variant="outline"
               size="sm"
               onClick={handleSimulate}
-              disabled={simLoading}
+              disabled={simulationLoading}
               className="gap-2"
             >
-              {simLoading ? (
+              {simulationLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <FlaskConical className="h-4 w-4" />

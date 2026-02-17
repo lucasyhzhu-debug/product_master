@@ -1,11 +1,10 @@
 /**
  * ChannelSettingsDialog - Settings dialog for the Unified Dispatch Planner.
  *
- * Four sections via Tabs:
- * 1. Channel Priorities: Reorder channels via up/down arrows
- * 2. Channel Settings: Enable/disable, commission rate, display name per channel
- * 3. Consignment Outlets: Add/edit/remove consignment outlets with product mappings
- * 4. Daily Capacity: Set daily production capacity
+ * Three sections via Tabs:
+ * 1. Channels: Priority reorder + enable/disable + display name per channel
+ * 2. Outlets: Add/edit/remove consignment outlets with product mappings
+ * 3. Capacity: Set daily production capacity
  *
  * Manager/Admin access. Uses shadcn Dialog, Tabs, Switch, Input, Select.
  */
@@ -19,7 +18,6 @@ import {
   Trash2,
   Loader2,
   Store,
-  Percent,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -70,7 +68,6 @@ interface ProductMapping {
 
 interface OutletFormData {
   name: string;
-  commissionRate?: number;
   productMappings: ProductMapping[];
 }
 
@@ -91,7 +88,7 @@ export function ChannelSettingsDialog({
   open,
   onOpenChange,
 }: ChannelSettingsDialogProps) {
-  const [tab, setTab] = useState("priorities");
+  const [tab, setTab] = useState("channels");
 
   // Data hooks
   const { data: channels, isLoading: channelsLoading } = useDispatchChannelConfig();
@@ -130,10 +127,7 @@ export function ChannelSettingsDialog({
           </div>
         ) : (
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="priorities" className="text-xs">
-                Priorities
-              </TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="channels" className="text-xs">
                 Channels
               </TabsTrigger>
@@ -145,33 +139,21 @@ export function ChannelSettingsDialog({
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab 1: Channel Priorities */}
-            <TabsContent value="priorities" className="mt-4 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Drag channels up or down to set dispatch priority. Higher priority
-                channels get capacity first.
-              </p>
-              <Separator />
-              <ChannelPriorityList
-                channels={channels ?? []}
-                onReorder={reorderPriorities}
-              />
-            </TabsContent>
-
-            {/* Tab 2: Channel Settings */}
+            {/* Tab 1: Channels (priority reorder + enable/disable + name) */}
             <TabsContent value="channels" className="mt-4 space-y-3">
               <p className="text-sm text-muted-foreground">
-                Configure commission rates, enable/disable channels, and set display
-                names.
+                Reorder channels by priority (higher = gets capacity first),
+                enable/disable, and edit display names.
               </p>
               <Separator />
-              <ChannelSettingsList
+              <ChannelList
                 channels={channels ?? []}
+                onReorder={reorderPriorities}
                 onUpdate={updateChannelConfig}
               />
             </TabsContent>
 
-            {/* Tab 3: Consignment Outlets */}
+            {/* Tab 2: Consignment Outlets */}
             <TabsContent value="outlets" className="mt-4 space-y-3">
               <p className="text-sm text-muted-foreground">
                 Manage consignment outlets and their product mappings.
@@ -186,7 +168,7 @@ export function ChannelSettingsDialog({
               />
             </TabsContent>
 
-            {/* Tab 4: Daily Capacity */}
+            {/* Tab 3: Daily Capacity */}
             <TabsContent value="capacity" className="mt-4 space-y-3">
               <p className="text-sm text-muted-foreground">
                 Set the maximum daily production capacity in total balls.
@@ -209,11 +191,13 @@ export function ChannelSettingsDialog({
 // ========================
 
 /**
- * Channel Priority List with up/down reordering.
+ * Combined Channel List -- priority reorder + enable/disable + name edit.
+ * Merges the former ChannelPriorityList and ChannelSettingsList into one.
  */
-function ChannelPriorityList({
+function ChannelList({
   channels,
   onReorder,
+  onUpdate,
 }: {
   channels: Array<{
     _id: string;
@@ -221,10 +205,18 @@ function ChannelPriorityList({
     displayName: string;
     color: string;
     priority: number;
+    isEnabled: boolean;
   }>;
   onReorder: (args: { orderedKeys: string[] }) => Promise<unknown>;
+  onUpdate: (args: {
+    channelKey: string;
+    updates: {
+      isEnabled?: boolean;
+      displayName?: string;
+    };
+  }) => Promise<unknown>;
 }) {
-  const [reordering, setReordering] = useState(false);
+  const [busy, setBusy] = useState(false);
   const sorted = [...channels].sort((a, b) => a.priority - b.priority);
 
   const handleMove = useCallback(
@@ -235,7 +227,7 @@ function ChannelPriorityList({
       const newOrder = sorted.map((ch) => ch.channelKey);
       [newOrder[index], newOrder[newIndex]] = [newOrder[newIndex], newOrder[index]];
 
-      setReordering(true);
+      setBusy(true);
       try {
         await onReorder({ orderedKeys: newOrder });
         toast.success("Channel priorities updated");
@@ -243,50 +235,58 @@ function ChannelPriorityList({
         console.error("Reorder error:", error);
         toast.error("Failed to reorder channels");
       } finally {
-        setReordering(false);
+        setBusy(false);
       }
     },
     [sorted, onReorder]
   );
 
+  const handleToggle = useCallback(
+    async (channelKey: string, isEnabled: boolean) => {
+      setBusy(true);
+      try {
+        await onUpdate({ channelKey, updates: { isEnabled } });
+        toast.success(`Channel ${isEnabled ? "enabled" : "disabled"}`);
+      } catch (error) {
+        console.error("Toggle channel error:", error);
+        toast.error("Failed to toggle channel");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onUpdate]
+  );
+
+  const handleNameSave = useCallback(
+    async (channelKey: string, displayName: string) => {
+      if (!displayName.trim()) return;
+      setBusy(true);
+      try {
+        await onUpdate({ channelKey, updates: { displayName: displayName.trim() } });
+        toast.success("Display name updated");
+      } catch (error) {
+        console.error("Update name error:", error);
+        toast.error("Failed to update display name");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onUpdate]
+  );
+
   return (
     <div className="space-y-1">
       {sorted.map((channel, index) => (
-        <div
+        <ChannelListRow
           key={channel.channelKey}
-          className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-muted-foreground w-5 text-center">
-              {index + 1}
-            </span>
-            <div
-              className="h-3 w-3 rounded-full shrink-0"
-              style={{ backgroundColor: channel.color }}
-            />
-            <span className="text-sm font-medium">{channel.displayName}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={index === 0 || reordering}
-              onClick={() => handleMove(index, "up")}
-            >
-              <ChevronUp className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={index === sorted.length - 1 || reordering}
-              onClick={() => handleMove(index, "down")}
-            >
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+          channel={channel}
+          index={index}
+          total={sorted.length}
+          busy={busy}
+          onMove={handleMove}
+          onToggle={handleToggle}
+          onNameSave={handleNameSave}
+        />
       ))}
       {sorted.length === 0 && (
         <div className="text-center py-6 text-sm text-muted-foreground">
@@ -298,193 +298,88 @@ function ChannelPriorityList({
 }
 
 /**
- * Channel Settings List -- enable/disable, commission rate, display name.
+ * Individual channel row in the combined list.
  */
-function ChannelSettingsList({
-  channels,
-  onUpdate,
-}: {
-  channels: Array<{
-    _id: string;
-    channelKey: string;
-    displayName: string;
-    color: string;
-    commissionRate: number;
-    isEnabled: boolean;
-  }>;
-  onUpdate: (args: {
-    channelKey: string;
-    updates: {
-      commissionRate?: number;
-      isEnabled?: boolean;
-      displayName?: string;
-      color?: string;
-    };
-  }) => Promise<unknown>;
-}) {
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-
-  const handleToggle = useCallback(
-    async (channelKey: string, isEnabled: boolean) => {
-      setSavingKey(channelKey);
-      try {
-        await onUpdate({ channelKey, updates: { isEnabled } });
-        toast.success(`Channel ${isEnabled ? "enabled" : "disabled"}`);
-      } catch (error) {
-        console.error("Toggle channel error:", error);
-        toast.error("Failed to toggle channel");
-      } finally {
-        setSavingKey(null);
-      }
-    },
-    [onUpdate]
-  );
-
-  const handleCommissionSave = useCallback(
-    async (channelKey: string, commissionRate: number) => {
-      setSavingKey(channelKey);
-      try {
-        await onUpdate({ channelKey, updates: { commissionRate } });
-        toast.success("Commission rate updated");
-      } catch (error) {
-        console.error("Update commission error:", error);
-        toast.error("Failed to update commission rate");
-      } finally {
-        setSavingKey(null);
-      }
-    },
-    [onUpdate]
-  );
-
-  const handleNameSave = useCallback(
-    async (channelKey: string, displayName: string) => {
-      if (!displayName.trim()) return;
-      setSavingKey(channelKey);
-      try {
-        await onUpdate({ channelKey, updates: { displayName: displayName.trim() } });
-        toast.success("Display name updated");
-      } catch (error) {
-        console.error("Update name error:", error);
-        toast.error("Failed to update display name");
-      } finally {
-        setSavingKey(null);
-      }
-    },
-    [onUpdate]
-  );
-
-  const sorted = [...channels].sort((a, b) => (a.channelKey > b.channelKey ? 1 : -1));
-
-  return (
-    <div className="space-y-4">
-      {sorted.map((channel) => (
-        <ChannelSettingsRow
-          key={channel.channelKey}
-          channel={channel}
-          saving={savingKey === channel.channelKey}
-          onToggle={handleToggle}
-          onCommissionSave={handleCommissionSave}
-          onNameSave={handleNameSave}
-        />
-      ))}
-    </div>
-  );
-}
-
-/**
- * Individual channel settings row.
- */
-function ChannelSettingsRow({
+function ChannelListRow({
   channel,
-  saving,
+  index,
+  total,
+  busy,
+  onMove,
   onToggle,
-  onCommissionSave,
   onNameSave,
 }: {
   channel: {
     channelKey: string;
     displayName: string;
     color: string;
-    commissionRate: number;
     isEnabled: boolean;
   };
-  saving: boolean;
+  index: number;
+  total: number;
+  busy: boolean;
+  onMove: (index: number, direction: "up" | "down") => void;
   onToggle: (key: string, enabled: boolean) => void;
-  onCommissionSave: (key: string, rate: number) => void;
   onNameSave: (key: string, name: string) => void;
 }) {
   const [editName, setEditName] = useState(channel.displayName);
-  const [editRate, setEditRate] = useState(String(channel.commissionRate));
 
-  // Sync with props when channel data updates
   useEffect(() => {
     setEditName(channel.displayName);
-    setEditRate(String(channel.commissionRate));
-  }, [channel.displayName, channel.commissionRate]);
+  }, [channel.displayName]);
 
   return (
-    <div className="border border-border rounded-lg p-3 space-y-3">
-      {/* Header: color swatch + name + toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className="h-3 w-3 rounded-full shrink-0"
-            style={{ backgroundColor: channel.color }}
-          />
-          <span className="text-sm font-medium">{channel.displayName}</span>
-          <span className="text-xs text-muted-foreground">({channel.channelKey})</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-          <Switch
-            checked={channel.isEnabled}
-            onCheckedChange={(checked) => onToggle(channel.channelKey, checked)}
-            disabled={saving}
-          />
-        </div>
-      </div>
+    <div className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50">
+      {/* Priority number */}
+      <span className="text-xs font-mono text-muted-foreground w-5 text-center shrink-0">
+        {index + 1}
+      </span>
 
-      {/* Display name */}
-      <div className="flex items-center gap-2">
-        <Label className="text-xs text-muted-foreground w-20 shrink-0">Name</Label>
-        <Input
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          onBlur={() => {
-            if (editName.trim() && editName.trim() !== channel.displayName) {
-              onNameSave(channel.channelKey, editName);
-            }
-          }}
-          className="h-8 text-sm"
-          disabled={saving}
-        />
-      </div>
+      {/* Color swatch */}
+      <div
+        className="h-3 w-3 rounded-full shrink-0"
+        style={{ backgroundColor: channel.color }}
+      />
 
-      {/* Commission rate */}
-      <div className="flex items-center gap-2">
-        <Label className="text-xs text-muted-foreground w-20 shrink-0">
-          <span className="flex items-center gap-1">
-            <Percent className="h-3 w-3" /> Commission
-          </span>
-        </Label>
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          step="0.1"
-          value={editRate}
-          onChange={(e) => setEditRate(e.target.value)}
-          onBlur={() => {
-            const rate = parseFloat(editRate);
-            if (!isNaN(rate) && rate !== channel.commissionRate) {
-              onCommissionSave(channel.channelKey, rate);
-            }
-          }}
-          className="h-8 text-sm w-24 tabular-nums"
-          disabled={saving}
-        />
-        <span className="text-xs text-muted-foreground">%</span>
-      </div>
+      {/* Editable display name */}
+      <Input
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        onBlur={() => {
+          if (editName.trim() && editName.trim() !== channel.displayName) {
+            onNameSave(channel.channelKey, editName);
+          }
+        }}
+        className="h-7 text-sm flex-1"
+        disabled={busy}
+      />
+
+      {/* Up/down arrows */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0"
+        disabled={index === 0 || busy}
+        onClick={() => onMove(index, "up")}
+      >
+        <ChevronUp className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0"
+        disabled={index === total - 1 || busy}
+        onClick={() => onMove(index, "down")}
+      >
+        <ChevronDown className="h-4 w-4" />
+      </Button>
+
+      {/* Enable/disable toggle */}
+      <Switch
+        checked={channel.isEnabled}
+        onCheckedChange={(checked) => onToggle(channel.channelKey, checked)}
+        disabled={busy}
+      />
     </div>
   );
 }
@@ -503,20 +398,17 @@ function ConsignmentOutletManager({
     _id: Id<"dispatchConsignmentOutlets">;
     name: string;
     isEnabled: boolean;
-    commissionRate?: number;
     productMappings: ProductMapping[];
   }>;
   menuProducts: Array<{ _id: string; name: string; defaultPrice: number }>;
   onAdd: (args: {
     name: string;
     productMappings: ProductMapping[];
-    commissionRate?: number;
   }) => Promise<unknown>;
   onUpdate: (args: {
     outletId: Id<"dispatchConsignmentOutlets">;
     name?: string;
     productMappings?: ProductMapping[];
-    commissionRate?: number;
     isEnabled?: boolean;
   }) => Promise<unknown>;
   onRemove: (args: { outletId: Id<"dispatchConsignmentOutlets"> }) => Promise<unknown>;
@@ -602,7 +494,6 @@ function ConsignmentOutletManager({
               <OutletEditForm
                 initialData={{
                   name: outlet.name,
-                  commissionRate: outlet.commissionRate,
                   productMappings: outlet.productMappings,
                 }}
                 menuProducts={menuProducts}
@@ -611,7 +502,6 @@ function ConsignmentOutletManager({
                     await onUpdate({
                       outletId: outlet._id,
                       name: data.name,
-                      commissionRate: data.commissionRate,
                       productMappings: data.productMappings,
                     });
                     toast.success("Outlet updated");
@@ -644,7 +534,6 @@ function ConsignmentOutletManager({
               try {
                 await onAdd({
                   name: data.name,
-                  commissionRate: data.commissionRate,
                   productMappings: data.productMappings,
                 });
                 toast.success(`Outlet "${data.name}" added`);
@@ -702,9 +591,6 @@ function OutletEditForm({
   submitLabel?: string;
 }) {
   const [name, setName] = useState(initialData.name);
-  const [commissionRate, setCommissionRate] = useState(
-    initialData.commissionRate !== undefined ? String(initialData.commissionRate) : ""
-  );
   const [mappings, setMappings] = useState<ProductMapping[]>(
     initialData.productMappings
   );
@@ -745,13 +631,12 @@ function OutletEditForm({
     try {
       await onSave({
         name: name.trim(),
-        commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
         productMappings: validMappings,
       });
     } finally {
       setSaving(false);
     }
-  }, [name, commissionRate, mappings, onSave]);
+  }, [name, mappings, onSave]);
 
   return (
     <div className="space-y-3 pt-3">
@@ -763,23 +648,6 @@ function OutletEditForm({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Legato Tamtem"
           className="h-8 text-sm"
-        />
-      </div>
-
-      {/* Commission rate override */}
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">
-          Commission Rate Override (%)
-        </Label>
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          step="0.1"
-          value={commissionRate}
-          onChange={(e) => setCommissionRate(e.target.value)}
-          placeholder="Leave empty to use channel default"
-          className="h-8 text-sm w-48 tabular-nums"
         />
       </div>
 
