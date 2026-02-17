@@ -102,6 +102,11 @@ export const update = protectedMutation({
       ingredientId: id,
     });
 
+    // Phase 20: Also invalidate production component costs
+    await ctx.scheduler.runAfter(0, internal.lib.costInvalidation.invalidateProductionComponentCosts, {
+      ingredientId: id,
+    });
+
     return id;
   },
 });

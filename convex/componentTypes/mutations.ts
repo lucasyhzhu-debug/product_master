@@ -38,6 +38,9 @@ export const create = mutation({
       v.literal("none")
     )),
     alarmPercentage: v.optional(v.number()),
+    // Phase 20: Batch size and COGS mode
+    batchSize: v.optional(v.number()),
+    batchSizeUnit: v.optional(v.string()),
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
@@ -99,6 +102,11 @@ export const create = mutation({
       color: args.color,
       sortOrder,
       isActive: args.isActive ?? true,
+      // Phase 20: Batch size and COGS mode
+      batchSize: args.batchSize,
+      batchSizeUnit: args.batchSizeUnit,
+      cogsMode: resolvedCategory === "production" ? "manual" : undefined,
+      manualUnitCostIdr: resolvedCategory === "production" ? args.unitCostIdr : undefined,
       createdBy: args.createdBy,
       createdAt: Date.now(),
     });
@@ -130,6 +138,10 @@ export const update = mutation({
       v.literal("none")
     )),
     alarmPercentage: v.optional(v.number()),
+    // Phase 20: Batch size and COGS mode toggle
+    batchSize: v.optional(v.number()),
+    batchSizeUnit: v.optional(v.string()),
+    cogsMode: v.optional(v.union(v.literal("manual"), v.literal("calculated"))),
   },
   handler: async (ctx, args) => {
     const component = await ctx.db.get(args.id);
@@ -137,8 +149,8 @@ export const update = mutation({
       throw new Error("Component not found");
     }
 
-    // Build update object (omit id)
-    const { id, ...updates } = args;
+    // Build update object (omit id and cogsMode -- handled separately)
+    const { id, cogsMode: newCogsMode, ...updates } = args;
 
     // Validate: production components must have gramsPerUnit
     if (
@@ -149,11 +161,29 @@ export const update = mutation({
       throw new Error("Production components must have gramsPerUnit");
     }
 
+    // Phase 20: COGS mode toggle
+    if (newCogsMode !== undefined && newCogsMode !== component.cogsMode) {
+      if (newCogsMode === "calculated") {
+        // Switching to calculated: save current unitCostIdr as manual fallback
+        (updates as Record<string, unknown>).cogsMode = "calculated";
+        (updates as Record<string, unknown>).manualUnitCostIdr =
+          component.unitCostIdr;
+      } else {
+        // Switching to manual: restore from manualUnitCostIdr if available
+        (updates as Record<string, unknown>).cogsMode = "manual";
+        if (component.manualUnitCostIdr !== undefined) {
+          (updates as Record<string, unknown>).unitCostIdr =
+            component.manualUnitCostIdr;
+        }
+        (updates as Record<string, unknown>).cachedCalculatedCogs = undefined;
+      }
+    }
+
     await ctx.db.patch(args.id, updates);
 
     // COGS cascade: when unitCostIdr changes, mark affected menuProducts as stale
     // then schedule recalculation to update their cached unitCost
-    if (args.unitCostIdr !== undefined) {
+    if (args.unitCostIdr !== undefined || (newCogsMode === "manual" && component.manualUnitCostIdr !== undefined)) {
       // Find all menuProductComponents using this componentType
       const usages = await ctx.db
         .query("menuProductComponents")
@@ -170,6 +200,15 @@ export const update = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.lib.costInvalidation.invalidateMenuProductCosts,
+        { componentTypeId: args.id }
+      );
+    }
+
+    // Phase 20: When switching to calculated mode, schedule COGS recalculation
+    if (newCogsMode === "calculated" && newCogsMode !== component.cogsMode) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.productionRecipes.mutations.recalculateComponentCogs,
         { componentTypeId: args.id }
       );
     }
