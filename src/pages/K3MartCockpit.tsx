@@ -371,9 +371,9 @@ export function K3MartCockpit() {
 
   // Build outlet settings data for the modal
   const settingsModalData = useMemo(() => {
-    const outlets = (outletStockData?.outlets ?? []).map((o: any) => ({
-      outletId: o._id as string,
-      outletName: o.name as string,
+    const outlets = (outletSettingsData?.outlets ?? []).map((o: any) => ({
+      outletId: o.outletId as string,
+      outletName: o.outletName as string,
       isActive: o.isActive !== false,
     }));
 
@@ -409,7 +409,7 @@ export function K3MartCockpit() {
     }
 
     return { outlets, outletProducts };
-  }, [outletStockData, outletSettingsData]);
+  }, [outletSettingsData]);
 
   // ==========================================
   // RENDER
