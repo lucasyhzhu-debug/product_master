@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 — Production Ingredient Tracking & COGS
-Plan: 03 of 6 (COMPLETE)
+Plan: 04 of 6 (COMPLETE)
 Status: Executing Phase 20
-Last activity: 2026-02-17 — Plan 20-03 complete (ingredient inventory + fulfillment deduction)
+Last activity: 2026-02-17 — Plan 20-04 complete (recipe editor modal + tier sorting)
 
-Progress (Phase 20): [█████░░░░░] 50%
+Progress (Phase 20): [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -58,6 +58,10 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-03] Removed production+trackInventory restriction entirely (simpler than isIngredientTracker flag)
 - [20-03] Negative stock via adjustment transaction on shortfall (never blocks fulfillment)
 - [20-03] Ingredient deduction fires at BeingPrepared matching existing material consumption pattern
+- [20-04] Row click opens recipe modal; separate Edit button opens settings dialog (dual interaction)
+- [20-04] Tier-grouped view with section headers when sorted by tier
+- [20-04] COGS mode toggle only in edit dialog (not create -- defaults to manual)
+- [20-04] __create_new__ sentinel value in Select dropdown for inline creation
 
 ### Roadmap Evolution
 
@@ -80,9 +84,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-03-PLAN.md
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-03-SUMMARY.md
-Resume notes: Plan 20-03 complete. Ingredient inventory + fulfillment deduction ready. Continue with 20-04.
+Stopped at: Completed 20-04-PLAN.md
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-04-SUMMARY.md
+Resume notes: Plan 20-04 complete. Recipe editor modal + tier sorting ready. Continue with 20-05.
 
 ---
-*Last updated: 2026-02-17 (20-03)*
+*Last updated: 2026-02-17 (20-04)*
