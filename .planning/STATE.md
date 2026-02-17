@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 20 — Production Ingredient Tracking & COGS
-Plan: 05 of 6 (COMPLETE)
-Status: Executing Phase 20
-Last activity: 2026-02-17 — Plan 20-05 complete (inventory ingredient display + COGS tooltip + dispatch simulation)
+Plan: 06 of 6 (COMPLETE)
+Status: Phase 20 Complete
+Last activity: 2026-02-17 — Plan 20-06 complete (Materials Check panel + build verification + documentation)
 
-Progress (Phase 20): [████████░░] 83%
+Progress (Phase 20): [██████████] 100%
 
 ## Performance Metrics
 
@@ -66,6 +66,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-05] Negative stock: red-50 bg + red text + AlertTriangle, prioritized over low-stock styling
 - [20-05] simulateInventory return shape changed to { days, ingredientStatus } for ingredient simulation
 - [20-05] Ingredient stock matching uses case-insensitive name comparison between ingredients and componentTypes
+- [20-06] MaterialsCheckPanel as standalone card below main grid (not embedded in PlannerGrid)
+- [20-06] Collapsible sections via useState toggle (no accordion dependency)
+- [20-06] Ingredient resupply forecast uses day name (e.g., "Wednesday") for runs-out-by display
 
 ### Roadmap Evolution
 
@@ -88,9 +91,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-05-PLAN.md
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-05-SUMMARY.md
-Resume notes: Plan 20-05 complete. Inventory ingredient display + COGS tooltip + dispatch simulation. Continue with 20-06.
+Stopped at: Completed 20-06-PLAN.md — Phase 20 fully complete
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-06-SUMMARY.md
+Resume notes: Phase 20 complete (all 6 plans). Materials Check panel + docs + build verified. Ready to merge feature branch to main.
 
 ---
-*Last updated: 2026-02-17 (20-05)*
+*Last updated: 2026-02-17 (20-06)*
