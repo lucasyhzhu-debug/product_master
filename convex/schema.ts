@@ -1286,7 +1286,7 @@ export default defineSchema({
   dispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD
     channel: v.string(), // "direct" | "gofood" | "k3mart" | "consignment"
-    outletId: v.optional(v.id("externalOutlets")), // For GoFood/K3Mart/Consignment outlets
+    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets"))), // For GoFood/K3Mart/Consignment outlets
     orderId: v.optional(v.id("orders")), // For Direct Sales (links to specific order)
     menuProductId: v.id("menuProducts"),
     plannedQty: v.number(),
@@ -1309,6 +1309,7 @@ export default defineSchema({
     isEnabled: v.boolean(),
     updatedBy: v.string(),
     updatedAt: v.number(),
+    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
@@ -1326,6 +1327,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedBy: v.string(),
     updatedAt: v.number(),
+    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
   })
     .index("by_enabled", ["isEnabled"]),
 
