@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-17)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Milestone v1.2 "Unified Planning & Revenue" -- Phase 17: Unified Dispatch Planner & 3rd Outlet
+**Current focus:** Phase 20: Production Ingredient Tracking & COGS
 
 ## Current Position
 
-Phase: 17 (1 of 3 in v1.2) — Unified Dispatch Planner & 3rd Outlet
-Plan: 06 of 6 (COMPLETE)
-Status: Phase Complete — Verified (6/6 must-haves + 7/7 UAT gaps closed)
-Last activity: 2026-02-17 — Phase 17 verified complete, ready to merge
+Phase: 20 — Production Ingredient Tracking & COGS
+Plan: 01 of 6 (COMPLETE)
+Status: Executing Phase 20
+Last activity: 2026-02-17 — Plan 20-01 complete (schema + hierarchy traversal)
 
-Progress (v1.2): [███░░░░░░░] 33%
+Progress (Phase 20): [█░░░░░░░░░] 17%
 
 ## Performance Metrics
 
@@ -50,6 +50,8 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17-06] commissionRate removed from schema (unused; net/gross tracked from external APIs)
 - [17-06] Direct Sales has "Planned (Manual)" outlet for ad-hoc planning
 - [17-06] Packaging-only products filtered from dispatch planner grid
+- [20-01] Used new Set(visited) per branch in DFS to avoid cross-branch false positives
+- [20-01] batchSize conversion: childUnits = (qty * multiplier) / batchSize when batchSize > 0
 
 ### Roadmap Evolution
 
@@ -72,9 +74,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-CONTEXT.md
-Resume notes: Phase 20 context captured. Ready for /gsd:plan-phase 20. Phase 17 complete and merged.
+Stopped at: Completed 20-01-PLAN.md
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-01-SUMMARY.md
+Resume notes: Plan 20-01 complete. Schema + hierarchy traversal ready. Continue with 20-02.
 
 ---
-*Last updated: 2026-02-17 (20-context)*
+*Last updated: 2026-02-17 (20-01)*
