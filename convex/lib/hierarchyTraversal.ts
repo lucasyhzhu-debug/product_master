@@ -151,6 +151,38 @@ export async function traverseHierarchy(
       childUnits = link.quantityPerUnit * quantityMultiplier;
     }
 
+    // Cost-leaf check: child has no direct ingredients AND no sub-component links
+    // (or cogsMode === "manual") → synthesize cost entry from child's stored unit cost
+    const childIngredients = await ctx.db
+      .query("productionComponentIngredients")
+      .withIndex("by_component", (q) => q.eq("componentTypeId", link.childComponentId))
+      .collect();
+
+    const childLinks = await ctx.db
+      .query("productionComponentLinks")
+      .withIndex("by_parent", (q) => q.eq("parentComponentId", link.childComponentId))
+      .collect();
+
+    const isCostLeaf =
+      childIngredients.length === 0 &&
+      childLinks.length === 0;
+
+    if (isCostLeaf || childComponent.cogsMode === "manual") {
+      // Use stored unit cost (either manualUnitCostIdr or unitCostIdr)
+      const storedCost = childComponent.manualUnitCostIdr ?? childComponent.unitCostIdr ?? 0;
+      if (storedCost > 0) {
+        results.push({
+          ingredientId: link.childComponentId as unknown as Id<"ingredients">,
+          ingredientName: childComponent.name,
+          totalQuantity: childUnits,
+          unit: childComponent.unit ?? "unit",
+          unitCost: storedCost,
+          lineCost: storedCost * childUnits,
+        });
+      }
+      continue; // Do not recurse into cost-leaf
+    }
+
     const childResults = await traverseHierarchy(
       ctx,
       link.childComponentId,
