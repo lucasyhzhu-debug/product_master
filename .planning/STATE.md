@@ -55,6 +55,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-02] recalculateComponentCogs only writes to componentTypes (forward-only COGS, historical orders keep original costs)
 - [20-02] Cost invalidation walks upward via productionComponentLinks.by_child to cascade stale markers
 - [20-02] cogsMode toggle preserves manualUnitCostIdr as fallback when switching to calculated
+- [20-03] Removed production+trackInventory restriction entirely (simpler than isIngredientTracker flag)
+- [20-03] Negative stock via adjustment transaction on shortfall (never blocks fulfillment)
+- [20-03] Ingredient deduction fires at BeingPrepared matching existing material consumption pattern
 
 ### Roadmap Evolution
 
@@ -77,9 +80,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-17
-Stopped at: Completed 20-02-PLAN.md
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-02-SUMMARY.md
-Resume notes: Plan 20-02 complete. Production recipe CRUD + COGS calculation ready. Continue with 20-03.
+Stopped at: Completed 20-03-PLAN.md
+Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-03-SUMMARY.md
+Resume notes: Plan 20-03 complete. Ingredient inventory + fulfillment deduction ready. Continue with 20-04.
 
 ---
-*Last updated: 2026-02-17 (20-02)*
+*Last updated: 2026-02-17 (20-03)*
