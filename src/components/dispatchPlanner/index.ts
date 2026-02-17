@@ -10,4 +10,5 @@ export { PlannerCell } from "./PlannerCell";
 export { CapacityBar, CHANNEL_COLORS } from "./CapacityBar";
 export { ChannelGroup } from "./ChannelGroup";
 export type { SaveCellFn } from "./ChannelGroup";
-// PlannerGrid export added in Task 2
+export { PlannerGrid } from "./PlannerGrid";
+export type { UnifiedWeeklyPlanData, SimulationResult } from "./PlannerGrid";

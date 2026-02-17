@@ -24,6 +24,7 @@ import {
   K3MartCockpit,
   CustomersManager,
   TagsManager,
+  DispatchPlanner,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -259,6 +260,16 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
                     <K3MartCockpit />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Dispatch Planner - Manager and Admin */}
+              <Route
+                path="dispatch-planner"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessDashboard">
+                    <DispatchPlanner />
                   </ProtectedRoute>
                 }
               />
