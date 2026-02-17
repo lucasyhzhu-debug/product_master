@@ -283,6 +283,7 @@ export {
   useConvexUpdateComponentType,
   useConvexDeleteComponentType,
   useConvexCreatePackagingQuick,
+  useConvexCreateIngredientComponentType,
   // Types
   type ComponentTypeCreateInput,
   type ComponentTypeUpdateInput,

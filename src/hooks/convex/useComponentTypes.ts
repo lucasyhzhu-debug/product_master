@@ -96,6 +96,14 @@ export function useConvexCreatePackagingQuick() {
   return useMutation(api.componentTypes.mutations.createPackagingQuick);
 }
 
+/**
+ * Create an ingredient-tracking component type and link it to an ingredient.
+ * Phase 20: Enables inventory tracking for food ingredients.
+ */
+export function useConvexCreateIngredientComponentType() {
+  return useMutation(api.componentTypes.mutations.createIngredientComponentType);
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
