@@ -13,13 +13,12 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { Calendar, Store, TrendingUp, RefreshCw, Settings, ChevronDown } from 'lucide-react';
+import { Store, TrendingUp, RefreshCw, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 // UI components
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 // Layout
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -27,7 +26,6 @@ import { PageHeader } from '@/components/layout/PageHeader';
 // K3 Mart Cockpit components
 import {
   OutletCardGrid,
-  WeeklyPlannerGrid,
   InventorySourcePanel,
   ProductionReadinessBar,
   BulkSubmitDialog,
@@ -92,9 +90,6 @@ export function K3MartCockpit() {
     Array<{ outletId: string; status: 'pending' | 'submitting' | 'success' | 'failed'; error?: string }>
   >([]);
   const [bulkSubmitCompleted, setBulkSubmitCompleted] = useState(0);
-
-  // Planner collapsibility
-  const [plannerExpanded, setPlannerExpanded] = useState(true);
 
   // Queries
   const { data: outletStockData, isLoading: loadingOutletStock } = useConvexOutletStockSummary(today);
@@ -520,22 +515,6 @@ export function K3MartCockpit() {
             canAct={canAct}
           />
         )}
-      </div>
-
-      {/* WEEKLY PLANNER (collapsible, default expanded) */}
-      <div className="space-y-2">
-        <button
-          onClick={() => setPlannerExpanded(!plannerExpanded)}
-          className="flex items-center gap-2 px-1 w-full text-left"
-        >
-          <Calendar className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Weekly Planner</h2>
-          <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform",
-            !plannerExpanded && "-rotate-90"
-          )} />
-        </button>
-        {plannerExpanded && <WeeklyPlannerGrid />}
       </div>
 
       {/* Bulk Submit Dialog */}
