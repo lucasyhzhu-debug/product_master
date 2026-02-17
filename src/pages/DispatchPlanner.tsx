@@ -145,7 +145,9 @@ export function DispatchPlanner() {
     if (simulationLoading && simulationStartDate && !loadingSimulation) {
       setSimulationLoading(false);
       if (simulationResults) {
-        const shortageCount = simulationResults.filter(d => d.status !== "ok").length;
+        const days = simulationResults.days ?? simulationResults;
+        const dayArray = Array.isArray(days) ? days : [];
+        const shortageCount = dayArray.filter((d: { status: string }) => d.status !== "ok").length;
         if (shortageCount > 0) {
           toast.warning(`Inventory simulation: ${shortageCount} day(s) have shortages`);
         } else {
@@ -228,8 +230,8 @@ export function DispatchPlanner() {
           data={weeklyData}
           onSaveCell={handleSaveCell}
           simulationResults={
-            simulationStartDate === startDate
-              ? simulationResults ?? undefined
+            simulationStartDate === startDate && simulationResults
+              ? (simulationResults.days ?? simulationResults) as any
               : undefined
           }
         />

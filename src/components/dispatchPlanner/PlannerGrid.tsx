@@ -69,6 +69,13 @@ export interface SimulationResult {
     available: number;
     deficit: number;
   }>;
+  ingredientShortages: Array<{
+    ingredientName: string;
+    required: number;
+    available: number;
+    deficit: number;
+    runsOutDate: string | null;
+  }>;
 }
 
 interface PlannerGridProps {
