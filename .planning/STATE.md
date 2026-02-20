@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
-Plan: 09 of 9 (COMPLETE — all gap-closure plans done)
-Status: Phase 20 complete — all 9 plans executed, ready for merge review
-Last activity: 2026-02-17 — Completed 20-09 (dispatch planner posSlot filter + K3Mart cockpit WeeklyPlannerGrid removal)
+Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
+Plan: 01 of N — Schema + Core Mutations COMPLETE
+Status: Phase 17.1 in progress — Plan 01 executed (schema + mutations + queries)
+Last activity: 2026-02-20 — Completed 17.1-01 (schema: productInventory tables, addStock/adjustStock, 5 queries)
 
 Progress (v1.2): [██████░░░░] 60%
 
@@ -82,6 +82,10 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-09] posSlot filter in menuProductMap build loop hides legacy unslotted products from Planned Manual
 - [20-09] WeeklyPlannerGrid removed from K3MartCockpit; /dispatch-planner is now sole planning interface
 - [20-09] GoFood gobiz outlets confirmed present in production DB -- no seeding required
+- [17.1-01] productInventory is simple aggregate (not FIFO) — quantity can go negative for GoFood outlets
+- [17.1-01] Reuse existing Legato Goldfinch venue location for GoFood Goldfinch mapping — no duplicate
+- [17.1-01] Manager adjustStock allows negative stock with annotated reason override note
+- [17.1-01] initializeSettings is internalMutation — called from seed only, not exposed to frontend
 
 ### Roadmap Evolution
 
@@ -112,9 +116,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Phase 17.1 context gathered — product inventory tracker (finished goods, location-aware, order drawdown)
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-CONTEXT.md
-Resume notes: Phase 17.1 context complete. Run /gsd:plan-phase 17.1 to create implementation plans. Note: user also wants settings/configuration UI (low-stock threshold, etc.) included in this phase.
+Stopped at: Completed 17.1-01-PLAN.md (finished goods inventory schema + addStock/adjustStock mutations + 5 queries)
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-01-SUMMARY.md
+Resume notes: Plan 01 done. Schema deployed: productInventory, productInventoryTransactions, productInventorySettings tables. Seed migration ready to run from dashboard. Continue with Plan 02 (UI + drawdown).
 
 ---
 *Last updated: 2026-02-17 (20-gap-closure-verified)*
