@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
-Plan: 02 of N — Drawdown Mutations + GoFood Phase D COMPLETE
-Status: Phase 17.1 in progress — Plan 02 executed (fulfillFromInventory mutation + processGofoodSales + Phase D)
-Last activity: 2026-02-20 — Completed 17.1-02 (fulfillFromInventory drawdown + GoFood auto-deduction Phase D)
+Plan: 03 of N — Finished Goods UI COMPLETE
+Status: Phase 17.1 in progress — Plan 03 executed (FinishedGoodsTab + hooks + dialogs + transaction log)
+Last activity: 2026-02-20 — Completed 17.1-03 (FinishedGoodsTab UI: 3-tab InventoryManager, stock cards, add/adjust dialogs, transaction log)
 
 Progress (v1.2): [██████░░░░] 60%
 
@@ -89,6 +89,10 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 17.1]: processGofoodSales accepts outletId (not merchantId) — outlet already resolved in revenue record, avoids redundant lookup
 - [Phase 17.1]: Phase D items aggregated by (outletId::menuProductId) composite key for correct per-outlet deduction
 - [Phase 17.1]: fulfillFromInventory bypasses FORWARD_TRANSITIONS and patches status directly (PaymentReceived->AwaitingDelivery special path)
+- [17.1-03] FG prefix naming for finished goods dialogs (FGAddStockDialog, FGAdjustStockDialog) to avoid conflict with existing AdjustStockDialog for packaging/batch inventory
+- [17.1-03] categoryFilter state removed from InventoryManager — effectiveCategoryFilter derived fully from mainTab
+- [17.1-03] Settings panel is inline collapsible Card in FinishedGoodsTab, visible to manager/admin
+- [17.1-03] ProductStockGroup grouping done client-side in FinishedGoodsTab useMemo (not backend)
 
 ### Roadmap Evolution
 
@@ -120,9 +124,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 17.1-02-PLAN.md (fulfillFromInventory + processGofoodSales + Phase D in GoBiz adapter)
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-02-SUMMARY.md
-Resume notes: Plan 02 done. fulfillFromInventory blocks on stock shortfall (ConvexError type=insufficient_stock), deducts atomically, advances to AwaitingDelivery. GoFood Phase D deducts from outlet-linked depot locations. Continue with Plan 03 (UI).
+Stopped at: Completed 17.1-03-PLAN.md (FinishedGoodsTab UI + useProductInventory hook + 3-tab InventoryManager)
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-03-SUMMARY.md
+Resume notes: Plan 03 done. FinishedGoodsTab renders stock cards per product, FGAddStockDialog/FGAdjustStockDialog for mutations, TransactionLogPanel with pagination. npm run build passes. Continue with Plan 04.
 
 ---
 *Last updated: 2026-02-17 (20-gap-closure-verified)*

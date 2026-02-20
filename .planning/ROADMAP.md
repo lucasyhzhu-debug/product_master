@@ -81,7 +81,7 @@ Plans:
 **Goal:** Staff can track finished goods inventory by location, add stock from kitchen, fulfill direct orders from inventory (skipping production), auto-deduct GoFood sales, and configure low-stock thresholds
 **Depends on:** Phase 17
 **Requirements:** FGI-01, FGI-02, FGI-03, FGI-04, FGI-05, FGI-06, FGI-07, FGI-08
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 17.1-01-PLAN.md -- Schema + seed + stock CRUD backend (3 tables, locations, mutations, queries)
