@@ -231,7 +231,7 @@ export type LowStockAlert = {
   location: {
     _id: string;
     name: string;
-    locationType: "office" | "kitchen" | "venue";
+    locationType: "office" | "kitchen" | "venue" | "depot";
     address?: string;
     isActive: boolean;
     isDefault?: boolean;
