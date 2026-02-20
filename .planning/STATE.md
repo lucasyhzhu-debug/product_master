@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
-Plan: 03 of N — Finished Goods UI COMPLETE
-Status: Phase 17.1 in progress — Plan 03 executed (FinishedGoodsTab + hooks + dialogs + transaction log)
-Last activity: 2026-02-20 — Completed 17.1-03 (FinishedGoodsTab UI: 3-tab InventoryManager, stock cards, add/adjust dialogs, transaction log)
+Plan: 04 of 04 — PHASE COMPLETE
+Status: Phase 17.1 COMPLETE — All 4 plans executed. Ready to merge to main.
+Last activity: 2026-02-20 — Completed 17.1-04 (FulfillFromInventoryButton + InventoryAvailabilityPanel on OrderDetail + CHANGELOG/SCHEMA docs)
 
-Progress (v1.2): [██████░░░░] 60%
+Progress (v1.2): [████████░░] 80%
 
 ## Performance Metrics
 
@@ -93,6 +93,10 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17.1-03] categoryFilter state removed from InventoryManager — effectiveCategoryFilter derived fully from mainTab
 - [17.1-03] Settings panel is inline collapsible Card in FinishedGoodsTab, visible to manager/admin
 - [17.1-03] ProductStockGroup grouping done client-side in FinishedGoodsTab useMemo (not backend)
+- [17.1-04] FulfillFromInventoryButton placed in src/components/inventory/ (inventory concern accessed from order page)
+- [17.1-04] Inner FulfillFromInventoryPanel pattern: outer returns null early, inner has all hooks — avoids hooks ordering violation
+- [17.1-04] Confirm button disabled when any item short via getStockForOrder pre-check — avoids doomed mutation calls
+- [17.1-04] ConvexError.data.type === 'insufficient_stock' parsed for per-item shortage display
 
 ### Roadmap Evolution
 
@@ -124,9 +128,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 17.1-03-PLAN.md (FinishedGoodsTab UI + useProductInventory hook + 3-tab InventoryManager)
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-03-SUMMARY.md
-Resume notes: Plan 03 done. FinishedGoodsTab renders stock cards per product, FGAddStockDialog/FGAdjustStockDialog for mutations, TransactionLogPanel with pagination. npm run build passes. Continue with Plan 04.
+Stopped at: Completed 17.1-04-PLAN.md (FulfillFromInventoryButton + InventoryAvailabilityPanel + docs) — Phase 17.1 COMPLETE
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-04-SUMMARY.md
+Resume notes: Phase 17.1 complete across 4 plans. All builds pass. Ready to merge feature branch to main. Next: merge and update CHANGELOG on main, then proceed to next planned phase.
 
 ---
 *Last updated: 2026-02-17 (20-gap-closure-verified)*
