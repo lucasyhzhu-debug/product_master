@@ -32,6 +32,11 @@ export type TerminalStatus = typeof TERMINAL_STATUSES[number];
 
 /**
  * Valid forward transitions (happy path).
+ *
+ * Note: PaymentReceived -> AwaitingDelivery is valid via fulfillFromInventory
+ * (inventory fulfillment path, bypasses BeingPrepared). Not in FORWARD_TRANSITIONS
+ * because that map is 1:1 for the standard happy path. fulfillFromInventory performs
+ * a direct status patch — it does NOT use isValidForwardTransition().
  */
 export const FORWARD_TRANSITIONS: Record<string, string> = {
   Draft: "AwaitingPayment",

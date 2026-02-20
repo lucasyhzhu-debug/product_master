@@ -7,8 +7,9 @@
  */
 
 import { mutation, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { requireRole } from "../lib/auth";
+import { logStatusTransition } from "../orders/helpers/statusTransitions";
 
 /**
  * Add stock — Kitchen/staff adds finished goods to a location.
@@ -195,6 +196,151 @@ export const initializeSettings = internalMutation({
 });
 
 /**
+ * Fulfill from inventory — Drawdown finished goods for a direct order.
+ *
+ * Validates stock at the given location, deducts all items atomically,
+ * and advances the order from PaymentReceived -> AwaitingDelivery
+ * (skipping kitchen production entirely).
+ *
+ * Throws a ConvexError with type "insufficient_stock" if any item is short.
+ * Auth: order_staff, manager, admin
+ */
+export const fulfillFromInventory = mutation({
+  args: {
+    token: v.string(),
+    orderId: v.id("orders"),
+    locationId: v.id("storageLocations"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["order_staff", "manager", "admin"]);
+
+    // 1. Validate order status: must be PaymentReceived
+    const order = await ctx.db.get(args.orderId);
+    if (!order) {
+      throw new Error("Order not found");
+    }
+    if (order.status !== "PaymentReceived") {
+      throw new Error(
+        `Order must be in "Payment Received" status to fulfill from inventory. Current status: ${order.status}`
+      );
+    }
+
+    // 2. Load active order items with a menuProductId
+    const allOrderItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .collect();
+
+    const orderItems = allOrderItems.filter(
+      (item) => item.isCancelled !== true && item.menuProductId !== undefined
+    );
+
+    if (orderItems.length === 0) {
+      throw new Error("No fulfillable items found on this order");
+    }
+
+    // 3. Check availability for ALL items first (no partial drawdown)
+    const shortages: Array<{ productName: string; needed: number; available: number }> = [];
+
+    for (const item of orderItems) {
+      const stockRow = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", item.menuProductId!).eq("locationId", args.locationId)
+        )
+        .first();
+
+      const available = stockRow?.quantity ?? 0;
+      const needed = item.quantity;
+
+      if (available < needed) {
+        const menuProduct = await ctx.db.get(item.menuProductId!);
+        shortages.push({
+          productName: menuProduct?.name ?? item.productName,
+          needed,
+          available,
+        });
+      }
+    }
+
+    if (shortages.length > 0) {
+      throw new ConvexError({
+        type: "insufficient_stock",
+        shortages,
+      });
+    }
+
+    // 4. Deduct all items atomically
+    const now = Date.now();
+    let itemsFulfilled = 0;
+
+    for (const item of orderItems) {
+      const stockRow = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", item.menuProductId!).eq("locationId", args.locationId)
+        )
+        .first();
+
+      // stockRow is guaranteed to exist (passed step 3 check)
+      const previousQuantity = stockRow?.quantity ?? 0;
+      const newQuantity = previousQuantity - item.quantity;
+
+      if (stockRow) {
+        await ctx.db.patch(stockRow._id, {
+          quantity: newQuantity,
+          lastUpdated: now,
+        });
+      } else {
+        // Defensive: insert with negative qty (should not reach here)
+        await ctx.db.insert("productInventory", {
+          menuProductId: item.menuProductId!,
+          locationId: args.locationId,
+          quantity: newQuantity,
+          lastUpdated: now,
+        });
+      }
+
+      // Log deduction transaction
+      await ctx.db.insert("productInventoryTransactions", {
+        menuProductId: item.menuProductId!,
+        locationId: args.locationId,
+        transactionType: "drawdown",
+        quantity: -item.quantity,
+        previousQuantity,
+        newQuantity,
+        orderId: args.orderId,
+        performedBy: user.name,
+        createdAt: now,
+      });
+
+      itemsFulfilled++;
+    }
+
+    // 5. Advance order status: PaymentReceived -> AwaitingDelivery (skips BeingPrepared)
+    //    Both delivery types use AwaitingDelivery (Phase 14 unified status).
+    //    The deliveryType field on the order determines downstream behavior.
+    await ctx.db.patch(args.orderId, {
+      status: "AwaitingDelivery",
+      isKitchenVisible: false,
+    });
+
+    // 6. Log the status transition to the audit trail
+    await logStatusTransition(
+      ctx,
+      args.orderId,
+      "PaymentReceived",
+      "AwaitingDelivery",
+      "Fulfilled from inventory (skipped production)",
+      "user",
+      user._id
+    );
+
+    return { success: true, itemsFulfilled };
+  },
+});
+
+/**
  * Update settings — Admin-only config update.
  */
 export const updateSettings = mutation({
@@ -246,5 +392,114 @@ export const updateSettings = mutation({
       });
       return id;
     }
+  },
+});
+
+/**
+ * Process GoFood sales — Auto-deduct finished goods for GoFood sync.
+ *
+ * Internal-only (called from GoBiz adapter Phase D).
+ * Deducts from the storage location linked to each outlet.
+ * Negative stock is ALLOWED — GoFood sales must never be blocked.
+ *
+ * Items are keyed by (outletId, menuProductId) — deduct from the outlet's
+ * linked depot location.
+ */
+export const processGofoodSales = internalMutation({
+  args: {
+    items: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      quantity: v.number(),
+      outletId: v.id("externalOutlets"),
+      gofoodOrderRef: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    if (args.items.length === 0) {
+      return { processed: 0, lowStockAlerts: 0 };
+    }
+
+    // Load global threshold from settings (for low-stock detection)
+    const settings = await ctx.db.query("productInventorySettings").first();
+    const globalThreshold = settings?.globalLowStockThreshold ?? 5;
+
+    // Cache outletId -> linkedStorageLocationId mapping to avoid repeated queries
+    const outletLocationCache = new Map<string, string | null>();
+
+    const now = Date.now();
+    let processed = 0;
+    let lowStockAlerts = 0;
+
+    for (const item of args.items) {
+      // Resolve the linked storage location for this outlet
+      const outletIdStr = item.outletId as string;
+      let linkedLocationId: string | null;
+
+      if (outletLocationCache.has(outletIdStr)) {
+        linkedLocationId = outletLocationCache.get(outletIdStr)!;
+      } else {
+        const outlet = await ctx.db.get(item.outletId);
+        linkedLocationId = outlet?.linkedStorageLocationId ?? null;
+        outletLocationCache.set(outletIdStr, linkedLocationId);
+      }
+
+      if (!linkedLocationId) {
+        // Outlet not linked to a storage location — skip
+        console.log(
+          `processGofoodSales: outlet ${outletIdStr} has no linkedStorageLocationId — skipping item`
+        );
+        continue;
+      }
+
+      const locationId = linkedLocationId as typeof item.outletId;
+
+      // Load or create the productInventory row
+      const existing = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", item.menuProductId).eq("locationId", locationId)
+        )
+        .first();
+
+      const previousQuantity = existing?.quantity ?? 0;
+      const newQuantity = previousQuantity - item.quantity;
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          quantity: newQuantity,
+          lastUpdated: now,
+        });
+      } else {
+        await ctx.db.insert("productInventory", {
+          menuProductId: item.menuProductId,
+          locationId,
+          quantity: newQuantity,
+          lastUpdated: now,
+        });
+      }
+
+      // Log the GoFood sale transaction
+      await ctx.db.insert("productInventoryTransactions", {
+        menuProductId: item.menuProductId,
+        locationId,
+        transactionType: "gofood_sale",
+        quantity: -item.quantity,
+        previousQuantity,
+        newQuantity,
+        gofoodOrderRef: item.gofoodOrderRef,
+        performedBy: "system:gobiz_sync",
+        createdAt: now,
+      });
+
+      processed++;
+
+      // Check for low-stock alert
+      const effectiveThreshold = globalThreshold;
+      if (newQuantity <= effectiveThreshold) {
+        lowStockAlerts++;
+      }
+    }
+
+    return { processed, lowStockAlerts };
   },
 });
