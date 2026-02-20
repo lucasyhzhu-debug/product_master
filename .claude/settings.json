@@ -9,7 +9,7 @@
       "Read(*)",
       "WebFetch(*)",
       "WebSearch(*)",
-
+      "Bash(*)",
       "Bash(cd *)",
       "Bash(pwd)",
       "Bash(ls)",
@@ -52,7 +52,6 @@
       "Bash(bash *)",
       "Bash(netstat*)",
       "Bash(start *)",
-
       "Bash(git status*)",
       "Bash(git log*)",
       "Bash(git diff*)",
@@ -97,7 +96,6 @@
       "Bash(git grep*)",
       "Bash(git -C *)",
       "Bash(gh *)",
-
       "Bash(npm install*)",
       "Bash(npm ci*)",
       "Bash(npm run*)",
@@ -127,7 +125,6 @@
       "Bash(CONVEX_DEPLOYMENT=*)",
       "Bash(firecrawl *)",
       "Bash(FIRECRAWL_API_KEY=*)",
-
       "Bash(cd * && ls *)",
       "Bash(cd * && cat *)",
       "Bash(cd * && head *)",
@@ -147,7 +144,6 @@
       "Bash(cd * && npx *)",
       "Bash(cd * && git *)",
       "Bash(cd * && python *)",
-
       "Bash(* && cd *)",
       "Bash(* && ls *)",
       "Bash(* && dir *)",
@@ -163,7 +159,6 @@
       "Bash(* && npm *)",
       "Bash(* && npx *)",
       "Bash(* && node *)",
-
       "Bash(git * && git *)",
       "Bash(npm * && npm *)",
       "Bash(npx * && npx *)",
