@@ -287,7 +287,7 @@ export function FinishedGoodsTab() {
                   <div>
                     <Label className="text-sm">Auto-advance on Drawdown</Label>
                     <p className="text-xs text-muted-foreground">
-                      Auto-advance order to AwaitingDelivery on stock drawdown
+                      When ON, fulfilling an order from inventory automatically moves it to "Awaiting Delivery" — no manual status change needed.
                     </p>
                   </div>
                   <Switch
@@ -311,6 +311,9 @@ export function FinishedGoodsTab() {
                       <SelectItem value="toast_and_badge">Toast + Badge</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    How to notify when stock runs low: "Toast only" shows a pop-up; "Toast + Badge" also shows a red indicator on the Finished Goods tab.
+                  </p>
                 </div>
               </div>
             )}
