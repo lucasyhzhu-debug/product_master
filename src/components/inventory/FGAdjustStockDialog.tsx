@@ -61,14 +61,6 @@ export function FGAdjustStockDialog({
     {}
   );
 
-  const currentStock = selectedProductId && selectedLocationId
-    ? (stockOverview?.find(
-        (row) =>
-          row.menuProduct?._id === selectedProductId &&
-          row.location?._id === selectedLocationId
-      )?.quantity ?? null)
-    : null;
-
   const [selectedProductId, setSelectedProductId] = useState<string>(
     preselectedProductId ?? ""
   );
@@ -79,6 +71,14 @@ export function FGAdjustStockDialog({
   );
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const currentStock = selectedProductId && selectedLocationId
+    ? (stockOverview?.find(
+        (row) =>
+          row.menuProduct?._id === selectedProductId &&
+          row.location?._id === selectedLocationId
+      )?.quantity ?? null)
+    : null;
 
   // Reset form when dialog opens
   useEffect(() => {
