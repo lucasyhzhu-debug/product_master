@@ -110,10 +110,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-17
-Stopped at: Phase 20 gap closure execution + verification complete (9/9 gaps closed, 8/8 must-haves passed)
-Resume file: .planning/phases/20-production-ingredient-tracking-and-cogs/20-GAP-VERIFICATION.md
-Resume notes: Phase 20 fully verified. Branch feature/production-ingredient-tracking-cogs ready to merge to main. After merge: update CHANGELOG.md, then start Phase 18 (GoFood Depot Management).
+Last session: 2026-02-20
+Stopped at: Phase 17.1 context gathered — product inventory tracker (finished goods, location-aware, order drawdown)
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-CONTEXT.md
+Resume notes: Phase 17.1 context complete. Run /gsd:plan-phase 17.1 to create implementation plans. Note: user also wants settings/configuration UI (low-stock threshold, etc.) included in this phase.
 
 ---
 *Last updated: 2026-02-17 (20-gap-closure-verified)*
