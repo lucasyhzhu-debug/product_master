@@ -20,6 +20,7 @@ import {
 } from '@/components/orders';
 import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
 import { AuditTrail } from '@/components/orders/AuditTrail';
+import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 
 import {
@@ -299,6 +300,15 @@ export function OrderDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Fulfill from Inventory (PaymentReceived orders only) */}
+          {orderId && (
+            <FulfillFromInventoryButton
+              orderId={orderId}
+              orderStatus={order.status}
+              token={user?.token ?? ''}
+            />
+          )}
 
           {/* Stock Override Audit Trail */}
           {overrideEvents.length > 0 && (
