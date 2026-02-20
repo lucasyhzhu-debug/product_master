@@ -56,6 +56,19 @@ export function FGAdjustStockDialog({
 
   const menuProducts = useQuery(api.menuProducts.queries.list, {});
 
+  const stockOverview = useQuery(
+    api.productInventory.queries.getStockOverview,
+    {}
+  );
+
+  const currentStock = selectedProductId && selectedLocationId
+    ? (stockOverview?.find(
+        (row) =>
+          row.menuProduct?._id === selectedProductId &&
+          row.location?._id === selectedLocationId
+      )?.quantity ?? null)
+    : null;
+
   const [selectedProductId, setSelectedProductId] = useState<string>(
     preselectedProductId ?? ""
   );
@@ -138,7 +151,9 @@ export function FGAdjustStockDialog({
     }
   };
 
-  const activeProducts = menuProducts?.filter((p) => p.isActive !== false) ?? [];
+  const activeProducts = menuProducts?.filter(
+    (p) => p.isActive !== false && p.posSlot != null
+  ) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,24 +198,29 @@ export function FGAdjustStockDialog({
 
           {/* Location Selector */}
           <div className="space-y-2">
-            <Label htmlFor="fga-location">Location</Label>
-            <Select
-              value={selectedLocationId}
-              onValueChange={(v) => setSelectedLocationId(v)}
-            >
-              <SelectTrigger id="fga-location">
-                <SelectValue placeholder="Select location..." />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((loc) => (
-                  <SelectItem key={loc._id} value={loc._id}>
-                    {loc.name}
-                    {loc.isDefault && " (default)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Location</Label>
+            <div className="flex gap-2 flex-wrap">
+              {locations.map((loc) => (
+                <Button
+                  key={loc._id}
+                  type="button"
+                  variant={selectedLocationId === loc._id ? "default" : "outline"}
+                  className={cn("flex-1 min-w-[80px]")}
+                  onClick={() => setSelectedLocationId(loc._id)}
+                >
+                  {loc.name}
+                </Button>
+              ))}
+            </div>
           </div>
+
+          {/* Current stock display */}
+          {currentStock !== null && (
+            <p className="text-sm text-muted-foreground">
+              Current stock at this location:{" "}
+              <span className="font-semibold text-foreground">{currentStock}</span> units
+            </p>
+          )}
 
           {/* Adjust Type Toggle */}
           <div className="space-y-2">
