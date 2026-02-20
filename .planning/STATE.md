@@ -99,6 +99,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
+| 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Done | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 
 ### Blockers/Concerns
 
