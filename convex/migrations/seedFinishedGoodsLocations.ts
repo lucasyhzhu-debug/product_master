@@ -15,6 +15,7 @@
  */
 
 import { mutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 
 export const seedFinishedGoodsLocations = mutation({
   args: {},
@@ -121,7 +122,7 @@ export const seedFinishedGoodsLocations = mutation({
       }
 
       await ctx.db.patch(outlet._id, {
-        linkedStorageLocationId: mapping.id as ReturnType<typeof ctx.db.get> extends Promise<infer T> ? T extends { _id: infer I } ? I : never : never,
+        linkedStorageLocationId: mapping.id as Id<"storageLocations">,
       });
       log.push(
         `[LINK] ${outlet.name} (${outlet.externalId}) -> ${mapping.name}`

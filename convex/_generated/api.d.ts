@@ -75,6 +75,7 @@ import type * as migrations_bomVerification from "../migrations/bomVerification.
 import type * as migrations_categorySimplification from "../migrations/categorySimplification.js";
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
+import type * as migrations_seedFinishedGoodsLocations from "../migrations/seedFinishedGoodsLocations.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
@@ -102,6 +103,8 @@ import type * as orders_types from "../orders/types.js";
 import type * as orders_validators from "../orders/validators.js";
 import type * as orders_whatsapp from "../orders/whatsapp.js";
 import type * as orders_whatsappHelpers from "../orders/whatsappHelpers.js";
+import type * as productInventory_mutations from "../productInventory/mutations.js";
+import type * as productInventory_queries from "../productInventory/queries.js";
 import type * as packaging_mutations from "../packaging/mutations.js";
 import type * as packaging_queries from "../packaging/queries.js";
 import type * as platformCredentials_actions from "../platformCredentials/actions.js";
@@ -209,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/categorySimplification": typeof migrations_categorySimplification;
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
+  "migrations/seedFinishedGoodsLocations": typeof migrations_seedFinishedGoodsLocations;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
@@ -236,6 +240,8 @@ declare const fullApi: ApiFromModules<{
   "orders/validators": typeof orders_validators;
   "orders/whatsapp": typeof orders_whatsapp;
   "orders/whatsappHelpers": typeof orders_whatsappHelpers;
+  "productInventory/mutations": typeof productInventory_mutations;
+  "productInventory/queries": typeof productInventory_queries;
   "packaging/mutations": typeof packaging_mutations;
   "packaging/queries": typeof packaging_queries;
   "platformCredentials/actions": typeof platformCredentials_actions;
