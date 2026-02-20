@@ -89,6 +89,7 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - v1.1: Phases 12-16 shipped 2026-02-16 (Phase 14.1 inserted, Phase 16.1 dropped)
 - v1.2: Phases 17-19 planned 2026-02-17 (GoFood + Dispatch + Kitchen)
 - Phase 20 added: Production Ingredient Tracking & COGS (extends BOM/inventory pattern to food ingredients)
+- Phase 17.1 inserted after Phase 17: Product inventory tracker with location tracking and order fulfilment drawdown (URGENT)
 
 ### Pending Todos
 
@@ -99,7 +100,7 @@ None yet.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
-| 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Done | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
+| 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Verified | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 
 ### Blockers/Concerns
 
