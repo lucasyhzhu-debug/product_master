@@ -134,7 +134,7 @@ export function FinishedGoodsTab() {
     if (!user?.token) return;
 
     const threshold = Number(thresholdInput);
-    if (isNaN(threshold) || threshold < 0) {
+    if (isNaN(threshold) || threshold < 1) {
       toast.error("Threshold must be a non-negative number");
       return;
     }

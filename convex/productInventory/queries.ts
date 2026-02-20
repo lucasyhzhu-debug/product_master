@@ -21,7 +21,7 @@ export const getStockOverview = query({
   handler: async (ctx, args) => {
     // Load global threshold from settings (default 5 if not initialized)
     const settings = await ctx.db.query("productInventorySettings").first();
-    const globalThreshold = settings?.globalLowStockThreshold ?? 5;
+    const globalThreshold = settings?.globalLowStockThreshold || 5;
 
     // Load inventory rows (optionally filtered by location)
     let rows;
@@ -181,7 +181,7 @@ export const getLowStockAlerts = query({
   args: {},
   handler: async (ctx) => {
     const settings = await ctx.db.query("productInventorySettings").first();
-    const globalThreshold = settings?.globalLowStockThreshold ?? 5;
+    const globalThreshold = settings?.globalLowStockThreshold || 5;
 
     const rows = await ctx.db.query("productInventory").collect();
 
