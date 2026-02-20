@@ -44,7 +44,7 @@ export function ComponentTypeDialog({
   const [name, setName] = useState("");
   const [category, setCategory] = useState(defaultCategory);
   const [unitCost, setUnitCost] = useState("");
-  const [unit, setUnit] = useState("pcs");
+  const [unit, setUnit] = useState(defaultCategory === "production" ? "g" : "pcs");
   const [gramsPerUnit, setGramsPerUnit] = useState("");
   const [reorderPoint, setReorderPoint] = useState("");
   const [trackInventory, setTrackInventory] = useState(true);
