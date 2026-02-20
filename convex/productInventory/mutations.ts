@@ -8,6 +8,7 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { logStatusTransition } from "../orders/helpers/statusTransitions";
 
@@ -424,7 +425,7 @@ export const processGofoodSales = internalMutation({
     const globalThreshold = settings?.globalLowStockThreshold ?? 5;
 
     // Cache outletId -> linkedStorageLocationId mapping to avoid repeated queries
-    const outletLocationCache = new Map<string, string | null>();
+    const outletLocationCache = new Map<string, Id<"storageLocations"> | null>();
 
     const now = Date.now();
     let processed = 0;
@@ -433,7 +434,7 @@ export const processGofoodSales = internalMutation({
     for (const item of args.items) {
       // Resolve the linked storage location for this outlet
       const outletIdStr = item.outletId as string;
-      let linkedLocationId: string | null;
+      let linkedLocationId: Id<"storageLocations"> | null;
 
       if (outletLocationCache.has(outletIdStr)) {
         linkedLocationId = outletLocationCache.get(outletIdStr)!;
@@ -451,7 +452,7 @@ export const processGofoodSales = internalMutation({
         continue;
       }
 
-      const locationId = linkedLocationId as typeof item.outletId;
+      const locationId: Id<"storageLocations"> = linkedLocationId;
 
       // Load or create the productInventory row
       const existing = await ctx.db

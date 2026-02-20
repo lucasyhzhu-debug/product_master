@@ -399,6 +399,16 @@ export {
   useUpdateIngredientQuantity,
 } from "./useProductionRecipes";
 
+// Product Inventory (Finished Goods Inventory Tracker - Phase 17.1)
+export {
+  useProductInventory,
+  useProductInventoryTransactions,
+  type ProductStockRow,
+  type ProductLowStockAlert,
+  type ProductInventorySettings,
+  type ProductStockGroup,
+} from "./useProductInventory";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
