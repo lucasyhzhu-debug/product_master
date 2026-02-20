@@ -121,7 +121,9 @@ export function FGAddStockDialog({
     }
   };
 
-  const activeProducts = menuProducts?.filter((p) => p.isActive !== false) ?? [];
+  const activeProducts = menuProducts?.filter(
+    (p) => p.isActive !== false && p.posSlot != null
+  ) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,23 +181,20 @@ export function FGAddStockDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fg-location">Add to location</Label>
-            <Select
-              value={selectedLocationId}
-              onValueChange={(v) => setSelectedLocationId(v)}
-            >
-              <SelectTrigger id="fg-location">
-                <SelectValue placeholder="Select location..." />
-              </SelectTrigger>
-              <SelectContent>
-                {locations.map((loc) => (
-                  <SelectItem key={loc._id} value={loc._id}>
-                    {loc.name}
-                    {loc.isDefault && " (default)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Add to location</Label>
+            <div className="flex gap-2 flex-wrap">
+              {locations.map((loc) => (
+                <Button
+                  key={loc._id}
+                  type="button"
+                  variant={selectedLocationId === loc._id ? "default" : "outline"}
+                  className="flex-1 min-w-[80px]"
+                  onClick={() => setSelectedLocationId(loc._id)}
+                >
+                  {loc.name}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
