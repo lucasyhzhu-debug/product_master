@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
-Plan: 01 of N — Schema + Core Mutations COMPLETE
-Status: Phase 17.1 in progress — Plan 01 executed (schema + mutations + queries)
-Last activity: 2026-02-20 — Completed 17.1-01 (schema: productInventory tables, addStock/adjustStock, 5 queries)
+Plan: 02 of N — Drawdown Mutations + GoFood Phase D COMPLETE
+Status: Phase 17.1 in progress — Plan 02 executed (fulfillFromInventory mutation + processGofoodSales + Phase D)
+Last activity: 2026-02-20 — Completed 17.1-02 (fulfillFromInventory drawdown + GoFood auto-deduction Phase D)
 
 Progress (v1.2): [██████░░░░] 60%
 
@@ -86,6 +86,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17.1-01] Reuse existing Legato Goldfinch venue location for GoFood Goldfinch mapping — no duplicate
 - [17.1-01] Manager adjustStock allows negative stock with annotated reason override note
 - [17.1-01] initializeSettings is internalMutation — called from seed only, not exposed to frontend
+- [Phase 17.1]: processGofoodSales accepts outletId (not merchantId) — outlet already resolved in revenue record, avoids redundant lookup
+- [Phase 17.1]: Phase D items aggregated by (outletId::menuProductId) composite key for correct per-outlet deduction
+- [Phase 17.1]: fulfillFromInventory bypasses FORWARD_TRANSITIONS and patches status directly (PaymentReceived->AwaitingDelivery special path)
 
 ### Roadmap Evolution
 
@@ -106,6 +109,7 @@ None yet.
 | 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
 | 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Verified | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 | 9 | Update GoBiz API input to accept full auth JSON blob (access_token + refresh_token from single paste) | 2026-02-20 | e820383 | Complete | [9-update-gojek-api-input-to-accept-access-](.planning/quick/9-update-gojek-api-input-to-accept-access-/) |
+| Phase 17.1 P02 | 9 | 2 tasks | 6 files |
 
 ### Blockers/Concerns
 
@@ -116,9 +120,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 17.1-01-PLAN.md (finished goods inventory schema + addStock/adjustStock mutations + 5 queries)
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-01-SUMMARY.md
-Resume notes: Plan 01 done. Schema deployed: productInventory, productInventoryTransactions, productInventorySettings tables. Seed migration ready to run from dashboard. Continue with Plan 02 (UI + drawdown).
+Stopped at: Completed 17.1-02-PLAN.md (fulfillFromInventory + processGofoodSales + Phase D in GoBiz adapter)
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-02-SUMMARY.md
+Resume notes: Plan 02 done. fulfillFromInventory blocks on stock shortfall (ConvexError type=insufficient_stock), deducts atomically, advances to AwaitingDelivery. GoFood Phase D deducts from outlet-linked depot locations. Continue with Plan 03 (UI).
 
 ---
 *Last updated: 2026-02-17 (20-gap-closure-verified)*
