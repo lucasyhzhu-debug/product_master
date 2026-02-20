@@ -109,7 +109,7 @@ None yet.
 | 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
 | 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Verified | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 | 9 | Update GoBiz API input to accept full auth JSON blob (access_token + refresh_token from single paste) | 2026-02-20 | e820383 | Complete | [9-update-gojek-api-input-to-accept-access-](.planning/quick/9-update-gojek-api-input-to-accept-access-/) |
-| 10 | Fix ingredient components missing from Inventory Manager Production tab (union query + bypass zero-stock filter for production rows) | 2026-02-20 | 0530a47 | Complete | [10-fix-ingredient-components-missing-from-i](.planning/quick/10-fix-ingredient-components-missing-from-i/) |
+| 10 | Fix ingredient components missing from Inventory Manager Production tab (union query + bypass zero-stock filter for production rows) | 2026-02-20 | 0530a47 | Verified | [10-fix-ingredient-components-missing-from-i](.planning/quick/10-fix-ingredient-components-missing-from-i/) |
 
 ### Blockers/Concerns
 
