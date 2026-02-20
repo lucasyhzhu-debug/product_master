@@ -14,6 +14,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.5] - 2026-02-20 - Phase 17.1: Finished Goods Inventory Tracker
+
+Staff can now track finished goods (boxes of ready-to-sell product) by location, add stock after production runs, and fulfill orders directly from inventory — skipping kitchen production entirely when stock is available. GoFood sales automatically deduct from the linked depot location.
+
+### Added
+- **Finished Goods Inventory tab** in Inventory Manager (third tab alongside Packaging and Ingredients)
+- **ProductStockCard**: per-product stock card showing quantity by location with low-stock highlighting
+- **AddStockDialog**: simple dialog for kitchen/staff to record finished goods added to a location
+- **FGAdjustStockDialog**: manager-only dialog for corrections/spoilage/transfers (requires reason)
+- **TransactionLogPanel**: scrollable paginated audit log of all stock movements per product
+- **FulfillFromInventoryButton**: appears on PaymentReceived orders — location selector + per-item availability check + atomic drawdown; advances order to AwaitingDelivery on success
+- **InventoryAvailabilityPanel**: real-time per-item availability table (Needed / Available / Status) shown before confirming drawdown
+- **GoFood auto-deduct**: processGofoodSales internal mutation deducts finished goods from outlet-linked depot locations during GoBiz sync
+- **Low-stock alerts**: configurable global threshold; visual highlighting when stock at or below threshold
+- **Settings panel**: admin-only globalLowStockThreshold, defaultAddLocationId, autoAdvanceOnDrawdown, alertMode configuration
+
+### Changed
+- InventoryManager page: 3-tab layout (Packaging | Ingredients | Finished Goods); category filter now derived from active tab
+- Order fulfillment flow: "Fulfill from Inventory" card visible on Confirmed orders for order_staff/manager/admin
+
+### Schema
+- New table: `productInventory` (finished goods stock per product per location)
+- New table: `productInventoryTransactions` (full audit log of all stock movements)
+- New table: `productInventorySettings` (global low-stock threshold and config)
+
+---
+
 ## [v1.3.0] - 2026-02-17 - Phase 20: Production Ingredient Tracking & COGS
 
 Now you can build recipes for production components (like Mid Ball or Big Ball) with sub-components and ingredients, see exactly how much each one costs to make, and the dispatch planner checks whether you have enough ingredients for the week ahead -- not just packaging materials.
