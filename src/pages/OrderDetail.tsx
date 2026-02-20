@@ -96,7 +96,7 @@ export function OrderDetail() {
 
   // Admin force-complete
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // const isAdmin = user?.role === 'admin'; // Temporarily disabled — Force Complete visible to all until button visibility confirmed
   const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
@@ -286,21 +286,6 @@ export function OrderDetail() {
             </CardContent>
           </Card>
 
-          {/* Status Actions */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {orderId && (
-                <StatusActionButtons
-                  orderId={orderId}
-                  status={order.status}
-                />
-              )}
-            </CardContent>
-          </Card>
-
           {/* Fulfill from Inventory (PaymentReceived orders only) */}
           {orderId && (
             <FulfillFromInventoryButton
@@ -309,6 +294,36 @@ export function OrderDetail() {
               token={user?.token ?? ''}
             />
           )}
+
+          {/* Status Actions */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {orderId && (
+                <StatusActionButtons
+                  orderId={orderId}
+                  status={order.status}
+                />
+              )}
+
+              {/* Admin: Force Complete (data fix) - prominent placement */}
+              {!['Complete', 'Cancelled'].includes(order.status) && (
+                <div className="pt-1 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                    onClick={() => setShowForceCompleteDialog(true)}
+                  >
+                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    Force Complete (Admin)
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Stock Override Audit Trail */}
           {overrideEvents.length > 0 && (
@@ -511,20 +526,6 @@ export function OrderDetail() {
             </div>
           )}
 
-          {/* Admin: Force Complete (data fix) */}
-          {isAdmin && !['Complete', 'Cancelled'].includes(order.status) && (
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
-                onClick={() => setShowForceCompleteDialog(true)}
-              >
-                <ShieldAlert className="h-3 w-3 mr-1" />
-                Force Complete (Admin)
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
