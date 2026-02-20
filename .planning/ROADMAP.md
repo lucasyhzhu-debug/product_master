@@ -76,6 +76,19 @@ Plans:
 - [x] 17-05-PLAN.md -- Routing, page wiring, documentation updates
 - [x] 17-06-PLAN.md -- UAT gap closure: 7 fixes (timezone, editability, commission removal, tab merge, product filter, simulate inventory, tooltip)
 
+### Phase 17.1: Product inventory tracker with location tracking and order fulfilment drawdown (INSERTED)
+
+**Goal:** Staff can track finished goods inventory by location, add stock from kitchen, fulfill direct orders from inventory (skipping production), auto-deduct GoFood sales, and configure low-stock thresholds
+**Depends on:** Phase 17
+**Requirements:** FGI-01, FGI-02, FGI-03, FGI-04, FGI-05, FGI-06, FGI-07, FGI-08
+**Plans:** 4 plans
+
+Plans:
+- [ ] 17.1-01-PLAN.md -- Schema + seed + stock CRUD backend (3 tables, locations, mutations, queries)
+- [ ] 17.1-02-PLAN.md -- Order drawdown mutation + GoFood Phase D sync hook
+- [ ] 17.1-03-PLAN.md -- Frontend: FinishedGoodsTab + stock cards + add/adjust dialogs + settings
+- [ ] 17.1-04-PLAN.md -- OrderDetail drawdown UI + documentation updates
+
 ### Phase 20: Production Ingredient Tracking & COGS
 **Goal**: Extend the packaging BOM/inventory pattern to production components — each production component (Big Ball, Mid Ball) gets ingredient recipes with quantities, FIFO inventory tracking for food ingredients, auto-calculated COGS from ingredient costs, and usage simulation for production planning
 **Depends on**: Phase 17 (dispatch planner needed for usage simulation); independent of 18/19
