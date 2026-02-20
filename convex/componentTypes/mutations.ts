@@ -142,6 +142,7 @@ export const update = mutation({
     batchSize: v.optional(v.number()),
     batchSizeUnit: v.optional(v.string()),
     cogsMode: v.optional(v.union(v.literal("manual"), v.literal("calculated"))),
+    category: v.optional(v.union(v.literal("production"), v.literal("packaging"))),
   },
   handler: async (ctx, args) => {
     const component = await ctx.db.get(args.id);

@@ -241,7 +241,9 @@ export const fulfillFromInventory = mutation({
     }
 
     // 3. Check availability for ALL items first (no partial drawdown)
+    //    Also build productNameMap for use in step 4 deductions.
     const shortages: Array<{ productName: string; needed: number; available: number }> = [];
+    const productNameMap = new Map<string, string>();
 
     for (const item of orderItems) {
       const stockRow = await ctx.db
@@ -251,11 +253,13 @@ export const fulfillFromInventory = mutation({
         )
         .first();
 
+      const menuProduct = await ctx.db.get(item.menuProductId!);
+      productNameMap.set(String(item.menuProductId!), menuProduct?.name ?? item.productName);
+
       const available = stockRow?.quantity ?? 0;
       const needed = item.quantity;
 
       if (available < needed) {
-        const menuProduct = await ctx.db.get(item.menuProductId!);
         shortages.push({
           productName: menuProduct?.name ?? item.productName,
           needed,
@@ -274,6 +278,7 @@ export const fulfillFromInventory = mutation({
     // 4. Deduct all items atomically
     const now = Date.now();
     let itemsFulfilled = 0;
+    const deductions: Array<{ productName: string; used: number; remaining: number }> = [];
 
     for (const item of orderItems) {
       const stockRow = await ctx.db
@@ -315,6 +320,12 @@ export const fulfillFromInventory = mutation({
         createdAt: now,
       });
 
+      deductions.push({
+        productName: productNameMap.get(String(item.menuProductId!)) ?? item.productName,
+        used: item.quantity,
+        remaining: newQuantity,
+      });
+
       itemsFulfilled++;
     }
 
@@ -337,7 +348,7 @@ export const fulfillFromInventory = mutation({
       user._id
     );
 
-    return { success: true, itemsFulfilled };
+    return { success: true, itemsFulfilled, deductions };
   },
 });
 
