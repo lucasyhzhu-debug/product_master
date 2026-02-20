@@ -19,13 +19,6 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InventoryAvailabilityPanel } from './InventoryAvailabilityPanel';
 
@@ -99,14 +92,17 @@ function FulfillFromInventoryPanel({
     availability.every((item) => item.isSufficient);
 
   const handleOpen = () => {
-    // Default to settings.defaultAddLocationId, or first active location
-    if (!selectedLocationId) {
-      const defaultId = settings?.defaultAddLocationId;
-      if (defaultId) {
-        setSelectedLocationId(defaultId);
-      } else if (storageLocations && storageLocations.length > 0) {
-        setSelectedLocationId(storageLocations[0]._id);
-      }
+    if (!selectedLocationId && storageLocations && storageLocations.length > 0) {
+      // Default to Office location, then settings default, then first
+      const office = storageLocations.find((l) =>
+        l.name.toLowerCase().includes('office')
+      );
+      const settingsDefault = settings?.defaultAddLocationId
+        ? storageLocations.find((l) => l._id === settings.defaultAddLocationId)
+        : null;
+      setSelectedLocationId(
+        (office ?? settingsDefault ?? storageLocations[0])._id
+      );
     }
     setStockShortages(null);
     setShowPanel(true);
@@ -122,9 +118,21 @@ function FulfillFromInventoryPanel({
     setIsSubmitting(true);
     setStockShortages(null);
     try {
-      await fulfillFromInventory({ orderId, locationId: selectedLocationId, token });
-      toast.success('Order fulfilled from inventory! Status: Awaiting Delivery');
+      const result = await fulfillFromInventory({ orderId, locationId: selectedLocationId, token });
       setShowPanel(false);
+
+      if (result?.deductions && result.deductions.length > 0) {
+        const lines = result.deductions.map(
+          (d: { productName: string; used: number; remaining: number }) =>
+            `${d.productName}: ${d.used} used, ${d.remaining} remaining`
+        );
+        toast.success('Order fulfilled from inventory!', {
+          description: lines.join('\n'),
+          duration: 6000,
+        });
+      } else {
+        toast.success('Order fulfilled from inventory! Status: Awaiting Delivery');
+      }
     } catch (error: unknown) {
       if (error instanceof ConvexError) {
         // Check for insufficient_stock structured error
@@ -169,34 +177,29 @@ function FulfillFromInventoryPanel({
         ) : (
           /* Panel state: location selector + availability + actions */
           <div className="space-y-4">
-            {/* Location selector */}
+            {/* Location toggle buttons */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Select Location
+                Location
               </label>
-              <Select
-                value={selectedLocationId ?? ''}
-                onValueChange={(val) => {
-                  setSelectedLocationId(val as Id<"storageLocations">);
-                  setStockShortages(null);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a location..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {storageLocations?.map((loc) => (
-                    <SelectItem key={loc._id} value={loc._id}>
-                      {loc.name}
-                      {loc.locationType && (
-                        <span className="text-muted-foreground ml-1 text-xs">
-                          ({loc.locationType})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1.5 flex-wrap">
+                {storageLocations?.map((loc) => (
+                  <Button
+                    key={loc._id}
+                    variant={selectedLocationId === loc._id ? 'default' : 'outline'}
+                    size="sm"
+                    className={selectedLocationId === loc._id
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'
+                      : 'text-muted-foreground'}
+                    onClick={() => {
+                      setSelectedLocationId(loc._id);
+                      setStockShortages(null);
+                    }}
+                  >
+                    {loc.name}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {/* Availability panel */}
