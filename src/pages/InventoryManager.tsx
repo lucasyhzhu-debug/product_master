@@ -72,6 +72,20 @@ export function InventoryManager() {
           const stockAtLocation = row.stockByLocation.find(
             (loc) => loc.locationId === selectedLocation
           );
+
+          // Production components always show (informational/BOM-level rows).
+          // They may have zero stock at a location but must not be hidden.
+          if (row.component.category === "production") {
+            return {
+              ...row,
+              stockByLocation: stockAtLocation ? [stockAtLocation] : [],
+              totalAcrossLocations: stockAtLocation?.totalStock ?? 0,
+              totalReservedAcrossLocations: stockAtLocation?.totalReserved ?? 0,
+              totalAvailable: stockAtLocation?.available ?? 0,
+            };
+          }
+
+          // Packaging: only show if stock exists at this location
           if (!stockAtLocation || stockAtLocation.totalStock === 0) {
             return null;
           }
