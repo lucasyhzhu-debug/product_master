@@ -43,6 +43,7 @@ export function EditComponentDialog({
   const [reorderPointPercentage, setReorderPointPercentage] = useState("");
   const [consumptionStage, setConsumptionStage] = useState<SelectableStage>("boxing");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<"production" | "packaging">("packaging");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateComponentType = useConvexUpdateComponentType();
@@ -81,6 +82,7 @@ export function EditComponentDialog({
         (component as Record<string, unknown>).consumptionStage as SelectableStage ?? "boxing"
       );
       setDescription((component as Record<string, unknown>).description as string ?? "");
+      setCategory(component.category ?? "packaging");
     }
   }, [open, component]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -93,6 +95,7 @@ export function EditComponentDialog({
     if (consumptionStage !== currentStage) return true;
     const currentDesc = (component as Record<string, unknown>).description as string ?? "";
     if (description.trim() !== currentDesc) return true;
+    if (category !== component.category) return true;
     // Check reorder point change
     const currentReorder = component.reorderPoint;
     let newReorder: number | undefined;
@@ -126,6 +129,7 @@ export function EditComponentDialog({
         consumptionStage,
         reorderPoint,
         description: description.trim() || undefined,
+        category,
       });
       toast.success(`"${component.name}" updated`);
       onOpenChange(false);
@@ -165,6 +169,32 @@ export function EditComponentDialog({
               className="h-11 text-base"
               autoFocus
             />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">Category</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={category === "production" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setCategory("production")}
+              >
+                Ingredient
+              </Button>
+              <Button
+                type="button"
+                variant={category === "packaging" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setCategory("packaging")}
+              >
+                Packaging
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ingredient: raw materials consumed in production. Packaging: boxes, stickers, labels.
+            </p>
           </div>
 
           {/* Unit */}
