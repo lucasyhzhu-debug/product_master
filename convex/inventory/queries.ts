@@ -239,11 +239,24 @@ export const getInventoryReport = query({
     activeComponentsOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Get all components that track inventory
-    let components = await ctx.db
+    // Fetch production components (all of them, regardless of trackInventory)
+    // so that production BOM rows (balls + ingredient-tracked) always appear.
+    const productionComponents = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_category", (q) => q.eq("category", "production"))
+      .collect();
+
+    // Fetch packaging components that track inventory (unchanged behaviour)
+    const allTrackedComponents = await ctx.db
       .query("componentTypes")
       .withIndex("by_track_inventory", (q) => q.eq("trackInventory", true))
       .collect();
+    // Exclude production category to avoid duplicates with productionComponents
+    const packagingTracked = allTrackedComponents.filter(
+      (c) => c.category !== "production"
+    );
+
+    let components = [...productionComponents, ...packagingTracked];
 
     if (args.activeComponentsOnly) {
       components = components.filter((c) => c.isActive);
