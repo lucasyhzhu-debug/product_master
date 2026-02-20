@@ -286,15 +286,6 @@ export function OrderDetail() {
             </CardContent>
           </Card>
 
-          {/* Fulfill from Inventory (PaymentReceived orders only) */}
-          {orderId && (
-            <FulfillFromInventoryButton
-              orderId={orderId}
-              orderStatus={order.status}
-              token={user?.token ?? ''}
-            />
-          )}
-
           {/* Status Actions */}
           <Card>
             <CardHeader className="pb-2">
@@ -452,6 +443,15 @@ export function OrderDetail() {
 
         {/* Right: Order Items + Actions (1/3) */}
         <div className="lg:col-span-1 space-y-6">
+          {/* Fulfill from Inventory (PaymentReceived orders only) */}
+          {orderId && (
+            <FulfillFromInventoryButton
+              orderId={orderId}
+              orderStatus={order.status}
+              token={user?.token ?? ''}
+            />
+          )}
+
           {/* Order Items */}
           <OrderItems
             items={order.items}
