@@ -88,7 +88,7 @@ Plans:
 - [ ] 17.1-02-PLAN.md -- Order drawdown mutation + GoFood Phase D sync hook
 - [ ] 17.1-03-PLAN.md -- Frontend: FinishedGoodsTab + stock cards + add/adjust dialogs + settings
 - [ ] 17.1-04-PLAN.md -- OrderDetail drawdown UI + documentation updates
-- [ ] 17.1-05-PLAN.md -- UAT gap closure: button placement, product filter, current stock display, location toggles, drawdown toast, settings labels, ComponentTypes category
+- [ ] 17.1-05-PLAN.md -- UAT gap closure: button placement, product filter, current stock display, location toggles, drawdown toast, settings labels, ProductionComponents category
 
 ### Phase 20: Production Ingredient Tracking & COGS
 **Goal**: Extend the packaging BOM/inventory pattern to production components — each production component (Big Ball, Mid Ball) gets ingredient recipes with quantities, FIFO inventory tracking for food ingredients, auto-calculated COGS from ingredient costs, and usage simulation for production planning
