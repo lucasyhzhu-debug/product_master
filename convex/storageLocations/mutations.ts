@@ -17,7 +17,8 @@ export const create = protectedMutation({
     locationType: v.union(
       v.literal("office"),
       v.literal("kitchen"),
-      v.literal("venue")
+      v.literal("venue"),
+      v.literal("depot")
     ),
     address: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
@@ -69,7 +70,7 @@ export const update = protectedMutation({
     id: v.id("storageLocations"),
     name: v.optional(v.string()),
     locationType: v.optional(
-      v.union(v.literal("office"), v.literal("kitchen"), v.literal("venue"))
+      v.union(v.literal("office"), v.literal("kitchen"), v.literal("venue"), v.literal("depot"))
     ),
     address: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
