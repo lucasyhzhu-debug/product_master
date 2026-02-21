@@ -46,11 +46,15 @@ export function InventoryManager() {
   const lowStockAlerts = useConvexLowStockAlerts();
 
   // Derive effective category filter from main tab selection
-  const effectiveCategoryFilter: "all" | "production" | "packaging" =
+  // "ingredients" tab shows only production components with trackInventory=true
+  // (ingredient-linked items like "Outer - Marshmallow", "Filling - Pistachio").
+  // Production balls (Big Ball, Mid Ball) have trackInventory=false and belong
+  // in the Production Components page, not the Ingredients tab.
+  const effectiveCategoryFilter: "all" | "production" | "packaging" | "ingredients" =
     mainTab === "packaging"
       ? "packaging"
       : mainTab === "ingredients"
-        ? "production"
+        ? "ingredients"
         : "all";
 
   // Split matrix into active and legacy, then filter by location, category, and search
@@ -70,7 +74,13 @@ export function InventoryManager() {
       }
 
       // Apply effective category filter
-      if (effectiveCategoryFilter !== "all") {
+      if (effectiveCategoryFilter === "ingredients") {
+        // Ingredients tab: only production components that track inventory
+        // (ingredient-linked items). Excludes production balls (trackInventory=false).
+        filtered = filtered.filter(
+          (row) => row.component.category === "production" && row.component.trackInventory
+        );
+      } else if (effectiveCategoryFilter !== "all") {
         filtered = filtered.filter((row) => row.component.category === effectiveCategoryFilter);
       }
 
