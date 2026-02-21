@@ -48,13 +48,14 @@ interface StatusActionButtonsProps {
   orderId: Id<"orders">;
   status: string;
   onStatusChange?: () => void;
+  hideCancelButton?: boolean;
 }
 
 // ============================================
 // Component
 // ============================================
 
-export function StatusActionButtons({ orderId, status, onStatusChange }: StatusActionButtonsProps) {
+export function StatusActionButtons({ orderId, status, onStatusChange, hideCancelButton }: StatusActionButtonsProps) {
   const { user } = useAuth();
   const token = user?.token ?? '';
   const navigate = useNavigate();
@@ -241,7 +242,7 @@ export function StatusActionButtons({ orderId, status, onStatusChange }: StatusA
       </div>
 
       {/* Cancel button (non-terminal only) */}
-      {!isTerminal && (
+      {!isTerminal && !hideCancelButton && (
         <Button
           variant="outline"
           size="sm"

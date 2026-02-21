@@ -914,7 +914,8 @@ export default defineSchema({
     locationType: v.union(
       v.literal("office"), // Office (default)
       v.literal("kitchen"), // Kitchen
-      v.literal("venue") // Legato Goldfinch
+      v.literal("venue"), // Legato Goldfinch
+      v.literal("depot") // External depot (Tamtem, Goldfinch)
     ),
     address: v.optional(v.string()),
     isActive: v.boolean(),
@@ -1055,6 +1056,57 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   // ============================================
+  // FINISHED GOODS INVENTORY
+  // Product-level stock tracking at locations (boxes)
+  // ============================================
+
+  // Simple aggregate stock per product per location (NOT FIFO batch tracking)
+  productInventory: defineTable({
+    menuProductId: v.id("menuProducts"),
+    locationId: v.id("storageLocations"),
+    quantity: v.number(),           // Current stock count (boxes). Can go negative for GoFood.
+    lowStockThreshold: v.optional(v.number()),  // Per-product-location override (null = use global)
+    lastUpdated: v.number(),
+  })
+    .index("by_menu_product", ["menuProductId"])
+    .index("by_location", ["locationId"])
+    .index("by_product_location", ["menuProductId", "locationId"]),
+
+  // Full audit trail of all stock changes
+  productInventoryTransactions: defineTable({
+    menuProductId: v.id("menuProducts"),
+    locationId: v.id("storageLocations"),
+    transactionType: v.union(
+      v.literal("add"),           // Kitchen adds stock
+      v.literal("drawdown"),      // Order fulfilment drawdown
+      v.literal("gofood_sale"),   // GoFood sync auto-deduction
+      v.literal("adjust"),        // Manager adjustment (spoilage, correction, transfer)
+    ),
+    quantity: v.number(),          // + for add/adjust-up, - for drawdown/adjust-down
+    previousQuantity: v.number(),
+    newQuantity: v.number(),
+    orderId: v.optional(v.id("orders")),
+    gofoodOrderRef: v.optional(v.string()),
+    reason: v.optional(v.string()), // For adjustments
+    performedBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_product_location", ["menuProductId", "locationId", "createdAt"])
+    .index("by_location", ["locationId", "createdAt"])
+    .index("by_order", ["orderId"])
+    .index("by_type", ["transactionType", "createdAt"]),
+
+  // Global config (single-row pattern)
+  productInventorySettings: defineTable({
+    globalLowStockThreshold: v.number(),   // Default 5
+    defaultAddLocationId: v.optional(v.id("storageLocations")),
+    autoAdvanceOnDrawdown: v.boolean(),    // Default true
+    alertMode: v.union(v.literal("toast"), v.literal("toast_and_badge")),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  }),
+
+  // ============================================
   // EXTERNAL INTEGRATION TABLES
   // Multi-platform sales data (K3 Mart, GoBiz, etc.)
   // ============================================
@@ -1070,6 +1122,8 @@ export default defineSchema({
       v.literal("success"), v.literal("error"), v.literal("partial")
     )),
     lastSyncError: v.optional(v.string()),
+    // Phase 17.1: Links GoFood outlet to a storageLocation for finished goods tracking
+    linkedStorageLocationId: v.optional(v.id("storageLocations")),
     createdBy: v.string(),
     createdAt: v.number(),
   })

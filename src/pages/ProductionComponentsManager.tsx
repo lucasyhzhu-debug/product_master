@@ -81,6 +81,7 @@ export function ProductionComponentsManager() {
   const [batchSize, setBatchSize] = useState("");
   const [batchSizeUnit, setBatchSizeUnit] = useState("g");
   const [cogsMode, setCogsMode] = useState<"manual" | "calculated">("manual");
+  const [category, setCategory] = useState<"production" | "packaging">("production");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Auto-generate code from name
@@ -94,6 +95,7 @@ export function ProductionComponentsManager() {
     setBatchSize("");
     setBatchSizeUnit("g");
     setCogsMode("manual");
+    setCategory("production");
   };
 
   const handleCreateOpen = () => {
@@ -110,6 +112,7 @@ export function ProductionComponentsManager() {
     setBatchSize(component.batchSize?.toString() || "");
     setBatchSizeUnit(component.batchSizeUnit || "g");
     setCogsMode(component.cogsMode || "manual");
+    setCategory((component.category ?? "production") as "production" | "packaging");
     setEditingComponent(component);
     setCreateDialogOpen(true);
   };
@@ -145,6 +148,7 @@ export function ProductionComponentsManager() {
           batchSize: batchSize ? Number(batchSize) : undefined,
           batchSizeUnit: batchSizeUnit || undefined,
           cogsMode,
+          category,
         });
         toast.success("Production component updated");
       } else {
@@ -398,6 +402,39 @@ export function ProductionComponentsManager() {
                 </p>
               )}
             </div>
+
+            {/* Category selector — edit only (create always production) */}
+            {editingComponent && (
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={category === "production" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setCategory("production")}
+                  >
+                    Production
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={category === "packaging" ? "default" : "outline"}
+                    className="flex-1"
+                    onClick={() => setCategory("packaging")}
+                  >
+                    Packaging
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Production: ball types (Big Ball, Mid Ball). Packaging: boxes, stickers, labels.
+                </p>
+                {category !== (editingComponent?.category ?? "production") && (
+                  <p className="text-xs text-amber-600 font-medium">
+                    Warning: changing category affects how this component is tracked and displayed across the system.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-4 grid-cols-2">
               <div className="space-y-2">

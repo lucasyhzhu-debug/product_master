@@ -4,6 +4,13 @@
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "balanced",
+  "model_overrides": {
+    "gsd-debugger": "opus",
+    "gsd-phase-researcher": "opus",
+    "gsd-project-researcher": "opus",
+    "gsd-research-synthesizer": "opus",
+    "gsd-verifier": "opus"
+  },
   "workflow": {
     "research": true,
     "plan_check": true,

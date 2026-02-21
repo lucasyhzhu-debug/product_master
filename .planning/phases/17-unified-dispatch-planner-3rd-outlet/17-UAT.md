@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 17-unified-dispatch-planner-3rd-outlet
 source: 17-01-SUMMARY.md, 17-02-SUMMARY.md, 17-03-SUMMARY.md, 17-04-SUMMARY.md, 17-05-SUMMARY.md
 started: 2026-02-17T04:10:00Z
-updated: 2026-02-17T05:30:00Z
+updated: 2026-02-21T03:10:30Z
 ---
 
 ## Current Test
@@ -85,7 +85,7 @@ skipped: 0
 ## Gaps
 
 - truth: "Header date range matches grid column dates, and Back to Today returns to current week"
-  status: failed
+  status: resolved
   reason: "User reported: header shows Feb 16-22 but grid shows Feb 9-15 (1 week ahead). Back to Today goes 1 week too far back."
   severity: major
   test: 1
@@ -100,7 +100,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "Capacity bar hover tooltip is fully visible above other content"
-  status: failed
+  status: resolved
   reason: "User reported: hover information is clipped by the section line, should appear over it or use click-to-expand"
   severity: cosmetic
   test: 1
@@ -113,7 +113,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "All channel cells are editable for future days, not just Other Consignment"
-  status: failed
+  status: resolved
   reason: "User reported: can't edit any fields apart from other consignments"
   severity: major
   test: 3
@@ -129,7 +129,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "Commission % is not needed at channel level — net/gross already tracked from APIs"
-  status: failed
+  status: resolved
   reason: "User reported: we don't need commissions % at the channel level in settings, we already track net sales vs gross sales from gofood and k3mart apis"
   severity: minor
   test: 3
@@ -146,7 +146,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "Merge Channels tab into Priorities tab — combine enable/disable toggle with priority reorder"
-  status: failed
+  status: resolved
   reason: "User reported: remove the commissions here, combine this with the priority reorder tab to save on clicks"
   severity: minor
   test: 6
@@ -160,7 +160,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "Manager can configure which products appear in the planner grid (exclude non-plannable items like Brochure)"
-  status: failed
+  status: resolved
   reason: "User reported: have a way for us to edit which products to update or remove - brochure-how to eat is not a product i need to plan for"
   severity: major
   test: 9
@@ -176,7 +176,7 @@ skipped: 0
   debug_session: ""
 
 - truth: "Simulate Inventory button triggers inventory check and shows visual feedback"
-  status: failed
+  status: resolved
   reason: "User reported: when i click it nothing happens not even a sonner message"
   severity: major
   test: 13

@@ -20,6 +20,7 @@ import {
 } from '@/components/orders';
 import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
 import { AuditTrail } from '@/components/orders/AuditTrail';
+import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 
 import {
@@ -95,7 +96,7 @@ export function OrderDetail() {
 
   // Admin force-complete
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // const isAdmin = user?.role === 'admin'; // Temporarily disabled — Force Complete visible to all until button visibility confirmed
   const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
@@ -290,12 +291,27 @@ export function OrderDetail() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Actions</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {orderId && (
                 <StatusActionButtons
                   orderId={orderId}
                   status={order.status}
                 />
+              )}
+
+              {/* Admin: Force Complete (data fix) - prominent placement */}
+              {!['Complete', 'Cancelled'].includes(order.status) && (
+                <div className="pt-1 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
+                    onClick={() => setShowForceCompleteDialog(true)}
+                  >
+                    <ShieldAlert className="h-3 w-3 mr-1" />
+                    Force Complete (Admin)
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -427,6 +443,15 @@ export function OrderDetail() {
 
         {/* Right: Order Items + Actions (1/3) */}
         <div className="lg:col-span-1 space-y-6">
+          {/* Fulfill from Inventory (PaymentReceived orders only) */}
+          {orderId && (
+            <FulfillFromInventoryButton
+              orderId={orderId}
+              orderStatus={order.status}
+              token={user?.token ?? ''}
+            />
+          )}
+
           {/* Order Items */}
           <OrderItems
             items={order.items}
@@ -501,20 +526,6 @@ export function OrderDetail() {
             </div>
           )}
 
-          {/* Admin: Force Complete (data fix) */}
-          {isAdmin && !['Complete', 'Cancelled'].includes(order.status) && (
-            <div className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 hover:text-amber-800"
-                onClick={() => setShowForceCompleteDialog(true)}
-              >
-                <ShieldAlert className="h-3 w-3 mr-1" />
-                Force Complete (Admin)
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 

@@ -720,12 +720,19 @@ function RevenueTable({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set());
 
-  const filtered = records.filter((r) => {
-    // Convert WIB date strings to UTC boundaries for filtering
-    if (dateFrom && r.periodStart < wibDateStrToUtcMs(dateFrom)) return false;
-    if (dateTo && r.periodStart >= wibDateStrToUtcMs(dateTo) + 24 * 60 * 60 * 1000) return false;
-    return true;
-  });
+  const filtered = records
+    .filter((r) => {
+      // Convert WIB date strings to UTC boundaries for filtering
+      if (dateFrom && r.periodStart < wibDateStrToUtcMs(dateFrom)) return false;
+      if (dateTo && r.periodStart >= wibDateStrToUtcMs(dateTo) + 24 * 60 * 60 * 1000) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by transaction time descending (newest first)
+      const tsA = a.transactionDate ?? a.periodStart;
+      const tsB = b.transactionDate ?? b.periodStart;
+      return tsB - tsA;
+    });
 
   if (filtered.length === 0) {
     return (

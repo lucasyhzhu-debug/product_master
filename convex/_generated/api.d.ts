@@ -76,6 +76,7 @@ import type * as migrations_categorySimplification from "../migrations/categoryS
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
+import type * as migrations_seedFinishedGoodsLocations from "../migrations/seedFinishedGoodsLocations.js";
 import type * as orders_deleteAll from "../orders/deleteAll.js";
 import type * as orders_helpers from "../orders/helpers.js";
 import type * as orders_helpers_autoEntry from "../orders/helpers/autoEntry.js";
@@ -107,6 +108,8 @@ import type * as packaging_queries from "../packaging/queries.js";
 import type * as platformCredentials_actions from "../platformCredentials/actions.js";
 import type * as platformCredentials_mutations from "../platformCredentials/mutations.js";
 import type * as platformCredentials_queries from "../platformCredentials/queries.js";
+import type * as productInventory_mutations from "../productInventory/mutations.js";
+import type * as productInventory_queries from "../productInventory/queries.js";
 import type * as productionCounts_mutations from "../productionCounts/mutations.js";
 import type * as productionCounts_queries from "../productionCounts/queries.js";
 import type * as productionLog_helpers from "../productionLog/helpers.js";
@@ -210,6 +213,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
+  "migrations/seedFinishedGoodsLocations": typeof migrations_seedFinishedGoodsLocations;
   "orders/deleteAll": typeof orders_deleteAll;
   "orders/helpers": typeof orders_helpers;
   "orders/helpers/autoEntry": typeof orders_helpers_autoEntry;
@@ -241,6 +245,8 @@ declare const fullApi: ApiFromModules<{
   "platformCredentials/actions": typeof platformCredentials_actions;
   "platformCredentials/mutations": typeof platformCredentials_mutations;
   "platformCredentials/queries": typeof platformCredentials_queries;
+  "productInventory/mutations": typeof productInventory_mutations;
+  "productInventory/queries": typeof productInventory_queries;
   "productionCounts/mutations": typeof productionCounts_mutations;
   "productionCounts/queries": typeof productionCounts_queries;
   "productionLog/helpers": typeof productionLog_helpers;

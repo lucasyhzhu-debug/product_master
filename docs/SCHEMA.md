@@ -48,7 +48,7 @@ Convex Database (automatic)
 
 ---
 
-## Complete Database Schema (27 Tables)
+## Complete Database Schema (30 Tables)
 
 Schema defined in `convex/schema.ts` using Convex's type-safe schema definition.
 
@@ -609,6 +609,73 @@ voucherUsage: defineTable({
 
 ---
 
+### 24. `productInventory` - Finished Goods Stock by Location (Phase 17.1)
+```typescript
+productInventory: defineTable({
+  menuProductId: v.id("menuProducts"),  // Which product
+  locationId: v.id("storageLocations"), // Which location
+  quantity: v.number(),                 // Current stock (can be negative with manager override)
+  lastUpdated: v.number(),              // Timestamp of last stock change
+})
+  .index("by_product_location", ["menuProductId", "locationId"])
+  .index("by_location", ["locationId"])
+```
+
+**Purpose:** Tracks how many boxes of each finished product are at each storage location. Upserted on every add/drawdown/adjustment.
+
+**Key Operations:**
+- `addStock`: kitchen adds after production (upsert, log transaction)
+- `adjustStock`: manager correction with required reason (allows negative)
+- `fulfillFromInventory`: atomic drawdown for a full order (checks all items, deducts all or throws)
+- `processGofoodSales`: internal auto-deduct for GoFood sync (negative stock allowed)
+
+---
+
+### 25. `productInventoryTransactions` - Finished Goods Audit Log (Phase 17.1)
+```typescript
+productInventoryTransactions: defineTable({
+  menuProductId: v.id("menuProducts"),
+  locationId: v.id("storageLocations"),
+  transactionType: v.union(
+    v.literal("add"),
+    v.literal("drawdown"),
+    v.literal("adjust"),
+    v.literal("gofood_sale"),
+  ),
+  quantity: v.number(),                       // Signed delta (negative = deduction)
+  previousQuantity: v.number(),
+  newQuantity: v.number(),
+  orderId: v.optional(v.id("orders")),        // Set for drawdown transactions
+  gofoodOrderRef: v.optional(v.string()),     // Set for gofood_sale transactions
+  reason: v.optional(v.string()),             // Required for adjust type
+  performedBy: v.string(),                    // User name or "system:gobiz_sync"
+  createdAt: v.number(),
+})
+  .index("by_product", ["menuProductId", "createdAt"])
+  .index("by_location", ["locationId", "createdAt"])
+  .index("by_created_at", ["createdAt"])
+```
+
+**Purpose:** Full immutable audit trail for all finished goods stock movements. Never deleted. Paginated for display in TransactionLogPanel.
+
+---
+
+### 26. `productInventorySettings` - Finished Goods Config (Phase 17.1)
+```typescript
+productInventorySettings: defineTable({
+  globalLowStockThreshold: v.number(),                                         // Default: 5 boxes
+  defaultAddLocationId: v.optional(v.id("storageLocations")),                  // Pre-select in Add dialog
+  autoAdvanceOnDrawdown: v.boolean(),                                          // Reserved for future use
+  alertMode: v.union(v.literal("toast"), v.literal("toast_and_badge")),        // Notification mode
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+})
+```
+
+**Purpose:** Singleton settings row (only one row ever exists). Controls low-stock threshold and UI defaults. Admin-only updates via `updateSettings` mutation.
+
+---
+
 ## Order Status Workflow
 
 *Updated Phase 14: Simplified from 12 statuses to 7.*
@@ -617,9 +684,10 @@ voucherUsage: defineTable({
 Draft
   └─> AwaitingPayment (invoice sent, waiting for payment)
         └─> PaymentReceived (payment confirmed)
-              └─> BeingPrepared (auto at due-2d, or manual expedite)
-                    └─> AwaitingDelivery (kitchen marks complete)
-                          └─> Complete (delivered or picked up)
+              ├─> BeingPrepared (auto at due-2d, or manual expedite) [Kitchen Production path]
+              │     └─> AwaitingDelivery (kitchen marks complete)
+              └─> AwaitingDelivery (fulfillFromInventory — skips production) [Inventory Fulfillment path]
+                    └─> Complete (delivered or picked up)
 
 Any non-terminal → Cancelled (requires reason)
 ```

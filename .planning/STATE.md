@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 
 ## Current Position
 
-Phase: 20 (2 of 4 in v1.2) — Production Ingredient Tracking & COGS
-Plan: 09 of 9 (COMPLETE — all gap-closure plans done)
-Status: Phase 20 complete — all 9 plans executed, ready for merge review
-Last activity: 2026-02-17 — Completed 20-09 (dispatch planner posSlot filter + K3Mart cockpit WeeklyPlannerGrid removal)
+Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
+Plan: 05 of 05 — PHASE COMPLETE (incl. UAT gap closure)
+Status: Phase 17.1 COMPLETE — All 5 plans executed. All UAT gaps resolved. Ready to merge to main.
+Last activity: 2026-02-21 - Completed quick task 11: Fix Sales Analytics revenue table chronological sorting
 
-Progress (v1.2): [██████░░░░] 60%
+Progress (v1.2): [████████░░] 80%
 
 ## Performance Metrics
 
@@ -82,6 +82,24 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [20-09] posSlot filter in menuProductMap build loop hides legacy unslotted products from Planned Manual
 - [20-09] WeeklyPlannerGrid removed from K3MartCockpit; /dispatch-planner is now sole planning interface
 - [20-09] GoFood gobiz outlets confirmed present in production DB -- no seeding required
+- [17.1-01] productInventory is simple aggregate (not FIFO) — quantity can go negative for GoFood outlets
+- [17.1-01] Reuse existing Legato Goldfinch venue location for GoFood Goldfinch mapping — no duplicate
+- [17.1-01] Manager adjustStock allows negative stock with annotated reason override note
+- [17.1-01] initializeSettings is internalMutation — called from seed only, not exposed to frontend
+- [Phase 17.1]: processGofoodSales accepts outletId (not merchantId) — outlet already resolved in revenue record, avoids redundant lookup
+- [Phase 17.1]: Phase D items aggregated by (outletId::menuProductId) composite key for correct per-outlet deduction
+- [Phase 17.1]: fulfillFromInventory bypasses FORWARD_TRANSITIONS and patches status directly (PaymentReceived->AwaitingDelivery special path)
+- [17.1-03] FG prefix naming for finished goods dialogs (FGAddStockDialog, FGAdjustStockDialog) to avoid conflict with existing AdjustStockDialog for packaging/batch inventory
+- [17.1-03] categoryFilter state removed from InventoryManager — effectiveCategoryFilter derived fully from mainTab
+- [17.1-03] Settings panel is inline collapsible Card in FinishedGoodsTab, visible to manager/admin
+- [17.1-03] ProductStockGroup grouping done client-side in FinishedGoodsTab useMemo (not backend)
+- [17.1-04] FulfillFromInventoryButton placed in src/components/inventory/ (inventory concern accessed from order page)
+- [17.1-04] Inner FulfillFromInventoryPanel pattern: outer returns null early, inner has all hooks — avoids hooks ordering violation
+- [17.1-04] Confirm button disabled when any item short via getStockForOrder pre-check — avoids doomed mutation calls
+- [17.1-04] ConvexError.data.type === 'insufficient_stock' parsed for per-item shortage display
+- [Phase 17.1]: Current stock in FGAdjustStockDialog via getStockOverview query (inline, no prop drilling from ProductStockCard)
+- [Phase 17.1]: productNameMap pre-loaded in fulfillFromInventory step 3 to avoid second DB reads in step 4 deduction loop
+- [Phase 17.1]: Category toggle in ProductionComponentsManager is edit-only; new components always production category
 
 ### Roadmap Evolution
 
@@ -102,6 +120,9 @@ None yet.
 | 7 | Verify and seed GoBiz external outlets for Dispatch Planner | 2026-02-17 | 65a7d60 | Needs Review | [7-verify-and-seed-gobiz-external-outlets-f](.planning/quick/7-verify-and-seed-gobiz-external-outlets-f/) |
 | 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Verified | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 | 9 | Update GoBiz API input to accept full auth JSON blob (access_token + refresh_token from single paste) | 2026-02-20 | e820383 | Complete | [9-update-gojek-api-input-to-accept-access-](.planning/quick/9-update-gojek-api-input-to-accept-access-/) |
+| 10 | Fix ingredient components missing from Inventory Manager Production tab (union query + bypass zero-stock filter for production rows) | 2026-02-20 | 0530a47 | Verified | [10-fix-ingredient-components-missing-from-i](.planning/quick/10-fix-ingredient-components-missing-from-i/) |
+| Phase 17.1 P05 | 25 | 8 tasks | 10 files |
+| 11 | Fix Sales Analytics revenue table chronological sorting | 2026-02-21 | 256392d | | [11-fix-order-list-chronological-sorting-to-](.planning/quick/11-fix-order-list-chronological-sorting-to-/) |
 
 ### Blockers/Concerns
 
@@ -111,10 +132,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: Phase 17.1 context gathered — product inventory tracker (finished goods, location-aware, order drawdown)
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-CONTEXT.md
-Resume notes: Phase 17.1 context complete. Run /gsd:plan-phase 17.1 to create implementation plans. Note: user also wants settings/configuration UI (low-stock threshold, etc.) included in this phase.
+Last session: 2026-02-21
+Stopped at: Completed 17.1-05-PLAN.md — UAT feedback applied (persistent panel UX, commit 899cdb9). Phase 17.1 FULLY COMPLETE + UAT APPROVED.
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-05-SUMMARY.md
+Resume notes: Phase 17.1 complete across 5 plans. All UAT gaps resolved and approved. Type-check + build pass. Ready to merge feature branch to main, update CHANGELOG on main, proceed to next phase.
 
 ---
-*Last updated: 2026-02-17 (20-gap-closure-verified)*
+*Last updated: 2026-02-21 (17.1-05-gap-closure-complete)*

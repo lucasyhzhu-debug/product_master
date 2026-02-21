@@ -67,6 +67,13 @@ export const getOutletNameToIdMap = internalQuery({
   },
 });
 
+export const getRevenueById = internalQuery({
+  args: { revenueId: v.id("externalRevenue") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.revenueId);
+  },
+});
+
 // ─── PUBLIC QUERIES (called from frontend) ───
 
 export const listOutlets = query({

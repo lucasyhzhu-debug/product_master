@@ -575,11 +575,24 @@ export const syncGoBizRevenue = action({
       }
 
       // ── Phase C: Auto-consume stickers for GoFood sales ──
+      // Collect items with outletId for Phase D reuse
+      const gofoodSaleItemsWithOutlet: Array<{
+        menuProductId: string;
+        quantity: number;
+        outletId: string | undefined;
+      }> = [];
+
       try {
         // Collect all NEW revenue items with linkedMenuProductId from gobiz
         const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
 
         for (const { revenueId } of allNewRecords) {
+          // Get revenue record for outletId (needed by Phase D)
+          const revenue = await ctx.runQuery(
+            internal.externalData.queries.getRevenueById,
+            { revenueId }
+          );
+
           const items: Array<{
             linkedMenuProductId?: string;
             quantity: number;
@@ -594,6 +607,11 @@ export const syncGoBizRevenue = action({
               gofoodSaleItems.push({
                 menuProductId: item.linkedMenuProductId,
                 quantity: item.quantity,
+              });
+              gofoodSaleItemsWithOutlet.push({
+                menuProductId: item.linkedMenuProductId,
+                quantity: item.quantity,
+                outletId: revenue?.outletId as string | undefined,
               });
             }
           }
@@ -629,6 +647,53 @@ export const syncGoBizRevenue = action({
         console.log(
           "Phase C (sticker deduction) failed:",
           phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
+        );
+      }
+
+      // ── Phase D: Auto-deduct finished goods for GoFood sales ──
+      try {
+        const itemsWithOutlet = gofoodSaleItemsWithOutlet.filter(
+          (item) => item.outletId !== undefined
+        );
+
+        if (itemsWithOutlet.length > 0) {
+          console.log(`Phase D: Deducting ${itemsWithOutlet.length} items from product inventory...`);
+
+          // Aggregate by (outletId, menuProductId) to avoid duplicate deductions
+          const aggregated = new Map<string, { menuProductId: string; quantity: number; outletId: string }>();
+          for (const item of itemsWithOutlet) {
+            const key = `${item.outletId}::${item.menuProductId}`;
+            const existing = aggregated.get(key);
+            if (existing) {
+              existing.quantity += item.quantity;
+            } else {
+              aggregated.set(key, {
+                menuProductId: item.menuProductId,
+                quantity: item.quantity,
+                outletId: item.outletId!,
+              });
+            }
+          }
+
+          const phaseDItems = Array.from(aggregated.values()).map((entry) => ({
+            menuProductId: entry.menuProductId as Id<"menuProducts">,
+            quantity: entry.quantity,
+            outletId: entry.outletId as Id<"externalOutlets">,
+            gofoodOrderRef: undefined,
+          }));
+
+          const phaseD = await ctx.runMutation(
+            internal.productInventory.mutations.processGofoodSales,
+            { items: phaseDItems }
+          );
+
+          console.log(`Phase D complete: ${phaseD.processed} deducted, ${phaseD.lowStockAlerts} low stock`);
+        }
+      } catch (phaseDError) {
+        // Phase D failure should NOT fail the overall sync
+        console.log(
+          "Phase D (product inventory deduction) failed:",
+          phaseDError instanceof Error ? phaseDError.message : String(phaseDError)
         );
       }
 
@@ -776,10 +841,23 @@ export const autoSyncGoBizRevenue = internalAction({
       }
 
       // Phase C: Auto-consume stickers for GoFood sales
+      // Collect items with outletId for Phase D reuse
+      const autoSyncGofoodItemsWithOutlet: Array<{
+        menuProductId: string;
+        quantity: number;
+        outletId: string | undefined;
+      }> = [];
+
       try {
         const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
 
         for (const { revenueId } of allNewRecords) {
+          // Get revenue record for outletId (needed by Phase D)
+          const revenue = await ctx.runQuery(
+            internal.externalData.queries.getRevenueById,
+            { revenueId }
+          );
+
           const items: Array<{
             linkedMenuProductId?: string;
             quantity: number;
@@ -794,6 +872,11 @@ export const autoSyncGoBizRevenue = internalAction({
               gofoodSaleItems.push({
                 menuProductId: item.linkedMenuProductId,
                 quantity: item.quantity,
+              });
+              autoSyncGofoodItemsWithOutlet.push({
+                menuProductId: item.linkedMenuProductId,
+                quantity: item.quantity,
+                outletId: revenue?.outletId as string | undefined,
               });
             }
           }
@@ -821,6 +904,53 @@ export const autoSyncGoBizRevenue = internalAction({
         console.log(
           "Auto-sync Phase C failed:",
           phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
+        );
+      }
+
+      // ── Phase D: Auto-deduct finished goods for GoFood sales ──
+      try {
+        const itemsWithOutlet = autoSyncGofoodItemsWithOutlet.filter(
+          (item) => item.outletId !== undefined
+        );
+
+        if (itemsWithOutlet.length > 0) {
+          console.log(`Auto-sync Phase D: Deducting ${itemsWithOutlet.length} items from product inventory...`);
+
+          // Aggregate by (outletId, menuProductId)
+          const aggregated = new Map<string, { menuProductId: string; quantity: number; outletId: string }>();
+          for (const item of itemsWithOutlet) {
+            const key = `${item.outletId}::${item.menuProductId}`;
+            const existing = aggregated.get(key);
+            if (existing) {
+              existing.quantity += item.quantity;
+            } else {
+              aggregated.set(key, {
+                menuProductId: item.menuProductId,
+                quantity: item.quantity,
+                outletId: item.outletId!,
+              });
+            }
+          }
+
+          const phaseDItems = Array.from(aggregated.values()).map((entry) => ({
+            menuProductId: entry.menuProductId as Id<"menuProducts">,
+            quantity: entry.quantity,
+            outletId: entry.outletId as Id<"externalOutlets">,
+            gofoodOrderRef: undefined,
+          }));
+
+          const phaseD = await ctx.runMutation(
+            internal.productInventory.mutations.processGofoodSales,
+            { items: phaseDItems }
+          );
+
+          console.log(`Auto-sync Phase D complete: ${phaseD.processed} deducted, ${phaseD.lowStockAlerts} low stock`);
+        }
+      } catch (phaseDError) {
+        // Phase D failure should NOT fail the overall sync
+        console.log(
+          "Auto-sync Phase D (product inventory deduction) failed:",
+          phaseDError instanceof Error ? phaseDError.message : String(phaseDError)
         );
       }
 
