@@ -397,6 +397,7 @@ export function InventoryManager() {
           locations={locations}
           lowStockComponents={lowStockAlerts.slice(0, 3).map((a) => a.component)}
           forceCreateMode
+          defaultCategory={mainTab === "ingredients" ? "production" : "packaging"}
         />
       )}
     </div>

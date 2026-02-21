@@ -41,6 +41,7 @@ interface ReceiveStockDialogProps {
   lowStockComponents?: ComponentType[];
   preselectedComponentId?: Id<"componentTypes">;
   forceCreateMode?: boolean;
+  defaultCategory?: "packaging" | "production";
 }
 
 type Mode = 'select' | 'create-new';
@@ -52,6 +53,7 @@ export function ReceiveStockDialog({
   lowStockComponents = [],
   preselectedComponentId,
   forceCreateMode,
+  defaultCategory = "packaging",
 }: ReceiveStockDialogProps) {
   // Mode state
   const [mode, setMode] = useState<Mode>('select');
@@ -142,8 +144,8 @@ export function ReceiveStockDialog({
       setMode(forceCreateMode ? 'create-new' : 'select');
       setSelectedComponentId(preselectedComponentId ?? null);
       setNewComponentName("");
-      setNewComponentCategory("packaging");
-      setNewComponentUnit("pcs"); // Default to pieces
+      setNewComponentCategory(defaultCategory);
+      setNewComponentUnit(defaultCategory === "production" ? "g" : "pcs");
       setCustomUnit("");
       setReorderPointType("units");
       setReorderPointUnits("");
