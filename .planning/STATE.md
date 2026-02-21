@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 ## Current Position
 
 Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
-Plan: 04 of 04 — PHASE COMPLETE
-Status: Phase 17.1 COMPLETE — All 4 plans executed. Ready to merge to main.
-Last activity: 2026-02-20 — Completed 17.1-04 (FulfillFromInventoryButton + InventoryAvailabilityPanel on OrderDetail + CHANGELOG/SCHEMA docs)
+Plan: 05 of 05 — PHASE COMPLETE (incl. UAT gap closure)
+Status: Phase 17.1 COMPLETE — All 5 plans executed. All UAT gaps resolved. Ready to merge to main.
+Last activity: 2026-02-21 — Completed 17.1-05 (UAT gap closure: button placement, posSlot filter, current-stock display, location toggles, per-product toast, settings labels, category toggle)
 
 Progress (v1.2): [████████░░] 80%
 
@@ -97,6 +97,9 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - [17.1-04] Inner FulfillFromInventoryPanel pattern: outer returns null early, inner has all hooks — avoids hooks ordering violation
 - [17.1-04] Confirm button disabled when any item short via getStockForOrder pre-check — avoids doomed mutation calls
 - [17.1-04] ConvexError.data.type === 'insufficient_stock' parsed for per-item shortage display
+- [Phase 17.1]: Current stock in FGAdjustStockDialog via getStockOverview query (inline, no prop drilling from ProductStockCard)
+- [Phase 17.1]: productNameMap pre-loaded in fulfillFromInventory step 3 to avoid second DB reads in step 4 deduction loop
+- [Phase 17.1]: Category toggle in ProductionComponentsManager is edit-only; new components always production category
 
 ### Roadmap Evolution
 
@@ -118,6 +121,7 @@ None yet.
 | 8 | Fix ingredient inventory bugs: ComponentTypeDialog unit default, ReceiveStockDialog category toggle, IngredientsManager Enable Tracking | 2026-02-20 | aadd441 | Verified | [8-fix-ingredient-inventory-bugs](.planning/quick/8-fix-ingredient-inventory-bugs/) |
 | 9 | Update GoBiz API input to accept full auth JSON blob (access_token + refresh_token from single paste) | 2026-02-20 | e820383 | Complete | [9-update-gojek-api-input-to-accept-access-](.planning/quick/9-update-gojek-api-input-to-accept-access-/) |
 | 10 | Fix ingredient components missing from Inventory Manager Production tab (union query + bypass zero-stock filter for production rows) | 2026-02-20 | 0530a47 | Verified | [10-fix-ingredient-components-missing-from-i](.planning/quick/10-fix-ingredient-components-missing-from-i/) |
+| Phase 17.1 P05 | 25 | 8 tasks | 10 files |
 
 ### Blockers/Concerns
 
@@ -127,10 +131,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-20
-Stopped at: Completed 17.1-04-PLAN.md (FulfillFromInventoryButton + InventoryAvailabilityPanel + docs) — Phase 17.1 COMPLETE
-Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-04-SUMMARY.md
-Resume notes: Phase 17.1 complete across 4 plans. All builds pass. Ready to merge feature branch to main. Next: merge and update CHANGELOG on main, then proceed to next planned phase.
+Last session: 2026-02-21
+Stopped at: Completed 17.1-05-PLAN.md (UAT gap closure — all 7 gaps resolved, type-check + build pass) — Phase 17.1 FULLY COMPLETE
+Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-05-SUMMARY.md
+Resume notes: Phase 17.1 complete across 5 plans. UAT gaps resolved. All builds pass. Human verify checkpoint pending (retest Tests 3, 4, 5, 8, 9, 10, 11, 12). After approval: merge feature branch to main, update CHANGELOG on main, proceed to next phase.
 
 ---
-*Last updated: 2026-02-17 (20-gap-closure-verified)*
+*Last updated: 2026-02-21 (17.1-05-gap-closure-complete)*

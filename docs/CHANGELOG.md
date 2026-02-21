@@ -14,6 +14,31 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.6] - 2026-02-21 - Phase 17.1 Plan 05: UAT Gap Closure
+
+Fixed 7 issues found during user acceptance testing of the Finished Goods inventory feature. The "Use Available Inventory" button now appears in the correct sidebar on order pages, the product pickers show only active POS items, and drawdown toasts summarise exactly how much stock was used and how much remains.
+
+### Fixed
+- **Button placement**: "Use Available Inventory" card moved to the right sidebar in Order Detail, above the order items list — visible on desktop without scrolling
+- **Product filter**: Add Stock and Adjust Stock dialogs now show only POS-assigned products (posSlot not null) — excludes Brochure and other non-product entries
+- **Current stock display**: Adjust Stock dialog shows "Current stock at this location: N units" when product + location are selected
+- **Location toggle UX**: Add Stock and Adjust Stock location selectors replaced with 3 horizontal toggle buttons (Office, Kitchen, Legato Goldfinch) instead of a dropdown
+- **Drawdown toast**: Success toast now shows per-product "X used, Y remaining" breakdown via Sonner description field (6-second duration)
+- **Settings labels**: Auto-advance and Alert Mode settings have plain-language helper text explaining what each setting does in non-technical terms
+- **Category toggle**: Production Components Manager Edit dialog now has Production / Packaging category toggle; backend mutation accepts optional category arg
+
+### Technical
+- `convex/productInventory/mutations.ts`: fulfillFromInventory returns `deductions[]` array
+- `convex/componentTypes/mutations.ts`: update mutation accepts optional `category` arg
+- `src/pages/OrderDetail.tsx`: FulfillFromInventoryButton moved to lg:col-span-1 right column
+- `src/components/inventory/FGAddStockDialog.tsx`: posSlot filter + location toggle buttons
+- `src/components/inventory/FGAdjustStockDialog.tsx`: posSlot filter + getStockOverview current stock + location toggle buttons
+- `src/components/inventory/FulfillFromInventoryButton.tsx`: per-product toast from deductions array
+- `src/components/inventory/FinishedGoodsTab.tsx`: plain-language settings helper text
+- `src/pages/ProductionComponentsManager.tsx`: category toggle in Edit dialog
+
+---
+
 ## [v1.2.5] - 2026-02-20 - Phase 17.1: Finished Goods Inventory Tracker
 
 Staff can now track finished goods (boxes of ready-to-sell product) by location, add stock after production runs, and fulfill orders directly from inventory — skipping kitchen production entirely when stock is available. GoFood sales automatically deduct from the linked depot location.
