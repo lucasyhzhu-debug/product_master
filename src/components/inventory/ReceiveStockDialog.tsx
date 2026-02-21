@@ -158,6 +158,11 @@ export function ReceiveStockDialog({
     }
   }, [open, preselectedComponentId, forceCreateMode]);
 
+  const selectedComponent = allComponents?.find(c => c._id === selectedComponentId);
+  const selectedUnit = mode === 'select'
+    ? (selectedComponent?.unit ?? null)
+    : (newComponentUnit === 'custom' ? (customUnit || null) : newComponentUnit);
+
   const unitCost =
     quantity && totalCost
       ? Number(totalCost) / Number(quantity)
@@ -655,15 +660,22 @@ export function ReceiveStockDialog({
                   <Package className="inline h-4 w-4 mr-1.5" />
                   Quantity Received *
                 </Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="100"
-                  className="font-mono h-11 text-base"
-                />
+                <div className="relative">
+                  <Input
+                    id="quantity"
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="100"
+                    className={cn("font-mono h-11 text-base", selectedUnit && "pr-12")}
+                  />
+                  {selectedUnit && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">
+                      {selectedUnit}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -700,9 +712,7 @@ export function ReceiveStockDialog({
                       {formatCurrency(unitCost)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      per {mode === 'create-new'
-                        ? (newComponentUnit === 'custom' ? (customUnit || 'unit') : newComponentUnit)
-                        : 'unit'}
+                      per {selectedUnit ?? 'unit'}
                     </div>
                   </div>
                 </div>
