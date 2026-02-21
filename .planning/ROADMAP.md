@@ -113,4 +113,12 @@ Plans:
 - [x] 18-07-PLAN.md -- UAT gap closure (backend): hierarchy cost-leaf, production inventory mutation, dispatchPlans outletId union
 - [x] 18-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
 - [x] 18-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
-
+
+### Phase 19: GoFood Depot Management and Kitchen Production Targets
+
+**Goal:** [To be planned]
+**Depends on:** Phase 18
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 19 to break down)

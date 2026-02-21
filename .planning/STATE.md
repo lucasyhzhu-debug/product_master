@@ -108,6 +108,7 @@ All v1.0 and v1.1 decisions archived in PROJECT.md Key Decisions table.
 - v1.2: Phases 17-19 planned 2026-02-17 (GoFood + Dispatch + Kitchen)
 - Phase 20 added: Production Ingredient Tracking & COGS (extends BOM/inventory pattern to food ingredients)
 - Phase 17.1 inserted after Phase 17: Product inventory tracker with location tracking and order fulfilment drawdown (URGENT)
+- Phase 19 added: GoFood Depot Management and Kitchen Production Targets (deferred GF-02/03/04 + KIT-09/12 from v1.2 audit)
 
 ### Pending Todos
 
