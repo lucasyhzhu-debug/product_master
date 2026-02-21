@@ -8,6 +8,16 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
+## Current Milestone: v1.3 GoFood, Kitchen & Consignment
+
+**Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
+
+**Target features:**
+- GoFood per-outlet product mapping, per-depot stock tracking, and restock suggestion algorithm
+- Kitchen production targets driven by dispatch planner output
+- Consignment sales upload (Excel, bulk + detail formats) for Legato and similar outlets
+- Sales Analytics extended with consignment channel data and lifetime totals dashboard
+
 ## Requirements
 
 ### Validated
@@ -66,6 +76,11 @@ Production reliability — the system is the single source of truth for recipes,
 - [ ] GF-04: Depot restock suggestion algorithm: n+1 avg last 3 days; n+2 Fri/Sat; Mon reset to prev Thu total — Phase 19
 - [ ] KIT-09: Default daily production target 200 units (110 Original singles + 30 Original triples), configurable by manager — Phase 20
 - [ ] KIT-12: Dispatch planner output drives kitchen view — kitchen displays today's production targets as two numbers (singles + triples) — Phase 20
+- [ ] CON-01: User can upload consignment sales via Excel (bulk summary: product + qty sold + qty returned + revenue per outlet per date range) — Phase 21
+- [ ] CON-02: User can upload consignment sales via Excel (detail format: per-transaction with ID and line items) — Phase 21
+- [ ] CON-03: System provides downloadable pre-formatted Excel template (summary + detail sheets) for consignment data entry — Phase 21
+- [ ] ANLY-01: Sales Analytics shows consignment channel data alongside GoFood, K3Mart, and Direct channels — Phase 22
+- [ ] ANLY-02: Sales Analytics displays lifetime totals: headline units sold counter + per-product breakdown table — Phase 22
 
 ### Out of Scope
 
@@ -154,4 +169,4 @@ Deployed via Vercel with GitHub Actions CI.
 | Direct Sales "Planned (Manual)" outlet | Managers need ad-hoc planning for non-confirmed direct orders | ✓ Good — flexible without polluting confirmed order data |
 
 ---
-*Last updated: 2026-02-21 after v1.2 milestone*
+*Last updated: 2026-02-21 after milestone v1.3 started*
