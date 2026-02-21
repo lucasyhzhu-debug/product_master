@@ -8,7 +8,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { Package, Plus, Archive, Search, ShoppingBag } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Package, Plus, Archive, Search, ShoppingBag, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -299,12 +300,34 @@ export function InventoryManager() {
                     {activeMatrix.length === 0 ? (
                       <div className="py-16 text-center">
                         <div className="bg-muted/50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                          <Package className="h-8 w-8 text-muted-foreground" />
+                          {mainTab === "ingredients" ? (
+                            <Leaf className="h-8 w-8 text-muted-foreground" />
+                          ) : (
+                            <Package className="h-8 w-8 text-muted-foreground" />
+                          )}
                         </div>
-                        <p className="text-base font-medium mb-1">No inventory yet</p>
-                        <p className="text-sm text-muted-foreground">
-                          Click "New Stock Type" to add components
-                        </p>
+                        {mainTab === "ingredients" ? (
+                          <>
+                            <p className="text-base font-medium mb-1">No ingredient tracking enabled</p>
+                            <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                              To track ingredient inventory, enable tracking for each ingredient on the Ingredients page.
+                              This creates inventory entries for raw materials like Marshmallow, Butter, Milk Powder, etc.
+                            </p>
+                            <Button asChild variant="outline" size="sm">
+                              <Link to="/ingredients">
+                                <Leaf className="h-4 w-4 mr-2" />
+                                Go to Ingredients
+                              </Link>
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-base font-medium mb-1">No inventory yet</p>
+                            <p className="text-sm text-muted-foreground">
+                              Click "New Stock Type" to add components
+                            </p>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2">
