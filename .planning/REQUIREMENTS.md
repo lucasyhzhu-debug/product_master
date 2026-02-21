@@ -88,24 +88,26 @@ Decisions made during requirements review (2026-02-17):
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DSP-01 | Phase 17 | Pending |
-| DSP-02 | Phase 17 | Pending |
-| DSP-03 | Phase 17 | Pending |
-| DSP-04 | Phase 17 | Pending |
-| DSP-06 | Phase 17 | Pending |
-| GF-01 | Phase 17 | Pending |
-| DSP-05 | Phase 17 | Pending |
-| GF-02 | Phase 18 | Pending |
-| GF-03 | Phase 18 | Pending |
-| GF-04 | Phase 18 | Pending |
-| KIT-09 | Phase 19 | Pending |
-| KIT-12 | Phase 19 | Pending |
+| DSP-01 | Phase 17 | Complete |
+| DSP-02 | Phase 17 | Complete |
+| DSP-03 | Phase 17 | Complete |
+| DSP-04 | Phase 17 | Complete |
+| DSP-06 | Phase 17 | Complete |
+| GF-01 | Phase 17 | Complete |
+| DSP-05 | Phase 17 | Complete |
+| GF-02 | Phase 19 (gap closure) | Pending |
+| GF-03 | Phase 19 (gap closure) | Pending |
+| GF-04 | Phase 19 (gap closure) | Pending |
+| KIT-09 | Phase 20 (gap closure) | Pending |
+| KIT-12 | Phase 20 (gap closure) | Pending |
 
 **Coverage:**
 - v1.2 requirements: 12 total
+- Complete (verified): 7 (DSP-01 to DSP-06, GF-01)
+- Pending (gap closure): 5 (GF-02, GF-03, GF-04, KIT-09, KIT-12)
 - Mapped to phases: 12
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-17*
-*Last updated: 2026-02-17 after roadmap creation*
+*Last updated: 2026-02-21 after gap closure phases created (Phase 19, 20)*

@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2018-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2018-02-16)
-- 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-20 (in progress)
+- 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-20 (in progress, gap closure in progress)
 
 ## Phases
 
@@ -48,8 +48,11 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 **Priority order:** Dispatch planner first (core value), then production ingredient tracking & COGS, then depot management, then kitchen link.
 
-- [ ] **Phase 17: Unified Dispatch Planner & 3rd Outlet** - Multi-channel weekly planner with demand waterfall, direct order integration, channel config, and 3rd GoFood outlet (Tamtem). Inventory sufficiency check at end.
-- [x] **Phase 18: Production Ingredient Tracking & COGS** - Extend BOM pattern to production components: ingredient recipes per ball type, FIFO inventory for food ingredients, calculated COGS from ingredient costs, and usage simulation for production planning (completed 2018-02-17)
+- [x] **Phase 17: Unified Dispatch Planner & 3rd Outlet** - Multi-channel weekly planner with demand waterfall, direct order integration, channel config, and 3rd GoFood outlet (Tamtem). Inventory sufficiency check at end.
+- [x] **Phase 17.1: Product Inventory Tracker** - Finished goods stock tracking by location, order drawdown, GoFood auto-deduction, low-stock alerts. (inserted)
+- [x] **Phase 18: Production Ingredient Tracking & COGS** - Extend BOM pattern to production components: ingredient recipes per ball type, FIFO inventory for food ingredients, calculated COGS from ingredient costs, and usage simulation for production planning (completed 2026-02-17)
+- [ ] **Phase 19: GoFood Depot Management** - Per-outlet product mapping, per-outlet depot stock tracking with alerts, restock suggestion algorithm, and Tamtem silent-skip fix. (gap closure)
+- [ ] **Phase 20: Kitchen Production Targets** - Configurable default daily production target and dispatch planner output driving kitchen display numbers. (gap closure)
 
 ## Phase Details
 
@@ -114,11 +117,34 @@ Plans:
 - [x] 18-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
 - [x] 18-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
 
-### Phase 19: GoFood Depot Management and Kitchen Production Targets
+### Phase 19: GoFood Depot Management (Gap Closure)
 
-**Goal:** [To be planned]
-**Depends on:** Phase 18
-**Plans:** 0 plans
+**Goal:** Admin can configure per-outlet product mappings for each GoFood depot, track per-depot stock levels with low-stock alerts, and get daily restock suggestions; Tamtem depot deduction silently skipping when seed not run is replaced with an admin-visible alert
+**Depends on:** Phase 17.1 (builds on finished goods inventory + GoFood deduction infrastructure)
+**Requirements:** GF-02, GF-03, GF-04
+**Gap Closure:** Closes GF-02, GF-03, GF-04 from v1.2 audit; fixes Tamtem silent-skip integration gap
+**Success Criteria** (what must be TRUE):
+  1. Mapping tab has an outlet selector — admin can set per-outlet product mappings; new outlets default to previous depot's mapping
+  2. Each GoFood depot shows current stock level; admin sets starting stock per depot per day; system auto-deducts based on synced GoFood sales
+  3. Alert fires when any depot drops below 5 total products remaining
+  4. Restock suggestion shown per depot: n+1 (avg last 3 days), n+2 on Fri/Sat, Monday reset to previous Thursday's total
+  5. When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent console.log skip
+**Plans:** TBD (run /gsd:plan-phase 19 to break down)
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 19 to break down)
+- [ ] TBD
+
+### Phase 20: Kitchen Production Targets (Gap Closure)
+
+**Goal:** Manager can configure default daily production targets, and the kitchen view displays today's production targets driven by dispatch planner output
+**Depends on:** Phase 17 (dispatch planner), Phase 19 (depot management)
+**Requirements:** KIT-09, KIT-12
+**Gap Closure:** Closes KIT-09, KIT-12 from v1.2 audit
+**Success Criteria** (what must be TRUE):
+  1. Default daily production target is 200 units (110 Original singles + 30 Original triples, no Jumbo); manager can edit this in settings
+  2. Kitchen view displays two numbers for today: (1) total Original singles to produce, (2) total Original triples to produce
+  3. Kitchen display numbers are driven by dispatch planner output when a plan exists for today; fallback to configured default when no plan set
+**Plans:** TBD (run /gsd:plan-phase 20 to break down)
+
+Plans:
+- [ ] TBD
