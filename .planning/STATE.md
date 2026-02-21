@@ -132,9 +132,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-21
-Stopped at: Completed 17.1-05-PLAN.md (UAT gap closure — all 7 gaps resolved, type-check + build pass) — Phase 17.1 FULLY COMPLETE
+Stopped at: Completed 17.1-05-PLAN.md — UAT feedback applied (persistent panel UX, commit 899cdb9). Phase 17.1 FULLY COMPLETE + UAT APPROVED.
 Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-tracking-and-order-fulfilment-drawdown/17.1-05-SUMMARY.md
-Resume notes: Phase 17.1 complete across 5 plans. UAT gaps resolved. All builds pass. Human verify checkpoint pending (retest Tests 3, 4, 5, 8, 9, 10, 11, 12). After approval: merge feature branch to main, update CHANGELOG on main, proceed to next phase.
+Resume notes: Phase 17.1 complete across 5 plans. All UAT gaps resolved and approved. Type-check + build pass. Ready to merge feature branch to main, update CHANGELOG on main, proceed to next phase.
 
 ---
 *Last updated: 2026-02-21 (17.1-05-gap-closure-complete)*
