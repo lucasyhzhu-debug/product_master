@@ -43,3 +43,31 @@
 
 ---
 
+
+## v1.2 Unified Planning & Revenue (Shipped: 2026-02-21)
+
+**Phases completed:** 3 phases (17, 17.1, 18), 20 plans
+**Timeline:** 5 days (2026-02-17 to 2026-02-21)
+**Files changed:** 290 | **Lines:** +69,508 / -806
+**Codebase:** ~97,824 lines TypeScript (62 Convex tables)
+**Requirements:** 7/12 satisfied | **Audit:** gaps_found (5 intentionally deferred)
+
+**Key accomplishments:**
+1. Unified multi-channel dispatch planner — Weekly planning across GoFood, K3Mart, Direct, and Consignment in one page with demand waterfall, over-capacity highlighting, and direct order auto-population at due-date minus 2 days
+2. Tamtem 3rd GoFood outlet — G958262444 (Tamtem/Legato) syncs transactions automatically alongside Goldfinch and Crystal on the existing GoBiz cron
+3. Finished goods inventory tracker — Location-aware stock by product, order drawdown (fulfill direct orders without production), GoFood auto-deduction of sales, per-product low-stock alerts
+4. Production ingredient tracking & COGS — Big Ball and Mid Ball components get ingredient recipes with quantities; FIFO food ingredient inventory; auto-calculated COGS from ingredient costs replaces manual number entry
+5. Dispatch planner simulation — Materials Check panel shows day-by-day packaging + ingredient shortage forecasts with "Runs Out By" day-name resupply dates
+6. Inventory sufficiency check — Packaging and ingredient simulation integrated into planner before finalizing weekly plans
+
+**Delivered:** Shipped a unified multi-channel dispatch planner with demand waterfall and inventory simulation, added the Tamtem 3rd GoFood outlet, built a finished goods inventory tracker with order drawdown and GoFood auto-deduction, and extended the BOM pattern to production ingredients with FIFO tracking and auto-calculated COGS.
+
+**Known Gaps (deferred to v1.3):**
+- GF-02: Per-outlet product mapping (outlet selector in GoFood mapping tab) — Phase 19 planned
+- GF-03: Per-outlet depot stock tracking + alerts (< 5 units) — Phase 19 planned
+- GF-04: Depot restock suggestion algorithm (n+1 avg last 3 days) — Phase 19 planned
+- KIT-09: Default daily production target 200 units, configurable by manager — Phase 20 planned
+- KIT-12: Dispatch planner output drives kitchen display targets — Phase 20 planned
+
+---
+

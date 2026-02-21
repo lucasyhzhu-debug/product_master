@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, kitchen production targets, multi-platform API integration (GoBiz/GoFood across 3 outlets), and K3Mart outlet dispatch planning. Moving toward unified multi-channel production planning and consignment revenue tracking.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning (GoFood × 3 outlets + K3Mart + Direct + Consignment), finished goods inventory with order drawdown, production ingredient tracking with auto-calculated COGS, and multi-platform API integration (GoBiz/GoFood). Moving toward GoFood depot management, kitchen target automation, and consignment revenue tracking.
 
 ## Core Value
 
@@ -53,56 +53,67 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ Stock rotation shortcuts and manual stock in/out for K3Mart — v1.1
 - ✓ Dispatch-to-kitchen pipeline (confirmDayPlan → production targets) — v1.1
 - ✓ Sales analytics: Recharts, platform stacked charts, hourly/daily/weekly/monthly — v1.1
+- ✓ Tamtem 3rd GoFood outlet (G958262444) syncs transactions automatically alongside Goldfinch and Crystal — v1.2
+- ✓ Unified multi-channel dispatch planner: demand waterfall, direct order auto-population, over-capacity highlighting, inventory sufficiency check — v1.2 (DSP-01 to DSP-06)
+- ✓ Finished goods inventory tracker: location-aware stock by product, order drawdown skipping production, GoFood auto-deduction, per-product low-stock alerts — v1.2
+- ✓ Production ingredient tracking: ingredient recipes per ball type (BIG_BALL, MID_BALL), FIFO inventory for food ingredients, auto-calculated COGS replacing manual entry — v1.2
+- ✓ Dispatch planner simulation: day-by-day packaging + ingredient shortage forecasts with "Runs Out By" resupply dates in Materials Check panel — v1.2
 
 ### Active
 
-## Current Milestone: v1.2 "Unified Planning & Revenue"
-
-**Goal:** Unify production planning across all sales channels, add 3rd GoJek outlet, simplify kitchen targets, enable cross-channel analytics, and close consignment revenue recognition gaps.
-
-**Target features:**
-- 3rd GoJek outlet sync (Tamtem/Legato G958262444)
-- Unified dispatch planner (evolve K3Mart cockpit into multi-channel weekly planner)
-- Kitchen simplification (aggregate daily target, audio alerts, over/under warnings)
-- Cross-channel sales analytics (all channels with manual entry for non-API platforms)
-- Consignment revenue workflow (production → sale recognition → cash collection)
+- [ ] GF-02: Per-outlet product mapping (outlet selector in mapping tab; new outlets default to previous depot's mapping) — Phase 19
+- [ ] GF-03: Per-outlet GoFood depot stock tracking with alert when any depot < 5 products remaining — Phase 19
+- [ ] GF-04: Depot restock suggestion algorithm: n+1 avg last 3 days; n+2 Fri/Sat; Mon reset to prev Thu total — Phase 19
+- [ ] KIT-09: Default daily production target 200 units (110 Original singles + 30 Original triples), configurable by manager — Phase 20
+- [ ] KIT-12: Dispatch planner output drives kitchen view — kitchen displays today's production targets as two numbers (singles + triples) — Phase 20
 
 ### Out of Scope
 
-- PIN hash migration to bcrypt/scrypt — SHA256 acceptable for 6-digit PINs with rate limiting on internal tool
-- Moving to HTTP-only cookies or Convex Auth — token-in-args pattern acceptable for internal tool
-- Error monitoring integration (Sentry/LogRocket) — separate initiative
-- Archival strategy for old orders — separate initiative after backup automation is in place
-- GoBiz programmatic login (password grant) — API blocks non-browser clients; manual paste + refresh cron sufficient
-- Full GoFood POS integration (accept orders) — requires GoFood Facilitator Model partnership; massive scope for 2 outlets
-- GoBiz official OAuth2 migration — GoBiz stopped issuing new client credentials (Phase 16.1 dropped)
-- Mobile app (React Native) — responsive web design covers kitchen mobile use
-- Multi-language i18n — all users are Indonesian staff comfortable with English UI
+| Feature | Reason |
+|---------|--------|
+| PIN hash migration to bcrypt/scrypt | SHA256 acceptable for 6-digit PINs with rate limiting on internal tool |
+| Moving to HTTP-only cookies or Convex Auth | Token-in-args pattern acceptable for internal tool |
+| Error monitoring integration (Sentry/LogRocket) | Separate initiative |
+| Archival strategy for old orders | Separate initiative after backup automation is in place |
+| GoBiz programmatic login (password grant) | API blocks non-browser clients; manual paste + refresh cron sufficient |
+| Full GoFood POS integration (accept orders) | Requires GoFood Facilitator Model partnership; massive scope |
+| GoBiz official OAuth2 migration | GoBiz stopped issuing new client credentials (Phase 16.1 dropped) |
+| Mobile app (React Native) | Responsive web design covers kitchen mobile use |
+| Multi-language i18n | All users are Indonesian staff comfortable with English UI |
+| Kitchen integration from dispatch planner (auto-push) | Deferred until dispatch planner is validated; v1.3+ |
+| Audio alerts for kitchen (KIT-11) | Deferred to v1.3+ |
+| Automated settlement reconciliation | Metric flagging sufficient at this scale; CON-04 simplified |
+| Full double-entry accounting for consignment | Production system, not accounting; export summaries to spreadsheets |
+| Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
+| Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
+| Customer CRM / Sales pipeline | Deferred |
+| Notifications bell (NTF-01) | Deferred |
+| Visual feedback overlay | Removed — element identification too imprecise |
 
 ## Context
 
-Shipped v1.1 with ~100k lines of TypeScript across 59 Convex tables.
+Shipped v1.2 with ~97,824 lines TypeScript across 62 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
 Deployed via Vercel with GitHub Actions CI.
 
-**Current state after v1.1:**
-- 29/29 v1.1 requirements satisfied, all integration paths verified
-- Order management: 7-status Kanban model with audit trail, draft lifecycle, dedicated creation page
-- Kitchen: dashboard header with production targets, due-date order grouping, K3Mart synthetic demand
-- K3Mart: outlet-first weekly planner, holiday awareness, stock rotation, dispatch-to-kitchen pipeline
-- API: GoBiz auto-refresh cron, dual-outlet GoFood sync, sync health monitoring, unified product mapping
-- Sales analytics: Recharts with platform-colored stacked charts, hourly granularity
-- Schema: 59 tables (expanded from 37 with kitchenConfig, orderEvents, platformCredentials, etc.)
+**Current state after v1.2:**
+- 7/12 v1.2 requirements satisfied; 5 carried to v1.3 (GoFood depot management + kitchen targets)
+- Dispatch planning: unified multi-channel weekly planner at /dispatch-planner with GoFood, K3Mart, Direct, Consignment
+- Finished goods inventory: 3 new tables (productInventory, productInventoryTransactions, productInventorySettings)
+- Production ingredients: 2 new tables (productionComponentLinks, productionComponentIngredients) with FIFO via inventoryBatches
+- API: 3 GoFood outlets (Goldfinch, Crystal, Tamtem), GoBiz JSON blob token paste, auto-refresh cron
+- Schema: 62 tables
 - UI: 26 pages under teal brand with dark mode
 
 **Known technical debt:**
-- E2E Playwright tests not yet written
+- E2E Playwright tests not yet written (test infrastructure is Vitest + convex-test only)
 - Generic query factory not applied to all query files (only simple entities)
 - protectedMutation not applied to complex entities (orders, recipes, products)
 - `useConvex` prefix not removed from hook names (cosmetic)
 - 1.8MB JS bundle size triggers Vite warning
 - Partial dark mode coverage in some K3Mart components
-- 27 deferred requirements tracked in v1.1 REQUIREMENTS archive
+- Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run (mitigation: run seed before Tamtem GoFood sales begin)
+- Ingredient simulation uses name string matching — fragile if names diverge between ingredient and tracker componentType records
 
 ## Constraints
 
@@ -133,6 +144,14 @@ Deployed via Vercel with GitHub Actions CI.
 | Kitchen dashboard above existing panels | Kitchen staff need both metrics and batch production | ✓ Good — non-disruptive addition to proven V2 layout |
 | Unified product mapping by type | GoFood prices differ from internal; match by type not price | ✓ Good — auto-match + admin-editable covers all platforms |
 | Drop Phase 16.1 GoBiz OAuth2 | GoBiz stopped issuing new client credentials | — Accepted — unofficial integration maintained |
+| 4 separate dispatch planner tables | Separation of concerns over monolithic config object | ✓ Good — each table has distinct read/write patterns |
+| Unified dispatch planner as standalone page | K3Mart cockpit stays for K3Mart-specific API workflows; planner reads from both | ✓ Good — no feature regression, clear separation of responsibilities |
+| productInventory as simple aggregate (not FIFO) | GoFood outlets need negative stock for auto-deduction; FIFO adds complexity without value for finished goods | ✓ Good — simpler, predictable; negative stock flagged visually |
+| fulfillFromInventory bypasses status transition guard | PaymentReceived→AwaitingDelivery requires special path outside normal forward-only transitions | ✓ Good — documented in statusTransitions.ts; intentional bypass with clear comment |
+| Forward-only COGS for production ingredients | Historical orders keep original costs; recalculation would invalidate past profitability data | ✓ Good — clean separation of historical vs. new records |
+| GoBiz token accepted as full JSON blob | Dual-field input caused paste errors; single JSON paste is safer and faster | ✓ Good — improved UX, no functional regression |
+| commissionRate removed from dispatch schema | Net/gross revenue comes from external APIs; commission is API-derived, not locally stored | ✓ Good — avoided data duplication and sync mismatch |
+| Direct Sales "Planned (Manual)" outlet | Managers need ad-hoc planning for non-confirmed direct orders | ✓ Good — flexible without polluting confirmed order data |
 
 ---
-*Last updated: 2026-02-16 after v1.2 milestone start*
+*Last updated: 2026-02-21 after v1.2 milestone*

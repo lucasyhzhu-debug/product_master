@@ -1,18 +1,18 @@
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-02-17)
+See: .planning/PROJECT.md (updated 2026-02-21)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 20: Production Ingredient Tracking & COGS
+**Current focus:** v1.3 — Phase 19: GoFood Depot Management (GF-02/03/04) + Phase 20: Kitchen Production Targets (KIT-09/12)
 
 ## Current Position
 
-Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
+Milestone v1.2 COMPLETE — shipped 2026-02-21
 Plan: 05 of 05 — PHASE COMPLETE (incl. UAT gap closure)
 Status: Phase 17.1 COMPLETE — All 5 plans executed. All UAT gaps resolved. Ready to merge to main.
 Last activity: 2026-02-21 - Completed quick task 11: Fix Sales Analytics revenue table chronological sorting
 
-Progress (v1.2): [████████░░] 80%
+Progress (v1.3): [░░░░░░░░░░] 0% — Phases 19-20 ready to plan
 
 ## Performance Metrics
 
@@ -139,4 +139,4 @@ Resume file: .planning/phases/17.1-product-inventory-tracker-with-location-track
 Resume notes: Phase 17.1 complete across 5 plans. All UAT gaps resolved and approved. Type-check + build pass. Ready to merge feature branch to main, update CHANGELOG on main, proceed to next phase.
 
 ---
-*Last updated: 2026-02-21 (17.1-05-gap-closure-complete)*
+*Last updated: 2026-02-21 (v1.2-milestone-complete)*
