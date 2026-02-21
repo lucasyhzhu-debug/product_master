@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-17)
 Phase: 17.1 — Product Inventory Tracker (Finished Goods, Location-Aware, Order Drawdown)
 Plan: 05 of 05 — PHASE COMPLETE (incl. UAT gap closure)
 Status: Phase 17.1 COMPLETE — All 5 plans executed. All UAT gaps resolved. Ready to merge to main.
-Last activity: 2026-02-21 — Completed 17.1-05 (UAT gap closure: button placement, posSlot filter, current-stock display, location toggles, per-product toast, settings labels, category toggle)
+Last activity: 2026-02-21 - Completed quick task 11: Fix Sales Analytics revenue table chronological sorting
 
 Progress (v1.2): [████████░░] 80%
 
@@ -122,6 +122,7 @@ None yet.
 | 9 | Update GoBiz API input to accept full auth JSON blob (access_token + refresh_token from single paste) | 2026-02-20 | e820383 | Complete | [9-update-gojek-api-input-to-accept-access-](.planning/quick/9-update-gojek-api-input-to-accept-access-/) |
 | 10 | Fix ingredient components missing from Inventory Manager Production tab (union query + bypass zero-stock filter for production rows) | 2026-02-20 | 0530a47 | Verified | [10-fix-ingredient-components-missing-from-i](.planning/quick/10-fix-ingredient-components-missing-from-i/) |
 | Phase 17.1 P05 | 25 | 8 tasks | 10 files |
+| 11 | Fix Sales Analytics revenue table chronological sorting | 2026-02-21 | 256392d | | [11-fix-order-list-chronological-sorting-to-](.planning/quick/11-fix-order-list-chronological-sorting-to-/) |
 
 ### Blockers/Concerns
 
