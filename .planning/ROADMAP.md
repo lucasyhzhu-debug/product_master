@@ -2,40 +2,40 @@
 
 ## Milestones
 
-- ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2019-02-15)
-- ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2019-02-16)
+- ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2018-02-15)
+- ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2018-02-16)
 - 🚧 **v1.2 Unified Planning & Revenue** — Phases 17-20 (in progress)
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 Concerns Cleanup & Refactor (Phases 1-11) — SHIPPED 2019-02-15</summary>
+<summary>✅ v1.0 Concerns Cleanup & Refactor (Phases 1-11) — SHIPPED 2018-02-15</summary>
 
-- [x] Phase 1: Test Infrastructure (4/4 plans) — completed 2019-02-13
-- [x] Phase 2: Quick Fixes — Security & Docs (2/2 plans) — completed 2019-02-13
-- [x] Phase 3: Quick Fixes — Tech Debt (4/4 plans) — completed 2019-02-13
-- [x] Phase 4: Quick Fixes — Bugs (2/2 plans) — completed 2019-02-13
-- [x] Phase 5: Backend Factories (3/3 plans) — completed 2019-02-13
-- [x] Phase 6: BOM Migration (3/3 plans) — completed 2019-02-14
-- [x] Phase 7: Query Optimization (3/3 plans) — completed 2019-02-14
-- [x] Phase 8: Schema Cleanup (4/4 plans) — completed 2019-02-14
-- [x] Phase 9: UI Brand Consolidation (5/5 plans) — completed 2019-02-14
-- [x] Phase 10: Frontend Factories (3/3 plans) — completed 2019-02-14
-- [x] Phase 11: Infrastructure & Consolidation (3/3 plans) — completed 2019-02-14
+- [x] Phase 1: Test Infrastructure (4/4 plans) — completed 2018-02-13
+- [x] Phase 2: Quick Fixes — Security & Docs (2/2 plans) — completed 2018-02-13
+- [x] Phase 3: Quick Fixes — Tech Debt (4/4 plans) — completed 2018-02-13
+- [x] Phase 4: Quick Fixes — Bugs (2/2 plans) — completed 2018-02-13
+- [x] Phase 5: Backend Factories (3/3 plans) — completed 2018-02-13
+- [x] Phase 6: BOM Migration (3/3 plans) — completed 2018-02-14
+- [x] Phase 7: Query Optimization (3/3 plans) — completed 2018-02-14
+- [x] Phase 8: Schema Cleanup (4/4 plans) — completed 2018-02-14
+- [x] Phase 9: UI Brand Consolidation (5/5 plans) — completed 2018-02-14
+- [x] Phase 10: Frontend Factories (3/3 plans) — completed 2018-02-14
+- [x] Phase 11: Infrastructure & Consolidation (3/3 plans) — completed 2018-02-14
 
 Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
 <details>
-<summary>✅ v1.1 Stabilization & QoL (Phases 12-16) — SHIPPED 2019-02-16</summary>
+<summary>✅ v1.1 Stabilization & QoL (Phases 12-16) — SHIPPED 2018-02-16</summary>
 
-- [x] Phase 12: UI Brand Verification (1/1 plan) — completed 2019-02-15
-- [x] Phase 13: API Audit & Auth Architecture (5/5 plans) — completed 2019-02-15
-- [x] Phase 14: Order QoL (8/8 plans) — completed 2019-02-16
-- [x] Phase 14.1: Draft Order Update (3/3 plans) — completed 2019-02-16
-- [x] Phase 15: Kitchen Overhaul (4/4 plans) — completed 2019-02-16
-- [x] Phase 16: K3Mart Cockpit (6/6 plans) — completed 2019-02-16
+- [x] Phase 12: UI Brand Verification (1/1 plan) — completed 2018-02-15
+- [x] Phase 13: API Audit & Auth Architecture (5/5 plans) — completed 2018-02-15
+- [x] Phase 14: Order QoL (8/8 plans) — completed 2018-02-16
+- [x] Phase 14.1: Draft Order Update (3/3 plans) — completed 2018-02-16
+- [x] Phase 15: Kitchen Overhaul (4/4 plans) — completed 2018-02-16
+- [x] Phase 16: K3Mart Cockpit (6/6 plans) — completed 2018-02-16
 - ~~Phase 16.1: GoBiz OpenAPI Audit~~ — DROPPED (GoBiz stopped issuing OAuth2 keys)
 
 Full details: `.planning/milestones/v1.1-ROADMAP.md`
@@ -49,8 +49,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 **Priority order:** Dispatch planner first (core value), then production ingredient tracking & COGS, then depot management, then kitchen link.
 
 - [ ] **Phase 17: Unified Dispatch Planner & 3rd Outlet** - Multi-channel weekly planner with demand waterfall, direct order integration, channel config, and 3rd GoFood outlet (Tamtem). Inventory sufficiency check at end.
-- [x] **Phase 19: Production Ingredient Tracking & COGS** - Extend BOM pattern to production components: ingredient recipes per ball type, FIFO inventory for food ingredients, calculated COGS from ingredient costs, and usage simulation for production planning (completed 2019-02-17)
-- [ ] **Phase 18: GoFood Depot Management** - Per-outlet product mapping, depot stock tracking with alerts, and restock suggestion formula
+- [x] **Phase 18: Production Ingredient Tracking & COGS** - Extend BOM pattern to production components: ingredient recipes per ball type, FIFO inventory for food ingredients, calculated COGS from ingredient costs, and usage simulation for production planning (completed 2018-02-17)
 
 ## Phase Details
 
@@ -89,7 +88,7 @@ Plans:
 - [ ] 17.1-04-PLAN.md -- OrderDetail drawdown UI + documentation updates
 - [ ] 17.1-05-PLAN.md -- UAT gap closure: button placement, product filter, current stock display, location toggles, drawdown toast, settings labels, ProductionComponents category
 
-### Phase 19: Production Ingredient Tracking & COGS
+### Phase 18: Production Ingredient Tracking & COGS
 **Goal**: Extend the packaging BOM/inventory pattern to production components — each production component (Big Ball, Mid Ball) gets ingredient recipes with quantities, FIFO inventory tracking for food ingredients, auto-calculated COGS from ingredient costs, and usage simulation for production planning
 **Depends on**: Phase 17 (dispatch planner needed for usage simulation); independent of 18/19
 **Requirements**: TBD (new feature — derives from existing BOM architecture)
@@ -105,25 +104,13 @@ Plans:
   8. Historical orders are not impacted — COGS calculations apply forward only, no retroactive recalculation
 **Plans:** 9 plans (6 original + 3 UAT gap closure)
 Plans:
-- [x] 19-01-PLAN.md -- Schema extensions (2 new tables + componentTypes fields) + hierarchy traversal utility
-- [x] 19-02-PLAN.md -- Production recipe CRUD backend + COGS calculation + cost invalidation cascade
-- [x] 19-03-PLAN.md -- Ingredient inventory infrastructure (FIFO tracking + order fulfillment deduction)
-- [x] 19-04-PLAN.md -- Recipe editor modal frontend + ProductionComponentsManager tier sorting
-- [x] 19-05-PLAN.md -- Inventory page ingredient display + COGS tooltip + dispatch planner simulation
-- [x] 19-06-PLAN.md -- Materials Check panel wiring + build verification + documentation
-- [x] 19-07-PLAN.md -- UAT gap closure (backend): hierarchy cost-leaf, production inventory mutation, dispatchPlans outletId union
-- [x] 19-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
-- [x] 19-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
-
-### Phase 18: GoFood Depot Management
-**Goal**: Manager can track per-outlet depot stock, get restock suggestions, and receive low-stock alerts across all 3 GoFood outlets
-**Depends on**: Phase 17 (3rd outlet must be syncing)
-**Requirements**: GF-02, GF-03, GF-04
-**Research**: Skip research-phase
-**Success Criteria** (what must be TRUE):
-  1. Manager can select an outlet in the product mapping tab and customize which internal products map to which GoFood menu items per outlet; new outlets default to previous depot's mapping
-  2. Manager can set starting depot stock per outlet per day, and the system reduces it as synced sales arrive, showing current remaining stock per depot
-  3. System alerts when any depot drops below 5 total products remaining
-  4. Restock suggestion shows n+1 (avg last 3 days, rounded up) for normal days, n+2 for Fri/Sat, and resets to previous Thursday's total on Monday
-**Plans**: TBD
+- [x] 18-01-PLAN.md -- Schema extensions (2 new tables + componentTypes fields) + hierarchy traversal utility
+- [x] 18-02-PLAN.md -- Production recipe CRUD backend + COGS calculation + cost invalidation cascade
+- [x] 18-03-PLAN.md -- Ingredient inventory infrastructure (FIFO tracking + order fulfillment deduction)
+- [x] 18-04-PLAN.md -- Recipe editor modal frontend + ProductionComponentsManager tier sorting
+- [x] 18-05-PLAN.md -- Inventory page ingredient display + COGS tooltip + dispatch planner simulation
+- [x] 18-06-PLAN.md -- Materials Check panel wiring + build verification + documentation
+- [x] 18-07-PLAN.md -- UAT gap closure (backend): hierarchy cost-leaf, production inventory mutation, dispatchPlans outletId union
+- [x] 18-08-PLAN.md -- UAT gap closure (frontend): SubComponentSection UX, unit labels, ReceiveStockDialog categories, ingredient tracking button
+- [x] 18-09-PLAN.md -- UAT gap closure (dispatch): Planned Manual posSlot filter, K3MartCockpit WeeklyPlannerGrid removal
 
