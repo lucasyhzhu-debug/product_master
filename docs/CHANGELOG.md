@@ -14,6 +14,28 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.13] - 2026-02-22 - Delivery Fee on Orders
+
+Orders can now include a manually-entered GoSend delivery fee, recorded directly on the order detail page. Staff enter the fee once and it appears as a separate line item below the order total — customers see the full cost breakdown in both the order view and WhatsApp receipt messages.
+
+### Added
+- **Delivery fee field on orders**: A "🚚 Delivery Fee" row appears below discounts on the Order Detail page for all non-completed, non-cancelled orders.
+- **Inline edit**: Click "Edit" next to the delivery fee row to enter a fee amount. Enter 0 to clear. Press Save or Enter to confirm.
+- **Final Total updates automatically**: The Final Total displayed on the page and stored on the order reflects `(product total - discounts) + delivery fee`.
+- **WhatsApp messages show delivery fee**: Payment request and receipt templates include a `🚚 Ongkir: Rp X` line when a delivery fee is set.
+- **Persists across refresh**: Delivery fee is stored on the order in the database.
+
+### Files Modified
+- `convex/schema.ts` — `deliveryFee: v.optional(v.number())` added to orders table
+- `convex/orders/mutations/orderCrud.ts` — `updateDeliveryFee` mutation
+- `convex/orders/mutations/index.ts` — export `updateDeliveryFee`
+- `convex/orders/whatsapp.ts` — delivery fee line in payment request and receipt templates
+- `src/lib/types.ts` — `delivery_fee` field on `OrderDetail` interface
+- `src/hooks/convex/useOrders.ts` — `deliveryFee` in transform, `useConvexUpdateOrderDeliveryFee` hook
+- `src/hooks/convex/index.ts` — export `useConvexUpdateOrderDeliveryFee`
+- `src/components/orders/OrderItems.tsx` — delivery fee row with inline edit UI
+- `src/pages/OrderDetail.tsx` — pass delivery fee props to OrderItems
+
 ## [v1.2.12] - 2026-02-22 - Customer Address Auto-Fill in New Orders
 
 When creating a new order for a repeat customer, their saved delivery address now automatically fills in the address field — no more re-typing the same address every time. If you change the address for a specific order, a checkbox lets you optionally update the customer's saved default too. New customers get their delivery address saved automatically for future orders.
