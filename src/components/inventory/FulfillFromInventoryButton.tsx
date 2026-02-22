@@ -2,7 +2,7 @@
  * FulfillFromInventoryButton
  *
  * Encapsulates the entire "Use Available Inventory" drawdown flow:
- * - Only visible when order status is PaymentReceived
+ * - Only visible when order status is PaymentReceived or BeingPrepared
  * - Location selector + per-item availability check
  * - Atomic drawdown via fulfillFromInventory mutation
  * - Advances order to AwaitingDelivery on success
@@ -47,8 +47,8 @@ export function FulfillFromInventoryButton({
   orderStatus,
   token,
 }: FulfillFromInventoryButtonProps) {
-  // Only render for PaymentReceived orders
-  if (orderStatus !== 'PaymentReceived') {
+  // Only render for PaymentReceived or BeingPrepared orders
+  if (orderStatus !== 'PaymentReceived' && orderStatus !== 'BeingPrepared') {
     return null;
   }
 
@@ -150,7 +150,7 @@ function FulfillFromInventoryPanel({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Skip kitchen production and fulfill this order directly from finished goods stock.
+          Fulfill this order directly from finished goods stock. Order will advance to Awaiting Delivery.
         </p>
 
         {/* Location toggle buttons */}
