@@ -1529,7 +1529,7 @@ export const getRevenueTimeSeries = query({
 
 // ─── REVENUE BY OUTLET (Platform -> Outlet hierarchy) ───
 
-export const getRevenueByOutlet = query({
+export const getRevenueByOutletInternal = internalQuery({
   args: { preset: periodPresetValidator },
   handler: async (ctx, args) => {
     const range = calculatePeriodRange(args.preset as PeriodPreset);

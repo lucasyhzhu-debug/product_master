@@ -363,10 +363,38 @@ export function useConvexRevenueTimeSeries(
   return { data, isLoading: data === undefined };
 }
 
+/** Return shape of getRevenueByOutletInternal / fetchRevenueByOutlet. */
+type OutletData = { outletId: string | null; name: string; gross: number; net: number; transactions: number };
+type RevenueByOutlet = Array<{
+  platform: string;
+  platformName: string;
+  outlets: OutletData[];
+  totals: { gross: number; net: number; transactions: number };
+}>;
+
 /**
  * Get revenue grouped by platform and outlet for hierarchy drill-down.
+ * On-demand fetch: loads on component mount and when preset changes.
+ * Eliminates reactive subscription (~30 MB bandwidth savings).
  */
 export function useConvexRevenueByOutlet(preset: PeriodPreset) {
-  const data = useQuery(api.externalData.queries.getRevenueByOutlet, { preset });
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<RevenueByOutlet | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchRevenueByOutlet);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({ preset });
+      setData(result as RevenueByOutlet);
+    } catch (error) {
+      console.error("Failed to fetch revenue by outlet:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }

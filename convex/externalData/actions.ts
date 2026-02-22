@@ -49,3 +49,13 @@ export const fetchOutletStockSummary = action({
     );
   },
 });
+
+export const fetchRevenueByOutlet = action({
+  args: { preset: periodPresetValidator },
+  handler: async (ctx, args): Promise<unknown> => {
+    return await ctx.runQuery(
+      internal.externalData.queries.getRevenueByOutletInternal,
+      { preset: args.preset }
+    );
+  },
+});

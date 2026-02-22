@@ -600,7 +600,8 @@ function ChannelSummary({
 // ─── Platform Hierarchy (Platform -> Outlet drill-down) ───
 
 function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
-  const { data, isLoading } = useConvexRevenueByOutlet(preset);
+  const { data, isLoading, refresh: refreshByOutlet } = useConvexRevenueByOutlet(preset);
+  void refreshByOutlet; // available for sync handlers if needed
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
 
   if (isLoading || !data) {
