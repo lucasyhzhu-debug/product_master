@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Truck, ChevronDown, ChevronUp } from "lucide-react";
@@ -25,6 +26,7 @@ function OutletRestockTable({
   outletId: Id<"externalOutlets">;
   outletName: string;
 }) {
+  const navigate = useNavigate();
   const restockData = useQuery(api.gofoodDepot.queries.getRestockSuggestions, { outletId });
   const depotStock = useQuery(api.gofoodDepot.queries.getDepotStock, { outletId });
 
@@ -71,6 +73,7 @@ function OutletRestockTable({
             <th className="py-2 px-3 text-right font-medium">Current Stock</th>
             <th className="py-2 px-3 text-right font-medium">Restock Tomorrow</th>
             <th className="py-2 px-3 text-left font-medium">Breakdown</th>
+            <th className="py-2 px-3" />
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -89,6 +92,15 @@ function OutletRestockTable({
                 </td>
                 <td className="py-2 px-3 text-xs text-muted-foreground">
                   {s.breakdown}
+                </td>
+                <td className="py-2 px-3">
+                  <button
+                    className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 hover:underline whitespace-nowrap"
+                    onClick={() => navigate('/inventory')}
+                    title="Open Inventory to transfer this stock"
+                  >
+                    Transfer →
+                  </button>
                 </td>
               </tr>
             );
@@ -134,6 +146,25 @@ export function GoFoodRestockSection() {
           )}
           {expanded ? "Collapse" : "Expand"}
         </button>
+      </div>
+
+      {/* Always-visible usage guidance */}
+      <div className="rounded-md border border-orange-200/60 bg-orange-50/50 dark:border-orange-500/20 dark:bg-orange-500/5 px-4 py-3 text-sm space-y-1.5">
+        <p className="text-foreground">
+          <span className="font-medium">How to use:</span>{" "}
+          <span className="text-muted-foreground">
+            These numbers show how many units to send to each GoFood depot for tomorrow.
+            The calculation uses a 3-day sales average (Mon: full week; Fri/Sat: +2 days buffer; other days: +1).
+          </span>
+        </p>
+        <p className="text-foreground">
+          <span className="font-medium">To restock:</span>{" "}
+          <span className="text-muted-foreground">
+            Pack the suggested quantity, then go to{" "}
+            <span className="font-medium text-foreground">Inventory → Finished Goods → Move Stock</span>{" "}
+            and transfer from Kitchen to the depot storage location.
+          </span>
+        </p>
       </div>
 
       {/* Collapsible content */}
