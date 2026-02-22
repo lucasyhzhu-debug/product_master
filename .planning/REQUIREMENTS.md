@@ -17,14 +17,14 @@ Requirements for milestone v1.3. Each maps to roadmap phases (19–22).
 
 ### Kitchen Production Targets & Overhaul
 
-- [ ] **KIT-09**: Default daily production target configurable by manager on the kitchen page (default: 110 Original singles + 30 Original triples = 140 total balls)
-- [ ] **KIT-12**: Kitchen view displays today's production targets (ball totals by type + packaging breakdown) driven by dispatch plan via BOM; fallback to configured defaults when no plan exists
-- [ ] **KIT-13**: Kitchen view simplified: boxing/stickering columns removed; full-screen production-focused layout with collapsible order context toggle
-- [ ] **KIT-14**: End-of-shift input records produced units by product type + optional waste by reason (QA/testing, spoilage, waste); submission adds produced quantities to Finished Goods Inventory at Kitchen location
-- [ ] **KIT-15**: Two-step end-of-shift confirmation: review summary screen before commit, success summary screen after submit
-- [ ] **KIT-16**: Shift production records stored per shift (date, submitted by, produced quantities, waste breakdown); viewable by managers
-- [ ] **KIT-17**: Manager can edit past shift records; edit triggers inventory impact confirmation ("this will adjust inventory by N units — confirm?")
-- [ ] **KIT-18**: Manager can override today's production targets on the kitchen page (per-day only, does not change configured defaults)
+- [x] **KIT-09**: Default daily production target configurable by manager on the kitchen page (default: 110 Original singles + 30 Original triples = 140 total balls)
+- [x] **KIT-12**: Kitchen view displays today's production targets (ball totals by type + packaging breakdown) driven by dispatch plan via BOM; fallback to configured defaults when no plan exists
+- [x] **KIT-13**: Kitchen view simplified: boxing/stickering columns removed; full-screen production-focused layout with collapsible order context toggle
+- [x] **KIT-14**: End-of-shift input records produced units by product type + optional waste by reason (QA/testing, spoilage, waste); submission adds produced quantities to Finished Goods Inventory at Kitchen location
+- [x] **KIT-15**: Two-step end-of-shift confirmation: review summary screen before commit, success summary screen after submit
+- [x] **KIT-16**: Shift production records stored per shift (date, submitted by, produced quantities, waste breakdown); viewable by managers
+- [x] **KIT-17**: Manager can edit past shift records; edit triggers inventory impact confirmation ("this will adjust inventory by N units — confirm?")
+- [x] **KIT-18**: Manager can override today's production targets on the kitchen page (per-day only, does not change configured defaults)
 
 ### Consignment Upload
 
@@ -88,14 +88,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GF-03 | Phase 19 | Complete |
 | GF-04 | Phase 19 | Complete |
 | GF-05 | Phase 19 | Complete |
-| KIT-09 | Phase 20 | Pending |
-| KIT-12 | Phase 20 | Pending |
-| KIT-13 | Phase 20 | Pending |
-| KIT-14 | Phase 20 | Pending |
-| KIT-15 | Phase 20 | Pending |
-| KIT-16 | Phase 20 | Pending |
-| KIT-17 | Phase 20 | Pending |
-| KIT-18 | Phase 20 | Pending |
+| KIT-09 | Phase 20 | Complete |
+| KIT-12 | Phase 20 | Complete |
+| KIT-13 | Phase 20 | Complete |
+| KIT-14 | Phase 20 | Complete |
+| KIT-15 | Phase 20 | Complete |
+| KIT-16 | Phase 20 | Complete |
+| KIT-17 | Phase 20 | Complete |
+| KIT-18 | Phase 20 | Complete |
 | CON-01 | Phase 21 | Pending |
 | CON-02 | Phase 21 | Pending |
 | CON-03 | Phase 21 | Pending |
