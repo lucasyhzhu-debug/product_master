@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.10] - 2026-02-22 - WhatsApp Template: Correct Delivery Info & Date
+
+WhatsApp payment requests now correctly show "Delivery to: [address]" for delivery orders instead of always showing pickup info. Target dates also display correctly — they were showing 1 day behind due to a timezone issue.
+
+### Fixed
+- **Delivery vs Pickup info**: Delivery orders now show the delivery address instead of "Pickup at: [location]". The template now prioritizes the actual address content over the `deliveryType` field.
+- **Target date off by 1 day**: All date formatting in WhatsApp templates now uses `Asia/Jakarta` timezone. Previously UTC formatting caused dates to appear 1 day behind for WIB users.
+
+### Files Modified
+- `convex/orders/whatsapp.ts` — delivery logic reordered, timezone added to date formatting
+- `convex/orders/whatsappHelpers.ts` — timezone added to date formatting
+- `src/lib/whatsappTemplates.ts` — timezone added to frontend date formatting
+
+---
+
 ## [v1.2.9] - 2026-02-22 - Fix Draft Order Save Error with Vouchers
 
 Saving changes on an edited order that had a voucher applied no longer crashes. Previously you'd get a server error when pressing "Save Changes" — now it saves cleanly.
