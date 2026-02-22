@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (Complete - 8/8 plans done)
-Plan: 20-08 complete (8/8 plans done; 20-01 through 20-08 done)
-Status: All 8 plans complete; build passes; getKitchenStats Draft/AwaitingPayment skip optimized
-Last activity: 2026-02-22 - Completed 20-08: getKitchenStats pruned — Draft/AwaitingPayment orders skip item+production lookups
+Phase: Phase 20.1 — Delivery Fee Reporting Separation (Complete - 1/1 plans done)
+Plan: 20.1-01 complete (1/1 plans done)
+Status: All 1 plan complete; build passes; delivery fee separation shipped to Sales Analytics
+Last activity: 2026-02-22 - Completed 20.1-01: delivery fee separation — totalDeliveryFees in aggregate(), internalNet excludes delivery fees, 5-card summary grid with Delivery Fees card
 
-Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/9), Phase 20 complete (8/8)
+Progress (v1.3): [█████████░] ~92% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 in progress (1/1 done)
 
 ## Performance Metrics
 
@@ -32,6 +32,8 @@ Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/
 All v1.0–v1.2 decisions archived in PROJECT.md Key Decisions table.
 
 Key decisions affecting v1.3 phases:
+- [Phase 20.1-01]: Delivery fee separation at query time using order.deliveryFee field — no schema changes; totalDiscounts recalculated against netProduct to remain accurate; deleted-order fallback leaves totalDeliveryFees at 0; Delivery Fees card uses muted value color (pass-through, not a loss)
+
 - [Phase 17.1]: `gofoodDepotStock` table has no `outletId` field — Phase 19 must extend schema with `outletId` + composite index before any depot tracking work
 - [Phase 17.1]: productInventory is simple aggregate (not FIFO); GoFood outlets allow negative stock
 - [17-06]: `dispatchConsignmentOutlets` holds Legato outlet data — Phase 21 must decide FK strategy (reuse vs. parallel `externalOutlets` rows) before schema migration
@@ -106,9 +108,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-08 — getKitchenStats optimized: Draft/AwaitingPayment orders skip item+production nested DB lookups; return shape confirmed lean (primitives only, no Doc objects); Phase 20 all 8 plans done; build passes
+Stopped at: Completed 20.1-01 — Delivery fee separation: totalDeliveryFees added to aggregate(), internalNet excludes delivery fees, Delivery Fees card added to Sales Analytics OverviewTab; build passes
 Resume file: None
-Resume notes: Phase 20 complete (all 8 plans). All bandwidth optimizations shipped. Next phase TBD.
+Resume notes: Phase 20.1 plan 01 complete. Delivery fee separation shipped. Phase 20.1 is a single-plan phase — ready to merge to main.
 
 ---
 *Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*

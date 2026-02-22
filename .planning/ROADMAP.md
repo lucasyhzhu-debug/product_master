@@ -115,7 +115,7 @@ Plans:
 
 **Goal:** Separate delivery fees from product revenue in Sales Analytics — show delivery fees as a new summary card and exclude them from Net Sales, with corrected discount calculation, all computed at query time using existing schema fields
 **Depends on:** Phase 20
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 20.1-01-PLAN.md — Backend aggregate fix + frontend Delivery Fees card (3 files)
