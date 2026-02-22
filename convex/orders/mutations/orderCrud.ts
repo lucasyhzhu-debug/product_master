@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals, generateOrderNumber as formatOrderNumber } from "../helpers";
+import { calculateLineTotals, generateOrderNumber as formatOrderNumber, parseDeliveryAddress } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -102,8 +102,6 @@ export const create = mutation({
     createdByUserId: v.optional(v.id("users")),
     dueDate: v.optional(v.number()),
     notes: v.optional(v.string()),
-    deliveryType: v.optional(v.string()),
-    pickupLocation: v.optional(v.string()),
     deliveryAddress: v.optional(v.string()),
     contactWa: v.optional(v.string()),
     contactIg: v.optional(v.string()),
@@ -309,8 +307,7 @@ export const create = mutation({
       // Other fields
       soldBy: args.soldBy,
       createdByUserId: args.createdByUserId,
-      deliveryType: args.deliveryType ?? "Pickup",
-      pickupLocation: args.pickupLocation,
+      ...parseDeliveryAddress(args.deliveryAddress ?? ''),
       deliveryAddress: args.deliveryAddress,
       contactWa: args.contactWa,
       contactIg: args.contactIg,
@@ -698,7 +695,7 @@ export const createDraft = mutation({
       totalMargin: 0,
       finalTotal: 0,
       itemCount: 0,
-      deliveryType: "Pickup",
+      deliveryType: "Delivery",
       createdBy: args.createdBy ?? "admin",
       createdByUserId: args.createdByUserId,
     });
@@ -732,7 +729,6 @@ export const updateDraft = mutation({
     ),
     dueDate: v.optional(v.number()),
     deliveryAddress: v.optional(v.string()),
-    deliveryType: v.optional(v.string()),
     notes: v.optional(v.string()),
     voucherCode: v.optional(v.string()),
     lowPriceConfirmed: v.optional(v.boolean()),
@@ -771,8 +767,12 @@ export const updateDraft = mutation({
 
     // Patch simple fields (only if explicitly provided)
     if (args.dueDate !== undefined) patch.dueDate = args.dueDate;
-    if (args.deliveryAddress !== undefined) patch.deliveryAddress = args.deliveryAddress;
-    if (args.deliveryType !== undefined) patch.deliveryType = args.deliveryType;
+    if (args.deliveryAddress !== undefined) {
+      patch.deliveryAddress = args.deliveryAddress;
+      const parsed = parseDeliveryAddress(args.deliveryAddress);
+      patch.deliveryType = parsed.deliveryType;
+      patch.pickupLocation = parsed.pickupLocation;
+    }
     if (args.notes !== undefined) patch.notes = args.notes;
     if (args.lowPriceConfirmed !== undefined) patch.lowPriceConfirmed = args.lowPriceConfirmed;
 
