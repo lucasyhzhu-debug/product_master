@@ -386,7 +386,7 @@ export const getRevenueItems = query({
 
 // ─── PERIOD-BASED DASHBOARD SUMMARY ───
 
-const periodPresetValidator = v.union(
+export const periodPresetValidator = v.union(
   v.literal("past24hours"),
   v.literal("today"),
   v.literal("yesterday"),
@@ -397,7 +397,7 @@ const periodPresetValidator = v.union(
   v.literal("allTime")
 );
 
-export const getDashboardSummaryByPeriod = query({
+export const getDashboardSummaryByPeriodInternal = internalQuery({
   args: { preset: periodPresetValidator },
   handler: async (ctx, args) => {
     const range = calculatePeriodRange(args.preset as PeriodPreset);
