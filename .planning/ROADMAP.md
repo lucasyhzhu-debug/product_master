@@ -139,10 +139,13 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** TBD (run /gsd:plan-phase 21 to break down)
+**Plans:** 4 plans in 3 waves
 
 Plans:
-- [ ] TBD
+- [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
+- [ ] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
+- [ ] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
+- [ ] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
 
 ### Phase 22: Consignment Upload
 
