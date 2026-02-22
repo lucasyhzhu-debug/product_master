@@ -738,8 +738,8 @@ export const updateDraft = mutation({
     if (!order) {
       throw new Error("Order not found");
     }
-    if (order.status !== "Draft") {
-      throw new Error("Can only update Draft orders via updateDraft");
+    if (!["Draft", "AwaitingPayment"].includes(order.status)) {
+      throw new Error("Can only update Draft or AwaitingPayment orders via updateDraft");
     }
 
     // Build patch object from provided optional fields

@@ -380,7 +380,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                   className="w-full"
                   onClick={() => {
                     onClose();
-                    navigate(`/orders?edit=${orderId}`);
+                    navigate(`/orders/new?draft=${orderId}`);
                   }}
                 >
                   <Pencil className="h-4 w-4 mr-2" />

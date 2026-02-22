@@ -467,7 +467,7 @@ export function OrderDetail() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => navigate(`/orders?edit=${orderId}`)}
+              onClick={() => navigate(`/orders/new?draft=${orderId}`)}
             >
               <Pencil className="h-4 w-4 mr-2" />
               Edit Order Items

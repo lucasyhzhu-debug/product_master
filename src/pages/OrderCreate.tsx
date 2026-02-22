@@ -47,11 +47,14 @@ export function OrderCreate() {
   const editDraftId = searchParams.get('draft') as Id<"orders"> | null;
   const isEditMode = !!editDraftId;
 
-  // Fetch existing Draft data when in edit mode
+  // Fetch existing Draft/AwaitingPayment data when in edit mode
   const existingOrder = useQuery(
     api.orders.queries.get,
     editDraftId ? { id: editDraftId as Id<"orders"> } : 'skip'
   );
+
+  // True when editing an already-submitted order (AwaitingPayment) — affects UI labels and submit behavior
+  const isEditingAwaitingPayment = isEditMode && existingOrder?.status === 'AwaitingPayment';
 
   // ============================================
   // State
@@ -102,7 +105,7 @@ export function OrderCreate() {
   // ============================================
   useEffect(() => {
     if (!editDraftId || !existingOrder || hasLoadedDraft.current) return;
-    if (existingOrder.status !== 'Draft') return;
+    if (!['Draft', 'AwaitingPayment'].includes(existingOrder.status)) return;
 
     hasLoadedDraft.current = true;
     setDraftOrderId(editDraftId);
@@ -423,13 +426,15 @@ export function OrderCreate() {
           lowPriceConfirmed: lowPriceConfirmed || undefined,
         });
 
-        // Move Draft -> AwaitingPayment
-        await updateOrderStatus.mutate({
-          orderId: draftOrderId,
-          status: 'AwaitingPayment',
-          userId: user?.userId as Id<"users"> | undefined,
-        });
-        toast.success('Order submitted');
+        // Move Draft -> AwaitingPayment (skip if already AwaitingPayment)
+        if (existingOrder?.status !== 'AwaitingPayment') {
+          await updateOrderStatus.mutate({
+            orderId: draftOrderId,
+            status: 'AwaitingPayment',
+            userId: user?.userId as Id<"users"> | undefined,
+          });
+        }
+        toast.success(existingOrder?.status === 'AwaitingPayment' ? 'Order updated' : 'Order submitted');
         navigate(`/orders?open=${draftOrderId}`);
         return;
       }
@@ -785,8 +790,8 @@ export function OrderCreate() {
         )}
 
         <div className="flex gap-2">
-          {/* Delete Draft button (edit mode only) */}
-          {isEditMode && draftOrderId && (
+          {/* Delete Draft button (Draft edit mode only — not for AwaitingPayment) */}
+          {isEditMode && draftOrderId && !isEditingAwaitingPayment && (
             <Button
               variant="destructive"
               className="h-12"
@@ -798,8 +803,8 @@ export function OrderCreate() {
             </Button>
           )}
 
-          {/* Save as Draft button (edit mode only) */}
-          {isEditMode && draftOrderId && (
+          {/* Save as Draft button (Draft edit mode only — not for AwaitingPayment) */}
+          {isEditMode && draftOrderId && !isEditingAwaitingPayment && (
             <Button
               variant="secondary"
               className="h-12"
@@ -824,12 +829,12 @@ export function OrderCreate() {
             {isSubmitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Submitting...
+                {isEditingAwaitingPayment ? 'Saving...' : 'Submitting...'}
               </>
             ) : (
               <>
                 <Send className="h-5 w-5 mr-2" />
-                Submit Order
+                {isEditingAwaitingPayment ? 'Save Changes' : 'Submit Order'}
               </>
             )}
           </Button>
