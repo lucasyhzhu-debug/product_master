@@ -227,14 +227,14 @@ export async function clearVoucherFromOrder(
   // Release voucher usage
   await releaseVoucherUsage(ctx, order.voucherId, orderId);
 
-  // Recalculate finalTotal without voucher discount
+  // Recalculate finalTotal without voucher discount (keep deliveryFee)
   const newFinalTotal = order.totalAmount - (
     order.orderLevelDiscount && order.orderLevelDiscountType
       ? order.orderLevelDiscountType === "percentage"
         ? order.totalAmount * (order.orderLevelDiscount / 100)
         : order.orderLevelDiscount
       : 0
-  );
+  ) + (order.deliveryFee ?? 0);
 
   // Clear voucher fields from order
   await ctx.db.patch(orderId, {

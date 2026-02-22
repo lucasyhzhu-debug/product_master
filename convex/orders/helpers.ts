@@ -110,21 +110,26 @@ export function calculateOrderTotals(items: OrderItem[]): OrderTotals {
  * @param totalAmount - Total before order-level discount
  * @param discount - Discount value (percentage or amount)
  * @param discountType - Type of discount ("amount" or "percentage")
- * @returns Final total after applying discount
+ * @param deliveryFee - Optional delivery fee to add on top (must be included in finalTotal per schema)
+ * @returns Final total after applying discount and adding delivery fee
  */
 export function recalculateFinalTotal(
   totalAmount: number,
   discount?: number,
-  discountType?: "amount" | "percentage"
+  discountType?: "amount" | "percentage",
+  deliveryFee?: number
 ): number {
+  let total: number;
   if (discount === undefined || discount === 0) {
-    return totalAmount;
+    total = totalAmount;
+  } else {
+    const discountAmount =
+      discountType === "percentage"
+        ? totalAmount * (discount / 100)
+        : discount;
+    total = totalAmount - discountAmount;
   }
-  const discountAmount =
-    discountType === "percentage"
-      ? totalAmount * (discount / 100)
-      : discount;
-  return totalAmount - discountAmount;
+  return total + (deliveryFee ?? 0);
 }
 
 // ============================================
