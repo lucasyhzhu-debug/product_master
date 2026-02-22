@@ -14,6 +14,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.15] - 2026-02-22 - Delivery Fee in WhatsApp Payment Messages
+
+WhatsApp payment requests and receipts now show the delivery fee as a separate line above the total, so customers can see exactly what they're paying for — items, ongkir, and any discount all adding up to the final amount.
+
+### Added
+- **`{delivery_fee}` variable in WhatsApp templates**: Payment Request and Receipt templates (Indonesian + English) now include a `🚚 Ongkir: Rp X.XXX` line directly above the Total line. The line disappears cleanly when there's no delivery fee — no blank lines.
+- **Variable available in template editor**: `{delivery_fee}` now appears in the Variables panel in WhatsApp Templates Manager and can be inserted at cursor.
+
+### How to activate
+Go to **WhatsApp Templates Manager** → click **"Reset to Default"** on both the Payment Request and Receipt templates to pull in the updated layout.
+
+### Files Modified
+- `convex/orders/whatsapp.ts` — `buildTemplateVariables()` now emits full ongkir line with emoji when fee > 0, empty string when zero
+- `convex/whatsappTemplates/mutations.ts` — default template bodies and `availableVariables` updated for both templates
+
+---
+
 ## [v1.2.14] - 2026-02-22 - GoFood Depot Management & Inventory Overhaul
 
 The GoFood depot workflow is now fully operational: stock transfers to depots work for all outlets, the Inventory page has a new "By Platform" view that splits stock across Internal / GoFood / K3Mart, and the Restock Planner now clearly explains what the numbers mean and how to act on them.
