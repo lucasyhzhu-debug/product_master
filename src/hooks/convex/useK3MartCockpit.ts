@@ -1,3 +1,4 @@
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -7,9 +8,51 @@ import { useProtectedMutation } from "./useProtectedMutation";
 // Query Hooks (7)
 // ========================
 
+type OutletProduct = {
+  externalProductId: string;
+  externalProductCode: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  soldToday: number;
+  avgDailySales7d: number;
+  menuProductId: string | null;
+};
+
+type OutletSummaryRow = {
+  _id: string;
+  name: string;
+  externalId: string;
+  isActive: boolean;
+  lastSyncAt: number | null;
+  products: OutletProduct[];
+};
+
+type OutletStockSummary = {
+  outlets: OutletSummaryRow[];
+  lastSyncAt: number | null;
+};
+
 export function useConvexOutletStockSummary(date: string) {
-  const data = useQuery(api.k3martCockpit.queries.getOutletStockSummary, { date });
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<OutletStockSummary | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchOutletStockSummary);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({ date });
+      setData(result as OutletStockSummary);
+    } catch (error) {
+      console.error("Failed to fetch outlet stock summary:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction, date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }
 
 export function useConvexWeeklyDispatchPlans(weekNumber: string) {

@@ -92,7 +92,7 @@ export function K3MartCockpit() {
   const [bulkSubmitCompleted, setBulkSubmitCompleted] = useState(0);
 
   // Queries
-  const { data: outletStockData, isLoading: loadingOutletStock } = useConvexOutletStockSummary(today);
+  const { data: outletStockData, isLoading: loadingOutletStock, refresh: refreshOutletStock } = useConvexOutletStockSummary(today);
   const { data: productionReadinessData, isLoading: loadingProductionReadiness } =
     useConvexProductionReadiness(today);
   const { data: inventorySourcesData, isLoading: loadingInventorySources } = useConvexInventorySources();
@@ -123,13 +123,14 @@ export function K3MartCockpit() {
         syncK3MartSales({ triggeredBy: 'k3mart-cockpit' }),
         syncK3MartStock({ triggeredBy: 'k3mart-cockpit' }),
       ]);
+      await refreshOutletStock();
       toast.success('K3Mart data refreshed');
     } catch {
       toast.error('Sync failed');
     } finally {
       setSyncing(false);
     }
-  }, [syncK3MartSales, syncK3MartStock]);
+  }, [syncK3MartSales, syncK3MartStock, refreshOutletStock]);
 
   /** Handle toggle outlet active */
   const handleToggleOutletActive = useCallback(async (outletId: string, isActive: boolean) => {

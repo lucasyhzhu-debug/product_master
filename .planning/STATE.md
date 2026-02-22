@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 19 (GoFood Depot Management) next; Phase 20 context captured
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) complete; 8/8 plans done
 
 ## Current Position
 
-Phase: Phase 19 — GoFood Depot Management (COMPLETE - all 9 plans done)
-Plan: 19-09 complete (9/9 plans done)
-Status: All gap-closure plans complete; build passes; ready to merge to main
-Last activity: 2026-02-22 - Completed quick task 22: Add {delivery_fee} variable to WhatsApp payment_request and receipt templates
+Phase: Phase 20 — Optimize Top Convex Query Reads (Complete - 8/8 plans done)
+Plan: 20-08 complete (8/8 plans done; 20-01 through 20-08 done)
+Status: All 8 plans complete; build passes; getKitchenStats Draft/AwaitingPayment skip optimized
+Last activity: 2026-02-22 - Completed 20-08: getKitchenStats pruned — Draft/AwaitingPayment orders skip item+production lookups
 
-Progress (v1.3): [██████░░░░] ~50% — Phase 19 complete (9/9 plans), Phase 20 next
+Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/9), Phase 20 complete (8/8)
 
 ## Performance Metrics
 
@@ -25,6 +25,7 @@ Progress (v1.3): [██████░░░░] ~50% — Phase 19 complete (9/
 ### Roadmap Evolution
 - Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
 - Phase 24 added: Remove legacy recipe/packaging/product editors and tags system
+- Phase 20.1 inserted after Phase 20: Delivery fee reporting separation (URGENT)
 
 ### Decisions
 
@@ -52,6 +53,21 @@ Key decisions affecting v1.3 phases:
 - [Phase 19-09]: Removed text-muted-foreground from TooltipContent paragraph; tooltip inherits its own readable color
 - [Phase 19-09]: Move/Receive buttons use blue/green outline tinting for semantic color coding across both ProductGroupedView and LocationGroupedView
 - [Phase 19-09]: GoBiz sync note is always-visible (non-dismissible) to ensure users see sync prerequisite info
+- [Phase 20-02]: getDashboardSummaryByPeriod converted from public reactive query to internalQuery + action pattern to eliminate 205 MB bandwidth during GoBiz sync runs
+- [Phase 20-02]: periodPresetValidator inlined in actions.ts (not imported from queries.ts) to break circular type inference in tsc -b project-references build
+- [Phase 20-02]: Subscription-to-fetch hook pattern: useAction + useState + useCallback + useEffect with explicit DashboardSummaryByPeriod local type and Promise<unknown> action handler
+- [Phase 20-01]: 24-hour buffer before sinceTimestamp catches late-confirmed orders; by_creationTime index makes incremental query index-backed in Convex
+- [Phase 20-03]: useConvexExternalRevenue defaults to last 90 days (effectivePeriodStart) when no periodStart provided — hook-level default prevents all callers from triggering unbounded scans
+- [Phase 20-03]: OverviewTab reuses summary.currentPeriod.periodStart/End for revenue bounds (no cross-directory import needed); allTime passes Date.UTC(2020,0,1) explicitly to stay on indexed path
+- [Phase 20-04]: fetchRestockOverview handler typed as Promise<unknown> to avoid tsc -b circular type inference; RestockOverview defined as explicit local type with cast since FunctionReturnType resolves to unknown
+- [Phase 20-04]: refreshOverview wired into handleSyncAll after sync actions settle — overview reloads after every sync without page reload
+- [Phase 20-04]: GoBiz N+1 replaced with single Promise.all; Internal two-level N+1 replaced with two Promise.all batches (orders then orderItems)
+- [Phase 20-05]: OutletStockSummary local type defined in hook (action returns Promise<unknown>; FunctionReturnType resolves to unknown — explicit type + cast pattern, same as 20-04)
+- [Phase 20-05]: refreshOutletStock wired into handleSync after Promise.allSettled — outlet data reloads after every sync without page reload
+- [Phase 20]: 20-06: RevenueByOutlet local type defined in hook (action returns Promise<unknown>; explicit type + cast — same pattern as 20-04/20-05)
+- [Phase 20]: 20-06: refresh callback exposed but not externally wired — PlatformHierarchy is self-contained; preset changes trigger re-fetch automatically
+- [Phase 20]: 20-07: listForKanban result type annotated with explicit lean shape (not Doc<orders> spread) to enforce pruned return contract at compile time
+- [Phase 20]: 20-08: productionOrders subset skips Draft/AwaitingPayment item+production lookups in getKitchenStats; return shape confirmed lean (primitives only, no Doc objects)
 
 ### Pending Todos
 
@@ -79,13 +95,20 @@ None.
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
+| Phase 20 P01 | 750 | 1 tasks | 3 files |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P05 | 8 | 2 tasks | 4 files |
+| Phase 20 P06 | 8 | 1 tasks | 4 files |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P07 | 6 | 1 tasks | 1 files |
+| Phase 20 P08 | 8 | 1 tasks | 1 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick-22 — Add {delivery_fee} variable to payment_request and receipt WhatsApp DB templates
+Stopped at: Completed 20-08 — getKitchenStats optimized: Draft/AwaitingPayment orders skip item+production nested DB lookups; return shape confirmed lean (primitives only, no Doc objects); Phase 20 all 8 plans done; build passes
 Resume file: None
-Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20. Quick task 22 on feature/quick-22-whatsapp-delivery-fee awaiting merge.
+Resume notes: Phase 20 complete (all 8 plans). All bandwidth optimizations shipped. Next phase TBD.
 
 ---
-*Last updated: 2026-02-22 - Completed quick-22: Add {delivery_fee} WhatsApp template variable (Verified)*
+*Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*

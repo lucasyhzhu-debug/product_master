@@ -50,10 +50,16 @@ export const syncInternalOrders = action({
     );
 
     try {
-      // 2. Fetch all revenue-countable orders (dedup handled downstream by orderNumber)
+      // 2. Get last successful sync timestamp for incremental sync
+      const lastSyncTimestamp = await ctx.runQuery(
+        internal.externalData.queries.getLatestSyncTimestamp,
+        { source: "internal" }
+      );
+
+      // 3. Fetch revenue-countable orders (incremental: since last sync)
       const orders = await ctx.runQuery(
         internal.integrations.internal.queries.getRevenueOrders,
-        {}
+        { sinceTimestamp: lastSyncTimestamp ?? undefined }
       );
 
       let newTransactions = 0;

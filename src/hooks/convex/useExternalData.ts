@@ -3,9 +3,35 @@
  * Query hooks for outlets, snapshots, revenue, sync logs.
  * Action hooks for triggering platform syncs.
  */
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+/** Return shape of getDashboardSummaryByPeriodInternal / fetchDashboardSummaryByPeriod. */
+type ChannelBreakdown = { gross: number; net: number; transactions: number };
+type PeriodSummary = {
+  totalGross: number;
+  totalNet: number;
+  totalTransactions: number;
+  totalCommission: number;
+  totalAdBurn: number;
+  totalPromoBurn: number;
+  totalDiscounts: number;
+  platformGross: number;
+  internalGross: number;
+  channels: { k3mart: ChannelBreakdown; gobiz: ChannelBreakdown; internal: ChannelBreakdown };
+};
+type PlatformStatus = {
+  outletCount: number;
+  activeOutlets: number;
+  lastSync: null | { _id: string; _creationTime: number; source: string; status: string; syncedAt: number; recordCount: number; errorMessage?: string };
+};
+type DashboardSummaryByPeriod = {
+  platforms: { k3mart: PlatformStatus; gobiz: PlatformStatus; internal: PlatformStatus };
+  currentPeriod: PeriodSummary & { periodLabel: string; comparisonLabel: string; periodStart: number; periodEnd: number };
+  previousPeriod: PeriodSummary;
+};
 
 // ============================================
 // Query Hooks
@@ -32,15 +58,19 @@ export function useConvexExternalSnapshots(outletId?: Id<"externalOutlets">) {
 
 /**
  * Get revenue records, optionally filtered by source and period.
+ * Always applies a periodStart bound (defaults to last 90 days) to prevent
+ * unbounded full table scans (~80 MB bandwidth savings).
  */
 export function useConvexExternalRevenue(
   source?: "k3mart" | "gobiz" | "internal",
   periodStart?: number,
   periodEnd?: number
 ) {
+  // Default to last 90 days if no period specified — prevents unbounded scan
+  const effectivePeriodStart = periodStart ?? (Date.now() - 90 * 24 * 60 * 60 * 1000);
   const data = useQuery(api.externalData.queries.getRevenue, {
     source,
-    periodStart,
+    periodStart: effectivePeriodStart,
     periodEnd,
   });
   return { data, isLoading: data === undefined };
@@ -87,10 +117,29 @@ export type PeriodPreset = "past24hours" | "today" | "yesterday" | "thisWeek" | 
 
 /**
  * Get dashboard sales summary by period preset (with current vs previous comparison).
+ * Uses on-demand action fetch instead of reactive subscription to eliminate
+ * bandwidth spikes during sync runs (~205 MB / 1.9K calls savings).
  */
 export function useConvexDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
-  const data = useQuery(api.externalData.queries.getDashboardSummaryByPeriod, { preset });
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<DashboardSummaryByPeriod | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchDashboardSummaryByPeriod);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({ preset });
+      setData(result as DashboardSummaryByPeriod);
+    } catch (error) {
+      console.error("Failed to fetch dashboard summary:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }
 
 /**
@@ -185,12 +234,58 @@ export function useConvexRevenueItems(revenueId?: Id<"externalRevenue">) {
 // Restock Planner Hooks
 // ============================================
 
+/** Return shape of getRestockOverviewInternal / fetchRestockOverview. */
+type RestockProduct = {
+  productKey: string;
+  productName: string;
+  currentStock?: number;
+  dailyRate: number;
+  daysRemaining?: number;
+  status?: "critical" | "warning" | "ok";
+};
+type RestockK3MartChannel = {
+  type: "k3mart";
+  outletId: Id<"externalOutlets">;
+  outletName: string;
+  lastSnapshotAt: number | undefined;
+  products: (RestockProduct & { status: "critical" | "warning" | "ok" })[];
+  criticalCount: number;
+  warningCount: number;
+  totalDailyDemand: number;
+};
+type RestockChannel =
+  | RestockK3MartChannel
+  | { type: "gobiz"; products: RestockProduct[]; totalDailyDemand: number }
+  | { type: "internal"; products: RestockProduct[]; totalDailyDemand: number };
+type RestockOverview = {
+  summary: { activeChannels: number; lowStockAlerts: number; lastSyncAt: number | null };
+  channels: RestockChannel[];
+};
+
 /**
  * Get restock overview (all channels with stock + demand summary).
+ * On-demand fetch: loads on page visit, no persistent subscription.
  */
 export function useConvexRestockOverview() {
-  const data = useQuery(api.externalData.queries.getRestockOverview, {});
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<RestockOverview | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchRestockOverview);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({});
+      setData(result as RestockOverview);
+    } catch (error) {
+      console.error("Failed to fetch restock overview:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }
 
 /**
@@ -268,10 +363,38 @@ export function useConvexRevenueTimeSeries(
   return { data, isLoading: data === undefined };
 }
 
+/** Return shape of getRevenueByOutletInternal / fetchRevenueByOutlet. */
+type OutletData = { outletId: string | null; name: string; gross: number; net: number; transactions: number };
+type RevenueByOutlet = Array<{
+  platform: string;
+  platformName: string;
+  outlets: OutletData[];
+  totals: { gross: number; net: number; transactions: number };
+}>;
+
 /**
  * Get revenue grouped by platform and outlet for hierarchy drill-down.
+ * On-demand fetch: loads on component mount and when preset changes.
+ * Eliminates reactive subscription (~30 MB bandwidth savings).
  */
 export function useConvexRevenueByOutlet(preset: PeriodPreset) {
-  const data = useQuery(api.externalData.queries.getRevenueByOutlet, { preset });
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<RevenueByOutlet | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchRevenueByOutlet);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({ preset });
+      setData(result as RevenueByOutlet);
+    } catch (error) {
+      console.error("Failed to fetch revenue by outlet:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }

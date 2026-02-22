@@ -633,7 +633,11 @@ export const getKitchenStats = query({
     ].filter((o) => o._creationTime >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)
-    const relevantOrders = [...pendingOrders, ...completedTodayOrders];
+    // Draft and AwaitingPayment orders never have orderItemProduction records
+    // (records are created at PaymentReceived/confirmation time) — skip them to
+    // eliminate wasted nested DB reads. pendingOrders is still used for counts.
+    const productionOrders = [...paymentReceivedOrders, ...beingPreparedOrders];
+    const relevantOrders = [...productionOrders, ...completedTodayOrders];
     const relevantOrderIds = [...new Set(relevantOrders.map((o) => o._id))];
 
     const itemsByOrder = new Map<string, Doc<"orderItems">[]>();
@@ -1115,9 +1119,34 @@ export const listForKanban = query({
       { key: "complete", statuses: ["Complete", "Cancelled", "CompleteShipped", "PickedUp"] as const },
     ];
 
-    const result: Record<string, Array<Doc<"orders"> & {
-      items: Doc<"orderItems">[];
+    const result: Record<string, Array<{
+      _id: string;
+      _creationTime: number;
+      orderNumber: string;
+      status: string;
+      customerName: string;
+      customerPhone?: string;
+      contactWa?: string;
+      dueDate?: number;
+      completedAt?: number;
+      deliveryType?: string;
+      deliveryAddress?: string;
+      totalAmount: number;
+      totalCost: number;
+      totalMargin: number;
+      finalTotal?: number;
+      orderLevelDiscount?: number;
+      orderLevelDiscountType?: string;
+      voucherDiscountValue?: number;
+      expedited?: boolean;
       creatorName: string;
+      items: Array<{
+        _id: string;
+        productName: string;
+        productVariant?: string;
+        quantity: number;
+        lineTotal: number;
+      }>;
     }>> = {};
 
     for (const col of columns) {
@@ -1164,7 +1193,43 @@ export const listForKanban = query({
             if (user) creatorName = user.name;
           }
 
-          return { ...order, items, creatorName };
+          return {
+            // Identity
+            _id: order._id,
+            _creationTime: order._creationTime,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            // Customer
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            contactWa: order.contactWa,
+            // Timing
+            dueDate: order.dueDate,
+            completedAt: order.completedAt,
+            // Delivery
+            deliveryType: order.deliveryType,
+            deliveryAddress: order.deliveryAddress,
+            // Pricing (used by KanbanCard for discount display)
+            totalAmount: order.totalAmount,
+            totalCost: order.totalCost,
+            totalMargin: order.totalMargin,
+            finalTotal: order.finalTotal,
+            orderLevelDiscount: order.orderLevelDiscount,
+            orderLevelDiscountType: order.orderLevelDiscountType,
+            voucherDiscountValue: order.voucherDiscountValue,
+            // Flags
+            expedited: order.expedited,
+            // Creator
+            creatorName,
+            // Items — lean shape
+            items: items.map((item) => ({
+              _id: item._id,
+              productName: item.productName,
+              productVariant: item.productVariant,
+              quantity: item.quantity,
+              lineTotal: item.lineTotal,
+            })),
+          };
         })
       );
 

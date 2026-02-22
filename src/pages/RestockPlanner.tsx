@@ -88,7 +88,7 @@ type ChannelType = "k3mart" | "gobiz" | "internal";
 
 export function RestockPlanner() {
   const { user } = useAuth();
-  const { data: overview, isLoading } = useConvexRestockOverview();
+  const { data: overview, isLoading, refresh: refreshOverview } = useConvexRestockOverview();
   const [syncing, setSyncing] = useState(false);
 
   // Sync actions
@@ -120,12 +120,14 @@ export function RestockPlanner() {
       } else {
         toast.success("All channels synced");
       }
+      // Refresh overview after sync completes
+      await refreshOverview();
     } catch {
       toast.error("Sync failed");
     } finally {
       setSyncing(false);
     }
-  }, [user, syncK3MartStock, syncK3Mart, syncGoBiz, syncInternal]);
+  }, [user, syncK3MartStock, syncK3Mart, syncGoBiz, syncInternal, refreshOverview]);
 
   const handleSaveTarget = useCallback(
     async (

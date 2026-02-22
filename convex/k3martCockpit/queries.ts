@@ -5,7 +5,7 @@
  * Combines data from outlets, stock snapshots, production counts, and restock targets.
  */
 
-import { query } from "../_generated/server";
+import { query, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
@@ -15,7 +15,7 @@ import { getWeekNumber, calculateAutoSuggest, getDayTypeForDate, getWeekDatesFro
  * Query 1: getOutletStockSummary
  * Returns all active K3 Mart outlets with latest stock snapshots and sales data.
  */
-export const getOutletStockSummary = query({
+export const getOutletStockSummaryInternal = internalQuery({
   args: {
     date: v.string(), // YYYY-MM-DD
   },

@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -600,7 +600,8 @@ function ChannelSummary({
 // ─── Platform Hierarchy (Platform -> Outlet drill-down) ───
 
 function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
-  const { data, isLoading } = useConvexRevenueByOutlet(preset);
+  const { data, isLoading, refresh: refreshByOutlet } = useConvexRevenueByOutlet(preset);
+  void refreshByOutlet; // available for sync handlers if needed
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
 
   if (isLoading || !data) {
@@ -918,12 +919,33 @@ export function OverviewTab() {
     }, { replace: true });
   };
 
-  // Fetch data using period-based query
-  const { data: summary, isLoading: loadingSummary } =
+  // Fetch data using period-based action (on-demand, not reactive subscription)
+  const { data: summary, isLoading: loadingSummary, refresh: refreshSummary } =
     useConvexDashboardSalesSummaryByPeriod(selectedPeriod);
+
+  // Compute period bounds for revenue query from summary (or fall back to hook default)
+  // When summary is available, pass its bounds so getRevenue uses the indexed path.
+  // When summary is loading, the hook defaults to last 90 days (no unbounded scan).
+  const revenuePeriodBounds = useMemo(() => {
+    if (selectedPeriod === "allTime") {
+      // For allTime, pass a wide range (since 2020-01-01) to use the index
+      return { periodStart: Date.UTC(2020, 0, 1), periodEnd: undefined as number | undefined };
+    }
+    if (summary?.currentPeriod) {
+      return {
+        periodStart: summary.currentPeriod.periodStart,
+        periodEnd: summary.currentPeriod.periodEnd,
+      };
+    }
+    // While summary is loading: hook default (last 90 days) applies via undefined
+    return { periodStart: undefined, periodEnd: undefined };
+  }, [selectedPeriod, summary?.currentPeriod?.periodStart, summary?.currentPeriod?.periodEnd]);
+
   const { data: revenueRecords, isLoading: loadingRevenue } =
     useConvexExternalRevenue(
-      platformFilter === "all" ? undefined : platformFilter
+      platformFilter === "all" ? undefined : platformFilter,
+      revenuePeriodBounds.periodStart,
+      revenuePeriodBounds.periodEnd
     );
 
   // Sync date range with period preset (WIB-aware)
@@ -950,6 +972,9 @@ export function OverviewTab() {
 
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.filter((r) => r.status === "rejected").length;
+
+      // Reload summary data since it's no longer a reactive subscription
+      await refreshSummary();
 
       if (failed === 0) {
         toast.success(`All 3 sources refreshed successfully`);
