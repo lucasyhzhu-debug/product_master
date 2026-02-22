@@ -278,7 +278,7 @@ export function OrderCreate() {
     setItems((prev) => prev.filter((item) => item.productId !== productId));
   }, []);
 
-  const handleQuickAddress = useCallback((address: string, _type: string) => {
+  const handleQuickAddress = useCallback((address: string) => {
     setDeliveryAddress(address);
   }, []);
 

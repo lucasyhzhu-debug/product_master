@@ -2,12 +2,12 @@ import { MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface QuickAddressButtonsProps {
-  onSelect: (address: string, deliveryType: string) => void;
+  onSelect: (address: string) => void;
 }
 
 const LOCATIONS = [
-  { name: 'Crystal', address: 'Crystal (Self-pickup)' },
-  { name: 'Goldfinch', address: 'Goldfinch (Self-pickup)' },
+  { name: 'Crystal', address: 'Pick up: Crystal' },
+  { name: 'Goldfinch', address: 'Pick up: Legato Gelato - Goldfinch' },
 ] as const;
 
 export function QuickAddressButtons({ onSelect }: QuickAddressButtonsProps) {
@@ -19,7 +19,7 @@ export function QuickAddressButtons({ onSelect }: QuickAddressButtonsProps) {
           variant="outline"
           size="sm"
           className="gap-1.5"
-          onClick={() => onSelect(loc.address, 'Pickup')}
+          onClick={() => onSelect(loc.address)}
         >
           <MapPin className="h-3.5 w-3.5" />
           {loc.name}
