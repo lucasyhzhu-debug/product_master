@@ -68,13 +68,14 @@ None.
 | 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
 | 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
 | 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
+| 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-05-PLAN.md — GoFood depot restock section on Dispatch Planner page (Phase 19 complete)
+Stopped at: Completed quick-20 — item-linked voucher type with per-item discount
 Resume file: None
-Resume notes: Phase 19 all 5 plans complete. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
+Resume notes: Phase 19 all 5 plans complete. Quick-20 done. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
 
 ---
 *Last updated: 2026-02-22 - Completed 19-05: GoFood restock section on Dispatch Planner page (Phase 19 complete)*
