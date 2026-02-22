@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 20 context captured; Phase 19 is next to plan
 Plan: —
 Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
-Last activity: 2026-02-22 — Completed quick task 14: fix whatsapp template delivery address
+Last activity: 2026-02-22 — Completed quick task 17: customer address sync / pre-populate address
 
 Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
@@ -53,13 +53,14 @@ None.
 | 14 | fix delivery address bugs: updateDetails now syncs deliveryType/pickupLocation via parseDeliveryAddress; WhatsApp templates use address content not stale deliveryType field | 2026-02-22 | 80793a1 | [14-fix-whatsapp-template-delivery-address](./quick/14-fix-whatsapp-template-delivery-address/) |
 | 15 | show order ID in edit order page title: PageHeader reads "Edit Order MMDD-NNN" when editing an order with an orderNumber | 2026-02-22 | d09c8bb | [15-show-order-id-in-edit-order-page-title](./quick/15-show-order-id-in-edit-order-page-title/) |
 | 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
+| 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick task 16 — allow Use Available Inventory on BeingPrepared orders
+Stopped at: Completed quick task 17 — customer address sync / pre-populate address
 Resume file: None
 Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
 
 ---
-*Last updated: 2026-02-22 - Completed quick task 16: allow Use Available Inventory on BeingPrepared orders*
+*Last updated: 2026-02-22 - Completed quick task 17: customer address sync / pre-populate address*
