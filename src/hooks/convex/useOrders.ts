@@ -128,6 +128,7 @@ interface ConvexOrderDetail extends ConvexOrderBase {
   paymentMethod?: string;
   orderDate: number;
   finalTotal?: number;
+  deliveryFee?: number;
   voucherCode?: string;
   voucherDiscountValue?: number;
   notes?: string;
@@ -193,6 +194,7 @@ function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
     voucher_code: order.voucherCode ?? null,
     voucher_discount_value: order.voucherDiscountValue ?? null,
     final_total: order.finalTotal ?? null,
+    delivery_fee: order.deliveryFee ?? null,
     channel: order.channel ?? null,
     sold_by: order.soldBy ?? null,
     notes: order.notes ?? null,
@@ -700,4 +702,24 @@ export function useConvexUpdateOrderDiscount() {
   };
 
   return { mutate: execute, mutateAsync: execute };
+}
+
+/**
+ * Update delivery fee on an order.
+ * Pass deliveryFee: 0 to clear the fee.
+ */
+export function useConvexUpdateOrderDeliveryFee() {
+  const mutation = useMutation(api.orders.mutations.index.updateDeliveryFee);
+
+  const execute = async (data: { orderId: Id<"orders">; deliveryFee: number }) => {
+    try {
+      await mutation(data);
+      toast.success("Delivery fee updated");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to update delivery fee"));
+      throw error;
+    }
+  };
+
+  return { mutate: execute };
 }

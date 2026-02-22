@@ -62,6 +62,10 @@ function buildTemplateVariables(
   const finalTotal = order.finalTotal ?? order.totalAmount;
   const finalTotalFormatted = formatCurrency(finalTotal);
 
+  const deliveryFeeFormatted = order.deliveryFee && order.deliveryFee > 0
+    ? formatCurrency(order.deliveryFee)
+    : "";
+
   // Delivery info
   // Address content is the source of truth. If deliveryAddress is set and is NOT a pickup prefix,
   // treat as delivery regardless of the deliveryType field (which may be stale).
@@ -134,6 +138,7 @@ function buildTemplateVariables(
     "{shipping_agency}": order.shippingAgency || "-",
     "{delivery_address}": order.deliveryAddress || "",
     "{pickup_location}": order.pickupLocation || "Legato Gelato - Goldfinch",
+    "{delivery_fee}": deliveryFeeFormatted,
   };
 }
 
@@ -261,6 +266,11 @@ function generatePaymentRequest(order: OrderWithItems): string {
   const finalTotal = order.finalTotal ?? order.totalAmount;
   const finalTotalFormatted = formatCurrency(finalTotal);
 
+  // Delivery fee line
+  const deliveryFeeLine = order.deliveryFee && order.deliveryFee > 0
+    ? `🚚 Ongkir: ${formatCurrency(order.deliveryFee)}\n`
+    : "";
+
   // Delivery info
   // Address content is the source of truth. If deliveryAddress is set and is NOT a pickup prefix,
   // treat as delivery regardless of the deliveryType field (which may be stale).
@@ -283,7 +293,7 @@ Terima kasih sudah order di Frollie! 🙏
 ${itemsText}
 ────────────
 *Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
-
+${deliveryFeeLine}
 ${deliveryInfo}
 📅 Target: ${dueDateStr}
 
@@ -387,6 +397,11 @@ function generateReceipt(order: OrderWithItems): string {
   const finalTotal = order.finalTotal ?? order.totalAmount;
   const finalTotalFormatted = formatCurrency(finalTotal);
 
+  // Delivery fee line for receipt
+  const deliveryFeeLine = order.deliveryFee && order.deliveryFee > 0
+    ? `\n🚚 Ongkir: ${formatCurrency(order.deliveryFee)}`
+    : "";
+
   // Payment info
   let paymentInfo = `Payment: ${order.paymentStatus}`;
   if (order.paymentMethod) {
@@ -425,7 +440,7 @@ PT Malo Group Bahagia
 ${customerLine}
 ${itemsText}
 ----------------
-*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
+*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}${deliveryFeeLine}
 
 ${paymentInfo}
 ${deliveryLine}${dueDateLine}${notesSection}
