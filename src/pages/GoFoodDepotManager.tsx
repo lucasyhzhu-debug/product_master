@@ -195,7 +195,7 @@ export function GoFoodDepotManager() {
         ) : resolvedOutletId ? (
           <DepotCockpitTable
             outletId={resolvedOutletId}
-            depotStock={depotStock ?? []}
+            depotStock={(depotStock ?? []) as any[]}
             restockMap={restockMap}
             stockGrouped={(stockGrouped ?? []) as any[]}
             storageLocations={(storageLocations ?? []) as any[]}
