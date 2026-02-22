@@ -44,6 +44,12 @@ None.
 - [Phase 21]: Real Legato Excel file format not yet validated — request sample before Phase 21 Wave 2 frontend work
 - [Phase 22]: `getLifetimeTotals` per-product join complexity (N+1 risk for Direct channel via `orderItems`) — needs design review during planning
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 12 | simplify completed orders display - remove overdue tag, show only name, order id, who did it, net price paid, order details, and expedited flag | 2026-02-22 | be8ba38 | [12-simplify-completed-orders-display-remove](./quick/12-simplify-completed-orders-display-remove/) |
+
 ## Session Continuity
 
 Last session: 2026-02-22
@@ -52,4 +58,4 @@ Resume file: None
 Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
 
 ---
-*Last updated: 2026-02-22 (v1.3-roadmap-created)*
+*Last updated: 2026-02-22 - Completed quick task 12: simplify completed orders display*
