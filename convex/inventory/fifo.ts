@@ -7,7 +7,7 @@
 
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { getAvailableQuantity, isBatchExpired } from "./helpers";
+import { isBatchExpired } from "./helpers";
 
 /**
  * FIFO consumption result
@@ -73,13 +73,19 @@ export async function consumeFromFIFO(
   const consumptions: FIFOConsumption[] = [];
 
   // Consume from batches FIFO
+  // NOTE: We use quantityRemaining (physical stock) instead of
+  // quantityRemaining - quantityReserved ("available") because:
+  // 1. Reservations guarantee physical stock exists at confirmation time.
+  // 2. Consumption runs after reservation, so quantityReserved is already high.
+  //    Using available = remaining - reserved would yield 0 and falsely block consumption.
+  // 3. applyFIFOConsumption decrements quantityReserved to keep bookkeeping correct.
   for (const batch of activeBatches) {
     if (remaining <= 0) break;
 
-    const available = getAvailableQuantity(batch);
-    if (available <= 0) continue;
+    const physicalAvailable = batch.quantityRemaining;
+    if (physicalAvailable <= 0) continue;
 
-    const toConsume = Math.min(remaining, available);
+    const toConsume = Math.min(remaining, physicalAvailable);
 
     consumptions.push({
       batchId: batch._id,
@@ -141,10 +147,17 @@ export async function applyFIFOConsumption(
       throw new Error(`Batch ${consumption.batchId} not found`);
     }
 
-    // Update batch quantity
+    // Update batch quantity:
+    // - Decrement quantityRemaining: physical stock is consumed.
+    // - Decrement quantityReserved (clamped to 0): the reservation is fulfilled.
+    //   This keeps reservation bookkeeping accurate. Without this, quantityReserved
+    //   would remain stale after consumption, causing componentStock.totalReserved
+    //   to over-count reserved units for future availability checks.
     const newRemaining = batch.quantityRemaining - consumption.quantity;
+    const newReserved = Math.max(0, batch.quantityReserved - consumption.quantity);
     await ctx.db.patch(consumption.batchId, {
       quantityRemaining: newRemaining,
+      quantityReserved: newReserved,
       status: newRemaining === 0 ? "depleted" : "active",
     });
 
