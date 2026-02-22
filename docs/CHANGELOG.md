@@ -14,6 +14,18 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.9] - 2026-02-22 - Fix Draft Order Save Error with Vouchers
+
+Saving changes on an edited order that had a voucher applied no longer crashes. Previously you'd get a server error when pressing "Save Changes" — now it saves cleanly.
+
+### Fixed
+- **Draft order save with voucher**: A race condition between two save steps caused the system to re-validate an already-cleared voucher, which failed for manager override vouchers and expired/usage-limited vouchers. Voucher handling is now left to the first save step only.
+
+### Files Modified
+- `src/pages/OrderCreate.tsx` — removed redundant voucher code from save calls, cleared voucher UI state after item replacement
+
+---
+
 ## [v1.2.8] - 2026-02-22 - Edit Order Items Fix + Phone Editing in Order Form
 
 "Edit Order Items" button now actually works — previously it silently closed the dialog without doing anything. Also, you can now see and edit the customer's phone number directly in the order form, and the Customers page is accessible from the Config menu.
