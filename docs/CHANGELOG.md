@@ -14,6 +14,36 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.14] - 2026-02-22 - GoFood Depot Management & Inventory Overhaul
+
+The GoFood depot workflow is now fully operational: stock transfers to depots work for all outlets, the Inventory page has a new "By Platform" view that splits stock across Internal / GoFood / K3Mart, and the Restock Planner now clearly explains what the numbers mean and how to act on them.
+
+### Added
+- **By Platform grouping in Inventory**: Finished Goods tab now has three sort modes — By Product, By Location, and By Platform. Platform view shows flat product lists under Internal Inventory, GoFood, and K3Mart sections.
+- **Location type editor in Inventory Settings**: Admins can tag each storage location as Internal Inventory, GoFood, or K3Mart directly from the Inventory settings panel — no separate config page needed.
+- **GoFood Depot stock transfers now work**: The "Move Here" transfer dialog correctly wires the outlet's linked storage location — the amber "no linked storage location" warning no longer appears for outlets that have been properly set up.
+- **Restock Planner usage guidance**: A always-visible guidance block in the GoFood Depot Restock section explains the 3-day average calculation and provides a direct "Transfer →" link per product row to the Inventory page.
+- **GoBiz sync info note on GoFood Depot page**: A visible note explains why stock may not decrease after a sync (missing product mapping or storage location link), reducing user confusion.
+
+### Improved
+- **Inventory labels**: Location type badges throughout Inventory now read "Internal Inventory", "GoFood", "K3Mart" instead of the raw database values "Internal", "Depot", "Venue".
+- **Dark mode Alerts card**: The orange Alerts stat card in Inventory hero is now readable in dark mode.
+- **Depot cockpit usability**: Hover the stock count in the depot cockpit to see a pencil icon indicating it's editable. Restock suggestion tooltip text is now readable in both light and dark mode.
+- **Move / Receive buttons**: Color-coded — blue for Move, green for Receive — making them easier to spot at a glance in the inline transfer form.
+- **Restock Planner renamed**: Page title, navigation link, and route are now consistently "Restock Planner" at `/restock-planner`. Redundant "Simulate Inventory" button removed from the page header.
+
+### Files Modified
+- `src/pages/GoFoodDepotManager.tsx` — destinationLocationId prop + GoBiz sync info note
+- `src/components/gofoodDepot/DepotCockpitTable.tsx` — destinationLocationId threading, tooltip contrast, pencil affordance
+- `src/components/gofoodDepot/DepotStockTransferDialog.tsx` — no changes needed (prop already accepted)
+- `src/components/inventory/FinishedGoodsTab.tsx` — By Platform mode, location type editor, Move/Receive button styling
+- `src/components/inventory/FinishedGoodsHero.tsx` — dark mode Alerts card, "Internal Inventory" label
+- `src/components/restockPlanner/GoFoodRestockSection.tsx` — usage guidance block, Transfer → links
+- `src/pages/DispatchPlanner.tsx` — Simulate Inventory button removed
+- `src/App.tsx` — route updated to `/restock-planner`
+- `src/components/layout/Header.tsx` — nav label updated to "Restock"
+- `src/components/dispatchPlanner/ChannelSettingsDialog.tsx` — dialog title updated
+
 ## [v1.2.13] - 2026-02-22 - Delivery Fee on Orders
 
 Orders can now include a manually-entered GoSend delivery fee, recorded directly on the order detail page. Staff enter the fee once and it appears as a separate line item below the order total — customers see the full cost breakdown in both the order view and WhatsApp receipt messages.
