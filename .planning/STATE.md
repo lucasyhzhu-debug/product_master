@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 19 — GoFood Depot Management (Complete)
-Plan: 19-05 complete (5/5 plans done)
-Status: GoFood restock section added to Dispatch Planner — Phase 19 all plans complete
-Last activity: 2026-02-22 - Completed quick task 21: Add delivery fee input to OrderCreate Order Summary + fix ongkir line position in WhatsApp templates
+Phase: Phase 19 — GoFood Depot Management (In Progress - gap closure plans)
+Plan: 19-06 complete (6/9 plans done)
+Status: Depot transfer dialog wired - destinationLocationId prop chain complete; build passes
+Last activity: 2026-02-22 - Completed 19-06: Fix depot transfer type mismatch and wire destinationLocationId
 
-Progress (v1.3): [█████░░░░░] ~40% — Phase 19 complete (5/5 plans)
+Progress (v1.3): [█████░░░░░] ~40% — Phase 19 6/9 plans complete
 
 ## Performance Metrics
 
@@ -24,6 +24,7 @@ Progress (v1.3): [█████░░░░░] ~40% — Phase 19 complete (5/
 
 ### Roadmap Evolution
 - Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
+- Phase 24 added: Remove legacy recipe/packaging/product editors and tags system
 
 ### Decisions
 
@@ -44,6 +45,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 19]: PageHeader description is string-only: last-synced placed in action slot
 - [Phase 19]: All GoFood depot hooks called before conditionals per React hooks rule
 - [Phase 19]: GoFoodRestockSection uses productInventoryQty (outlet linked storage) for current stock, matching DepotCockpitTable In Inventory column
+- [Phase 19]: destinationLocationId flows via prop chain: GoFoodDepotManager (selectedOutlet?.linkedStorageLocationId) -> DepotCockpitTable (prop + state) -> DepotStockTransferDialog - no dialog changes needed
 
 ### Pending Todos
 
@@ -70,6 +72,7 @@ None.
 | 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
+| Phase 19 P06 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
 
