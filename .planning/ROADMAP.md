@@ -171,7 +171,7 @@ Plans:
 | 17. Unified Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
-| 19. GoFood Depot Management | 5/5 | Complete   | 2026-02-22 | - |
+| 19. GoFood Depot Management | 5/5 | Complete    | 2026-02-22 | - |
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
