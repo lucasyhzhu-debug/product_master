@@ -57,7 +57,6 @@ const SAMPLE_DATA: Record<string, string> = {
   "{shipping_agency}": "JNE Express",
   "{delivery_address}": "Jl. Sudirman No. 123, Jakarta Pusat 10220",
   "{pickup_location}": "Legato Gelato - Goldfinch",
-  "{delivery_fee}": "🚚 Ongkir: Rp 15.000\n",
 };
 
 export function TemplateEditor({

@@ -19,7 +19,7 @@ const VARIABLE_DESCRIPTIONS: Record<string, string> = {
   "{order_number}": "Order number (e.g., 0204-001)",
   "{items_list}": "Bulleted list of order items",
   "{total_amount}": "Final total in IDR format",
-  "{delivery_fee}": "Delivery fee (ongkir) if set",
+  "{delivery_fee}": "Delivery/shipping fee (e.g. 🚚 Ongkir: Rp 15.000). Empty when no fee.",
   "{delivery_info}": "Delivery type and address/location",
   "{due_date}": "Order due date",
   "{discount_note}": "Discount amount if applied",
@@ -32,7 +32,6 @@ const VARIABLE_DESCRIPTIONS: Record<string, string> = {
   "{shipping_agency}": "Shipping carrier name",
   "{delivery_address}": "Full delivery address",
   "{pickup_location}": "Pickup location name",
-  "{delivery_fee}": "Delivery/shipping fee (e.g. 🚚 Ongkir: Rp 15.000). Empty when no fee.",
 };
 
 // Group variables by category
