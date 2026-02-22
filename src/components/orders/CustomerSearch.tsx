@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, X, User } from 'lucide-react';
+import { Search, Plus, X, User, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { useConvexCustomerSearch } from '@/hooks/convex';
 import type { Id } from '../../../convex/_generated/dataModel';
 
 interface CustomerSearchProps {
-  onCustomerSelect: (customerId: Id<"customers">, name: string, phone?: string) => void;
+  onCustomerSelect: (customerId: Id<"customers">, name: string, phone?: string, defaultAddress?: string) => void;
   onNewCustomer: (name: string, phone?: string) => Promise<Id<"customers"> | undefined>;
 }
 
@@ -18,7 +18,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string } | null>(null);
+  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string; defaultAddress?: string } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,13 +41,14 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+  const handleSelect = (customer: { _id: string; name: string; phone?: string | null; defaultAddress?: string | null }) => {
     const id = customer._id as Id<"customers">;
-    setSelected({ id, name: customer.name, phone: customer.phone ?? undefined });
+    const defaultAddress = customer.defaultAddress ?? undefined;
+    setSelected({ id, name: customer.name, phone: customer.phone ?? undefined, defaultAddress });
     setSearchText('');
     setShowDropdown(false);
     setShowNewForm(false);
-    onCustomerSelect(id, customer.name, customer.phone ?? undefined);
+    onCustomerSelect(id, customer.name, customer.phone ?? undefined, defaultAddress);
   };
 
   const handleCreateNew = () => {
@@ -85,6 +86,12 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
           <p className="font-medium text-sm truncate">{selected.name}</p>
           {selected.phone && (
             <p className="text-xs text-muted-foreground">{selected.phone}</p>
+          )}
+          {selected.defaultAddress && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{selected.defaultAddress}</span>
+            </p>
           )}
         </div>
         <Button variant="ghost" size="sm" onClick={handleChange}>

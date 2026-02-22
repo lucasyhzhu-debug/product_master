@@ -75,6 +75,10 @@ export function OrderCreate() {
   const [showAddressConfirm, setShowAddressConfirm] = useState(false);
   const [addressConfirmed, setAddressConfirmed] = useState(false);
 
+  // Customer address sync
+  const [customerDefaultAddress, setCustomerDefaultAddress] = useState('');
+  const [updateCustomerAddress, setUpdateCustomerAddress] = useState(true);
+
   // Items
   const [items, setItems] = useState<OrderLineItem[]>([]);
 
@@ -158,6 +162,12 @@ export function OrderCreate() {
   // Queries & Mutations
   // ============================================
 
+  // Fetch customer data for edit mode to load defaultAddress for comparison
+  const customerQueryResult = useQuery(
+    api.customers.queries.get,
+    customerId ? { id: customerId } : 'skip'
+  );
+
   const { data: posProductsData, isLoading: productsLoading } = useConvexPosProducts();
   const posProducts = posProductsData ?? [];
 
@@ -170,6 +180,14 @@ export function OrderCreate() {
   const createDraftMutation = useMutation(api.orders.mutations.orderCrud.createDraft);
   const updateDraftMutation = useMutation(api.orders.mutations.orderCrud.updateDraft);
   const replaceItemsMutation = useMutation(api.orders.mutations.itemCrud.replaceItems);
+
+  // Load customer defaultAddress in edit mode for comparison (only once after draft loads)
+  const hasLoadedCustomerDefault = useRef(false);
+  useEffect(() => {
+    if (!isEditMode || !customerQueryResult || hasLoadedCustomerDefault.current) return;
+    hasLoadedCustomerDefault.current = true;
+    setCustomerDefaultAddress(customerQueryResult.defaultAddress ?? '');
+  }, [isEditMode, customerQueryResult]);
 
   // ============================================
   // Calculated Values
@@ -189,16 +207,38 @@ export function OrderCreate() {
     [deliveryAddress]
   );
 
+  // Address sync detection: show checkbox when address differs from customer's saved default
+  const addressDiffersFromCustomer =
+    customerDefaultAddress !== '' &&
+    deliveryAddress.trim() !== '' &&
+    deliveryAddress.trim() !== customerDefaultAddress.trim();
+
+  // Also show when customer exists but has no default address yet and user typed one
+  const shouldShowAddressSync =
+    customerId !== null &&
+    deliveryAddress.trim() !== '' &&
+    (addressDiffersFromCustomer || customerDefaultAddress === '');
+
   // ============================================
   // Handlers
   // ============================================
 
-  const handleCustomerSelect = useCallback(async (id: Id<"customers">, name: string, phone?: string) => {
+  const handleCustomerSelect = useCallback(async (id: Id<"customers">, name: string, phone?: string, defaultAddress?: string) => {
     setCustomerId(id);
     setCustomerName(name);
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(false);
     setCustomerSet(true);
+
+    // Store the customer's saved default address for comparison
+    setCustomerDefaultAddress(defaultAddress ?? '');
+    // Reset address sync checkbox to checked for new customer selection
+    setUpdateCustomerAddress(true);
+
+    // Pre-populate delivery address with customer's saved default (only in non-edit mode)
+    if (!editDraftId && defaultAddress) {
+      setDeliveryAddress(defaultAddress);
+    }
 
     // Auto-create draft if not already editing an existing draft
     if (!draftOrderId && !editDraftId) {
@@ -361,6 +401,7 @@ export function OrderCreate() {
         deliveryAddress: deliveryAddress || undefined,
         notes: notes || undefined,
         voucherCode: appliedVoucher?.code,
+        updateCustomerAddress: updateCustomerAddress && shouldShowAddressSync ? true : undefined,
       });
 
       toast.success('Draft saved');
@@ -429,6 +470,7 @@ export function OrderCreate() {
           notes: notes || undefined,
           voucherCode: appliedVoucher?.code,
           lowPriceConfirmed: lowPriceConfirmed || undefined,
+          updateCustomerAddress: updateCustomerAddress && shouldShowAddressSync ? true : undefined,
         });
 
         // Move Draft -> AwaitingPayment (skip if already AwaitingPayment)
@@ -597,6 +639,19 @@ export function OrderCreate() {
           )}
 
           <QuickAddressButtons onSelect={handleQuickAddress} />
+
+          {/* Address sync checkbox: shown when address differs from or is new for this customer */}
+          {shouldShowAddressSync && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground mt-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={updateCustomerAddress}
+                onChange={(e) => setUpdateCustomerAddress(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Save as customer&apos;s default address
+            </label>
+          )}
         </div>
       </Card>
 
