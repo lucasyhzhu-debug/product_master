@@ -78,6 +78,7 @@ const mainNavItems: NavItem[] = [
 const configItems: NavItem[] = [
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
+  { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },
 ];
 
 // Admin dropdown - Admin only
