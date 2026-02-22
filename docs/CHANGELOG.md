@@ -14,6 +14,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.12] - 2026-02-22 - Customer Address Auto-Fill in New Orders
+
+When creating a new order for a repeat customer, their saved delivery address now automatically fills in the address field — no more re-typing the same address every time. If you change the address for a specific order, a checkbox lets you optionally update the customer's saved default too. New customers get their delivery address saved automatically for future orders.
+
+### Added
+- **Address auto-fill**: Selecting an existing customer in the order form pre-populates the delivery address with their saved default.
+- **Save as default checkbox**: When the entered address differs from the customer's saved default (or when they have no default yet), a checkbox "Save as customer's default address" appears below the address field (checked by default).
+- **Address indicator in customer selector**: The selected customer card now shows a small MapPin icon and their saved address for quick reference.
+- **Auto-save for new customers**: New customers created through the order form automatically get their delivery address saved as their default.
+
+### Files Modified
+- `convex/schema.ts` — `defaultAddress` optional field added to customers table
+- `convex/customers/mutations.ts` — `defaultAddress` in create/update args
+- `convex/orders/mutations/orderCrud.ts` — `updateCustomerAddress` arg in updateDraft; auto-save for new customers in create
+- `src/components/orders/CustomerSearch.tsx` — pass defaultAddress via onCustomerSelect; show address in selected state
+- `src/pages/OrderCreate.tsx` — address pre-populate, sync checkbox, edit mode comparison
+
+---
+
 ## [v1.2.11] - 2026-02-22 - Use Available Inventory on Kitchen Orders
 
 Staff can now use the "Use Available Inventory" drawdown on orders that are already in the kitchen queue (Being Prepared status). Previously this was only available before the order entered the kitchen. This lets staff quickly fulfill an order from finished goods stock even after it's been sent to production, skipping kitchen work and advancing directly to Awaiting Delivery.
