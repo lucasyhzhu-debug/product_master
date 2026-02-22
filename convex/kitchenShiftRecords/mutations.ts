@@ -12,6 +12,7 @@
 import { mutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
 import { requireRole } from "../lib/auth";
+import { deductIngredientsForShift, restoreIngredientsForShift } from "./ingredientDeduction";
 
 /**
  * submitShiftRecord — End-of-shift production recording.
@@ -23,8 +24,10 @@ import { requireRole } from "../lib/auth";
  * - Logs productInventoryTransactions for every inventory change.
  * - Inserts kitchenShiftRecord with full audit trail.
  *
- * NOTE: Raw ingredient deduction from componentStock is deferred to a follow-up phase.
- * This mutation only updates Finished Goods (productInventory).
+ * After updating Finished Goods inventory, deducts raw ingredients consumed by produced
+ * ball quantities via FIFO (same pattern as BeingPrepared order fulfillment). Insufficient
+ * ingredient stock warns but does NOT block shift submission (soft failure).
+ * Returns ingredientWarnings for optional UI display.
  */
 export const submitShiftRecord = mutation({
   args: {
@@ -215,7 +218,30 @@ export const submitShiftRecord = mutation({
       inventoryUpdates,
     });
 
-    return { recordId };
+    // 7. Deduct raw ingredients consumed by produced ball quantities.
+    // Waste items are NOT passed — waste does not consume additional ingredients.
+    // Soft failure: warnings are returned but do not block shift submission.
+    const producedItems = args.produced.filter((p) => p.quantity > 0);
+    let ingredientWarnings: string[] = [];
+    if (producedItems.length > 0) {
+      try {
+        const result = await deductIngredientsForShift(
+          ctx,
+          producedItems,
+          args.date,
+          user.name
+        );
+        ingredientWarnings = result.warnings;
+      } catch {
+        // Unexpected error in ingredient deduction — shift record already written.
+        // Do not roll back; log warning but continue.
+        ingredientWarnings = [
+          "Ingredient deduction encountered an unexpected error. Raw ingredient stock may need manual adjustment.",
+        ];
+      }
+    }
+
+    return { recordId, ingredientWarnings };
   },
 });
 
@@ -371,10 +397,64 @@ export const updateShiftRecord = mutation({
       });
     }
 
-    // 5. Build new inventoryUpdates array (original + adjustments)
+    // 5. Adjust raw ingredient consumption for the production diff.
+    // Only produced quantities affect ingredient consumption — waste is ignored here.
+    // Compute per-product produced diff: new - old (from the produced arrays, not net maps).
+    const oldProducedMap = new Map<string, number>(
+      existingRecord.produced.map((p) => [p.menuProductId as string, p.quantity])
+    );
+    const newProducedMap = new Map<string, number>(
+      args.produced
+        .filter((p) => p.quantity > 0)
+        .map((p) => [p.menuProductId as string, p.quantity])
+    );
+
+    const allProducedIds = new Set([...oldProducedMap.keys(), ...newProducedMap.keys()]);
+
+    // Positive diff: produced MORE than before → deduct additional ingredients
+    const addedProduction: Array<{ menuProductId: (typeof args.produced)[number]["menuProductId"]; quantity: number }> =
+      [];
+    // Negative diff: produced LESS than before → restore ingredients
+    const removedProduction: Array<{ menuProductId: (typeof args.produced)[number]["menuProductId"]; quantity: number }> =
+      [];
+
+    for (const productIdStr of allProducedIds) {
+      const oldQty = oldProducedMap.get(productIdStr) ?? 0;
+      const newQty = newProducedMap.get(productIdStr) ?? 0;
+      const diff = newQty - oldQty;
+      const menuProductId = productIdStr as (typeof args.produced)[number]["menuProductId"];
+
+      if (diff > 0) {
+        addedProduction.push({ menuProductId, quantity: diff });
+      } else if (diff < 0) {
+        removedProduction.push({ menuProductId, quantity: -diff }); // store as positive
+      }
+    }
+
+    try {
+      // Deduct ingredients for additional production (new > old)
+      if (addedProduction.length > 0) {
+        await deductIngredientsForShift(ctx, addedProduction, existingRecord.date, user.name);
+      }
+
+      // Restore ingredients for reduced production (new < old)
+      if (removedProduction.length > 0) {
+        await restoreIngredientsForShift(
+          ctx,
+          removedProduction,
+          existingRecord.date,
+          user.name
+        );
+      }
+    } catch {
+      // Unexpected error in ingredient adjustment — shift record will still be patched.
+      // Do not roll back productInventory changes already applied above.
+    }
+
+    // 6. Build new inventoryUpdates array (original + adjustments)
     const newInventoryUpdates = [...existingRecord.inventoryUpdates, ...adjustmentUpdates];
 
-    // 6. Patch the record with updated data and audit trail
+    // 7. Patch the record with updated data and audit trail
     await ctx.db.patch(args.recordId, {
       produced: args.produced.filter((item) => item.quantity > 0),
       waste: args.waste.filter((item) => item.quantity > 0),
