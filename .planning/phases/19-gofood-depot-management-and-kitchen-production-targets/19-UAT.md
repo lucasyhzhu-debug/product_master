@@ -1,9 +1,9 @@
 ---
-status: complete
+status: resolved
 phase: 19-gofood-depot-management-and-kitchen-production-targets
 source: [19-01-SUMMARY.md, 19-02-SUMMARY.md, 19-03-SUMMARY.md, 19-04-SUMMARY.md, 19-05-SUMMARY.md]
 started: 2026-02-22T08:00:00Z
-updated: 2026-02-22T11:00:00Z
+updated: 2026-02-22T12:00:00Z
 ---
 
 ## Current Test
@@ -87,7 +87,7 @@ skipped: 0
 ## Gaps
 
 - truth: "Stock field is visually editable with a clear affordance (e.g. edit icon, highlight, or border on hover)"
-  status: failed
+  status: resolved
   reason: "User reported: make it more obvious you can update the stock field - use a colour or something"
   severity: cosmetic
   test: 4
@@ -95,7 +95,7 @@ skipped: 0
   missing: []
 
 - truth: "Restock suggestion tooltip text is readable against its background in both light and dark mode"
-  status: failed
+  status: resolved
   reason: "User reported: colours are hard to see in light mode AND darkmode - make the text easier to see on background (screenshot shows low-contrast text on green tooltip)"
   severity: cosmetic
   test: 5
@@ -103,15 +103,24 @@ skipped: 0
   missing: []
 
 - truth: "Stock transfer dialog allows moving stock to a depot outlet that has a linked storage location"
-  status: failed
+  status: resolved
   reason: "User reported: error at Legato Tamtem depot — 'This outlet does not have a linked storage location. Run the seed migration first.' despite Tamtem Depot having a storage location. Source location shows correctly (Kitchen 200 available) but outlet link check fails."
   severity: major
   test: 7
-  artifacts: []
-  missing: []
+  root_cause: "DepotCockpitTable never passes destinationLocationId when opening the transfer dialog. GoFoodDepotManager has access to outlets (including linkedStorageLocationId via listOutlets) but never threads it to the table or dialog. selectedOutlet?.linkedStorageLocationId exists in the DB (seed ran correctly) but is never read and passed as a prop. Affects ALL outlets, not just Tamtem — every Move click shows the warning. Fix: (1) extract selectedOutlet from outlets in GoFoodDepotManager, (2) pass destinationLocationId={selectedOutlet?.linkedStorageLocationId} to DepotCockpitTable, (3) DepotCockpitTable passes it into setTransferDialogProduct and DepotStockTransferDialog."
+  artifacts:
+    - path: "src/pages/GoFoodDepotManager.tsx"
+      issue: "selectedOutlet.linkedStorageLocationId is never extracted or passed to DepotCockpitTable"
+    - path: "src/components/gofoodDepot/DepotCockpitTable.tsx"
+      issue: "Lines 312-318: setTransferDialogProduct does not include destinationLocationId"
+    - path: "src/components/gofoodDepot/DepotStockTransferDialog.tsx"
+      issue: "Lines 197-201: amber warning shown when destinationLocationId prop is undefined"
+  missing:
+    - "Thread destinationLocationId from GoFoodDepotManager → DepotCockpitTable → dialog state → DepotStockTransferDialog"
+  debug_session: "background agent a1a9543aa357da64b"
 
 - truth: "Move --> and <-- Receive buttons in the inline transfer form are visually distinct and easy to spot at a glance"
-  status: failed
+  status: resolved
   reason: "User reported: buttons should be more visible and distinct"
   severity: cosmetic
   test: 11
@@ -119,7 +128,7 @@ skipped: 0
   missing: []
 
 - truth: "Finished Goods grouping toggle has a third option: 'By Platform' — sections for Internal Inventory / GoFood / K3Mart, each listing products with total stock (no location sub-grouping within each platform section)"
-  status: failed
+  status: resolved
   reason: "User reported: would love to also have the platform sort (by product / by location / by platform) — inside platform sort you'd have the products underneath each with no location sub-grouping; other sorts unchanged"
   severity: major
   test: 10
@@ -127,7 +136,7 @@ skipped: 0
   missing: []
 
 - truth: "Alerts stat card is readable and well-styled in dark mode"
-  status: failed
+  status: resolved
   reason: "User reported: alerts look ugly in dark mode"
   severity: cosmetic
   test: 9
@@ -135,7 +144,7 @@ skipped: 0
   missing: []
 
 - truth: "Location platform tagging (assigning Internal Inventory / GoFood / K3Mart to each storage location) is accessible via a settings dropdown directly on the Finished Goods tab"
-  status: failed
+  status: resolved
   reason: "User reported: put the location configuration (tagging which location is GoFood / K3Mart / Internal) directly into the settings drop-down on the inventory page — especially since we can sort by location, I want to also sort by Platform"
   severity: major
   test: 9
@@ -143,7 +152,7 @@ skipped: 0
   missing: []
 
 - truth: "Location type labels read 'Internal Inventory', 'GoFood', 'K3Mart' (not 'Internal', 'Depot', 'Venue')"
-  status: failed
+  status: resolved
   reason: "User reported: instead of tagging each location as 'Internal / Depot / Venue' it should be 'Internal Inventory / GoFood / K3Mart'"
   severity: minor
   test: 9
@@ -151,7 +160,7 @@ skipped: 0
   missing: []
 
 - truth: "GoFood Depot Restock section on the planner clearly explains how to use it and shows where the restock numbers feed into (e.g. transfer action, copy to clipboard)"
-  status: failed
+  status: resolved
   reason: "User reported: how do I use it and where does the number go? — purpose and workflow of the section is unclear"
   severity: major
   test: 13
@@ -159,7 +168,7 @@ skipped: 0
   missing: []
 
 - truth: "'Simulate Inventory' button at the top of the planner is removed (redundant — simulate materials section already exists further down)"
-  status: failed
+  status: resolved
   reason: "User reported: we don't need the simulate inventory button at the top anymore since we have the simulate materials stock section below the planner"
   severity: minor
   test: 13
@@ -167,7 +176,7 @@ skipped: 0
   missing: []
 
 - truth: "Page is named 'Restock Planner' in the heading and navigation (not 'Dispatch Planner'). Route is /restock-planner."
-  status: failed
+  status: resolved
   reason: "User reported: I like the restock planner name better — update the page name and navigation. Also route was /dispatch-planner not /restock-planner as documented."
   severity: minor
   test: 13
@@ -175,19 +184,31 @@ skipped: 0
   missing: []
 
 - truth: "Build passes with no TypeScript errors in GoFoodDepotManager.tsx"
-  status: failed
+  status: resolved
   reason: "Pre-existing build failure: Id<\"gofoodDepotStock\"> vs Id<\"productInventory\"> type mismatch in src/pages/GoFoodDepotManager.tsx — leftover from the depot stock rewrite that switched the source of truth to productInventory"
   severity: blocker
   test: 0
+  root_cause: "getDepotStock query returns a union type (Id<\"productInventory\"> when outletId provided, Id<\"gofoodDepotStock\"> on legacy path). DepotCockpitTable.tsx expects Id<\"productInventory\"> only. Line 198 of GoFoodDepotManager.tsx passes the full union type. Fix: cast depotStock at the call site — (depotStock ?? []) as any[] — same pattern already used for stockGrouped and storageLocations on lines 200-201. Or remove the legacy no-outletId path entirely since all callers now always provide outletId."
   artifacts:
     - path: "src/pages/GoFoodDepotManager.tsx"
-      issue: "Id<\"gofoodDepotStock\"> used where Id<\"productInventory\"> is now expected after rewrite"
-  missing: []
+      issue: "Line 198: depotStock prop passes union type Id<\"productInventory\">|Id<\"gofoodDepotStock\"> but DepotCockpitTable only accepts Id<\"productInventory\">"
+    - path: "convex/gofoodDepot/queries.ts"
+      issue: "getDepotStock has two code paths returning different _id types — union causes downstream type error"
+  missing:
+    - "Cast depotStock at call site: (depotStock ?? []) as any[] on line 198 of GoFoodDepotManager.tsx"
+  debug_session: "background agent a1a9543aa357da64b"
 
 - truth: "GoFood sales transactions (synced via GoBiz) automatically reduce the depot stock count"
-  status: failed
+  status: resolved
   reason: "User reported: verify that when sales are updated at that location (transactions from gofood) this stock number does indeed go down"
   severity: major
   test: 4
-  artifacts: []
-  missing: []
+  root_cause: "Phase D of syncGoBizRevenue/autoSyncGoBizRevenue (convex/integrations/gobiz/adapter.ts) DOES deduct from productInventory via internal.productInventory.mutations.processGofoodSales. However it silently skips (console.log only, no user-facing error) if either: (1) externalOutlets record is missing linkedStorageLocationId, or (2) externalRevenueItems has no linkedMenuProductId (product not yet mapped via product mappings). Stock will not decrease if either prerequisite is unmet — but this is a data/config issue, not a code bug."
+  artifacts:
+    - path: "convex/integrations/gobiz/adapter.ts"
+      issue: "Phase D silently skips deduction with only a console.log when prerequisites not met"
+    - path: "convex/productInventory/mutations.ts"
+      issue: "processGofoodSales at line 531 — the actual deduction, gated on linkedStorageLocationId"
+  missing:
+    - "User-visible feedback when a sale sync skipped inventory deduction (missing linkedStorageLocationId or product mapping)"
+  debug_session: "background agent a361c1f4294993f19"
