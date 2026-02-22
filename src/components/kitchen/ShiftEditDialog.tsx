@@ -1,0 +1,497 @@
+/**
+ * ShiftEditDialog
+ *
+ * Edit dialog for a past shift record (KIT-17). Manager/admin only.
+ *
+ * Flow:
+ *   1. Form pre-populated with existing produced + waste values
+ *   2. On "Review Changes" — compute inventory impact per product
+ *   3. Show confirmation dialog with ALL non-zero deltas
+ *   4. On confirm — call updateShiftRecord mutation
+ *   5. On success — toast + close dialog
+ *
+ * Requirements: KIT-17
+ */
+
+import { useState } from "react";
+import { X, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { ShiftRecord } from "./ShiftHistoryList";
+
+// -------------------------------------------------------
+// Types
+// -------------------------------------------------------
+
+type WasteReason = "qa_testing" | "spoilage" | "waste";
+
+interface ProducedRow {
+  menuProductId: string;
+  menuProductName: string;
+  quantity: number;
+}
+
+interface WasteRow {
+  menuProductId: string;
+  menuProductName: string;
+  reason: WasteReason;
+  quantity: number;
+}
+
+interface InventoryDelta {
+  menuProductId: string;
+  menuProductName: string;
+  oldNet: number;
+  newNet: number;
+  delta: number;
+}
+
+interface ShiftEditDialogProps {
+  record: ShiftRecord;
+  open: boolean;
+  onClose: () => void;
+}
+
+// -------------------------------------------------------
+// Constants
+// -------------------------------------------------------
+
+const WASTE_REASONS: { value: WasteReason; label: string }[] = [
+  { value: "qa_testing", label: "QA / Testing" },
+  { value: "spoilage", label: "Spoilage" },
+  { value: "waste", label: "Waste" },
+];
+
+// -------------------------------------------------------
+// Component
+// -------------------------------------------------------
+
+export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps) {
+  const updateShiftRecord = useProtectedMutation(
+    api.kitchenShiftRecords.mutations.updateShiftRecord
+  );
+
+  // -------------------------------------------------------
+  // State — pre-populated from record
+  // -------------------------------------------------------
+
+  // Build initial produced rows from record (one row per product in original record)
+  const [producedRows, setProducedRows] = useState<ProducedRow[]>(() =>
+    record.produced.map((p) => ({
+      menuProductId: p.menuProductId,
+      menuProductName: p.menuProductName,
+      quantity: p.quantity,
+    }))
+  );
+
+  // Build initial waste rows
+  const [wasteRows, setWasteRows] = useState<WasteRow[]>(() =>
+    record.waste.map((w) => ({
+      menuProductId: w.menuProductId,
+      menuProductName: w.menuProductName,
+      reason: (w.reason as WasteReason) ?? "waste",
+      quantity: w.quantity,
+    }))
+  );
+
+  const [editNote, setEditNote] = useState("");
+  const [wasteOpen, setWasteOpen] = useState(record.waste.length > 0);
+
+  // Confirmation dialog state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [deltas, setDeltas] = useState<InventoryDelta[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // -------------------------------------------------------
+  // Produced row handlers
+  // -------------------------------------------------------
+
+  function updateProducedQty(index: number, qty: number) {
+    setProducedRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, quantity: Math.max(0, qty) } : row))
+    );
+  }
+
+  // -------------------------------------------------------
+  // Waste row handlers
+  // -------------------------------------------------------
+
+  function addWasteRow(menuProductId: string, menuProductName: string) {
+    setWasteRows((prev) => [
+      ...prev,
+      { menuProductId, menuProductName, reason: "qa_testing", quantity: 0 },
+    ]);
+  }
+
+  function updateWasteRow(
+    index: number,
+    field: "reason" | "quantity",
+    value: string | number
+  ) {
+    setWasteRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              [field]:
+                field === "quantity"
+                  ? Math.max(0, Number(value))
+                  : (value as WasteReason),
+            }
+          : row
+      )
+    );
+  }
+
+  function removeWasteRow(index: number) {
+    setWasteRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // -------------------------------------------------------
+  // Compute inventory impact
+  // -------------------------------------------------------
+
+  function computeDeltas(): InventoryDelta[] {
+    // Build old net map from original record
+    const oldNetMap = new Map<string, { name: string; net: number }>();
+    for (const p of record.produced) {
+      const key = p.menuProductId;
+      const existing = oldNetMap.get(key) ?? { name: p.menuProductName, net: 0 };
+      oldNetMap.set(key, { name: existing.name, net: existing.net + p.quantity });
+    }
+    for (const w of record.waste) {
+      const key = w.menuProductId;
+      const existing = oldNetMap.get(key) ?? { name: w.menuProductName, net: 0 };
+      oldNetMap.set(key, { name: existing.name, net: existing.net - w.quantity });
+    }
+
+    // Build new net map from form state
+    const newNetMap = new Map<string, { name: string; net: number }>();
+    for (const p of producedRows) {
+      if (p.quantity <= 0) continue;
+      const key = p.menuProductId;
+      const existing = newNetMap.get(key) ?? { name: p.menuProductName, net: 0 };
+      newNetMap.set(key, { name: existing.name, net: existing.net + p.quantity });
+    }
+    for (const w of wasteRows) {
+      if (w.quantity <= 0) continue;
+      const key = w.menuProductId;
+      const existing = newNetMap.get(key) ?? { name: w.menuProductName, net: 0 };
+      newNetMap.set(key, { name: existing.name, net: existing.net - w.quantity });
+    }
+
+    // Collect all product IDs
+    const allIds = new Set([...oldNetMap.keys(), ...newNetMap.keys()]);
+    const result: InventoryDelta[] = [];
+
+    for (const id of allIds) {
+      const oldEntry = oldNetMap.get(id);
+      const newEntry = newNetMap.get(id);
+      const oldNet = oldEntry?.net ?? 0;
+      const newNet = newEntry?.net ?? 0;
+      const delta = newNet - oldNet;
+      const name = oldEntry?.name ?? newEntry?.name ?? id;
+
+      result.push({
+        menuProductId: id,
+        menuProductName: name,
+        oldNet,
+        newNet,
+        delta,
+      });
+    }
+
+    return result;
+  }
+
+  // -------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------
+
+  function handleReviewChanges() {
+    const computed = computeDeltas();
+    setDeltas(computed);
+    setShowConfirm(true);
+  }
+
+  async function handleConfirm() {
+    setIsSubmitting(true);
+    try {
+      await updateShiftRecord({
+        recordId: record._id as Id<"kitchenShiftRecords">,
+        produced: producedRows
+          .filter((p) => p.quantity > 0)
+          .map((p) => ({
+            menuProductId: p.menuProductId as Id<"menuProducts">,
+            quantity: p.quantity,
+          })),
+        waste: wasteRows
+          .filter((w) => w.quantity > 0)
+          .map((w) => ({
+            menuProductId: w.menuProductId as Id<"menuProducts">,
+            reason: w.reason,
+            quantity: w.quantity,
+          })),
+        editNote: editNote.trim() || undefined,
+      });
+
+      toast.success("Shift record updated");
+      setShowConfirm(false);
+      onClose();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to update shift record";
+      toast.error(msg);
+      // Keep dialog open on error
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  // -------------------------------------------------------
+  // Render: Confirmation dialog
+  // -------------------------------------------------------
+
+  if (showConfirm) {
+    const nonZeroDeltas = deltas.filter((d) => d.delta !== 0);
+    const zeroDeltas = deltas.filter((d) => d.delta === 0);
+
+    return (
+      <Dialog open={open} onOpenChange={(v) => !v && setShowConfirm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Confirm Inventory Changes
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Saving this edit will adjust finished goods inventory at the Kitchen location:
+            </p>
+
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              {nonZeroDeltas.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  No inventory changes — quantities are the same as original.
+                </p>
+              )}
+
+              {nonZeroDeltas.map((d) => (
+                <div key={d.menuProductId} className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{d.menuProductName}</span>
+                  <Badge
+                    variant={d.delta > 0 ? "default" : "destructive"}
+                    className="text-xs"
+                  >
+                    {d.delta > 0 ? `+${d.delta}` : d.delta} units
+                  </Badge>
+                </div>
+              ))}
+
+              {zeroDeltas.length > 0 && nonZeroDeltas.length > 0 && (
+                <div className="pt-2 border-t border-border/50">
+                  {zeroDeltas.map((d) => (
+                    <div key={d.menuProductId} className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{d.menuProductName}</span>
+                      <span className="text-xs">no change</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {editNote && (
+              <div className="rounded-md bg-muted/50 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Edit note:</p>
+                <p className="text-sm">{editNote}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirm(false)}
+              disabled={isSubmitting}
+              size="sm"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={isSubmitting}
+              size="sm"
+            >
+              {isSubmitting ? "Saving..." : "Confirm Edit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // -------------------------------------------------------
+  // Render: Edit form
+  // -------------------------------------------------------
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Shift Record</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 py-1">
+          {/* Produced quantities */}
+          <div className="space-y-3">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Produced
+            </Label>
+            {producedRows.length === 0 && (
+              <p className="text-sm text-muted-foreground">No produced items in this record.</p>
+            )}
+            {producedRows.map((row, index) => (
+              <div key={row.menuProductId} className="flex items-center gap-3">
+                <span className="flex-1 text-sm">{row.menuProductName}</span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={row.quantity || ""}
+                  placeholder="0"
+                  onChange={(e) => updateProducedQty(index, Number(e.target.value))}
+                  className="w-24 text-right tabular-nums"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Waste section */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              onClick={() => setWasteOpen((v) => !v)}
+            >
+              {wasteOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              Waste entries
+              {wasteRows.length > 0 && (
+                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                  {wasteRows.length}
+                </span>
+              )}
+            </button>
+
+            {wasteOpen && (
+              <div className="space-y-3 border-l-2 border-muted pl-4">
+                {wasteRows.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No waste entries.</p>
+                )}
+
+                {wasteRows.map((row, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{row.menuProductName}</span>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => removeWasteRow(index)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Select
+                        value={row.reason}
+                        onValueChange={(val) => updateWasteRow(index, "reason", val)}
+                      >
+                        <SelectTrigger className="flex-1 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WASTE_REASONS.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={row.quantity || ""}
+                        placeholder="0"
+                        onChange={(e) => updateWasteRow(index, "quantity", Number(e.target.value))}
+                        className="w-20 text-right tabular-nums"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add waste entry buttons */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {producedRows.map((p) => (
+                    <button
+                      key={p.menuProductId}
+                      type="button"
+                      className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                      onClick={() => addWasteRow(p.menuProductId, p.menuProductName)}
+                    >
+                      + {p.menuProductName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Edit note */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Edit note (optional)
+            </Label>
+            <Input
+              value={editNote}
+              onChange={(e) => setEditNote(e.target.value)}
+              placeholder="Reason for edit..."
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2 sm:justify-end">
+          <Button variant="outline" onClick={onClose} size="sm">
+            Cancel
+          </Button>
+          <Button onClick={handleReviewChanges} size="sm">
+            Review Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
