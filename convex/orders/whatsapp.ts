@@ -3,6 +3,9 @@ import { v } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { OrderWithItems } from "./types";
 
+// Mirrors the same prefix regex in helpers.ts — used for smart delivery info detection
+const PICKUP_PREFIX_RE = /^pick up:\s*/i;
+
 // ============================================
 // Template Variable Substitution
 // ============================================
@@ -61,10 +64,11 @@ function buildTemplateVariables(
 
   // Delivery info
   let deliveryInfo = "";
-  if (order.deliveryType === "Pickup") {
-    const location = order.pickupLocation || "Goldfinch Legato";
+  const isPickupAddress = order.deliveryAddress ? PICKUP_PREFIX_RE.test(order.deliveryAddress) : false;
+  if (order.deliveryType === "Pickup" || isPickupAddress) {
+    const location = order.pickupLocation || (order.deliveryAddress ? order.deliveryAddress.replace(PICKUP_PREFIX_RE, "").trim() : "") || "Legato Gelato - Goldfinch";
     deliveryInfo = `📍 Pickup at: ${location}`;
-  } else if (order.deliveryType === "Delivery" && order.deliveryAddress) {
+  } else if (order.deliveryAddress) {
     deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
   }
 
@@ -125,7 +129,7 @@ function buildTemplateVariables(
     "{shipping_number}": order.shippingNumber || "-",
     "{shipping_agency}": order.shippingAgency || "-",
     "{delivery_address}": order.deliveryAddress || "",
-    "{pickup_location}": order.pickupLocation || "Goldfinch Legato",
+    "{pickup_location}": order.pickupLocation || "Legato Gelato - Goldfinch",
   };
 }
 
@@ -253,10 +257,11 @@ function generatePaymentRequest(order: OrderWithItems): string {
 
   // Delivery info
   let deliveryInfo = "";
-  if (order.deliveryType === "Pickup") {
-    const location = order.pickupLocation || "Goldfinch Legato";
+  const isPickupAddress = order.deliveryAddress ? PICKUP_PREFIX_RE.test(order.deliveryAddress) : false;
+  if (order.deliveryType === "Pickup" || isPickupAddress) {
+    const location = order.pickupLocation || (order.deliveryAddress ? order.deliveryAddress.replace(PICKUP_PREFIX_RE, "").trim() : "") || "Legato Gelato - Goldfinch";
     deliveryInfo = `📍 Pickup at: ${location}`;
-  } else if (order.deliveryType === "Delivery" && order.deliveryAddress) {
+  } else if (order.deliveryAddress) {
     deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
   }
 
@@ -440,7 +445,7 @@ Thank you for ordering!`;
  */
 function generatePickupReady(order: OrderWithItems): string {
   const customerName = order.customer?.name ?? order.customerName;
-  const location = order.pickupLocation || "Goldfinch Legato";
+  const location = order.pickupLocation || "Legato Gelato - Goldfinch";
 
   return `Halo ${customerName}!
 
