@@ -20,6 +20,9 @@ import {
   decrementShippingAgencyUsage,
 } from "../helpers/index";
 
+// Pure helpers
+import { parseDeliveryAddress } from "../helpers";
+
 // Audit logging + kitchen visibility + transition validation
 import {
   logOrderEvent,
@@ -311,8 +314,12 @@ export const updateDetails = mutation({
       patchData.deliveryType = updates.deliveryType;
     if (updates.pickupLocation !== undefined)
       patchData.pickupLocation = updates.pickupLocation;
-    if (updates.deliveryAddress !== undefined)
+    if (updates.deliveryAddress !== undefined) {
       patchData.deliveryAddress = updates.deliveryAddress;
+      const parsed = parseDeliveryAddress(updates.deliveryAddress);
+      patchData.deliveryType = parsed.deliveryType;
+      patchData.pickupLocation = parsed.pickupLocation;
+    }
     if (updates.contactWa !== undefined) patchData.contactWa = updates.contactWa;
     if (updates.contactIg !== undefined) patchData.contactIg = updates.contactIg;
     if (updates.channel !== undefined) patchData.channel = updates.channel;
