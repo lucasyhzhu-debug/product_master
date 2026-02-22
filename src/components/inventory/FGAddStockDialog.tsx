@@ -37,7 +37,7 @@ interface FGAddStockDialogProps {
   onOpenChange: (open: boolean) => void;
   preselectedProductId?: Id<"menuProducts">;
   preselectedProductName?: string;
-  locations: Array<{ _id: Id<"storageLocations">; name: string; isDefault?: boolean }>;
+  locations: Array<{ _id: Id<"storageLocations">; name: string; isDefault?: boolean; locationType?: string }>;
   defaultLocationId?: Id<"storageLocations">;
 }
 
@@ -180,21 +180,101 @@ export function FGAddStockDialog({
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Add to location</Label>
-            <div className="flex gap-2 flex-wrap">
-              {locations.map((loc) => (
-                <Button
-                  key={loc._id}
-                  type="button"
-                  variant={selectedLocationId === loc._id ? "default" : "outline"}
-                  className="flex-1 min-w-[80px]"
-                  onClick={() => setSelectedLocationId(loc._id)}
-                >
-                  {loc.name}
-                </Button>
-              ))}
-            </div>
+
+            {/* Internal locations: office + kitchen */}
+            {locations.some((l) => l.locationType === "office" || l.locationType === "kitchen") && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Direct Orders</p>
+                <div className="flex gap-2 flex-wrap">
+                  {locations
+                    .filter((l) => l.locationType === "office" || l.locationType === "kitchen")
+                    .map((loc) => (
+                      <Button
+                        key={loc._id}
+                        type="button"
+                        variant={selectedLocationId === loc._id ? "default" : "outline"}
+                        className="flex-1 min-w-[80px]"
+                        onClick={() => setSelectedLocationId(loc._id)}
+                      >
+                        {loc.name}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* GoFood depot locations */}
+            {locations.some((l) => l.locationType === "depot") && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">GoFood Depots</p>
+                <div className="flex gap-2 flex-wrap">
+                  {locations
+                    .filter((l) => l.locationType === "depot")
+                    .map((loc) => (
+                      <Button
+                        key={loc._id}
+                        type="button"
+                        variant="outline"
+                        className={
+                          selectedLocationId === loc._id
+                            ? "flex-1 min-w-[80px] bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                            : "flex-1 min-w-[80px] border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        }
+                        onClick={() => setSelectedLocationId(loc._id)}
+                      >
+                        {loc.name}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* K3Mart / venue locations */}
+            {locations.some((l) => l.locationType === "venue") && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-violet-600 uppercase tracking-wide">K3Mart</p>
+                <div className="flex gap-2 flex-wrap">
+                  {locations
+                    .filter((l) => l.locationType === "venue")
+                    .map((loc) => (
+                      <Button
+                        key={loc._id}
+                        type="button"
+                        variant="outline"
+                        className={
+                          selectedLocationId === loc._id
+                            ? "flex-1 min-w-[80px] bg-violet-600 text-white border-violet-600 hover:bg-violet-700"
+                            : "flex-1 min-w-[80px] border-violet-200 text-violet-700 hover:bg-violet-50"
+                        }
+                        onClick={() => setSelectedLocationId(loc._id)}
+                      >
+                        {loc.name}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback: any other location types */}
+            {locations.some((l) => !l.locationType || (l.locationType !== "office" && l.locationType !== "kitchen" && l.locationType !== "depot" && l.locationType !== "venue")) && (
+              <div className="flex gap-2 flex-wrap">
+                {locations
+                  .filter((l) => !l.locationType || (l.locationType !== "office" && l.locationType !== "kitchen" && l.locationType !== "depot" && l.locationType !== "venue"))
+                  .map((loc) => (
+                    <Button
+                      key={loc._id}
+                      type="button"
+                      variant={selectedLocationId === loc._id ? "default" : "outline"}
+                      className="flex-1 min-w-[80px]"
+                      onClick={() => setSelectedLocationId(loc._id)}
+                    >
+                      {loc.name}
+                    </Button>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
 
