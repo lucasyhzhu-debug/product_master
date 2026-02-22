@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, X, Info, Loader2 } from 'lucide-react';
+import { Plus, Trash2, X, Info, Loader2, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import {
   type OrderCreateInput,
   type OrderItemInput,
 } from '@/hooks/convex/useOrders';
-import { useConvexCustomerSearch } from '@/hooks/convex/useCustomers';
+import { useConvexCustomer, useConvexCustomerSearch, useConvexUpdateCustomer } from '@/hooks/convex/useCustomers';
 import { useConvexMenuProducts, useConvexCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
@@ -75,6 +75,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
   const [isNewCustomer, setIsNewCustomer] = useState(false);
 
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneEdit, setPhoneEdit] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+
   const [showSoldByDropdown, setShowSoldByDropdown] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [productDropdownIndex, setProductDropdownIndex] = useState<number | null>(null);
@@ -92,7 +96,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     due_date: new Date().toISOString().split('T')[0], // Default to today
     notes: '',
     delivery_type: 'Pickup',
-    pickup_location: 'Goldfinch Legato',
+    pickup_location: 'Legato Gelato - Goldfinch',
     delivery_address: '',
     contact_wa: '',
     contact_ig: '',
@@ -111,6 +115,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   // Queries
   const customers = useConvexCustomerSearch(customerSearch || '');
   const { data: sellerSuggestions } = useConvexSellerSuggestions();
+  const selectedCustomer = useConvexCustomer(customerId ?? undefined);
+  const updateCustomer = useConvexUpdateCustomer();
 
   // Calculate totals
   const totals = formData.items.reduce(
@@ -135,6 +141,8 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     setCustomerSearch(customer.name);
     setIsNewCustomer(false);
     setShowCustomerDropdown(false);
+    setEditingPhone(false);
+    setPhoneEdit('');
     setFormData((prev) => ({ ...prev, customer_id: convexId, new_customer: null }));
   };
 
@@ -143,11 +151,24 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     setCustomerId(null);
     setNewCustomerName(customerSearch);
     setShowCustomerDropdown(false);
+    setEditingPhone(false);
+    setPhoneEdit('');
     setFormData((prev) => ({
       ...prev,
       customer_id: null,
       new_customer: { name: customerSearch, phone: null },
     }));
+  };
+
+  const handleSavePhone = async () => {
+    if (!customerId) return;
+    setIsSavingPhone(true);
+    try {
+      await updateCustomer.mutateAsync({ id: customerId, phone: phoneEdit || undefined });
+      setEditingPhone(false);
+    } finally {
+      setIsSavingPhone(false);
+    }
   };
 
   const handleSoldBySelect = (seller: string) => {
@@ -391,44 +412,95 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
             />
           </div>
         ) : (
-          <div className="relative">
-            <Input
-              id="customer"
-              aria-required="true"
-              placeholder="Search customer..."
-              value={customerSearch || ''}
-              onChange={(e) => {
-                setCustomerSearch(e.target.value);
-                setShowCustomerDropdown(true);
-                setCustomerId(null);
-                setFormData((prev) => ({ ...prev, customer_id: null, new_customer: null }));
-              }}
-              onFocus={() => setShowCustomerDropdown(true)}
-            />
-            {showCustomerDropdown && customerSearch && (
-              <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
-                {customers?.map((customer) => (
+          <>
+            <div className="relative">
+              <Input
+                id="customer"
+                aria-required="true"
+                placeholder="Search customer..."
+                value={customerSearch || ''}
+                onChange={(e) => {
+                  setCustomerSearch(e.target.value);
+                  setShowCustomerDropdown(true);
+                  setCustomerId(null);
+                  setFormData((prev) => ({ ...prev, customer_id: null, new_customer: null }));
+                }}
+                onFocus={() => setShowCustomerDropdown(true)}
+              />
+              {showCustomerDropdown && customerSearch && (
+                <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
+                  {customers?.map((customer) => (
+                    <button
+                      key={customer._id}
+                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
+                      onClick={() => handleCustomerSelect(customer)}
+                    >
+                      <div className="font-medium">{customer.name}</div>
+                      {customer.phone && (
+                        <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                      )}
+                    </button>
+                  ))}
                   <button
-                    key={customer._id}
-                    className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
-                    onClick={() => handleCustomerSelect(customer)}
+                    className="w-full px-3 py-2 text-left hover:bg-accent text-sm border-t text-primary"
+                    onClick={handleCreateNewCustomer}
                   >
-                    <div className="font-medium">{customer.name}</div>
-                    {customer.phone && (
-                      <div className="text-xs text-muted-foreground">{customer.phone}</div>
-                    )}
+                    <Plus className="inline h-3 w-3 mr-1" />
+                    Create "{customerSearch}"
                   </button>
-                ))}
-                <button
-                  className="w-full px-3 py-2 text-left hover:bg-accent text-sm border-t text-primary"
-                  onClick={handleCreateNewCustomer}
-                >
-                  <Plus className="inline h-3 w-3 mr-1" />
-                  Create "{customerSearch}"
-                </button>
+                </div>
+              )}
+            </div>
+            {customerId && (
+              <div className="flex items-center gap-2 mt-1.5">
+                {editingPhone ? (
+                  <>
+                    <Input
+                      autoFocus
+                      value={phoneEdit}
+                      onChange={(e) => setPhoneEdit(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSavePhone();
+                        if (e.key === 'Escape') setEditingPhone(false);
+                      }}
+                      placeholder="Phone number"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0"
+                      onClick={handleSavePhone}
+                      disabled={isSavingPhone}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm text-muted-foreground flex-1">
+                      {selectedCustomer?.phone
+                        ? `Phone: ${selectedCustomer.phone}`
+                        : 'No phone on record'}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => {
+                        setPhoneEdit(selectedCustomer?.phone ?? '');
+                        setEditingPhone(true);
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
         {errors.customer && (
           <div className="flex items-start gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
