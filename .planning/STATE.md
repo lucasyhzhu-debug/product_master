@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) complete; 8/8 plans done
+**Current focus:** v1.3 — Phase 21 (Kitchen Production Targets) complete; 5/5 plans done
 
 ## Current Position
 
-Phase: Phase 21 — Kitchen Production Targets (In Progress - 4/5 plans done)
-Plan: 21-04 complete (4/5 plans done)
-Status: Plan 04 complete; ManagerTargetSettings, ShiftHistoryList, ShiftEditDialog created; wired into KitchenViewV2 behind isManager role check; build passes
-Last activity: 2026-02-22 - Completed 21-04: manager settings UI — default config form, today override panel, shift history with edit + inventory impact confirmation
+Phase: Phase 21 — Kitchen Production Targets (Complete - 5/5 plans done)
+Plan: 21-05 complete (5/5 plans done)
+Status: Phase 21 complete; raw ingredient FIFO deduction wired into submitShiftRecord and updateShiftRecord; build passes
+Last activity: 2026-02-22 - Completed 21-05: raw ingredient deduction at shift end — ingredientDeduction.ts helper + mutations.ts wired with soft-failure pattern
 
-Progress (v1.3): [█████████░] ~97% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 in progress (4/5 done)
+Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (5/5)
 
 ## Performance Metrics
 
@@ -81,6 +81,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 21-03]: Loading guard only on packingOrders (isProductionLoading) — targets and shift records show inline skeleton/loading states
 - [Phase 21-03]: BoxingPanel/StickeringPanel files NOT deleted — Phase 24 handles legacy cleanup
 - [Phase 21-04]: ShiftHistoryList queries getShiftHistory with user.token directly — no prop needed; isManager check is UI-only gate while backend enforces requireRole; defaultPackagingMix starts empty in form since getConfig doesn't expose it
+- [Phase 21-05]: buildIngredientNeeds extracted as private helper shared by deduct and restore to avoid BOM traversal duplication
+- [Phase 21-05]: restoreIngredientsForShift uses best-effort batch restore (newest active batch) — exact FIFO reversal not feasible for edits
+- [Phase 21-05]: updateShiftRecord ingredient diff uses produced[] arrays (not net maps) to correctly scope ingredient changes to production only, independent of waste
 
 ### Pending Todos
 
@@ -120,13 +123,14 @@ None.
 | Phase 21-kitchen-production-targets P02 | 3 | 2 tasks | 3 files |
 | Phase 21-kitchen-production-targets P03 | 4 | 2 tasks | 8 files |
 | Phase 21-kitchen-production-targets P04 | 5 | 2 tasks | 4 files |
+| Phase 21-kitchen-production-targets P05 | 3 | 2 tasks | 3 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 21-04 — ManagerTargetSettings, ShiftHistoryList, ShiftEditDialog created; wired into KitchenViewV2 behind isManager role check; build passes
+Stopped at: Completed 21-05 — ingredientDeduction.ts helper + mutations.ts wired with soft-failure FIFO pattern; Phase 21 complete
 Resume file: None
-Resume notes: Phase 21 plan 04 complete. Manager settings UI shipped. Ready for plan 21-05.
+Resume notes: Phase 21 complete (5/5). All kitchen production target features shipped. Ready to merge feature/kitchen-production-targets to main.
 
 ---
-*Last updated: 2026-02-22 - Completed 21-04: manager kitchen settings — ManagerTargetSettings + ShiftHistoryList + ShiftEditDialog wired into KitchenViewV2; build passes*
+*Last updated: 2026-02-22 - Completed 21-05: raw ingredient FIFO deduction at shift end — ingredientDeduction.ts helper + mutations.ts ingredient deduction wired; build passes*

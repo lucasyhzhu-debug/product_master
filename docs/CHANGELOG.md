@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.1] - 2026-02-22 - Kitchen Shift Records: Raw Ingredient Deduction at Shift End
+
+When kitchen staff submit an end-of-shift production record, the system now automatically deducts the raw ingredients that were consumed to make those balls from ingredient inventory — closing the ingredient loop so stock levels stay accurate without any manual adjustments.
+
+### Added
+- **Automatic ingredient deduction on shift submit**: When a shift record is submitted, each produced ball quantity is traced through the production BOM (Big Ball / Mid Ball → ingredient hierarchy) and the corresponding raw ingredient quantities are deducted from inventory using FIFO (oldest batches consumed first).
+- **Soft failure with warnings**: If ingredient stock is insufficient, the shift submission is never blocked — the system deducts whatever is available and records a negative adjustment for the shortfall, returning warnings for optional display.
+- **Ingredient adjustment on shift edits**: Manager edits to shift records now also adjust raw ingredient stock for the production diff (more production = additional deduction; less production = ingredients restored to latest active batch).
+
+### Files Modified
+- `convex/kitchenShiftRecords/ingredientDeduction.ts` — new helper: `deductIngredientsForShift`, `restoreIngredientsForShift`, `buildIngredientNeeds`
+- `convex/kitchenShiftRecords/mutations.ts` — `submitShiftRecord` step 7 (deduct ingredients); `updateShiftRecord` step 5 (diff-based deduct/restore)
+
+---
+
 ## [v1.2.16] - 2026-02-22 - WhatsApp Template Editor: Delivery Fee Preview & Tooltips
 
 The template editor now correctly shows the delivery fee in the live preview (instead of the raw `{delivery_fee}` placeholder), the variable chip appears in the Delivery section so you can click to insert it, and hovering any variable now shows a small description of what it does.
