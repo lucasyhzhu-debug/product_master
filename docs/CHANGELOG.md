@@ -26,6 +26,26 @@ Saving changes on an edited order that had a voucher applied no longer crashes. 
 
 ---
 
+## [v1.2.9] - 2026-02-22 - Fix Customer Creation in Draft Orders
+
+Creating a new customer from the order form now actually saves the customer AND automatically selects them — no more having to search again after creating.
+
+### Fixed
+- **Customer not created**: When creating a new customer in a draft order, the customer was being saved to the database but the frontend never received the new customer's ID, leaving the order in an inconsistent state (`customerId = null`, `isNewCustomer = true`).
+- **Customer not auto-selected**: After creating a new customer, `CustomerSearch` immediately reset to an empty search bar. The user had to search for the just-created customer manually. Now the created customer's name/phone chip appears immediately.
+
+### Changed
+- `createDraft` mutation now returns `{ orderId, customerId }` instead of just `orderId`
+- `OrderCreate.handleNewCustomer` now captures and applies the real customer ID after draft creation
+- `CustomerSearch.onNewCustomer` prop is now async, returning the new customer's ID for auto-selection
+
+### Files Modified
+- `convex/orders/mutations/orderCrud.ts`
+- `src/pages/OrderCreate.tsx`
+- `src/components/orders/CustomerSearch.tsx`
+
+---
+
 ## [v1.2.8] - 2026-02-22 - Edit Order Items Fix + Phone Editing in Order Form
 
 "Edit Order Items" button now actually works — previously it silently closed the dialog without doing anything. Also, you can now see and edit the customer's phone number directly in the order form, and the Customers page is accessible from the Config menu.
