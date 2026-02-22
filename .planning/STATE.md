@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 20 context captured; Phase 19 is next to plan
 Plan: —
 Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
-Last activity: 2026-02-22 — Phase 20 context gathered; kitchen overhaul scope expanded
+Last activity: 2026-02-22 — Completed quick task 14: fix whatsapp template delivery address
 
 Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
