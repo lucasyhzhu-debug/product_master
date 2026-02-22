@@ -11,6 +11,7 @@ export const create = protectedMutation({
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
+    defaultAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const id = await ctx.db.insert("customers", {
@@ -18,6 +19,7 @@ export const create = protectedMutation({
       phone: args.phone,
       source: args.source,
       notes: args.notes,
+      defaultAddress: args.defaultAddress,
       createdBy: ctx.user.name,
     });
 
@@ -36,6 +38,7 @@ export const update = protectedMutation({
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
+    defaultAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -50,6 +53,7 @@ export const update = protectedMutation({
     if (updates.phone !== undefined) patchData.phone = updates.phone;
     if (updates.source !== undefined) patchData.source = updates.source;
     if (updates.notes !== undefined) patchData.notes = updates.notes;
+    if (updates.defaultAddress !== undefined) patchData.defaultAddress = updates.defaultAddress;
 
     await ctx.db.patch(id, patchData);
     return id;

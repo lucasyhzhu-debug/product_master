@@ -138,6 +138,7 @@ export const create = mutation({
         phone: args.newCustomer.phone,
         source: args.newCustomer.source,
         createdBy: args.createdBy ?? "admin",
+        defaultAddress: args.deliveryAddress || undefined,
       });
       customerName = args.newCustomer.name;
       customerPhone = args.newCustomer.phone;
@@ -732,6 +733,7 @@ export const updateDraft = mutation({
     notes: v.optional(v.string()),
     voucherCode: v.optional(v.string()),
     lowPriceConfirmed: v.optional(v.boolean()),
+    updateCustomerAddress: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -811,6 +813,12 @@ export const updateDraft = mutation({
         // Recalculate finalTotal with new voucher
         patch.finalTotal = order.totalAmount - voucherInfo.voucherDiscountValue;
       }
+    }
+
+    // Sync delivery address back to customer's defaultAddress if requested
+    if (args.updateCustomerAddress === true && args.deliveryAddress) {
+      const custId = (patch.customerId as Id<"customers"> | undefined) ?? order.customerId;
+      await ctx.db.patch(custId, { defaultAddress: args.deliveryAddress });
     }
 
     // Apply patch if there are changes

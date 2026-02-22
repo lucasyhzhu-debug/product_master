@@ -286,6 +286,7 @@ export default defineSchema({
     phone: v.optional(v.string()),
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
+    defaultAddress: v.optional(v.string()),
     createdBy: v.string(),
   })
     .index("by_name", ["name"])
