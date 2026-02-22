@@ -74,6 +74,7 @@ interface DepotCockpitTableProps {
   restockMap: Map<string, RestockEntry>;
   stockGrouped: StockGrouped[];
   storageLocations: StorageLocation[];
+  destinationLocationId?: Id<"storageLocations">;
 }
 
 // ============================================================================
@@ -177,6 +178,7 @@ export function DepotCockpitTable({
   restockMap,
   stockGrouped,
   storageLocations,
+  destinationLocationId,
 }: DepotCockpitTableProps) {
   const navigate = useNavigate();
   const adjustDepotStock = useGoFoodAdjustDepotStock();
@@ -313,6 +315,7 @@ export function DepotCockpitTable({
                         setTransferDialogProduct({
                           menuProductId: row.menuProductId,
                           menuProductName: row.menuProductName,
+                          destinationLocationId,
                         })
                       }
                     >
@@ -335,6 +338,7 @@ export function DepotCockpitTable({
           outletId={outletId}
           menuProductId={transferDialogProduct.menuProductId}
           menuProductName={transferDialogProduct.menuProductName}
+          destinationLocationId={transferDialogProduct.destinationLocationId}
           stockGrouped={stockGrouped}
           storageLocations={storageLocations}
         />

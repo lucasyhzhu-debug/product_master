@@ -199,6 +199,7 @@ export function GoFoodDepotManager() {
             restockMap={restockMap}
             stockGrouped={(stockGrouped ?? []) as any[]}
             storageLocations={(storageLocations ?? []) as any[]}
+            destinationLocationId={selectedOutlet?.linkedStorageLocationId}
           />
         ) : (
           <p className="text-muted-foreground text-sm">No outlet selected.</p>
