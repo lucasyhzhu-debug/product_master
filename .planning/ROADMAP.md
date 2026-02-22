@@ -111,6 +111,15 @@ Plans:
 - [ ] 20-07-PLAN.md — listForKanban field pruning (lean return shape)
 - [ ] 20-08-PLAN.md — getKitchenStats payload audit + optimization
 
+### Phase 20.1: Delivery fee reporting separation (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 20.1 to break down)
+
 ### Phase 21: Kitchen Production Targets & Overhaul
 
 **Goal:** Full kitchen view redesign — simplified production-focused UI (remove boxing/stickering), display today's targets (ball totals + packaging breakdown from dispatch plan or defaults), end-of-shift recording that updates Finished Goods Inventory, optional waste logging by reason, shift history with manager edit capability, and manager daily override

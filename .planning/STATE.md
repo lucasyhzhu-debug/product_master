@@ -25,6 +25,7 @@ Progress (v1.3): [██████░░░░] ~55% — Phase 19 complete (9/
 ### Roadmap Evolution
 - Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
 - Phase 24 added: Remove legacy recipe/packaging/product editors and tags system
+- Phase 20.1 inserted after Phase 20: Delivery fee reporting separation (URGENT)
 
 ### Decisions
 
