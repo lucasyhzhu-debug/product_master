@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: Phase 19 — GoFood Depot Management (In Progress - gap closure plans)
-Plan: 19-06 complete (6/9 plans done)
-Status: Depot transfer dialog wired - destinationLocationId prop chain complete; build passes
-Last activity: 2026-02-22 - Completed 19-06: Fix depot transfer type mismatch and wire destinationLocationId
+Plan: 19-08 complete (8/9 plans done)
+Status: GoFood Depot Restock section has usage guidance and Transfer links; build passes
+Last activity: 2026-02-22 - Completed 19-08: Restock Planner UX fixes (usage guidance + Transfer links)
 
-Progress (v1.3): [█████░░░░░] ~40% — Phase 19 6/9 plans complete
+Progress (v1.3): [█████░░░░░] ~45% — Phase 19 8/9 plans complete
 
 ## Performance Metrics
 
@@ -46,6 +46,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 19]: All GoFood depot hooks called before conditionals per React hooks rule
 - [Phase 19]: GoFoodRestockSection uses productInventoryQty (outlet linked storage) for current stock, matching DepotCockpitTable In Inventory column
 - [Phase 19]: destinationLocationId flows via prop chain: GoFoodDepotManager (selectedOutlet?.linkedStorageLocationId) -> DepotCockpitTable (prop + state) -> DepotStockTransferDialog - no dialog changes needed
+- [Phase 19]: Usage guidance placed above collapsible content so it remains visible in both expanded and collapsed states
+- [Phase 19]: Transfer link in GoFoodRestockSection navigates to /inventory directly (no deep-link parameters)
+- [Phase 19]: Location type editor uses useSessionMutation (not useMutation+token) since storageLocations.mutations.update uses protectedMutation/SessionIdArg pattern
 
 ### Pending Todos
 
@@ -73,13 +76,15 @@ None.
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | Phase 19 P06 | 10 | 2 tasks | 2 files |
+| Phase 19 P08 | 4 | 2 tasks | 1 files |
+| Phase 19 P07 | 10 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick-21 — delivery fee input on OrderCreate + WhatsApp ongkir position fix
+Stopped at: Completed 19-08-PLAN.md — Restock Planner UX fixes (usage guidance + Transfer links in GoFoodRestockSection)
 Resume file: None
-Resume notes: Phase 19 all 5 plans complete. Quick-21 done. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
+Resume notes: Phase 19 gap-closure plan 08 done (8/9). One plan remaining (19-09 if it exists). Ready to continue with remaining gap-closure plans or merge to main.
 
 ---
-*Last updated: 2026-02-22 - Completed 19-05: GoFood restock section on Dispatch Planner page (Phase 19 complete)*
+*Last updated: 2026-02-22 - Completed 19-08: Restock Planner usage guidance and Transfer links*
