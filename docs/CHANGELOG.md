@@ -14,6 +14,30 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.7] - 2026-02-22 - Address-Driven Pickup/Delivery Detection
+
+Orders now automatically detect whether an address is a pickup or delivery — no more manual dropdown. Pickup locations get a purple badge; delivery addresses get a blue badge live as you type. Quick-address buttons ("Crystal", "Goldfinch") pre-fill the correct "Pick up: …" format. If the address looks incomplete or empty, a soft-block modal asks you to confirm before saving.
+
+### Added
+- **Live delivery inference badge**: As you type in the address field, a coloured badge instantly shows `📍 Pickup at: [location]` (purple) or `🚚 Delivery to: [address]` (blue) — no manual type selection needed
+- **Soft-block confirm modal**: If the address is empty or a single word, a modal asks "This doesn't look like an address — save anyway?" before submitting
+- **QuickAddressButtons updated**: Crystal button now emits `"Pick up: Crystal"`, Goldfinch emits `"Pick up: Legato Gelato - Goldfinch"` — matching the auto-detection format
+- **`parseDeliveryAddress` utility**: Shared pure function (frontend + backend) that derives `deliveryType` and `pickupLocation` from the raw address string; "Pick up: …" → Pickup, everything else → Delivery
+
+### Changed
+- `createOrder` and `updateDraft` mutations no longer accept `deliveryType`/`pickupLocation` from callers — these are derived automatically from `deliveryAddress`
+- New drafts default to `deliveryType: "Delivery"` (was "Pickup") — safer default when no address has been entered yet
+
+### Files Modified
+- `convex/orders/helpers.ts` — added `parseDeliveryAddress`
+- `convex/orders/mutations/orderCrud.ts` — wired parser into `createOrder`, `createDraft`, `updateDraft`
+- `src/lib/deliveryUtils.ts` — frontend version of `parseDeliveryAddress` (with `suspicious` flag)
+- `src/lib/__tests__/deliveryUtils.test.ts` — 7 unit tests
+- `src/components/orders/QuickAddressButtons.tsx` — updated button addresses
+- `src/pages/OrderCreate.tsx` — badge + confirm modal
+
+---
+
 ## [v1.2.6] - 2026-02-21 - Phase 17.1 Plan 05: UAT Gap Closure
 
 Fixed 7 issues found during user acceptance testing of the Finished Goods inventory feature. The "Use Available Inventory" button now appears in the correct sidebar on order pages, the product pickers show only active POS items, and drawdown toasts summarise exactly how much stock was used and how much remains.
