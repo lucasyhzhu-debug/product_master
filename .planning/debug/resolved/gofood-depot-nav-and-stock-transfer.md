@@ -1,5 +1,5 @@
 ---
-status: resolved
+status: investigating
 trigger: "GoFood Depot / Inventory pages: stock transfer to depot locations broken, GoFood depot page not in navbar, need 'Depot Management' dropdown grouping GoFood + K3Mart"
 created: 2026-02-22T00:00:00Z
 updated: 2026-02-22T00:00:00Z
