@@ -175,3 +175,12 @@ Plans:
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
+
+### Phase 23: Optimize top Convex query reads to reduce production bandwidth
+
+**Goal:** [To be planned]
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 23 to break down)
