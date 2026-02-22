@@ -411,6 +411,22 @@ export {
   type ProductStockGroup,
 } from "./useProductInventory";
 
+// GoFood Depot Management (Phase 19)
+export {
+  useGoFoodDepotSeedCheck,
+  useGoFoodDepotOutlets,
+  useGoFoodDepotStock,
+  useGoFoodRestockSuggestions,
+  useGoFoodOutletMappings,
+  useGoFoodMenuProducts,
+  useGoFoodStockOverviewGrouped,
+  useGoFoodStorageLocations,
+  useGoFoodSaveOutletMappings,
+  useGoFoodInitOutletMappings,
+  useGoFoodAdjustDepotStock,
+  useGoFoodTransferStock,
+} from "./useGoFoodDepot";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks

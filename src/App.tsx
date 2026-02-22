@@ -25,6 +25,7 @@ import {
   CustomersManager,
   TagsManager,
   DispatchPlanner,
+  GoFoodDepotManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -270,6 +271,16 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessDashboard">
                     <DispatchPlanner />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* GoFood Depot Management - Manager and Admin */}
+              <Route
+                path="gofood-depot"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessDashboard">
+                    <GoFoodDepotManager />
                   </ProtectedRoute>
                 }
               />
