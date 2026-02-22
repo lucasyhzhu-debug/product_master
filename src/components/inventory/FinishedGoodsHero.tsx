@@ -75,7 +75,7 @@ function StatCard({ icon, label, value, sublabel, variant = "default" }: StatCar
     <Card
       className={cn(
         "flex-1 min-w-[140px]",
-        variant === "warning" && "border-orange-200 bg-orange-50",
+        variant === "warning" && "border-orange-300/50 bg-orange-500/10 dark:border-orange-500/30 dark:bg-orange-500/10",
         variant === "muted" && "bg-muted/40"
       )}
     >
@@ -85,7 +85,7 @@ function StatCard({ icon, label, value, sublabel, variant = "default" }: StatCar
             className={cn(
               "mt-0.5 rounded-md p-2 flex-shrink-0",
               variant === "warning"
-                ? "bg-orange-100 text-orange-600"
+                ? "bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
                 : variant === "muted"
                   ? "bg-muted text-muted-foreground"
                   : "bg-primary/10 text-primary"
@@ -98,7 +98,7 @@ function StatCard({ icon, label, value, sublabel, variant = "default" }: StatCar
             <p
               className={cn(
                 "text-2xl font-bold leading-tight",
-                variant === "warning" && "text-orange-700"
+                variant === "warning" && "text-orange-700 dark:text-orange-400"
               )}
             >
               {value}
@@ -196,10 +196,10 @@ export function FinishedGoodsHero({
 
       {/* Stat cards row */}
       <div className="flex flex-wrap gap-3">
-        {/* Internal */}
+        {/* Internal Inventory */}
         <StatCard
           icon={<Package className="h-4 w-4" />}
-          label="Internal"
+          label="Internal Inventory"
           value={internalTotal}
           sublabel="Office + Kitchen"
         />
