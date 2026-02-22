@@ -63,7 +63,7 @@ function buildTemplateVariables(
   const finalTotalFormatted = formatCurrency(finalTotal);
 
   const deliveryFeeFormatted = order.deliveryFee && order.deliveryFee > 0
-    ? formatCurrency(order.deliveryFee)
+    ? `🚚 Ongkir: ${formatCurrency(order.deliveryFee)}\n`
     : "";
 
   // Delivery info
