@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: Phase 19 — GoFood Depot Management (In Progress)
-Plan: 19-02 complete (2/5 plans done)
-Status: Restock suggestion algorithm and product mapping CRUD backend complete
-Last activity: 2026-02-22 — Completed 19-02: restock suggestion helper and product mapping CRUD
+Plan: 19-04 complete (4/5 plans done)
+Status: Finished Goods inventory UI redesigned — hero, grouping toggle, inline transfers, Move Stock modal
+Last activity: 2026-02-22 — Completed 19-04: Finished Goods tab redesign with transfer UI
 
-Progress (v1.3): [██░░░░░░░░] ~10% — Phase 19 plan 02/05 complete
+Progress (v1.3): [████░░░░░░] ~30% — Phase 19 plan 04/05 complete
 
 ## Performance Metrics
 
@@ -38,6 +38,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 19]: computeRestockSuggestion uses Math.ceil on avg+buffer; Monday resets to previous Thursday total; initOutletMappingsFromPrevious is idempotent (no-op if target already has mappings)
 - [Phase 19-01]: outletId is optional on gofoodDepotStock for backward compatibility with existing rows
 - [Phase 19-01]: transferStock uses .unique() to ensure one row per product+location; logs two transfer transactions linked via transferPairLocationId
+- [Phase 19-04]: Location-type bucketing: office+kitchen=Internal, depot=GoFood, venue=K3Mart; consignment hidden until Phase 21
+- [Phase 19-04]: Zero-stock rows shown by default with opacity-50 styling (not hidden)
+- [Phase 19-04]: Grouping toggle computed client-side from getStockOverviewGrouped (no extra query)
 
 ### Pending Todos
 
@@ -66,9 +69,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-01-PLAN.md — schema migration + transferStock + per-outlet depot queries (now fully committed)
+Stopped at: Completed 19-04-PLAN.md — Finished Goods tab redesign (hero, grouping toggle, inline transfers, Move Stock modal)
 Resume file: None
-Resume notes: Phase 19 plan 01 now fully committed (b3e3320, 7849cd3). Plan 02 was previously executed. Next is 19-03 (GoFood Depot frontend page).
+Resume notes: Plans 01-04 complete. Next is 19-05 (kitchen production targets frontend). Note: pre-existing build errors in plan 19-03 files need fixing before merge.
 
 ---
-*Last updated: 2026-02-22 - Completed 19-02: restock suggestion algorithm and product mapping CRUD*
+*Last updated: 2026-02-22 - Completed 19-04: Finished Goods tab redesign with transfer UI*
