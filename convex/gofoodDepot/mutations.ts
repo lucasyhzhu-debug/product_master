@@ -28,6 +28,8 @@ import { updateComponentStock } from "../inventory/helpers";
 export const recordShipment = mutation({
   args: {
     token: v.string(),
+    // Phase 19: Optional outletId for per-outlet depot stock tracking
+    outletId: v.optional(v.id("externalOutlets")),
     items: v.array(
       v.object({
         menuProductId: v.id("menuProducts"),
@@ -91,23 +93,36 @@ export const recordShipment = mutation({
       }
 
       // 1. Update gofoodDepotStock (read-then-patch for OCC safety)
-      const existingStock = await ctx.db
-        .query("gofoodDepotStock")
-        .withIndex("by_menuProduct", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
+      // When outletId provided, use by_outlet_product index for per-outlet tracking
+      let existingStock;
+      if (args.outletId) {
+        existingStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_outlet_product", (q) =>
+            q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      } else {
+        existingStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_menuProduct", (q) =>
+            q.eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      }
 
       if (existingStock) {
         await ctx.db.patch(existingStock._id, {
           quantity: existingStock.quantity + item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       } else {
         await ctx.db.insert("gofoodDepotStock", {
           menuProductId: item.menuProductId,
           quantity: item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       }
 
@@ -238,6 +253,8 @@ export const recordShipment = mutation({
  */
 export const processSyncSales = internalMutation({
   args: {
+    // Phase 19: Optional outletId for per-outlet depot stock tracking
+    outletId: v.optional(v.id("externalOutlets")),
     items: v.array(
       v.object({
         menuProductId: v.id("menuProducts"),
@@ -267,17 +284,29 @@ export const processSyncSales = internalMutation({
       if (item.quantity <= 0) continue;
 
       // 1. Decrement depot stock (can go negative = debt)
-      const depotStock = await ctx.db
-        .query("gofoodDepotStock")
-        .withIndex("by_menuProduct", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
+      // When outletId provided, use by_outlet_product index for per-outlet tracking
+      let depotStock;
+      if (args.outletId) {
+        depotStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_outlet_product", (q) =>
+            q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      } else {
+        depotStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_menuProduct", (q) =>
+            q.eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      }
 
       if (depotStock) {
         await ctx.db.patch(depotStock._id, {
           quantity: depotStock.quantity - item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       } else {
         // No stock record yet — create with negative (debt)
@@ -285,6 +314,7 @@ export const processSyncSales = internalMutation({
           menuProductId: item.menuProductId,
           quantity: -item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       }
 
@@ -333,13 +363,23 @@ export const processSyncSales = internalMutation({
             goldfinchLocation._id
           );
         } catch {
-          // Insufficient stickers — record deficit
-          const currentStock = await ctx.db
-            .query("gofoodDepotStock")
-            .withIndex("by_menuProduct", (q) =>
-              q.eq("menuProductId", item.menuProductId)
-            )
-            .first();
+          // Insufficient stickers — record deficit on the current depot stock row
+          let currentStock;
+          if (args.outletId) {
+            currentStock = await ctx.db
+              .query("gofoodDepotStock")
+              .withIndex("by_outlet_product", (q) =>
+                q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+              )
+              .first();
+          } else {
+            currentStock = await ctx.db
+              .query("gofoodDepotStock")
+              .withIndex("by_menuProduct", (q) =>
+                q.eq("menuProductId", item.menuProductId)
+              )
+              .first();
+          }
 
           if (currentStock) {
             await ctx.db.patch(currentStock._id, {
