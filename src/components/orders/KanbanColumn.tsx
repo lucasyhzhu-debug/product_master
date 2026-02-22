@@ -88,6 +88,7 @@ export function KanbanColumn({ config, orders, onCardClick }: KanbanColumnProps)
                 key={order._id}
                 order={order}
                 onCardClick={onCardClick}
+                simplified={isCompleteColumn}
               />
             ))
           )}
