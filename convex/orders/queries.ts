@@ -1140,6 +1140,8 @@ export const listForKanban = query({
       voucherDiscountValue?: number;
       expedited?: boolean;
       creatorName: string;
+      notes?: string;
+      createdByUserId?: string;
       items: Array<{
         _id: string;
         productName: string;
@@ -1221,6 +1223,9 @@ export const listForKanban = query({
             expedited: order.expedited,
             // Creator
             creatorName,
+            // Notes + ownership (for kanban highlight features)
+            notes: order.notes,
+            createdByUserId: order.createdByUserId,
             // Items — lean shape
             items: items.map((item) => ({
               _id: item._id,
