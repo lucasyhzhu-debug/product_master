@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 19 — GoFood Depot Management (In Progress)
-Plan: 19-04 complete (4/5 plans done)
-Status: Finished Goods inventory UI redesigned — hero, grouping toggle, inline transfers, Move Stock modal
-Last activity: 2026-02-22 — Completed 19-04: Finished Goods tab redesign with transfer UI
+Phase: Phase 19 — GoFood Depot Management (Complete)
+Plan: 19-05 complete (5/5 plans done)
+Status: GoFood restock section added to Dispatch Planner — Phase 19 all plans complete
+Last activity: 2026-02-22 — Completed 19-05: GoFood depot restock section on Dispatch Planner page
 
-Progress (v1.3): [████░░░░░░] ~30% — Phase 19 plan 04/05 complete
+Progress (v1.3): [█████░░░░░] ~40% — Phase 19 complete (5/5 plans)
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 19-04]: Grouping toggle computed client-side from getStockOverviewGrouped (no extra query)
 - [Phase 19]: PageHeader description is string-only: last-synced placed in action slot
 - [Phase 19]: All GoFood depot hooks called before conditionals per React hooks rule
+- [Phase 19]: GoFoodRestockSection uses productInventoryQty (outlet linked storage) for current stock, matching DepotCockpitTable In Inventory column
 
 ### Pending Todos
 
@@ -71,9 +72,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-03-PLAN.md — GoFood Depot Management frontend page (all 5 components, route, hooks)
+Stopped at: Completed 19-05-PLAN.md — GoFood depot restock section on Dispatch Planner page (Phase 19 complete)
 Resume file: None
-Resume notes: Plans 01-04 complete. Next is 19-05 (kitchen production targets frontend). Build passes with all plans 01-04 implemented.
+Resume notes: Phase 19 all 5 plans complete. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
 
 ---
-*Last updated: 2026-02-22 - Completed 19-03: GoFood Depot Management frontend page*
+*Last updated: 2026-02-22 - Completed 19-05: GoFood restock section on Dispatch Planner page (Phase 19 complete)*

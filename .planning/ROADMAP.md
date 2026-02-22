@@ -60,7 +60,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
 
-- [ ] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05)
+- [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
 - [ ] **Phase 20: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
 - [ ] **Phase 21: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
 - [ ] **Phase 22: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
@@ -81,7 +81,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
   3. Alert fires and is visible on the depot page when any depot drops below 5 total products remaining
   4. Restock suggestion is shown per depot: n+1 average of last 3 days; n+2 on Friday and Saturday; Monday resets to the previous Thursday total
   5. When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 19-01-PLAN.md — Schema migration + core backend (transferStock, isSeedRequired, per-outlet queries)
@@ -171,7 +171,7 @@ Plans:
 | 17. Unified Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
-| 19. GoFood Depot Management | 4/5 | In Progress|  | - |
+| 19. GoFood Depot Management | 5/5 | Complete   | 2026-02-22 | - |
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
