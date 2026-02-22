@@ -292,8 +292,7 @@ Terima kasih sudah order di Frollie! 🙏
 *Order #${order.orderNumber}*
 ${itemsText}
 ────────────
-*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
-${deliveryFeeLine}
+${deliveryFeeLine}*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
 ${deliveryInfo}
 📅 Target: ${dueDateStr}
 
@@ -440,7 +439,7 @@ PT Malo Group Bahagia
 ${customerLine}
 ${itemsText}
 ----------------
-*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}${deliveryFeeLine}
+${deliveryFeeLine ? deliveryFeeLine.trimStart() + '\n' : ''}*Total: ${finalTotalFormatted}*${discountNote ? `\n${discountNote}` : ""}
 
 ${paymentInfo}
 ${deliveryLine}${dueDateLine}${notesSection}
