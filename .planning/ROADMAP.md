@@ -113,12 +113,12 @@ Plans:
 
 ### Phase 20.1: Delivery fee reporting separation (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Separate delivery fees from product revenue in Sales Analytics — show delivery fees as a new summary card and exclude them from Net Sales, with corrected discount calculation, all computed at query time using existing schema fields
 **Depends on:** Phase 20
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 20.1 to break down)
+- [ ] 20.1-01-PLAN.md — Backend aggregate fix + frontend Delivery Fees card (3 files)
 
 ### Phase 21: Kitchen Production Targets & Overhaul
 
