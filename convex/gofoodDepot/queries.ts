@@ -1,32 +1,86 @@
 /**
  * GoFood Depot (Goldfinch) Queries
  *
- * Queries for depot stock, virtual daily order, shipments, and sticker inventory.
+ * Queries for depot stock, virtual daily order, shipments, sticker inventory,
+ * restock suggestions (GF-04), and per-outlet product mappings (GF-02).
  */
 
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import {
+  computeRestockSuggestion,
+  getWibDateString,
+  getWibDateStringDaysAgo,
+  getWibDayOfWeek,
+} from "./helpers";
 
 /**
- * Get all depot stock records (per-product stock at Goldfinch).
+ * Get depot stock records.
+ *
+ * When outletId is provided, filters by by_outlet_product index and enriches
+ * with productInventory data at the outlet's linkedStorageLocationId.
+ * When outletId is omitted, falls back to listing all records (legacy behavior).
  */
 export const getDepotStock = query({
-  args: {},
-  handler: async (ctx) => {
-    const stocks = await ctx.db.query("gofoodDepotStock").collect();
+  args: {
+    outletId: v.optional(v.id("externalOutlets")),
+  },
+  handler: async (ctx, args) => {
+    let stocks;
 
-    // Enrich with menu product names
-    const enriched = [];
-    for (const stock of stocks) {
-      const menuProduct = await ctx.db.get(stock.menuProductId);
-      enriched.push({
-        ...stock,
-        menuProductName: menuProduct?.name ?? "Unknown",
-        menuProductCode: menuProduct?.code ?? "",
-      });
+    if (args.outletId) {
+      // Per-outlet: use composite index
+      stocks = await ctx.db
+        .query("gofoodDepotStock")
+        .withIndex("by_outlet_product", (q) => q.eq("outletId", args.outletId))
+        .collect();
+
+      // Resolve outlet's linked storage location for productInventory lookup
+      const outlet = await ctx.db.get(args.outletId);
+      const linkedLocationId = outlet?.linkedStorageLocationId;
+
+      const enriched = [];
+      for (const stock of stocks) {
+        const menuProduct = await ctx.db.get(stock.menuProductId);
+
+        // Get productInventory at outlet's linked location if available
+        let productInventoryQty: number | null = null;
+        if (linkedLocationId) {
+          const invRow = await ctx.db
+            .query("productInventory")
+            .withIndex("by_product_location", (q) =>
+              q.eq("menuProductId", stock.menuProductId).eq("locationId", linkedLocationId)
+            )
+            .first();
+          productInventoryQty = invRow?.quantity ?? 0;
+        }
+
+        enriched.push({
+          ...stock,
+          menuProductName: menuProduct?.name ?? "Unknown",
+          menuProductCode: menuProduct?.code ?? "",
+          productInventoryQty,
+        });
+      }
+
+      return enriched;
+    } else {
+      // Legacy: return all records
+      stocks = await ctx.db.query("gofoodDepotStock").collect();
+
+      const enriched = [];
+      for (const stock of stocks) {
+        const menuProduct = await ctx.db.get(stock.menuProductId);
+        enriched.push({
+          ...stock,
+          menuProductName: menuProduct?.name ?? "Unknown",
+          menuProductCode: menuProduct?.code ?? "",
+          productInventoryQty: null as number | null,
+        });
+      }
+
+      return enriched;
     }
-
-    return enriched;
   },
 });
 
@@ -37,11 +91,12 @@ export const getDepotStock = query({
  * - productionProductTargets (source="gofood")
  * - gofoodDepotStock
  * - gofoodDepotShipments (today)
- * - externalRevenueItems (today, source="gobiz")
+ * - externalRevenue (today, source="gobiz", optionally filtered by outletId)
  */
 export const getGoFoodDailyOrder = query({
   args: {
     date: v.string(), // YYYY-MM-DD
+    outletId: v.optional(v.id("externalOutlets")), // Filter revenue by outlet when provided
   },
   handler: async (ctx, args) => {
     // 1. Get GoFood targets for today
@@ -59,8 +114,16 @@ export const getGoFoodDailyOrder = query({
       return null; // No GoFood targets today
     }
 
-    // 2. Get all depot stock
-    const allDepotStock = await ctx.db.query("gofoodDepotStock").collect();
+    // 2. Get all depot stock (per-outlet if outletId provided, else all)
+    let allDepotStock;
+    if (args.outletId) {
+      allDepotStock = await ctx.db
+        .query("gofoodDepotStock")
+        .withIndex("by_outlet_product", (q) => q.eq("outletId", args.outletId))
+        .collect();
+    } else {
+      allDepotStock = await ctx.db.query("gofoodDepotStock").collect();
+    }
     const depotStockMap = new Map(
       allDepotStock.map((s) => [s.menuProductId as string, s])
     );
@@ -78,20 +141,36 @@ export const getGoFoodDailyOrder = query({
       shippedTodayMap.set(key, (shippedTodayMap.get(key) ?? 0) + s.quantity);
     }
 
-    // 4. Get today's sales (externalRevenueItems from gobiz for today)
+    // 4. Get today's sales (externalRevenue from gobiz for today, optionally per outlet)
     const todayStart = new Date(args.date + "T00:00:00+07:00").getTime();
     const todayEnd = todayStart + 24 * 60 * 60 * 1000;
 
-    const todayRevenues = await ctx.db
-      .query("externalRevenue")
-      .withIndex("by_source_period", (q) => q.eq("source", "gobiz"))
-      .filter((q) =>
-        q.and(
-          q.gte(q.field("periodStart"), todayStart),
-          q.lt(q.field("periodStart"), todayEnd)
+    let todayRevenues;
+    if (args.outletId) {
+      // Filter by outlet using by_outlet index, then filter by date
+      todayRevenues = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("source"), "gobiz"),
+            q.gte(q.field("periodStart"), todayStart),
+            q.lt(q.field("periodStart"), todayEnd)
+          )
         )
-      )
-      .collect();
+        .collect();
+    } else {
+      todayRevenues = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) => q.eq("source", "gobiz"))
+        .filter((q) =>
+          q.and(
+            q.gte(q.field("periodStart"), todayStart),
+            q.lt(q.field("periodStart"), todayEnd)
+          )
+        )
+        .collect();
+    }
 
     // Get items for today's revenues
     const soldTodayMap = new Map<string, number>();
@@ -112,12 +191,21 @@ export const getGoFoodDailyOrder = query({
       }
     }
 
-    // 5. Get last sync info
-    const lastSync = await ctx.db
-      .query("externalSyncLogs")
-      .withIndex("by_source", (q) => q.eq("source", "gobiz"))
-      .order("desc")
-      .first();
+    // 5. Get last sync info (optionally for the specific outlet)
+    let lastSync;
+    if (args.outletId) {
+      lastSync = await ctx.db
+        .query("externalSyncLogs")
+        .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+        .order("desc")
+        .first();
+    } else {
+      lastSync = await ctx.db
+        .query("externalSyncLogs")
+        .withIndex("by_source", (q) => q.eq("source", "gobiz"))
+        .order("desc")
+        .first();
+    }
 
     // 6. Assemble virtual order items
     const items = [];
@@ -146,13 +234,14 @@ export const getGoFoodDailyOrder = query({
       });
     }
 
-    // Format order number: GF-MMDD
+    // Format order number: GF-MMDD (or GF-MMDD-outletId suffix if per-outlet)
     const mmdd = args.date.slice(5).replace("-", "");
 
     return {
       orderNumber: `GF-${mmdd}`,
       customerName: "GoFood Depot",
       date: args.date,
+      outletId: args.outletId ?? null,
       items,
       lastSyncAt: lastSync?.timestamp,
       lastSyncStatus: lastSync?.status,
@@ -319,6 +408,247 @@ export const getDepotFreshness = query({
       freshness,
       maxAgeDays: maxAge,
       today,
+    };
+  },
+});
+
+/**
+ * Check if seed (seedFinishedGoodsLocations) has been run.
+ * Returns seedRequired=true when any GoBiz outlet lacks linkedStorageLocationId.
+ * Used to show the full-page seed warning blocker (GF-05).
+ */
+export const isSeedRequired = query({
+  args: {},
+  handler: async (ctx) => {
+    const gobizOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "gobiz"))
+      .collect();
+
+    const settings = await ctx.db.query("productInventorySettings").first();
+    const unlinkedOutlets = gobizOutlets.filter((o) => !o.linkedStorageLocationId);
+
+    return {
+      seedRequired: unlinkedOutlets.length > 0 || !settings,
+      unlinkedOutlets: unlinkedOutlets.map((o) => ({ id: o._id, name: o.name })),
+    };
+  },
+});
+
+/**
+ * Compute restock suggestions per product for a given GoFood outlet (GF-04).
+ *
+ * Rules (WIB timezone):
+ * - Monday: reset to previous Thursday's total sold
+ * - Friday / Saturday: n+2 buffer on 3-day average
+ * - All other days: n+1 buffer on 3-day average
+ *
+ * Returns per-product suggestion with calculation breakdown.
+ */
+export const getRestockSuggestions = query({
+  args: {
+    outletId: v.id("externalOutlets"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const todayWib = getWibDateString(now);
+    const dayOfWeek = getWibDayOfWeek(now);
+
+    // We need sales for the last 4 days (3 for average + find prev Thursday)
+    // Look back up to 14 days to ensure we find a Thursday
+    const lookbackStart = getWibDateStringDaysAgo(14, now);
+
+    // Build timestamp range for the lookback window (WIB midnight boundaries)
+    const lookbackStartMs = new Date(lookbackStart + "T00:00:00+07:00").getTime();
+    const todayEndMs = new Date(todayWib + "T23:59:59+07:00").getTime();
+
+    // Get all external revenue records for this outlet within the window
+    const revenues = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+      .filter((q) =>
+        q.and(
+          q.gte(q.field("periodStart"), lookbackStartMs),
+          q.lte(q.field("periodStart"), todayEndMs)
+        )
+      )
+      .collect();
+
+    // Build a map: date -> { menuProductId -> quantity sold }
+    const salesByDateAndProduct = new Map<string, Map<string, number>>();
+
+    for (const rev of revenues) {
+      // Convert periodStart to WIB date
+      const revDate = getWibDateString(rev.periodStart);
+
+      // Skip today's data (we're suggesting for tomorrow)
+      if (revDate >= todayWib) continue;
+
+      const items = await ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", rev._id))
+        .collect();
+
+      for (const item of items) {
+        if (!item.linkedMenuProductId) continue;
+        const mpId = item.linkedMenuProductId as string;
+
+        if (!salesByDateAndProduct.has(revDate)) {
+          salesByDateAndProduct.set(revDate, new Map());
+        }
+        const dayMap = salesByDateAndProduct.get(revDate)!;
+        dayMap.set(mpId, (dayMap.get(mpId) ?? 0) + item.quantity);
+      }
+    }
+
+    // Get all dates sorted descending (most recent first, excluding today)
+    const allDates = Array.from(salesByDateAndProduct.keys()).sort((a, b) =>
+      b.localeCompare(a)
+    );
+
+    // Last 3 days for the rolling average (excluding today)
+    const last3Dates = allDates.slice(0, 3);
+
+    // Find the most recent Thursday for Monday reset
+    let prevThursdayDate: string | null = null;
+    for (const d of allDates) {
+      const dMs = new Date(d + "T12:00:00+07:00").getTime();
+      const dDow = new Date(dMs + 7 * 60 * 60 * 1000).getUTCDay();
+      if (dDow === 4) {
+        // Thursday
+        prevThursdayDate = d;
+        break;
+      }
+    }
+
+    // Collect all menu product IDs that appear in any day's sales
+    const allMenuProductIds = new Set<string>();
+    for (const dayMap of salesByDateAndProduct.values()) {
+      for (const mpId of dayMap.keys()) {
+        allMenuProductIds.add(mpId);
+      }
+    }
+
+    // Compute suggestions per product
+    const suggestions: Array<{
+      menuProductId: string;
+      productName: string;
+      suggestion: number;
+      breakdown: string;
+      salesLast3Days: number[];
+      previousThursdayTotal: number;
+    }> = [];
+
+    for (const mpId of allMenuProductIds) {
+      // Sales for last 3 days (oldest first for the helper)
+      const salesLast3Days = last3Dates
+        .map((d) => salesByDateAndProduct.get(d)?.get(mpId) ?? 0)
+        .reverse(); // helper expects [day-3, day-2, day-1] (oldest first)
+
+      // Previous Thursday total
+      const previousThursdayTotal = prevThursdayDate
+        ? (salesByDateAndProduct.get(prevThursdayDate)?.get(mpId) ?? 0)
+        : 0;
+
+      const { suggestion, breakdown } = computeRestockSuggestion(
+        salesLast3Days,
+        dayOfWeek,
+        previousThursdayTotal
+      );
+
+      // Look up product name via typed query
+      const menuProduct = await ctx.db
+        .query("menuProducts")
+        .filter((q) => q.eq(q.field("_id"), mpId))
+        .first();
+
+      suggestions.push({
+        menuProductId: mpId,
+        productName: menuProduct?.name ?? "Unknown",
+        suggestion,
+        breakdown,
+        salesLast3Days,
+        previousThursdayTotal,
+      });
+    }
+
+    return {
+      outletId: args.outletId,
+      todayWib,
+      dayOfWeek,
+      suggestions,
+    };
+  },
+});
+
+/**
+ * Get per-outlet product mappings for a given GoFood outlet (GF-02).
+ *
+ * Returns:
+ * - mappings: all configured mappings for this outlet
+ * - unmappedProducts: GoFood product names seen in revenue data but with no mapping
+ */
+export const getOutletProductMappings = query({
+  args: {
+    outletId: v.id("externalOutlets"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Get all saved mappings for this outlet
+    const mappings = await ctx.db
+      .query("gofoodOutletProductMappings")
+      .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+      .collect();
+
+    // 2. Enrich each mapping with the linked menu product name
+    const enrichedMappings = [];
+    for (const mapping of mappings) {
+      let menuProductName: string | undefined;
+      if (mapping.menuProductId) {
+        const mp = await ctx.db.get(mapping.menuProductId);
+        menuProductName = mp?.name;
+      }
+      enrichedMappings.push({
+        _id: mapping._id,
+        outletId: mapping.outletId,
+        externalProductName: mapping.externalProductName,
+        menuProductId: mapping.menuProductId,
+        menuProductName,
+        isActive: mapping.isActive,
+        updatedAt: mapping.updatedAt,
+      });
+    }
+
+    // 3. Find GoFood product names from recent revenue items for this outlet
+    //    that don't have a mapping yet (unmapped)
+    const mappedNames = new Set(mappings.map((m) => m.externalProductName));
+
+    // Look at the last 30 days of revenue items
+    const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentRevenues = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+      .filter((q) => q.gte(q.field("periodStart"), cutoffMs))
+      .collect();
+
+    const seenProductNames = new Set<string>();
+    for (const rev of recentRevenues) {
+      const items = await ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", rev._id))
+        .collect();
+      for (const item of items) {
+        seenProductNames.add(item.productName);
+      }
+    }
+
+    // Unmapped = seen in revenue data but no mapping row exists
+    const unmappedProducts = Array.from(seenProductNames).filter(
+      (name) => !mappedNames.has(name)
+    );
+
+    return {
+      mappings: enrichedMappings,
+      unmappedProducts,
     };
   },
 });
