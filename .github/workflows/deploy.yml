@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for Convex changes
         id: check
@@ -72,8 +72,20 @@ jobs:
             exit 0
           fi
 
-          # For push events, check actual file changes
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD)
+          # For push events, diff the full push range (before → after SHA).
+          # HEAD~1 only sees the last commit; this captures all commits in the push
+          # including fast-forward merges of multiple commits from a feature branch.
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+
+          # github.event.before is all-zeros on a branch's first push — fall back to HEAD~1
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only "$BEFORE" "$AFTER")
+          fi
+
+          echo "Diff range: $BEFORE → $AFTER"
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
