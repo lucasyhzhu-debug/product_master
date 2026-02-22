@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 19 — GoFood Depot Management (Complete)
 Plan: 19-05 complete (5/5 plans done)
 Status: GoFood restock section added to Dispatch Planner — Phase 19 all plans complete
-Last activity: 2026-02-22 - Completed quick task 20: Add item-linked voucher type with direct price discount (Rp) for specific products to voucher management system
+Last activity: 2026-02-22 - Completed quick task 21: Add delivery fee input to OrderCreate Order Summary + fix ongkir line position in WhatsApp templates
 
 Progress (v1.3): [█████░░░░░] ~40% — Phase 19 complete (5/5 plans)
 
@@ -69,13 +69,14 @@ None.
 | 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
 | 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
+| 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick-20 — item-linked voucher type with per-item discount
+Stopped at: Completed quick-21 — delivery fee input on OrderCreate + WhatsApp ongkir position fix
 Resume file: None
-Resume notes: Phase 19 all 5 plans complete. Quick-20 done. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
+Resume notes: Phase 19 all 5 plans complete. Quick-21 done. Ready to merge feature branch to main, update CHANGELOG.md, then start Phase 20.
 
 ---
 *Last updated: 2026-02-22 - Completed 19-05: GoFood restock section on Dispatch Planner page (Phase 19 complete)*
