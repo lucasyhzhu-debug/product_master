@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 4/8 plans done
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 5/8 plans done
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 4/8 plans done)
-Plan: 20-04 complete (4/8 plans done; 20-01, 20-02, 20-03, and 20-04 done)
-Status: Plans 20-01, 20-02, 20-03, 20-04 complete; build passes; getRestockOverview now internalQuery+action; GoBiz+Internal N+1 eliminated with Promise.all
-Last activity: 2026-02-22 - Completed 20-04: Convert getRestockOverview to on-demand action + fix N+1 patterns
+Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 5/8 plans done)
+Plan: 20-05 complete (5/8 plans done; 20-01, 20-02, 20-03, 20-04, and 20-05 done)
+Status: Plans 20-01 through 20-05 complete; build passes; getOutletStockSummary now internalQuery+action; K3Mart cockpit loads on-demand with sync refresh
+Last activity: 2026-02-22 - Completed 20-05: Convert getOutletStockSummary to on-demand action + refresh hook
 
-Progress (v1.3): [████████░░] ~62% — Phase 19 complete (9/9), Phase 20 in progress (4/8)
+Progress (v1.3): [████████░░] ~66% — Phase 19 complete (9/9), Phase 20 in progress (5/8)
 
 ## Performance Metrics
 
@@ -62,6 +62,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 20-04]: fetchRestockOverview handler typed as Promise<unknown> to avoid tsc -b circular type inference; RestockOverview defined as explicit local type with cast since FunctionReturnType resolves to unknown
 - [Phase 20-04]: refreshOverview wired into handleSyncAll after sync actions settle — overview reloads after every sync without page reload
 - [Phase 20-04]: GoBiz N+1 replaced with single Promise.all; Internal two-level N+1 replaced with two Promise.all batches (orders then orderItems)
+- [Phase 20-05]: OutletStockSummary local type defined in hook (action returns Promise<unknown>; FunctionReturnType resolves to unknown — explicit type + cast pattern, same as 20-04)
+- [Phase 20-05]: refreshOutletStock wired into handleSync after Promise.allSettled — outlet data reloads after every sync without page reload
 
 ### Pending Todos
 
@@ -92,13 +94,14 @@ None.
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P05 | 8 | 2 tasks | 4 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-04 — getRestockOverview converted to internalQuery + action; GoBiz and Internal N+1 patterns replaced with Promise.all; useConvexRestockOverview updated to on-demand fetch
+Stopped at: Completed 20-05 — getOutletStockSummary converted to internalQuery + action; useConvexOutletStockSummary updated to on-demand fetch with refresh callback; refresh wired into handleSync
 Resume file: None
-Resume notes: Phase 20 plans 20-01 through 20-04 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape. Next: 20-05 (next bandwidth target).
+Resume notes: Phase 20 plans 20-01 through 20-05 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape; refresh callback wired into sync handlers. Next: 20-06 (next bandwidth target).
 
 ---
-*Last updated: 2026-02-22 - Completed 20-04: getRestockOverview converted to internalQuery+action; N+1 eliminated with Promise.all (build passes)*
+*Last updated: 2026-02-22 - Completed 20-05: getOutletStockSummary converted to internalQuery+action; refresh callback wired into K3Mart sync handler (build passes)*
