@@ -39,3 +39,13 @@ export const fetchRestockOverview = action({
     );
   },
 });
+
+export const fetchOutletStockSummary = action({
+  args: { date: v.string() },
+  handler: async (ctx, args): Promise<unknown> => {
+    return await ctx.runQuery(
+      internal.k3martCockpit.queries.getOutletStockSummaryInternal,
+      { date: args.date }
+    );
+  },
+});
