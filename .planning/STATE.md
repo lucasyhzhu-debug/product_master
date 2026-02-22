@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 1/8 plans done)
-Plan: 20-02 complete (1/8 plans done)
-Status: Plan 20-02 complete; build passes; subscription-to-fetch pattern established
-Last activity: 2026-02-22 - Completed 20-02: Convert getDashboardSummaryByPeriod to on-demand action fetch
+Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 2/8 plans done)
+Plan: 20-01 complete (2/8 plans done; 20-01 and 20-02 both done)
+Status: Plans 20-01 and 20-02 complete; build passes; incremental sync + subscription-to-fetch patterns established
+Last activity: 2026-02-22 - Completed 20-01: Incremental syncInternalOrders with by_creationTime index (reduces saveRevenue ~5.2K→near-zero calls)
 
 Progress (v1.3): [██████░░░░] ~55% — Phase 19 complete (9/9), Phase 20 in progress (1/8)
 
@@ -55,6 +55,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 20-02]: getDashboardSummaryByPeriod converted from public reactive query to internalQuery + action pattern to eliminate 205 MB bandwidth during GoBiz sync runs
 - [Phase 20-02]: periodPresetValidator inlined in actions.ts (not imported from queries.ts) to break circular type inference in tsc -b project-references build
 - [Phase 20-02]: Subscription-to-fetch hook pattern: useAction + useState + useCallback + useEffect with explicit DashboardSummaryByPeriod local type and Promise<unknown> action handler
+- [Phase 20-01]: 24-hour buffer before sinceTimestamp catches late-confirmed orders; by_creationTime index makes incremental query index-backed in Convex
 
 ### Pending Todos
 
@@ -83,13 +84,14 @@ None.
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
+| Phase 20 P01 | 750 | 1 tasks | 3 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-02 — subscription-to-fetch conversion for getDashboardSummaryByPeriod
+Stopped at: Completed 20-01 — incremental syncInternalOrders with by_creationTime index on orders table
 Resume file: None
-Resume notes: Phase 20 plan 02 complete on gsd/phase-20-optimize-top-convex-query-reads-to-reduce-production-bandwidth. Next: 20-03 (next bandwidth target). Pattern established: internalQuery + action wrapper + useAction hook.
+Resume notes: Phase 20 plans 20-01 and 20-02 complete on gsd/phase-20-optimize-top-convex-query-reads-to-reduce-production-bandwidth. Next: 20-03 (next bandwidth target). Patterns established: incremental sync with timestamp buffer + by_creationTime index; internalQuery + action wrapper + useAction hook.
 
 ---
-*Last updated: 2026-02-22 - Completed 20-02: getDashboardSummaryByPeriod subscription-to-fetch conversion (build passes)*
+*Last updated: 2026-02-22 - Completed 20-01: incremental syncInternalOrders — by_creationTime index + sinceTimestamp filter (build passes)*
