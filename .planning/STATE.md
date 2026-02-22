@@ -3,14 +3,14 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 19 (GoFood Depot Management) is next
+**Current focus:** v1.3 — Phase 19 (GoFood Depot Management) next; Phase 20 context captured
 
 ## Current Position
 
-Phase: 19 of 22 (GoFood Depot Management)
+Phase: Phase 20 context captured; Phase 19 is next to plan
 Plan: —
-Status: Ready to plan
-Last activity: 2026-02-22 — v1.3 roadmap created (Phases 19-22 defined)
+Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
+Last activity: 2026-02-22 — Phase 20 context gathered; kitchen overhaul scope expanded
 
 Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
