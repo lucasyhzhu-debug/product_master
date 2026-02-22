@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20 context captured; Phase 19 is next to plan
-Plan: —
-Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
-Last activity: 2026-02-22 — Completed quick task 18: delivery fee input field on orders
+Phase: Phase 19 — GoFood Depot Management (In Progress)
+Plan: 19-02 complete (2/5 plans done)
+Status: Restock suggestion algorithm and product mapping CRUD backend complete
+Last activity: 2026-02-22 — Completed 19-02: restock suggestion helper and product mapping CRUD
 
-Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
+Progress (v1.3): [██░░░░░░░░] ~10% — Phase 19 plan 02/05 complete
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ Key decisions affecting v1.3 phases:
 - [17-06]: `dispatchConsignmentOutlets` holds Legato outlet data — Phase 21 must decide FK strategy (reuse vs. parallel `externalOutlets` rows) before schema migration
 - [Research]: SheetJS 0.20.3 from CDN tarball only — never `npm install xlsx` (registry stuck at abandoned 0.18.5)
 - [Research]: `getDailySalesSummary` missing `channel = "direct"` filter — must fix before `getLifetimeTotals` in Phase 22
+- [Phase 19]: computeRestockSuggestion uses Math.ceil on avg+buffer; Monday resets to previous Thursday total; initOutletMappingsFromPrevious is idempotent (no-op if target already has mappings)
 
 ### Pending Todos
 
@@ -42,7 +43,7 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 19]: `gofoodDepotStock` schema migration (add `outletId`, composite index) is blocking dependency — must be Wave 1
+- [Phase 19]: `gofoodDepotStock` schema migration resolved (plan 01 schema done); plan 01 task 2 backend functions (transferStock, updated shipment mutations) are in working directory but not committed — should be committed before plan 03 frontend work
 - [Phase 21]: Outlet FK strategy for `externalRevenue.outletId` unresolved — inspect `dispatchConsignmentOutlets` data before Phase 21 planning begins
 - [Phase 21]: Real Legato Excel file format not yet validated — request sample before Phase 21 Wave 2 frontend work
 - [Phase 22]: `getLifetimeTotals` per-product join complexity (N+1 risk for Direct channel via `orderItems`) — needs design review during planning
@@ -62,9 +63,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick task 18 — delivery fee input field on orders
+Stopped at: Completed 19-02-PLAN.md — restock suggestion helper and product mapping CRUD
 Resume file: None
-Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
+Resume notes: Phase 19 plan 02 complete. Next is 19-03 (GoFood Depot frontend page). Note: plan 01 task 2 backend changes (transferStock, isSeedRequired in productInventory, updated shipment mutations) exist as uncommitted working-directory changes — these are part of plan 01 scope, not 02.
 
 ---
-*Last updated: 2026-02-22 - Completed quick task 18: delivery fee input field on orders*
+*Last updated: 2026-02-22 - Completed 19-02: restock suggestion algorithm and product mapping CRUD*
