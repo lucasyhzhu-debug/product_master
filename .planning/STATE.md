@@ -49,13 +49,14 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 12 | simplify completed orders display - remove overdue tag, show only name, order id, who did it, net price paid, order details, and expedited flag | 2026-02-22 | be8ba38 | [12-simplify-completed-orders-display-remove](./quick/12-simplify-completed-orders-display-remove/) |
+| 13 | add Customers to Config nav dropdown in Header; add inline phone display/edit for selected existing customer in OrderForm | 2026-02-22 | 71d7c8b | [13-add-phone-number-editing-in-new-order-fo](./quick/13-add-phone-number-editing-in-new-order-fo/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: v1.3 roadmap created — Phases 19-22 defined and written to ROADMAP.md
+Stopped at: Completed quick task 13 — customers in Config nav + inline phone edit in OrderForm
 Resume file: None
 Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
 
 ---
-*Last updated: 2026-02-22 - Completed quick task 12: simplify completed orders display*
+*Last updated: 2026-02-22 - Completed quick task 13: add phone editing in new order form*
