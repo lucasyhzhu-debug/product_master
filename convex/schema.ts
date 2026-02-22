@@ -1423,9 +1423,70 @@ export default defineSchema({
     maxProductionTarget: v.number(),  // Default 200
     bigBallTarget: v.number(),        // Absolute number, default 150
     midBallTarget: v.number(),        // Absolute number, default 50
+    // Phase 21: Default packaging mix for target derivation (fallback when no dispatch plan)
+    defaultPackagingMix: v.optional(v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      quantity: v.number(),
+    }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),
+
+  // ============================================
+  // KITCHEN SHIFT RECORDS
+  // Per-shift production + waste audit log
+  // ============================================
+
+  kitchenShiftRecords: defineTable({
+    date: v.string(),                          // YYYY-MM-DD
+    submittedAt: v.number(),                   // Date.now()
+    submittedBy: v.string(),                   // username from auth
+    submittedByUserId: v.optional(v.id("users")),
+    produced: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      quantity: v.number(),
+    })),
+    waste: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      reason: v.union(
+        v.literal("qa_testing"),
+        v.literal("spoilage"),
+        v.literal("waste")
+      ),
+      quantity: v.number(),
+    })),
+    inventoryUpdates: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      locationId: v.id("storageLocations"),
+      delta: v.number(),
+      previousQuantity: v.number(),
+      newQuantity: v.number(),
+    })),
+    editedAt: v.optional(v.number()),
+    editedBy: v.optional(v.string()),
+    editNote: v.optional(v.string()),
+  })
+    .index("by_date", ["date"])
+    .index("by_date_submitted", ["date", "submittedAt"]),
+
+  // ============================================
+  // KITCHEN DAILY OVERRIDES
+  // Per-day production target overrides (manager can override dispatch plan)
+  // Priority chain: override > dispatch_plan > defaults
+  // ============================================
+
+  kitchenDailyOverrides: defineTable({
+    date: v.string(),                          // YYYY-MM-DD
+    bigBallOverride: v.optional(v.number()),
+    midBallOverride: v.optional(v.number()),
+    packagingOverrides: v.optional(v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      quantity: v.number(),
+    }))),
+    setAt: v.number(),
+    setBy: v.string(),
+  })
+    .index("by_date", ["date"]),
 
   k3martDispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD
