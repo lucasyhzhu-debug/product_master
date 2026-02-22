@@ -1,6 +1,13 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
+import { toast } from 'sonner';
 import type { OrderItem } from '@/lib/types';
 
 function formatCurrency(amount: number): string {
@@ -19,6 +26,10 @@ interface OrderItemsProps {
   voucherCode?: string | null;
   voucherDiscountValue?: number | null;
   finalTotal?: number | null;
+  // Delivery fee props
+  deliveryFee?: number | null;
+  orderId?: Id<"orders">;
+  canEditDeliveryFee?: boolean;
 }
 
 export function OrderItems({
@@ -28,16 +39,37 @@ export function OrderItems({
   voucherCode,
   voucherDiscountValue,
   finalTotal,
+  deliveryFee,
+  orderId,
+  canEditDeliveryFee,
 }: OrderItemsProps) {
+  const [editingFee, setEditingFee] = useState(false);
+  const [feeInput, setFeeInput] = useState("");
+  const updateDeliveryFee = useMutation(api.orders.mutations.index.updateDeliveryFee);
+
   // Calculate subtotal (sum of line totals, before order-level discount)
   const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
 
   const hasManualDiscount = totalDiscount > 0;
   const hasVoucher = voucherCode && voucherDiscountValue && voucherDiscountValue > 0;
   const hasAnyDiscount = hasManualDiscount || hasVoucher;
+  const hasDeliveryFee = deliveryFee && deliveryFee > 0;
+  const showDeliveryFeeRow = canEditDeliveryFee || hasDeliveryFee;
 
   // Use finalTotal from backend if available, otherwise calculate
-  const displayTotal = finalTotal ?? (totalAmount - (voucherDiscountValue ?? 0));
+  const deliveryFeeAmount = deliveryFee ?? 0;
+  const displayTotal = finalTotal ?? (totalAmount - (voucherDiscountValue ?? 0) + deliveryFeeAmount);
+
+  const handleSaveFee = async () => {
+    if (!orderId) return;
+    try {
+      const fee = parseFloat(feeInput) || 0;
+      await updateDeliveryFee({ orderId, deliveryFee: fee });
+      setEditingFee(false);
+    } catch {
+      toast.error("Failed to save delivery fee");
+    }
+  };
 
   return (
     <Card>
@@ -102,6 +134,62 @@ export function OrderItems({
                     <span>- {formatCurrency(voucherDiscountValue)}</span>
                   </div>
                 )}
+
+                {/* Delivery Fee row */}
+                {showDeliveryFeeRow && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">🚚 Delivery Fee</span>
+                    <div className="flex items-center gap-1">
+                      {editingFee ? (
+                        <>
+                          <Input
+                            type="number"
+                            className="h-6 w-28 text-xs text-right"
+                            value={feeInput}
+                            onChange={(e) => setFeeInput(e.target.value)}
+                            placeholder="0"
+                            min={0}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleSaveFee();
+                              if (e.key === 'Escape') setEditingFee(false);
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => void handleSaveFee()}
+                          >Save</Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setEditingFee(false)}
+                          >Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span>
+                            {hasDeliveryFee ? formatCurrency(deliveryFee) : "—"}
+                          </span>
+                          {canEditDeliveryFee && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setFeeInput(deliveryFee ? String(deliveryFee) : "");
+                                setEditingFee(true);
+                              }}
+                            >Edit</Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <Separator />
                 <div className="flex justify-between font-semibold text-primary">
                   <span>Final Total</span>
@@ -109,10 +197,77 @@ export function OrderItems({
                 </div>
               </>
             ) : (
-              <div className="flex justify-between font-semibold text-primary">
-                <span>Order Total</span>
-                <span>{formatCurrency(totalAmount)}</span>
-              </div>
+              <>
+                {/* Delivery Fee row (no-discount path) */}
+                {showDeliveryFeeRow && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">🚚 Delivery Fee</span>
+                    <div className="flex items-center gap-1">
+                      {editingFee ? (
+                        <>
+                          <Input
+                            type="number"
+                            className="h-6 w-28 text-xs text-right"
+                            value={feeInput}
+                            onChange={(e) => setFeeInput(e.target.value)}
+                            placeholder="0"
+                            min={0}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleSaveFee();
+                              if (e.key === 'Escape') setEditingFee(false);
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => void handleSaveFee()}
+                          >Save</Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setEditingFee(false)}
+                          >Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span>
+                            {hasDeliveryFee ? formatCurrency(deliveryFee) : "—"}
+                          </span>
+                          {canEditDeliveryFee && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setFeeInput(deliveryFee ? String(deliveryFee) : "");
+                                setEditingFee(true);
+                              }}
+                            >Edit</Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(hasDeliveryFee || showDeliveryFeeRow) ? (
+                  <>
+                    <Separator />
+                    <div className="flex justify-between font-semibold text-primary">
+                      <span>Final Total</span>
+                      <span>{formatCurrency(displayTotal)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between font-semibold text-primary">
+                    <span>Order Total</span>
+                    <span>{formatCurrency(totalAmount)}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

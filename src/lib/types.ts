@@ -506,6 +506,7 @@ export interface OrderDetail {
   voucher_code: string | null;
   voucher_discount_value: number | null;
   final_total: number | null;
+  delivery_fee: number | null;
   channel: string | null;
   sold_by: string | null;
   notes: string | null;

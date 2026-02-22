@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 20 context captured; Phase 19 is next to plan
 Plan: —
 Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
-Last activity: 2026-02-22 — Completed quick task 17: customer address sync / pre-populate address
+Last activity: 2026-02-22 — Completed quick task 18: delivery fee input field on orders
 
 Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
@@ -21,6 +21,9 @@ Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 
 ## Accumulated Context
+
+### Roadmap Evolution
+- Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
 
 ### Decisions
 
@@ -46,21 +49,22 @@ None.
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 12 | simplify completed orders display - remove overdue tag, show only name, order id, who did it, net price paid, order details, and expedited flag | 2026-02-22 | be8ba38 | [12-simplify-completed-orders-display-remove](./quick/12-simplify-completed-orders-display-remove/) |
-| 13 | add Customers to Config nav dropdown in Header; add inline phone display/edit for selected existing customer in OrderForm | 2026-02-22 | 71d7c8b | [13-add-phone-number-editing-in-new-order-fo](./quick/13-add-phone-number-editing-in-new-order-fo/) |
-| 14 | fix delivery address bugs: updateDetails now syncs deliveryType/pickupLocation via parseDeliveryAddress; WhatsApp templates use address content not stale deliveryType field | 2026-02-22 | 80793a1 | [14-fix-whatsapp-template-delivery-address](./quick/14-fix-whatsapp-template-delivery-address/) |
-| 15 | show order ID in edit order page title: PageHeader reads "Edit Order MMDD-NNN" when editing an order with an orderNumber | 2026-02-22 | d09c8bb | [15-show-order-id-in-edit-order-page-title](./quick/15-show-order-id-in-edit-order-page-title/) |
-| 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
-| 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 12 | simplify completed orders display - remove overdue tag, show only name, order id, who did it, net price paid, order details, and expedited flag | 2026-02-22 | be8ba38 | | [12-simplify-completed-orders-display-remove](./quick/12-simplify-completed-orders-display-remove/) |
+| 13 | add Customers to Config nav dropdown in Header; add inline phone display/edit for selected existing customer in OrderForm | 2026-02-22 | 71d7c8b | | [13-add-phone-number-editing-in-new-order-fo](./quick/13-add-phone-number-editing-in-new-order-fo/) |
+| 14 | fix delivery address bugs: updateDetails now syncs deliveryType/pickupLocation via parseDeliveryAddress; WhatsApp templates use address content not stale deliveryType field | 2026-02-22 | 80793a1 | | [14-fix-whatsapp-template-delivery-address](./quick/14-fix-whatsapp-template-delivery-address/) |
+| 15 | show order ID in edit order page title: PageHeader reads "Edit Order MMDD-NNN" when editing an order with an orderNumber | 2026-02-22 | d09c8bb | | [15-show-order-id-in-edit-order-page-title](./quick/15-show-order-id-in-edit-order-page-title/) |
+| 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
+| 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
+| 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick task 17 — customer address sync / pre-populate address
+Stopped at: Completed quick task 18 — delivery fee input field on orders
 Resume file: None
 Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
 
 ---
-*Last updated: 2026-02-22 - Completed quick task 17: customer address sync / pre-populate address*
+*Last updated: 2026-02-22 - Completed quick task 18: delivery fee input field on orders*
