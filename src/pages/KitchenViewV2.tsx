@@ -14,17 +14,20 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingCards } from '@/components/shared';
 import { DueDateOrderList } from '@/components/kitchen';
 import { ProductionTargetsBar } from '@/components/kitchen/ProductionTargetsBar';
 import { EndOfShiftForm } from '@/components/kitchen/EndOfShiftForm';
+import { ManagerTargetSettings } from '@/components/kitchen/ManagerTargetSettings';
+import { ShiftHistoryList } from '@/components/kitchen/ShiftHistoryList';
 import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
 import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import { toast } from 'sonner';
@@ -57,12 +60,19 @@ export function KitchenViewV2() {
   const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
   const canConfigure = canEditKitchen && (user?.role === 'manager' || user?.role === 'admin');
+  const isManager = user?.role === 'manager' || user?.role === 'admin';
 
   // ============================================
   // Kitchen targets + shift records (Phase 21)
   // ============================================
 
   const { today, targets, todayShiftRecords } = useKitchenTargets();
+
+  // ============================================
+  // Kitchen config (for ManagerTargetSettings)
+  // ============================================
+
+  const config = useQuery(api.kitchenConfig.queries.getConfig);
 
   // ============================================
   // Kitchen production data (for orders section)
@@ -331,6 +341,22 @@ export function KitchenViewV2() {
           </div>
         )}
       </section>
+
+      {/* Section 5: Manager settings (manager/admin only) */}
+      {isManager && (
+        <section className="space-y-6 border-t pt-6">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Settings className="h-5 w-5 text-muted-foreground" />
+            Manager Settings
+          </h2>
+          <ManagerTargetSettings
+            config={config}
+            targets={targets}
+            today={today}
+          />
+          <ShiftHistoryList />
+        </section>
+      )}
     </div>
   );
 }
