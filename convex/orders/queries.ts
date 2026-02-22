@@ -633,7 +633,11 @@ export const getKitchenStats = query({
     ].filter((o) => o._creationTime >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)
-    const relevantOrders = [...pendingOrders, ...completedTodayOrders];
+    // Draft and AwaitingPayment orders never have orderItemProduction records
+    // (records are created at PaymentReceived/confirmation time) — skip them to
+    // eliminate wasted nested DB reads. pendingOrders is still used for counts.
+    const productionOrders = [...paymentReceivedOrders, ...beingPreparedOrders];
+    const relevantOrders = [...productionOrders, ...completedTodayOrders];
     const relevantOrderIds = [...new Set(relevantOrders.map((o) => o._id))];
 
     const itemsByOrder = new Map<string, Doc<"orderItems">[]>();
