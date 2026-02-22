@@ -425,9 +425,7 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_channel", ["channel"])
     .index("by_status_due_date", ["status", "dueDate"])
-    .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"])
-    // Phase 20: Index for incremental internal sync (avoids full table scan on repeated syncs)
-    .index("by_creationTime", ["_creationTime"]),
+    .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),

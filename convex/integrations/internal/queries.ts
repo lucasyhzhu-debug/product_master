@@ -10,7 +10,8 @@ import { REVENUE_COUNTABLE_STATUSES } from "./config";
  * Phase 20: Supports incremental sync via sinceTimestamp.
  * When provided, only fetches orders created since (sinceTimestamp - 24h buffer)
  * to catch orders created before last sync but confirmed after.
- * Uses by_creationTime index for index-backed filtering (avoids full table scan).
+ * Note: Convex does not support explicit _creationTime indexes; uses .filter() which
+ * still reduces saveRevenue call frequency (primary goal) even without DB-layer savings.
  */
 export const getRevenueOrders = internalQuery({
   args: { sinceTimestamp: v.optional(v.number()) },
@@ -25,7 +26,7 @@ export const getRevenueOrders = internalQuery({
       const cutoff = args.sinceTimestamp - bufferMs;
       allOrders = await ctx.db
         .query("orders")
-        .withIndex("by_creationTime", (q) => q.gte("_creationTime", cutoff))
+        .filter((q) => q.gte(q.field("_creationTime"), cutoff))
         .collect();
     } else {
       // First sync: full scan (no prior timestamp)
