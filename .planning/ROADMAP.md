@@ -5,7 +5,7 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 GoFood, Kitchen & Consignment** — Phases 19-22 (planned)
+- 📋 **v1.3 GoFood, Kitchen & Consignment** — Phases 19-23 (planned)
 
 ## Phases
 
@@ -61,9 +61,10 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
-- [ ] **Phase 20: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
-- [ ] **Phase 21: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
-- [ ] **Phase 22: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
+- [ ] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries
+- [ ] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
+- [ ] **Phase 22: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
+- [ ] **Phase 23: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
 
 ## Phase Details
 
@@ -94,10 +95,19 @@ Plans:
 - [ ] 19-08-PLAN.md — [GAP] Rename Dispatch→Restock Planner (route + nav + title), remove Simulate Inventory button, add GoFood restock usage guidance
 - [ ] 19-09-PLAN.md — [GAP] Tooltip contrast, inline edit affordance, Move/Receive button styling, sync prerequisite note
 
-### Phase 20: Kitchen Production Targets & Overhaul
+### Phase 20: Optimize top Convex query reads to reduce production bandwidth
+
+**Goal:** [To be planned]
+**Depends on:** Phase 19 (GoFood depot management)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 20 to break down)
+
+### Phase 21: Kitchen Production Targets & Overhaul
 
 **Goal:** Full kitchen view redesign — simplified production-focused UI (remove boxing/stickering), display today's targets (ball totals + packaging breakdown from dispatch plan or defaults), end-of-shift recording that updates Finished Goods Inventory, optional waste logging by reason, shift history with manager edit capability, and manager daily override
-**Depends on:** Phase 17 (dispatch planner), Phase 17.1 (finished goods inventory), Phase 19 (depot management)
+**Depends on:** Phase 17 (dispatch planner), Phase 17.1 (finished goods inventory), Phase 20 (query optimization)
 **Requirements:** KIT-09, KIT-12, KIT-13, KIT-14, KIT-15, KIT-16, KIT-17, KIT-18
 **Implementation Notes:**
 - Use `/frontend-design` skill for holistic UI definition before implementation waves
@@ -175,7 +185,7 @@ Plans:
 | 17. Unified Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
-| 19. GoFood Depot Management | 9/9 | Complete   | 2026-02-22 | - |
+| 19. GoFood Depot Management | 9/9 | Complete    | 2026-02-22 | - |
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
