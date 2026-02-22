@@ -11,7 +11,9 @@ import type { Id } from "../../_generated/dataModel";
 export interface AppliedVoucherInfo {
   voucherId: Id<"vouchers">;
   voucherCode: string;
-  voucherDiscountValue: number;
+  voucherDiscountValue: number; // Total order-level discount value
+  applicableMenuProductId?: Id<"menuProducts">;
+  discountValuePerUnit?: number; // For item-linked vouchers: Rp discount per unit of matched product
 }
 
 /**
@@ -25,7 +27,8 @@ export async function validateAndApplyVoucher(
   ctx: MutationCtx,
   voucherCode: string,
   orderTotal: number,
-  customerId: Id<"customers">
+  customerId: Id<"customers">,
+  orderItems?: Array<{ menuProductId?: Id<"menuProducts">; quantity: number; unitPrice: number; discountAmount: number }>
 ): Promise<AppliedVoucherInfo> {
   const normalizedCode = voucherCode.toUpperCase().trim();
 
@@ -92,7 +95,14 @@ export async function validateAndApplyVoucher(
 
   // 7. Calculate discount amount
   let calculatedDiscount: number;
-  if (voucher.discountType === "percentage") {
+
+  if (voucher.applicableMenuProductId !== undefined) {
+    // Item-linked voucher: discount = discountValue * quantity of matching items
+    const matchingQty = (orderItems ?? [])
+      .filter((item) => item.menuProductId === voucher.applicableMenuProductId)
+      .reduce((sum, item) => sum + item.quantity, 0);
+    calculatedDiscount = voucher.discountValue * matchingQty;
+  } else if (voucher.discountType === "percentage") {
     calculatedDiscount = Math.floor(
       (orderTotal * voucher.discountValue) / 100
     );
@@ -104,7 +114,7 @@ export async function validateAndApplyVoucher(
       calculatedDiscount = voucher.maximumDiscount;
     }
   } else {
-    // Fixed amount discount
+    // Fixed amount discount (order-level)
     calculatedDiscount = voucher.discountValue;
   }
 
@@ -117,6 +127,8 @@ export async function validateAndApplyVoucher(
     voucherId: voucher._id,
     voucherCode: voucher.code,
     voucherDiscountValue: calculatedDiscount,
+    applicableMenuProductId: voucher.applicableMenuProductId ?? undefined,
+    discountValuePerUnit: voucher.applicableMenuProductId !== undefined ? voucher.discountValue : undefined,
   };
 }
 

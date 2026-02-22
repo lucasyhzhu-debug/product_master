@@ -25,6 +25,7 @@ import {
   CustomersManager,
   TagsManager,
   DispatchPlanner,
+  GoFoodDepotManager,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -264,12 +265,22 @@ function App() {
                 }
               />
 
-              {/* Dispatch Planner - Manager and Admin */}
+              {/* Restock Planner - Manager and Admin */}
               <Route
-                path="dispatch-planner"
+                path="restock-planner"
                 element={
                   <ProtectedRoute requiredPermission="canAccessDashboard">
                     <DispatchPlanner />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* GoFood Depot Management - Manager and Admin */}
+              <Route
+                path="gofood-depot"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessDashboard">
+                    <GoFoodDepotManager />
                   </ProtectedRoute>
                 }
               />

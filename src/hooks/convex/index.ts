@@ -403,12 +403,29 @@ export {
 // Product Inventory (Finished Goods Inventory Tracker - Phase 17.1)
 export {
   useProductInventory,
+  useProductInventoryGrouped,
   useProductInventoryTransactions,
   type ProductStockRow,
   type ProductLowStockAlert,
   type ProductInventorySettings,
   type ProductStockGroup,
 } from "./useProductInventory";
+
+// GoFood Depot Management (Phase 19)
+export {
+  useGoFoodDepotSeedCheck,
+  useGoFoodDepotOutlets,
+  useGoFoodDepotStock,
+  useGoFoodRestockSuggestions,
+  useGoFoodOutletMappings,
+  useGoFoodMenuProducts,
+  useGoFoodStockOverviewGrouped,
+  useGoFoodStorageLocations,
+  useGoFoodSaveOutletMappings,
+  useGoFoodInitOutletMappings,
+  useGoFoodAdjustDepotStock,
+  useGoFoodTransferStock,
+} from "./useGoFoodDepot";
 
 // Dispatch Planner (Unified Dispatch Planner)
 export {

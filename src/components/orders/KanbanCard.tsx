@@ -107,14 +107,7 @@ export function KanbanCard({ order, onCardClick, simplified = false }: KanbanCar
         {/* Header: Customer name + price, order by + discount */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <p className="font-semibold text-sm truncate">{order.customerName}</p>
-              {simplified && isExpedited && (
-                <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] flex-shrink-0">
-                  EXPEDITED
-                </Badge>
-              )}
-            </div>
+            <p className="font-semibold text-sm">{order.customerName}</p>
             <p className="text-xs text-muted-foreground">
               <span className="font-mono">{order.orderNumber}</span>
               {order.creatorName && <span> &middot; by {order.creatorName}</span>}

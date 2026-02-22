@@ -8,8 +8,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Package, Plus, Archive, Search, ShoppingBag, Leaf } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Package, Plus, Archive, Search, ShoppingBag, Leaf, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,8 +30,10 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { FinishedGoodsTab } from "@/components/inventory/FinishedGoodsTab";
 
 export function InventoryManager() {
-  // Top-level tab: packaging | ingredients | finished_goods
-  const [mainTab, setMainTab] = useState<"packaging" | "ingredients" | "finished_goods">("packaging");
+  const navigate = useNavigate();
+  // Top-level tab: finished_goods | packaging | ingredients
+  // Finished Goods is the default/primary tab (Plan 19-04)
+  const [mainTab, setMainTab] = useState<"packaging" | "ingredients" | "finished_goods">("finished_goods");
 
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
@@ -191,15 +193,25 @@ export function InventoryManager() {
         title="Inventory"
         description="Stock levels and receiving"
         action={
-          mainTab !== "finished_goods" ? (
+          <div className="flex items-center gap-2">
             <Button
-              onClick={() => setReceiveDialogOpen(true)}
-              className="shadow-md hover:shadow-lg transition-all duration-300"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/inventory/locations")}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              New Stock Type
+              <MapPin className="h-4 w-4 mr-2" />
+              Manage Locations
             </Button>
-          ) : undefined
+            {mainTab !== "finished_goods" && (
+              <Button
+                onClick={() => setReceiveDialogOpen(true)}
+                className="shadow-md hover:shadow-lg transition-all duration-300"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Stock Type
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -209,6 +221,10 @@ export function InventoryManager() {
         onValueChange={(v) => setMainTab(v as typeof mainTab)}
       >
         <TabsList>
+          <TabsTrigger value="finished_goods">
+            <ShoppingBag className="h-4 w-4 mr-2" />
+            Finished Goods
+          </TabsTrigger>
           <TabsTrigger value="packaging">
             <Package className="h-4 w-4 mr-2" />
             Packaging
@@ -216,10 +232,6 @@ export function InventoryManager() {
           <TabsTrigger value="ingredients">
             <Package className="h-4 w-4 mr-2" />
             Ingredients
-          </TabsTrigger>
-          <TabsTrigger value="finished_goods">
-            <ShoppingBag className="h-4 w-4 mr-2" />
-            Finished Goods
           </TabsTrigger>
         </TabsList>
 

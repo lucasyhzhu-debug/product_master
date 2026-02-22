@@ -408,6 +408,117 @@ export const updateSettings = mutation({
 });
 
 /**
+ * Transfer stock between locations — Atomically debits source and credits destination.
+ *
+ * Auth: manager, admin
+ * Validates:
+ *   - quantity > 0
+ *   - source != destination
+ *   - sufficient stock at source
+ * Logs two productInventoryTransactions (negative at source, positive at destination)
+ * linked via transferPairLocationId.
+ */
+export const transferStock = mutation({
+  args: {
+    token: v.string(),
+    menuProductId: v.id("menuProducts"),
+    sourceLocationId: v.id("storageLocations"),
+    destinationLocationId: v.id("storageLocations"),
+    quantity: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    if (args.quantity <= 0) {
+      throw new Error("Transfer quantity must be positive");
+    }
+    if (args.sourceLocationId === args.destinationLocationId) {
+      throw new Error("Source and destination must be different");
+    }
+
+    // 1. Get source productInventory row
+    const source = await ctx.db
+      .query("productInventory")
+      .withIndex("by_product_location", (q) =>
+        q.eq("menuProductId", args.menuProductId).eq("locationId", args.sourceLocationId)
+      )
+      .unique();
+
+    if (!source || source.quantity < args.quantity) {
+      throw new Error(
+        `Insufficient stock: ${source?.quantity ?? 0} available, ${args.quantity} requested`
+      );
+    }
+
+    const now = Date.now();
+
+    // 2. Debit source
+    const sourcePrev = source.quantity;
+    await ctx.db.patch(source._id, {
+      quantity: sourcePrev - args.quantity,
+      lastUpdated: now,
+    });
+
+    // 3. Credit destination (upsert)
+    const dest = await ctx.db
+      .query("productInventory")
+      .withIndex("by_product_location", (q) =>
+        q.eq("menuProductId", args.menuProductId).eq("locationId", args.destinationLocationId)
+      )
+      .unique();
+
+    let destPrev: number;
+    if (dest) {
+      destPrev = dest.quantity;
+      await ctx.db.patch(dest._id, {
+        quantity: destPrev + args.quantity,
+        lastUpdated: now,
+      });
+    } else {
+      destPrev = 0;
+      await ctx.db.insert("productInventory", {
+        menuProductId: args.menuProductId,
+        locationId: args.destinationLocationId,
+        quantity: args.quantity,
+        lastUpdated: now,
+      });
+    }
+
+    // 4. Get location names for reason text
+    const srcLoc = await ctx.db.get(args.sourceLocationId);
+    const dstLoc = await ctx.db.get(args.destinationLocationId);
+
+    // 5. Log source transaction (negative)
+    await ctx.db.insert("productInventoryTransactions", {
+      menuProductId: args.menuProductId,
+      locationId: args.sourceLocationId,
+      transactionType: "transfer",
+      quantity: -args.quantity,
+      previousQuantity: sourcePrev,
+      newQuantity: sourcePrev - args.quantity,
+      reason: `Transfer to ${dstLoc?.name ?? "unknown"}`,
+      transferPairLocationId: args.destinationLocationId,
+      performedBy: user.name,
+      createdAt: now,
+    });
+
+    // 6. Log destination transaction (positive)
+    await ctx.db.insert("productInventoryTransactions", {
+      menuProductId: args.menuProductId,
+      locationId: args.destinationLocationId,
+      transactionType: "transfer",
+      quantity: args.quantity,
+      previousQuantity: destPrev,
+      newQuantity: destPrev + args.quantity,
+      reason: `Transfer from ${srcLoc?.name ?? "unknown"}`,
+      transferPairLocationId: args.sourceLocationId,
+      performedBy: user.name,
+      createdAt: now,
+    });
+  },
+});
+
+/**
  * Process GoFood sales — Auto-deduct finished goods for GoFood sync.
  *
  * Internal-only (called from GoBiz adapter Phase D).

@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Settings, FlaskConical, Loader2 } from "lucide-react";
+import { Settings } from "lucide-react";
 import { toast } from "sonner";
 
 // UI
@@ -36,7 +36,6 @@ import {
   useDispatchChannelConfig,
   useDispatchSeedDefaults,
   useDispatchSavePlanCell,
-  useDispatchSimulateInventory,
 } from "@/hooks/convex";
 
 // ============================================
@@ -72,7 +71,7 @@ function getCurrentMonday(): string {
 // ============================================
 
 export function DispatchPlanner() {
-  useDocumentTitle("Dispatch Planner");
+  useDocumentTitle("Restock Planner");
 
   // Week navigation state
   const [startDate, setStartDate] = useState(() => getCurrentMonday());
@@ -81,10 +80,6 @@ export function DispatchPlanner() {
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Simulation state
-  const [simulationStartDate, setSimulationStartDate] = useState("");
-  const [simulationLoading, setSimulationLoading] = useState(false);
-
   // Data hooks
   const { data: weeklyData, isLoading: loadingWeekly } =
     useDispatchPlannerWeekly(startDate);
@@ -92,8 +87,6 @@ export function DispatchPlanner() {
   const { data: channelConfig } = useDispatchChannelConfig();
   const seedDefaults = useDispatchSeedDefaults();
   const savePlanCell = useDispatchSavePlanCell();
-  const { data: simulationResults, isLoading: loadingSimulation } =
-    useDispatchSimulateInventory(simulationStartDate);
 
   // Auto-seed on first visit when no channel config exists
   const seededRef = useRef(false);
@@ -101,7 +94,7 @@ export function DispatchPlanner() {
     if (channelConfig !== undefined && channelConfig.length === 0 && !seededRef.current) {
       seededRef.current = true;
       seedDefaults({}).then(() => {
-        toast.success("Dispatch planner initialized with default settings");
+        toast.success("Restock planner initialized with default settings");
       }).catch((err: unknown) => {
         console.error("Failed to seed defaults:", err);
       });
@@ -111,8 +104,6 @@ export function DispatchPlanner() {
   // Handle week navigation
   const handleNavigate = useCallback((newStart: string) => {
     setStartDate(newStart);
-    // Clear simulation when navigating to a new week
-    setSimulationStartDate("");
   }, []);
 
   // Handle cell save
@@ -134,30 +125,6 @@ export function DispatchPlanner() {
     [savePlanCell]
   );
 
-  // Handle simulate inventory
-  const handleSimulate = useCallback(() => {
-    setSimulationLoading(true);
-    setSimulationStartDate(startDate);
-    // Loading will resolve when the query returns
-  }, [startDate]);
-
-  // Stop showing loading once simulation data arrives
-  useEffect(() => {
-    if (simulationLoading && simulationStartDate && !loadingSimulation) {
-      setSimulationLoading(false);
-      if (simulationResults) {
-        const days = simulationResults.days ?? simulationResults;
-        const dayArray = Array.isArray(days) ? days : [];
-        const shortageCount = dayArray.filter((d: { status: string }) => d.status !== "ok").length;
-        if (shortageCount > 0) {
-          toast.warning(`Inventory simulation: ${shortageCount} day(s) have shortages`);
-        } else {
-          toast.success("Inventory simulation: all days have sufficient stock");
-        }
-      }
-    }
-  }, [simulationLoading, simulationStartDate, loadingSimulation, simulationResults]);
-
   // Derive capacity from settings
   const capacity = settingsData?.dailyCapacity ?? 200;
 
@@ -171,7 +138,7 @@ export function DispatchPlanner() {
   if (loadingWeekly) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Dispatch Planner" description="Loading..." />
+        <PageHeader title="Restock Planner" description="Loading..." />
         <Skeleton className="h-14 w-full rounded-lg" />
         <Skeleton className="h-8 w-full rounded-lg" />
         <div className="space-y-1">
@@ -187,34 +154,18 @@ export function DispatchPlanner() {
     <div className="space-y-4">
       {/* Page Header with actions */}
       <PageHeader
-        title="Dispatch Planner"
+        title="Restock Planner"
         description={subtitle}
         action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSimulate}
-              disabled={simulationLoading}
-              className="gap-2"
-            >
-              {simulationLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FlaskConical className="h-4 w-4" />
-              )}
-              Simulate Inventory
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSettingsOpen(true)}
-              className="gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSettingsOpen(true)}
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Button>
         }
       />
 
@@ -230,11 +181,6 @@ export function DispatchPlanner() {
         <PlannerGrid
           data={weeklyData}
           onSaveCell={handleSaveCell}
-          simulationResults={
-            simulationStartDate === startDate && simulationResults
-              ? (simulationResults.days ?? simulationResults) as any
-              : undefined
-          }
         />
       ) : (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">

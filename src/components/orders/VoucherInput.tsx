@@ -30,6 +30,7 @@ export interface AppliedVoucher {
   discountType: "amount" | "percentage";
   discountValue: number;
   calculatedDiscount: number;
+  linkedProductName?: string;
 }
 
 export function VoucherInput({
@@ -54,6 +55,7 @@ export function VoucherInput({
     discountType: "amount" | "percentage";
     discountValue: number;
     minimumOrderAmount?: number;
+    applicableMenuProductId?: string;
   };
 
   // Fetch active vouchers for combobox
@@ -137,6 +139,7 @@ export function VoucherInput({
       discountType: voucher.discountType,
       discountValue: voucher.discountValue,
       calculatedDiscount: voucher.calculatedDiscount,
+      linkedProductName: voucher.linkedProductName,
     });
     setCode("");
     setError(null);
@@ -183,6 +186,11 @@ export function VoucherInput({
               <div className="text-sm text-green-600 dark:text-green-400">
                 {appliedVoucher.name}
               </div>
+              {appliedVoucher.linkedProductName && (
+                <div className="text-xs text-green-600 dark:text-green-400">
+                  Applies to: {appliedVoucher.linkedProductName}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -283,6 +291,9 @@ export function VoucherInput({
                           {voucher.discountType === "percentage"
                             ? `${voucher.discountValue}%`
                             : formatCurrency(voucher.discountValue)}
+                          {voucher.applicableMenuProductId && (
+                            <span className="text-xs text-muted-foreground ml-1">(per item)</span>
+                          )}
                         </Badge>
                       </div>
                       {voucher.minimumOrderAmount && (
@@ -327,10 +338,12 @@ export function VoucherInput({
       {showValidIndicator && isValid && validationResult?.voucher && (
         <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
           <Check className="w-3 h-3" />
-          {validationResult.voucher.discountType === "percentage"
+          {validationResult.voucher.linkedProductName
+            ? `${formatCurrency(validationResult.voucher.discountValue)} off per ${validationResult.voucher.linkedProductName}`
+            : validationResult.voucher.discountType === "percentage"
             ? `${validationResult.voucher.discountValue}% off`
             : formatCurrency(validationResult.voucher.discountValue) + " off"}{" "}
-          - saves {formatCurrency(validationResult.voucher.calculatedDiscount)}
+          {!validationResult.voucher.linkedProductName && `- saves ${formatCurrency(validationResult.voucher.calculatedDiscount)}`}
         </p>
       )}
     </div>

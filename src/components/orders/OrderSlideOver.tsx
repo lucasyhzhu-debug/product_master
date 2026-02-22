@@ -39,7 +39,7 @@ import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
 import { ShippingAgencyButtons } from './ShippingAgencyButtons';
 import { ConfirmDialog } from '@/components/shared';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
-import { formatCurrency } from '@/lib/utils';
+import { OrderItems } from './OrderItems';
 import { getStatusColor } from '@/lib/orderConstants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConvexDeleteOrder, useConvexUpdateOrderShipping } from '@/hooks/convex';
@@ -341,36 +341,36 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 </>
               )}
 
-              {/* ── Items ────────────────────────────────── */}
-              <div>
-                <h4 className="text-sm font-semibold mb-2">Items</h4>
-                <div className="space-y-2">
-                  {order.items?.map((item: {
-                    _id: string;
-                    productName: string;
-                    productVariant?: string;
-                    quantity: number;
-                    unitPrice: number;
-                    lineTotal: number;
-                    discountAmount?: number;
-                  }) => (
-                    <div key={item._id} className="flex items-start justify-between text-sm">
-                      <div className="flex-1 min-w-0">
-                        <p>
-                          {item.quantity}x {item.productName}
-                          {item.productVariant ? ` (${item.productVariant})` : ''}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          @ {formatCurrency(item.unitPrice)}
-                        </p>
-                      </div>
-                      <p className="font-medium flex-shrink-0 ml-2">
-                        {formatCurrency(item.lineTotal)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* ── Items + Pricing ──────────────────────── */}
+              <OrderItems
+                items={(order.items ?? []).map((item: any) => ({
+                  id: item._id,
+                  product_name: item.productName,
+                  product_variant: item.productVariant ?? null,
+                  quantity: item.quantity,
+                  unit_price: item.unitPrice,
+                  unit_cost: item.unitCost ?? 0,
+                  discount_amount: item.discountAmount ?? 0,
+                  line_total: item.lineTotal,
+                  line_cost: item.lineCost ?? 0,
+                  line_margin: item.lineMargin ?? 0,
+                  created_at: item.createdAt ?? '',
+                }))}
+                totalAmount={order.totalAmount}
+                totalDiscount={
+                  order.orderLevelDiscount && order.orderLevelDiscountType
+                    ? order.orderLevelDiscountType === 'percentage'
+                      ? order.totalAmount * (order.orderLevelDiscount / 100)
+                      : order.orderLevelDiscount
+                    : 0
+                }
+                voucherCode={order.voucherCode}
+                voucherDiscountValue={order.voucherDiscountValue}
+                finalTotal={order.finalTotal}
+                deliveryFee={order.deliveryFee}
+                orderId={orderId ?? undefined}
+                canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
+              />
 
               {/* Edit Order Items (Draft / AwaitingPayment) */}
               {['Draft', 'AwaitingPayment'].includes(order.status) && orderId && (
@@ -387,67 +387,6 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                   Edit Order Items
                 </Button>
               )}
-
-              <Separator />
-
-              {/* ── Pricing ──────────────────────────────── */}
-              {(() => {
-                const orderDiscount =
-                  order.orderLevelDiscount && order.orderLevelDiscountType
-                    ? order.orderLevelDiscountType === 'percentage'
-                      ? order.totalAmount * (order.orderLevelDiscount / 100)
-                      : order.orderLevelDiscount
-                    : 0;
-                const voucherDiscount = order.voucherDiscountValue ?? 0;
-                const totalDiscount = orderDiscount + voucherDiscount;
-                const finalTotal = order.finalTotal ?? (order.totalAmount - totalDiscount);
-                const hasDiscount = totalDiscount > 0;
-
-                return (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatCurrency(order.totalAmount)}</span>
-                    </div>
-                    {order.orderLevelDiscount != null && order.orderLevelDiscount > 0 && (
-                      <div className="flex justify-between text-sm text-orange-600">
-                        <span>
-                          Discount
-                          {order.orderLevelDiscountType === 'percentage'
-                            ? ` (${order.orderLevelDiscount}%)`
-                            : ''}
-                        </span>
-                        <span>-{formatCurrency(orderDiscount)}</span>
-                      </div>
-                    )}
-                    {order.voucherCode && (
-                      <div className="flex justify-between text-sm text-purple-600">
-                        <span>Voucher ({order.voucherCode})</span>
-                        <span>-{formatCurrency(voucherDiscount)}</span>
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between items-baseline text-base font-bold">
-                      <span>Total</span>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-brand text-lg">
-                          {formatCurrency(finalTotal)}
-                        </span>
-                        {hasDiscount && (
-                          <>
-                            <Badge variant="secondary" className="text-[10px] text-orange-600">
-                              -{formatCurrency(totalDiscount)}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground line-through">
-                              {formatCurrency(order.totalAmount)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
 
               <Separator />
 

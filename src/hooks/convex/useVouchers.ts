@@ -52,6 +52,7 @@ export interface VoucherCreateInput {
   discountValue: number;
   minimumOrderAmount?: number;
   maximumDiscount?: number;
+  applicableMenuProductId?: Id<"menuProducts">;
   isActive?: boolean;
   validFrom?: number;
   validUntil?: number;
@@ -67,6 +68,7 @@ export interface VoucherUpdateInput {
   discountValue?: number;
   minimumOrderAmount?: number;
   maximumDiscount?: number;
+  applicableMenuProductId?: Id<"menuProducts">;
   isActive?: boolean;
   validFrom?: number;
   validUntil?: number;

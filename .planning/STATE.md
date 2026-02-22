@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20 context captured; Phase 19 is next to plan
-Plan: —
-Status: Phase 20 CONTEXT.md written; 6 new KIT requirements added (KIT-13 to KIT-18)
-Last activity: 2026-02-22 — Completed quick task 18: delivery fee input field on orders
+Phase: Phase 19 — GoFood Depot Management (COMPLETE - all 9 plans done)
+Plan: 19-09 complete (9/9 plans done)
+Status: All gap-closure plans complete; build passes; ready to merge to main
+Last activity: 2026-02-22 - Completed 19-09: UI polish (tooltip contrast, button color coding, GoBiz sync note)
 
-Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
+Progress (v1.3): [██████░░░░] ~50% — Phase 19 complete (9/9 plans), Phase 20 next
 
 ## Performance Metrics
 
@@ -24,6 +24,7 @@ Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
 ### Roadmap Evolution
 - Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
+- Phase 24 added: Remove legacy recipe/packaging/product editors and tags system
 
 ### Decisions
 
@@ -35,6 +36,22 @@ Key decisions affecting v1.3 phases:
 - [17-06]: `dispatchConsignmentOutlets` holds Legato outlet data — Phase 21 must decide FK strategy (reuse vs. parallel `externalOutlets` rows) before schema migration
 - [Research]: SheetJS 0.20.3 from CDN tarball only — never `npm install xlsx` (registry stuck at abandoned 0.18.5)
 - [Research]: `getDailySalesSummary` missing `channel = "direct"` filter — must fix before `getLifetimeTotals` in Phase 22
+- [Phase 19]: computeRestockSuggestion uses Math.ceil on avg+buffer; Monday resets to previous Thursday total; initOutletMappingsFromPrevious is idempotent (no-op if target already has mappings)
+- [Phase 19-01]: outletId is optional on gofoodDepotStock for backward compatibility with existing rows
+- [Phase 19-01]: transferStock uses .unique() to ensure one row per product+location; logs two transfer transactions linked via transferPairLocationId
+- [Phase 19-04]: Location-type bucketing: office+kitchen=Internal, depot=GoFood, venue=K3Mart; consignment hidden until Phase 21
+- [Phase 19-04]: Zero-stock rows shown by default with opacity-50 styling (not hidden)
+- [Phase 19-04]: Grouping toggle computed client-side from getStockOverviewGrouped (no extra query)
+- [Phase 19]: PageHeader description is string-only: last-synced placed in action slot
+- [Phase 19]: All GoFood depot hooks called before conditionals per React hooks rule
+- [Phase 19]: GoFoodRestockSection uses productInventoryQty (outlet linked storage) for current stock, matching DepotCockpitTable In Inventory column
+- [Phase 19]: destinationLocationId flows via prop chain: GoFoodDepotManager (selectedOutlet?.linkedStorageLocationId) -> DepotCockpitTable (prop + state) -> DepotStockTransferDialog - no dialog changes needed
+- [Phase 19]: Usage guidance placed above collapsible content so it remains visible in both expanded and collapsed states
+- [Phase 19]: Transfer link in GoFoodRestockSection navigates to /inventory directly (no deep-link parameters)
+- [Phase 19]: Location type editor uses useSessionMutation (not useMutation+token) since storageLocations.mutations.update uses protectedMutation/SessionIdArg pattern
+- [Phase 19-09]: Removed text-muted-foreground from TooltipContent paragraph; tooltip inherits its own readable color
+- [Phase 19-09]: Move/Receive buttons use blue/green outline tinting for semantic color coding across both ProductGroupedView and LocationGroupedView
+- [Phase 19-09]: GoBiz sync note is always-visible (non-dismissible) to ensure users see sync prerequisite info
 
 ### Pending Todos
 
@@ -42,7 +59,7 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 19]: `gofoodDepotStock` schema migration (add `outletId`, composite index) is blocking dependency — must be Wave 1
+- [Phase 19]: `gofoodDepotStock` schema migration resolved (plan 01 fully committed -- schema + transferStock + per-outlet depot queries)
 - [Phase 21]: Outlet FK strategy for `externalRevenue.outletId` unresolved — inspect `dispatchConsignmentOutlets` data before Phase 21 planning begins
 - [Phase 21]: Real Legato Excel file format not yet validated — request sample before Phase 21 Wave 2 frontend work
 - [Phase 22]: `getLifetimeTotals` per-product join complexity (N+1 risk for Direct channel via `orderItems`) — needs design review during planning
@@ -58,13 +75,20 @@ None.
 | 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
 | 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
 | 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
+| 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
+| 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
+| 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
+| Phase 19 P06 | 10 | 2 tasks | 2 files |
+| Phase 19 P08 | 4 | 2 tasks | 1 files |
+| Phase 19 P07 | 10 | 2 tasks | 2 files |
+| Phase 19 P09 | 3 | 2 tasks | 3 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick task 18 — delivery fee input field on orders
+Stopped at: Completed 19-09-PLAN.md — UI polish: tooltip contrast fix, Move/Receive button color coding, GoBiz sync prerequisite note
 Resume file: None
-Resume notes: Phase 19 is ready to plan. Run `/gsd:plan-phase 19` to begin. Ensure `git switch main && git pull` then create `feature/phase-19-gofood-depot-management` before starting.
+Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20.
 
 ---
-*Last updated: 2026-02-22 - Completed quick task 18: delivery fee input field on orders*
+*Last updated: 2026-02-22 - Completed 19-09: UI polish (tooltip contrast, button colors, sync note)*

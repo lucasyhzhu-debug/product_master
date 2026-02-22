@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ import {
   Clock,
   AlertTriangle,
   ExternalLink,
+  Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -84,6 +86,7 @@ import {
   type Voucher,
   type VoucherCreateInput,
 } from "@/hooks/convex/useVouchers";
+import { useConvexMenuProducts } from "@/hooks/convex/useMenuProducts";
 
 // ============================================
 // Helper Functions
@@ -136,6 +139,9 @@ function formatDiscountValue(voucher: Voucher): string {
   if (voucher.discountType === "percentage") {
     return `${voucher.discountValue}%`;
   }
+  if (voucher.applicableMenuProductId) {
+    return `${formatCurrency(voucher.discountValue)}/item`;
+  }
   return formatCurrency(voucher.discountValue);
 }
 
@@ -151,6 +157,7 @@ interface VoucherFormState {
   discountValue: string;
   minimumOrderAmount: string;
   maximumDiscount: string;
+  applicableMenuProductId: string;
   isActive: boolean;
   validFrom: string;
   validUntil: string;
@@ -166,6 +173,7 @@ const initialFormState: VoucherFormState = {
   discountValue: "",
   minimumOrderAmount: "",
   maximumDiscount: "",
+  applicableMenuProductId: "",
   isActive: true,
   validFrom: "",
   validUntil: "",
@@ -183,6 +191,7 @@ export function VouchersManager() {
   // Data queries
   const vouchers = useVouchers();
   const overrides = useManagerOverrides(30); // Last 30 days
+  const { data: menuProductsData } = useConvexMenuProducts(true); // Active menu products for item-linked vouchers
 
   // Mutations
   const { createVoucher } = useCreateVoucher();
@@ -253,6 +262,7 @@ export function VouchersManager() {
       maximumDiscount: voucher.maximumDiscount
         ? String(voucher.maximumDiscount)
         : "",
+      applicableMenuProductId: voucher.applicableMenuProductId ?? "",
       isActive: voucher.isActive,
       validFrom: voucher.validFrom
         ? new Date(voucher.validFrom).toISOString().split("T")[0]
@@ -296,6 +306,9 @@ export function VouchersManager() {
           : undefined,
         maximumDiscount: form.maximumDiscount
           ? parseFloat(form.maximumDiscount)
+          : undefined,
+        applicableMenuProductId: form.applicableMenuProductId
+          ? (form.applicableMenuProductId as Id<"menuProducts">)
           : undefined,
         isActive: form.isActive,
         validFrom: form.validFrom
@@ -343,6 +356,9 @@ export function VouchersManager() {
         maximumDiscount: form.maximumDiscount
           ? parseFloat(form.maximumDiscount)
           : undefined,
+        applicableMenuProductId: form.applicableMenuProductId
+          ? (form.applicableMenuProductId as Id<"menuProducts">)
+          : undefined,
         isActive: form.isActive,
         validFrom: form.validFrom
           ? new Date(form.validFrom).getTime()
@@ -378,6 +394,11 @@ export function VouchersManager() {
   const handleToggleActive = async (voucher: Voucher) => {
     await toggleActive(voucher._id);
   };
+
+  // Build menuProductsMap for VoucherCard display
+  const menuProductsMap = new Map<string, string>(
+    (menuProductsData ?? []).map((p) => [p.id.toString(), p.name])
+  );
 
   // ============================================
   // Loading State
@@ -452,6 +473,7 @@ export function VouchersManager() {
                   onDelete={openDeleteDialog}
                   onToggleActive={handleToggleActive}
                   onCopyCode={handleCopyCode}
+                  menuProductsMap={menuProductsMap}
                 />
               ))}
             </div>
@@ -500,6 +522,7 @@ export function VouchersManager() {
             isEditing={false}
             isGeneratingCode={isGeneratingCode}
             onGenerateCode={handleGenerateCode}
+            menuProducts={(menuProductsData ?? []).map((p) => ({ id: p.id.toString(), name: p.name, code: p.code }))}
           />
           <DialogFooter>
             <Button
@@ -534,6 +557,7 @@ export function VouchersManager() {
             isEditing={true}
             isGeneratingCode={false}
             onGenerateCode={() => {}}
+            menuProducts={(menuProductsData ?? []).map((p) => ({ id: p.id.toString(), name: p.name, code: p.code }))}
           />
           <DialogFooter>
             <Button
@@ -596,6 +620,7 @@ interface VoucherCardProps {
   onDelete: (voucher: Voucher) => void;
   onToggleActive: (voucher: Voucher) => void;
   onCopyCode: (code: string) => void;
+  menuProductsMap?: Map<string, string>;
 }
 
 function VoucherCard({
@@ -604,6 +629,7 @@ function VoucherCard({
   onDelete,
   onToggleActive,
   onCopyCode,
+  menuProductsMap,
 }: VoucherCardProps) {
   const status = getVoucherStatus(voucher);
 
@@ -661,6 +687,12 @@ function VoucherCard({
             <div className="flex items-center gap-1">
               <Users className="w-3 h-3" />
               {voucher.usagePerCustomer}/customer
+            </div>
+          )}
+          {voucher.applicableMenuProductId && (
+            <div className="flex items-center gap-1">
+              <Package className="w-3 h-3" />
+              Item: {menuProductsMap?.get(voucher.applicableMenuProductId) ?? "Linked product"}
             </div>
           )}
         </div>
@@ -822,6 +854,7 @@ interface VoucherFormProps {
   isEditing: boolean;
   isGeneratingCode: boolean;
   onGenerateCode: () => void;
+  menuProducts: Array<{ id: string; name: string; code: string }>;
 }
 
 function VoucherForm({
@@ -830,6 +863,7 @@ function VoucherForm({
   isEditing,
   isGeneratingCode,
   onGenerateCode,
+  menuProducts,
 }: VoucherFormProps) {
   return (
     <div className="space-y-4 py-4">
@@ -902,7 +936,12 @@ function VoucherForm({
           <Select
             value={form.discountType}
             onValueChange={(value: "amount" | "percentage") =>
-              setForm((prev) => ({ ...prev, discountType: value }))
+              setForm((prev) => ({
+                ...prev,
+                discountType: value,
+                // Reset linked product if switching away from fixed amount
+                applicableMenuProductId: value === "percentage" ? "" : prev.applicableMenuProductId,
+              }))
             }
           >
             <SelectTrigger>
@@ -942,6 +981,36 @@ function VoucherForm({
           />
         </div>
       </div>
+
+      {/* Linked Product (only for fixed amount discount) */}
+      {form.discountType === "amount" && (
+        <div className="space-y-2">
+          <Label>Linked Product (optional)</Label>
+          <Select
+            value={form.applicableMenuProductId}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, applicableMenuProductId: value }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="No product link (applies to whole order)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No product link (applies to whole order)</SelectItem>
+              {menuProducts.map((product) => (
+                <SelectItem key={product.id} value={product.id}>
+                  {product.name} ({product.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {form.applicableMenuProductId && (
+            <p className="text-xs text-muted-foreground">
+              {form.discountValue ? `Rp ${parseFloat(form.discountValue).toLocaleString("id-ID")}` : "..."} will be deducted from each unit of this product in the order
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Constraints */}
       <div className="grid grid-cols-2 gap-4">

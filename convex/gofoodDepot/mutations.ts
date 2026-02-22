@@ -28,6 +28,8 @@ import { updateComponentStock } from "../inventory/helpers";
 export const recordShipment = mutation({
   args: {
     token: v.string(),
+    // Phase 19: Optional outletId for per-outlet depot stock tracking
+    outletId: v.optional(v.id("externalOutlets")),
     items: v.array(
       v.object({
         menuProductId: v.id("menuProducts"),
@@ -91,23 +93,36 @@ export const recordShipment = mutation({
       }
 
       // 1. Update gofoodDepotStock (read-then-patch for OCC safety)
-      const existingStock = await ctx.db
-        .query("gofoodDepotStock")
-        .withIndex("by_menuProduct", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
+      // When outletId provided, use by_outlet_product index for per-outlet tracking
+      let existingStock;
+      if (args.outletId) {
+        existingStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_outlet_product", (q) =>
+            q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      } else {
+        existingStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_menuProduct", (q) =>
+            q.eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      }
 
       if (existingStock) {
         await ctx.db.patch(existingStock._id, {
           quantity: existingStock.quantity + item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       } else {
         await ctx.db.insert("gofoodDepotStock", {
           menuProductId: item.menuProductId,
           quantity: item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       }
 
@@ -238,6 +253,8 @@ export const recordShipment = mutation({
  */
 export const processSyncSales = internalMutation({
   args: {
+    // Phase 19: Optional outletId for per-outlet depot stock tracking
+    outletId: v.optional(v.id("externalOutlets")),
     items: v.array(
       v.object({
         menuProductId: v.id("menuProducts"),
@@ -267,17 +284,29 @@ export const processSyncSales = internalMutation({
       if (item.quantity <= 0) continue;
 
       // 1. Decrement depot stock (can go negative = debt)
-      const depotStock = await ctx.db
-        .query("gofoodDepotStock")
-        .withIndex("by_menuProduct", (q) =>
-          q.eq("menuProductId", item.menuProductId)
-        )
-        .first();
+      // When outletId provided, use by_outlet_product index for per-outlet tracking
+      let depotStock;
+      if (args.outletId) {
+        depotStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_outlet_product", (q) =>
+            q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      } else {
+        depotStock = await ctx.db
+          .query("gofoodDepotStock")
+          .withIndex("by_menuProduct", (q) =>
+            q.eq("menuProductId", item.menuProductId)
+          )
+          .first();
+      }
 
       if (depotStock) {
         await ctx.db.patch(depotStock._id, {
           quantity: depotStock.quantity - item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       } else {
         // No stock record yet — create with negative (debt)
@@ -285,6 +314,7 @@ export const processSyncSales = internalMutation({
           menuProductId: item.menuProductId,
           quantity: -item.quantity,
           lastUpdated: now,
+          ...(args.outletId !== undefined && { outletId: args.outletId }),
         });
       }
 
@@ -333,13 +363,23 @@ export const processSyncSales = internalMutation({
             goldfinchLocation._id
           );
         } catch {
-          // Insufficient stickers — record deficit
-          const currentStock = await ctx.db
-            .query("gofoodDepotStock")
-            .withIndex("by_menuProduct", (q) =>
-              q.eq("menuProductId", item.menuProductId)
-            )
-            .first();
+          // Insufficient stickers — record deficit on the current depot stock row
+          let currentStock;
+          if (args.outletId) {
+            currentStock = await ctx.db
+              .query("gofoodDepotStock")
+              .withIndex("by_outlet_product", (q) =>
+                q.eq("outletId", args.outletId).eq("menuProductId", item.menuProductId)
+              )
+              .first();
+          } else {
+            currentStock = await ctx.db
+              .query("gofoodDepotStock")
+              .withIndex("by_menuProduct", (q) =>
+                q.eq("menuProductId", item.menuProductId)
+              )
+              .first();
+          }
 
           if (currentStock) {
             await ctx.db.patch(currentStock._id, {
@@ -457,18 +497,71 @@ export const recordSale = internalMutation({
 /**
  * Manually adjust depot stock (manager/admin only).
  * Used for physical count corrections.
+ *
+ * When outletId is provided, writes to productInventory at the outlet's
+ * linkedStorageLocationId (single source of truth for multi-outlet flow).
+ * Falls back to legacy gofoodDepotStock when outletId is omitted.
  */
 export const adjustDepotStock = mutation({
   args: {
     token: v.string(),
     menuProductId: v.id("menuProducts"),
+    outletId: v.optional(v.id("externalOutlets")),
     newQuantity: v.number(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
     const now = Date.now();
 
+    if (args.outletId) {
+      // Single source of truth: write to productInventory at outlet's linked location
+      const outlet = await ctx.db.get(args.outletId);
+      if (!outlet?.linkedStorageLocationId) {
+        throw new Error("Outlet has no linked storage location");
+      }
+      const locationId = outlet.linkedStorageLocationId;
+
+      const existing = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", args.menuProductId).eq("locationId", locationId)
+        )
+        .first();
+
+      const previousQuantity = existing?.quantity ?? 0;
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          quantity: args.newQuantity,
+          lastUpdated: now,
+        });
+      } else {
+        await ctx.db.insert("productInventory", {
+          menuProductId: args.menuProductId,
+          locationId,
+          quantity: args.newQuantity,
+          lastUpdated: now,
+        });
+      }
+
+      // Log transaction
+      await ctx.db.insert("productInventoryTransactions", {
+        menuProductId: args.menuProductId,
+        locationId,
+        transactionType: "adjust",
+        quantity: args.newQuantity - previousQuantity,
+        previousQuantity,
+        newQuantity: args.newQuantity,
+        reason: args.reason,
+        performedBy: user.name,
+        createdAt: now,
+      });
+
+      return { success: true };
+    }
+
+    // Legacy path: adjust gofoodDepotStock (old single-Goldfinch flow)
     const existingStock = await ctx.db
       .query("gofoodDepotStock")
       .withIndex("by_menuProduct", (q) =>
@@ -490,5 +583,158 @@ export const adjustDepotStock = mutation({
     }
 
     return { success: true };
+  },
+});
+
+/**
+ * Save (upsert) per-outlet product mappings (GF-02).
+ *
+ * Auth: admin only
+ *
+ * For each mapping in args.mappings:
+ *   - If a row exists for (outletId, externalProductName): patch it
+ *   - If not: insert a new row
+ *
+ * This is an explicit-save pattern (not auto-save).
+ */
+export const saveOutletProductMappings = mutation({
+  args: {
+    token: v.string(),
+    outletId: v.id("externalOutlets"),
+    mappings: v.array(
+      v.object({
+        externalProductName: v.string(),
+        menuProductId: v.optional(v.id("menuProducts")),
+        isActive: v.boolean(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const now = Date.now();
+    let created = 0;
+    let updated = 0;
+
+    for (const mapping of args.mappings) {
+      const existing = await ctx.db
+        .query("gofoodOutletProductMappings")
+        .withIndex("by_outlet_product", (q) =>
+          q
+            .eq("outletId", args.outletId)
+            .eq("externalProductName", mapping.externalProductName)
+        )
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          menuProductId: mapping.menuProductId,
+          isActive: mapping.isActive,
+          updatedAt: now,
+        });
+        updated++;
+      } else {
+        await ctx.db.insert("gofoodOutletProductMappings", {
+          outletId: args.outletId,
+          externalProductName: mapping.externalProductName,
+          menuProductId: mapping.menuProductId,
+          isActive: mapping.isActive,
+          createdBy: user.name,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created++;
+      }
+    }
+
+    return { created, updated, total: created + updated };
+  },
+});
+
+/**
+ * Initialize a new outlet's product mappings from the most recently configured outlet (GF-02).
+ *
+ * Auth: admin only
+ *
+ * If the target outlet already has mappings, this is a no-op (returns 0).
+ * Otherwise, finds the other GoBiz outlet with the most recent mapping updatedAt
+ * and copies its mappings (externalProductName -> menuProductId links) to the new outlet.
+ *
+ * This supports: "New depot auto-populated silently with previous depot's mapping."
+ */
+export const initOutletMappingsFromPrevious = mutation({
+  args: {
+    token: v.string(),
+    outletId: v.id("externalOutlets"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const now = Date.now();
+
+    // 1. Check if this outlet already has mappings -- if so, bail out
+    const existingMappings = await ctx.db
+      .query("gofoodOutletProductMappings")
+      .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+      .first();
+
+    if (existingMappings) {
+      return { copied: 0, skipped: true };
+    }
+
+    // 2. Find all GoBiz outlets (except this one)
+    const allGobizOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "gobiz"))
+      .collect();
+
+    const otherOutlets = allGobizOutlets.filter(
+      (o) => o._id !== args.outletId
+    );
+
+    if (otherOutlets.length === 0) {
+      return { copied: 0, skipped: false };
+    }
+
+    // 3. For each other outlet, find the most recent mapping updatedAt
+    let bestOutletId: string | null = null;
+    let bestUpdatedAt = 0;
+
+    for (const outlet of otherOutlets) {
+      const latestMapping = await ctx.db
+        .query("gofoodOutletProductMappings")
+        .withIndex("by_outlet", (q) => q.eq("outletId", outlet._id))
+        .order("desc")
+        .first();
+
+      if (latestMapping && latestMapping.updatedAt > bestUpdatedAt) {
+        bestUpdatedAt = latestMapping.updatedAt;
+        bestOutletId = outlet._id as string;
+      }
+    }
+
+    if (!bestOutletId) {
+      return { copied: 0, skipped: false };
+    }
+
+    // 4. Copy all mappings from the best outlet to this outlet
+    const sourceMappings = await ctx.db
+      .query("gofoodOutletProductMappings")
+      .withIndex("by_outlet", (q) => q.eq("outletId", bestOutletId as any))
+      .collect();
+
+    let copied = 0;
+    for (const src of sourceMappings) {
+      await ctx.db.insert("gofoodOutletProductMappings", {
+        outletId: args.outletId,
+        externalProductName: src.externalProductName,
+        menuProductId: src.menuProductId,
+        isActive: src.isActive,
+        createdBy: user.name,
+        createdAt: now,
+        updatedAt: now,
+      });
+      copied++;
+    }
+
+    return { copied, skipped: false };
   },
 });

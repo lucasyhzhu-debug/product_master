@@ -142,7 +142,7 @@ export const getTransactions = query({
       // Filter by type
       paginatedResult = await ctx.db
         .query("productInventoryTransactions")
-        .withIndex("by_type", (q) => q.eq("transactionType", args.transactionType as "add" | "drawdown" | "gofood_sale" | "adjust"))
+        .withIndex("by_type", (q) => q.eq("transactionType", args.transactionType as "add" | "drawdown" | "gofood_sale" | "adjust" | "transfer"))
         .order("desc")
         .paginate(args.paginationOpts);
     } else {
@@ -220,6 +220,86 @@ export const getSettings = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("productInventorySettings").first() ?? null;
+  },
+});
+
+/**
+ * Get all product inventory rows grouped by product, with per-location breakdown.
+ * Enriches each row with location type so the frontend can bucket into:
+ *   - Internal (office, kitchen)
+ *   - GoFood (depot type linked to gobiz outlet)
+ *   - K3Mart / Consignment (venue, depot)
+ *
+ * Used by the stock transfer UI and the multi-outlet cockpit.
+ */
+export const getStockOverviewGrouped = query({
+  args: {},
+  handler: async (ctx) => {
+    const settings = await ctx.db.query("productInventorySettings").first();
+    const globalThreshold = settings?.globalLowStockThreshold || 5;
+
+    const rows = await ctx.db.query("productInventory").collect();
+
+    // Group by menuProductId
+    const byProduct = new Map<
+      string,
+      {
+        menuProductId: string;
+        menuProductName: string;
+        menuProductCode: string;
+        isActive: boolean;
+        defaultPrice: number;
+        locations: Array<{
+          locationId: string;
+          locationName: string;
+          locationType: string;
+          quantity: number;
+          isLowStock: boolean;
+          effectiveThreshold: number;
+        }>;
+        totalQuantity: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const menuProduct = await ctx.db.get(row.menuProductId);
+      const location = await ctx.db.get(row.locationId);
+      if (!menuProduct || !location) continue;
+
+      const mpKey = row.menuProductId as string;
+      const effectiveThreshold = row.lowStockThreshold ?? globalThreshold;
+      const isLowStock = row.quantity <= effectiveThreshold;
+
+      const locationEntry = {
+        locationId: row.locationId as string,
+        locationName: location.name,
+        locationType: location.locationType,
+        quantity: row.quantity,
+        isLowStock,
+        effectiveThreshold,
+      };
+
+      if (byProduct.has(mpKey)) {
+        const existing = byProduct.get(mpKey)!;
+        existing.locations.push(locationEntry);
+        existing.totalQuantity += row.quantity;
+      } else {
+        byProduct.set(mpKey, {
+          menuProductId: mpKey,
+          menuProductName: menuProduct.name,
+          menuProductCode: menuProduct.code,
+          isActive: menuProduct.isActive,
+          defaultPrice: menuProduct.defaultPrice,
+          locations: [locationEntry],
+          totalQuantity: row.quantity,
+        });
+      }
+    }
+
+    // Return sorted by product name
+    return Array.from(byProduct.values()).sort((a, b) =>
+      a.menuProductName.localeCompare(b.menuProductName)
+    );
   },
 });
 

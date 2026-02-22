@@ -21,3 +21,4 @@ export { K3MartCockpit } from './K3MartCockpit';
 export { CustomersManager } from './CustomersManager';
 export { TagsManager } from './TagsManager';
 export { DispatchPlanner } from './DispatchPlanner';
+export { GoFoodDepotManager } from './GoFoodDepotManager';

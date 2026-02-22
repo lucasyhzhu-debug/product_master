@@ -27,6 +27,7 @@ import type * as externalData_mutations from "../externalData/mutations.js";
 import type * as externalData_queries from "../externalData/queries.js";
 import type * as feedback_mutations from "../feedback/mutations.js";
 import type * as feedback_queries from "../feedback/queries.js";
+import type * as gofoodDepot_helpers from "../gofoodDepot/helpers.js";
 import type * as gofoodDepot_mutations from "../gofoodDepot/mutations.js";
 import type * as gofoodDepot_queries from "../gofoodDepot/queries.js";
 import type * as http from "../http.js";
@@ -164,6 +165,7 @@ declare const fullApi: ApiFromModules<{
   "externalData/queries": typeof externalData_queries;
   "feedback/mutations": typeof feedback_mutations;
   "feedback/queries": typeof feedback_queries;
+  "gofoodDepot/helpers": typeof gofoodDepot_helpers;
   "gofoodDepot/mutations": typeof gofoodDepot_mutations;
   "gofoodDepot/queries": typeof gofoodDepot_queries;
   http: typeof http;

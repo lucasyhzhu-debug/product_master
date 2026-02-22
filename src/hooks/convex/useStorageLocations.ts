@@ -62,7 +62,7 @@ export const useConvexDeleteStorageLocation = createMutationHook(
 
 export type StorageLocationCreateInput = {
   name: string;
-  locationType: "office" | "kitchen" | "venue";
+  locationType: "office" | "kitchen" | "venue" | "depot";
   address?: string;
   isActive?: boolean;
   isDefault?: boolean;
@@ -71,7 +71,7 @@ export type StorageLocationCreateInput = {
 export type StorageLocationUpdateInput = {
   id: Id<"storageLocations">;
   name?: string;
-  locationType?: "office" | "kitchen" | "venue";
+  locationType?: "office" | "kitchen" | "venue" | "depot";
   address?: string;
   isActive?: boolean;
   isDefault?: boolean;
@@ -80,7 +80,7 @@ export type StorageLocationUpdateInput = {
 export type StorageLocation = {
   _id: Id<"storageLocations">;
   name: string;
-  locationType: "office" | "kitchen" | "venue";
+  locationType: "office" | "kitchen" | "venue" | "depot";
   address?: string;
   isActive: boolean;
   isDefault?: boolean;

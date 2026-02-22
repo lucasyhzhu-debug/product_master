@@ -88,6 +88,9 @@ export function OrderCreate() {
   // Notes
   const [notes, setNotes] = useState('');
 
+  // Delivery fee
+  const [deliveryFee, setDeliveryFee] = useState(0);
+
   // Low price
   const [showLowPriceWarning, setShowLowPriceWarning] = useState(false);
   const [lowPriceConfirmed, setLowPriceConfirmed] = useState(false);
@@ -121,6 +124,9 @@ export function OrderCreate() {
     setDueDate(existingOrder.dueDate);
     setDeliveryAddress(existingOrder.deliveryAddress ?? '');
     setNotes(existingOrder.notes ?? '');
+    if (existingOrder.deliveryFee) {
+      setDeliveryFee(existingOrder.deliveryFee);
+    }
 
     // Convert items to OrderLineItem format
     if (existingOrder.items && existingOrder.items.length > 0) {
@@ -180,6 +186,7 @@ export function OrderCreate() {
   const createDraftMutation = useMutation(api.orders.mutations.orderCrud.createDraft);
   const updateDraftMutation = useMutation(api.orders.mutations.orderCrud.updateDraft);
   const replaceItemsMutation = useMutation(api.orders.mutations.itemCrud.replaceItems);
+  const updateDeliveryFeeMutation = useMutation(api.orders.mutations.index.updateDeliveryFee);
 
   // Load customer defaultAddress in edit mode for comparison (only once after draft loads)
   const hasLoadedCustomerDefault = useRef(false);
@@ -199,7 +206,7 @@ export function OrderCreate() {
   );
 
   const totalDiscountValue = appliedVoucher?.calculatedDiscount ?? 0;
-  const total = subtotal - totalDiscountValue;
+  const total = subtotal - totalDiscountValue + deliveryFee;
   const isLowPrice = total > 0 && total < LOW_PRICE_THRESHOLD;
   const hasItems = items.length > 0;
   const deliveryParsed = useMemo(
@@ -404,6 +411,11 @@ export function OrderCreate() {
         updateCustomerAddress: updateCustomerAddress && shouldShowAddressSync ? true : undefined,
       });
 
+      // Persist delivery fee if set
+      if (deliveryFee > 0) {
+        await updateDeliveryFeeMutation({ orderId: draftOrderId, deliveryFee });
+      }
+
       toast.success('Draft saved');
       navigate('/orders');
     } catch (error) {
@@ -472,6 +484,11 @@ export function OrderCreate() {
           lowPriceConfirmed: lowPriceConfirmed || undefined,
           updateCustomerAddress: updateCustomerAddress && shouldShowAddressSync ? true : undefined,
         });
+
+        // Persist delivery fee if set
+        if (deliveryFee > 0) {
+          await updateDeliveryFeeMutation({ orderId: draftOrderId, deliveryFee });
+        }
 
         // Move Draft -> AwaitingPayment (skip if already AwaitingPayment)
         if (existingOrder?.status !== 'AwaitingPayment') {
@@ -828,6 +845,19 @@ export function OrderCreate() {
             <Separator className="my-2" />
           </>
         )}
+
+        {/* Delivery Fee row */}
+        <div className="flex justify-between items-center text-sm mb-2">
+          <span className="text-muted-foreground">🚚 Delivery Fee</span>
+          <input
+            type="number"
+            min={0}
+            value={deliveryFee || ''}
+            onChange={(e) => setDeliveryFee(parseFloat(e.target.value) || 0)}
+            placeholder="0"
+            className="h-7 w-28 text-xs text-right rounded-md border border-input bg-background px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
 
         <div className="flex justify-between items-center mb-4">
           <span className="text-lg font-bold">Total</span>
