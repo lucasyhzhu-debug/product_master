@@ -18,6 +18,7 @@ type PeriodSummary = {
   totalAdBurn: number;
   totalPromoBurn: number;
   totalDiscounts: number;
+  totalDeliveryFees: number;
   platformGross: number;
   internalGross: number;
   channels: { k3mart: ChannelBreakdown; gobiz: ChannelBreakdown; internal: ChannelBreakdown };

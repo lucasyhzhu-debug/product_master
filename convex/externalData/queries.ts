@@ -471,6 +471,7 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
       let internalGross = 0;
       let internalNet = 0;
       let totalDiscounts = 0;
+      let totalDeliveryFees = 0;
       const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
 
       // Batch-lookup orders by order number
@@ -485,9 +486,12 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
             .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
             .first();
           if (order) {
+            const deliveryFee = order.deliveryFee ?? 0;
+            const netProduct = (order.finalTotal ?? order.totalAmount) - deliveryFee;
             internalGross += order.totalAmount;
-            internalNet += order.finalTotal ?? order.totalAmount;
-            totalDiscounts += order.totalAmount - (order.finalTotal ?? order.totalAmount);
+            internalNet += netProduct;
+            totalDiscounts += order.totalAmount - netProduct;
+            totalDeliveryFees += deliveryFee;
           } else {
             // Fallback to revenue record data if order deleted
             const rev = internalRecords.find((r) => r.externalTransactionId === orderNumber);
@@ -507,6 +511,7 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         totalAdBurn: platformAdBurn,
         totalPromoBurn: platformPromoBurn,
         totalDiscounts,
+        totalDeliveryFees,
         platformGross,
         internalGross,
         // Per-channel breakdowns

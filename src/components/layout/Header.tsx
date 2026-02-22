@@ -13,8 +13,9 @@ import {
   Warehouse,
   Circle,
   Tag,
-  TrendingUp,
-  Store,
+  // BANDWIDTH CONSERVATION: TrendingUp (Sales), Store (K3Mart) hidden until March 1st
+  // TrendingUp,
+  // Store,
   CalendarRange,
   Settings,
   Shield,
@@ -68,7 +69,8 @@ type NavItem = {
 
 // Main nav items - visible based on individual permissions
 const mainNavItems: NavItem[] = [
-  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
+  // { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
@@ -77,7 +79,8 @@ const mainNavItems: NavItem[] = [
 
 // Depot Management dropdown - Manager + Admin
 const depotItems: NavItem[] = [
-  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  // BANDWIDTH CONSERVATION: K3Mart Cockpit hidden until March 1st quota reset
+  // { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
   { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard' },
 ];
 

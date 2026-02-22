@@ -18,6 +18,7 @@ import {
   RefreshCw,
   ExternalLink,
   TagIcon,
+  Truck,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { SalesChart } from "./SalesChart";
@@ -407,6 +408,7 @@ type PeriodData = {
   totalTransactions: number;
   totalCommission?: number;
   totalDiscounts?: number;
+  totalDeliveryFees?: number;
   platformGross?: number;
   internalGross?: number;
   channels?: {
@@ -992,8 +994,8 @@ export function OverviewTab() {
   if (loadingSummary || summary === undefined) {
     return (
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {[1, 2, 3, 4, 5].map((i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -1054,8 +1056,8 @@ export function OverviewTab() {
         </Button>
       </div>
 
-      {/* Row 1: Gross Sales, Net Sales, Commissions Paid, Discounts Given */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Row 1: Gross Sales, Net Sales, Commissions Paid, Discounts Given, Delivery Fees */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Gross Sales</CardTitle>
@@ -1150,6 +1152,27 @@ export function OverviewTab() {
               {(currentPeriod.internalGross ?? 0) > 0
                 ? `${(((currentPeriod.totalDiscounts ?? 0) / currentPeriod.internalGross!) * 100).toFixed(1)}% of local sales`
                 : currentPeriod.periodLabel}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Delivery Fees</CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline gap-2">
+              <div className="text-2xl font-bold text-muted-foreground">
+                {formatCurrency(currentPeriod.totalDeliveryFees ?? 0)}
+              </div>
+              <GrowthIndicator
+                current={currentPeriod.totalDeliveryFees ?? 0}
+                previous={previousPeriod.totalDeliveryFees ?? 0}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pass-through. Not included in Net Sales.
             </p>
           </CardContent>
         </Card>

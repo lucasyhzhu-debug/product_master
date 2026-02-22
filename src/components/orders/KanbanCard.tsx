@@ -2,8 +2,10 @@
  * KanbanCard - Order card for Kanban board columns.
  * Shows customer name, order number, due date with urgency coloring,
  * pricing with discounts, all line items, creator name, and expedited badge.
+ * Supports "my orders" (blue ring) and "orders with notes" (amber ring) highlights.
  *
  * Phase 14 Plan 04: Kanban board UI.
+ * Quick 23: highlight my orders and orders with notes.
  */
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,12 +44,17 @@ export interface KanbanOrder {
   contactWa?: string;
   items: KanbanOrderItem[];
   creatorName: string;
+  notes?: string;
+  createdByUserId?: string;
 }
 
 interface KanbanCardProps {
   order: KanbanOrder;
   onCardClick: (orderId: string, status: string) => void;
   simplified?: boolean;
+  isMine?: boolean;
+  highlightMine?: boolean;
+  highlightNotes?: boolean;
 }
 
 // ============================================
@@ -76,10 +83,33 @@ const URGENCY_BADGE_CLASSES: Record<UrgencyLevel, string> = {
 // Component
 // ============================================
 
-export function KanbanCard({ order, onCardClick, simplified = false }: KanbanCardProps) {
+export function KanbanCard({
+  order,
+  onCardClick,
+  simplified = false,
+  isMine,
+  highlightMine,
+  highlightNotes,
+}: KanbanCardProps) {
   const isCancelled = order.status === 'Cancelled';
   const urgency = isCancelled ? 'default' : getUrgencyLevel(order.dueDate);
   const isExpedited = !isCancelled && order.expedited === true;
+
+  // Compute highlight state
+  const hasMineHighlight = !isCancelled && highlightMine && isMine;
+  const hasNotesHighlight = !isCancelled && highlightNotes && !!order.notes;
+
+  // Build border/ring class string
+  // Expedited amber border takes precedence over notes highlight when both exist
+  let highlightClass = '';
+  if (hasMineHighlight && hasNotesHighlight) {
+    // Combined: blue ring for mine + amber left border for notes
+    highlightClass = 'ring-2 ring-blue-400 border-l-4 border-l-amber-400';
+  } else if (hasMineHighlight) {
+    highlightClass = 'ring-2 ring-blue-400';
+  } else if (hasNotesHighlight && !isExpedited) {
+    highlightClass = 'ring-1 ring-amber-300';
+  }
 
   // Calculate discount (order-level + voucher)
   const orderDiscount = order.orderLevelDiscount && order.orderLevelDiscountType
@@ -100,7 +130,7 @@ export function KanbanCard({ order, onCardClick, simplified = false }: KanbanCar
     <Card
       className={`cursor-pointer hover:shadow-md transition-shadow ${
         isCancelled ? 'opacity-50 border-muted' : isExpedited ? 'border-amber-400 border-2' : ''
-      }`}
+      } ${highlightClass}`}
       onClick={() => onCardClick(order._id, order.status)}
     >
       <CardContent className="p-3 space-y-2">
@@ -167,6 +197,13 @@ export function KanbanCard({ order, onCardClick, simplified = false }: KanbanCar
             </p>
           ))}
         </div>
+
+        {/* Notes display */}
+        {order.notes && (
+          <p className="text-xs text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 line-clamp-2">
+            {order.notes}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

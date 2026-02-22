@@ -2,8 +2,10 @@
  * KanbanColumn - Single column in the Kanban board.
  * Shows column header with count, scrollable card list,
  * and optional "Show Cancelled" toggle for Complete column.
+ * Supports sorting user's own orders to the top and passing highlight props.
  *
  * Phase 14 Plan 04: Kanban board UI.
+ * Quick 23: highlight my orders and orders with notes.
  */
 import { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +28,16 @@ interface KanbanColumnProps {
   config: KanbanColumnConfig;
   orders: KanbanOrder[];
   onCardClick: (orderId: string, status: string) => void;
+  currentUserId?: string;
+  highlightMine?: boolean;
+  highlightNotes?: boolean;
 }
 
 // ============================================
 // Component
 // ============================================
 
-export function KanbanColumn({ config, orders, onCardClick }: KanbanColumnProps) {
+export function KanbanColumn({ config, orders, onCardClick, currentUserId, highlightMine, highlightNotes }: KanbanColumnProps) {
   const [showCancelled, setShowCancelled] = useState(false);
   const isCompleteColumn = config.key === 'complete';
 
@@ -46,6 +51,16 @@ export function KanbanColumn({ config, orders, onCardClick }: KanbanColumnProps)
     if (!isCompleteColumn || showCancelled) return orders;
     return orders.filter((o) => o.status !== 'Cancelled');
   }, [orders, isCompleteColumn, showCancelled]);
+
+  // Sort user's own orders to the top when highlight is active
+  const sortedOrders = useMemo(() => {
+    if (!highlightMine || !currentUserId) return visibleOrders;
+    return [...visibleOrders].sort((a, b) => {
+      const aIsMine = a.createdByUserId === currentUserId ? 0 : 1;
+      const bIsMine = b.createdByUserId === currentUserId ? 0 : 1;
+      return aIsMine - bIsMine;
+    });
+  }, [visibleOrders, highlightMine, currentUserId]);
 
   return (
     <div className="flex flex-col min-w-[calc(100vw-2rem)] md:min-w-[280px] md:max-w-[320px] snap-center bg-muted/30 rounded-lg">
@@ -78,17 +93,20 @@ export function KanbanColumn({ config, orders, onCardClick }: KanbanColumnProps)
       {/* Scrollable card list */}
       <ScrollArea className="flex-1 px-3 pb-3 max-h-[calc(100vh-220px)]">
         <div className="space-y-2">
-          {visibleOrders.length === 0 ? (
+          {sortedOrders.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">
               No orders
             </p>
           ) : (
-            visibleOrders.map((order) => (
+            sortedOrders.map((order) => (
               <KanbanCard
                 key={order._id}
                 order={order}
                 onCardClick={onCardClick}
                 simplified={isCompleteColumn}
+                isMine={!!currentUserId && order.createdByUserId === currentUserId}
+                highlightMine={highlightMine}
+                highlightNotes={highlightNotes}
               />
             ))
           )}

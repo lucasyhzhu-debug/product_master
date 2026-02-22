@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (Complete - 8/8 plans done)
-Plan: 20-08 complete (8/8 plans done; 20-01 through 20-08 done)
-Status: All 8 plans complete; build passes; getKitchenStats Draft/AwaitingPayment skip optimized
-Last activity: 2026-02-22 - Completed 20-08: getKitchenStats pruned — Draft/AwaitingPayment orders skip item+production lookups
+Phase: Phase 20.1 — Delivery Fee Reporting Separation (Complete - 1/1 plans done)
+Plan: 20.1-01 complete (1/1 plans done)
+Status: All 1 plan complete; build passes; delivery fee separation shipped to Sales Analytics
+Last activity: 2026-02-22 - Completed quick task 24: Disable Sales Analytics and K3Mart Cockpit pages for bandwidth conservation
 
-Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/9), Phase 20 complete (8/8)
+Progress (v1.3): [█████████░] ~92% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 in progress (1/1 done)
 
 ## Performance Metrics
 
@@ -32,6 +32,8 @@ Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/
 All v1.0–v1.2 decisions archived in PROJECT.md Key Decisions table.
 
 Key decisions affecting v1.3 phases:
+- [Phase 20.1-01]: Delivery fee separation at query time using order.deliveryFee field — no schema changes; totalDiscounts recalculated against netProduct to remain accurate; deleted-order fallback leaves totalDeliveryFees at 0; Delivery Fees card uses muted value color (pass-through, not a loss)
+
 - [Phase 17.1]: `gofoodDepotStock` table has no `outletId` field — Phase 19 must extend schema with `outletId` + composite index before any depot tracking work
 - [Phase 17.1]: productInventory is simple aggregate (not FIFO); GoFood outlets allow negative stock
 - [17-06]: `dispatchConsignmentOutlets` holds Legato outlet data — Phase 21 must decide FK strategy (reuse vs. parallel `externalOutlets` rows) before schema migration
@@ -95,6 +97,8 @@ None.
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
+| 23 | Highlight my orders and orders with notes on order manager kanban with sorting and legend toggles | 2026-02-22 | 3fa94de | Verified | [23-highlight-my-orders-and-orders-with-note](./quick/23-highlight-my-orders-and-orders-with-note/) |
+| 24 | Disable Sales Analytics and K3Mart Cockpit pages; redirect / and disabled routes to /orders for bandwidth conservation until March 1st | 2026-02-22 | 7d7fcba | Done | [24-disable-sales-analytics-page-and-redirec](./quick/24-disable-sales-analytics-page-and-redirec/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
@@ -106,9 +110,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-08 — getKitchenStats optimized: Draft/AwaitingPayment orders skip item+production nested DB lookups; return shape confirmed lean (primitives only, no Doc objects); Phase 20 all 8 plans done; build passes
+Stopped at: Completed 20.1-01 — Delivery fee separation: totalDeliveryFees added to aggregate(), internalNet excludes delivery fees, Delivery Fees card added to Sales Analytics OverviewTab; build passes
 Resume file: None
-Resume notes: Phase 20 complete (all 8 plans). All bandwidth optimizations shipped. Next phase TBD.
+Resume notes: Phase 20.1 plan 01 complete. Delivery fee separation shipped. Phase 20.1 is a single-plan phase — ready to merge to main.
 
 ---
 *Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*

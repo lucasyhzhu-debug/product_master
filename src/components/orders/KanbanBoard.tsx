@@ -1,8 +1,10 @@
 /**
  * KanbanBoard - Horizontal scrolling board with 6 columns for order management.
  * Columns: Draft | Awaiting Payment | Payment Received | Being Prepared | Awaiting Delivery | Complete
+ * Passes highlight props (currentUserId, highlightMine, highlightNotes) through to columns.
  *
  * Phase 14 Plan 04: Kanban board UI.
+ * Quick 23: highlight my orders and orders with notes.
  */
 import { Skeleton } from '@/components/ui/skeleton';
 import { KanbanColumn, type KanbanColumnConfig } from './KanbanColumn';
@@ -30,6 +32,9 @@ export type KanbanData = Record<string, KanbanOrder[]>;
 interface KanbanBoardProps {
   data: KanbanData | undefined;
   onCardClick: (orderId: string, status: string) => void;
+  currentUserId?: string;
+  highlightMine?: boolean;
+  highlightNotes?: boolean;
 }
 
 // ============================================
@@ -61,7 +66,7 @@ function KanbanSkeleton() {
 // Component
 // ============================================
 
-export function KanbanBoard({ data, onCardClick }: KanbanBoardProps) {
+export function KanbanBoard({ data, onCardClick, currentUserId, highlightMine, highlightNotes }: KanbanBoardProps) {
   if (data === undefined) {
     return <KanbanSkeleton />;
   }
@@ -74,6 +79,9 @@ export function KanbanBoard({ data, onCardClick }: KanbanBoardProps) {
           config={col}
           orders={data[col.key] ?? []}
           onCardClick={onCardClick}
+          currentUserId={currentUserId}
+          highlightMine={highlightMine}
+          highlightNotes={highlightNotes}
         />
       ))}
     </div>
