@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 3/8 plans done
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 4/8 plans done
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 3/8 plans done)
-Plan: 20-03 complete (3/8 plans done; 20-01, 20-02, and 20-03 done)
-Status: Plans 20-01, 20-02, 20-03 complete; build passes; getRevenue now always bounded (90-day default + period-specific bounds from OverviewTab)
-Last activity: 2026-02-22 - Completed 20-03: Bound getRevenue query to selected period — eliminates 80 MB unbounded full table scan
+Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 4/8 plans done)
+Plan: 20-04 complete (4/8 plans done; 20-01, 20-02, 20-03, and 20-04 done)
+Status: Plans 20-01, 20-02, 20-03, 20-04 complete; build passes; getRestockOverview now internalQuery+action; GoBiz+Internal N+1 eliminated with Promise.all
+Last activity: 2026-02-22 - Completed 20-04: Convert getRestockOverview to on-demand action + fix N+1 patterns
 
-Progress (v1.3): [███████░░░] ~58% — Phase 19 complete (9/9), Phase 20 in progress (3/8)
+Progress (v1.3): [████████░░] ~62% — Phase 19 complete (9/9), Phase 20 in progress (4/8)
 
 ## Performance Metrics
 
@@ -59,6 +59,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 20-01]: 24-hour buffer before sinceTimestamp catches late-confirmed orders; by_creationTime index makes incremental query index-backed in Convex
 - [Phase 20-03]: useConvexExternalRevenue defaults to last 90 days (effectivePeriodStart) when no periodStart provided — hook-level default prevents all callers from triggering unbounded scans
 - [Phase 20-03]: OverviewTab reuses summary.currentPeriod.periodStart/End for revenue bounds (no cross-directory import needed); allTime passes Date.UTC(2020,0,1) explicitly to stay on indexed path
+- [Phase 20-04]: fetchRestockOverview handler typed as Promise<unknown> to avoid tsc -b circular type inference; RestockOverview defined as explicit local type with cast since FunctionReturnType resolves to unknown
+- [Phase 20-04]: refreshOverview wired into handleSyncAll after sync actions settle — overview reloads after every sync without page reload
+- [Phase 20-04]: GoBiz N+1 replaced with single Promise.all; Internal two-level N+1 replaced with two Promise.all batches (orders then orderItems)
 
 ### Pending Todos
 
@@ -88,13 +91,14 @@ None.
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-03 — bound getRevenue query to selected period (90-day default + period-specific bounds from OverviewTab)
+Stopped at: Completed 20-04 — getRestockOverview converted to internalQuery + action; GoBiz and Internal N+1 patterns replaced with Promise.all; useConvexRestockOverview updated to on-demand fetch
 Resume file: None
-Resume notes: Phase 20 plans 20-01, 20-02, 20-03 complete. Patterns established: incremental sync with timestamp buffer; internalQuery+action wrapper+useAction hook; hook-level default bounds. Next: 20-04 (next bandwidth target).
+Resume notes: Phase 20 plans 20-01 through 20-04 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape. Next: 20-05 (next bandwidth target).
 
 ---
-*Last updated: 2026-02-22 - Completed 20-03: bound getRevenue to selected period — eliminates 80 MB unbounded full table scan (build passes)*
+*Last updated: 2026-02-22 - Completed 20-04: getRestockOverview converted to internalQuery+action; N+1 eliminated with Promise.all (build passes)*
