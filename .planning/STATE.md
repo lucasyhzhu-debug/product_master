@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 19 (GoFood Depot Management) next; Phase 20 context captured
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 1/8 plans done
 
 ## Current Position
 
-Phase: Phase 19 — GoFood Depot Management (COMPLETE - all 9 plans done)
-Plan: 19-09 complete (9/9 plans done)
-Status: All gap-closure plans complete; build passes; ready to merge to main
-Last activity: 2026-02-22 - Completed quick task 22: Add {delivery_fee} variable to WhatsApp payment_request and receipt templates
+Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 1/8 plans done)
+Plan: 20-02 complete (1/8 plans done)
+Status: Plan 20-02 complete; build passes; subscription-to-fetch pattern established
+Last activity: 2026-02-22 - Completed 20-02: Convert getDashboardSummaryByPeriod to on-demand action fetch
 
-Progress (v1.3): [██████░░░░] ~50% — Phase 19 complete (9/9 plans), Phase 20 next
+Progress (v1.3): [██████░░░░] ~55% — Phase 19 complete (9/9), Phase 20 in progress (1/8)
 
 ## Performance Metrics
 
@@ -52,6 +52,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 19-09]: Removed text-muted-foreground from TooltipContent paragraph; tooltip inherits its own readable color
 - [Phase 19-09]: Move/Receive buttons use blue/green outline tinting for semantic color coding across both ProductGroupedView and LocationGroupedView
 - [Phase 19-09]: GoBiz sync note is always-visible (non-dismissible) to ensure users see sync prerequisite info
+- [Phase 20-02]: getDashboardSummaryByPeriod converted from public reactive query to internalQuery + action pattern to eliminate 205 MB bandwidth during GoBiz sync runs
+- [Phase 20-02]: periodPresetValidator inlined in actions.ts (not imported from queries.ts) to break circular type inference in tsc -b project-references build
+- [Phase 20-02]: Subscription-to-fetch hook pattern: useAction + useState + useCallback + useEffect with explicit DashboardSummaryByPeriod local type and Promise<unknown> action handler
 
 ### Pending Todos
 
@@ -79,13 +82,14 @@ None.
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
+| Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed quick-22 — Add {delivery_fee} variable to payment_request and receipt WhatsApp DB templates
+Stopped at: Completed 20-02 — subscription-to-fetch conversion for getDashboardSummaryByPeriod
 Resume file: None
-Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20. Quick task 22 on feature/quick-22-whatsapp-delivery-fee awaiting merge.
+Resume notes: Phase 20 plan 02 complete on gsd/phase-20-optimize-top-convex-query-reads-to-reduce-production-bandwidth. Next: 20-03 (next bandwidth target). Pattern established: internalQuery + action wrapper + useAction hook.
 
 ---
-*Last updated: 2026-02-22 - Completed quick-22: Add {delivery_fee} WhatsApp template variable (Verified)*
+*Last updated: 2026-02-22 - Completed 20-02: getDashboardSummaryByPeriod subscription-to-fetch conversion (build passes)*
