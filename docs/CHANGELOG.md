@@ -14,6 +14,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.16] - 2026-02-22 - WhatsApp Template Editor: Delivery Fee Preview & Tooltips
+
+The template editor now correctly shows the delivery fee in the live preview (instead of the raw `{delivery_fee}` placeholder), the variable chip appears in the Delivery section so you can click to insert it, and hovering any variable now shows a small description of what it does.
+
+### Fixed
+- **Live preview now renders `{delivery_fee}`**: The preview uses sample data (`🚚 Ongkir: Rp 15.000`) so you can see exactly how the message will look with a delivery fee.
+
+### Added
+- **`{delivery_fee}` in the Variables panel**: Appears under the Delivery category — click to insert at cursor like any other variable.
+- **Hover tooltips on all variable chips**: Each variable now shows a styled tooltip describing what it inserts (e.g. *"Delivery/shipping fee. Empty when no fee."*).
+
+### Files Modified
+- `src/components/whatsappTemplates/TemplateEditor.tsx` — added `{delivery_fee}` sample data
+- `src/components/whatsappTemplates/VariableReference.tsx` — added variable to Delivery category, description, and shadcn Tooltip on all chips
+
+---
+
 ## [v1.2.15] - 2026-02-22 - Delivery Fee in WhatsApp Payment Messages
 
 WhatsApp payment requests and receipts now show the delivery fee as a separate line above the total, so customers can see exactly what they're paying for — items, ongkir, and any discount all adding up to the final amount.
