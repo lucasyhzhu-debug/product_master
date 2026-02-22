@@ -14,6 +14,22 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.11] - 2026-02-22 - Use Available Inventory on Kitchen Orders
+
+Staff can now use the "Use Available Inventory" drawdown on orders that are already in the kitchen queue (Being Prepared status). Previously this was only available before the order entered the kitchen. This lets staff quickly fulfill an order from finished goods stock even after it's been sent to production, skipping kitchen work and advancing directly to Awaiting Delivery.
+
+### Added
+- **Inventory drawdown for Being Prepared orders**: The "Use Available Inventory" card now appears on orders in Being Prepared status (in addition to Payment Received). Confirming the drawdown clears the order from the kitchen view and advances it to Awaiting Delivery.
+
+### Fixed
+- **Audit log fromStatus**: The status transition audit log now records the actual order status at the time of drawdown (PaymentReceived or BeingPrepared) instead of always logging "PaymentReceived".
+
+### Files Modified
+- `convex/productInventory/mutations.ts` — status guard, dynamic audit log fromStatus
+- `src/components/inventory/FulfillFromInventoryButton.tsx` — visibility guard updated
+
+---
+
 ## [v1.2.10] - 2026-02-22 - WhatsApp Template: Correct Delivery Info & Date
 
 WhatsApp payment requests now correctly show "Delivery to: [address]" for delivery orders instead of always showing pickup info. Target dates also display correctly — they were showing 1 day behind due to a timezone issue.
