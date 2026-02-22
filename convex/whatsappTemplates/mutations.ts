@@ -26,7 +26,7 @@ Terima kasih sudah order di Frollie! 🙏
 *Order #{order_number}*
 {items_list}
 ────────────
-*Total: {total_amount}*{discount_note}
+{delivery_fee}*Total: {total_amount}*{discount_note}
 
 {delivery_info}
 📅 Target: {due_date}
@@ -47,7 +47,7 @@ Thank you for ordering at Frollie! 🙏
 *Order #{order_number}*
 {items_list}
 ────────────
-*Total: {total_amount}*{discount_note}
+{delivery_fee}*Total: {total_amount}*{discount_note}
 
 {delivery_info}
 📅 Due: {due_date}
@@ -66,6 +66,7 @@ Thank you! 🙏`,
       "{order_number}",
       "{items_list}",
       "{total_amount}",
+      "{delivery_fee}",
       "{delivery_info}",
       "{due_date}",
       "{discount_note}",
@@ -126,7 +127,7 @@ See you on your next order! 👋`,
 Customer: {customer_name}{channel_suffix}
 {items_list}
 ----------------
-*Total: {total_amount}*{discount_note}
+{delivery_fee}*Total: {total_amount}*{discount_note}
 
 {payment_info}
 {delivery_info}{due_date_line}{notes_section}
@@ -140,7 +141,7 @@ PT Malo Group Bahagia
 Customer: {customer_name}{channel_suffix}
 {items_list}
 ----------------
-*Total: {total_amount}*{discount_note}
+{delivery_fee}*Total: {total_amount}*{discount_note}
 
 {payment_info}
 {delivery_info}{due_date_line}{notes_section}
@@ -154,6 +155,7 @@ PT Malo Group Bahagia
       "{order_number}",
       "{items_list}",
       "{total_amount}",
+      "{delivery_fee}",
       "{delivery_info}",
       "{payment_info}",
       "{notes_section}",

@@ -97,12 +97,19 @@ Plans:
 
 ### Phase 20: Optimize top Convex query reads to reduce production bandwidth
 
-**Goal:** [To be planned]
+**Goal:** Reduce production bandwidth by converting the 5 heaviest analytical queries from reactive subscriptions to on-demand fetches, bounding unbounded table scans, fixing N+1 patterns, pruning query return shapes, and making internal order sync incremental
 **Depends on:** Phase 19 (GoFood depot management)
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 20 to break down)
+- [ ] 20-01-PLAN.md — Incremental internal sync (saveRevenue frequency fix)
+- [ ] 20-02-PLAN.md — getDashboardSummaryByPeriod subscription-to-fetch conversion
+- [ ] 20-03-PLAN.md — getRevenue period bounding (eliminate unbounded table scan)
+- [ ] 20-04-PLAN.md — getRestockOverview on-demand fetch + N+1 fixes
+- [ ] 20-05-PLAN.md — getOutletStockSummary on-demand fetch
+- [ ] 20-06-PLAN.md — getRevenueByOutlet on-demand fetch
+- [ ] 20-07-PLAN.md — listForKanban field pruning (lean return shape)
+- [ ] 20-08-PLAN.md — getKitchenStats payload audit + optimization
 
 ### Phase 21: Kitchen Production Targets & Overhaul
 
@@ -186,7 +193,7 @@ Plans:
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
-| 20. Optimize Convex Query Reads | v1.3 | 0/TBD | Not started | - |
+| 20. Optimize Convex Query Reads | v1.3 | 0/8 | Planned | - |
 | 21. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
