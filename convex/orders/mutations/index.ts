@@ -16,6 +16,7 @@ export {
   updateDraft,
   submitOrder,
   copyFromCancelled,
+  updateDeliveryFee,
 } from "./orderCrud";
 
 // Item CRUD

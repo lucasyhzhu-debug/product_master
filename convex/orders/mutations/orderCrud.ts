@@ -1007,3 +1007,36 @@ export const copyFromCancelled = mutation({
     return newOrderId;
   },
 });
+
+/**
+ * Set or clear the delivery fee on an order.
+ * deliveryFee is separate from product costs and is added on top of finalTotal.
+ * Can be set on any non-terminal order status.
+ */
+export const updateDeliveryFee = mutation({
+  args: {
+    orderId: v.id("orders"),
+    deliveryFee: v.number(), // Pass 0 to clear
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+    if (["Cancelled", "Complete"].includes(order.status)) {
+      throw new Error("Cannot update delivery fee on completed or cancelled orders");
+    }
+
+    // finalTotal = (totalAmount - discounts - voucherDiscount) + deliveryFee
+    // Recalculate: start from existing finalTotal logic then add deliveryFee
+    // The existing finalTotal already accounts for discounts; we need to strip
+    // the old deliveryFee from it and add the new one.
+    const oldDeliveryFee = order.deliveryFee ?? 0;
+    const newFinalTotal = (order.finalTotal - oldDeliveryFee) + args.deliveryFee;
+
+    await ctx.db.patch(args.orderId, {
+      deliveryFee: args.deliveryFee === 0 ? undefined : args.deliveryFee,
+      finalTotal: newFinalTotal,
+    });
+
+    return args.orderId;
+  },
+});

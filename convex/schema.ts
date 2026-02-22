@@ -349,6 +349,8 @@ export default defineSchema({
     )),
     // DERIVED: totalAmount - orderLevelDiscount. Updated on discount change.
     finalTotal: v.number(),
+    // Manually entered GoSend delivery fee. Separate from product costs. Included in finalTotal.
+    deliveryFee: v.optional(v.number()),
 
     // Voucher tracking (optional - only if voucher applied)
     voucherId: v.optional(v.id("vouchers")),
