@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 7/8 plans done
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) complete; 8/8 plans done
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 7/8 plans done)
-Plan: 20-07 complete (7/8 plans done; 20-01 through 20-07 done)
-Status: Plans 20-01 through 20-07 complete; build passes; listForKanban pruned to lean 18-field projection
-Last activity: 2026-02-22 - Completed 20-07: Prune listForKanban return shape to lean projection
+Phase: Phase 20 — Optimize Top Convex Query Reads (Complete - 8/8 plans done)
+Plan: 20-08 complete (8/8 plans done; 20-01 through 20-08 done)
+Status: All 8 plans complete; build passes; getKitchenStats Draft/AwaitingPayment skip optimized
+Last activity: 2026-02-22 - Completed 20-08: getKitchenStats pruned — Draft/AwaitingPayment orders skip item+production lookups
 
-Progress (v1.3): [████████░░] ~75% — Phase 19 complete (9/9), Phase 20 in progress (7/8)
+Progress (v1.3): [█████████░] ~90% — Phase 19 complete (9/9), Phase 20 complete (8/8)
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 20]: 20-06: RevenueByOutlet local type defined in hook (action returns Promise<unknown>; explicit type + cast — same pattern as 20-04/20-05)
 - [Phase 20]: 20-06: refresh callback exposed but not externally wired — PlatformHierarchy is self-contained; preset changes trigger re-fetch automatically
 - [Phase 20]: 20-07: listForKanban result type annotated with explicit lean shape (not Doc<orders> spread) to enforce pruned return contract at compile time
+- [Phase 20]: 20-08: productionOrders subset skips Draft/AwaitingPayment item+production lookups in getKitchenStats; return shape confirmed lean (primitives only, no Doc objects)
 
 ### Pending Todos
 
@@ -100,13 +101,14 @@ None.
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P05 | 8 | 2 tasks | 4 files |
 | Phase 20 P06 | 8 | 1 tasks | 4 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P07 | 6 | 1 tasks | 1 files |
+| Phase 20 P08 | 8 | 1 tasks | 1 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-07 — listForKanban return shape pruned to lean projection; 18 order fields + 5 item fields (drops notes, channel, paymentStatus, shippingId, etc.); build passes
+Stopped at: Completed 20-08 — getKitchenStats optimized: Draft/AwaitingPayment orders skip item+production nested DB lookups; return shape confirmed lean (primitives only, no Doc objects); Phase 20 all 8 plans done; build passes
 Resume file: None
-Resume notes: Phase 20 plans 20-01 through 20-07 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape; lean projection return (explicit fields not spread). Next: 20-08 (final plan).
+Resume notes: Phase 20 complete (all 8 plans). All bandwidth optimizations shipped. Next phase TBD.
 
 ---
-*Last updated: 2026-02-22 - Completed 20-07: listForKanban pruned to lean 18-field order projection + 5-field item projection; build passes*
+*Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*

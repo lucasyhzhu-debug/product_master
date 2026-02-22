@@ -61,7 +61,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
-- [ ] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries
+- [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
 - [ ] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
 - [ ] **Phase 22: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
 - [ ] **Phase 23: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
@@ -99,7 +99,7 @@ Plans:
 
 **Goal:** Reduce production bandwidth by converting the 5 heaviest analytical queries from reactive subscriptions to on-demand fetches, bounding unbounded table scans, fixing N+1 patterns, pruning query return shapes, and making internal order sync incremental
 **Depends on:** Phase 19 (GoFood depot management)
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 - [ ] 20-01-PLAN.md — Incremental internal sync (saveRevenue frequency fix)
@@ -202,7 +202,7 @@ Plans:
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
-| 20. Optimize Convex Query Reads | 7/8 | In Progress|  | - |
+| 20. Optimize Convex Query Reads | 8/8 | Complete   | 2026-02-22 | - |
 | 21. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
