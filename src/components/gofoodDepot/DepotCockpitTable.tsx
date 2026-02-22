@@ -11,7 +11,8 @@
  */
 
 import { useState } from 'react';
-import { Pencil, Check, X, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, Check, X, ArrowRight, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,13 +29,14 @@ import type { Id } from '../../../convex/_generated/dataModel';
 // ============================================================================
 
 interface DepotStockRow {
-  _id: Id<"gofoodDepotStock">;
+  _id: Id<"productInventory">;
   menuProductId: Id<"menuProducts">;
   menuProductName: string;
   menuProductCode: string;
   quantity: number;
   productInventoryQty: number | null;
   outletId?: Id<"externalOutlets">;
+  locationId?: Id<"storageLocations">;
 }
 
 interface RestockEntry {
@@ -176,6 +178,7 @@ export function DepotCockpitTable({
   stockGrouped,
   storageLocations,
 }: DepotCockpitTableProps) {
+  const navigate = useNavigate();
   const adjustDepotStock = useGoFoodAdjustDepotStock();
   const [transferDialogProduct, setTransferDialogProduct] = useState<{
     menuProductId: Id<"menuProducts">;
@@ -185,8 +188,19 @@ export function DepotCockpitTable({
 
   if (depotStock.length === 0) {
     return (
-      <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground text-sm">
-        No stock records for this outlet yet. Use the stock transfer dialog to move goods here.
+      <div className="rounded-xl border bg-card p-8 text-center space-y-3">
+        <p className="text-muted-foreground text-sm">
+          No stock records for this outlet yet. Move stock from Finished Goods inventory.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => navigate('/inventory')}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Go to Finished Goods
+        </Button>
       </div>
     );
   }
@@ -194,10 +208,11 @@ export function DepotCockpitTable({
   // Build "available elsewhere" map: for each product, sum qty at non-depot locations
   const availableElsewhereMap = new Map<string, number>();
   for (const group of stockGrouped) {
-    // Sum all locations (the frontend doesn't know which is "depot" vs "elsewhere"
-    // without more context, so we show total across all locations as a proxy)
-    const total = group.locations.reduce((sum, loc) => sum + loc.quantity, 0);
-    availableElsewhereMap.set(group.menuProductId as string, total);
+    // Exclude depot locations — show stock available to transfer TO this depot
+    const nonDepotTotal = group.locations
+      .filter((loc) => loc.locationType !== "depot")
+      .reduce((sum, loc) => sum + loc.quantity, 0);
+    availableElsewhereMap.set(group.menuProductId as string, nonDepotTotal);
   }
 
   return (
@@ -208,12 +223,8 @@ export function DepotCockpitTable({
             <tr className="border-b bg-muted/50">
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
               <th className="text-center px-4 py-3 font-medium text-muted-foreground">
-                Remaining
+                Stock
                 <span className="block text-xs font-normal">at depot</span>
-              </th>
-              <th className="text-center px-4 py-3 font-medium text-muted-foreground">
-                In Inventory
-                <span className="block text-xs font-normal">product inv.</span>
               </th>
               <th className="text-center px-4 py-3 font-medium text-muted-foreground">
                 Restock Tomorrow
@@ -256,6 +267,7 @@ export function DepotCockpitTable({
                         onSave={async (newQty) => {
                           await adjustDepotStock({
                             menuProductId: row.menuProductId,
+                            outletId: outletId,
                             newQuantity: newQty,
                             reason: 'Manual stock correction from GoFood Depot page',
                           });
@@ -263,13 +275,6 @@ export function DepotCockpitTable({
                         }}
                       />
                     </div>
-                  </td>
-
-                  {/* In Inventory (productInventory at linked location) — SECONDARY */}
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-base font-semibold text-muted-foreground tabular-nums">
-                      {row.productInventoryQty ?? '—'}
-                    </span>
                   </td>
 
                   {/* Restock Tomorrow */}

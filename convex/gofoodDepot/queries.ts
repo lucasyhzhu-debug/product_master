@@ -29,41 +29,37 @@ export const getDepotStock = query({
     let stocks;
 
     if (args.outletId) {
-      // Per-outlet: use composite index
-      stocks = await ctx.db
-        .query("gofoodDepotStock")
-        .withIndex("by_outlet_product", (q) => q.eq("outletId", args.outletId))
-        .collect();
-
-      // Resolve outlet's linked storage location for productInventory lookup
       const outlet = await ctx.db.get(args.outletId);
       const linkedLocationId = outlet?.linkedStorageLocationId;
 
-      const enriched = [];
-      for (const stock of stocks) {
-        const menuProduct = await ctx.db.get(stock.menuProductId);
+      if (!linkedLocationId) {
+        return []; // Outlet not yet linked to a storage location
+      }
 
-        // Get productInventory at outlet's linked location if available
-        let productInventoryQty: number | null = null;
-        if (linkedLocationId) {
-          const invRow = await ctx.db
-            .query("productInventory")
-            .withIndex("by_product_location", (q) =>
-              q.eq("menuProductId", stock.menuProductId).eq("locationId", linkedLocationId)
-            )
-            .first();
-          productInventoryQty = invRow?.quantity ?? 0;
-        }
+      // Single source of truth: productInventory at outlet's linked location
+      const invRows = await ctx.db
+        .query("productInventory")
+        .withIndex("by_location", (q) => q.eq("locationId", linkedLocationId))
+        .collect();
+
+      const enriched = [];
+      for (const row of invRows) {
+        const menuProduct = await ctx.db.get(row.menuProductId);
+        if (!menuProduct) continue;
 
         enriched.push({
-          ...stock,
-          menuProductName: menuProduct?.name ?? "Unknown",
-          menuProductCode: menuProduct?.code ?? "",
-          productInventoryQty,
+          _id: row._id,
+          menuProductId: row.menuProductId,
+          menuProductName: menuProduct.name,
+          menuProductCode: menuProduct.code ?? "",
+          quantity: row.quantity,
+          outletId: args.outletId,
+          productInventoryQty: row.quantity,
+          locationId: linkedLocationId,
         });
       }
 
-      return enriched;
+      return enriched.sort((a, b) => a.menuProductName.localeCompare(b.menuProductName));
     } else {
       // Legacy: return all records
       stocks = await ctx.db.query("gofoodDepotStock").collect();

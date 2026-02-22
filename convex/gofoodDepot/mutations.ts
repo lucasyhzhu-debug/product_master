@@ -497,18 +497,71 @@ export const recordSale = internalMutation({
 /**
  * Manually adjust depot stock (manager/admin only).
  * Used for physical count corrections.
+ *
+ * When outletId is provided, writes to productInventory at the outlet's
+ * linkedStorageLocationId (single source of truth for multi-outlet flow).
+ * Falls back to legacy gofoodDepotStock when outletId is omitted.
  */
 export const adjustDepotStock = mutation({
   args: {
     token: v.string(),
     menuProductId: v.id("menuProducts"),
+    outletId: v.optional(v.id("externalOutlets")),
     newQuantity: v.number(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
     const now = Date.now();
 
+    if (args.outletId) {
+      // Single source of truth: write to productInventory at outlet's linked location
+      const outlet = await ctx.db.get(args.outletId);
+      if (!outlet?.linkedStorageLocationId) {
+        throw new Error("Outlet has no linked storage location");
+      }
+      const locationId = outlet.linkedStorageLocationId;
+
+      const existing = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", args.menuProductId).eq("locationId", locationId)
+        )
+        .first();
+
+      const previousQuantity = existing?.quantity ?? 0;
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          quantity: args.newQuantity,
+          lastUpdated: now,
+        });
+      } else {
+        await ctx.db.insert("productInventory", {
+          menuProductId: args.menuProductId,
+          locationId,
+          quantity: args.newQuantity,
+          lastUpdated: now,
+        });
+      }
+
+      // Log transaction
+      await ctx.db.insert("productInventoryTransactions", {
+        menuProductId: args.menuProductId,
+        locationId,
+        transactionType: "adjust",
+        quantity: args.newQuantity - previousQuantity,
+        previousQuantity,
+        newQuantity: args.newQuantity,
+        reason: args.reason,
+        performedBy: user.name,
+        createdAt: now,
+      });
+
+      return { success: true };
+    }
+
+    // Legacy path: adjust gofoodDepotStock (old single-Goldfinch flow)
     const existingStock = await ctx.db
       .query("gofoodDepotStock")
       .withIndex("by_menuProduct", (q) =>
