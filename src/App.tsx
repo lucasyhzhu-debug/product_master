@@ -265,9 +265,9 @@ function App() {
                 }
               />
 
-              {/* Dispatch Planner - Manager and Admin */}
+              {/* Restock Planner - Manager and Admin */}
               <Route
-                path="dispatch-planner"
+                path="restock-planner"
                 element={
                   <ProtectedRoute requiredPermission="canAccessDashboard">
                     <DispatchPlanner />

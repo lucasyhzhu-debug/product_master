@@ -1,7 +1,7 @@
 /**
  * GoFoodRestockSection
  *
- * Read-only section displayed on the Dispatch Planner page showing
+ * Read-only section displayed on the Restock Planner page showing
  * GoFood depot restock suggestions per outlet, per product.
  *
  * Data is sourced from the same getRestockSuggestions query used by

@@ -24,6 +24,7 @@ import {
   Monitor,
   Check,
   Truck,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -71,7 +72,7 @@ const mainNavItems: NavItem[] = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
-  { path: '/dispatch-planner', label: 'Dispatch', icon: CalendarRange, permission: 'canAccessDashboard' },
+  { path: '/restock-planner', label: 'Restock', icon: CalendarRange, permission: 'canAccessDashboard' },
 ];
 
 // Depot Management dropdown - Manager + Admin
@@ -83,6 +84,7 @@ const depotItems: NavItem[] = [
 // Configurations dropdown - Manager + Admin
 const configItems: NavItem[] = [
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
+  { path: '/inventory/locations', label: 'Locations', icon: MapPin, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },
 ];

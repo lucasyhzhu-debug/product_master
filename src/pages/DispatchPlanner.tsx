@@ -72,7 +72,7 @@ function getCurrentMonday(): string {
 // ============================================
 
 export function DispatchPlanner() {
-  useDocumentTitle("Dispatch Planner");
+  useDocumentTitle("Restock Planner");
 
   // Week navigation state
   const [startDate, setStartDate] = useState(() => getCurrentMonday());
@@ -101,7 +101,7 @@ export function DispatchPlanner() {
     if (channelConfig !== undefined && channelConfig.length === 0 && !seededRef.current) {
       seededRef.current = true;
       seedDefaults({}).then(() => {
-        toast.success("Dispatch planner initialized with default settings");
+        toast.success("Restock planner initialized with default settings");
       }).catch((err: unknown) => {
         console.error("Failed to seed defaults:", err);
       });
@@ -171,7 +171,7 @@ export function DispatchPlanner() {
   if (loadingWeekly) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Dispatch Planner" description="Loading..." />
+        <PageHeader title="Restock Planner" description="Loading..." />
         <Skeleton className="h-14 w-full rounded-lg" />
         <Skeleton className="h-8 w-full rounded-lg" />
         <div className="space-y-1">
@@ -187,7 +187,7 @@ export function DispatchPlanner() {
     <div className="space-y-4">
       {/* Page Header with actions */}
       <PageHeader
-        title="Dispatch Planner"
+        title="Restock Planner"
         description={subtitle}
         action={
           <div className="flex items-center gap-2">
