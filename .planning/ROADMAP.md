@@ -139,7 +139,7 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** 1/5 plans executed
+**Plans:** 2/5 plans executed
 
 Plans:
 - [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
@@ -206,7 +206,7 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | 8/8 | Complete    | 2026-02-22 | - |
-| 21. Kitchen Production Targets | 1/5 | In Progress|  | - |
+| 21. Kitchen Production Targets | 2/5 | In Progress|  | - |
 | 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
 

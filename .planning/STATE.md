@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 21 — Kitchen Production Targets (In Progress - 1/5 plans done)
-Plan: 21-01 complete (1/5 plans done)
-Status: Plan 01 complete; schema + getKitchenTargetsForDate + setDailyOverride + updateConfig shipped; build passes
-Last activity: 2026-02-22 - Completed 21-01: Schema tables (kitchenShiftRecords, kitchenDailyOverrides), getKitchenTargetsForDate priority chain query, setDailyOverride/clearDailyOverride mutations, updateConfig extended with defaultPackagingMix
+Phase: Phase 21 — Kitchen Production Targets (In Progress - 2/5 plans done)
+Plan: 21-02 complete (2/5 plans done)
+Status: Plan 02 complete; submitShiftRecord + updateShiftRecord mutations with full inventory integration; getShiftRecordsByDate + getShiftHistory queries; build passes
+Last activity: 2026-02-22 - Completed 21-02: submitShiftRecord (all-role), updateShiftRecord (manager/admin), getShiftRecordsByDate (public), getShiftHistory (manager-only date range)
 
-Progress (v1.3): [█████████░] ~93% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 in progress (1/5 done)
+Progress (v1.3): [█████████░] ~94% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 in progress (2/5 done)
 
 ## Performance Metrics
 
@@ -73,6 +73,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 21-01]: getKitchenTargetsForDate aggregates ALL channels from dispatchPlans.by_date (no channel filter) — direct + gofood + k3mart + consignment all contribute to daily ball totals
 - [Phase 21-01]: Removed bigBall + midBall === maxProductionTarget sum validation from updateConfig — targets are now independent absolute numbers (dispatch plan BOM is the authoritative source)
 - [Phase 21-01]: Packaging breakdown in override source returns empty list when packagingOverrides not set — partial override is valid (ball-only override)
+- [Phase 21-02]: Raw ingredient deduction from componentStock deferred to follow-up phase — only Finished Goods (productInventory) updated at shift submit time
+- [Phase 21-02]: updateShiftRecord appends adjustment rows to inventoryUpdates array rather than replacing it — full audit trail preserved
+- [Phase 21-02]: getShiftRecordsByDate is public (no auth token) — all kitchen roles can view today's records
 
 ### Pending Todos
 
@@ -109,13 +112,14 @@ None.
 | Phase 20 P06 | 8 | 1 tasks | 4 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P07 | 6 | 1 tasks | 1 files |
 | Phase 20 P08 | 8 | 1 tasks | 1 files |
+| Phase 21-kitchen-production-targets P02 | 3 | 2 tasks | 3 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 21-01 — Kitchen backend schema + getKitchenTargetsForDate priority chain query + setDailyOverride/clearDailyOverride mutations + updateConfig extended; build passes
+Stopped at: Completed 21-02 — submitShiftRecord + updateShiftRecord mutations with full productInventory integration + getShiftRecordsByDate + getShiftHistory queries; build passes
 Resume file: None
-Resume notes: Phase 21 plan 01 complete. Schema tables and core target derivation query shipped. Ready for plan 21-02 (frontend KitchenViewV2 target display).
+Resume notes: Phase 21 plan 02 complete. Shift record mutations and queries shipped. Ready for plan 21-03.
 
 ---
 *Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*
