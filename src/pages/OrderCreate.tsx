@@ -513,7 +513,11 @@ export function OrderCreate() {
     <div className="space-y-6 pb-8">
       {/* Header */}
       <PageHeader
-        title={isEditMode ? "Edit Draft" : "New Order"}
+        title={isEditMode
+          ? existingOrder?.orderNumber
+            ? `Edit Order ${existingOrder.orderNumber}`
+            : "Edit Draft"
+          : "New Order"}
         description={isEditMode ? "Resume editing draft order" : "Create a new order"}
         backTo="/orders"
         backLabel="Orders"
