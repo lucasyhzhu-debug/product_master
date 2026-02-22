@@ -61,7 +61,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
 
 - [ ] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05)
-- [ ] **Phase 20: Kitchen Production Targets** — Configurable default daily target, dispatch output drives kitchen display (KIT-09, KIT-12)
+- [ ] **Phase 20: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
 - [ ] **Phase 21: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
 - [ ] **Phase 22: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
 
@@ -86,17 +86,25 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 Plans:
 - [ ] TBD
 
-### Phase 20: Kitchen Production Targets
+### Phase 20: Kitchen Production Targets & Overhaul
 
-**Goal:** Manager can configure default daily production targets in settings, and the kitchen view displays today's targets as two separate numbers driven by dispatch planner output with a configured fallback
-**Depends on:** Phase 17 (dispatch planner), Phase 19 (depot management complete)
-**Requirements:** KIT-09, KIT-12
+**Goal:** Full kitchen view redesign — simplified production-focused UI (remove boxing/stickering), display today's targets (ball totals + packaging breakdown from dispatch plan or defaults), end-of-shift recording that updates Finished Goods Inventory, optional waste logging by reason, shift history with manager edit capability, and manager daily override
+**Depends on:** Phase 17 (dispatch planner), Phase 17.1 (finished goods inventory), Phase 19 (depot management)
+**Requirements:** KIT-09, KIT-12, KIT-13, KIT-14, KIT-15, KIT-16, KIT-17, KIT-18
 **Implementation Notes:**
 - Use `/frontend-design` skill for holistic UI definition before implementation waves
+- Target derivation: (1) ball totals from BOM quantities via dispatch plan; (2) packaging breakdown from menu products + BOM linkage
+- Priority order for targets: per-day override > dispatch plan > configured defaults
+- End-of-shift submission triggers Finished Goods Inventory update at Kitchen storage location
+- Waste categories: QA/testing, spoilage, waste (all optional)
+- Past shift editing requires inventory impact confirmation dialog
 **Success Criteria** (what must be TRUE):
-  1. Default daily production target is 200 units (110 Original singles + 30 Original triples); a manager can view and edit these numbers in settings
-  2. Kitchen view displays two numbers for today: total Original singles to produce and total Original triples to produce
-  3. When a dispatch plan exists for today those two numbers are driven by the plan output; when no plan exists the configured defaults are displayed instead
+  1. Kitchen view is simplified: no boxing/stickering columns; full-screen production focus; targets at top-center; collapsible order context toggle
+  2. Today's targets show ball totals by type (Original/Jumbo) + packaging breakdown (singles, triples, cafe-singles, etc.) derived from dispatch plan via BOM or configured defaults
+  3. Manager can configure default targets on the kitchen page; manager can also override today's targets (per-day, does not affect defaults)
+  4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
+  5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
+  6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
 **Plans:** TBD (run /gsd:plan-phase 20 to break down)
 
 Plans:

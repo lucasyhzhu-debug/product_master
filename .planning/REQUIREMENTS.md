@@ -15,10 +15,16 @@ Requirements for milestone v1.3. Each maps to roadmap phases (19–22).
 - [ ] **GF-04**: Depot restock suggestion shown per depot: n+1 avg last 3 days; n+2 on Fri/Sat; Monday reset to previous Thursday's total
 - [ ] **GF-05**: When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
 
-### Kitchen Production Targets
+### Kitchen Production Targets & Overhaul
 
-- [ ] **KIT-09**: Default daily production target is 200 units (110 Original singles + 30 Original triples), configurable by manager in settings
-- [ ] **KIT-12**: Kitchen view displays two production target numbers driven by today's dispatch plan; fallback to configured default when no plan exists
+- [ ] **KIT-09**: Default daily production target configurable by manager on the kitchen page (default: 110 Original singles + 30 Original triples = 140 total balls)
+- [ ] **KIT-12**: Kitchen view displays today's production targets (ball totals by type + packaging breakdown) driven by dispatch plan via BOM; fallback to configured defaults when no plan exists
+- [ ] **KIT-13**: Kitchen view simplified: boxing/stickering columns removed; full-screen production-focused layout with collapsible order context toggle
+- [ ] **KIT-14**: End-of-shift input records produced units by product type + optional waste by reason (QA/testing, spoilage, waste); submission adds produced quantities to Finished Goods Inventory at Kitchen location
+- [ ] **KIT-15**: Two-step end-of-shift confirmation: review summary screen before commit, success summary screen after submit
+- [ ] **KIT-16**: Shift production records stored per shift (date, submitted by, produced quantities, waste breakdown); viewable by managers
+- [ ] **KIT-17**: Manager can edit past shift records; edit triggers inventory impact confirmation ("this will adjust inventory by N units — confirm?")
+- [ ] **KIT-18**: Manager can override today's production targets on the kitchen page (per-day only, does not change configured defaults)
 
 ### Consignment Upload
 
@@ -84,6 +90,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GF-05 | Phase 19 | Pending |
 | KIT-09 | Phase 20 | Pending |
 | KIT-12 | Phase 20 | Pending |
+| KIT-13 | Phase 20 | Pending |
+| KIT-14 | Phase 20 | Pending |
+| KIT-15 | Phase 20 | Pending |
+| KIT-16 | Phase 20 | Pending |
+| KIT-17 | Phase 20 | Pending |
+| KIT-18 | Phase 20 | Pending |
 | CON-01 | Phase 21 | Pending |
 | CON-02 | Phase 21 | Pending |
 | CON-03 | Phase 21 | Pending |
@@ -94,10 +106,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANLY-03 | Phase 22 | Pending |
 
 **Coverage:**
-- v1.3 requirements: 14 total (GF-02, GF-03, GF-04, GF-05, KIT-09, KIT-12, CON-01–05, ANLY-01–03)
-- Mapped to phases: 14
+- v1.3 requirements: 20 total (GF-02–05, KIT-09/12–18, CON-01–05, ANLY-01–03)
+- Mapped to phases: 20
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 — traceability confirmed after roadmap creation (Phases 19-22)*
+*Last updated: 2026-02-22 — 6 KIT requirements added after Phase 20 context discussion*
