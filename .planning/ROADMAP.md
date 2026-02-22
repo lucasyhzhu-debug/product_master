@@ -5,7 +5,7 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 Depot Management & Revenue** — Phases 19-20+ (planned)
+- 📋 **v1.3 GoFood, Kitchen & Consignment** — Phases 19-22 (planned)
 
 ## Phases
 
@@ -56,43 +56,96 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
-### 📋 v1.3 Depot Management & Revenue (Planned)
+### 📋 v1.3 GoFood, Kitchen & Consignment (Planned)
 
-**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen targets, and enable cross-channel revenue tracking with consignment management.
+**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
 
-- [ ] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-outlet depot stock + alerts, restock algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04)
+- [ ] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05)
 - [ ] **Phase 20: Kitchen Production Targets** — Configurable default daily target, dispatch output drives kitchen display (KIT-09, KIT-12)
+- [ ] **Phase 21: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
+- [ ] **Phase 22: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
 
 ## Phase Details
 
-### Phase 19: GoFood Depot Management (Gap Closure)
+### Phase 19: GoFood Depot Management
 
-**Goal:** Admin can configure per-outlet product mappings for each GoFood depot, track per-depot stock levels with low-stock alerts, and get daily restock suggestions; Tamtem depot deduction silently skipping when seed not run is replaced with an admin-visible alert
+**Goal:** Admin can configure per-outlet product mappings for each GoFood depot, track per-depot stock levels with low-stock alerts, receive daily restock suggestions, and see an explicit warning when the finished goods seed has not been run
 **Depends on:** Phase 17.1 (builds on finished goods inventory + GoFood deduction infrastructure)
-**Requirements:** GF-02, GF-03, GF-04
-**Gap Closure:** Closes GF-02, GF-03, GF-04 from v1.2 audit; fixes Tamtem silent-skip integration gap
+**Requirements:** GF-02, GF-03, GF-04, GF-05
+**Implementation Notes:**
+- `gofoodDepotStock` table must gain `outletId` field + composite index `(outletId, productId, date)` before any other work — this is the blocking schema dependency for per-depot tracking
+- Use `/frontend-design` skill for holistic UI definition before implementation waves
 **Success Criteria** (what must be TRUE):
-  1. Mapping tab has an outlet selector — admin can set per-outlet product mappings; new outlets default to previous depot's mapping
-  2. Each GoFood depot shows current stock level; admin sets starting stock per depot per day; system auto-deducts based on synced GoFood sales
-  3. Alert fires when any depot drops below 5 total products remaining
-  4. Restock suggestion shown per depot: n+1 (avg last 3 days), n+2 on Fri/Sat, Monday reset to previous Thursday's total
-  5. When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent console.log skip
+  1. Mapping tab has an outlet selector — admin can view and edit product mappings per GoFood depot; a new depot defaults its mapping to the previous depot's configuration
+  2. Each GoFood depot page shows current stock level; system auto-deducts based on synced GoFood sales after the admin sets starting stock
+  3. Alert fires and is visible on the depot page when any depot drops below 5 total products remaining
+  4. Restock suggestion is shown per depot: n+1 average of last 3 days; n+2 on Friday and Saturday; Monday resets to the previous Thursday total
+  5. When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
 **Plans:** TBD (run /gsd:plan-phase 19 to break down)
 
 Plans:
 - [ ] TBD
 
-### Phase 20: Kitchen Production Targets (Gap Closure)
+### Phase 20: Kitchen Production Targets
 
-**Goal:** Manager can configure default daily production targets, and the kitchen view displays today's production targets driven by dispatch planner output
-**Depends on:** Phase 17 (dispatch planner), Phase 19 (depot management)
+**Goal:** Manager can configure default daily production targets in settings, and the kitchen view displays today's targets as two separate numbers driven by dispatch planner output with a configured fallback
+**Depends on:** Phase 17 (dispatch planner), Phase 19 (depot management complete)
 **Requirements:** KIT-09, KIT-12
-**Gap Closure:** Closes KIT-09, KIT-12 from v1.2 audit
+**Implementation Notes:**
+- Use `/frontend-design` skill for holistic UI definition before implementation waves
 **Success Criteria** (what must be TRUE):
-  1. Default daily production target is 200 units (110 Original singles + 30 Original triples, no Jumbo); manager can edit this in settings
-  2. Kitchen view displays two numbers for today: (1) total Original singles to produce, (2) total Original triples to produce
-  3. Kitchen display numbers are driven by dispatch planner output when a plan exists for today; fallback to configured default when no plan set
+  1. Default daily production target is 200 units (110 Original singles + 30 Original triples); a manager can view and edit these numbers in settings
+  2. Kitchen view displays two numbers for today: total Original singles to produce and total Original triples to produce
+  3. When a dispatch plan exists for today those two numbers are driven by the plan output; when no plan exists the configured defaults are displayed instead
 **Plans:** TBD (run /gsd:plan-phase 20 to break down)
+
+Plans:
+- [ ] TBD
+
+### Phase 21: Consignment Upload
+
+**Goal:** User can download a pre-formatted Excel template, upload consignment sales in bulk or detail format with row-level validation and preview before committing, view the upload history per outlet, and delete a past batch to reverse its revenue rows
+**Depends on:** Phase 20 (all v1.3 backend infrastructure in place)
+**Requirements:** CON-01, CON-02, CON-03, CON-04, CON-05
+**Implementation Notes:**
+- SheetJS 0.20.3 must be installed from CDN tarball: `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` — NOT from npm registry (registry version is abandoned 0.18.5)
+- CON-03 template download must be Wave 1 alongside schema — outlets need the template before they upload
+- Use static import only at top of Convex action file (`import * as XLSX from "xlsx"`) — never dynamic import (CLAUDE.md Pitfall #8)
+- Chunk mutation writes at 100-200 rows maximum; add 5 MB file size guard in UI before parsing begins
+- `convex/lib/dateUtils.ts` WIB utility must be created in this phase and imported by Phase 22
+- Inspect `dispatchConsignmentOutlets` data before Phase 21 Wave 1 to decide outlet FK strategy (reuse existing IDs vs. create parallel `externalOutlets` rows with `source = "consignment"`)
+- Validate merged-cell detection in parser before `sheet_to_json`; template must have zero merged cells
+- Use `/frontend-design` skill for holistic UI definition before implementation waves
+**Success Criteria** (what must be TRUE):
+  1. User can download a pre-formatted Excel template with two sheets (Bulk Summary and Transaction Detail), example rows, no merged cells, and a note warning not to merge cells
+  2. User selects an outlet and uploads a Bulk Summary Excel file; system validates rows with row number and column name on error, shows a preview table, warns on duplicate outlet + date range, and only commits after confirmation
+  3. User uploads a Transaction Detail Excel file; system applies the same row-level validation and preview flow, auto-detects the format from the presence of a `transactionId` column header
+  4. User can view upload history per outlet showing status, row count, and upload date
+  5. User can delete a past upload batch; system reverses all associated revenue rows and removes the batch from history
+**Plans:** TBD (run /gsd:plan-phase 21 to break down)
+
+Plans:
+- [ ] TBD
+
+### Phase 22: Sales Analytics Extension
+
+**Goal:** Sales Analytics shows consignment outlets as distinct segments in stacked bar charts and displays a lifetime units sold headline counter with per-product and per-channel breakdown table across all channels
+**Depends on:** Phase 21 (consignment rows must exist in `externalRevenue` for lifetime aggregation; `convex/lib/dateUtils.ts` created in Phase 21)
+**Requirements:** ANLY-01, ANLY-02, ANLY-03
+**Implementation Notes:**
+- Fix `getDailySalesSummary` channel filter to `channel = "direct"` BEFORE writing `getLifetimeTotals` — building aggregation on a broken foundation guarantees wrong numbers
+- All aggregation date boundaries must use `convex/lib/dateUtils.ts` WIB utility from Phase 21
+- Per-channel source of truth: Direct = `orders` filtered to `channel = "direct"`; GoFood/K3Mart/Consignment = `externalRevenue` by source
+- `getLifetimeTotals` per-product join for Direct channel requires joining `orderItems` (not `externalRevenue`) — plan a design review to avoid N+1 patterns
+- Lifetime total must not exceed total balls from production log (physical upper bound validation)
+- Research flag: `getLifetimeTotals` per-product join complexity should be reviewed before assigning to executor
+- Use `/frontend-design` skill for holistic UI definition before implementation waves
+**Success Criteria** (what must be TRUE):
+  1. Each consignment outlet that has revenue data appears as its own color segment in the Sales Analytics stacked bar charts; outlets with no data are not shown
+  2. Sales Analytics has a Lifetime tab showing a headline counter of total units sold across all channels and all time
+  3. The Lifetime tab shows a per-product breakdown table (sortable by total units descending) aggregated across all channels
+  4. The Lifetime tab shows a per-channel breakdown (GoFood, K3Mart, Direct, and each consignment outlet separately) contributing to the grand total
+**Plans:** TBD (run /gsd:plan-phase 22 to break down)
 
 Plans:
 - [ ] TBD
@@ -100,7 +153,7 @@ Plans:
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|---------------|--------|-----------|
+|-------|-----------|----------------|--------|-----------|
 | 1-11. Foundation → Infrastructure | v1.0 | 36/36 | Complete | 2026-02-15 |
 | 12-16. UI → K3Mart Cockpit | v1.1 | 27/27 | Complete | 2026-02-16 |
 | 17. Unified Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
@@ -108,3 +161,5 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 0/TBD | Not started | - |
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
+| 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
+| 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |

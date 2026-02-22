@@ -94,10 +94,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANLY-03 | Phase 22 | Pending |
 
 **Coverage:**
-- v1.3 requirements: 13 total
-- Mapped to phases: 13
+- v1.3 requirements: 14 total (GF-02, GF-03, GF-04, GF-05, KIT-09, KIT-12, CON-01–05, ANLY-01–03)
+- Mapped to phases: 14
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 after initial definition*
+*Last updated: 2026-02-22 — traceability confirmed after roadmap creation (Phases 19-22)*
