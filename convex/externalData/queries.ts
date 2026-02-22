@@ -624,8 +624,9 @@ function isWeekend(utcMs: number): boolean {
 /**
  * Restock overview: returns all channels/outlets with current stock + demand summary.
  * Powers the main grid view of the Restock Planner.
+ * Internal only — called via fetchRestockOverview action for on-demand fetching.
  */
-export const getRestockOverview = query({
+export const getRestockOverviewInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
@@ -741,12 +742,19 @@ export const getRestockOverview = query({
       )
       .collect();
 
+    // Parallel fetch all externalRevenueItems for all gobiz revenue records
+    const allGobizItems = await Promise.all(
+      gobizRevenue.map((r) =>
+        ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+          .collect()
+      )
+    );
+
     const gobizDemandMap = new Map<string, { totalSold: number; menuProductId?: string }>();
-    for (const r of gobizRevenue) {
-      const items = await ctx.db
-        .query("externalRevenueItems")
-        .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
-        .collect();
+    for (let i = 0; i < gobizRevenue.length; i++) {
+      const items = allGobizItems[i];
       for (const item of items) {
         const existing = gobizDemandMap.get(item.productName);
         if (existing) {
@@ -797,23 +805,35 @@ export const getRestockOverview = query({
       )
       .collect();
 
+    // Parallel: fetch all orders by order number
+    const orderNumbers = internalRevenue
+      .map((r) => r.externalTransactionId)
+      .filter((n): n is string => !!n);
+
+    const orders = await Promise.all(
+      orderNumbers.map((orderNumber) =>
+        ctx.db
+          .query("orders")
+          .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+          .first()
+      )
+    );
+
+    // Parallel: fetch all orderItems for found orders
+    const validOrders = orders.filter((o): o is NonNullable<typeof o> => o !== null);
+    const allOrderItems = await Promise.all(
+      validOrders.map((order) =>
+        ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect()
+      )
+    );
+
+    // Build demand map from parallel results
     const internalDemandMap = new Map<string, number>();
-    for (const r of internalRevenue) {
-      // Each internal revenue record has externalTransactionId = orderNumber
-      const orderNumber = r.externalTransactionId;
-      if (!orderNumber) continue;
-
-      const order = await ctx.db
-        .query("orders")
-        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-        .first();
-      if (!order) continue;
-
-      const items = await ctx.db
-        .query("orderItems")
-        .withIndex("by_order", (q) => q.eq("orderId", order._id))
-        .collect();
-
+    for (let i = 0; i < validOrders.length; i++) {
+      const items = allOrderItems[i];
       for (const item of items) {
         if (item.isCancelled) continue;
         const name = item.productName;
