@@ -608,7 +608,7 @@ export const updateOrderDiscount = mutation({
       throw new Error("Cannot modify discount on completed/cancelled order");
     }
 
-    // Recalculate total (use original totalAmount, not finalTotal)
+    // Recalculate total (use original totalAmount, not finalTotal; keep deliveryFee)
     const discountAmount = args.discountType === "percentage"
       ? order.totalAmount * (args.discount / 100)
       : args.discount;
@@ -616,7 +616,7 @@ export const updateOrderDiscount = mutation({
     await ctx.db.patch(args.orderId, {
       orderLevelDiscount: args.discount,
       orderLevelDiscountType: args.discountType,
-      finalTotal: order.totalAmount - discountAmount,
+      finalTotal: order.totalAmount - discountAmount + (order.deliveryFee ?? 0),
     });
 
     return args.orderId;
@@ -818,8 +818,8 @@ export const updateDraft = mutation({
         patch.voucherId = undefined;
         patch.voucherCode = undefined;
         patch.voucherDiscountValue = undefined;
-        // Recalculate finalTotal without voucher
-        patch.finalTotal = order.totalAmount;
+        // Recalculate finalTotal without voucher (keep deliveryFee)
+        patch.finalTotal = order.totalAmount + (order.deliveryFee ?? 0);
       } else if (args.voucherCode !== order.voucherCode) {
         // New/changed voucher
         // Release old voucher if exists
@@ -851,10 +851,10 @@ export const updateDraft = mutation({
         patch.voucherDiscountValue = voucherInfo.voucherDiscountValue;
         // Record usage
         await recordVoucherUsage(ctx, voucherInfo.voucherId, currentCustomerId, args.orderId);
-        // Recalculate finalTotal with new voucher
+        // Recalculate finalTotal with new voucher (keep deliveryFee)
         // For item-linked vouchers, discount is embedded in item lineTotals; order.totalAmount is already reduced.
         // On update, we apply at order-level since item records aren't rebuilt here.
-        patch.finalTotal = order.totalAmount - voucherInfo.voucherDiscountValue;
+        patch.finalTotal = order.totalAmount - voucherInfo.voucherDiscountValue + (order.deliveryFee ?? 0);
       }
     }
 

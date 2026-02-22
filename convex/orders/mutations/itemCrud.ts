@@ -84,11 +84,12 @@ export const addItem = mutation({
     const newTotalAmount = currentOrder.totalAmount + lineTotal;
     const newTotalCost = currentOrder.totalCost + lineCost;
 
-    // Recalculate finalTotal with order-level discount (voucher already cleared)
+    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
       currentOrder.orderLevelDiscount,
-      currentOrder.orderLevelDiscountType
+      currentOrder.orderLevelDiscountType,
+      currentOrder.deliveryFee
     );
 
     // Update order totals
@@ -135,11 +136,12 @@ export const removeItem = mutation({
     const newTotalAmount = currentOrder.totalAmount - item.lineTotal;
     const newTotalCost = currentOrder.totalCost - item.lineCost;
 
-    // Recalculate finalTotal with order-level discount (voucher already cleared)
+    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
       currentOrder.orderLevelDiscount,
-      currentOrder.orderLevelDiscountType
+      currentOrder.orderLevelDiscountType,
+      currentOrder.deliveryFee
     );
 
     // Update order totals
@@ -240,11 +242,12 @@ export const replaceItems = mutation({
       totalMargin += lineMargin;
     }
 
-    // Recalculate finalTotal with order-level discount (voucher already cleared)
+    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       totalAmount,
       order.orderLevelDiscount,
-      order.orderLevelDiscountType
+      order.orderLevelDiscountType,
+      order.deliveryFee
     );
 
     // Update order totals
@@ -318,11 +321,12 @@ export const updateItemQuantity = mutation({
     const newTotalAmount = currentOrder.totalAmount + amountDiff;
     const newTotalCost = currentOrder.totalCost + costDiff;
 
-    // Recalculate finalTotal with order-level discount (voucher already cleared)
+    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
     const newFinalTotal = recalculateFinalTotal(
       newTotalAmount,
       currentOrder.orderLevelDiscount,
-      currentOrder.orderLevelDiscountType
+      currentOrder.orderLevelDiscountType,
+      currentOrder.deliveryFee
     );
 
     // Update order totals
