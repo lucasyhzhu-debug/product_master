@@ -23,6 +23,7 @@ import {
   Moon,
   Monitor,
   Check,
+  Truck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -70,8 +71,13 @@ const mainNavItems: NavItem[] = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
-  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
   { path: '/dispatch-planner', label: 'Dispatch', icon: CalendarRange, permission: 'canAccessDashboard' },
+];
+
+// Depot Management dropdown - Manager + Admin
+const depotItems: NavItem[] = [
+  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard' },
 ];
 
 // Configurations dropdown - Manager + Admin
@@ -97,6 +103,10 @@ export function Header() {
 
   const visibleMainItems = user
     ? mainNavItems.filter(item => hasPermission(item.permission))
+    : [];
+
+  const visibleDepotItems = user
+    ? depotItems.filter(item => hasPermission(item.permission))
     : [];
 
   const visibleConfigItems = user
@@ -169,6 +179,32 @@ export function Header() {
                       </Link>
                     );
                   })}
+
+                  {/* Depot Management section */}
+                  {visibleDepotItems.length > 0 && (
+                    <>
+                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                        Depot Management
+                      </div>
+                      {visibleDepotItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
 
                   {/* Configurations section */}
                   {visibleConfigItems.length > 0 && (
@@ -288,6 +324,43 @@ export function Header() {
                   </Link>
                 );
               })}
+
+              {/* Depot Management dropdown */}
+              {visibleDepotItems.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
+                        isDropdownActive(visibleDepotItems) ? "text-foreground" : "text-foreground/60"
+                      )}
+                    >
+                      <Truck className="h-4 w-4" />
+                      <span>Depots</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {visibleDepotItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link
+                            to={item.path}
+                            className={cn(
+                              "flex items-center space-x-2 w-full",
+                              isActive(item.path) && "font-medium"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Configurations dropdown */}
               {visibleConfigItems.length > 0 && (

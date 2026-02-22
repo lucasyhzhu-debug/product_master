@@ -86,6 +86,26 @@ export function GoFoodDepotManager() {
   const { data: restockSuggestions } = useGoFoodRestockSuggestions(resolvedOutletId);
   const { data: outletMappings } = useGoFoodOutletMappings(resolvedOutletId);
 
+  // ---- DERIVED DATA (all hooks must be above conditional returns) ----
+  const selectedOutlet = outlets?.find((o) => o._id === resolvedOutletId);
+
+  // Low-stock detection: any product at this depot with remaining < 5
+  const lowStockProducts = useMemo(() => {
+    if (!depotStock) return [];
+    return depotStock.filter((row) => (row.quantity ?? 0) < 5);
+  }, [depotStock]);
+
+  const hasLowStock = lowStockProducts.length > 0;
+
+  // Build restock suggestion map: menuProductId -> suggestion
+  const restockMap = useMemo(() => {
+    const map = new Map<string, { suggestion: number; breakdown: string }>();
+    for (const s of restockSuggestions?.suggestions ?? []) {
+      map.set(s.menuProductId, { suggestion: s.suggestion, breakdown: s.breakdown });
+    }
+    return map;
+  }, [restockSuggestions]);
+
   // ---- LOADING STATE ----
   if (loadingSeed || loadingOutlets) {
     return (
@@ -106,26 +126,6 @@ export function GoFoodDepotManager() {
       </div>
     );
   }
-
-  // ---- DERIVED DATA ----
-  const selectedOutlet = outlets?.find((o) => o._id === resolvedOutletId);
-
-  // Low-stock detection: any product at this depot with remaining < 5
-  const lowStockProducts = useMemo(() => {
-    if (!depotStock) return [];
-    return depotStock.filter((row) => (row.quantity ?? 0) < 5);
-  }, [depotStock]);
-
-  const hasLowStock = lowStockProducts.length > 0;
-
-  // Build restock suggestion map: menuProductId -> suggestion
-  const restockMap = useMemo(() => {
-    const map = new Map<string, { suggestion: number; breakdown: string }>();
-    for (const s of restockSuggestions?.suggestions ?? []) {
-      map.set(s.menuProductId, { suggestion: s.suggestion, breakdown: s.breakdown });
-    }
-    return map;
-  }, [restockSuggestions]);
 
   // ---- RENDER ----
   return (
