@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 19 — GoFood Depot Management (In Progress - gap closure plans)
-Plan: 19-08 complete (8/9 plans done)
-Status: GoFood Depot Restock section has usage guidance and Transfer links; build passes
-Last activity: 2026-02-22 - Completed 19-08: Restock Planner UX fixes (usage guidance + Transfer links)
+Phase: Phase 19 — GoFood Depot Management (COMPLETE - all 9 plans done)
+Plan: 19-09 complete (9/9 plans done)
+Status: All gap-closure plans complete; build passes; ready to merge to main
+Last activity: 2026-02-22 - Completed 19-09: UI polish (tooltip contrast, button color coding, GoBiz sync note)
 
-Progress (v1.3): [█████░░░░░] ~45% — Phase 19 8/9 plans complete
+Progress (v1.3): [██████░░░░] ~50% — Phase 19 complete (9/9 plans), Phase 20 next
 
 ## Performance Metrics
 
@@ -49,6 +49,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 19]: Usage guidance placed above collapsible content so it remains visible in both expanded and collapsed states
 - [Phase 19]: Transfer link in GoFoodRestockSection navigates to /inventory directly (no deep-link parameters)
 - [Phase 19]: Location type editor uses useSessionMutation (not useMutation+token) since storageLocations.mutations.update uses protectedMutation/SessionIdArg pattern
+- [Phase 19-09]: Removed text-muted-foreground from TooltipContent paragraph; tooltip inherits its own readable color
+- [Phase 19-09]: Move/Receive buttons use blue/green outline tinting for semantic color coding across both ProductGroupedView and LocationGroupedView
+- [Phase 19-09]: GoBiz sync note is always-visible (non-dismissible) to ensure users see sync prerequisite info
 
 ### Pending Todos
 
@@ -78,13 +81,14 @@ None.
 | Phase 19 P06 | 10 | 2 tasks | 2 files |
 | Phase 19 P08 | 4 | 2 tasks | 1 files |
 | Phase 19 P07 | 10 | 2 tasks | 2 files |
+| Phase 19 P09 | 3 | 2 tasks | 3 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-08-PLAN.md — Restock Planner UX fixes (usage guidance + Transfer links in GoFoodRestockSection)
+Stopped at: Completed 19-09-PLAN.md — UI polish: tooltip contrast fix, Move/Receive button color coding, GoBiz sync prerequisite note
 Resume file: None
-Resume notes: Phase 19 gap-closure plan 08 done (8/9). One plan remaining (19-09 if it exists). Ready to continue with remaining gap-closure plans or merge to main.
+Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20.
 
 ---
-*Last updated: 2026-02-22 - Completed 19-08: Restock Planner usage guidance and Transfer links*
+*Last updated: 2026-02-22 - Completed 19-09: UI polish (tooltip contrast, button colors, sync note)*

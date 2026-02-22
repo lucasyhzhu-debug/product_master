@@ -81,7 +81,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
   3. Alert fires and is visible on the depot page when any depot drops below 5 total products remaining
   4. Restock suggestion is shown per depot: n+1 average of last 3 days; n+2 on Friday and Saturday; Monday resets to the previous Thursday total
   5. When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans complete
 
 Plans:
 - [ ] 19-01-PLAN.md — Schema migration + core backend (transferStock, isSeedRequired, per-outlet queries)
@@ -175,7 +175,7 @@ Plans:
 | 17. Unified Dispatch Planner & 3rd Outlet | v1.2 | 6/6 | Complete | 2026-02-17 |
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
-| 19. GoFood Depot Management | 8/9 | In Progress|  | - |
+| 19. GoFood Depot Management | 9/9 | Complete   | 2026-02-22 | - |
 | 20. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 21. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 22. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
