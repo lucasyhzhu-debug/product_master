@@ -346,6 +346,9 @@ export {
 // Kitchen Production (Kitchen V3 Redesign)
 export { useKitchenProduction } from "./useKitchenProduction";
 
+// Kitchen Targets (Kitchen V4 Redesign — Phase 21)
+export { useKitchenTargets } from "./useKitchenTargets";
+
 // Protected Mutation Wrapper
 export { useProtectedMutation } from "./useProtectedMutation";
 
