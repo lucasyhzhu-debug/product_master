@@ -78,6 +78,7 @@ None.
 | 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
 | 20 | add item-linked voucher type: fixed Rp discount per unit of a specific menu product, applied at item level during order creation | 2026-02-22 | e235382 | Verified | [20-add-item-linked-voucher-type-with-direct](./quick/20-add-item-linked-voucher-type-with-direct/) |
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
+| 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
 | Phase 19 P06 | 10 | 2 tasks | 2 files |
 | Phase 19 P08 | 4 | 2 tasks | 1 files |
 | Phase 19 P07 | 10 | 2 tasks | 2 files |
@@ -86,9 +87,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-09-PLAN.md — UI polish: tooltip contrast fix, Move/Receive button color coding, GoBiz sync prerequisite note
+Stopped at: Completed quick-22 — Add {delivery_fee} variable to payment_request and receipt WhatsApp DB templates
 Resume file: None
-Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20.
+Resume notes: Phase 19 all 9 plans complete. Ready to merge gsd/phase-19-gofood-depot-management-and-kitchen-production-targets to main, then start Phase 20. Quick task 22 on feature/quick-22-whatsapp-delivery-fee awaiting merge.
 
 ---
 *Last updated: 2026-02-22 - Completed 19-09: UI polish (tooltip contrast, button colors, sync note)*
