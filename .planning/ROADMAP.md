@@ -171,10 +171,14 @@ Plans:
   5. `npm run type-check` passes
   6. `npm run build` succeeds
   7. No dead imports or references to removed tables/pages
-**Plans:** TBD (run /gsd:plan-phase 22 to break down)
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD
+- [ ] 22-01-PLAN.md — Drop 11 legacy schema tables, delete 5 backend modules, strip costInvalidation.ts
+- [ ] 22-02-PLAN.md — Delete legacy frontend pages, hooks, components; clean barrel exports, routes, permissions
+- [ ] 22-03-PLAN.md — Build Frollie Pro hub page at /home with role-filtered navigation cards
+- [ ] 22-04-PLAN.md — Rebrand to Frollie Pro + update navigation (Home link, remove dead nav items)
+- [ ] 22-05-PLAN.md — Final verification sweep (type-check, build, dead reference grep)
 
 ## Progress
 
@@ -188,4 +192,4 @@ Plans:
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | 5/5 | Complete    | 2026-02-22 | - |
-| 22. Remove legacy editors & Dashboard | v1.3 | 0/TBD | Not started | - |
+| 22. Remove legacy editors & Dashboard | v1.3 | 0/5 | Not started | - |
