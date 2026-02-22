@@ -41,6 +41,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 19-04]: Location-type bucketing: office+kitchen=Internal, depot=GoFood, venue=K3Mart; consignment hidden until Phase 21
 - [Phase 19-04]: Zero-stock rows shown by default with opacity-50 styling (not hidden)
 - [Phase 19-04]: Grouping toggle computed client-side from getStockOverviewGrouped (no extra query)
+- [Phase 19]: PageHeader description is string-only: last-synced placed in action slot
+- [Phase 19]: All GoFood depot hooks called before conditionals per React hooks rule
 
 ### Pending Todos
 
@@ -64,15 +66,14 @@ None.
 | 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
 | 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
 | 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
-| 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
-| Phase 19-gofood-depot-management-and-kitchen-production-targets P01 | 10 | 2 tasks | 5 files |
+| 19 | replace hand-rolled items+pricing block in OrderSlideOver with shared OrderItems component; delivery fee now visible in slide-over | 2026-02-22 | 9b2be80 | Verified | [19-replace-hand-rolled-items-pricing-block-](./quick/19-replace-hand-rolled-items-pricing-block-/) |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-04-PLAN.md — Finished Goods tab redesign (hero, grouping toggle, inline transfers, Move Stock modal)
+Stopped at: Completed 19-03-PLAN.md — GoFood Depot Management frontend page (all 5 components, route, hooks)
 Resume file: None
-Resume notes: Plans 01-04 complete. Next is 19-05 (kitchen production targets frontend). Note: pre-existing build errors in plan 19-03 files need fixing before merge.
+Resume notes: Plans 01-04 complete. Next is 19-05 (kitchen production targets frontend). Build passes with all plans 01-04 implemented.
 
 ---
-*Last updated: 2026-02-22 - Completed 19-04: Finished Goods tab redesign with transfer UI*
+*Last updated: 2026-02-22 - Completed 19-03: GoFood Depot Management frontend page*
