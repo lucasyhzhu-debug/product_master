@@ -22,6 +22,9 @@ Progress (v1.3): [░░░░░░░░░░] 0% — Phase 19 ready to plan
 
 ## Accumulated Context
 
+### Roadmap Evolution
+- Phase 23 added: Optimize top Convex query reads to reduce production bandwidth
+
 ### Decisions
 
 All v1.0–v1.2 decisions archived in PROJECT.md Key Decisions table.
