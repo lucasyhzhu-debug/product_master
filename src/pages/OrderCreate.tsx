@@ -26,6 +26,7 @@ import {
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/utils';
+import { parseDeliveryAddress } from '@/lib/deliveryUtils';
 import { toast } from 'sonner';
 import type { OrderLineItem } from '@/lib/types';
 import type { Id } from '../../convex/_generated/dataModel';
@@ -68,6 +69,8 @@ export function OrderCreate() {
 
   // Delivery
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [showAddressConfirm, setShowAddressConfirm] = useState(false);
+  const [addressConfirmed, setAddressConfirmed] = useState(false);
 
   // Items
   const [items, setItems] = useState<OrderLineItem[]>([]);
@@ -178,6 +181,10 @@ export function OrderCreate() {
   const total = subtotal - totalDiscountValue;
   const isLowPrice = total > 0 && total < LOW_PRICE_THRESHOLD;
   const hasItems = items.length > 0;
+  const deliveryParsed = useMemo(
+    () => parseDeliveryAddress(deliveryAddress),
+    [deliveryAddress]
+  );
 
   // ============================================
   // Handlers
@@ -358,6 +365,11 @@ export function OrderCreate() {
     }
   };
 
+  const handleDeliveryAddressChange = (value: string) => {
+    setDeliveryAddress(value);
+    setAddressConfirmed(false);
+  };
+
   const handleSubmit = async () => {
     if (!hasItems) {
       toast.error('Add at least one product');
@@ -369,6 +381,10 @@ export function OrderCreate() {
     }
     if (isLowPrice && !lowPriceConfirmed) {
       setShowLowPriceWarning(true);
+      return;
+    }
+    if (deliveryParsed.suspicious && !addressConfirmed) {
+      setShowAddressConfirm(true);
       return;
     }
     await executeSubmit();
@@ -547,10 +563,24 @@ export function OrderCreate() {
           <input
             type="text"
             value={deliveryAddress}
-            onChange={(e) => setDeliveryAddress(e.target.value)}
+            onChange={(e) => handleDeliveryAddressChange(e.target.value)}
             placeholder="Enter delivery address or pickup location..."
             className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
+
+          {/* Delivery inference badge */}
+          {deliveryAddress.trim().length > 0 && (
+            <p className={`text-xs font-medium mt-1 ${
+              deliveryParsed.deliveryType === 'Pickup'
+                ? 'text-purple-600'
+                : 'text-blue-600'
+            }`}>
+              {deliveryParsed.deliveryType === 'Pickup'
+                ? `📍 Pickup at: ${deliveryParsed.pickupLocation ?? '—'}`
+                : `🚚 Delivery to: ${deliveryAddress.trim()}`
+              }
+            </p>
+          )}
 
           <QuickAddressButtons onSelect={handleQuickAddress} />
         </div>
@@ -823,6 +853,32 @@ export function OrderCreate() {
         onConfirm={handleLowPriceConfirm}
         isSubmitting={isSubmitting}
       />
+
+      {/* Soft-block: address doesn't look valid */}
+      {showAddressConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
+            <h3 className="font-semibold text-base">
+              This doesn't look like an address
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              "{deliveryAddress}" doesn't look like a delivery address. Save anyway?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowAddressConfirm(false)}>
+                Edit address
+              </Button>
+              <Button onClick={() => {
+                setAddressConfirmed(true);
+                setShowAddressConfirm(false);
+                void executeSubmit();
+              }}>
+                Save anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
