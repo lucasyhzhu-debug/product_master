@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 5/8 plans done
+**Current focus:** v1.3 — Phase 20 (Bandwidth Optimization) in progress; 6/8 plans done
 
 ## Current Position
 
-Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 5/8 plans done)
-Plan: 20-05 complete (5/8 plans done; 20-01, 20-02, 20-03, 20-04, and 20-05 done)
-Status: Plans 20-01 through 20-05 complete; build passes; getOutletStockSummary now internalQuery+action; K3Mart cockpit loads on-demand with sync refresh
-Last activity: 2026-02-22 - Completed 20-05: Convert getOutletStockSummary to on-demand action + refresh hook
+Phase: Phase 20 — Optimize Top Convex Query Reads (In Progress - 6/8 plans done)
+Plan: 20-06 complete (6/8 plans done; 20-01, 20-02, 20-03, 20-04, 20-05, and 20-06 done)
+Status: Plans 20-01 through 20-06 complete; build passes; getRevenueByOutlet now internalQuery+action; SalesAnalytics OverviewTab loads on-demand
+Last activity: 2026-02-22 - Completed 20-06: Convert getRevenueByOutlet to on-demand action + refresh hook
 
-Progress (v1.3): [████████░░] ~66% — Phase 19 complete (9/9), Phase 20 in progress (5/8)
+Progress (v1.3): [████████░░] ~70% — Phase 19 complete (9/9), Phase 20 in progress (6/8)
 
 ## Performance Metrics
 
@@ -64,6 +64,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 20-04]: GoBiz N+1 replaced with single Promise.all; Internal two-level N+1 replaced with two Promise.all batches (orders then orderItems)
 - [Phase 20-05]: OutletStockSummary local type defined in hook (action returns Promise<unknown>; FunctionReturnType resolves to unknown — explicit type + cast pattern, same as 20-04)
 - [Phase 20-05]: refreshOutletStock wired into handleSync after Promise.allSettled — outlet data reloads after every sync without page reload
+- [Phase 20]: 20-06: RevenueByOutlet local type defined in hook (action returns Promise<unknown>; explicit type + cast — same pattern as 20-04/20-05)
+- [Phase 20]: 20-06: refresh callback exposed but not externally wired — PlatformHierarchy is self-contained; preset changes trigger re-fetch automatically
 
 ### Pending Todos
 
@@ -95,13 +97,14 @@ None.
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P05 | 8 | 2 tasks | 4 files |
+| Phase 20 P06 | 8 | 1 tasks | 4 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20-05 — getOutletStockSummary converted to internalQuery + action; useConvexOutletStockSummary updated to on-demand fetch with refresh callback; refresh wired into handleSync
+Stopped at: Completed 20-06 — getRevenueByOutlet converted to internalQuery + action; useConvexRevenueByOutlet updated to on-demand fetch with refresh callback; PlatformHierarchy in OverviewTab destructures refresh
 Resume file: None
-Resume notes: Phase 20 plans 20-01 through 20-05 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape; refresh callback wired into sync handlers. Next: 20-06 (next bandwidth target).
+Resume notes: Phase 20 plans 20-01 through 20-06 complete. Patterns: incremental sync with timestamp buffer; internalQuery+action+useAction hook; hook-level default bounds; Promise.all N+1 elimination; explicit local type for action return shape; refresh callback wired into sync handlers. Next: 20-07 (next bandwidth target).
 
 ---
-*Last updated: 2026-02-22 - Completed 20-05: getOutletStockSummary converted to internalQuery+action; refresh callback wired into K3Mart sync handler (build passes)*
+*Last updated: 2026-02-22 - Completed 20-06: getRevenueByOutlet converted to internalQuery+action; useConvexRevenueByOutlet updated to on-demand fetch with refresh callback (build passes)*
