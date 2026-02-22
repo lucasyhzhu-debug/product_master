@@ -36,6 +36,8 @@ Key decisions affecting v1.3 phases:
 - [Research]: SheetJS 0.20.3 from CDN tarball only — never `npm install xlsx` (registry stuck at abandoned 0.18.5)
 - [Research]: `getDailySalesSummary` missing `channel = "direct"` filter — must fix before `getLifetimeTotals` in Phase 22
 - [Phase 19]: computeRestockSuggestion uses Math.ceil on avg+buffer; Monday resets to previous Thursday total; initOutletMappingsFromPrevious is idempotent (no-op if target already has mappings)
+- [Phase 19-01]: outletId is optional on gofoodDepotStock for backward compatibility with existing rows
+- [Phase 19-01]: transferStock uses .unique() to ensure one row per product+location; logs two transfer transactions linked via transferPairLocationId
 
 ### Pending Todos
 
@@ -43,7 +45,7 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 19]: `gofoodDepotStock` schema migration resolved (plan 01 schema done); plan 01 task 2 backend functions (transferStock, updated shipment mutations) are in working directory but not committed — should be committed before plan 03 frontend work
+- [Phase 19]: `gofoodDepotStock` schema migration resolved (plan 01 fully committed -- schema + transferStock + per-outlet depot queries)
 - [Phase 21]: Outlet FK strategy for `externalRevenue.outletId` unresolved — inspect `dispatchConsignmentOutlets` data before Phase 21 planning begins
 - [Phase 21]: Real Legato Excel file format not yet validated — request sample before Phase 21 Wave 2 frontend work
 - [Phase 22]: `getLifetimeTotals` per-product join complexity (N+1 risk for Direct channel via `orderItems`) — needs design review during planning
@@ -59,13 +61,14 @@ None.
 | 16 | allow Use Available Inventory on BeingPrepared orders: backend accepts BeingPrepared status, frontend shows panel for both PaymentReceived and BeingPrepared | 2026-02-22 | 65b1613 | | [16-allow-use-from-inventory-in-being-prepar](./quick/16-allow-use-from-inventory-in-being-prepar/) |
 | 17 | customer address sync: pre-populate delivery address from customer defaultAddress; address sync checkbox on save; new customers auto-save address | 2026-02-22 | 1dcd7a8 | | [17-customer-address-sync-pre-populate-addre](./quick/17-customer-address-sync-pre-populate-addre/) |
 | 18 | delivery fee input field on orders: inline edit on order detail page, finalTotal recalculation, WhatsApp template integration | 2026-02-22 | ef0aba9 | Verified | [18-add-delivery-fee-input-field-to-orders-w](./quick/18-add-delivery-fee-input-field-to-orders-w/) |
+| Phase 19-gofood-depot-management-and-kitchen-production-targets P01 | 10 | 2 tasks | 5 files |
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 19-02-PLAN.md — restock suggestion helper and product mapping CRUD
+Stopped at: Completed 19-01-PLAN.md — schema migration + transferStock + per-outlet depot queries (now fully committed)
 Resume file: None
-Resume notes: Phase 19 plan 02 complete. Next is 19-03 (GoFood Depot frontend page). Note: plan 01 task 2 backend changes (transferStock, isSeedRequired in productInventory, updated shipment mutations) exist as uncommitted working-directory changes — these are part of plan 01 scope, not 02.
+Resume notes: Phase 19 plan 01 now fully committed (b3e3320, 7849cd3). Plan 02 was previously executed. Next is 19-03 (GoFood Depot frontend page).
 
 ---
 *Last updated: 2026-02-22 - Completed 19-02: restock suggestion algorithm and product mapping CRUD*

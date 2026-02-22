@@ -10,10 +10,10 @@ Requirements for milestone v1.3. Each maps to roadmap phases (19–22).
 
 ### GoFood Depot Management
 
-- [ ] **GF-02**: Admin can configure per-outlet product mappings for each GoFood depot (outlet selector in mapping tab; new outlets default to previous depot's mapping)
-- [ ] **GF-03**: Each GoFood depot displays current stock level; alert fires when any depot drops below 5 total products remaining
-- [ ] **GF-04**: Depot restock suggestion shown per depot: n+1 avg last 3 days; n+2 on Fri/Sat; Monday reset to previous Thursday's total
-- [ ] **GF-05**: When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
+- [x] **GF-02**: Admin can configure per-outlet product mappings for each GoFood depot (outlet selector in mapping tab; new outlets default to previous depot's mapping)
+- [x] **GF-03**: Each GoFood depot displays current stock level; alert fires when any depot drops below 5 total products remaining
+- [x] **GF-04**: Depot restock suggestion shown per depot: n+1 avg last 3 days; n+2 on Fri/Sat; Monday reset to previous Thursday's total
+- [x] **GF-05**: When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
 
 ### Kitchen Production Targets & Overhaul
 
@@ -84,10 +84,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GF-02 | Phase 19 | Pending |
-| GF-03 | Phase 19 | Pending |
-| GF-04 | Phase 19 | Pending |
-| GF-05 | Phase 19 | Pending |
+| GF-02 | Phase 19 | Complete |
+| GF-03 | Phase 19 | Complete |
+| GF-04 | Phase 19 | Complete |
+| GF-05 | Phase 19 | Complete |
 | KIT-09 | Phase 20 | Pending |
 | KIT-12 | Phase 20 | Pending |
 | KIT-13 | Phase 20 | Pending |
