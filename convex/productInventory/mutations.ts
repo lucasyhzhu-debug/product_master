@@ -215,14 +215,14 @@ export const fulfillFromInventory = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["order_staff", "manager", "admin"]);
 
-    // 1. Validate order status: must be PaymentReceived
+    // 1. Validate order status: must be PaymentReceived or BeingPrepared
     const order = await ctx.db.get(args.orderId);
     if (!order) {
       throw new Error("Order not found");
     }
-    if (order.status !== "PaymentReceived") {
+    if (order.status !== "PaymentReceived" && order.status !== "BeingPrepared") {
       throw new Error(
-        `Order must be in "Payment Received" status to fulfill from inventory. Current status: ${order.status}`
+        `Order must be in "Payment Received" or "Being Prepared" status to fulfill from inventory. Current status: ${order.status}`
       );
     }
 
@@ -329,7 +329,7 @@ export const fulfillFromInventory = mutation({
       itemsFulfilled++;
     }
 
-    // 5. Advance order status: PaymentReceived -> AwaitingDelivery (skips BeingPrepared)
+    // 5. Advance order status: PaymentReceived | BeingPrepared -> AwaitingDelivery
     //    Both delivery types use AwaitingDelivery (Phase 14 unified status).
     //    The deliveryType field on the order determines downstream behavior.
     await ctx.db.patch(args.orderId, {
@@ -341,7 +341,7 @@ export const fulfillFromInventory = mutation({
     await logStatusTransition(
       ctx,
       args.orderId,
-      "PaymentReceived",
+      order.status,  // was hardcoded "PaymentReceived"
       "AwaitingDelivery",
       "Fulfilled from inventory (skipped production)",
       "user",
