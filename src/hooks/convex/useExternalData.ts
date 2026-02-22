@@ -3,9 +3,35 @@
  * Query hooks for outlets, snapshots, revenue, sync logs.
  * Action hooks for triggering platform syncs.
  */
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+/** Return shape of getDashboardSummaryByPeriodInternal / fetchDashboardSummaryByPeriod. */
+type ChannelBreakdown = { gross: number; net: number; transactions: number };
+type PeriodSummary = {
+  totalGross: number;
+  totalNet: number;
+  totalTransactions: number;
+  totalCommission: number;
+  totalAdBurn: number;
+  totalPromoBurn: number;
+  totalDiscounts: number;
+  platformGross: number;
+  internalGross: number;
+  channels: { k3mart: ChannelBreakdown; gobiz: ChannelBreakdown; internal: ChannelBreakdown };
+};
+type PlatformStatus = {
+  outletCount: number;
+  activeOutlets: number;
+  lastSync: null | { _id: string; _creationTime: number; source: string; status: string; syncedAt: number; recordCount: number; errorMessage?: string };
+};
+type DashboardSummaryByPeriod = {
+  platforms: { k3mart: PlatformStatus; gobiz: PlatformStatus; internal: PlatformStatus };
+  currentPeriod: PeriodSummary & { periodLabel: string; comparisonLabel: string; periodStart: number; periodEnd: number };
+  previousPeriod: PeriodSummary;
+};
 
 // ============================================
 // Query Hooks
@@ -87,10 +113,29 @@ export type PeriodPreset = "past24hours" | "today" | "yesterday" | "thisWeek" | 
 
 /**
  * Get dashboard sales summary by period preset (with current vs previous comparison).
+ * Uses on-demand action fetch instead of reactive subscription to eliminate
+ * bandwidth spikes during sync runs (~205 MB / 1.9K calls savings).
  */
 export function useConvexDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
-  const data = useQuery(api.externalData.queries.getDashboardSummaryByPeriod, { preset });
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<DashboardSummaryByPeriod | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchDashboardSummaryByPeriod);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({ preset });
+      setData(result as DashboardSummaryByPeriod);
+    } catch (error) {
+      console.error("Failed to fetch dashboard summary:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }
 
 /**

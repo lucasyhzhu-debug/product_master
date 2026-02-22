@@ -918,8 +918,8 @@ export function OverviewTab() {
     }, { replace: true });
   };
 
-  // Fetch data using period-based query
-  const { data: summary, isLoading: loadingSummary } =
+  // Fetch data using period-based action (on-demand, not reactive subscription)
+  const { data: summary, isLoading: loadingSummary, refresh: refreshSummary } =
     useConvexDashboardSalesSummaryByPeriod(selectedPeriod);
   const { data: revenueRecords, isLoading: loadingRevenue } =
     useConvexExternalRevenue(
@@ -950,6 +950,9 @@ export function OverviewTab() {
 
       const succeeded = results.filter((r) => r.status === "fulfilled").length;
       const failed = results.filter((r) => r.status === "rejected").length;
+
+      // Reload summary data since it's no longer a reactive subscription
+      await refreshSummary();
 
       if (failed === 0) {
         toast.success(`All 3 sources refreshed successfully`);

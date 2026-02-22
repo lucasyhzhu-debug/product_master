@@ -23,6 +23,7 @@ import type * as dashboard_queries from "../dashboard/queries.js";
 import type * as dispatchPlanner_helpers from "../dispatchPlanner/helpers.js";
 import type * as dispatchPlanner_mutations from "../dispatchPlanner/mutations.js";
 import type * as dispatchPlanner_queries from "../dispatchPlanner/queries.js";
+import type * as externalData_actions from "../externalData/actions.js";
 import type * as externalData_mutations from "../externalData/mutations.js";
 import type * as externalData_queries from "../externalData/queries.js";
 import type * as feedback_mutations from "../feedback/mutations.js";
@@ -161,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   "dispatchPlanner/helpers": typeof dispatchPlanner_helpers;
   "dispatchPlanner/mutations": typeof dispatchPlanner_mutations;
   "dispatchPlanner/queries": typeof dispatchPlanner_queries;
+  "externalData/actions": typeof externalData_actions;
   "externalData/mutations": typeof externalData_mutations;
   "externalData/queries": typeof externalData_queries;
   "feedback/mutations": typeof feedback_mutations;
