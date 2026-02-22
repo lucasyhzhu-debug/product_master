@@ -56,15 +56,18 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
-### 📋 v1.3 GoFood, Kitchen & Consignment (Planned)
+### 📋 v1.3 GoFood, Kitchen & Legacy Cleanup (Planned)
 
-**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
+**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and remove legacy recipe/packaging/product editors to clean the codebase.
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
 - [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
 - [ ] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
-- [ ] **Phase 22: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
-- [ ] **Phase 23: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
+- [ ] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24)
+
+**Deferred to future milestone:**
+- ~~Consignment Upload~~ — CON-01 through CON-05
+- ~~Sales Analytics Extension~~ — ANLY-01 through ANLY-03
 
 ## Phase Details
 
@@ -139,7 +142,7 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 - [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
@@ -206,7 +209,7 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | 8/8 | Complete    | 2026-02-22 | - |
-| 21. Kitchen Production Targets | 2/5 | In Progress|  | - |
+| 21. Kitchen Production Targets | 3/5 | In Progress|  | - |
 | 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
 
