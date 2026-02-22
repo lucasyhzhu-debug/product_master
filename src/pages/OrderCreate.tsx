@@ -337,7 +337,8 @@ export function OrderCreate() {
 
     setIsSubmitting(true);
     try {
-      // Sync items first (replaceItems clears voucher and recalculates totals)
+      // Sync items first. replaceItems always clears the voucher from the order
+      // (via clearVoucherFromOrder) to avoid stale discount on updated totals.
       await replaceItemsMutation({
         orderId: draftOrderId,
         items: items.map((item) => ({
@@ -349,13 +350,17 @@ export function OrderCreate() {
         })),
       });
 
-      // Then save form state including voucher (applied on fresh totals)
+      // Clear voucher from local state — replaceItems cleared it from the order.
+      // Do NOT re-pass voucherCode to updateDraft: re-validation can fail for
+      // manager override vouchers (deactivated after first use) or expired vouchers.
+      setAppliedVoucher(null);
+
+      // Save remaining form state (no voucherCode — voucher was cleared by replaceItems)
       await updateDraftMutation({
         orderId: draftOrderId,
         dueDate: dueDate || undefined,
         deliveryAddress: deliveryAddress || undefined,
         notes: notes || undefined,
-        voucherCode: appliedVoucher?.code,
       });
 
       toast.success('Draft saved');
@@ -404,7 +409,8 @@ export function OrderCreate() {
     try {
       // If we already have a draft, save changes and submit it
       if (draftOrderId) {
-        // Sync items first (replaceItems clears voucher and recalculates totals)
+        // Sync items first. replaceItems always clears the voucher from the order
+        // (via clearVoucherFromOrder) to avoid stale discount on updated totals.
         await replaceItemsMutation({
           orderId: draftOrderId,
           items: items.map((item) => ({
@@ -416,13 +422,14 @@ export function OrderCreate() {
           })),
         });
 
-        // Then save form state including voucher (applied on fresh totals)
+        // Save remaining form state. Do NOT re-pass voucherCode: replaceItems already
+        // cleared the voucher, and re-validation via updateDraft can fail for
+        // manager override vouchers (deactivated after first use) or expired vouchers.
         await updateDraftMutation({
           orderId: draftOrderId,
           dueDate: dueDate || undefined,
           deliveryAddress: deliveryAddress || undefined,
           notes: notes || undefined,
-          voucherCode: appliedVoucher?.code,
           lowPriceConfirmed: lowPriceConfirmed || undefined,
         });
 
