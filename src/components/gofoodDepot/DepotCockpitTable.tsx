@@ -290,7 +290,7 @@ export function DepotCockpitTable({
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs">
                           <p className="font-medium mb-1">Restock Calculation</p>
-                          <p className="text-muted-foreground">{restock.breakdown}</p>
+                          <p>{restock.breakdown}</p>
                         </TooltipContent>
                       </Tooltip>
                     ) : (
