@@ -8,7 +8,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 
 interface CustomerSearchProps {
   onCustomerSelect: (customerId: Id<"customers">, name: string, phone?: string) => void;
-  onNewCustomer: (name: string, phone?: string) => void;
+  onNewCustomer: (name: string, phone?: string) => Promise<Id<"customers"> | undefined>;
 }
 
 export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSearchProps) {
@@ -18,7 +18,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const [selected, setSelected] = useState<{ id: Id<"customers">; name: string; phone?: string } | null>(null);
+  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -57,12 +57,15 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
     setNewPhone('');
   };
 
-  const handleSubmitNew = () => {
+  const handleSubmitNew = async () => {
     if (!newName.trim()) return;
-    onNewCustomer(newName.trim(), newPhone.trim() || undefined);
-    setSelected(null);
+    const name = newName.trim();
+    const phone = newPhone.trim() || undefined;
+    const customerId = await onNewCustomer(name, phone);
     setSearchText('');
     setShowNewForm(false);
+    // Show the created customer as selected (use real ID if available)
+    setSelected({ id: customerId ?? null, name, phone });
   };
 
   const handleChange = () => {
