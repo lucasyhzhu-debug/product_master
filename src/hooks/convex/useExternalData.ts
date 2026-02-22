@@ -58,15 +58,19 @@ export function useConvexExternalSnapshots(outletId?: Id<"externalOutlets">) {
 
 /**
  * Get revenue records, optionally filtered by source and period.
+ * Always applies a periodStart bound (defaults to last 90 days) to prevent
+ * unbounded full table scans (~80 MB bandwidth savings).
  */
 export function useConvexExternalRevenue(
   source?: "k3mart" | "gobiz" | "internal",
   periodStart?: number,
   periodEnd?: number
 ) {
+  // Default to last 90 days if no period specified — prevents unbounded scan
+  const effectivePeriodStart = periodStart ?? (Date.now() - 90 * 24 * 60 * 60 * 1000);
   const data = useQuery(api.externalData.queries.getRevenue, {
     source,
-    periodStart,
+    periodStart: effectivePeriodStart,
     periodEnd,
   });
   return { data, isLoading: data === undefined };
