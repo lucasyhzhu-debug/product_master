@@ -29,3 +29,13 @@ export const fetchDashboardSummaryByPeriod = action({
     );
   },
 });
+
+export const fetchRestockOverview = action({
+  args: {},
+  handler: async (ctx): Promise<unknown> => {
+    return await ctx.runQuery(
+      internal.externalData.queries.getRestockOverviewInternal,
+      {}
+    );
+  },
+});

@@ -234,12 +234,58 @@ export function useConvexRevenueItems(revenueId?: Id<"externalRevenue">) {
 // Restock Planner Hooks
 // ============================================
 
+/** Return shape of getRestockOverviewInternal / fetchRestockOverview. */
+type RestockProduct = {
+  productKey: string;
+  productName: string;
+  currentStock?: number;
+  dailyRate: number;
+  daysRemaining?: number;
+  status?: "critical" | "warning" | "ok";
+};
+type RestockK3MartChannel = {
+  type: "k3mart";
+  outletId: Id<"externalOutlets">;
+  outletName: string;
+  lastSnapshotAt: number | undefined;
+  products: (RestockProduct & { status: "critical" | "warning" | "ok" })[];
+  criticalCount: number;
+  warningCount: number;
+  totalDailyDemand: number;
+};
+type RestockChannel =
+  | RestockK3MartChannel
+  | { type: "gobiz"; products: RestockProduct[]; totalDailyDemand: number }
+  | { type: "internal"; products: RestockProduct[]; totalDailyDemand: number };
+type RestockOverview = {
+  summary: { activeChannels: number; lowStockAlerts: number; lastSyncAt: number | null };
+  channels: RestockChannel[];
+};
+
 /**
  * Get restock overview (all channels with stock + demand summary).
+ * On-demand fetch: loads on page visit, no persistent subscription.
  */
 export function useConvexRestockOverview() {
-  const data = useQuery(api.externalData.queries.getRestockOverview, {});
-  return { data, isLoading: data === undefined };
+  const [data, setData] = useState<RestockOverview | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchRestockOverview);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({});
+      setData(result as RestockOverview);
+    } catch (error) {
+      console.error("Failed to fetch restock overview:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
 }
 
 /**
