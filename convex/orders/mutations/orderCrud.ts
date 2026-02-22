@@ -252,6 +252,8 @@ export const create = mutation({
       voucherId: Id<"vouchers">;
       voucherCode: string;
       voucherDiscountValue: number;
+      applicableMenuProductId?: Id<"menuProducts">;
+      discountValuePerUnit?: number;
     } | undefined;
 
     if (args.voucherCode) {
@@ -261,14 +263,40 @@ export const create = mutation({
         ctx,
         args.voucherCode,
         totalAmount,
-        customerId
+        customerId,
+        itemsToCreate
       );
       // Use voucher discount instead of manual discount
       manualDiscountAmount = 0;
+
+      // For item-linked vouchers: apply per-unit discount to each matching item
+      if (voucherInfo.applicableMenuProductId && voucherInfo.discountValuePerUnit !== undefined) {
+        const linkedProductId = voucherInfo.applicableMenuProductId;
+        const perUnitDiscount = voucherInfo.discountValuePerUnit;
+        let newTotalAmount = 0;
+        for (let i = 0; i < itemsToCreate.length; i++) {
+          const item = itemsToCreate[i];
+          if (item.menuProductId === linkedProductId) {
+            const addedDiscount = perUnitDiscount * item.quantity;
+            const newDiscountAmount = item.discountAmount + addedDiscount;
+            const newLineTotal = item.quantity * item.unitPrice - newDiscountAmount;
+            itemsToCreate[i] = {
+              ...item,
+              discountAmount: newDiscountAmount,
+              lineTotal: newLineTotal,
+            };
+          }
+          newTotalAmount += itemsToCreate[i].lineTotal;
+        }
+        totalAmount = newTotalAmount;
+      }
     }
 
     // Calculate final total
-    const totalDiscount = voucherInfo?.voucherDiscountValue ?? manualDiscountAmount;
+    // For item-linked vouchers, discount is already baked into item lineTotals (totalAmount reduced).
+    // No additional order-level reduction — finalTotal = totalAmount for item-linked.
+    const isItemLinked = voucherInfo?.applicableMenuProductId !== undefined;
+    const totalDiscount = isItemLinked ? 0 : (voucherInfo?.voucherDiscountValue ?? manualDiscountAmount);
 
     // Validate final price (hard block if <= 0)
     const { finalPrice, isLowPrice } = validateFinalPrice(totalAmount, totalDiscount);
@@ -798,12 +826,25 @@ export const updateDraft = mutation({
         if (order.voucherId) {
           await releaseVoucherUsage(ctx, order.voucherId, args.orderId);
         }
+        // Fetch current order items for item-linked voucher discount calculation
+        const existingOrderItems = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+          .filter((q) => q.neq(q.field("isCancelled"), true))
+          .collect();
+        const orderItemsForVoucher = existingOrderItems.map((oi) => ({
+          menuProductId: oi.menuProductId,
+          quantity: oi.quantity,
+          unitPrice: oi.unitPrice,
+          discountAmount: oi.discountAmount ?? 0,
+        }));
         // Validate and apply new voucher
         const voucherInfo = await validateAndApplyVoucher(
           ctx,
           args.voucherCode,
           order.totalAmount,
-          currentCustomerId
+          currentCustomerId,
+          orderItemsForVoucher
         );
         patch.voucherId = voucherInfo.voucherId;
         patch.voucherCode = voucherInfo.voucherCode;
@@ -811,6 +852,8 @@ export const updateDraft = mutation({
         // Record usage
         await recordVoucherUsage(ctx, voucherInfo.voucherId, currentCustomerId, args.orderId);
         // Recalculate finalTotal with new voucher
+        // For item-linked vouchers, discount is embedded in item lineTotals; order.totalAmount is already reduced.
+        // On update, we apply at order-level since item records aren't rebuilt here.
         patch.finalTotal = order.totalAmount - voucherInfo.voucherDiscountValue;
       }
     }

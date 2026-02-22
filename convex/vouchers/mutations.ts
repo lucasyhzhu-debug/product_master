@@ -46,6 +46,7 @@ export const create = mutation({
     // Constraints
     minimumOrderAmount: v.optional(v.number()),
     maximumDiscount: v.optional(v.number()),
+    applicableMenuProductId: v.optional(v.id("menuProducts")),
     // Validity
     isActive: v.optional(v.boolean()),
     validFrom: v.optional(v.number()),
@@ -83,6 +84,11 @@ export const create = mutation({
       }
     }
 
+    // Validate item-linked voucher: must use fixed amount discount
+    if (args.applicableMenuProductId !== undefined && args.discountType !== "amount") {
+      throw new Error("Item-linked vouchers must use fixed amount discount type");
+    }
+
     // Validate dates
     if (
       args.validFrom !== undefined &&
@@ -103,6 +109,7 @@ export const create = mutation({
       discountValue: data.discountValue,
       minimumOrderAmount: data.minimumOrderAmount,
       maximumDiscount: data.maximumDiscount,
+      applicableMenuProductId: data.applicableMenuProductId,
       isActive: data.isActive ?? true,
       validFrom: data.validFrom,
       validUntil: data.validUntil,
@@ -132,6 +139,7 @@ export const update = mutation({
     discountValue: v.optional(v.number()),
     minimumOrderAmount: v.optional(v.number()),
     maximumDiscount: v.optional(v.number()),
+    applicableMenuProductId: v.optional(v.id("menuProducts")),
     isActive: v.optional(v.boolean()),
     validFrom: v.optional(v.number()),
     validUntil: v.optional(v.number()),
@@ -153,6 +161,16 @@ export const update = mutation({
 
     const { token: _, id, ...updates } = args;
     void _;
+
+    // Validate item-linked voucher: must use fixed amount discount
+    const effectiveDiscountType = updates.discountType ?? voucher.discountType;
+    const effectiveApplicableMenuProductId =
+      updates.applicableMenuProductId !== undefined
+        ? updates.applicableMenuProductId
+        : voucher.applicableMenuProductId;
+    if (effectiveApplicableMenuProductId !== undefined && effectiveDiscountType !== "amount") {
+      throw new Error("Item-linked vouchers must use fixed amount discount type");
+    }
 
     // Validate discount value if changing
     if (updates.discountType !== undefined || updates.discountValue !== undefined) {
@@ -189,6 +207,7 @@ export const update = mutation({
     if (updates.discountValue !== undefined) patch.discountValue = updates.discountValue;
     if (updates.minimumOrderAmount !== undefined) patch.minimumOrderAmount = updates.minimumOrderAmount;
     if (updates.maximumDiscount !== undefined) patch.maximumDiscount = updates.maximumDiscount;
+    if (updates.applicableMenuProductId !== undefined) patch.applicableMenuProductId = updates.applicableMenuProductId;
     if (updates.isActive !== undefined) patch.isActive = updates.isActive;
     if (updates.validFrom !== undefined) patch.validFrom = updates.validFrom;
     if (updates.validUntil !== undefined) patch.validUntil = updates.validUntil;

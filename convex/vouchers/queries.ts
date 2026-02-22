@@ -16,6 +16,8 @@ export interface ValidatedVoucherResult {
     calculatedDiscount: number; // Actual discount amount after caps/percentage calculation
     minimumOrderAmount?: number;
     maximumDiscount?: number;
+    applicableMenuProductId?: string;
+    linkedProductName?: string; // Resolved name for item-linked vouchers
   };
 }
 
@@ -85,6 +87,7 @@ export const listActiveForCombobox = query({
       discountType: v.discountType,
       discountValue: v.discountValue,
       minimumOrderAmount: v.minimumOrderAmount,
+      applicableMenuProductId: v.applicableMenuProductId,
     }));
   },
 });
@@ -255,6 +258,13 @@ export const validateVoucher = query({
       calculatedDiscount = args.orderTotal;
     }
 
+    // Resolve linked product name for item-linked vouchers
+    let linkedProductName: string | undefined;
+    if (voucher.applicableMenuProductId) {
+      const menuProduct = await ctx.db.get(voucher.applicableMenuProductId);
+      linkedProductName = menuProduct?.name ?? "Unknown product";
+    }
+
     return {
       valid: true,
       voucher: {
@@ -266,6 +276,8 @@ export const validateVoucher = query({
         calculatedDiscount,
         minimumOrderAmount: voucher.minimumOrderAmount,
         maximumDiscount: voucher.maximumDiscount,
+        applicableMenuProductId: voucher.applicableMenuProductId,
+        linkedProductName,
       },
     };
   },

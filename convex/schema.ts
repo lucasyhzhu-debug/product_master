@@ -777,6 +777,7 @@ export default defineSchema({
     // Constraints
     minimumOrderAmount: v.optional(v.number()), // Min order to apply voucher
     maximumDiscount: v.optional(v.number()), // Cap for percentage discounts
+    applicableMenuProductId: v.optional(v.id("menuProducts")), // Item-linked: only discounts matching product
 
     // Validity period
     isActive: v.boolean(),
