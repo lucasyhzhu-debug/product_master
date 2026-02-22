@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 20.1 — Delivery Fee Reporting Separation (Complete - 1/1 plans done)
-Plan: 20.1-01 complete (1/1 plans done)
-Status: All 1 plan complete; build passes; delivery fee separation shipped to Sales Analytics
-Last activity: 2026-02-22 - Completed quick task 24: Disable Sales Analytics and K3Mart Cockpit pages for bandwidth conservation
+Phase: Phase 21 — Kitchen Production Targets (In Progress - 1/5 plans done)
+Plan: 21-01 complete (1/5 plans done)
+Status: Plan 01 complete; schema + getKitchenTargetsForDate + setDailyOverride + updateConfig shipped; build passes
+Last activity: 2026-02-22 - Completed 21-01: Schema tables (kitchenShiftRecords, kitchenDailyOverrides), getKitchenTargetsForDate priority chain query, setDailyOverride/clearDailyOverride mutations, updateConfig extended with defaultPackagingMix
 
-Progress (v1.3): [█████████░] ~92% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 in progress (1/1 done)
+Progress (v1.3): [█████████░] ~93% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 in progress (1/5 done)
 
 ## Performance Metrics
 
@@ -70,6 +70,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 20]: 20-06: refresh callback exposed but not externally wired — PlatformHierarchy is self-contained; preset changes trigger re-fetch automatically
 - [Phase 20]: 20-07: listForKanban result type annotated with explicit lean shape (not Doc<orders> spread) to enforce pruned return contract at compile time
 - [Phase 20]: 20-08: productionOrders subset skips Draft/AwaitingPayment item+production lookups in getKitchenStats; return shape confirmed lean (primitives only, no Doc objects)
+- [Phase 21-01]: getKitchenTargetsForDate aggregates ALL channels from dispatchPlans.by_date (no channel filter) — direct + gofood + k3mart + consignment all contribute to daily ball totals
+- [Phase 21-01]: Removed bigBall + midBall === maxProductionTarget sum validation from updateConfig — targets are now independent absolute numbers (dispatch plan BOM is the authoritative source)
+- [Phase 21-01]: Packaging breakdown in override source returns empty list when packagingOverrides not set — partial override is valid (ball-only override)
 
 ### Pending Todos
 
@@ -110,9 +113,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 20.1-01 — Delivery fee separation: totalDeliveryFees added to aggregate(), internalNet excludes delivery fees, Delivery Fees card added to Sales Analytics OverviewTab; build passes
+Stopped at: Completed 21-01 — Kitchen backend schema + getKitchenTargetsForDate priority chain query + setDailyOverride/clearDailyOverride mutations + updateConfig extended; build passes
 Resume file: None
-Resume notes: Phase 20.1 plan 01 complete. Delivery fee separation shipped. Phase 20.1 is a single-plan phase — ready to merge to main.
+Resume notes: Phase 21 plan 01 complete. Schema tables and core target derivation query shipped. Ready for plan 21-02 (frontend KitchenViewV2 target display).
 
 ---
 *Last updated: 2026-02-22 - Completed 20-08: getKitchenStats Draft/AwaitingPayment skip — eliminates wasted item+production DB reads for unconfirmed orders; build passes; Phase 20 complete*
