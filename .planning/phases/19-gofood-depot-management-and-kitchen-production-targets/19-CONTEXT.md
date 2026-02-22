@@ -66,12 +66,55 @@ Creating/editing depots themselves and the underlying GoFood sync mechanism are 
 - Calculation rules: n+1 of 3-day average; n+2 on Friday and Saturday; Monday resets to previous Thursday's total
 - Also extend existing Dispatch Planner page to show GoFood depot restock data (additional deliverable within Phase 19)
 
+### Finished Goods inventory page — redesign (Phase 19 deliverable)
+
+**Scope:** The existing `InventoryManager.tsx` Finished Goods tab is redesigned to be the **primary screen** of the Inventory page. Packaging and Ingredients become secondary tabs. Use the `/frontend-design` skill during planning waves to produce a complete holistic spec before implementation.
+
+**Physical vs. virtual location model (important for data attribution):**
+- 3 physical locations: Kitchen (production floor) → Crystal/Office (post-manager review, default for direct orders) → Legato Goldfinch (external GoFood depot)
+- Crystal has a second **virtual** storage location explicitly for GoFood outlet allocation — same physical space, digitally split so GoFood inventory is ring-fenced from direct-order inventory
+- Rule: any `storageLocation` with `type === 'office'` is attributed to **Internal** stock. Only explicit venue/depot-type locations count as outlet stock. Crystal's GoFood virtual location is depot-type and therefore counts as GoFood outlet stock, not internal.
+
+**Hero section — summary numbers at the top:**
+- Grand total per product type across ALL locations
+- Location-type breakdown as three summary buckets:
+  1. **Internal** — Office/Kitchen (type: office or kitchen)
+  2. **GoFood Outlets** — all venue/depot locations linked to GoFood platform
+  3. **K3Mart + Consignment** — K3Mart outlets + consignment locations (Phase 21)
+- Low-stock / zero-stock alert count — visible immediately (e.g., "3 products low stock across 2 locations")
+
+**Grouping toggle — product view vs. location view:**
+- Toggle between two groupings (like the existing rows/cards toggle):
+  - **Product-grouped:** one card/row per product → locations listed inside
+  - **Location-grouped:** one section per location → products listed inside
+- Toggle updates the view dynamically; underlying data is a flat list so this is a pure UI transformation
+- `/frontend-design` skill must produce specs for both grouping modes
+
+**Per-row stock movement actions:**
+- Every product-at-location row has two inline actions:
+  - **"Move To →"** mini-form: choose destination location + quantity (source is this row's location)
+  - **"← Receive From"** mini-form: choose source location + quantity (destination is this row's location)
+- Plus a **global "Move Stock" modal** (accessible from page header or per-product): choose source location, destination location, one or more products, quantity per product → single Save confirms all transfers atomically
+- All transfer actions validate against available `productInventory` — over-transfer is blocked with a clear message showing available quantity
+
+**Zero-stock and location visibility:**
+- All locations shown by default (even zero-stock) so admins have full visibility of what locations exist
+- Per-location toggle to manually hide a location from the view (persisted preference)
+- Zero-stock rows styled distinctly (greyed, dimmed) but never hidden by default
+
+**Consignment section:**
+- Design the Consignment bucket in the hero and groupings now
+- Section renders only when consignment locations exist (Phase 21 will add them)
+- Until Phase 21: section is hidden, no placeholder shown to end users
+
 ### Claude's Discretion
 - Exact cockpit table column order and widths
 - Loading skeleton design
 - Empty state when no GoFood sales data exists yet
 - Specific color tokens for low-stock highlighting (red/orange)
 - Tooltip trigger design (hover vs. info icon click)
+- Visual design of the hero summary numbers (cards vs. stat row)
+- Exact styling of zero-stock rows and hidden-location toggle
 
 </decisions>
 
@@ -84,6 +127,10 @@ Creating/editing depots themselves and the underlying GoFood sync mechanism are 
 - "If we only have 100 singles in office, adding stock to Legato Goldfinch requires moving from office to there" — the system must enforce this, not just display it. A transfer UI that shows available source inventory and blocks over-transfer.
 - K3Mart and GoFood follow the same inventory-linked stocking pattern — consistent mental model for admins across both platforms
 - Inventory location breakdown should be visible on the depot page: admins need to see "where is the stock" before deciding where to pull from
+- Crystal has a GoFood virtual location that is physically co-located with the office but digitally split — this is intentional ring-fencing so GoFood allocation doesn't bleed into direct-order stock
+- The Finished Goods tab should be the first thing admins see on the Inventory page — it's the operational screen; Packaging and Ingredients are reference screens
+- The grouping toggle (product vs. location) is a core UX requirement — the `/frontend-design` skill must produce both views before implementation begins
+- "Show all locations always, with a toggle to hide locations manually" — admin should never lose visibility; hiding is a user preference not a system default
 
 </specifics>
 
