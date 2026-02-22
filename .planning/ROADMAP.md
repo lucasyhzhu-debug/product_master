@@ -99,7 +99,7 @@ Plans:
 
 **Goal:** Reduce production bandwidth by converting the 5 heaviest analytical queries from reactive subscriptions to on-demand fetches, bounding unbounded table scans, fixing N+1 patterns, pruning query return shapes, and making internal order sync incremental
 **Depends on:** Phase 19 (GoFood depot management)
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 - [ ] 20-01-PLAN.md — Incremental internal sync (saveRevenue frequency fix)
@@ -202,7 +202,7 @@ Plans:
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
-| 20. Optimize Convex Query Reads | 6/8 | In Progress|  | - |
+| 20. Optimize Convex Query Reads | 7/8 | In Progress|  | - |
 | 21. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
 | 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
 | 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
