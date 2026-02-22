@@ -30,8 +30,9 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { FinishedGoodsTab } from "@/components/inventory/FinishedGoodsTab";
 
 export function InventoryManager() {
-  // Top-level tab: packaging | ingredients | finished_goods
-  const [mainTab, setMainTab] = useState<"packaging" | "ingredients" | "finished_goods">("packaging");
+  // Top-level tab: finished_goods | packaging | ingredients
+  // Finished Goods is the default/primary tab (Plan 19-04)
+  const [mainTab, setMainTab] = useState<"packaging" | "ingredients" | "finished_goods">("finished_goods");
 
   const [selectedLocation, setSelectedLocation] = useState<
     Id<"storageLocations"> | "all"
@@ -209,6 +210,10 @@ export function InventoryManager() {
         onValueChange={(v) => setMainTab(v as typeof mainTab)}
       >
         <TabsList>
+          <TabsTrigger value="finished_goods">
+            <ShoppingBag className="h-4 w-4 mr-2" />
+            Finished Goods
+          </TabsTrigger>
           <TabsTrigger value="packaging">
             <Package className="h-4 w-4 mr-2" />
             Packaging
@@ -216,10 +221,6 @@ export function InventoryManager() {
           <TabsTrigger value="ingredients">
             <Package className="h-4 w-4 mr-2" />
             Ingredients
-          </TabsTrigger>
-          <TabsTrigger value="finished_goods">
-            <ShoppingBag className="h-4 w-4 mr-2" />
-            Finished Goods
           </TabsTrigger>
         </TabsList>
 

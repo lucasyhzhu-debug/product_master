@@ -29,6 +29,7 @@ export function useProductInventory(locationId?: Id<"storageLocations">) {
   const addStock = useMutation(api.productInventory.mutations.addStock);
   const adjustStock = useMutation(api.productInventory.mutations.adjustStock);
   const updateSettings = useMutation(api.productInventory.mutations.updateSettings);
+  const transferStock = useMutation(api.productInventory.mutations.transferStock);
 
   return {
     stockOverview,
@@ -37,7 +38,17 @@ export function useProductInventory(locationId?: Id<"storageLocations">) {
     addStock,
     adjustStock,
     updateSettings,
+    transferStock,
   };
+}
+
+/**
+ * Hook for the grouped stock overview (by product with per-location breakdown).
+ * Used by the Finished Goods hero section and transfer UI.
+ * Returns data from getStockOverviewGrouped.
+ */
+export function useProductInventoryGrouped() {
+  return useQuery(api.productInventory.queries.getStockOverviewGrouped);
 }
 
 // ============================================================================

@@ -31,10 +31,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProductInventory, useConvexStorageLocations } from "@/hooks/convex";
+import { useProductInventory, useProductInventoryGrouped, useConvexStorageLocations } from "@/hooks/convex";
 import { ProductStockCard } from "./ProductStockCard";
 import { FGAddStockDialog } from "./FGAddStockDialog";
 import { TransactionLogPanel } from "./TransactionLogPanel";
+import { FinishedGoodsHero } from "./FinishedGoodsHero";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ProductStockGroup } from "@/hooks/convex";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ export function FinishedGoodsTab() {
   const [settingsInitialized, setSettingsInitialized] = useState(false);
 
   const { stockOverview, lowStockAlerts, settings, updateSettings } = useProductInventory();
+  const groupedOverview = useProductInventoryGrouped();
   const locations = useConvexStorageLocations(true);
 
   // Initialize settings form when settings load
@@ -173,6 +175,14 @@ export function FinishedGoodsTab() {
 
   return (
     <div className="space-y-4">
+      {/* Hero section — grand totals, location-type breakdown, alert count */}
+      {groupedOverview !== undefined && (
+        <FinishedGoodsHero
+          productGroups={groupedOverview}
+          globalLowStockThreshold={settings?.globalLowStockThreshold}
+        />
+      )}
+
       {/* Low-stock alert banner */}
       {lowStockAlerts.length > 0 && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-4">

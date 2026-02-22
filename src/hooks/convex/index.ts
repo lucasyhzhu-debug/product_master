@@ -403,6 +403,7 @@ export {
 // Product Inventory (Finished Goods Inventory Tracker - Phase 17.1)
 export {
   useProductInventory,
+  useProductInventoryGrouped,
   useProductInventoryTransactions,
   type ProductStockRow,
   type ProductLowStockAlert,
