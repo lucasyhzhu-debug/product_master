@@ -93,6 +93,14 @@ None - no external service configuration required.
 - Amber warning only appears for truly unlinked outlets (correct behavior)
 - Ready to proceed with remaining phase 19 gap plans (19-07, 19-08, 19-09)
 
+## Self-Check: PASSED
+
+- FOUND: `src/pages/GoFoodDepotManager.tsx`
+- FOUND: `src/components/gofoodDepot/DepotCockpitTable.tsx`
+- FOUND: `.planning/phases/19-gofood-depot-management-and-kitchen-production-targets/19-06-SUMMARY.md`
+- FOUND: `9a156e3` (Task 1 commit)
+- FOUND: `162d5e5` (Task 2 commit)
+
 ---
 *Phase: 19-gofood-depot-management-and-kitchen-production-targets*
 *Completed: 2026-02-22*

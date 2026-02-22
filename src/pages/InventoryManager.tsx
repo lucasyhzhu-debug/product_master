@@ -8,8 +8,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Package, Plus, Archive, Search, ShoppingBag, Leaf } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Package, Plus, Archive, Search, ShoppingBag, Leaf, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import { ReceiveStockDialog } from "@/components/inventory/ReceiveStockDialog";
 import { FinishedGoodsTab } from "@/components/inventory/FinishedGoodsTab";
 
 export function InventoryManager() {
+  const navigate = useNavigate();
   // Top-level tab: finished_goods | packaging | ingredients
   // Finished Goods is the default/primary tab (Plan 19-04)
   const [mainTab, setMainTab] = useState<"packaging" | "ingredients" | "finished_goods">("finished_goods");
@@ -192,15 +193,25 @@ export function InventoryManager() {
         title="Inventory"
         description="Stock levels and receiving"
         action={
-          mainTab !== "finished_goods" ? (
+          <div className="flex items-center gap-2">
             <Button
-              onClick={() => setReceiveDialogOpen(true)}
-              className="shadow-md hover:shadow-lg transition-all duration-300"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/inventory/locations")}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              New Stock Type
+              <MapPin className="h-4 w-4 mr-2" />
+              Manage Locations
             </Button>
-          ) : undefined
+            {mainTab !== "finished_goods" && (
+              <Button
+                onClick={() => setReceiveDialogOpen(true)}
+                className="shadow-md hover:shadow-lg transition-all duration-300"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Stock Type
+              </Button>
+            )}
+          </div>
         }
       />
 
