@@ -6,6 +6,10 @@ import { requireRole } from "../lib/auth";
  * Update kitchen configuration (max production target and ball composition).
  * Creates a new config row if none exists, otherwise patches the existing one.
  * Manager/admin only.
+ *
+ * Phase 21: Also accepts optional defaultPackagingMix for target derivation fallback.
+ * The sum validation (bigBall + midBall === max) has been removed — ball targets are
+ * independent absolute numbers now, not required to sum to max capacity.
  */
 export const updateConfig = mutation({
   args: {
@@ -13,16 +17,13 @@ export const updateConfig = mutation({
     maxProductionTarget: v.number(),
     bigBallTarget: v.number(),
     midBallTarget: v.number(),
+    defaultPackagingMix: v.optional(v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      quantity: v.number(),
+    }))),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
-
-    // Validate composition adds up
-    if (args.bigBallTarget + args.midBallTarget !== args.maxProductionTarget) {
-      throw new ConvexError(
-        `Ball targets must add up to max production target: ${args.bigBallTarget} + ${args.midBallTarget} !== ${args.maxProductionTarget}`
-      );
-    }
 
     // Validate positive numbers
     if (args.maxProductionTarget <= 0) {
@@ -36,6 +37,9 @@ export const updateConfig = mutation({
       maxProductionTarget: args.maxProductionTarget,
       bigBallTarget: args.bigBallTarget,
       midBallTarget: args.midBallTarget,
+      ...(args.defaultPackagingMix !== undefined && {
+        defaultPackagingMix: args.defaultPackagingMix,
+      }),
       updatedAt: Date.now(),
       updatedBy: user.name,
     };
