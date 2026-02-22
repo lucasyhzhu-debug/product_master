@@ -1,236 +1,295 @@
-# Feature Research
+# Feature Landscape
 
-**Domain:** Multi-channel dispatch planning, consignment revenue, kitchen simplification, cross-channel analytics for small-scale Indonesian FMCG snack production
-**Researched:** 2026-02-16
-**Confidence:** MEDIUM (domain patterns well-understood; specifics tailored to Frollie's unique scale and channel mix)
+**Domain:** Consignment Sales Upload + Reconciliation + Lifetime Sales Analytics (FMCG F&B)
+**Milestone:** v1.3 — CON-01/02/03 + ANLY-01/02 (Phases 21–22)
+**Researched:** 2026-02-22
+**Confidence:** MEDIUM-HIGH — Upload/import UX patterns well-documented; analytics extension is additive to proven existing architecture.
 
-## Feature Landscape
+---
 
-### Table Stakes (Users Expect These)
+## Scope
 
-Features users assume exist. Missing these = product feels incomplete.
+This document covers the four feature clusters for Phases 21–22 only:
+
+- **CON-01:** Manual consignment sales upload — bulk summary format (product + qty sold + qty returned + revenue per outlet per date range)
+- **CON-02:** Manual consignment sales upload — transaction detail format (transaction ID + line items with product, qty, price)
+- **CON-03:** Downloadable pre-formatted Excel template for consignment data entry (summary + detail sheets)
+- **ANLY-01:** Consignment channel added to existing Recharts charts in Sales Analytics (alongside GoFood, K3Mart, Direct)
+- **ANLY-02:** Lifetime totals dashboard — headline units sold counter + per-product breakdown table
+
+**Already built (do not re-research or re-architect):**
+- GoFood/K3Mart/Direct channels in Sales Analytics
+- Recharts stacked charts, PlatformFilter pattern, period presets
+- productMappings table for cross-channel product name normalization
+- externalRevenue table with dataOrigin field
+- productInventory table (not to be touched by consignment uploads)
+
+---
+
+## Table Stakes
+
+Features users expect. Missing any of these = the feature is not shippable.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Unified dispatch planner across all channels** | Manager already plans K3Mart dispatches; extending to GoFood/Legato/other consignment is the natural next step. Without it, dispatch planning remains siloed. | MEDIUM | Extend existing `k3martDispatchPlans` pattern to a generic `dispatchPlans` model covering all channels. K3Mart already has outlet-first weekly planner -- generalize it. |
-| **Priority-based production allocation** | With ~200 balls/day capacity, production must satisfy direct orders first (revenue today), then GoFood (revenue in days), then consignment (revenue in weeks). Without explicit priority, kitchen staff guess. | LOW | Priority is a simple ordered enum on channels. Display order in kitchen dashboard reflects priority. No complex optimization needed at this scale. |
-| **Consignment stock-out tracking** | When goods leave the kitchen for a consignment outlet, they are no longer "in production" but not yet "sold." This in-transit/at-outlet state MUST be tracked or inventory numbers lie. | MEDIUM | Existing `k3martStockMovements` already tracks this for K3Mart. Generalize to all consignment channels. Revenue is NOT recognized here -- only location transfer. |
-| **Sale confirmation from consignment outlets** | Consignment goods sell at the outlet. The system needs to know what sold so it can recognize revenue and calculate what to restock. | MEDIUM | K3Mart has stock snapshots via API. For non-API outlets (Legato), this is manual entry: "X units of Y sold today at outlet Z." |
-| **Cash collection tracking per consignment partner** | K3Mart pays 2x/month, Legato 1x/week. Manager needs to know: what's owed, what's collected, what's outstanding. Without this, cash flow is a guessing game. | MEDIUM | New `consignmentSettlements` table. Each settlement links to a date range + outlet + amount expected vs received. Simple ledger, not full accounting. |
-| **Aggregate production target from all demand sources** | Kitchen currently sees targets from orders + K3Mart synthetic demand. Adding GoFood demand + other consignment demand to the same view is expected. | LOW | Existing `kitchenConfig` + production targets just need additional demand source inputs. Sum demand across channels, display as single target with breakdown tooltip. |
-| **Cross-channel revenue dashboard** | Sales analytics already shows GoFood + K3Mart + internal. Adding Legato, Shopee, TikTok Shop data (even manual) to the same charts is the obvious next step. | MEDIUM | `externalRevenue` table already supports `manual_entry` as `dataOrigin`. Build manual entry UI for non-API channels. Charts already aggregate by source. |
-| **Manual sales entry for non-API channels** | Shopee, TikTok Shop, Legato have no API. Manager needs to enter daily/weekly sales figures. Without this, analytics have blind spots. | LOW | Simple form: select channel + outlet, select date, enter product quantities and revenue. Writes to `externalRevenue` with `dataOrigin: "manual_entry"`. |
-| **Per-channel commission/fee configuration** | GoFood takes ~19% + VAT. Legato Goldfinch takes 10%. Legato Tamtem takes 17%. Net revenue requires knowing the fee structure per channel. | LOW | Config table: `channelCommissionRates` with channel, outlet, rate, effective date. Applied when calculating net revenue in analytics. |
+| Excel file upload (browse + drag-drop) | Outlets send Excel files; any other format creates friction for non-technical outlet staff | Low | Accept .xlsx; .csv is a nice-to-have |
+| Outlet selector before upload | Multiple outlets will eventually upload; data must be tagged to the right outlet | Low | Dropdown of known consignment outlets; can start with hardcoded Legato |
+| Row preview table before committing | Upload without preview causes silent bad data ingestion; industry-standard pattern | Medium | Show first 10–20 rows parsed, highlight detected columns |
+| Per-row validation errors with row numbers | "Import failed" with no specifics is unusable; users cannot fix what they cannot locate | Medium | Show row N, column name, error type (missing, wrong type, implausible value) |
+| Duplicate upload detection with warning | Re-uploading the same period is a common mistake; data doubles silently without detection | Medium | Hash or match on (outlet + period start + period end); warn, allow override |
+| Upload history / audit log | Admin must know what was uploaded when, by whom, and how many rows | Low | Table: timestamp, outlet, format, row count, uploader name |
+| Delete upload (with confirmation) | Mistakes happen; admin must be able to remove bad uploads and re-upload | Low | Soft-delete or hard-delete with cascade to consignmentSales rows |
+| Downloadable template — both sheets | Outlets need a starting point; blank Excel leads to wrong column names every time | Low | .xlsx with "Summary" and "Detail" sheets, headers, data types, example row, column notes |
+| Consignment visible in Sales Analytics charts | The entire point of uploading is to see consignment data alongside other channels | Medium | Additive change to existing OverviewTab + SalesChart; new "consignment" PlatformFilter value |
+| Lifetime total units sold counter | Managers ask "how many units have we sold ever?" — this is the number they want first | Low | Single large stat card; placed in Overview or as a new "Lifetime" section |
+| Per-product lifetime breakdown table | Counter alone is not actionable; need product-level breakdown to understand mix | Low | Table: product name, total units, % of lifetime total; sortable |
 
-### Differentiators (Competitive Advantage)
+---
 
-Features that set the product apart. Not required, but valuable.
+## Differentiators
+
+Features that provide high value at low cost for this specific context (small FMCG producer, 2–5 consignment outlets, monthly/weekly reconciliation cycle).
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Demand waterfall visualization** | Show how 200 balls/day capacity is allocated: direct orders (80) + GoFood (50) + K3Mart (40) + Legato (20) = 190, leaving 10 buffer. Makes capacity planning visceral and immediate. | LOW | Stacked bar or waterfall chart in kitchen dashboard header. Data already exists across demand sources. Pure frontend visualization. |
-| **Consignment aging report** | "These 30 packages at K3Mart outlet A have been there for 14 days with no sale." Identifies slow-moving consignment stock that should be rotated or recalled. | MEDIUM | Requires tracking dispatch date per batch at each outlet. Compare dispatch date to sale/return date. Flag items exceeding threshold (e.g., 7 days for perishable snacks). |
-| **Settlement reconciliation with variance alerts** | When K3Mart's bi-monthly payment arrives, auto-compare expected amount (units sold x price) vs actual payment received. Flag discrepancies. | MEDIUM | Computed from `externalRevenue` (sales) vs `consignmentSettlements` (payment). Alert when variance exceeds threshold (e.g., 5%). Saves hours of manual reconciliation. |
-| **Predictive restock suggestions per outlet** | "Based on last 4 weeks, K3Mart outlet A sells 8 Original/day on weekdays and 12 on weekends. Suggest dispatching 40 for this week." | MEDIUM | Already partially implemented in K3Mart cockpit (`suggestedQty`). Extend to use rolling average from `externalRevenue` data. Apply to all consignment outlets. |
-| **Channel profitability comparison** | Side-by-side view: "Direct orders: 45% margin. GoFood Goldfinch: 22% margin after commission. K3Mart: 30% margin after consignment fees." Informs channel strategy. | LOW | All data exists: COGS from BOM, revenue from `externalRevenue`, commission rates from config. Pure aggregation query + chart. |
-| **Production shortfall early warning** | "At current production rate, you will be 30 balls short for tomorrow's confirmed orders + consignment commitments." Alerts at 2pm for next-day planning. | MEDIUM | Compare cumulative production (from `productionLog`) against cumulative demand (orders + dispatch plans). Cron job checks at configurable time, creates alert. |
-| **GoFood 3rd outlet onboarding** | Adding Crystal as 3rd GoFood outlet. The system should make adding outlet N+1 trivial -- just add credentials and mapping. | LOW | Architecture already supports N outlets via `externalOutlets`. Crystal (G347061572) is already syncing revenue. "3rd outlet" is just another `externalOutlets` row + product mappings. |
+| Net units auto-calculated on upload (sold − returned) | Returns are a real consignment reality; manual subtraction is error-prone | Low | `qtyNet = qtySold - qtyReturned` computed at parse time; display net in analytics |
+| Revenue per unit derived on upload | Outlet may send total revenue without unit price; system derives it automatically | Low | `revenuePerUnit = revenueGross / qtyNet`; flag if implausible (< Rp 1k or > Rp 500k) |
+| Consignment upload tab directly on Sales Analytics page | Unified entry point; uploading and viewing data in the same page reduces context switching | Low | Add "Uploads" tab to existing SalesAnalytics tabs (Overview, Mappings, Settings, Uploads) |
+| Format auto-detection from column headers | Bulk vs detail format differ by presence of transactionId column; auto-detect removes a selector | Low | Check column names on parse; fall back to manual selection if ambiguous |
+| Lifetime totals per channel (not just grand total) | "How many units via GoFood vs K3Mart vs consignment" is actionable for channel strategy | Low | Channel breakdown row beneath headline counter; pure aggregation, no new data |
+| Period gap indicator per outlet | If October data is missing for Legato but Nov is uploaded, flag the gap | Medium | Compare uploaded date ranges per outlet; visual warning on upload history |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+---
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **Full double-entry accounting for consignment** | "We need proper accounting!" | This is a production management system, not an accounting system. Double-entry adds massive complexity (chart of accounts, journal entries, trial balance). At 200 balls/day, this is overkill. | Track the 3 timing layers (dispatch, sale confirmation, cash collection) as simple records. Export summaries to actual accounting software (Excel/spreadsheet) for formal books. |
-| **Automated production scheduling/optimization** | "System should decide what to produce when" | At ~200 balls/day with 2-3 staff, the kitchen lead makes this call in 30 seconds. Automated scheduling adds complexity for zero value at this scale. | Show demand breakdown by priority. Let kitchen staff decide. The value is in visibility, not automation. |
-| **Real-time consignment stock levels via IoT/barcode** | "We should know exactly what's on each shelf" | Requires hardware (scanners/sensors), consignee cooperation, and maintenance. Consignees (K3Mart, cafes) will not install equipment for a small supplier. | Stock delta inference from snapshots (already working for K3Mart) + periodic manual counts for non-API outlets. |
-| **Automated payment collection/invoicing** | "System should send invoices and track payments automatically" | Consignment partners have their own payment cycles and processes. Automating this creates friction with partners who have established workflows. | Track expected vs received payments. Generate settlement reports for manual review. Flag overdue amounts. |
-| **Per-unit consignment tracking (serialization)** | "Track each individual package from kitchen to outlet to customer" | Massive overhead for a Rp 40-120k snack product. No customer or partner expects this. Scanning each unit slows kitchen and dispatch. | Track by batch: "20 Originals dispatched to K3Mart on Feb 16." FIFO assumption for which ones sold. |
-| **Multi-currency support** | "What if we sell internationally?" | Not happening at this scale. All channels are IDR. Adding currency conversion adds complexity everywhere. | Keep everything in IDR. If international expansion happens, it is a v3+ concern. |
-| **Complex discount/promotion engine per channel** | "Each channel has different promos" | GoFood/Shopee/TikTok manage their own promotions. Frollie does not control those discounts. | Track commission and ad burn from platform data. Do not try to model platform-specific promotions. |
+## Anti-Features
+
+Features to explicitly NOT build for Phases 21–22. These are common requests or natural-seeming extensions that add complexity without value at this scale.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Automated settlement reconciliation (match revenue to bank statements) | Out of scope per PROJECT.md decision: "Automated settlement reconciliation — Metric flagging sufficient at this scale; CON-04 simplified" | Show net revenue in analytics; admin compares to bank statement manually |
+| Full double-entry accounting journal entries | Production system, not accounting system; adds massive complexity | Export revenue summaries for accountant; keep system focused on units and gross revenue |
+| AI/ML column mapping inference | Overkill when 2–3 outlets with stable file formats; template download solves the problem at the root | Downloadable template + clear error messages for wrong column names |
+| Inline cell editing in upload preview | Useful for power users, but adds significant state management complexity for an MVP | Fix-in-Excel-and-reupload is acceptable; clear per-row error messages make this fast |
+| Consignment inventory deduction from productInventory | Consignment is a separate domain; PROJECT.md decision: "Per-unit consignment serialization — Batch tracking sufficient" | Track sales units and revenue only; do not touch productInventory table |
+| Return-to-sender / GRN workflow for unsold goods | Out of scope; returns management is the outlet's process | Record returned qty as a numeric field in upload; no fulfillment workflow |
+| Consignment payout calculation (commission splits) | Out of scope per PROJECT.md | Show gross revenue; accountant handles payout |
+| Per-unit lot/batch/serialization tracking | Rp 40–120k snack product; no customer or partner expects serial tracking | Track at qty-per-upload-row level |
+| Custom formula builder for outlet-specific mappings | 2–3 outlets do not need a formula engine | Fixed template + column name enforcement |
+| Lifetime revenue chart (not just table) | Revenue normalization across channels is complex (GoFood net vs consignment gross); a chart would mislead | Table only for lifetime view; charts use the standard time-series view |
+| Date-range filtering on lifetime counter | Lifetime means all-time; adding a filter defeats the semantic meaning | Keep as all-time total; existing period-filtered charts handle time-bounded views |
+| Consignment outlet management page (full CRUD) | At 2–5 outlets, hardcoded or simple string is sufficient | Outlet name as string initially; add a lookup table only when outlets need configuration (commission rate, contact, etc.) — defer to a later phase |
+
+---
 
 ## Feature Dependencies
 
 ```
-[Unified Dispatch Planner]
-    |-- requires --> [Priority-based channel config]
-    |-- requires --> [Consignment stock-out tracking]
-    |                    |-- requires --> [Sale confirmation from outlets]
-    |                    |                    |-- enables --> [Cash collection tracking]
-    |                    |-- enables --> [Consignment aging report]
-    |
-    |-- feeds into --> [Aggregate production targets]
-                           |-- enables --> [Demand waterfall visualization]
-                           |-- enables --> [Production shortfall warning]
+CON-03 (Template download)
+  → Should exist BEFORE outlets start using CON-01/02
+  → No backend dependency; pure client-side ExcelJS generation
+  → Ships in Phase 21 Wave 1 (backend) alongside schema; can go earlier
 
-[Manual sales entry for non-API channels]
-    |-- enables --> [Cross-channel revenue dashboard]
-    |                    |-- enables --> [Channel profitability comparison]
-    |
-    |-- requires --> [Per-channel commission config]
+CON-01 (Bulk summary upload)
+CON-02 (Transaction detail upload)
+  → Both write to new Convex tables: consignmentUploads + consignmentSales
+  → Both share the same parse-preview-validate-commit UI flow
+  → CON-02 adds transactionId field; otherwise same schema
+  → Phase 21 backend (Wave 1) must create tables before Phase 21 frontend (Wave 2)
 
-[GoFood 3rd outlet onboarding]
-    |-- independent (already architected for N outlets)
+ANLY-01 (Consignment in charts)
+  → Depends on consignmentSales table existing (CON-01/02 prerequisite)
+  → Additive change to OverviewTab.tsx PlatformFilter type
+  → Additive change to SalesChart.tsx (new <Bar> data key + legend entry)
+  → New Convex query to aggregate consignmentSales by date + channel
 
-[Settlement reconciliation]
-    |-- requires --> [Sale confirmation from outlets]
-    |-- requires --> [Cash collection tracking]
+ANLY-02 (Lifetime totals)
+  → Depends on consignmentSales (new) + existing orders/orderItems + externalRevenue
+  → New Convex query: cross-table aggregation of ALL sales across all sources
+  → Product name normalization via existing productMappings table
+  → Two new UI components: LifetimeTotalsCard + LifetimeProductTable
+  → Place in OverviewTab.tsx below or alongside existing period-filtered cards
+
+Normalization dependency:
+  → consignmentSales.productName (raw from Excel) must resolve to menuProductId
+  → Use existing productMappings table (add "consignment" as a platform value)
+  → ANLY-02 lifetime table must use normalized product names or it shows duplicates
 ```
 
-### Dependency Notes
+---
 
-- **Dispatch Planner requires Channel Config:** Priority levels and commission rates must be configured before dispatch can be planned intelligently.
-- **Cash Collection requires Sale Confirmation:** You cannot know what is owed until you know what sold. Sale confirmation is the trigger for accounts receivable.
-- **Cross-channel Dashboard requires Manual Entry:** Without manual entry for non-API channels, the dashboard has blind spots and managers will not trust the data.
-- **Aggregate Production requires Dispatch Planner:** Kitchen targets need demand from all channels. Dispatch plans are the demand signal for consignment channels.
-- **Settlement Reconciliation requires both Sale Confirmation and Cash Collection:** It is the comparison layer between the two.
+## Data Model — Two New Tables
 
-## MVP Definition
+### `consignmentUploads` (audit log)
 
-### Phase 1: Foundation (Build First)
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| outletName | string | yes | "Legato Goldfinch", "Legato Tamtem", etc. |
+| uploadFormat | "bulk_summary" \| "transaction_detail" | yes | Which format was parsed |
+| uploadedAt | number | yes | Epoch ms; auto-set on insert |
+| uploadedBy | string | yes | User display name from session token |
+| rowCount | number | yes | Successfully imported rows |
+| periodStart | string | yes | YYYY-MM-DD — earliest sale date in upload |
+| periodEnd | string | yes | YYYY-MM-DD — latest sale date in upload |
+| notes | string | no | Admin free-text note |
+| isDeleted | boolean | no | Soft-delete flag for audit trail |
 
-These enable everything else.
+### `consignmentSales` (line items)
 
-- [ ] **Channel configuration with priority levels** -- Define channels (Direct, GoFood, K3Mart, Legato, Shopee, TikTok), priority order, commission rates. Simple config table + admin UI.
-- [ ] **Generalized dispatch planner** -- Extend K3Mart weekly planner pattern to cover all consignment channels. Outlet-first view already exists; add channel grouping.
-- [ ] **Consignment lifecycle tracking (dispatch -> sale -> cash)** -- Three-layer tracking: (1) goods dispatched to outlet, (2) goods sold at outlet, (3) cash collected from partner. Each is a separate record with timestamps.
-- [ ] **Manual sales entry for non-API channels** -- Form for entering daily sales from Shopee, TikTok Shop, Legato outlets. Writes to existing `externalRevenue` table.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| uploadId | Id<"consignmentUploads"> | yes | Parent upload (for delete cascade) |
+| outletName | string | yes | Denormalized from upload for query performance |
+| productName | string | yes | Raw name as received from outlet |
+| menuProductId | Id<"menuProducts"> | no | Resolved via productMappings; null if unmapped |
+| saleDate | string | yes | YYYY-MM-DD |
+| qtySold | number | yes | Units sold |
+| qtyReturned | number | yes | Units returned (default 0) |
+| qtyNet | number | yes | qtySold − qtyReturned (computed on insert) |
+| revenueGross | number | yes | Total gross revenue in IDR |
+| transactionId | string | no | Detail format only; null for bulk summary |
 
-### Phase 2: Kitchen Integration (Build After Foundation)
+**No `consignmentOutlets` table needed yet.** Outlet name as string is sufficient for 2–3 outlets. Add a table when outlets need per-outlet configuration (commission rates, contacts).
 
-Connect the demand pipeline to production.
+---
 
-- [ ] **Aggregate production target from all sources** -- Kitchen dashboard shows total demand breakdown: orders (priority 1) + GoFood (2) + K3Mart (3) + other consignment (4). Existing synthetic order pattern extended.
-- [ ] **GoFood 3rd outlet** -- Add new outlet to `externalOutlets`, configure product mappings, verify sync.
-- [ ] **Per-channel commission configuration** -- Admin UI for setting commission rates per channel/outlet. Applied in revenue calculations.
+## Excel Library Recommendation
 
-### Phase 3: Analytics and Reconciliation (Build After Data Flowing)
+**Use ExcelJS for both template generation (CON-03) and file parsing (CON-01/02).**
 
-These need data from phases 1-2 to be meaningful.
+Rationale:
+- CON-03 requires styled output: column widths, header background color, bold headers, data validation dropdowns for product names, example data row, column notes in row 2. SheetJS community edition has no styling API.
+- ExcelJS handles both read (parse uploaded .xlsx) and write (generate template .xlsx). One library for all three features.
+- Works in browser (Vite bundle) — no server round-trip needed for either template download or file parsing.
+- Template download pattern: generate in-browser with ExcelJS + `URL.createObjectURL(blob)` + `<a>` click trigger. No file storage, no backend call.
+- Upload parsing pattern: read .xlsx in browser with ExcelJS, validate rows, send structured JSON rows to Convex mutation. Keeps Convex mutations simple (receive validated rows, not raw bytes).
+- ExcelJS is actively maintained (2024–2025 releases), higher weekly npm downloads than xlsx-js-style alternatives.
+- Confidence: MEDIUM — ExcelJS browser bundle adds ~500KB. Worth it; CON-03 is a user-facing feature with clear value. Verify bundle impact during implementation.
 
-- [ ] **Cross-channel revenue dashboard enhancement** -- Unified view combining API-synced (GoFood, K3Mart) and manually-entered (Legato, Shopee, TikTok) data. Product-level breakdown.
-- [ ] **Channel profitability comparison** -- Net margin per channel after commissions and COGS.
-- [ ] **Cash collection tracking and settlement reconciliation** -- Track payments received vs expected. Alert on variances.
-- [ ] **Consignment aging report** -- Identify slow-moving stock at outlets.
+---
 
-### Future Consideration (v2+)
+## Upload UX Flow (Standard Pattern)
 
-- [ ] **Production shortfall early warning** -- Requires stable production data and accurate demand forecasting. Defer until production tracking is reliable across all channels.
-- [ ] **Demand waterfall visualization** -- Pure UX enhancement. Build after data is flowing and accurate.
-- [ ] **Predictive restock suggestions** -- Requires sufficient historical data (4+ weeks per outlet). Defer until manual process is validated.
+Based on industry patterns from Smashing Magazine and ImportCSV research:
 
-## Feature Prioritization Matrix
+```
+Step 1: Select outlet (dropdown)
+Step 2: Choose or drag-drop file (.xlsx)
+Step 3: Parse + auto-detect format (bulk vs detail)
+Step 4: Preview table (first 20 rows, column headers mapped, errors highlighted per cell)
+Step 5: Validation summary ("18 rows OK, 2 rows have errors in column X")
+Step 6: Duplicate warning if (outlet + period start + period end) matches existing upload
+Step 7: Confirm import → Convex mutation → success toast + row count
+Step 8: Upload appears in history table
+```
 
-| Feature | User Value | Implementation Cost | Priority | Depends On Existing |
-|---------|------------|---------------------|----------|---------------------|
-| Channel config + priority | HIGH | LOW | P1 | New table, simple CRUD |
-| Generalized dispatch planner | HIGH | MEDIUM | P1 | Extends `k3martDispatchPlans` pattern |
-| Consignment lifecycle (3 layers) | HIGH | MEDIUM | P1 | New tables: `consignmentDispatches`, `consignmentSales`, `consignmentSettlements` |
-| Manual sales entry | HIGH | LOW | P1 | Writes to existing `externalRevenue` |
-| Aggregate production targets | HIGH | LOW | P1 | Extends existing `kitchenConfig` + synthetic orders |
-| GoFood 3rd outlet | MEDIUM | LOW | P2 | `externalOutlets` + `externalProductMappings` |
-| Per-channel commission config | MEDIUM | LOW | P2 | New config table |
-| Cross-channel dashboard | HIGH | MEDIUM | P2 | Extends existing `SalesAnalytics.tsx` |
-| Channel profitability | MEDIUM | LOW | P2 | Aggregation of existing data |
-| Cash collection tracking | MEDIUM | MEDIUM | P2 | New `consignmentSettlements` table |
-| Settlement reconciliation | MEDIUM | MEDIUM | P3 | Requires cash collection + sale data |
-| Consignment aging | LOW | MEDIUM | P3 | Requires dispatch date tracking |
-| Production shortfall warning | MEDIUM | MEDIUM | P3 | Requires reliable all-channel demand |
-| Demand waterfall viz | LOW | LOW | P3 | Pure frontend |
+**Error handling rules (per importcsv.com research):**
+- Always show row number + column name + reason (not just "error in row 5")
+- "Show only rows with errors" toggle for large files
+- Do not block import on warnings (implausible revenue per unit = warning, not error)
+- Block import on hard errors (missing required column, non-numeric quantity)
 
-**Priority key:**
-- P1: Must have -- enables the core workflow
-- P2: Should have -- adds significant value once P1 is working
-- P3: Nice to have -- polish and optimization
+---
 
-## Domain Pattern Analysis
+## Analytics Integration Pattern
 
-### 1. Multi-Channel Dispatch Planning
+### ANLY-01: Adding Consignment to Charts
 
-**How production management systems handle this:**
+The existing `PlatformFilter` type in `OverviewTab.tsx` is:
+```typescript
+type PlatformFilter = "all" | "k3mart" | "gobiz" | "internal";
+```
+Extend to:
+```typescript
+type PlatformFilter = "all" | "k3mart" | "gobiz" | "internal" | "consignment";
+```
 
-The standard pattern is a **Master Production Schedule (MPS)** that takes demand from all channels and creates a unified production plan. At enterprise scale, this involves complex optimization algorithms. At Frollie's scale (~200 balls/day, 4 channels), the pattern simplifies to:
+The existing `SalesChart.tsx` uses declarative Recharts `<Bar>` components per channel. Add one `<Bar dataKey="consignment">` with a distinct color (suggested: amber/orange to contrast with existing teal/blue/green palette).
 
-1. **Demand aggregation**: Sum demand from all channels for each product type
-2. **Priority waterfall**: Allocate capacity to highest-priority channels first
-3. **Dispatch planning**: Schedule when and how much to send to each outlet
+New Convex query needed: aggregate `consignmentSales` by `saleDate` grouped by the existing period logic. Return in the same shape as existing channel data. Plug into existing `useSalesAnalytics` hook or add a parallel `useConsignmentSales` hook.
 
-The key insight for Frollie: the K3Mart cockpit already implements the dispatch planning pattern. The generalization is extending that same outlet-first weekly grid to cover Legato outlets and GoFood depot restocking. Direct orders do not need a "dispatch" -- they flow through the existing order pipeline.
+### ANLY-02: Lifetime Totals
 
-**Confidence:** MEDIUM -- Pattern is well-established in MRP literature. Application to Frollie's specific scale and channel mix is custom.
+**Headline stat card design (based on Shopify/Tableau/Smashing research):**
+- Large number, prominent placement, upper-left or top of overview section
+- Label: "Units Sold (All Time)"
+- Subtext: "Across all channels, all dates"
+- No filter control on this card — lifetime is lifetime
 
-### 2. Consignment Revenue Recognition (3 Timing Layers)
+**Per-product breakdown table:**
+- Columns: Product | GoFood | K3Mart | Direct | Consignment | Total
+- Sorted by Total descending
+- Percentage column (optional, low priority)
+- Uses normalized product names via productMappings — raw names from consignment uploads must be mapped before appearing in this table
 
-**How accounting systems handle consignment:**
+**Convex query strategy:**
+- Single `getLifetimeSalesByProduct` query joining: `orderItems` (direct), `externalRevenue` (GoFood + K3Mart), `consignmentSales` (consignment)
+- Group by `menuProductId` (normalized) with fallback bucket for unmapped products
+- Return as array sorted by total units descending
+- This is a potentially expensive query — consider pagination or a cap at top-20 products for the initial render
 
-Per IFRS/GAAP and every accounting reference consulted, consignment goods do NOT generate revenue when shipped to the consignee. Revenue is recognized only when the end customer buys the product. The three timing layers are:
+---
 
-| Layer | Event | What Happens in System | Accounting Impact |
-|-------|-------|------------------------|-------------------|
-| 1. Production/Dispatch | Goods leave kitchen for outlet | Location transfer. Inventory moves from "Kitchen" to "At [Outlet]". No revenue. | Asset reclassification only |
-| 2. Sale Confirmation | Outlet reports goods sold | Revenue recognized. COGS recorded. Accounts receivable created for the outlet's share. | Revenue + AR created |
-| 3. Cash Collection | Partner pays settlement | Cash received. AR reduced. | Cash in, AR reduced |
+## Phase Sequencing Recommendation
 
-For Frollie, this means:
-- **K3Mart**: Layer 1 is dispatch plan confirmation. Layer 2 is stock delta from API snapshots (already computed). Layer 3 is bi-monthly payment.
-- **Legato**: Layer 1 is manual dispatch entry. Layer 2 is manual sales entry (weekly). Layer 3 is weekly payment.
-- **GoFood**: NOT consignment. GoFood is direct sale through platform. Revenue recognized at order completion. Cash collection follows GoFood's settlement cycle.
+### Phase 21: Upload + Template (CON-01/02/03)
 
-**Critical distinction:** GoFood is NOT consignment even though payment is delayed. The customer pays GoFood at order time. GoFood is an intermediary, not a consignee. Commission is a cost of sale, not a consignment arrangement.
+**Wave 1 (backend, parallel):**
+- Agent A: Convex schema — add `consignmentUploads` + `consignmentSales` tables
+- Agent B: ExcelJS template generation (CON-03) — client-side utility function, no backend needed
+- Agent C: Convex mutations — `importBulkSummary`, `importTransactionDetail`, `deleteUpload`
+- Agent D: Convex queries — `listUploads`, `getUploadRows`
 
-**Confidence:** HIGH -- Consignment accounting is well-documented. Application to Frollie's specific partners is straightforward.
+**Wave 2 (frontend, parallel, after Wave 1):**
+- Agent A: Upload UI — outlet selector, drag-drop, preview table, error display
+- Agent B: Upload history tab + delete confirmation
+- Agent C: Template download button (calls CON-03 utility)
 
-### 3. Simplified Aggregate Production Targets
+**Wave 3 (verification, sequential):**
+- TypeScript check + `npm run build` must pass
 
-**How food production systems handle multi-source demand:**
+### Phase 22: Analytics Extension (ANLY-01/02)
 
-The standard approach is:
-1. Collect demand signals from all sources (orders, forecasts, restock commitments)
-2. Aggregate by product type (Original balls, Jumbo balls)
-3. Present as a single target with optional breakdown
+**Wave 1 (backend):**
+- Convex query: `getConsignmentSalesByDate` (for ANLY-01 charts)
+- Convex query: `getLifetimeSalesByProduct` (for ANLY-02 table)
 
-Frollie's existing kitchen dashboard already does this for orders + K3Mart. The extension is:
-- Add GoFood depot restock demand (from `gofoodDepotStock` targets)
-- Add other consignment dispatch plans (from generalized dispatch planner)
-- Show breakdown: "Target: 200 balls = 80 orders + 50 GoFood + 40 K3Mart + 20 Legato + 10 buffer"
+**Wave 2 (frontend):**
+- Extend `PlatformFilter` + add consignment `<Bar>` to SalesChart
+- Add `LifetimeTotalsCard` + `LifetimeProductTable` components to OverviewTab
 
-The "absorption" pattern means the kitchen sees ONE number, not four separate targets. Breakdown is available on tap/hover for transparency.
+---
 
-**Confidence:** HIGH -- This is the simplest pattern and already partially implemented.
+## Confidence Assessment
 
-### 4. Cross-Channel Product Analytics
+| Area | Confidence | Notes |
+|------|------------|-------|
+| Upload UX pattern (import flow) | HIGH | Well-documented industry standard; multiple authoritative sources |
+| ExcelJS for generation + parsing | MEDIUM | Library is proven; browser bundle size impact needs verification during implementation |
+| Table/column schema | HIGH | Derived from PROJECT.md requirements; simple, unambiguous |
+| Analytics integration (ANLY-01) | HIGH | Additive to proven existing pattern; low risk |
+| Lifetime aggregation query (ANLY-02) | MEDIUM | Cross-table join is straightforward; productMappings normalization may have gaps for consignment product names |
+| No productInventory connection | HIGH | Explicit decision in PROJECT.md; confirmed correct |
+| Anti-features (what to exclude) | HIGH | Derived from PROJECT.md explicit out-of-scope decisions |
 
-**How analytics platforms combine API and manual data:**
-
-The standard pattern is a **unified revenue record** with a data origin tag:
-- `api_revenue`: Automatically synced from platform API (GoFood, K3Mart)
-- `manual_entry`: Manually entered by manager (Legato, Shopee, TikTok)
-- `stock_delta`: Inferred from stock level changes (K3Mart fallback)
-
-Frollie's `externalRevenue` table already has this pattern with the `dataOrigin` field. The missing pieces are:
-1. **Manual entry UI** for non-API channels
-2. **Product mapping** for manual entries (link to `menuProducts`)
-3. **Commission rate** per channel for net revenue calculation
-4. **Unified charts** that show all sources together with confidence indicators
-
-The key UX principle: data from API sources should be visually distinguished from manual entries. Users need to know which numbers are exact (API) vs approximate (manual). The existing `confidence` field (`exact`, `inferred`, `manual`) on `externalRevenue` supports this.
-
-**Confidence:** MEDIUM -- Architecture exists. Implementation of manual entry UX and unified visualization is custom.
+---
 
 ## Sources
 
-- [Consignment Revenue Recognition Guide - HubiFi](https://www.hubifi.com/blog/consignment-revenue-recognition-guide)
-- [Consignment Inventory Accounting - Finale Inventory](https://www.finaleinventory.com/accounting-and-inventory-software/consignment-inventory-accounting)
-- [What is Consignment Revenue Recognition - Stripe](https://stripe.com/resources/more/what-is-consignment-revenue-recognition)
-- [Consignment Inventory - NetSuite](https://www.netsuite.com/portal/resource/articles/inventory-management/consignment-inventory.shtml)
-- [Consignment Arrangements - PwC Viewpoint](https://viewpoint.pwc.com/dt/us/en/pwc/accounting_guides/revenue_from_contrac/revenue_from_contrac_US/chapter_8_practical__US/86consignment_arrang_US.html)
-- [The Consignment Inventory Dilemma - Bizowie](https://bizowie.com/the-consignment-inventory-dilemma-why-most-erps-cant-handle-it)
-- [MRP for Food Manufacturers - FoodReady](https://foodready.ai/blog/material-requirements-planning-mrp/)
-- [Aggregate Planning - Siemens](https://www.sw.siemens.com/en-US/technology/aggregate-planning/)
-- [Master Production Schedule Guide - OptiPro](https://www.optiproerp.com/blog/inventory-management-101-master-production-schedule-mps-explained/)
-- [Food Demand Forecasting - Qaltivate](https://qaltivate.com/blog/food-demand-forecasting-software/)
-- [FMCG Supply Chain Planning - SCM Globe](https://www.scmglobe.com/the-particularities-of-supply-chain-planning-in-fmcg/)
-- [Cross-Channel Analytics Guide - Improvado](https://improvado.io/blog/cross-channel-marketing-analytics)
+- [Data import UX: designing spreadsheet imports users don't hate — ImportCSV](https://www.importcsv.com/blog/data-import-ux)
+- [Designing An Attractive And Usable Data Importer — Smashing Magazine](https://www.smashingmagazine.com/2020/12/designing-attractive-usable-data-importer-app/)
+- [How To Design Bulk Import UX — Smart Interface Design Patterns](https://smart-interface-design-patterns.com/articles/bulk-ux/)
+- [Best UI patterns for file uploads — CSVBox Blog](https://blog.csvbox.io/file-upload-patterns/)
+- [ExcelJS GitHub — Excel Workbook Manager](https://github.com/exceljs/exceljs)
+- [ExcelJS npm package](https://www.npmjs.com/package/exceljs)
+- [Store Performance Dashboard: Essential Reports — Shopify](https://www.shopify.com/retail/store-performance-dashboard)
+- [From Data To Decisions: UX Strategies For Real-Time Dashboards — Smashing Magazine](https://www.smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards/)
+- [Recharts for Analytics Dashboards — Embeddable](https://embeddable.com/blog/what-is-recharts)
+- [Consignment Inventory Accounting — Finale Inventory](https://www.finaleinventory.com/accounting-and-inventory-software/consignment-inventory-accounting)
+- [Consignment Sales Accounting — AccountingTools](https://www.accountingtools.com/articles/consignment-accounting)
+- [Top 6 FMCG Sales Metrics — FieldAssist](https://www.fieldassist.com/blog/6-fmcg-sales-metrics-to-track)
+- [Best Consignment Software for 2026 — Technology Advice](https://technologyadvice.com/blog/sales/consignment-software/)
 
 ---
-*Feature research for: Multi-channel dispatch, consignment revenue, kitchen simplification, cross-channel analytics*
-*Researched: 2026-02-16*
+
+*Previous v1.3 feature research (2026-02-16) is archived above this file's history — covered multi-channel dispatch planning, consignment lifecycle (3 layers), and cross-channel analytics at a higher level. This document supersedes it for Phases 21–22 scope.*

@@ -1,235 +1,229 @@
-# Stack Research: v1.2 Multi-Channel Dispatch, Kitchen Simplification, Consignment Revenue
+# Stack Research: v1.3 Consignment Excel Upload and Analytics Extension
 
-**Domain:** Multi-channel FMCG dispatch planning, consignment revenue recognition, kitchen production aggregation, cross-channel analytics
-**Researched:** 2026-02-16
-**Confidence:** HIGH (existing codebase covers 95% of needs; zero new npm dependencies required)
-
----
-
-## Key Finding: No New Dependencies Required
-
-All five v1.2 features are achievable with the existing stack. The codebase already has the integration architecture (adapters, token refresh, cron sync, externalRevenue tables), the UI component library (shadcn/ui, Recharts, Radix primitives), and the real-time infrastructure (Convex subscriptions). The work is schema evolution and feature code, not stack changes.
-
-**v1.2 is a pure feature-build milestone. Do not add new npm packages.**
+**Domain:** Excel file parsing/generation in a browser-based Convex + React 19 app
+**Researched:** 2026-02-22
+**Confidence:** HIGH
 
 ---
 
-## 1. Existing Stack (DO NOT CHANGE)
+## Summary
 
-Already installed, validated, and sufficient for all v1.2 work.
-
-### Core Technologies
-
-| Technology | Version | Purpose | Why Sufficient for v1.2 |
-|------------|---------|---------|-------------------------|
-| Convex | ^1.31.7 | Real-time serverless backend | Cron jobs, `"use node"` actions, scheduled functions already power GoBiz sync. Adding 3rd outlet is config change only. |
-| React | ^19.2.0 | UI framework | Hooks, context, component model handles all new UI (dispatch planner, manual entry forms, consignment workflow). |
-| TypeScript | ~5.9.3 | Type safety | Union types for consignment states, channel discriminators already used in schema. |
-| Vite | ^7.2.4 | Build tooling | No changes needed. |
-| Tailwind CSS | ^4.1.18 | Styling | Dark mode tokens already applied across all pages in v1.1. |
-| shadcn/ui (Radix) | Various | UI components | Tabs, dialogs, selects, checkboxes, tooltips -- all needed components already installed. |
-| Recharts | ^3.7.0 | Charts | Already powers SalesAnalytics stacked bar charts. Cross-channel analytics extends same patterns. |
-| date-fns | ^4.1.0 | Date manipulation | Week number calculation, date ranges, WIB timezone handling already in k3martCockpit/helpers.ts. |
-| Framer Motion | ^11.15.0 | Animations | Swipeable kitchen panels already use this. |
-| Sonner | ^2.0.7 | Toast notifications | Used throughout for action feedback. |
-
-### Supporting Libraries (Already Installed)
-
-| Library | Version | v1.2 Use Case |
-|---------|---------|---------------|
-| convex-helpers | ^0.1.112 | Custom function builders, validators |
-| @dnd-kit/core + sortable | ^6.3.1 / ^10.0.0 | Drag-and-drop if dispatch planner needs reorder (already installed) |
-| lucide-react | ^0.564.0 | Icons for new channel badges, consignment status indicators |
-| canvas-confetti | ^1.9.4 | Optional: celebration on consignment cash collection (already installed) |
+v1.3 requires exactly **one new npm dependency**: SheetJS (xlsx 0.20.3). Everything else — file upload architecture, charting, UI — is handled by the existing stack. This document explains the how and why for each decision, and what to explicitly avoid.
 
 ---
 
-## 2. Feature-Specific Stack Decisions
+## New Dependency Required
 
-### Feature 1: 3rd GoJek Outlet (Tamtem/Legato G958262444)
+### SheetJS (xlsx 0.20.3)
 
-**Stack change: NONE. Config change only.**
+The only stack addition for v1.3.
 
-The GoBiz integration architecture already supports N outlets:
-- `GOBIZ_CONFIG.merchantIds` array in `convex/integrations/gobiz/config.ts` -- add `"G958262444"`
-- `GOBIZ_CONFIG.merchantNames` map -- add `"G958262444": "Legato Tamtem"`
-- `GOBIZ_OUTLET_SEED` array -- add `{ externalId: "G958262444", name: "Legato Tamtem", source: "gobiz" }`
-- `autoSyncGoBizRevenue` in adapter.ts already iterates all `merchantIds` -- no code change needed
-- Run `seedGoBizOutlets` mutation to create the externalOutlets row
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| xlsx (SheetJS Community Edition) | 0.20.3 | Parse uploaded `.xlsx` files from consignment outlets; generate downloadable template `.xlsx` files | The dominant browser-compatible Excel library. Handles read + write in one package, works in Vite (ESM, named imports, tree-shaking), no server-side component needed. The only library that does both parsing and generation well in-browser. |
 
-**Verification:** The existing `autoSyncGoBizRevenue` cron (7x daily) and `autoRefreshGoBizToken` cron (every 30min) handle all outlets with a single shared token. The GoBiz API uses one credential set across all merchant IDs.
+**Install command (CDN tarball — do not use npm registry):**
 
-### Feature 2: Multi-Channel Dispatch Planner (evolved K3Mart cockpit)
+```bash
+npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+```
 
-**Stack change: NONE. Schema evolution + new UI.**
+**Why the CDN tarball, not `npm install xlsx`:**
+The `xlsx` package on the public npm registry is version 0.18.5, which is outdated and unmaintained. SheetJS stopped publishing to npm. Version 0.20.3 (current as of April 2024) is only available from `cdn.sheetjs.com`. The CDN tarball installs identically to a registry package — it saves into `node_modules/xlsx` and appears in `package.json` as `"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"`.
 
-Current K3Mart cockpit (`k3martDispatchPlans`, `k3martStockMovements`) is single-channel. Evolution path:
+**Import pattern for Vite + React (named imports, tree-shakeable):**
 
-| Current | Evolution | Stack Impact |
-|---------|-----------|-------------|
-| `k3martDispatchPlans` table | Add channel-agnostic `dispatchPlans` table OR extend existing with `channel` field | Schema migration only |
-| K3Mart-only outlet filter | Multi-source filter (K3Mart, Legato GF, Legato Tamtem) | Convex query filter change |
-| `restockTargets` per outlet | Already has `channel` field -- extend to cover all consignment channels | Already designed for this |
-| Weekly grid view | Extend to cover all dispatch destinations | React component, same Recharts/Radix primitives |
-
-**Key decision:** Extend `k3martDispatchPlans` with a `channel` discriminator rather than creating a parallel table. The existing schema already has `outletId` (references `externalOutlets`) which can point to any outlet, not just K3Mart. The table name is misleading but the schema is already channel-agnostic.
-
-**No new library needed.** The weekly planner UI pattern (grid of dates x products x outlets) reuses existing Radix Tabs, Tailwind grid, and date-fns week utilities.
-
-### Feature 3: Kitchen Simplification with Audio Alerts
-
-**Stack change: NONE. Use native Web Audio API for sound.**
-
-| Concern | Decision | Rationale |
-|---------|----------|-----------|
-| Audio alerts | Web Audio API (`AudioContext`) | Zero-dependency. Browser-native. Works on mobile Chrome/Safari. No npm package needed. |
-| Audio library alternative | Do NOT add `howler.js` or `use-sound` | Overkill for simple beep/chime alerts. AudioContext can generate tones procedurally with ~15 lines of code. |
-| Notification API | Do NOT use | Custom sound was removed from the Notification API spec in 2018. Browser notifications cannot play custom sounds. |
-| Aggregated daily targets | Convex query aggregation | Already done in `productionTargets` + `productionProductTargets` queries. Simplification is UI-only. |
-
-**Audio implementation pattern (no dependency):**
 ```typescript
-// Utility: play a simple alert tone using Web Audio API
-function playAlertTone(frequency = 800, duration = 200) {
-  const ctx = new AudioContext();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.frequency.value = frequency;
-  gain.gain.value = 0.3;
-  osc.start();
-  osc.stop(ctx.currentTime + duration / 1000);
+// Parsing only (upload path)
+import { read, utils } from 'xlsx';
+
+// Generation only (template download path)
+import { utils, writeFileXLSX } from 'xlsx';
+```
+
+Using `writeFileXLSX` instead of the generic `writeFile` significantly reduces bundle size — it only includes the XLSX serializer, not all format serializers.
+
+---
+
+## Existing Stack — What's Already There
+
+All of these are sufficient as-is. Do not add alternatives.
+
+### Core Technologies (Unchanged)
+
+| Technology | Version | v1.3 Use | Status |
+|------------|---------|----------|--------|
+| Convex | ^1.31.7 | Storage for parsed data (new `consignmentSales` table). `generateUploadUrl` for file uploads if needed. | Already installed |
+| React | ^19.2.0 | File input `<input type="file">`, `onChange` handler, `FileReader` for `.arrayBuffer()` | Already installed |
+| TypeScript | ~5.9.3 | Type the parsed row shape for both bulk-summary and transaction-detail formats | Already installed |
+| Vite | ^7.2.4 | No config changes needed for xlsx 0.20.3 (SheetJS added Vite-compatible metadata in 0.18.10) | Already installed |
+| Tailwind CSS + shadcn/ui | ^4.1.18 | Upload dropzone, progress states, error display, table display of imported rows | Already installed |
+| Recharts | ^3.7.0 | Extend existing `SalesChart.tsx` stacked bar — add `"Consignment"` as a new platform color/series. No new chart types needed. | Already installed |
+| Sonner | ^2.0.7 | Toast on upload success/failure, row count feedback | Already installed |
+| Lucide React | ^0.564.0 | `Upload`, `Download`, `FileSpreadsheet` icons for upload UI | Already installed |
+
+---
+
+## Architecture: File Upload Without Convex Storage
+
+**Decision: Parse Excel client-side in the browser. Store only the structured data in Convex, not the file.**
+
+For consignment uploads, there is no reason to store the raw `.xlsx` file. The workflow is:
+
+1. User selects `.xlsx` file via `<input type="file">`
+2. Browser reads it as `ArrayBuffer` using `FileReader.readAsArrayBuffer()`
+3. SheetJS parses the `ArrayBuffer` into rows of structured data
+4. React renders a preview table for the user to confirm
+5. On confirm, a Convex mutation saves the parsed rows to `consignmentSales` table
+
+This is entirely client-side parsing — no HTTP upload endpoint, no Convex `generateUploadUrl`, no `_storage` table involvement. The file never leaves the browser.
+
+**Why this is correct:**
+- The file is transient input data; the rows are the durable record
+- Avoids 20MB HTTP action limit (irrelevant, but avoid complexity)
+- No storage costs, no cleanup cron needed
+- Standard pattern for structured data import in internal tools
+
+**File upload code pattern:**
+
+```typescript
+import { read, utils } from 'xlsx';
+
+async function parseExcelFile(file: File): Promise<ConsignmentRow[]> {
+  const buffer = await file.arrayBuffer();
+  const wb = read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = utils.sheet_to_json<RawConsignmentRow>(ws, { header: 1 });
+  // validate and transform rows...
+  return rows;
 }
 ```
 
-**Important constraint:** AudioContext requires a user gesture (click/tap) to initialize on mobile browsers. The kitchen view should initialize AudioContext on first user interaction, then reuse it for subsequent alerts. This is a browser security policy, not a library limitation.
+**Template download code pattern:**
 
-### Feature 4: Cross-Channel Analytics with Manual Sales Entry
+```typescript
+import { utils, writeFileXLSX } from 'xlsx';
 
-**Stack change: NONE. Existing schema already designed for this.**
-
-The `externalRevenue` table already supports manual entry:
-- `dataOrigin: "manual_entry"` -- already in the schema union
-- `source: v.union("k3mart", "gobiz", "internal")` -- extend union to add `"shopee"`, `"tiktok"`, `"direct"`
-- `confidence: "manual"` -- already in the schema union
-
-| Concern | Decision | Rationale |
-|---------|----------|-----------|
-| Manual sales form | Convex mutation + React form | Standard pattern already used in 15+ entity pages |
-| CSV upload for Shopee/TikTok | `dataOrigin: "csv_upload"` already in schema | Parse CSV client-side with native `FileReader` + `String.split()`. Do NOT add `papaparse` -- the CSV format is simple (date, product, quantity, price). |
-| Cross-channel chart | Extend existing Recharts stacked bar | Already platform-colored in SalesAnalytics OverviewTab. Add new channel colors. |
-| Channel selector | Existing Radix Select component | Already have `orders.channel` union with 10+ channels |
-
-**Schema evolution needed:** Add new source literals to `externalRevenue.source` union. Current: `"k3mart" | "gobiz" | "internal"`. Needed: add `"shopee" | "tiktok" | "direct"`. This is a schema.ts change, not a library change.
-
-### Feature 5: Consignment Revenue Recognition Workflow
-
-**Stack change: NONE. New tables + state machine in Convex.**
-
-Consignment flow is a business logic pattern (production -> dispatch -> sale confirmation -> cash collection), not a technology problem. Implementation uses:
-
-| Component | Technology | Notes |
-|-----------|-----------|-------|
-| State machine | Convex union types + mutation guards | Same pattern as order status transitions (`statusTransitions.ts`) |
-| Cash collection tracking | New `consignmentSettlements` table | Convex table + mutations |
-| Settlement schedule | Convex cron or scheduled function | K3Mart: 2x/month, Legato: 1x/week. Use `crons.ts` pattern. |
-| Revenue recognition date | Timestamp field on settlement record | When cash is collected, not when product is dispatched |
-| Reporting | Extend existing `externalRevenue` queries | Already has `periodStart`/`periodEnd` for time-range queries |
-
-**Key schema additions (no npm changes):**
-- `consignmentBatches` table: tracks dispatched inventory per outlet per date
-- `consignmentSettlements` table: tracks cash collection events
-- State: `dispatched` -> `sale_confirmed` -> `settled` -> `reconciled`
+function downloadTemplate() {
+  const summarySheet = utils.aoa_to_sheet([
+    ['Date From', 'Date To', 'Outlet', 'Product', 'Qty Sold', 'Qty Returned', 'Revenue (Rp)'],
+    ['2026-01-01', '2026-01-15', 'Legato BSD', 'Frollie Original', 0, 0, 0],
+  ]);
+  const detailSheet = utils.aoa_to_sheet([
+    ['Transaction ID', 'Date', 'Outlet', 'Product', 'Qty', 'Unit Price (Rp)', 'Total (Rp)'],
+    ['TXN-001', '2026-01-05', 'Legato BSD', 'Frollie Original', 2, 45000, 90000],
+  ]);
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, summarySheet, 'Bulk Summary');
+  utils.book_append_sheet(wb, detailSheet, 'Transaction Detail');
+  writeFileXLSX(wb, 'consignment_template.xlsx');
+}
+```
 
 ---
 
-## 3. What NOT to Add
+## Analytics Extension: No New Libraries
+
+The ANLY-01 and ANLY-02 requirements (consignment channel in charts, lifetime totals) extend existing Recharts patterns.
+
+**ANLY-01 — Add consignment channel to stacked bar charts:**
+
+`SalesChart.tsx` already has a `PLATFORM_COLORS` map and renders one `<Bar>` per channel. Adding consignment is:
+1. Add `"Consignment": "#8b5cf6"` (violet-500) to `PLATFORM_COLORS`
+2. Include consignment data in the time-series query result
+3. Add a `<Bar dataKey="Consignment" ... />` in the chart JSX
+
+No new Recharts components, no new chart types.
+
+**ANLY-02 — Lifetime totals counter + per-product table:**
+
+This is a Convex aggregate query (sum across all time, no date filter) plus a simple HTML table rendered with Tailwind. Recharts is not needed for a number counter or a text table. Use shadcn `<Table>` components already in the codebase.
+
+---
+
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `howler.js` / `use-sound` | Overkill for simple alert tones. Adds 15KB+ for what AudioContext does in 15 lines. | Native Web Audio API `AudioContext` |
-| `papaparse` | CSV parsing for Shopee/TikTok exports is simple tabular data. Native `FileReader` + `split()` handles it. | Native browser APIs |
-| `zustand` / `jotai` | State management libraries. Convex real-time queries already serve as the reactive store. Local UI state is minimal. | React `useState` + Convex `useQuery` |
-| `react-table` / `@tanstack/table` | Tempting for dispatch grid, but adds complexity. The grid is a fixed product x date matrix, not a dynamic table. | Tailwind CSS grid + manual rendering |
-| `xstate` | State machine library. The consignment workflow has 4 states and linear transitions. Union types + switch statements suffice. | Convex union types + helper functions |
-| `recharts` upgrade | Already on ^3.7.0 which is current. Do not upgrade mid-milestone. | Keep current version |
-| New charting library | Recharts already handles stacked bars, line charts, and tooltips. No need for `nivo`, `victory`, or `chart.js`. | Recharts ^3.7.0 |
-| `date-fns-tz` | Timezone handling is already manual (WIB = UTC+7 offset). The codebase consistently uses `+ 7 * 60 * 60 * 1000`. Don't introduce a second timezone approach mid-project. | Continue manual WIB offset pattern |
+| `xlsx` from npm registry (`npm install xlsx`) | npm registry version is 0.18.5 — outdated, unmaintained, security vulnerabilities. Missing Vite metadata. | CDN tarball: `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` |
+| `exceljs` (npm) | Last major update 2 years ago. Literally doubles Vite bundle size (no tree-shaking, ~200KB minified). Browser support is secondary use case. TypeScript types are inaccurate in some cases. | SheetJS 0.20.3 — smaller, tree-shakeable, active CDN distribution |
+| `papaparse` | CSV only. The consignment outlets use `.xlsx`, not `.csv`. Wrong tool. | SheetJS handles both .xlsx and .csv if needed |
+| `node-xlsx` | Node.js-only. Cannot run in browser. Would require a Convex action with `"use node"` just to parse the file, adding unnecessary round-trip. | SheetJS client-side parsing |
+| `FileSaver.js` | ExcelJS dependency. Not needed with SheetJS — `writeFileXLSX()` handles browser download natively via `<a>` tag + Blob URL. | SheetJS `writeFileXLSX` built-in download |
+| Convex `generateUploadUrl` + file storage | Would store the raw `.xlsx` bytes durably, requiring cleanup cron and storage cost. The rows are the data we care about, not the file. | Client-side parsing — store structured rows only |
+| `react-dropzone` | Adds ~30KB for a styled dropzone. The upload UI for this internal tool is a simple `<input type="file" accept=".xlsx">` button. | Native HTML `<input type="file">` + shadcn `Button` |
+| `@tanstack/react-table` | Not needed for the lifetime per-product table. It's a static read-only table with ~10 rows. | shadcn `<Table>` components |
+| New charting library (`nivo`, `victory`, `chart.js`) | Recharts already handles all chart types needed. Adding a second charting library fragments the visual language. | Recharts ^3.7.0 (already installed) |
+| Recharts upgrade | Currently on ^3.7.0 which is the current major version. Mid-milestone upgrades risk type breaks. | Stay on ^3.7.0 |
 
 ---
 
-## 4. Schema Evolution (Not Stack, But Critical)
+## Version Compatibility
 
-These are the data model changes needed. No npm packages, just `convex/schema.ts` updates.
-
-### New Tables
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `consignmentBatches` | Track dispatched inventory to consignment outlets | `outletId`, `date`, `menuProductId`, `quantityDispatched`, `quantitySold`, `quantityReturned`, `status` |
-| `consignmentSettlements` | Cash collection events | `outletId`, `periodStart`, `periodEnd`, `expectedAmount`, `collectedAmount`, `collectedAt`, `status` |
-
-### Schema Modifications
-
-| Table | Change | Reason |
-|-------|--------|--------|
-| `externalRevenue.source` | Add `"shopee"`, `"tiktok"`, `"direct"` to union | Cross-channel analytics manual entry |
-| `orders.channel` | Add `"gofood_tamtem"` to union | 3rd GoJek outlet channel tracking |
-| `externalOutlets.source` | Potentially add `"legato"` or reuse `"gobiz"` | Legato consignment outlets if distinct from GoBiz |
-| `k3martDispatchPlans` | Add `channel` field or rename conceptually | Multi-channel dispatch (may keep table name for backward compat) |
-| `kitchenConfig` | Add `audioAlertEnabled`, `alertThresholdPct` | Kitchen audio alert preferences |
+| Package | Version | Compatibility Notes |
+|---------|---------|---------------------|
+| xlsx (SheetJS) | 0.20.3 | Compatible with Vite 7.x — SheetJS added required package.json metadata in 0.18.10. Named ESM imports work. No config changes to `vite.config.ts` needed. |
+| xlsx (SheetJS) | 0.20.3 | Compatible with React 19 — SheetJS is UI-framework agnostic. No peer dependency conflicts. |
+| xlsx (SheetJS) | 0.20.3 | Compatible with TypeScript ~5.9 — types are bundled in the package. No `@types/xlsx` needed (that's for the old 0.18.5 version). |
+| recharts | ^3.7.0 | No changes. Adding a new `<Bar>` to existing charts is backward-compatible. |
 
 ---
 
-## 5. Installation
+## Bundle Size Impact
+
+The project already has a 1.8MB JS bundle (noted as technical debt in PROJECT.md). SheetJS adds approximately:
+
+- Full library: ~340KB minified + gzipped
+- With tree-shaking (named imports + `writeFileXLSX`): ~180–220KB for parse + generate
+
+**Mitigation:** Lazy-load the consignment upload component. Since Excel upload is an infrequent admin action (not on any hot path), wrap the upload page/modal in `React.lazy()`:
+
+```typescript
+const ConsignmentUpload = React.lazy(() => import('./ConsignmentUpload'));
+```
+
+This keeps SheetJS out of the initial bundle and only loads it when a manager navigates to the upload page. This is the recommended pattern for heavy upload libraries.
+
+---
+
+## Installation
 
 ```bash
-# No new packages to install.
-# v1.2 is purely feature code on top of the existing stack.
+# The only new package
+npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 
-# Verify current stack is healthy:
+# Verify nothing broke
 npm run type-check
 npm run build
 ```
 
----
-
-## 6. Version Compatibility
-
-All existing packages are compatible. No version conflicts.
-
-| Package | Current Version | Status | Notes |
-|---------|----------------|--------|-------|
-| convex | ^1.31.7 | Current | Supports all needed features (crons, actions, scheduled functions) |
-| react | ^19.2.0 | Current | Stable release, no breaking changes expected |
-| recharts | ^3.7.0 | Current | Stacked bar charts, tooltips, responsive containers all working |
-| date-fns | ^4.1.0 | Current | Week number, date range, format utilities all used |
-| tailwindcss | ^4.1.18 | Current | Dark mode, custom tokens, responsive grid all working |
+After install, `package.json` will show:
+```json
+"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+```
 
 ---
 
-## 7. Alternatives Considered
+## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Web Audio API for alerts | `howler.js` | Dependency for trivial use case. AudioContext is 15 lines. |
-| Native FileReader for CSV | `papaparse` | Shopee/TikTok CSVs are simple. No complex parsing needed. |
-| Manual WIB offset | `date-fns-tz` | Existing codebase uses manual offset consistently. Mixing approaches creates bugs. |
-| Extend `k3martDispatchPlans` | New `dispatchPlans` table | Existing table schema is already channel-agnostic via `outletId`. Renaming is cosmetic. |
-| Convex union types for state | `xstate` | 4-state linear workflow. State machine library is overkill. |
-| Extend existing crons.ts | Runtime cron component | Built-in crons are sufficient. Only need to add settlement reminder crons. |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| SheetJS 0.20.3 (CDN tarball) | ExcelJS 4.4.0 (npm) | Only if you need pixel-perfect Excel formatting (cell colors, merged cells, print layout). For data import/export templates, SheetJS is simpler and smaller. |
+| Client-side parsing only | Convex action with `"use node"` + `xlsx` | Only if parsing logic is too complex for browser (e.g., password-protected files, macro-enabled .xlsm). Not the case here. |
+| `React.lazy()` for upload component | Include in main bundle | Only if consignment upload is used so frequently that lazy load flicker is unacceptable. For infrequent admin uploads, lazy loading is always preferable. |
 
 ---
 
 ## Sources
 
-- Codebase analysis: `convex/integrations/gobiz/config.ts`, `convex/integrations/gobiz/adapter.ts`, `convex/schema.ts` (59 tables), `convex/crons.ts` -- HIGH confidence
-- Codebase analysis: `convex/k3martCockpit/`, `convex/reports/dailySales.ts`, `src/pages/SalesAnalytics.tsx` -- HIGH confidence
-- Web Audio API: [MDN Notifications API](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API), [OurCodeWorld AudioContext guide](https://ourcodeworld.com/articles/read/1627/how-to-easily-generate-a-beep-notification-sound-with-javascript) -- HIGH confidence (browser-native API)
-- Convex scheduling: [Convex Cron Jobs docs](https://docs.convex.dev/scheduling/cron-jobs), [Convex Scheduled Functions docs](https://docs.convex.dev/scheduling/scheduled-functions) -- HIGH confidence
-- `package.json` analysis: all 35 dependencies verified current -- HIGH confidence
+- SheetJS official docs (current): [Installation for Frameworks/Bundlers](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/) — HIGH confidence
+- SheetJS official docs: [Vite integration guide](https://docs.sheetjs.com/docs/demos/frontend/bundler/vitejs/) — HIGH confidence
+- SheetJS official docs: [React integration](https://docs.sheetjs.com/docs/demos/frontend/react/) — HIGH confidence
+- SheetJS CDN: [Version 0.20.3 tarball](https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz) — HIGH confidence
+- Convex official docs: [File Storage - Upload Files](https://docs.convex.dev/file-storage/upload-files) — HIGH confidence (verified; not used for this feature but architecture decision documented)
+- Codebase analysis: `src/components/salesAnalytics/SalesChart.tsx`, `package.json`, `convex/http.ts` — HIGH confidence
+- ExcelJS bundle size: [GitHub Issue #1236](https://github.com/exceljs/exceljs/issues/1236), [Bundlephobia](https://bundlephobia.com/package/exceljs) — MEDIUM confidence (community reports, consistent across multiple sources)
 
 ---
-*Stack research for: v1.2 Multi-Channel Dispatch, Kitchen Simplification, Consignment Revenue*
-*Researched: 2026-02-16*
+*Stack research for: v1.3 Consignment Excel Upload and Analytics Extension*
+*Researched: 2026-02-22*
