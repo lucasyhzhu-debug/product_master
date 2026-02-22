@@ -460,6 +460,9 @@ export function OrderDetail() {
             voucherCode={order.voucher_code}
             voucherDiscountValue={order.voucher_discount_value}
             finalTotal={order.final_total}
+            deliveryFee={order.delivery_fee}
+            orderId={orderId}
+            canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
           />
 
           {/* Edit Order Items Button */}
