@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 20.1 — Delivery Fee Reporting Separation (Complete - 1/1 plans done)
 Plan: 20.1-01 complete (1/1 plans done)
 Status: All 1 plan complete; build passes; delivery fee separation shipped to Sales Analytics
-Last activity: 2026-02-22 - Completed quick task 23: Highlight my orders and orders with notes on order manager kanban with sorting and legend toggles
+Last activity: 2026-02-22 - Completed quick task 24: Disable Sales Analytics and K3Mart Cockpit pages for bandwidth conservation
 
 Progress (v1.3): [█████████░] ~92% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 in progress (1/1 done)
 
@@ -98,6 +98,7 @@ None.
 | 21 | add deliveryFee input to OrderCreate Order Summary + fix ongkir line position before Total in WhatsApp payment_request and receipt templates | 2026-02-22 | bd5322c | Verified | [21-delivery-fee-input-on-ordercreate-fix-wh](./quick/21-delivery-fee-input-on-ordercreate-fix-wh/) |
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
 | 23 | Highlight my orders and orders with notes on order manager kanban with sorting and legend toggles | 2026-02-22 | 3fa94de | Verified | [23-highlight-my-orders-and-orders-with-note](./quick/23-highlight-my-orders-and-orders-with-note/) |
+| 24 | Disable Sales Analytics and K3Mart Cockpit pages; redirect / and disabled routes to /orders for bandwidth conservation until March 1st | 2026-02-22 | 7d7fcba | Done | [24-disable-sales-analytics-page-and-redirec](./quick/24-disable-sales-analytics-page-and-redirec/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
