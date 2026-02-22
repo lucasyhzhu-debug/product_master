@@ -26,6 +26,7 @@ export function formatDate(timestamp: string | number | null | undefined): strin
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Asia/Jakarta',
   };
   return date.toLocaleDateString('id-ID', options);
 }
@@ -64,7 +65,7 @@ export function formatDeliveryInfo(
   language: WhatsAppLanguage
 ): string {
   if (deliveryType === 'Pickup') {
-    const location = pickupLocation || 'Goldfinch Legato';
+    const location = pickupLocation || 'Legato Gelato - Goldfinch';
     return language === 'id' ? `📍 Pickup di: ${location}` : `📍 Pickup at: ${location}`;
   } else if (deliveryType === 'Delivery' && deliveryAddress) {
     return language === 'id' ? `📍 Kirim ke: ${deliveryAddress}` : `📍 Deliver to: ${deliveryAddress}`;
@@ -289,7 +290,7 @@ export function generateTemplate(
     '{shipping_agency}': order.shipping_agency || '-',
     '{shipping_number}': order.shipping_number || '-',
     '{delivery_address}': order.delivery_address || '-',
-    '{pickup_location}': order.pickup_location || 'Goldfinch Legato',
+    '{pickup_location}': order.pickup_location || 'Legato Gelato - Goldfinch',
   };
 
   // Replace all placeholders

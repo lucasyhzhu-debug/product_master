@@ -109,7 +109,7 @@ describe("formatDeliveryInfo", () => {
   it("should format pickup with default location", () => {
     const info = { deliveryType: "Pickup" };
     const result = formatDeliveryInfo(info);
-    expect(result).toBe("Pickup at: Goldfinch Legato");
+    expect(result).toBe("Pickup at: Legato Gelato - Goldfinch");
   });
 
   it("should format pickup with custom location", () => {

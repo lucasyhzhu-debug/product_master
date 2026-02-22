@@ -27,6 +27,7 @@ export function formatDate(timestamp: number): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   };
   return date.toLocaleDateString("id-ID", options);
 }
@@ -44,6 +45,7 @@ export function formatDateTime(timestamp: number): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   };
   return date.toLocaleDateString("id-ID", options);
 }
@@ -99,7 +101,7 @@ export interface DeliveryInfo {
  */
 export function formatDeliveryInfo(info: DeliveryInfo): string {
   if (info.deliveryType === "Pickup") {
-    const location = info.pickupLocation || "Goldfinch Legato";
+    const location = info.pickupLocation || "Legato Gelato - Goldfinch";
     return `Pickup at: ${location}`;
   } else if (info.deliveryType === "Delivery" && info.deliveryAddress) {
     return `Delivery to: ${info.deliveryAddress}`;

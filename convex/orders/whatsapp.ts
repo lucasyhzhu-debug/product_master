@@ -63,13 +63,17 @@ function buildTemplateVariables(
   const finalTotalFormatted = formatCurrency(finalTotal);
 
   // Delivery info
+  // Address content is the source of truth. If deliveryAddress is set and is NOT a pickup prefix,
+  // treat as delivery regardless of the deliveryType field (which may be stale).
   let deliveryInfo = "";
   const isPickupAddress = order.deliveryAddress ? PICKUP_PREFIX_RE.test(order.deliveryAddress) : false;
-  if (order.deliveryType === "Pickup" || isPickupAddress) {
+  if (order.deliveryAddress && !isPickupAddress) {
+    // Real delivery address — always show delivery info
+    deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
+  } else if (isPickupAddress || order.deliveryType === "Pickup") {
+    // Either address has pickup prefix OR no delivery address and type is Pickup
     const location = order.pickupLocation || (order.deliveryAddress ? order.deliveryAddress.replace(PICKUP_PREFIX_RE, "").trim() : "") || "Legato Gelato - Goldfinch";
     deliveryInfo = `📍 Pickup at: ${location}`;
-  } else if (order.deliveryAddress) {
-    deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
   }
 
   // Payment info
@@ -163,6 +167,7 @@ function formatDate(timestamp: number): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Jakarta",
   };
   return date.toLocaleDateString("id-ID", options);
 }
@@ -175,6 +180,7 @@ function formatDateTime(timestamp: number): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Jakarta",
   };
   return date.toLocaleDateString("id-ID", options);
 }
@@ -256,13 +262,17 @@ function generatePaymentRequest(order: OrderWithItems): string {
   const finalTotalFormatted = formatCurrency(finalTotal);
 
   // Delivery info
+  // Address content is the source of truth. If deliveryAddress is set and is NOT a pickup prefix,
+  // treat as delivery regardless of the deliveryType field (which may be stale).
   let deliveryInfo = "";
   const isPickupAddress = order.deliveryAddress ? PICKUP_PREFIX_RE.test(order.deliveryAddress) : false;
-  if (order.deliveryType === "Pickup" || isPickupAddress) {
+  if (order.deliveryAddress && !isPickupAddress) {
+    // Real delivery address — always show delivery info
+    deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
+  } else if (isPickupAddress || order.deliveryType === "Pickup") {
+    // Either address has pickup prefix OR no delivery address and type is Pickup
     const location = order.pickupLocation || (order.deliveryAddress ? order.deliveryAddress.replace(PICKUP_PREFIX_RE, "").trim() : "") || "Legato Gelato - Goldfinch";
     deliveryInfo = `📍 Pickup at: ${location}`;
-  } else if (order.deliveryAddress) {
-    deliveryInfo = `📍 Delivery to: ${order.deliveryAddress}`;
   }
 
   return `Halo ${customerName}! 👋

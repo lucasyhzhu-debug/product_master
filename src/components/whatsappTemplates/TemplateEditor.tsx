@@ -55,7 +55,7 @@ const SAMPLE_DATA: Record<string, string> = {
   "{shipping_number}": "JNE123456789",
   "{shipping_agency}": "JNE Express",
   "{delivery_address}": "Jl. Sudirman No. 123, Jakarta Pusat 10220",
-  "{pickup_location}": "Goldfinch Legato",
+  "{pickup_location}": "Legato Gelato - Goldfinch",
 };
 
 export function TemplateEditor({
