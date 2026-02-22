@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
+import { GoFoodRestockSection } from "@/components/restockPlanner/GoFoodRestockSection";
 
 // ─── Helpers ───
 
@@ -303,6 +304,9 @@ export function RestockPlanner() {
           />
         </ChannelSection>
       )}
+
+      {/* GoFood Depot Restock */}
+      <GoFoodRestockSection />
     </div>
   );
 }
