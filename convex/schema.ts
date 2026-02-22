@@ -1084,6 +1084,7 @@ export default defineSchema({
       v.literal("drawdown"),      // Order fulfilment drawdown
       v.literal("gofood_sale"),   // GoFood sync auto-deduction
       v.literal("adjust"),        // Manager adjustment (spoilage, correction, transfer)
+      v.literal("transfer"),      // Phase 19: Stock transfer between locations
     ),
     quantity: v.number(),          // + for add/adjust-up, - for drawdown/adjust-down
     previousQuantity: v.number(),
@@ -1091,6 +1092,8 @@ export default defineSchema({
     orderId: v.optional(v.id("orders")),
     gofoodOrderRef: v.optional(v.string()),
     reason: v.optional(v.string()), // For adjustments
+    // Phase 19: Links source and destination transfer transactions
+    transferPairLocationId: v.optional(v.id("storageLocations")),
     performedBy: v.string(),
     createdAt: v.number(),
   })
@@ -1315,8 +1318,24 @@ export default defineSchema({
     quantity: v.number(), // Current boxes at Goldfinch (can go negative = debt)
     stickerDeficit: v.optional(v.number()), // Cumulative sticker shortfall
     lastUpdated: v.number(), // Timestamp of last change
+    // Phase 19: Per-outlet stock tracking (optional for backward compat)
+    outletId: v.optional(v.id("externalOutlets")),
   })
-    .index("by_menuProduct", ["menuProductId"]),
+    .index("by_menuProduct", ["menuProductId"])
+    .index("by_outlet_product", ["outletId", "menuProductId"]),
+
+  // Phase 19: Per-outlet product mapping config (GoFood product name -> internal menuProduct)
+  gofoodOutletProductMappings: defineTable({
+    outletId: v.id("externalOutlets"),
+    externalProductName: v.string(),        // GoFood product name from GoBiz sync
+    menuProductId: v.optional(v.id("menuProducts")), // Linked internal product (null = unmapped)
+    isActive: v.boolean(),                  // Whether this product is sold at this outlet
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_outlet", ["outletId"])
+    .index("by_outlet_product", ["outletId", "externalProductName"]),
 
   // Audit log of every shipment from Office to Goldfinch
   gofoodDepotShipments: defineTable({
