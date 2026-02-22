@@ -1,40 +1,34 @@
 /**
- * KitchenView V3 - Swipeable 4-panel kitchen production workflow
+ * KitchenViewV2 — Simplified production-focused kitchen page (Phase 21)
  *
- * Mobile-first redesign with batch production model:
- * Panel 1: Production Log (ball input + targets)
- * Panel 2: To Box (batch boxing by product type)
- * Panel 3: To Sticker (batch stickering by product type)
- * + DueDateOrderList (per-order packing checklist, always visible)
+ * Layout:
+ *   1. Page header (title + date)
+ *   2. ProductionTargetsBar — ball totals (Original/Jumbo) + packaging breakdown
+ *   3. EndOfShiftForm — produced quantities + optional waste, 3-step flow
+ *   4. Today's shift records — compact list of submissions already recorded today
+ *   5. Collapsible "View Today's Orders" — DueDateOrderList (hidden by default)
  *
- * Phase 15: Dashboard header with stat cards + due-date order list
- *
- * Desktop (1024px+): 4-column grid (Production | Boxing | Stickering | Orders by Due Date)
- * Mobile (<768px): 3 swipeable panels + DueDateOrderList below
+ * Boxing/stickering panels removed from view.
+ * Old component files are NOT deleted — Phase 24 handles cleanup.
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Eye } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoadingCards } from '@/components/shared';
-import {
-  SwipeableKitchenLayout,
-  ProductionLogPanel,
-  BoxingPanel,
-  StickeringPanel,
-  DashboardHeader,
-  DueDateOrderList,
-} from '@/components/kitchen';
+import { DueDateOrderList } from '@/components/kitchen';
+import { ProductionTargetsBar } from '@/components/kitchen/ProductionTargetsBar';
+import { EndOfShiftForm } from '@/components/kitchen/EndOfShiftForm';
+import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
 import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMutation, useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { ConvexError } from 'convex/values';
 import { toast } from 'sonner';
 import { actionToast } from '@/lib/actionToast';
-import { startOfDay } from 'date-fns';
 import type { Id } from '../../convex/_generated/dataModel';
 
 /** Extract error message from ConvexError or regular Error */
@@ -44,64 +38,61 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Map backend error messages to human-friendly copy for kitchen staff */
-function friendlyCopy(msg: string): string {
-  if (msg.includes('Insufficient balls')) {
-    const match = msg.match(/need (\d+), have (\d+)/);
-    return match ? `Not enough balls! ${match[2]} in tray, need ${match[1]}` : msg;
-  }
-  if (msg.includes('Insufficient boxed'))
-    return msg.replace(/Insufficient boxed products: need (\d+), available (\d+)/, 'Only $2 boxed, need $1 to sticker');
-  if (msg.includes('Insufficient stickered'))
-    return msg.replace(/Insufficient stickered products: need (\d+), available (\d+)/, 'Only $2 stickered, need $1 to pack');
-  return msg;
+/** Format a timestamp (ms) as a local time string */
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 export function KitchenViewV2() {
   useDocumentTitle('Kitchen Production');
 
+  // ============================================
+  // Auth — must be called before any conditional returns
+  // ============================================
+
   const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
   const canConfigure = canEditKitchen && (user?.role === 'manager' || user?.role === 'admin');
 
-  // Active panel for mobile swipe
-  const [activePanel, setActivePanel] = useState(0);
+  // ============================================
+  // Kitchen targets + shift records (Phase 21)
+  // ============================================
 
-  // Combined kitchen data hook
+  const { today, targets, todayShiftRecords } = useKitchenTargets();
+
+  // ============================================
+  // Kitchen production data (for orders section)
+  // ============================================
+
   const {
-    isLoading,
-    productionCounts,
+    isLoading: isProductionLoading,
     packingOrders,
-    trayInventory,
-    kitchenStats,
-    kitchenConfig,
-    productionTargets,
-    productTargets,
-    orderProductDemand,
-    goFoodDailyOrder,
-    depotStock,
-    goldfinchStickerInventory,
     k3MartSummary,
-    today,
   } = useKitchenProduction();
 
-  // Mutations - ball tray (legacy, no auth)
-  const addBallsToTray = useMutation(api.orders.mutations.index.addBallsToTray);
+  // ============================================
+  // Mutations for orders collapsible section
+  // ============================================
 
-  // Mutations - production targets (protected with auth)
-  const setProductTarget = useProtectedMutation(api.productionTargets.mutations.setProductTarget);
-
-  // Mutations - new kitchen V3 (protected with auth)
-  const boxProducts = useProtectedMutation(api.orders.mutations.index.boxProducts);
-  const stickerProducts = useProtectedMutation(api.orders.mutations.index.stickerProducts);
   const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.index.togglePackOrderLineItem);
   const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
   const sendBack = useProtectedMutation(api.orders.mutations.index.sendBackToOrderDesk);
+  const setProductTarget = useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 
-  // GoBiz sync action
-  const syncGoBizAction = useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
+  // ============================================
+  // Collapsible orders toggle state
+  // ============================================
 
+  const [ordersOpen, setOrdersOpen] = useState(false);
+
+  // ============================================
   // Wake lock to prevent phone sleep
+  // ============================================
+
   useEffect(() => {
     let wakeLock: WakeLockSentinel | null = null;
 
@@ -111,13 +102,12 @@ export function KitchenViewV2() {
           wakeLock = await navigator.wakeLock.request('screen');
         }
       } catch {
-        // Wake lock not supported or denied - silently ignore
+        // Wake lock not supported or denied — silently ignore
       }
     };
 
     requestWakeLock();
 
-    // Re-acquire on visibility change (e.g., switching tabs)
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         requestWakeLock();
@@ -132,92 +122,19 @@ export function KitchenViewV2() {
   }, []);
 
   // ============================================
-  // Dashboard header computed values
+  // Order count for the toggle button label
   // ============================================
 
-  // Max target from config
-  const maxTarget = useMemo(() => ({
-    total: kitchenConfig?.maxProductionTarget ?? 200,
-    big: kitchenConfig?.bigBallTarget ?? 0,
-    mid: kitchenConfig?.midBallTarget ?? 200,
-  }), [kitchenConfig]);
-
-  // Min target from kitchen stats (due-today orders)
-  const minTarget = kitchenStats?.minTargetToday;
-
-  // Remaining balls = min target - balls produced today
-  const remainingBalls = useMemo(() => ({
-    total: Math.max(0, (minTarget?.totalBalls ?? 0) - ((kitchenStats?.bigBallsCompleted ?? 0) + (kitchenStats?.midBallsCompleted ?? 0))),
-    big: Math.max(0, (minTarget?.bigBalls ?? 0) - (kitchenStats?.bigBallsCompleted ?? 0)),
-    mid: Math.max(0, (minTarget?.midBalls ?? 0) - (kitchenStats?.midBallsCompleted ?? 0)),
-  }), [minTarget, kitchenStats]);
-
-  // Has overdue: check if any packing order has dueDate in the past
-  const hasOverdueOrders = useMemo(() => {
-    if (!packingOrders) return false;
-    return packingOrders.some(o => {
-      if (!o.dueDate) return false;
-      const wibOffset = 7 * 60 * 60 * 1000;
-      const dueWIB = new Date(o.dueDate + wibOffset);
-      const nowWIB = new Date(Date.now() + wibOffset);
-      return dueWIB < startOfDay(nowWIB);
-    });
-  }, [packingOrders]);
-
-  // Orders left = from kitchenStats.ordersLeftToComplete (added in Plan 01)
-  const ordersLeft = kitchenStats?.ordersLeftToComplete ?? 0;
+  const orderCount = useMemo(() => {
+    const regular = packingOrders?.length ?? 0;
+    const k3mart = k3MartSummary?.items?.length ?? 0;
+    return regular + k3mart;
+  }, [packingOrders, k3MartSummary]);
 
   // ============================================
-  // Handlers - Ball tray
+  // Handlers — orders
   // ============================================
 
-  const handleAddBalls = async (ballType: 'original' | 'bite_sized', count: number, event?: React.MouseEvent) => {
-    try {
-      await addBallsToTray({ ballType, count });
-      const message = count > 0 ? `+${count} balls added` : `${count} balls removed`;
-      actionToast(message, event);
-    } catch {
-      toast.error(count > 0 ? 'Failed to add balls' : 'Failed to remove balls');
-    }
-  };
-
-  // Handlers - Boxing
-  const handleBoxProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
-    try {
-      const result = await boxProducts({
-        menuProductId: menuProductId as Id<'menuProducts'>,
-        quantity,
-      });
-      const action = quantity > 0 ? 'Boxed' : 'Unboxed';
-      if (result?.warning) {
-        actionToast(`${action} ${Math.abs(quantity)} (packaging low)`, event, 'warning');
-      } else {
-        actionToast(`${action} ${Math.abs(quantity)}`, event);
-      }
-    } catch (error) {
-      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to box products')), event, 'error');
-    }
-  };
-
-  // Handlers - Stickering
-  const handleStickerProducts = async (menuProductId: string, quantity: number, event?: React.MouseEvent) => {
-    try {
-      const result = await stickerProducts({
-        menuProductId: menuProductId as Id<'menuProducts'>,
-        quantity,
-      });
-      const action = quantity > 0 ? 'Stickered' : 'Unstickered';
-      if (result?.warning) {
-        actionToast(`${action} ${Math.abs(quantity)} (packaging low)`, event, 'warning');
-      } else {
-        actionToast(`${action} ${Math.abs(quantity)}`, event);
-      }
-    } catch (error) {
-      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to sticker products')), event, 'error');
-    }
-  };
-
-  // Handlers - Packing
   const handleTogglePack = async (orderId: string, orderItemId: string, event?: React.MouseEvent) => {
     try {
       await togglePackOrderLineItem({
@@ -226,22 +143,19 @@ export function KitchenViewV2() {
       });
       actionToast('Packed', event);
     } catch (error) {
-      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to toggle pack')), event, 'error');
+      actionToast(extractErrorMessage(error, 'Failed to toggle pack'), event, 'error');
     }
   };
 
   const handleMarkOrderReady = async (orderId: string, event?: React.MouseEvent) => {
     try {
-      await markOrderReady({
-        orderId: orderId as Id<'orders'>,
-      });
+      await markOrderReady({ orderId: orderId as Id<'orders'> });
       actionToast('Order marked as ready!', event);
     } catch (error) {
-      actionToast(friendlyCopy(extractErrorMessage(error, 'Failed to mark order ready')), event, 'error');
+      actionToast(extractErrorMessage(error, 'Failed to mark order ready'), event, 'error');
     }
   };
 
-  // Handler - Send Back to order desk
   const handleSendBack = async (orderId: string) => {
     try {
       await sendBack({ orderId: orderId as Id<'orders'> });
@@ -251,7 +165,6 @@ export function KitchenViewV2() {
     }
   };
 
-  // Handler - Manager inventory override (KIT-08)
   const handleOverride = async (orderId: string, orderItemId: string, reason: string) => {
     try {
       await togglePackOrderLineItem({
@@ -260,13 +173,12 @@ export function KitchenViewV2() {
         forceOverride: true,
         overrideReason: reason,
       });
-      toast.success('Override applied - item packed');
+      toast.success('Override applied — item packed');
     } catch (error) {
       toast.error(extractErrorMessage(error, 'Override failed'));
     }
   };
 
-  // Handler - Set product target (source: "consignment" | "gofood")
   const handleSetProductTarget = async (menuProductId: string, source: string, quantity: number) => {
     try {
       await setProductTarget({
@@ -276,277 +188,129 @@ export function KitchenViewV2() {
         quantity,
       });
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to set target';
-      toast.error(msg);
+      toast.error(extractErrorMessage(error, 'Failed to set target'));
     }
   };
 
-  // Handler - GoBiz Sync Now
-  const handleSyncNow = async () => {
-    try {
-      toast.info('Syncing GoBiz data...');
-      await syncGoBizAction({ triggeredBy: 'kitchen_manual' });
-      toast.success('GoBiz sync complete');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Sync failed';
-      toast.error(msg);
-    }
-  };
+  // ============================================
+  // Loading state — only block on production data
+  // targets and shift records show skeletons inline
+  // ============================================
 
-  // Handler - K3 Mart Sync Stock
-  const syncK3MartAction = useAction(api.integrations.k3mart.adapter.syncK3MartStock);
-  const handleSyncK3Mart = async () => {
-    try {
-      toast.info('Syncing K3 Mart stock...');
-      await syncK3MartAction({ triggeredBy: 'kitchen_manual' });
-      toast.success('K3 Mart sync complete');
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Sync failed';
-      toast.error(msg);
-    }
-  };
-
-  // Build depot stock map for ProductionLogPanel
-  const depotStockMap = useMemo(() => {
-    if (!depotStock) return undefined;
-    const map = new Map<string, number>();
-    for (const s of depotStock) {
-      if (s.quantity > 0) {
-        map.set(s.menuProductId, s.quantity);
-      }
-    }
-    return map;
-  }, [depotStock]);
-
-  // Build GoFood sticker card data for StickeringPanel
-  const goFoodDepotData = useMemo(() => {
-    if (!goFoodDailyOrder?.items) return undefined;
-    return goFoodDailyOrder.items.map((item: any) => {
-      return {
-        menuProductId: item.menuProductId,
-        depotStock: item.currentDepotStock,
-        soldToday: item.soldToday,
-        shippedToday: item.shippedToday,
-        stickerDeficit: item.stickerDeficit,
-        stickersAtGoldfinch: goldfinchStickerInventory?.reduce(
-          (sum: number, s: any) => sum + s.available, 0
-        ) ?? 0,
-        freshness: 'fresh' as const, // Simplified for now
-      };
-    });
-  }, [goFoodDailyOrder, goldfinchStickerInventory]);
-
-  // Build K3 Mart outlet stock map for ProductionLogPanel + BoxingPanel
-  const k3MartStockMap = useMemo(() => {
-    if (!k3MartSummary?.items?.length) return undefined;
-    const map = new Map<string, number>();
-    for (const item of k3MartSummary.items) {
-      if (item.totalOutletStock > 0) {
-        map.set(item.menuProductId, item.totalOutletStock);
-      }
-    }
-    return map;
-  }, [k3MartSummary]);
-
-  // Build K3 Mart sticker data for StickeringPanel
-  const k3MartStickerData = useMemo(() => {
-    if (!k3MartSummary?.items?.length) return undefined;
-    return k3MartSummary.items;
-  }, [k3MartSummary]);
-
-
-
-  // Compute per-product total target (orders + consignment + gofood) for BoxingPanel
-  const productTargetTotals = useMemo(() => {
-    if (!productionCounts) return {};
-    const map: Record<string, number> = {};
-    for (const p of productionCounts.filter(p => p.posSlot != null)) {
-      const orders = orderProductDemand?.find(d => d.menuProductId === p.menuProductId)?.quantity ?? 0;
-      const consignment = productTargets
-        ?.filter(t => t.source === 'consignment' && t.menuProductId === p.menuProductId)
-        .reduce((sum, t) => sum + t.quantity, 0) ?? 0;
-      const gofood = productTargets
-        ?.filter(t => t.source === 'gofood' && t.menuProductId === p.menuProductId)
-        .reduce((sum, t) => sum + t.quantity, 0) ?? 0;
-      const total = orders + consignment + gofood;
-      if (total > 0) map[p.menuProductId] = total;
-    }
-    return map;
-  }, [productionCounts, productTargets, orderProductDemand]);
-
-  // Aggregate "packages needed from orders" per menuProductId
-  const neededFromOrders = useMemo(() => {
-    if (!packingOrders) return {};
-    const map: Record<string, number> = {};
-    for (const order of packingOrders) {
-      for (const item of order.productItems) {
-        if (item.menuProductId && !item.isPacked) {
-          map[item.menuProductId] = (map[item.menuProductId] ?? 0) + item.quantity;
-        }
-      }
-    }
-    return map;
-  }, [packingOrders]);
-
-  // Station counts for pill bar badges (3 panels: Production, Boxing, Stickering)
-  const stationCounts: [number, number, number] = [
-    0, // Production: no count needed
-    productionCounts?.length ?? 0, // Boxing: products to box
-    productionCounts?.filter(p => p.availableForStickering > 0).length ?? 0, // Stickering
-  ];
-
-  if (isLoading) {
-    return <LoadingCards count={4} />;
+  if (isProductionLoading) {
+    return <LoadingCards count={3} />;
   }
 
+  // ============================================
+  // Render
+  // ============================================
+
   return (
-    <div className="min-h-screen bg-[var(--color-kitchen-page-bg)]">
-      {/* Header */}
-      <header className="bg-card border-b border-border shadow-sm sticky top-0 z-30">
-        <div className="px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Kitchen</h1>
-              {!canEditKitchen && (
-                <Badge variant="secondary" className="flex items-center gap-1.5 text-sm">
-                  <Eye className="h-3.5 w-3.5" />
-                  View Only
-                </Badge>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground font-medium">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-              })}
-            </div>
-          </div>
+    <div className="flex flex-col gap-6 p-4 max-w-4xl mx-auto pb-12">
+      {/* Page header */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Kitchen</h1>
+          {!canEditKitchen && (
+            <Badge variant="secondary" className="flex items-center gap-1.5 text-sm">
+              <Eye className="h-3.5 w-3.5" />
+              View Only
+            </Badge>
+          )}
+        </div>
+        <div className="text-sm text-muted-foreground font-medium">
+          {new Date().toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          })}
         </div>
       </header>
 
-      {/* Dashboard Summary Header - sticky below page header */}
-      <DashboardHeader
-        minTargetToday={minTarget}
-        maxTarget={maxTarget}
-        remainingBalls={remainingBalls}
-        ordersLeft={ordersLeft}
-        hasOverdueOrders={hasOverdueOrders}
-        canConfigure={canConfigure}
-      />
+      {/* Section 1: Production targets */}
+      <section>
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+          Today's Targets
+        </h2>
+        <ProductionTargetsBar targets={targets} />
+      </section>
 
-      {/* Mobile: Due-Date Order List */}
-      <div className="md:hidden">
-        <DueDateOrderList
-          orders={packingOrders ?? []}
-          k3MartSummary={k3MartSummary}
-          onTogglePack={handleTogglePack}
-          onMarkReady={handleMarkOrderReady}
-          onSendBack={handleSendBack}
-          onOverride={canConfigure ? handleOverride : undefined}
-          onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
-          canOverride={canConfigure}
-          canEdit={canConfigure}
-          disabled={!canEditKitchen}
-        />
-      </div>
+      {/* Section 2: End-of-shift form */}
+      <section>
+        <EndOfShiftForm targets={targets} today={today} />
+      </section>
 
-      {/* Mobile: Swipeable Panels */}
-      <SwipeableKitchenLayout
-        activeIndex={activePanel}
-        onIndexChange={setActivePanel}
-        stationCounts={stationCounts}
-      >
-        <ProductionLogPanel
-          trayInventory={trayInventory}
-          kitchenStats={kitchenStats}
-          productionTargets={productionTargets}
-          productionCounts={productionCounts}
-          productTargets={productTargets}
-          orderProductDemand={orderProductDemand}
-          depotStockMap={depotStockMap}
-          k3MartStockMap={k3MartStockMap}
-          onAddBalls={handleAddBalls}
-          onSetProductTarget={handleSetProductTarget}
-          disabled={!canEditKitchen}
-        />
-        <BoxingPanel
-          productionCounts={productionCounts}
-          trayInventory={trayInventory}
-          neededFromOrders={neededFromOrders}
-          productTargetTotals={productTargetTotals}
-          k3MartStockMap={k3MartStockMap}
-          onBoxProducts={handleBoxProducts}
-          disabled={!canEditKitchen}
-        />
-        <StickeringPanel
-          productionCounts={productionCounts}
-          neededFromOrders={neededFromOrders}
-          goFoodDepotData={goFoodDepotData}
-          lastSyncAt={goFoodDailyOrder?.lastSyncAt}
-          k3MartData={k3MartStickerData}
-          k3MartLastSyncAt={k3MartSummary?.lastSyncAt}
-          onStickerProducts={handleStickerProducts}
-          onSyncNow={handleSyncNow}
-          onSyncK3Mart={handleSyncK3Mart}
-          disabled={!canEditKitchen}
-        />
-      </SwipeableKitchenLayout>
+      {/* Section 3: Today's shift records (compact list) */}
+      {todayShiftRecords !== undefined && todayShiftRecords.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            {todayShiftRecords.length} submission{todayShiftRecords.length !== 1 ? 's' : ''} today
+          </h2>
+          <div className="space-y-2">
+            {todayShiftRecords.map((record) => {
+              const totalProduced = record.produced.reduce(
+                (sum, p) => sum + p.quantity,
+                0
+              );
+              const totalWaste = record.waste.reduce(
+                (sum, w) => sum + w.quantity,
+                0
+              );
+              return (
+                <Card key={record._id} className="bg-muted/30">
+                  <CardContent className="py-2.5 px-3">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium text-foreground truncate">
+                          {record.submittedBy}
+                        </span>
+                        <span className="text-muted-foreground shrink-0">
+                          {formatTime(record.submittedAt)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 text-right text-xs text-muted-foreground">
+                        <span>
+                          <span className="font-medium text-foreground">{totalProduced}</span> produced
+                        </span>
+                        {totalWaste > 0 && (
+                          <span>
+                            <span className="font-medium text-destructive">{totalWaste}</span> waste
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
-      {/* Desktop: Side-by-side layout */}
-      <div className="hidden md:block px-4 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-production-accent)' }}>
-              Production Log
-            </h2>
-            <ProductionLogPanel
-              trayInventory={trayInventory}
-              kitchenStats={kitchenStats}
-              productionTargets={productionTargets}
-              productionCounts={productionCounts}
-              productTargets={productTargets}
-              orderProductDemand={orderProductDemand}
-              depotStockMap={depotStockMap}
-              k3MartStockMap={k3MartStockMap}
-              onAddBalls={handleAddBalls}
-              onSetProductTarget={handleSetProductTarget}
-              disabled={!canEditKitchen}
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-boxing-accent)' }}>
-              To Box
-            </h2>
-            <BoxingPanel
-              productionCounts={productionCounts}
-              trayInventory={trayInventory}
-              productTargetTotals={productTargetTotals}
-              k3MartStockMap={k3MartStockMap}
-              onBoxProducts={handleBoxProducts}
-              disabled={!canEditKitchen}
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1" style={{ color: 'var(--color-station-stickering-accent)' }}>
-              To Sticker
-            </h2>
-            <StickeringPanel
-              productionCounts={productionCounts}
-              goFoodDepotData={goFoodDepotData}
-              lastSyncAt={goFoodDailyOrder?.lastSyncAt}
-              k3MartData={k3MartStickerData}
-              k3MartLastSyncAt={k3MartSummary?.lastSyncAt}
-              onStickerProducts={handleStickerProducts}
-              onSyncNow={handleSyncNow}
-              onSyncK3Mart={handleSyncK3Mart}
-              disabled={!canEditKitchen}
-            />
-          </div>
-          <div className="lg:col-span-1">
-            <h2 className="text-lg font-bold text-foreground mb-3 px-1">
-              Orders by Due Date
-            </h2>
+      {/* Section 4: Collapsible orders toggle */}
+      <section>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
+          onClick={() => setOrdersOpen((v) => !v)}
+        >
+          <span>
+            {ordersOpen ? 'Hide' : 'View'} Today's Orders
+            {orderCount > 0 && (
+              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                {orderCount}
+              </span>
+            )}
+          </span>
+          {ordersOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+
+        {ordersOpen && (
+          <div className="mt-3">
             <DueDateOrderList
               orders={packingOrders ?? []}
               k3MartSummary={k3MartSummary}
@@ -554,14 +318,19 @@ export function KitchenViewV2() {
               onMarkReady={handleMarkOrderReady}
               onSendBack={handleSendBack}
               onOverride={canConfigure ? handleOverride : undefined}
-              onK3MartQuantityChange={handleSetProductTarget ? (mpId: string, qty: number) => handleSetProductTarget(mpId, 'consignment', qty) : undefined}
+              onK3MartQuantityChange={
+                handleSetProductTarget
+                  ? (mpId: string, qty: number) =>
+                      handleSetProductTarget(mpId, 'consignment', qty)
+                  : undefined
+              }
               canOverride={canConfigure}
               canEdit={canConfigure}
               disabled={!canEditKitchen}
             />
           </div>
-        </div>
-      </div>
+        )}
+      </section>
     </div>
   );
 }
