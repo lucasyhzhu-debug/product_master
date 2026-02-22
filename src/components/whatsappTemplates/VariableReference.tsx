@@ -1,6 +1,12 @@
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface VariableReferenceProps {
   variables: string[];
@@ -25,6 +31,7 @@ const VARIABLE_DESCRIPTIONS: Record<string, string> = {
   "{shipping_agency}": "Shipping carrier name",
   "{delivery_address}": "Full delivery address",
   "{pickup_location}": "Pickup location name",
+  "{delivery_fee}": "Delivery/shipping fee (e.g. 🚚 Ongkir: Rp 15.000). Empty when no fee.",
 };
 
 // Group variables by category
@@ -38,6 +45,7 @@ const VARIABLE_CATEGORIES: Record<string, string[]> = {
     "{channel_suffix}",
   ],
   Delivery: [
+    "{delivery_fee}",
     "{delivery_info}",
     "{due_date}",
     "{due_date_line}",
@@ -76,43 +84,52 @@ export function VariableReference({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-xs text-muted-foreground mb-2">
-        Click to copy • Variables auto-highlight in editor
-      </div>
-
-      {Object.entries(availableByCategory).map(([category, vars]) => (
-        <div key={category}>
-          <div className="text-xs font-medium text-muted-foreground mb-2">
-            {category}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {vars.map((variable) => (
-              <button
-                key={variable}
-                onClick={() => handleCopy(variable)}
-                className={cn(
-                  "group relative inline-flex items-center gap-1.5 px-2.5 py-1.5",
-                  "text-xs font-mono rounded-md",
-                  "bg-[#DCF8C6]/50 border border-[#25D366]/30",
-                  "hover:bg-[#DCF8C6] hover:border-[#25D366]",
-                  "transition-all duration-200",
-                  copiedVariable === variable &&
-                    "bg-[#25D366] border-[#25D366] text-white"
-                )}
-                title={VARIABLE_DESCRIPTIONS[variable] || variable}
-              >
-                <span className="truncate max-w-[120px]">{variable}</span>
-                {copiedVariable === variable ? (
-                  <Check className="h-3 w-3 flex-shrink-0" />
-                ) : (
-                  <Copy className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
-              </button>
-            ))}
-          </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-4">
+        <div className="text-xs text-muted-foreground mb-2">
+          Click to copy • Variables auto-highlight in editor
         </div>
-      ))}
-    </div>
+
+        {Object.entries(availableByCategory).map(([category, vars]) => (
+          <div key={category}>
+            <div className="text-xs font-medium text-muted-foreground mb-2">
+              {category}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {vars.map((variable) => (
+                <Tooltip key={variable}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleCopy(variable)}
+                      className={cn(
+                        "group relative inline-flex items-center gap-1.5 px-2.5 py-1.5",
+                        "text-xs font-mono rounded-md",
+                        "bg-[#DCF8C6]/50 border border-[#25D366]/30",
+                        "hover:bg-[#DCF8C6] hover:border-[#25D366]",
+                        "transition-all duration-200",
+                        copiedVariable === variable &&
+                          "bg-[#25D366] border-[#25D366] text-white"
+                      )}
+                    >
+                      <span className="truncate max-w-[120px]">{variable}</span>
+                      {copiedVariable === variable ? (
+                        <Check className="h-3 w-3 flex-shrink-0" />
+                      ) : (
+                        <Copy className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  {VARIABLE_DESCRIPTIONS[variable] && (
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      {VARIABLE_DESCRIPTIONS[variable]}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
