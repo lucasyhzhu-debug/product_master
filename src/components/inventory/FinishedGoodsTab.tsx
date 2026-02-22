@@ -409,13 +409,13 @@ function ProductGroupedView({
 
                           {/* Move To button */}
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1",
+                              "h-6 px-2 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10",
                               openInline?.locationId === (loc.locationId as Id<"storageLocations">) &&
                                 openInline?.direction === "move_to" &&
-                                "bg-primary/10 text-primary"
+                                "bg-primary/10"
                             )}
                             disabled={isZero}
                             onClick={() =>
@@ -435,13 +435,13 @@ function ProductGroupedView({
 
                           {/* Receive From button */}
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1",
+                              "h-6 px-2 text-xs gap-1 border-green-500/40 text-green-700 dark:text-green-400 hover:bg-green-500/10",
                               openInline?.locationId === (loc.locationId as Id<"storageLocations">) &&
                                 openInline?.direction === "receive_from" &&
-                                "bg-primary/10 text-primary"
+                                "bg-green-500/10"
                             )}
                             onClick={() =>
                               handleOpenInline(
@@ -656,14 +656,14 @@ function LocationGroupedView({
                           </span>
 
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1",
+                              "h-6 px-2 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10",
                               openInline?.locationId === (location.locationId as Id<"storageLocations">) &&
                                 openInline?.menuProductId === (product.menuProductId as Id<"menuProducts">) &&
                                 openInline?.direction === "move_to" &&
-                                "bg-primary/10 text-primary"
+                                "bg-primary/10"
                             )}
                             disabled={isZero}
                             onClick={() =>
@@ -682,14 +682,14 @@ function LocationGroupedView({
                           </Button>
 
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1",
+                              "h-6 px-2 text-xs gap-1 border-green-500/40 text-green-700 dark:text-green-400 hover:bg-green-500/10",
                               openInline?.locationId === (location.locationId as Id<"storageLocations">) &&
                                 openInline?.menuProductId === (product.menuProductId as Id<"menuProducts">) &&
                                 openInline?.direction === "receive_from" &&
-                                "bg-primary/10 text-primary"
+                                "bg-green-500/10"
                             )}
                             onClick={() =>
                               handleOpenInline(

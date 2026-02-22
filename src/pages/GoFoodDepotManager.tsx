@@ -167,6 +167,17 @@ export function GoFoodDepotManager() {
         </div>
       )}
 
+      {/* GoBiz sync info note */}
+      <div className="flex items-start gap-2.5 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+        <span className="text-blue-500 flex-shrink-0 mt-0.5">ℹ</span>
+        <p>
+          Stock decreases automatically when GoBiz sales sync runs — but only if each outlet has a linked
+          storage location <em>and</em> each product has a mapping configured.{" "}
+          If stock is not decreasing after a sync, check the product mappings section below and ensure
+          the depot seed migration has been run.
+        </p>
+      </div>
+
       {/* Low-Stock Alert Banner */}
       {hasLowStock && (
         <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
