@@ -492,3 +492,156 @@ export const adjustDepotStock = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Save (upsert) per-outlet product mappings (GF-02).
+ *
+ * Auth: admin only
+ *
+ * For each mapping in args.mappings:
+ *   - If a row exists for (outletId, externalProductName): patch it
+ *   - If not: insert a new row
+ *
+ * This is an explicit-save pattern (not auto-save).
+ */
+export const saveOutletProductMappings = mutation({
+  args: {
+    token: v.string(),
+    outletId: v.id("externalOutlets"),
+    mappings: v.array(
+      v.object({
+        externalProductName: v.string(),
+        menuProductId: v.optional(v.id("menuProducts")),
+        isActive: v.boolean(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const now = Date.now();
+    let created = 0;
+    let updated = 0;
+
+    for (const mapping of args.mappings) {
+      const existing = await ctx.db
+        .query("gofoodOutletProductMappings")
+        .withIndex("by_outlet_product", (q) =>
+          q
+            .eq("outletId", args.outletId)
+            .eq("externalProductName", mapping.externalProductName)
+        )
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          menuProductId: mapping.menuProductId,
+          isActive: mapping.isActive,
+          updatedAt: now,
+        });
+        updated++;
+      } else {
+        await ctx.db.insert("gofoodOutletProductMappings", {
+          outletId: args.outletId,
+          externalProductName: mapping.externalProductName,
+          menuProductId: mapping.menuProductId,
+          isActive: mapping.isActive,
+          createdBy: user.name,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created++;
+      }
+    }
+
+    return { created, updated, total: created + updated };
+  },
+});
+
+/**
+ * Initialize a new outlet's product mappings from the most recently configured outlet (GF-02).
+ *
+ * Auth: admin only
+ *
+ * If the target outlet already has mappings, this is a no-op (returns 0).
+ * Otherwise, finds the other GoBiz outlet with the most recent mapping updatedAt
+ * and copies its mappings (externalProductName -> menuProductId links) to the new outlet.
+ *
+ * This supports: "New depot auto-populated silently with previous depot's mapping."
+ */
+export const initOutletMappingsFromPrevious = mutation({
+  args: {
+    token: v.string(),
+    outletId: v.id("externalOutlets"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const now = Date.now();
+
+    // 1. Check if this outlet already has mappings -- if so, bail out
+    const existingMappings = await ctx.db
+      .query("gofoodOutletProductMappings")
+      .withIndex("by_outlet", (q) => q.eq("outletId", args.outletId))
+      .first();
+
+    if (existingMappings) {
+      return { copied: 0, skipped: true };
+    }
+
+    // 2. Find all GoBiz outlets (except this one)
+    const allGobizOutlets = await ctx.db
+      .query("externalOutlets")
+      .withIndex("by_source", (q) => q.eq("source", "gobiz"))
+      .collect();
+
+    const otherOutlets = allGobizOutlets.filter(
+      (o) => o._id !== args.outletId
+    );
+
+    if (otherOutlets.length === 0) {
+      return { copied: 0, skipped: false };
+    }
+
+    // 3. For each other outlet, find the most recent mapping updatedAt
+    let bestOutletId: string | null = null;
+    let bestUpdatedAt = 0;
+
+    for (const outlet of otherOutlets) {
+      const latestMapping = await ctx.db
+        .query("gofoodOutletProductMappings")
+        .withIndex("by_outlet", (q) => q.eq("outletId", outlet._id))
+        .order("desc")
+        .first();
+
+      if (latestMapping && latestMapping.updatedAt > bestUpdatedAt) {
+        bestUpdatedAt = latestMapping.updatedAt;
+        bestOutletId = outlet._id as string;
+      }
+    }
+
+    if (!bestOutletId) {
+      return { copied: 0, skipped: false };
+    }
+
+    // 4. Copy all mappings from the best outlet to this outlet
+    const sourceMappings = await ctx.db
+      .query("gofoodOutletProductMappings")
+      .withIndex("by_outlet", (q) => q.eq("outletId", bestOutletId as any))
+      .collect();
+
+    let copied = 0;
+    for (const src of sourceMappings) {
+      await ctx.db.insert("gofoodOutletProductMappings", {
+        outletId: args.outletId,
+        externalProductName: src.externalProductName,
+        menuProductId: src.menuProductId,
+        isActive: src.isActive,
+        createdBy: user.name,
+        createdAt: now,
+        updatedAt: now,
+      });
+      copied++;
+    }
+
+    return { copied, skipped: false };
+  },
+});
