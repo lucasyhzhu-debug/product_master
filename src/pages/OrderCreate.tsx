@@ -203,12 +203,12 @@ export function OrderCreate() {
     // Auto-create draft if not already editing an existing draft
     if (!draftOrderId && !editDraftId) {
       try {
-        const newDraftId = await createDraftMutation({
+        const result = await createDraftMutation({
           customerId: id,
           createdByUserId: user?.userId as Id<"users"> | undefined,
           createdBy: user?.name ?? "admin",
         });
-        setDraftOrderId(newDraftId);
+        setDraftOrderId(result.orderId);
       } catch (error) {
         console.error('Failed to create draft:', error);
         toast.error('Failed to save draft');
@@ -216,8 +216,7 @@ export function OrderCreate() {
     }
   }, [draftOrderId, editDraftId, createDraftMutation, user]);
 
-  const handleNewCustomer = useCallback(async (name: string, phone?: string) => {
-    setCustomerId(null);
+  const handleNewCustomer = useCallback(async (name: string, phone?: string): Promise<Id<"customers"> | undefined> => {
     setCustomerName(name);
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(true);
@@ -226,17 +225,23 @@ export function OrderCreate() {
     // Auto-create draft for new customer if not already editing
     if (!draftOrderId && !editDraftId) {
       try {
-        const newDraftId = await createDraftMutation({
+        const result = await createDraftMutation({
           newCustomer: { name, phone: phone || undefined },
           createdByUserId: user?.userId as Id<"users"> | undefined,
           createdBy: user?.name ?? "admin",
         });
-        setDraftOrderId(newDraftId);
+        // Set the real customer ID now that it's been created in the DB
+        setCustomerId(result.customerId);
+        setIsNewCustomer(false);
+        setDraftOrderId(result.orderId);
+        return result.customerId;
       } catch (error) {
         console.error('Failed to create draft:', error);
         toast.error('Failed to save draft');
+        return undefined;
       }
     }
+    return undefined;
   }, [draftOrderId, editDraftId, createDraftMutation, user]);
 
   const handleAddProduct = useCallback((product: ProductButtonProduct, quantity: number) => {
@@ -337,8 +342,7 @@ export function OrderCreate() {
 
     setIsSubmitting(true);
     try {
-      // Sync items first. replaceItems always clears the voucher from the order
-      // (via clearVoucherFromOrder) to avoid stale discount on updated totals.
+      // Sync items first (replaceItems clears voucher and recalculates totals)
       await replaceItemsMutation({
         orderId: draftOrderId,
         items: items.map((item) => ({
@@ -350,17 +354,13 @@ export function OrderCreate() {
         })),
       });
 
-      // Clear voucher from local state — replaceItems cleared it from the order.
-      // Do NOT re-pass voucherCode to updateDraft: re-validation can fail for
-      // manager override vouchers (deactivated after first use) or expired vouchers.
-      setAppliedVoucher(null);
-
-      // Save remaining form state (no voucherCode — voucher was cleared by replaceItems)
+      // Then save form state including voucher (applied on fresh totals)
       await updateDraftMutation({
         orderId: draftOrderId,
         dueDate: dueDate || undefined,
         deliveryAddress: deliveryAddress || undefined,
         notes: notes || undefined,
+        voucherCode: appliedVoucher?.code,
       });
 
       toast.success('Draft saved');
@@ -409,8 +409,7 @@ export function OrderCreate() {
     try {
       // If we already have a draft, save changes and submit it
       if (draftOrderId) {
-        // Sync items first. replaceItems always clears the voucher from the order
-        // (via clearVoucherFromOrder) to avoid stale discount on updated totals.
+        // Sync items first (replaceItems clears voucher and recalculates totals)
         await replaceItemsMutation({
           orderId: draftOrderId,
           items: items.map((item) => ({
@@ -422,14 +421,13 @@ export function OrderCreate() {
           })),
         });
 
-        // Save remaining form state. Do NOT re-pass voucherCode: replaceItems already
-        // cleared the voucher, and re-validation via updateDraft can fail for
-        // manager override vouchers (deactivated after first use) or expired vouchers.
+        // Then save form state including voucher (applied on fresh totals)
         await updateDraftMutation({
           orderId: draftOrderId,
           dueDate: dueDate || undefined,
           deliveryAddress: deliveryAddress || undefined,
           notes: notes || undefined,
+          voucherCode: appliedVoucher?.code,
           lowPriceConfirmed: lowPriceConfirmed || undefined,
         });
 

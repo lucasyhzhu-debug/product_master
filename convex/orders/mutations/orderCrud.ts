@@ -707,7 +707,7 @@ export const createDraft = mutation({
       userId: args.createdByUserId,
     });
 
-    return orderId;
+    return { orderId, customerId };
   },
 });
 
