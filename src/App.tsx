@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/contexts/AuthContext";
+// BANDWIDTH CONSERVATION: SalesAnalytics, K3MartCockpit temporarily removed — re-enable after March 1st
 import {
   RecipeEditor,
   PackagingEditor,
@@ -20,8 +21,6 @@ import {
   InventoryManager,
   LocationsManager,
   ProductionComponentsManager,
-  SalesAnalytics,
-  K3MartCockpit,
   CustomersManager,
   TagsManager,
   DispatchPlanner,
@@ -245,7 +244,7 @@ function App() {
                 }
               />
 
-              {/* Sales Analytics - Manager and Admin */}
+              {/* BANDWIDTH CONSERVATION: Sales Analytics disabled until March 1st quota reset
               <Route
                 path="sales"
                 element={
@@ -254,8 +253,9 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              */}
 
-              {/* K3 Mart Cockpit - Manager and Admin */}
+              {/* BANDWIDTH CONSERVATION: K3Mart Cockpit disabled until March 1st quota reset
               <Route
                 path="k3mart-cockpit"
                 element={
@@ -264,6 +264,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              */}
 
               {/* Restock Planner - Manager and Admin */}
               <Route
@@ -290,6 +291,9 @@ function App() {
             <Route path="restock" element={<Navigate to="/k3mart-cockpit" replace />} />
             <Route path="inventory/components" element={<Navigate to="/components/production" replace />} />
             <Route path="components/packaging" element={<Navigate to="/inventory" replace />} />
+            {/* BANDWIDTH CONSERVATION: redirect disabled pages to orders */}
+            <Route path="sales" element={<Navigate to="/orders" replace />} />
+            <Route path="k3mart-cockpit" element={<Navigate to="/orders" replace />} />
           </Route>
 
           {/* Catch-all redirect to login */}
@@ -307,8 +311,8 @@ function RoleBasedRedirect() {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "kitchen") return <Navigate to="/kitchen" replace />;
   if (user.role === "order_staff") return <Navigate to="/orders" replace />;
-  // Manager and Admin → Sales
-  return <Navigate to="/sales" replace />;
+  // Manager and Admin → Orders (BANDWIDTH CONSERVATION: was /sales, re-enable after March 1st)
+  return <Navigate to="/orders" replace />;
 }
 
 export default App;

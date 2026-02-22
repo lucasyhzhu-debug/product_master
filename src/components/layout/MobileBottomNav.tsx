@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
-  TrendingUp,
+  // BANDWIDTH CONSERVATION: TrendingUp (Sales), Store (K3Mart) hidden until March 1st
+  // TrendingUp,
   ShoppingCart,
   UtensilsCrossed,
   Warehouse,
@@ -13,7 +14,7 @@ import {
   Ticket,
   Users,
   Contact,
-  Store,
+  // Store,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -36,14 +37,16 @@ interface TabItem {
 }
 
 const primaryTabs: TabItem[] = [
-  { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
+  // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
+  // { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
   { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders' },
   { path: '/kitchen', icon: UtensilsCrossed, label: 'Kitchen', permission: 'canAccessKitchen' },
   { path: '/inventory', icon: Warehouse, label: 'Inventory', permission: 'canAccessInventory' },
 ];
 
 const moreItems: TabItem[] = [
-  { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
+  // BANDWIDTH CONSERVATION: K3Mart Cockpit hidden until March 1st quota reset
+  // { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
