@@ -14,6 +14,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.2.8] - 2026-02-22 - Edit Order Items Fix + Phone Editing in Order Form
+
+"Edit Order Items" button now actually works — previously it silently closed the dialog without doing anything. Also, you can now see and edit the customer's phone number directly in the order form, and the Customers page is accessible from the Config menu.
+
+### Fixed
+- **Edit Order Items button**: Was navigating to a dead URL (`/orders?edit=`). Now correctly opens the order editing page for both Draft and AwaitingPayment orders.
+- **AwaitingPayment orders editable**: Orders waiting for payment can now be edited — previously only Draft orders could be modified.
+
+### Added
+- **Inline phone editing in order form**: Customer phone number is displayed and editable directly in the order form without leaving the page.
+- **Customers in Config nav**: Added Customers link to the Config dropdown in the header.
+
+### Changed
+- `updateDraft` mutation now accepts AwaitingPayment orders (was Draft-only)
+- Order edit page shows "Save Changes" instead of "Submit Order" when editing AwaitingPayment orders
+- "Delete Draft" and "Save as Draft" buttons hidden for AwaitingPayment edits
+
+### Files Modified
+- `convex/orders/mutations/orderCrud.ts` — relaxed status guard
+- `src/pages/OrderDetail.tsx` — fixed navigation URL
+- `src/components/orders/OrderSlideOver.tsx` — fixed navigation URL
+- `src/pages/OrderCreate.tsx` — AwaitingPayment support, adapted UI labels
+- `src/components/orders/OrderForm.tsx` — inline phone display and editing
+- `src/components/layout/Header.tsx` — Customers nav link
+
+---
+
 ## [v1.2.7] - 2026-02-22 - Address-Driven Pickup/Delivery Detection
 
 Orders now automatically detect whether an address is a pickup or delivery — no more manual dropdown. Pickup locations get a purple badge; delivery addresses get a blue badge live as you type. Quick-address buttons ("Crystal", "Goldfinch") pre-fill the correct "Pick up: …" format. If the address looks incomplete or empty, a soft-block modal asks you to confirm before saving.
