@@ -47,6 +47,7 @@ export interface KanbanOrder {
 interface KanbanCardProps {
   order: KanbanOrder;
   onCardClick: (orderId: string, status: string) => void;
+  simplified?: boolean;
 }
 
 // ============================================
@@ -75,7 +76,7 @@ const URGENCY_BADGE_CLASSES: Record<UrgencyLevel, string> = {
 // Component
 // ============================================
 
-export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
+export function KanbanCard({ order, onCardClick, simplified = false }: KanbanCardProps) {
   const isCancelled = order.status === 'Cancelled';
   const urgency = isCancelled ? 'default' : getUrgencyLevel(order.dueDate);
   const isExpedited = !isCancelled && order.expedited === true;
@@ -106,7 +107,14 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
         {/* Header: Customer name + price, order by + discount */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate">{order.customerName}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="font-semibold text-sm truncate">{order.customerName}</p>
+              {simplified && isExpedited && (
+                <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px] flex-shrink-0">
+                  EXPEDITED
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               <span className="font-mono">{order.orderNumber}</span>
               {order.creatorName && <span> &middot; by {order.creatorName}</span>}
@@ -129,8 +137,8 @@ export function KanbanCard({ order, onCardClick }: KanbanCardProps) {
           </div>
         </div>
 
-        {/* Due date + status badges */}
-        {(dueDateStr || isExpedited || isCancelled) && (
+        {/* Due date + status badges — hidden in simplified mode */}
+        {!simplified && (dueDateStr || isExpedited || isCancelled) && (
           <div className="flex items-center gap-1.5">
             {isCancelled ? (
               <Badge variant="outline" className="text-xs bg-gray-100 text-gray-500 border-gray-300">
