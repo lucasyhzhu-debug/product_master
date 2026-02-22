@@ -211,3 +211,27 @@ export function calculateProductionUnitsNeeded(
     unitsRequired: unitsPerProduct * quantity,
   };
 }
+
+// ============================================
+// Delivery Address Parsing
+// ============================================
+
+export interface DeliveryParseResult {
+  deliveryType: 'Pickup' | 'Delivery';
+  pickupLocation?: string;
+}
+
+const PICKUP_PREFIX_RE = /^pick up:\s*/i;
+
+/**
+ * Derive deliveryType and pickupLocation from the raw address string.
+ * "Pick up: [location]" → Pickup. Everything else → Delivery.
+ */
+export function parseDeliveryAddress(address: string): DeliveryParseResult {
+  const trimmed = (address ?? '').trim();
+  if (PICKUP_PREFIX_RE.test(trimmed)) {
+    const location = trimmed.replace(PICKUP_PREFIX_RE, '').trim();
+    return { deliveryType: 'Pickup', pickupLocation: location || undefined };
+  }
+  return { deliveryType: 'Delivery' };
+}
