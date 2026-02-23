@@ -125,6 +125,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 25-05]: forceComplete has no pre-existing hook in useOrders.ts — added useForceComplete as new hook rather than updating an existing one
 - [Phase 25-05]: getByIdHelper requires explicit type param <tableName> when called from Convex query handlers to avoid TypeScript inferring union-of-all-docs return type
 - [Phase 25-05]: useSessionMutation call sites: remove all token args and !user?.token guards — auth enforced by session wrapper, not by token presence check
+- [Phase 25-codebase-cleanup]: Pre-existing test failures (53 of 583) confirmed not caused by Phase 25 — identical failure set before and after via git stash comparison
+- [Phase 25-codebase-cleanup]: Dark mode grep sweep: all 11 hardcoded-color hits in src/ have dark: counterparts — no stragglers; CHECK 5 passed
 
 ### Pending Todos
 
@@ -185,13 +187,14 @@ None.
 | Phase 25-codebase-cleanup P02 | 5 | 2 tasks | 19 files |
 | Phase 25-codebase-cleanup P04 | 45 | 2 tasks | 49 files |
 | Phase 25-codebase-cleanup P05 | 16 | 2 tasks | 9 files |
+| Phase 25-codebase-cleanup P06 | 5 | 1 tasks | 0 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 25-05-PLAN.md — useSessionMutation migration complete (6 productionRecipes mutations + useForceComplete), queryHelpers applied to 2 query files. Continue with plan 25-06.
+Stopped at: 25-06 checkpoint — all 7 automated checks passed (type-check, build, tests baseline, zero useConvex, dark mode audit, protectedMutation coverage, queryHelpers). Awaiting human visual verification of dark mode + order runtime before Phase 25 merge.
 Resume file: None
-Resume notes: Phase 25 plan 05 complete. All protectedMutation hooks use useSessionMutation. No manual token passing on any protectedMutation call sites. queryHelpers expansion done for whatsappTemplates/list and menuProducts/get.
+Resume notes: Phase 25 plan 06 checkpoint reached. Task 1 complete (automated verification). Task 2 is human-verify checkpoint — user must confirm dark mode looks correct and orders work in browser.
 
 ---
 *Last updated: 2026-02-23 - Completed 25-05: useSessionMutation migration + queryHelpers for whatsappTemplates + menuProducts*

@@ -301,7 +301,7 @@ Plans:
   5. Generic query factory applied to applicable query files
   6. `npm run type-check` passes
   7. `npm run build` succeeds
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 - [ ] 25-01-PLAN.md — Dark mode fix: all 18 files with hardcoded colors + WhatsApp preview bubble dark aesthetic
@@ -326,5 +326,5 @@ Plans:
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
-| 25. Codebase Cleanup | 5/6 | In Progress|  | - |
+| 25. Codebase Cleanup | 6/6 | Complete   | 2026-02-23 | - |
 | 26. E2E Playwright Tests | v1.4 | 0/0 | Deferred (context ready) | - |
