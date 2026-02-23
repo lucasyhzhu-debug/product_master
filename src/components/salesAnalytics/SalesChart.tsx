@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
-  useConvexRevenueTimeSeries,
+  useRevenueTimeSeries,
   type PeriodPreset,
 } from "@/hooks/convex";
 
@@ -117,7 +117,7 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
   const [chartMode, setChartMode] = useState<ChartMode>("stacked");
   const [hiddenPlatforms, setHiddenPlatforms] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useConvexRevenueTimeSeries(
+  const { data, isLoading } = useRevenueTimeSeries(
     preset,
     granularity,
     metric

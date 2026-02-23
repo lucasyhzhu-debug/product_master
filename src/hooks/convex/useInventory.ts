@@ -18,14 +18,14 @@ import type { Id } from "../../../convex/_generated/dataModel";
  * Returns components where available stock < reorderPoint.
  * Available = totalStock - totalReserved
  */
-export function useConvexLowStockAlerts() {
+export function useLowStockAlerts() {
   return useQuery(api.inventory.queries.getLowStockAlerts);
 }
 
 /**
  * Get component inventory (all locations)
  */
-export function useConvexComponentInventory(
+export function useComponentInventory(
   componentTypeId: Id<"componentTypes"> | undefined,
   options?: {
     includeTransactions?: boolean;
@@ -47,7 +47,7 @@ export function useConvexComponentInventory(
 /**
  * Get location inventory (all components at location)
  */
-export function useConvexLocationInventory(
+export function useLocationInventory(
   locationId: Id<"storageLocations"> | undefined,
   activeOnly?: boolean
 ) {
@@ -65,7 +65,7 @@ export function useConvexLocationInventory(
 /**
  * Get inventory report (full matrix: components × locations)
  */
-export function useConvexInventoryReport(activeComponentsOnly?: boolean) {
+export function useInventoryReport(activeComponentsOnly?: boolean) {
   return useQuery(api.inventory.queries.getInventoryReport, {
     activeComponentsOnly,
   });
@@ -74,7 +74,7 @@ export function useConvexInventoryReport(activeComponentsOnly?: boolean) {
 /**
  * Get component batches at a location
  */
-export function useConvexComponentBatches(
+export function useComponentBatches(
   componentTypeId: Id<"componentTypes"> | undefined,
   locationId: Id<"storageLocations"> | undefined,
   includeExpired?: boolean
@@ -94,7 +94,7 @@ export function useConvexComponentBatches(
 /**
  * Get location transactions
  */
-export function useConvexLocationTransactions(
+export function useLocationTransactions(
   locationId: Id<"storageLocations"> | undefined,
   limit?: number
 ) {
@@ -113,7 +113,7 @@ export function useConvexLocationTransactions(
  * Get latest batch for a component at a location.
  * Used for pre-filling supplier info when receiving new stock.
  */
-export function useConvexLatestBatch(
+export function useLatestBatch(
   componentTypeId: Id<"componentTypes"> | undefined,
   locationId: Id<"storageLocations"> | undefined
 ) {
@@ -132,7 +132,7 @@ export function useConvexLatestBatch(
 /**
  * Receive stock - Create new batch with supplier info
  */
-export function useConvexReceiveStock() {
+export function useReceiveStock() {
   return useMutation(api.inventory.mutations.receiveStock);
 }
 
@@ -142,35 +142,35 @@ export function useConvexReceiveStock() {
  * Creates a new packaging component type on first receipt.
  * Used by Receive Stock dialog for inline component creation.
  */
-export function useConvexCreateComponentAndReceiveStock() {
+export function useCreateComponentAndReceiveStock() {
   return useMutation(api.inventory.mutations.createComponentAndReceiveStock);
 }
 
 /**
  * Transfer stock between locations
  */
-export function useConvexTransferStock() {
+export function useTransferStock() {
   return useMutation(api.inventory.mutations.transferStock);
 }
 
 /**
  * Adjust stock - Physical count adjustment
  */
-export function useConvexAdjustStock() {
+export function useAdjustStock() {
   return useMutation(api.inventory.mutations.adjustStock);
 }
 
 /**
  * Delete batch (with reservation protection)
  */
-export function useConvexDeleteBatch() {
+export function useDeleteBatch() {
   return useMutation(api.inventory.mutations.deleteBatch);
 }
 
 /**
  * Mark batch as expired
  */
-export function useConvexExpireBatch() {
+export function useExpireBatch() {
   return useMutation(api.inventory.mutations.expireBatch);
 }
 

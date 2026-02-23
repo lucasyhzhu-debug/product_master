@@ -19,8 +19,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout";
 import {
   useStorageLocations,
-  useConvexInventoryReport,
-  useConvexLowStockAlerts,
+  useInventoryReport,
+  useLowStockAlerts,
 } from "@/hooks/convex";
 import type { Id } from "../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
@@ -45,8 +45,8 @@ export function InventoryManager() {
 
   // Queries - get ALL components (active + legacy) so we can split client-side
   const locations = useStorageLocations(true);
-  const report = useConvexInventoryReport(false);
-  const lowStockAlerts = useConvexLowStockAlerts();
+  const report = useInventoryReport(false);
+  const lowStockAlerts = useLowStockAlerts();
 
   // Derive effective category filter from main tab selection
   // "ingredients" tab shows only production components with trackInventory=true

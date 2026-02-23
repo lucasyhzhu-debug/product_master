@@ -1,7 +1,7 @@
 /**
  * TransferStockDialog - Move inventory between warehouse locations
  *
- * Uses FIFO-based transfer via useConvexTransferStock hook.
+ * Uses FIFO-based transfer via useTransferStock hook.
  * Shows from/to locations, quantity input with max available.
  */
 
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useConvexTransferStock } from "@/hooks/convex";
+import { useTransferStock } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +54,7 @@ export function TransferStockDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useAuth();
-  const transferStock = useConvexTransferStock();
+  const transferStock = useTransferStock();
 
   // Filter out source location from destination options
   const destinationLocations = locations.filter((l) => l._id !== fromLocationId);

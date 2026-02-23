@@ -55,7 +55,7 @@ interface OutletSettingsModalProps {
   open: boolean;
   onClose: () => void;
   outlets: OutletInfo[];
-  /** Per-outlet product settings from useConvexOutletSettings */
+  /** Per-outlet product settings from useOutletSettings */
   outletProducts: Record<string, OutletProduct[]>;
   onToggleOutletActive: (outletId: string, isActive: boolean) => Promise<void>;
   onSaveOutletSettings: (

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
-import { useConvexRefreshK3MartToken } from "@/hooks/convex";
+import { useRefreshK3MartToken } from "@/hooks/convex";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -36,7 +36,7 @@ export function K3MartCredentialsDialog({
   const saveCredentials = useProtectedMutation(
     api.platformCredentials.mutations.saveCredentials
   );
-  const refreshToken = useConvexRefreshK3MartToken();
+  const refreshToken = useRefreshK3MartToken();
 
   const handleSaveAndRefresh = async () => {
     if (!email.trim() || !password.trim()) {

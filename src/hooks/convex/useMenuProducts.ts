@@ -68,7 +68,7 @@ function transformMenuProduct(product: ConvexMenuProduct): MenuProduct {
 /**
  * List all menu products.
  */
-export function useConvexMenuProducts(activeOnly?: boolean) {
+export function useMenuProducts(activeOnly?: boolean) {
   const data = useQuery(api.menuProducts.queries.list, { activeOnly });
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -80,7 +80,7 @@ export function useConvexMenuProducts(activeOnly?: boolean) {
 /**
  * Get a single menu product by ID.
  */
-export function useConvexMenuProduct(id: Id<"menuProducts"> | undefined) {
+export function useMenuProduct(id: Id<"menuProducts"> | undefined) {
   const data = useQuery(api.menuProducts.queries.get, id ? { id } : "skip");
   if (data === undefined) return { data: undefined, isLoading: id !== undefined };
   if (data === null) return { data: null, isLoading: false };
@@ -93,7 +93,7 @@ export function useConvexMenuProduct(id: Id<"menuProducts"> | undefined) {
 /**
  * Get menu product by code.
  */
-export function useConvexMenuProductByCode(code: string | undefined) {
+export function useMenuProductByCode(code: string | undefined) {
   const data = useQuery(
     api.menuProducts.queries.getByCode,
     code ? { code } : "skip"
@@ -135,7 +135,7 @@ export interface PackagingPosProduct {
   productType: "packaging";
 }
 
-export function useConvexPosProducts() {
+export function usePosProducts() {
   const data = useQuery(api.menuProducts.queries.listPosProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
 
@@ -175,7 +175,7 @@ export interface AvailableProduct {
   cachedProductionSummary?: string;
 }
 
-export function useConvexAvailableProducts() {
+export function useAvailableProducts() {
   const data = useQuery(api.menuProducts.queries.listAvailableProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
 
@@ -205,7 +205,7 @@ export function useConvexAvailableProducts() {
  * Create a new menu product.
  * Requires admin authentication.
  */
-export function useConvexCreateMenuProduct() {
+export function useCreateMenuProduct() {
   const protectedCreate = useProtectedMutation(api.menuProducts.mutations.create);
 
   const execute = async (data: MenuProductCreateInput) => {
@@ -231,7 +231,7 @@ export function useConvexCreateMenuProduct() {
  * Update an existing menu product.
  * Requires admin authentication.
  */
-export function useConvexUpdateMenuProduct() {
+export function useUpdateMenuProduct() {
   const protectedUpdate = useProtectedMutation(api.menuProducts.mutations.update);
 
   const execute = async (data: { id: Id<"menuProducts">; updates: MenuProductUpdateInput }) => {
@@ -256,7 +256,7 @@ export function useConvexUpdateMenuProduct() {
  * Delete a menu product.
  * Requires admin authentication.
  */
-export function useConvexDeleteMenuProduct() {
+export function useDeleteMenuProduct() {
   const protectedRemove = useProtectedMutation(api.menuProducts.mutations.remove);
 
   const execute = async (id: Id<"menuProducts">) => {
@@ -283,7 +283,7 @@ export function useConvexDeleteMenuProduct() {
  * Automatically swaps if slot is occupied.
  * Requires admin authentication.
  */
-export function useConvexAssignToSlot() {
+export function useAssignToSlot() {
   const protectedAssign = useProtectedMutation(api.menuProducts.mutations.assignToSlot);
 
   const execute = async (data: { id: Id<"menuProducts">; slot: number }) => {
@@ -310,7 +310,7 @@ export function useConvexAssignToSlot() {
  * Moves product to legacy section.
  * Requires admin authentication.
  */
-export function useConvexRemoveFromSlot() {
+export function useRemoveFromSlot() {
   const protectedRemove = useProtectedMutation(api.menuProducts.mutations.removeFromSlot);
 
   const execute = async (id: Id<"menuProducts">) => {
@@ -339,7 +339,7 @@ export function useConvexRemoveFromSlot() {
 /**
  * List packaging products assigned to packaging POS slots (1-4).
  */
-export function useConvexPackagingPosProducts() {
+export function usePackagingPosProducts() {
   const data = useQuery(api.menuProducts.queries.listPackagingPosProducts);
   if (data === undefined) return { data: undefined, isLoading: true };
 
@@ -366,7 +366,7 @@ export function useConvexPackagingPosProducts() {
  * Validates product is packaging-type.
  * Requires admin authentication.
  */
-export function useConvexAssignToPackagingSlot() {
+export function useAssignToPackagingSlot() {
   const protectedAssign = useProtectedMutation(api.menuProducts.mutations.assignToPackagingSlot);
 
   const execute = async (data: { id: Id<"menuProducts">; slot: number }) => {
@@ -396,7 +396,7 @@ export function useConvexAssignToPackagingSlot() {
  * Reorder food POS slots.
  * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
  */
-export function useConvexReorderSlots() {
+export function useReorderSlots() {
   const protectedReorder = useProtectedMutation(api.menuProducts.mutations.reorderSlots);
 
   return {
@@ -417,7 +417,7 @@ export function useConvexReorderSlots() {
  * Reorder packaging POS slots.
  * Takes an ordered array of product IDs and assigns slots 1, 2, 3...
  */
-export function useConvexReorderPackagingSlots() {
+export function useReorderPackagingSlots() {
   const protectedReorder = useProtectedMutation(api.menuProducts.mutations.reorderPackagingSlots);
 
   return {
@@ -434,7 +434,7 @@ export function useConvexReorderPackagingSlots() {
   };
 }
 
-export function useConvexRemoveFromPackagingSlot() {
+export function useRemoveFromPackagingSlot() {
   const protectedRemove = useProtectedMutation(api.menuProducts.mutations.removeFromPackagingSlot);
 
   return {
@@ -469,7 +469,7 @@ export interface RecalcResult {
   delta: number;
 }
 
-export function useConvexRecalculateAllCosts() {
+export function useRecalculateAllCosts() {
   const recalculate = useMutation(api.menuProducts.mutations.recalculateAllCosts);
   const { user } = useAuth();
 

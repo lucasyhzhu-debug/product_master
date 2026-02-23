@@ -3,7 +3,7 @@ import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { useConvexAddFeedbackComment } from '@/hooks/convex/useFeedback';
+import { useAddFeedbackComment } from '@/hooks/convex/useFeedback';
 import { formatTimestamp } from '@/lib/feedbackExport';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { FeedbackComment } from '@/hooks/convex/useFeedback';
@@ -16,7 +16,7 @@ interface CommentSectionProps {
 export function CommentSection({ feedbackId, comments = [] }: CommentSectionProps) {
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const addComment = useConvexAddFeedbackComment();
+  const addComment = useAddFeedbackComment();
 
   const handleSubmit = async () => {
     if (!newComment.trim()) return;

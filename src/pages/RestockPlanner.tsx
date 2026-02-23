@@ -18,12 +18,12 @@ import {
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
-  useConvexRestockOverview,
-  useConvexChannelSellThrough,
-  useConvexSyncK3MartStock,
-  useConvexSyncK3MartSales,
-  useConvexSyncGoBiz,
-  useConvexSyncInternalOrders,
+  useRestockOverview,
+  useChannelSellThrough,
+  useSyncK3MartStock,
+  useSyncK3MartSales,
+  useSyncGoBiz,
+  useSyncInternalOrders,
   useProtectedMutation,
 } from "@/hooks/convex";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,14 +88,14 @@ type ChannelType = "k3mart" | "gobiz" | "internal";
 
 export function RestockPlanner() {
   const { user } = useAuth();
-  const { data: overview, isLoading, refresh: refreshOverview } = useConvexRestockOverview();
+  const { data: overview, isLoading, refresh: refreshOverview } = useRestockOverview();
   const [syncing, setSyncing] = useState(false);
 
   // Sync actions
-  const syncK3MartStock = useConvexSyncK3MartStock();
-  const syncK3Mart = useConvexSyncK3MartSales();
-  const syncGoBiz = useConvexSyncGoBiz();
-  const syncInternal = useConvexSyncInternalOrders();
+  const syncK3MartStock = useSyncK3MartStock();
+  const syncK3Mart = useSyncK3MartSales();
+  const syncGoBiz = useSyncGoBiz();
+  const syncInternal = useSyncInternalOrders();
 
   // Protected mutations
   const saveTarget = useProtectedMutation(api.restock.mutations.saveRestockTarget);
@@ -382,7 +382,7 @@ function OutletBlock({
   onUpdateStock?: (channel: ChannelType, productKey: string, quantity: number) => Promise<void>;
 }) {
   // Fetch detail data for this specific outlet
-  const { data: detailData, isLoading } = useConvexChannelSellThrough(channel, outletId);
+  const { data: detailData, isLoading } = useChannelSellThrough(channel, outletId);
   const isK3Mart = channel === "k3mart";
 
   return (
