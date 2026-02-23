@@ -42,14 +42,30 @@ export default defineConfig({
           if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
           // Animation: framer-motion
           if (id.includes('framer-motion')) return 'vendor-motion';
-          // React core + DOM + router: stable across app changes
-          // Check react-dom and react-router first, then catch 'react' itself
-          if (id.includes('react-dom') || id.includes('/react-router') ||
-              id.includes('/react/')) return 'vendor-react';
+          // React core + DOM + router + scheduler: stable across app changes
+          // IMPORTANT: Use precise patterns to avoid accidental matches.
+          //
+          // Pitfall 1: id.includes('/react/') accidentally captures @floating-ui/react
+          //   (its path contains /react/dist/ which matches /react/), pulling it into
+          //   vendor-react while its deps (@floating-ui/core, /dom) stay in vendor —
+          //   causing a circular cross-chunk TDZ error at runtime.
+          //
+          // Pitfall 2: scheduler (react-dom's runtime dep) doesn't match /react/ and
+          //   falls to vendor, causing vendor-react→vendor→vendor-react circular imports.
+          //
+          // Fix: match only the exact React core packages by name, and co-locate
+          //   @floating-ui/* with @radix-ui in vendor-ui (handled below).
+          if (id.includes('/node_modules/react/') ||
+              id.includes('/node_modules/react-dom/') ||
+              id.includes('/node_modules/react-router/') ||
+              id.includes('/node_modules/react-router-dom/') ||
+              id.includes('/node_modules/scheduler/')) return 'vendor-react';
           // Icons: large library, changes infrequently
           if (id.includes('lucide-react')) return 'vendor-icons';
-          // UI primitives: Radix UI + tailwind utilities
-          if (id.includes('@radix-ui') || id.includes('class-variance-authority') ||
+          // UI primitives: Radix UI + floating-ui (Radix's positioning engine) + tailwind utilities
+          // @floating-ui/* must be in the same chunk as @radix-ui — Radix imports from it directly.
+          if (id.includes('@radix-ui') || id.includes('@floating-ui') ||
+              id.includes('class-variance-authority') ||
               id.includes('tailwind-merge') || id.includes('clsx')) return 'vendor-ui';
           // DnD kit (used in dispatch planner / kitchen)
           if (id.includes('@dnd-kit')) return 'vendor-dnd';
