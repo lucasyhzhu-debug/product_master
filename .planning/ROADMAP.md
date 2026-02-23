@@ -285,20 +285,31 @@ Plans:
 
 ### Phase 25: Codebase Cleanup
 
-**Goal:** Fix dark mode gaps in K3Mart components, remove `useConvex` prefix from hook names, expand protectedMutation to complex entities (orders, recipes, products), expand generic query factory to remaining query files.
+**Goal:** Fix dark mode gaps in all src/ components (not just K3Mart), remove `useConvex` prefix from hook names across all 24 hooks + all import sites, expand protectedMutation to orders/ and productionRecipes/ mutations, selectively expand generic query factory to remaining candidate files.
 **Depends on:** Phase 22 (legacy code removed first — less to refactor)
 **Implementation Notes:**
-- K3Mart dark mode: audit all K3Mart components for missing dark: variants
-- Hook rename: `useConvexOrders` → `useOrders` etc. across all 24 hooks + all import sites
-- protectedMutation: apply to orders/, recipes/, products/ mutation files (currently only simple entities use it)
-- Query factory: apply to remaining query files not yet using the generic pattern
+- Dark mode: full audit of all src/ — fix ANY hardcoded bg-white/bg-gray/text-gray/border-gray without dark: counterparts; WhatsApp preview bubble uses WhatsApp's own dark mode aesthetic
+- Hook rename: useConvex prefix stripped from 161 hooks across 15 files; batched execution (5-6 per batch) with type-check after each
+- protectedMutation: apply to orders/ (orderCrud, statusUpdates, itemCrud, packaging, inventoryIntegration) + productionRecipes/mutations.ts; kitchen.ts and migrations.ts stay bare
+- Frontend hooks: useOrders.ts, useKitchenStats.ts, useProductionRecipes.ts migrate from useMutation → useSessionMutation
+- Query factory: selective — menuProducts, whatsappTemplates, kitchenConfig candidates; orders/queries.ts and inventory/queries.ts skip (too complex)
 **Success Criteria** (what must be TRUE):
-  1. All K3Mart components have complete dark mode coverage
+  1. All hardcoded color classes in src/ fixed — dark mode works across entire app
   2. No `useConvex` prefix on any hook names
-  3. Complex entity mutations use protectedMutation wrapper
-  4. Generic query factory applied to all applicable query files
-  5. `npm run type-check` passes
-  6. `npm run build` succeeds
+  3. orders/ and productionRecipes/ mutations use protectedMutation wrapper
+  4. Frontend hooks use useSessionMutation for protectedMutation-backed mutations
+  5. Generic query factory applied to applicable query files
+  6. `npm run type-check` passes
+  7. `npm run build` succeeds
+**Plans:** 6 plans
+
+Plans:
+- [ ] 25-01-PLAN.md — Dark mode fix: all 18 files with hardcoded colors + WhatsApp preview bubble dark aesthetic
+- [ ] 25-02-PLAN.md — Hook rename Batches 1-3: 34 hooks across useMenuProductComponents, useSalesAnalytics, useProductionUnitTypes, useWhatsAppTemplates, useStorageLocations, useCustomers, useKitchenStats
+- [ ] 25-03-PLAN.md — protectedMutation backend: orders/ (5 files) + productionRecipes/mutations.ts migration
+- [ ] 25-04-PLAN.md — Hook rename Batches 4-5: 88 hooks across useComponentTypes, useIngredients, useOrders, useInventory, useFeedback, useMenuProducts, useExternalData, useK3MartCockpit + test file
+- [ ] 25-05-PLAN.md — protectedMutation frontend (useSessionMutation migration) + query factory selective rollout
+- [ ] 25-06-PLAN.md — Verification sweep: type-check, build, test, grep sweeps + human dark mode verify
 
 ## Progress
 
@@ -315,5 +326,5 @@ Plans:
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
-| 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
+| 25. Codebase Cleanup | v1.3 | 0/6 | Not started | - |
 | 26. E2E Playwright Tests | v1.4 | 0/0 | Deferred (context ready) | - |
