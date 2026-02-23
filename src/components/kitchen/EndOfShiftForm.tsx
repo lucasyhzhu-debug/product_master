@@ -126,6 +126,9 @@ export function EndOfShiftForm({
   // Chef selector
   const [selectedChefId, setSelectedChefId] = useState<string>("");
 
+  // Inline error from mutation failure on review screen
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
   // -------------------------------------------------------
   // Helpers
   // -------------------------------------------------------
@@ -255,6 +258,7 @@ export function EndOfShiftForm({
       toast.error(error);
       return;
     }
+    setConfirmError(null); // Clear any previous confirm error
     setStep("review");
   }
 
@@ -291,7 +295,7 @@ export function EndOfShiftForm({
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : "Failed to submit shift record";
-      toast.error(msg);
+      setConfirmError(msg); // Inline error instead of toast
     } finally {
       setIsSubmitting(false);
     }
@@ -336,6 +340,7 @@ export function EndOfShiftForm({
         onConfirm={handleConfirm}
         onBack={() => setStep("input")}
         isSubmitting={isSubmitting}
+        error={confirmError}
       />
     );
   }

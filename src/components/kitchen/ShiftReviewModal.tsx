@@ -47,6 +47,8 @@ interface ShiftReviewModalProps {
   onConfirm: () => Promise<void>;
   onBack: () => void;
   isSubmitting: boolean;
+  /** Inline error from mutation failure — rendered above action buttons */
+  error?: string | null;
 }
 
 export function ShiftReviewModal({
@@ -56,6 +58,7 @@ export function ShiftReviewModal({
   onConfirm,
   onBack,
   isSubmitting,
+  error,
 }: ShiftReviewModalProps) {
   const totalProduced = produced.reduce((s, p) => s + p.quantity, 0);
   const totalWaste = waste.reduce((s, w) => s + w.quantity, 0);
@@ -178,6 +181,13 @@ export function ShiftReviewModal({
         <p className="text-xs text-muted-foreground">
           Inventory will be updated at the Kitchen location upon confirmation.
         </p>
+
+        {/* Inline error (mutation failure) */}
+        {error && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+            {error}
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex gap-3 pt-1">
