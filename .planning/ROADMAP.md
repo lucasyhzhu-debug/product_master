@@ -142,16 +142,20 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** 7/7 plans complete
+**Plans:** 7/7 core plans complete; 4 UAT-r2 gap closure plans in progress
 
 Plans:
-- [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
-- [ ] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
-- [ ] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
-- [ ] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
-- [ ] 21-05-PLAN.md — Raw ingredient FIFO deduction at shift submit/update
-- [ ] 21-06-PLAN.md — [GAP] Fix form binding inversion, defaultPackagingMix flow, food-only product filter
-- [ ] 21-07-PLAN.md — [GAP] Read-only order summary + showJumbo toggle (schema + backend + frontend)
+- [x] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
+- [x] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
+- [x] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
+- [x] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
+- [x] 21-05-PLAN.md — Raw ingredient FIFO deduction at shift submit/update
+- [x] 21-06-PLAN.md — [GAP-r1] Fix form binding inversion, defaultPackagingMix flow, food-only product filter
+- [x] 21-07-PLAN.md — [GAP-r1] Read-only order summary + showJumbo toggle (schema + backend + frontend)
+- [ ] 21-08-PLAN.md — [GAP-r2] Schema: chef field on shift records + enabledProductionComponents replacing showJumbo
+- [ ] 21-09-PLAN.md — [GAP-r2] Unified Manager Settings + Packaging Mix redesign (BOM info, allocation counters, per-component toggles)
+- [ ] 21-10-PLAN.md — [GAP-r2] Per-component toggle cascade (targets bar, badges, EoS form) + target display + order notes + chef display
+- [ ] 21-11-PLAN.md — [GAP-r2] Review summary deltas + success screen Framer Motion polish + chef in shift history
 
 ### Phase 22: Remove legacy editors, tags & Dashboard
 
