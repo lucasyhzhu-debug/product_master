@@ -156,3 +156,24 @@ export const linkIngredientToComponentType = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Unlink an ingredient from its componentType inventory tracker.
+ * Admin only. Clears ingredientComponentTypeId so the ingredient reverts
+ * to untracked state and the linking UI reappears.
+ */
+export const unlinkIngredientFromComponentType = mutation({
+  args: {
+    token: v.string(),
+    ingredientId: v.id("ingredients"),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const ingredient = await ctx.db.get(args.ingredientId);
+    if (!ingredient) throw new ConvexError("Ingredient not found");
+    await ctx.db.patch(args.ingredientId, {
+      ingredientComponentTypeId: undefined,
+    });
+    return { success: true };
+  },
+});

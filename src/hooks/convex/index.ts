@@ -15,6 +15,7 @@ export {
   useConvexUpdateIngredient,
   useConvexDeleteIngredient,
   useLinkIngredientToComponentType,
+  useUnlinkIngredientFromComponentType,
   type ConvexIngredient,
   type IngredientCreateInput,
 } from "./useIngredients";

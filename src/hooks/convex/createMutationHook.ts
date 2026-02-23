@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/utils";
 
 export interface MutationHookConfig {
+  /** Toast message on success. Pass empty string to suppress the toast (e.g. when caller handles it). */
   successMessage: string;
   errorMessage: string;
 }
@@ -26,7 +27,9 @@ export function createMutationHook<
     ): Promise<FunctionReturnType<Mutation>> => {
       try {
         const result = await mutation(...args);
-        toast.success(config.successMessage);
+        if (config.successMessage) {
+          toast.success(config.successMessage);
+        }
         return result;
       } catch (error: unknown) {
         toast.error(getErrorMessage(error, config.errorMessage));
