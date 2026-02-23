@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Circle,
   MessageSquare,
+  Home,
   Tag,
   Ticket,
   Users,
@@ -36,6 +37,7 @@ interface TabItem {
 }
 
 const primaryTabs: TabItem[] = [
+  { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard' },
   // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
   // { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
   { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders' },

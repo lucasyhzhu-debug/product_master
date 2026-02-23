@@ -76,7 +76,7 @@ export default function Login() {
         <div className="flex items-center justify-center space-x-3">
           <ChefHat className="w-10 h-10 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Frollie Recipe Master</h1>
+            <h1 className="text-2xl font-bold">Frollie Pro</h1>
             <p className="text-sm text-muted-foreground">Sign in to continue</p>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function Login() {
 
       {/* Footer */}
       <footer className="p-6 text-center text-sm text-muted-foreground">
-        Frollie Recipe Master &copy; {new Date().getFullYear()}
+        Frollie Pro &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
