@@ -14,6 +14,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.4] - 2026-02-23 - Kitchen: Per-Component Toggle Cascade, Target Display, Chef Selector, Order Notes
+
+Kitchen production tracking is now fully toggle-aware — turning off a ball type (e.g. Jumbo) hides it from stat cards, packaging breakdown badges, and the End of Shift input rows. Each product row now shows its target quantity right next to the input for at-a-glance comparison. The End of Shift form has a chef selector so you can record who actually cooked. The read-only order summary cards now show order notes. The page header shows the chef name when one has been assigned for the current shift.
+
+### Changed
+- **Per-component toggle cascade**: Disabling Original or Jumbo in Manager Settings now hides the stat card, packaging breakdown badge, and End of Shift input row for that ball type — consistently throughout the kitchen view.
+- **Target display in EoS form**: Each product row in End of Shift now shows "target: N" next to the product name so staff can compare what was planned vs. what to enter.
+- **Chef selector in End of Shift**: A dropdown lets you select the actual cook before submitting. Chef name is recorded alongside the submitter in the shift record.
+- **Chef name in header**: When a shift record with a chef has been submitted today, "Shift for: [Chef Name]" appears next to the date in the page header.
+- **Order notes on order cards**: Read-only order summary cards in the collapsible orders section now display order notes below the item list.
+- **Mixed ball type warning**: Products that use both Original and Jumbo balls get an amber warning flag in EoS when one type is toggled off, so staff know it's partially disabled.
+
+### Files Modified
+- `src/components/kitchen/ProductionTargetsBar.tsx` — per-component visibility via enabledComponents prop; packaging badges filtered and styled by ball type
+- `src/components/kitchen/EndOfShiftForm.tsx` — target display per row, row filtering, mixed-type warning flag, chef selector
+- `src/components/kitchen/KitchenOrderSummary.tsx` — order notes displayed on cards
+- `src/pages/KitchenViewV2.tsx` — BOM lookup for productBallTypes map, enabledComponents derivation, prop threading, chef header, users query
+- `convex/menuProductComponents/queries.ts` — added `listAll` query for BOM map building
+
+---
+
 ## [v1.3.3] - 2026-02-23 - Kitchen: Unified Manager Settings + Smart Packaging Mix Editor
 
 The Manager Settings panel has been redesigned into a single, cleaner form. Instead of juggling two separate cards (Defaults and Today's Override), there's now one set of inputs with two save actions. The packaging mix editor now shows exactly what's in the BOM for each product — including which ball type it uses and how many balls per unit — with running allocation counters that update live as you adjust quantities. The whole section is now collapsible so kitchen staff don't see it cluttering their view. Setting a daily override no longer clears the packaging breakdown badges on the main targets bar.

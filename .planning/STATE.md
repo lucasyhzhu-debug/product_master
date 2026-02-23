@@ -8,9 +8,9 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 ## Current Position
 
 Phase: Phase 21 — Kitchen Production Targets (In Progress - UAT-r2 gap closure)
-Plan: 21-09 complete (9/11 plans done — UAT-r2 gap closure plans active)
-Status: 21-09 done; unified ManagerTargetSettings form; PackagingMixEditor with BOM info + allocation counters; collapsible Manager Settings section; override packaging fallthrough fix; build passes
-Last activity: 2026-02-23 - Completed 21-09: unified manager settings + smart packaging mix editor
+Plan: 21-10 complete (10/11 plans done — UAT-r2 gap closure plans active)
+Status: 21-10 done; per-component toggle cascade (stat cards, badges, EoS rows); target display next to EoS inputs; chef selector in EoS form; chef name in kitchen header; order notes on order summary cards; build passes
+Last activity: 2026-02-23 - Completed 21-10: per-component toggle cascade + EoS polish
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -94,6 +94,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 21-08]: showJumbo preserved in schema and auto-derived from enabledProductionComponents for backward compat during migration
 - [Phase 21]: Per-component toggles loaded dynamically from componentTypes.getByCategory(production) — not hardcoded; future components appear automatically
 - [Phase 21]: Override packaging fallthrough: when packagingOverrides empty on override doc, getKitchenTargetsForDate falls through to config.defaultPackagingMix so breakdown badges remain visible
+- [Phase 21]: productBallTypes map built in KitchenViewV2 via listAll — avoids per-product subscriptions; single flat query for all products
+- [Phase 21]: enabledComponents defaults to BIG_BALL+MID_BALL when config undefined or null — null-means-all pattern from 21-08
+- [Phase 21]: latestChefName from todayShiftRecords[0].chefName — no new query; most recent shift record first
 
 ### Pending Todos
 
@@ -138,13 +141,14 @@ None.
 | Phase 21-kitchen-production-targets P07 | 3 | 3 tasks | 6 files |
 | Phase 21-kitchen-production-targets P08 | 3 | 2 tasks | 6 files |
 | Phase 21-kitchen-production-targets P09 | 4 | 2 tasks | 5 files |
+| Phase 21 P10 | 8 | 2 tasks | 6 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 21-09 — unified ManagerTargetSettings; PackagingMixEditor with BOM info + allocation counters; collapsible Manager Settings; override packaging fallthrough fix; build passes
+Stopped at: Completed 21-10 — per-component toggle cascade; EoS target display + chef selector + filtered rows; order notes on cards; chef name in header; build passes
 Resume file: None
-Resume notes: 21-09 done. Continue with 21-10 and 21-11 to complete UAT-r2 gap closure.
+Resume notes: 21-10 done. Continue with 21-11 to complete UAT-r2 gap closure.
 
 ---
 *Last updated: 2026-02-23 - Completed 21-07: read-only order summary; showJumbo kitchenConfig + Manager Settings toggle + ProductionTargetsBar conditional card; Phase 21 complete (7/7)*
