@@ -36,6 +36,7 @@ import { Input } from '@/components/ui/input';
 import { StatusActionButtons } from './StatusActionButtons';
 import { AuditTrail } from './AuditTrail';
 import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
+import type { WhatsAppTemplateType } from './StepWhatsAppTemplate';
 import { ShippingAgencyButtons } from './ShippingAgencyButtons';
 import { ConfirmDialog } from '@/components/shared';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
@@ -74,6 +75,19 @@ const STATUS_LABELS: Record<string, string> = {
   AwaitingDelivery: 'Awaiting Delivery',
   Complete: 'Complete',
   Cancelled: 'Cancelled',
+};
+
+// ============================================
+// WhatsApp template display names for the modal title
+// ============================================
+
+const WHATSAPP_TEMPLATE_TITLES: Record<WhatsAppTemplateType, string> = {
+  payment_request: 'Payment Request',
+  production_started: 'Production Started',
+  delivery_complete: 'Delivery Complete',
+  receipt: 'Order Receipt',
+  shipping: 'Shipping Confirmation',
+  pickup_ready: 'Ready for Pickup',
 };
 
 // ============================================
@@ -131,8 +145,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
 
   const cancelOrderMut = useMutation(api.orders.mutations.index.cancel);
 
-  // Modal / dialog state
-  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  // Modal / dialog state — tracks which WhatsApp template to show (null = closed)
+  const [activeWhatsAppTemplate, setActiveWhatsAppTemplate] = useState<WhatsAppTemplateType | null>(null);
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
@@ -159,7 +173,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   // Auto-show WhatsApp modal when order loads and autoShowWhatsApp is set
   useEffect(() => {
     if (autoShowWhatsApp && order && order.status === 'AwaitingPayment') {
-      setShowWhatsAppModal(true);
+      setActiveWhatsAppTemplate('payment_request');
     }
   }, [autoShowWhatsApp, order]);
 
@@ -457,23 +471,68 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 </>
               )}
 
-              {/* ── WhatsApp (AwaitingPayment) ────────────── */}
-              {order.status === 'AwaitingPayment' && (
-                <>
-                  <div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-green-700 border-green-300 hover:bg-green-50"
-                      onClick={() => setShowWhatsAppModal(true)}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Send Payment Request via WhatsApp
-                    </Button>
-                  </div>
-                  <Separator />
-                </>
-              )}
+              {/* ── WhatsApp Actions ──────────────────────── */}
+              {(() => {
+                const status = order.status;
+                const deliveryType = getField(order, 'deliveryType', 'delivery_type');
+                const buttons: Array<{ templateType: WhatsAppTemplateType; label: string }> = [];
+
+                // payment_request — when awaiting payment
+                if (status === 'AwaitingPayment') {
+                  buttons.push({ templateType: 'payment_request', label: 'Payment Request' });
+                }
+
+                // receipt — available on any active order (not Draft, not Cancelled)
+                if (!['Draft', 'Cancelled'].includes(status)) {
+                  buttons.push({ templateType: 'receipt', label: 'Order Receipt' });
+                }
+
+                // production_started — when production is underway
+                if (status === 'BeingPrepared') {
+                  buttons.push({ templateType: 'production_started', label: 'Production Started' });
+                }
+
+                // shipping — delivery orders at AwaitingDelivery stage
+                if (status === 'AwaitingDelivery' && deliveryType === 'Delivery') {
+                  buttons.push({ templateType: 'shipping', label: 'Shipping Confirmation' });
+                }
+
+                // pickup_ready — pickup orders at AwaitingDelivery stage
+                if (status === 'AwaitingDelivery' && deliveryType !== 'Delivery') {
+                  buttons.push({ templateType: 'pickup_ready', label: 'Pickup Ready' });
+                }
+
+                // delivery_complete — once order is complete
+                if (status === 'Complete') {
+                  buttons.push({ templateType: 'delivery_complete', label: 'Delivery Complete' });
+                }
+
+                if (buttons.length === 0) return null;
+
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold flex items-center gap-1">
+                        <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                        WhatsApp
+                      </h4>
+                      {buttons.map(({ templateType, label }) => (
+                        <Button
+                          key={templateType}
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-green-700 border-green-300 hover:bg-green-50"
+                          onClick={() => setActiveWhatsAppTemplate(templateType)}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                    <Separator />
+                  </>
+                );
+              })()}
 
               {/* ── Use Available Inventory (PaymentReceived) */}
               {orderId && (
@@ -494,7 +553,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                     hideCancelButton
                     onStatusChange={() => {
                       if (order.status === 'Draft') {
-                        setShowWhatsAppModal(true);
+                        setActiveWhatsAppTemplate('payment_request');
                       }
                     }}
                   />
@@ -559,22 +618,25 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
 
         {/* ── Modals & Dialogs ─────────────────────────────────── */}
 
-        {/* WhatsApp Payment Request Modal */}
-        {orderId && order && (
-          <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
+        {/* WhatsApp Message Modal — generic, serves all template types */}
+        {orderId && order && activeWhatsAppTemplate && (
+          <Dialog
+            open={activeWhatsAppTemplate !== null}
+            onOpenChange={(v) => { if (!v) setActiveWhatsAppTemplate(null); }}
+          >
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5 text-green-600" />
-                  Send Payment Request
+                  {WHATSAPP_TEMPLATE_TITLES[activeWhatsAppTemplate]}
                 </DialogTitle>
                 <DialogDescription>
-                  Copy the payment request template and send it to {order.customerName ?? (order as any).customer_name} via WhatsApp.
+                  Generate and send a WhatsApp message to {order.customerName ?? (order as any).customer_name}.
                 </DialogDescription>
               </DialogHeader>
               <StepWhatsAppTemplate
                 orderId={orderId}
-                templateType="payment_request"
+                templateType={activeWhatsAppTemplate}
                 customerPhone={getField(order, 'customerPhone', 'customer_phone')}
               />
             </DialogContent>
