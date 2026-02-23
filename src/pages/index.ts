@@ -1,7 +1,3 @@
-export { Dashboard } from './Dashboard';
-export { RecipeEditor } from './RecipeEditor';
-export { PackagingEditor } from './PackagingEditor';
-export { ProductEditor } from './ProductEditor';
 export { IngredientsManager } from './IngredientsManager';
 export { MaterialsManager } from './MaterialsManager';
 export { OrderManager } from './OrderManager';
@@ -19,6 +15,5 @@ export { SalesAnalytics } from './SalesAnalytics';
 export { RestockPlanner } from './RestockPlanner';
 export { K3MartCockpit } from './K3MartCockpit';
 export { CustomersManager } from './CustomersManager';
-export { TagsManager } from './TagsManager';
 export { DispatchPlanner } from './DispatchPlanner';
 export { GoFoodDepotManager } from './GoFoodDepotManager';

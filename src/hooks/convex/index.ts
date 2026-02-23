@@ -30,78 +30,6 @@ export {
   type MaterialCreateInput,
 } from "./useMaterials";
 
-// Tags
-export {
-  useConvexTags,
-  useConvexTag,
-  useConvexTagsMany,
-  useConvexCreateTag,
-  useConvexUpdateTag,
-  useConvexDeleteTag,
-  useConvexSeedTags,
-  type ConvexTag,
-  type TagCreateInput,
-} from "./useTags";
-
-// Recipes
-export {
-  useConvexRecipes,
-  useConvexRecipe,
-  useConvexRecipeVersion,
-  useConvexReusableComponents,
-  useConvexRecipesUsingComponent,
-  useConvexRecipeSearch,
-  useConvexCreateRecipe,
-  useConvexCopyRecipeVersion,
-  useConvexCreateRecipeVersion,
-  useConvexUpdateRecipeTags,
-  useConvexUpdateRecipeName,
-  useConvexDeleteRecipe,
-  useConvexRecalculateRecipeCosts,
-  type ComponentIngredientInput,
-  type RecipeComponentInput,
-  type RecipeVersionInput,
-  type RecipeCreateInput,
-} from "./useRecipes";
-
-// Packaging
-export {
-  useConvexPackagingList,
-  useConvexPackaging,
-  useConvexPackagingVersion,
-  useConvexPackagingSearch,
-  useConvexCreatePackaging,
-  useConvexCopyPackagingVersion,
-  useConvexCreatePackagingVersion,
-  useConvexUpdatePackagingTags,
-  useConvexUpdatePackagingName,
-  useConvexDeletePackaging,
-  useConvexRecalculatePackagingCosts,
-  type PackagingMaterialInput,
-  type PackagingComponentInput,
-  type PackagingVersionInput,
-  type PackagingCreateInput,
-} from "./usePackaging";
-
-// Products
-export {
-  useConvexProducts,
-  useConvexProduct,
-  useConvexProductVersion,
-  useConvexProductsUsingRecipe,
-  useConvexProductsUsingPackaging,
-  useConvexProductSearch,
-  useConvexCreateProduct,
-  useConvexCopyProductVersion,
-  useConvexCreateProductVersion,
-  useConvexUpdateProductTags,
-  useConvexUpdateProductName,
-  useConvexDeleteProduct,
-  useConvexRecalculateProductCogs,
-  type ProductVersionInput,
-  type ProductCreateInput,
-} from "./useProducts";
-
 // Menu Products
 export {
   // Query hooks
@@ -180,14 +108,6 @@ export {
   type CustomerCreateInput,
   type CustomerUpdateInput,
 } from "./useCustomers";
-
-// Dashboard
-export {
-  useConvexDashboardSummary,
-  useConvexRecentOrders,
-  useConvexUpcomingDue,
-  useConvexOrderStats,
-} from "./useDashboard";
 
 // Kitchen Stats (PRD-1: Kitchen Core)
 export {

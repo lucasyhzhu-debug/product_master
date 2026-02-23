@@ -5,9 +5,6 @@ import { Layout } from "@/components/layout";
 import { useAuth } from "@/contexts/AuthContext";
 // BANDWIDTH CONSERVATION: SalesAnalytics, K3MartCockpit temporarily removed — re-enable after March 1st
 import {
-  RecipeEditor,
-  PackagingEditor,
-  ProductEditor,
   IngredientsManager,
   MaterialsManager,
   OrderManager,
@@ -22,7 +19,6 @@ import {
   LocationsManager,
   ProductionComponentsManager,
   CustomersManager,
-  TagsManager,
   DispatchPlanner,
   GoFoodDepotManager,
 } from "@/pages";
@@ -107,34 +103,6 @@ function App() {
                 }
               />
 
-              {/* Recipe/Packaging/Product editors - Manager and Admin */}
-              <Route
-                path="recipes/:id"
-                element={
-                  <ProtectedRoute requiredPermission="canAccessRecipes">
-                    <RecipeEditor />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="packaging/:id"
-                element={
-                  <ProtectedRoute requiredPermission="canAccessRecipes">
-                    <PackagingEditor />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="products/:id"
-                element={
-                  <ProtectedRoute requiredPermission="canAccessProducts">
-                    <ProductEditor />
-                  </ProtectedRoute>
-                }
-              />
-
               {/* Ingredients/Materials - Manager and Admin */}
               <Route
                 path="ingredients"
@@ -160,16 +128,6 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessOrders">
                     <CustomersManager />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Tags - Manager and Admin */}
-              <Route
-                path="tags"
-                element={
-                  <ProtectedRoute requiredPermission="canAccessRecipes">
-                    <TagsManager />
                   </ProtectedRoute>
                 }
               />
