@@ -48,6 +48,7 @@ interface KitchenConfig {
   maxProductionTarget: number;
   bigBallTarget: number;
   midBallTarget: number;
+  defaultPackagingMix: Array<{ menuProductId: string; quantity: number }>;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -173,11 +174,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       setMaxTarget(config.maxProductionTarget);
       setBigBallDefault(config.bigBallTarget);
       setMidBallDefault(config.midBallTarget);
-      // Note: config doesn't include defaultPackagingMix in getConfig return — starts empty
-      // The kitchenConfig table stores it but getConfig query doesn't expose it
-      // This is acceptable — manager re-sets the mix when editing defaults
+      setDefaultPackagingMix(
+        (config.defaultPackagingMix ?? []).map((row) => ({
+          menuProductId: String(row.menuProductId),
+          quantity: row.quantity,
+        }))
+      );
     }
-  }, [config?._id]);
+  }, [config]);
 
   // -------------------------------------------------------
   // Handlers: Save defaults
@@ -264,10 +268,12 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Render
   // -------------------------------------------------------
 
-  const safeMenuProducts = (menuProducts ?? []).map((mp) => ({
-    _id: String(mp._id),
-    name: mp.name,
-  }));
+  const safeMenuProducts = (menuProducts ?? [])
+    .filter((mp) => mp.productType === "food")
+    .map((mp) => ({
+      _id: String(mp._id),
+      name: mp.name,
+    }));
 
   return (
     <div className="space-y-4">
@@ -298,9 +304,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               <Input
                 type="number"
                 min={0}
-                value={bigBallDefault === 0 ? "" : bigBallDefault}
+                value={midBallDefault === 0 ? "" : midBallDefault}
                 placeholder="0"
-                onChange={(e) => setBigBallDefault(Number(e.target.value))}
+                onChange={(e) => setMidBallDefault(Number(e.target.value))}
                 className="text-right tabular-nums"
               />
             </div>
@@ -309,9 +315,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               <Input
                 type="number"
                 min={0}
-                value={midBallDefault === 0 ? "" : midBallDefault}
+                value={bigBallDefault === 0 ? "" : bigBallDefault}
                 placeholder="0"
-                onChange={(e) => setMidBallDefault(Number(e.target.value))}
+                onChange={(e) => setBigBallDefault(Number(e.target.value))}
                 className="text-right tabular-nums"
               />
             </div>
@@ -376,9 +382,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               <Input
                 type="number"
                 min={0}
-                value={bigBallOverride}
-                placeholder={String(config?.bigBallTarget ?? 0)}
-                onChange={(e) => setBigBallOverride(e.target.value)}
+                value={midBallOverride}
+                placeholder={String(config?.midBallTarget ?? 0)}
+                onChange={(e) => setMidBallOverride(e.target.value)}
                 className="text-right tabular-nums"
               />
             </div>
@@ -387,9 +393,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               <Input
                 type="number"
                 min={0}
-                value={midBallOverride}
-                placeholder={String(config?.midBallTarget ?? 0)}
-                onChange={(e) => setMidBallOverride(e.target.value)}
+                value={bigBallOverride}
+                placeholder={String(config?.bigBallTarget ?? 0)}
+                onChange={(e) => setBigBallOverride(e.target.value)}
                 className="text-right tabular-nums"
               />
             </div>
