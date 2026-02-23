@@ -26,15 +26,16 @@ export interface KitchenTargets {
 
 interface ProductionTargetsBarProps {
   targets: KitchenTargets | undefined;
+  showJumbo?: boolean;
 }
 
-export function ProductionTargetsBar({ targets }: ProductionTargetsBarProps) {
+export function ProductionTargetsBar({ targets, showJumbo = true }: ProductionTargetsBarProps) {
   if (targets === undefined) {
     return (
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={showJumbo ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
           <Skeleton className="h-16 rounded-lg" />
-          <Skeleton className="h-16 rounded-lg" />
+          {showJumbo && <Skeleton className="h-16 rounded-lg" />}
         </div>
         <Skeleton className="h-8 rounded-lg" />
       </div>
@@ -44,17 +45,19 @@ export function ProductionTargetsBar({ targets }: ProductionTargetsBarProps) {
   return (
     <div className="space-y-3">
       {/* Ball totals */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className={showJumbo ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 gap-3"}>
         <StatCard
           label="Original Balls (45g)"
           value={targets.midBalls}
           urgency={targets.midBalls > 0 ? "green" : undefined}
         />
-        <StatCard
-          label="Jumbo Balls (80g)"
-          value={targets.bigBalls}
-          urgency={targets.bigBalls > 0 ? "green" : undefined}
-        />
+        {showJumbo && (
+          <StatCard
+            label="Jumbo Balls (80g)"
+            value={targets.bigBalls}
+            urgency={targets.bigBalls > 0 ? "green" : undefined}
+          />
+        )}
       </div>
 
       {/* Packaging breakdown */}

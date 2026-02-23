@@ -49,6 +49,7 @@ interface KitchenConfig {
   bigBallTarget: number;
   midBallTarget: number;
   defaultPackagingMix: Array<{ menuProductId: string; quantity: number }>;
+  showJumbo: boolean;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -157,6 +158,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   const [bigBallDefault, setBigBallDefault] = useState(0);
   const [midBallDefault, setMidBallDefault] = useState(0);
   const [defaultPackagingMix, setDefaultPackagingMix] = useState<PackagingMixRow[]>([]);
+  const [showJumbo, setShowJumbo] = useState(true);
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
 
   // -- Override form state --
@@ -180,6 +182,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           quantity: row.quantity,
         }))
       );
+      setShowJumbo(config.showJumbo ?? true);
     }
   }, [config]);
 
@@ -203,6 +206,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         maxProductionTarget: maxTarget,
         bigBallTarget: bigBallDefault,
         midBallTarget: midBallDefault,
+        showJumbo,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({
@@ -321,6 +325,28 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                 className="text-right tabular-nums"
               />
             </div>
+          </div>
+
+          {/* Jumbo visibility toggle */}
+          <div className="flex items-center justify-between py-1">
+            <Label className="text-xs text-muted-foreground">Show Jumbo (80g) targets</Label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showJumbo}
+              onClick={() => setShowJumbo((v) => !v)}
+              className={[
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                showJumbo ? "bg-primary" : "bg-input",
+              ].join(" ")}
+            >
+              <span
+                className={[
+                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                  showJumbo ? "translate-x-4" : "translate-x-0",
+                ].join(" ")}
+              />
+            </button>
           </div>
 
           {/* Packaging mix */}
