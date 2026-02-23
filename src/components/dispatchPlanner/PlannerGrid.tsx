@@ -82,6 +82,8 @@ interface PlannerGridProps {
   data: UnifiedWeeklyPlanData;
   onSaveCell: SaveCellFn;
   simulationResults?: SimulationResult[];
+  /** Optional per-column action rendered at the top of each date column (above channel rows) */
+  renderColumnAction?: (date: string) => React.ReactNode;
 }
 
 // ============================================
@@ -116,6 +118,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   data,
   onSaveCell,
   simulationResults,
+  renderColumnAction,
 }: PlannerGridProps) {
   const { dates, todayStr, dailyCapacity, channels, dailyTotals } = data;
 
@@ -252,6 +255,28 @@ export const PlannerGrid = React.memo(function PlannerGrid({
               ))}
             </div>
           </div>
+
+          {/* Row 3: Per-column action buttons (e.g. Save to Kitchen) */}
+          {renderColumnAction && (
+            <div className="flex border-b">
+              <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
+                <span className="text-[10px] text-muted-foreground">Save to Kitchen</span>
+              </div>
+              <div className="flex flex-1">
+                {dates.map((date) => (
+                  <div
+                    key={date}
+                    className={cn(
+                      "flex-1 py-1 border-l border-border flex items-center justify-center",
+                      date === todayStr && "bg-primary/5"
+                    )}
+                  >
+                    {renderColumnAction(date)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ==========================================
               TABLE BODY: Channel groups

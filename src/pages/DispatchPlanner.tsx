@@ -228,24 +228,11 @@ export function DispatchPlanner() {
 
       {/* Main Grid */}
       {weeklyData ? (
-        <>
-          <PlannerGrid
-            data={weeklyData}
-            onSaveCell={handleSaveCell}
-          />
-          {/* Save targets for kitchen row */}
-          <div className="flex gap-2 flex-wrap items-center">
-            <span className="text-xs text-muted-foreground font-medium mr-1">Save to Kitchen:</span>
-            {weeklyData.dates.map((date) => (
-              <div key={date} className="flex flex-col items-center gap-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  {new Date(date + "T00:00:00+07:00").toLocaleDateString("en-US", { weekday: "short", timeZone: "Asia/Jakarta" })}
-                </span>
-                <SaveTargetButton date={date} />
-              </div>
-            ))}
-          </div>
-        </>
+        <PlannerGrid
+          data={weeklyData}
+          onSaveCell={handleSaveCell}
+          renderColumnAction={(date) => <SaveTargetButton date={date} />}
+        />
       ) : (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           No data available for this week.
