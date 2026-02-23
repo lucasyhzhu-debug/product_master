@@ -14,6 +14,20 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.13] - 2026-02-23 - Fix: WhatsApp Buttons Now Available for All Message Types
+
+You can now send all 6 WhatsApp message types directly from the order slide-out panel — not just Payment Requests. Production Started, Shipping Confirmation, Pickup Ready, Delivery Complete, and Receipt messages each have their own button, shown automatically when the order reaches the right status.
+
+### Fixed
+- **Missing WhatsApp buttons**: `OrderSlideOver.tsx` only ever had a hardcoded single button for `payment_request`. The other 5 templates were never wired up.
+- **Status-aware buttons**: Each button now appears only when relevant — e.g. "Shipping Confirmation" shows when status is `AwaitingDelivery` with delivery type, "Pickup Ready" when pickup type, "Delivery Complete" when `Complete`, etc.
+- **Receipt always available**: The receipt button appears on any active order (not Draft or Cancelled), matching expected behavior.
+
+### Files Modified
+- `src/components/orders/OrderSlideOver.tsx` — replaced hardcoded `showWhatsAppModal: boolean` with `activeWhatsAppTemplate: WhatsAppTemplateType | null`; added status/delivery-type logic to compute visible buttons
+
+---
+
 ## [v1.3.12] - 2026-02-23 - Fix: Brochure No Longer Blocks Order Fulfillment
 
 "Brochure - How to eat" was blocking orders from being fulfilled — it showed up as a product needing stock, but there was never any stock to give it. Orders would permanently show "2 items short — cannot fulfill". This is now fixed: packaging/marketing items like brochures are silently skipped during the fulfillment stock check and drawdown, so they no longer hold up real orders.
