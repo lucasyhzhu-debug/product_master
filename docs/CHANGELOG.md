@@ -14,6 +14,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.14] - 2026-02-23 - Fix: WhatsApp Messages Now Show Correct Payment Status
+
+WhatsApp messages were always showing "Payment: Unpaid" even for paid orders. This is now fixed — confirmed, in-production, shipped, and completed orders will correctly show "Payment: Paid".
+
+### Fixed
+- **Payment status always showing Unpaid**: `paymentStatus` on orders is a manual field only updated by the admin `forceComplete` path. Normal payment flow (`AwaitingPayment` → `PaymentReceived`) never flipped it. A `deriveEffectivePaymentStatus()` helper now infers `"Paid"` from `order.status` when the stored value is stale.
+- **All 17 template variables audited** — only `{payment_info}` had a bug; all others confirmed correct.
+
+### Files Modified
+- `convex/orders/whatsapp.ts` — added `deriveEffectivePaymentStatus()` helper; both `buildTemplateVariables()` and `generateReceipt()` now use it
+
+---
+
 ## [v1.3.13] - 2026-02-23 - Fix: WhatsApp Buttons Now Available for All Message Types
 
 You can now send all 6 WhatsApp message types directly from the order slide-out panel — not just Payment Requests. Production Started, Shipping Confirmation, Pickup Ready, Delivery Complete, and Receipt messages each have their own button, shown automatically when the order reaches the right status.
