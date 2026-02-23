@@ -6,10 +6,10 @@
  * After any composition change, schedules COGS cache recalculation.
  */
 
-import { mutation, internalMutation } from "../_generated/server";
+import { internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
-import { requireRole } from "../lib/auth";
+import { protectedMutation } from "../lib/functions";
 import { wouldCreateCycle, traverseHierarchy } from "../lib/hierarchyTraversal";
 import { calculateLineCost } from "../lib/costCalculator";
 
@@ -21,16 +21,16 @@ import { calculateLineCost } from "../lib/costCalculator";
  * Add a sub-component link between two production components.
  * Validates: both are production, no self-reference, no cycle, max depth 3.
  */
-export const addSubComponent = mutation({
+export const addSubComponent = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     parentComponentId: v.id("componentTypes"),
     childComponentId: v.id("componentTypes"),
     quantityPerUnit: v.number(),
     unit: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     // Validate parent exists and is production
     const parent = await ctx.db.get(args.parentComponentId);
@@ -96,13 +96,13 @@ export const addSubComponent = mutation({
 /**
  * Remove a sub-component link.
  */
-export const removeSubComponent = mutation({
+export const removeSubComponent = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     linkId: v.id("productionComponentLinks"),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     const link = await ctx.db.get(args.linkId);
     if (!link) {
@@ -126,15 +126,15 @@ export const removeSubComponent = mutation({
 /**
  * Update quantity/unit on a sub-component link.
  */
-export const updateSubComponentQuantity = mutation({
+export const updateSubComponentQuantity = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     linkId: v.id("productionComponentLinks"),
     quantityPerUnit: v.number(),
     unit: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     const link = await ctx.db.get(args.linkId);
     if (!link) {
@@ -164,16 +164,16 @@ export const updateSubComponentQuantity = mutation({
 /**
  * Add a direct ingredient to a production component.
  */
-export const addIngredient = mutation({
+export const addIngredient = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     componentTypeId: v.id("componentTypes"),
     ingredientId: v.id("ingredients"),
     quantityPerUnit: v.number(),
     unit: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     // Validate componentType exists and is production
     const component = await ctx.db.get(args.componentTypeId);
@@ -234,13 +234,13 @@ export const addIngredient = mutation({
 /**
  * Remove a direct ingredient from a production component.
  */
-export const removeIngredient = mutation({
+export const removeIngredient = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     linkId: v.id("productionComponentIngredients"),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     const link = await ctx.db.get(args.linkId);
     if (!link) {
@@ -264,15 +264,15 @@ export const removeIngredient = mutation({
 /**
  * Update quantity/unit on a direct ingredient link.
  */
-export const updateIngredientQuantity = mutation({
+export const updateIngredientQuantity = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
-    token: v.string(),
     linkId: v.id("productionComponentIngredients"),
     quantityPerUnit: v.number(),
     unit: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Role already enforced by protectedMutation wrapper (roles: ["admin", "manager"]).
 
     const link = await ctx.db.get(args.linkId);
     if (!link) {
