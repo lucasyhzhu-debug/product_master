@@ -28,6 +28,7 @@ export const getConfig = query({
         maxProductionTarget: DEFAULTS.maxProductionTarget,
         bigBallTarget: DEFAULTS.bigBallTarget,
         midBallTarget: DEFAULTS.midBallTarget,
+        defaultPackagingMix: [] as Array<{ menuProductId: Id<"menuProducts">; quantity: number }>,
         updatedAt: null,
         updatedBy: null,
       };
@@ -38,6 +39,7 @@ export const getConfig = query({
       maxProductionTarget: config.maxProductionTarget,
       bigBallTarget: config.bigBallTarget,
       midBallTarget: config.midBallTarget,
+      defaultPackagingMix: config.defaultPackagingMix ?? [],
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,
     };
@@ -141,10 +143,27 @@ export const getKitchenTargetsForDate = query({
         }
       }
 
+      const packagingBreakdown = Array.from(packagingBreakdownMap.values());
+
+      if (packagingBreakdown.length > 0) {
+        return {
+          bigBalls,
+          midBalls,
+          packagingBreakdown,
+          source: "dispatch_plan" as const,
+        };
+      }
+      // packagingBreakdown empty after BOM traversal — fall through to defaults for packaging
+      // but preserve ball totals from dispatch plan
+      const config2 = await ctx.db.query("kitchenConfig").first();
+      let defaultPackaging: Array<{ menuProductId: Id<"menuProducts">; name: string; quantity: number }> = [];
+      if (config2?.defaultPackagingMix && config2.defaultPackagingMix.length > 0) {
+        defaultPackaging = await resolvePackagingBreakdown(ctx, config2.defaultPackagingMix);
+      }
       return {
         bigBalls,
         midBalls,
-        packagingBreakdown: Array.from(packagingBreakdownMap.values()),
+        packagingBreakdown: defaultPackaging,
         source: "dispatch_plan" as const,
       };
     }
