@@ -112,6 +112,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 24-05]: getYesterday() exported from DispatchPlanner.tsx for single-source date anchor; WeekNav imports it
 - [Phase 24-05]: renderColumnAction prop pattern on PlannerGrid — loose coupling between grid and Save-to-Kitchen semantics
 - [Phase 24-05]: PlannerCell blur reverts (not saves) — Enter-only saves prevent accidental data commits; amber ring indicates unsaved state
+- [Phase 24-07]: createMutationHook skips toast.success when successMessage is empty string — lets EntityManager own the single update toast
+- [Phase 24-07]: FGAdjustDialog uses useMutation+token pattern (not useSessionMutation) matching existing productInventory caller pattern
 
 ### Pending Todos
 
@@ -165,13 +167,14 @@ None.
 | Phase 22-remove-legacy-editors-tags-and-dashboard P04 | 2 | 1 tasks | 6 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P05 | 4 | 1 tasks | 1 files |
 | Phase 24-ingredient-simulation-id-linking P05 | 4 | 2 tasks | 7 files |
+| Phase 24-ingredient-simulation-id-linking P07 | 5 | 2 tasks | 7 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 24-05-PLAN.md — Planner grid UX fixes (6 issues resolved); build passes.
+Stopped at: Completed 24-07-PLAN.md — Ingredients UAT-3 gap closure (double toast, Untrack, FG Adjust); build passes.
 Resume file: None
-Resume notes: Phase 24 plan 05 complete. Continue with remaining plans in phase 24 or proceed to UAT verification.
+Resume notes: Phase 24 plan 07 complete. Continue with remaining plans in phase 24 or proceed to UAT verification.
 
 ---
-*Last updated: 2026-02-23 - Completed 22-05: Final verification sweep; Phase 22 fully complete (5/5 plans done)*
+*Last updated: 2026-02-23 - Completed 24-07: Ingredients/FG gap closure (double toast fix, Untrack button, FGAdjustDialog)*
