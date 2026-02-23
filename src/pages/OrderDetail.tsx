@@ -96,7 +96,7 @@ export function OrderDetail() {
 
   // Admin force-complete
   const { user } = useAuth();
-  // const isAdmin = user?.role === 'admin'; // Temporarily disabled — Force Complete visible to all until button visibility confirmed
+  const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
   const forceComplete = useForceComplete();
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
@@ -293,8 +293,8 @@ export function OrderDetail() {
                 />
               )}
 
-              {/* Admin: Force Complete (data fix) - prominent placement */}
-              {!['Complete', 'Cancelled'].includes(order.status) && (
+              {/* Admin: Force Complete (data fix) - manager/admin only */}
+              {isManagerOrAdmin && !['Complete', 'Cancelled'].includes(order.status) && (
                 <div className="pt-1 border-t">
                   <Button
                     variant="outline"
