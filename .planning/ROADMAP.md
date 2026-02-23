@@ -5,7 +5,7 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup + Tech Debt** — Phases 19-27 (planned)
+- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup + Tech Debt** — Phases 19-26 (planned)
 
 ## Phases
 
@@ -203,43 +203,38 @@ Plans:
   4. `npm run build` succeeds with no warnings
   5. No visual regressions (loading states graceful)
 
-### Phase 24: Ingredient Simulation ID Linking
+### Phase 24: Ingredient Simulation Fix + Restock-Kitchen Integration
 
-**Goal:** Replace fragile name string matching in dispatch planner ingredient simulation with ID-based linking between ingredient records and componentType tracker records.
-**Depends on:** None (independent)
-**Implementation Notes:**
-- Current: ingredient simulation matches by name string — breaks if names diverge between ingredient and tracker componentType records
-- Fix: Add ID-based foreign key linking (ingredientId on productionComponentIngredients or similar)
-- Migrate existing name-matched data to ID references
-**Success Criteria** (what must be TRUE):
-  1. Ingredient simulation uses ID-based linking, not name matching
-  2. Existing simulation results unchanged (same outputs, safer inputs)
-  3. `npm run type-check` passes
-  4. `npm run build` succeeds
-
-### Phase 25: Restock Planner → Kitchen Target Integration
-
-**Goal:** Connect Restock Planner to Kitchen production targets bidirectionally. Remove standalone Capacity setting from Restock Planner. Restock reads defaults from kitchenConfig. "Save targets for kitchen" button writes kitchenDailyOverrides with source tag. Kitchen auto-displays restock-originated targets.
+**Goal:** Fix dispatch planner simulation: replace name string matching with ID-based ingredient linking, review simulation algorithm for correctness, remove standalone Capacity setting, wire production capacity from kitchenConfig, and add "Save targets for kitchen" button that writes kitchenDailyOverrides with source tag.
 **Depends on:** Phase 21 (kitchen targets infrastructure)
+**Context:** `24-CONTEXT.md` (gathered 2026-02-23)
 **Design doc:** `docs/plans/2026-02-23-v1.4-milestone-brief.md`
 **Implementation Notes:**
-- Remove Capacity tab from Restock Planner Settings dialog
-- Restock Planner reads daily capacity from kitchenConfig.defaultTargets (same values managers set on Kitchen page)
+- Merged former Phase 24 (ID linking) + Phase 25 (restock-kitchen integration) — both touch same simulation code
+- Replace 2 name-match sites in `dispatchPlanner/queries.ts` with ID-based lookup via `ingredients.ingredientComponentTypeId`
+- Thread `ingredientId` through hierarchy traversal chain
+- Remove Capacity tab from Restock Planner Settings — read from kitchenConfig.defaultTargets
+- Simulation uses same priority chain as kitchen: kitchenDailyOverrides > kitchenConfig defaults
+- "Save targets for kitchen" button per day saves full packaging breakdown with source="restock_planner"
 - Add `source` field to kitchenDailyOverrides: `"manual"` | `"restock_planner"`
-- "Save targets for kitchen" button per day at top of restock calendar writes kitchenDailyOverride with source="restock_planner"
-- Kitchen UI shows source badge when override comes from Restock Planner
-- Manager can always overwrite a restock-originated override (source changes to "manual")
-- Priority chain: kitchenDailyOverride (last write wins) > kitchenConfig defaults
+- Kitchen UI shows source badge for restock-originated overrides
+- Admin mapping UI on Ingredients Manager for unlinked ingredients
+- Unlinked ingredients: skip in simulation + show warning (both in Materials Check and Ingredients Manager)
+- Health check of simulation algorithm while modifying code
 **Success Criteria** (what must be TRUE):
-  1. Restock Planner Settings no longer has a Capacity tab — capacity derived from kitchen defaults
-  2. "Save targets for kitchen" button exists per day in restock calendar
-  3. Clicking "Save targets" creates a kitchenDailyOverride with source="restock_planner"
-  4. Kitchen view shows the restock-originated target with a source indicator
-  5. Manager can overwrite restock override from kitchen page
-  6. `npm run type-check` passes
-  7. `npm run build` succeeds
+  1. Ingredient simulation uses ID-based linking, not name matching
+  2. Unlinked ingredients show warnings in Materials Check panel and Ingredients Manager
+  3. Admin can link ingredients to componentTypes on Ingredients Manager page
+  4. Restock Planner Settings no longer has a Capacity tab — capacity from kitchen defaults
+  5. Simulation uses kitchenDailyOverrides > kitchenConfig defaults priority chain
+  6. "Save targets for kitchen" button exists per day in restock calendar
+  7. Clicking "Save targets" creates kitchenDailyOverride with source="restock_planner" and full packaging breakdown
+  8. Kitchen view shows restock-originated target with source indicator
+  9. Manager can overwrite restock override from kitchen page
+  10. `npm run type-check` passes
+  11. `npm run build` succeeds
 
-### Phase 26: Codebase Cleanup
+### Phase 25: Codebase Cleanup
 
 **Goal:** Fix dark mode gaps in K3Mart components, remove `useConvex` prefix from hook names, expand protectedMutation to complex entities (orders, recipes, products), expand generic query factory to remaining query files.
 **Depends on:** Phase 22 (legacy code removed first — less to refactor)
@@ -256,10 +251,10 @@ Plans:
   5. `npm run type-check` passes
   6. `npm run build` succeeds
 
-### Phase 27: E2E Playwright Tests
+### Phase 26: E2E Playwright Tests
 
 **Goal:** Add Playwright browser-level end-to-end tests for critical user flows: login, order creation, kitchen shift submission, restock planner.
-**Depends on:** Phase 25 (restock integration complete — test the final state)
+**Depends on:** Phase 24 (restock integration complete — test the final state)
 **Implementation Notes:**
 - Install and configure Playwright
 - Set up test fixtures (seed data, auth helpers)
@@ -285,9 +280,8 @@ Plans:
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
-| 22. Remove legacy editors & Dashboard | 5/5 | Complete    | 2026-02-23 | - |
+| 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 0/0 | Not started | - |
-| 24. Ingredient Simulation ID Linking | v1.3 | 0/0 | Not started | - |
-| 25. Restock-Kitchen Integration | v1.3 | 0/0 | Not started | - |
-| 26. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
-| 27. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
+| 24. Simulation Fix + Restock-Kitchen | v1.3 | 0/0 | Not started | - |
+| 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
+| 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
