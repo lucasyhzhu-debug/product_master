@@ -90,7 +90,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
         />
 
         {/* Preview text */}
-        <p className="relative text-sm text-gray-800 line-clamp-2">
+        <p className="relative text-sm text-gray-800 dark:text-gray-700 line-clamp-2">
           "{previewText}..."
         </p>
 
