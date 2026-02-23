@@ -8,7 +8,7 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Id, Doc } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { logStatusTransition } from "../orders/helpers/statusTransitions";
 
@@ -232,9 +232,23 @@ export const fulfillFromInventory = mutation({
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
       .collect();
 
-    const orderItems = allOrderItems.filter(
+    // Fetch each item's menuProduct to check productType.
+    // Exclude packaging-type products (e.g., Brochure - How to eat) — they are
+    // marketing items that don't live in finished-goods inventory and should
+    // never be drawn down during order fulfillment.
+    const eligibleItems = allOrderItems.filter(
       (item) => item.isCancelled !== true && item.menuProductId !== undefined
     );
+    const menuProductCache = new Map<string, Doc<"menuProducts"> | null>();
+    for (const item of eligibleItems) {
+      if (!menuProductCache.has(String(item.menuProductId))) {
+        menuProductCache.set(String(item.menuProductId), await ctx.db.get(item.menuProductId!));
+      }
+    }
+    const orderItems = eligibleItems.filter((item) => {
+      const mp = menuProductCache.get(String(item.menuProductId));
+      return mp?.productType !== "packaging";
+    });
 
     if (orderItems.length === 0) {
       throw new Error("No fulfillable items found on this order");
@@ -253,7 +267,7 @@ export const fulfillFromInventory = mutation({
         )
         .first();
 
-      const menuProduct = await ctx.db.get(item.menuProductId!);
+      const menuProduct = menuProductCache.get(String(item.menuProductId!));
       productNameMap.set(String(item.menuProductId!), menuProduct?.name ?? item.productName);
 
       const available = stockRow?.quantity ?? 0;

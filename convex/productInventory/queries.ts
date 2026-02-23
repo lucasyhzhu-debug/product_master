@@ -320,36 +320,43 @@ export const getStockForOrder = query({
       .filter((q) => q.neq(q.field("isCancelled"), true))
       .collect();
 
-    // For each order item with a menuProductId, check stock at location
-    const availability = await Promise.all(
-      orderItems
-        .filter((item) => item.menuProductId !== undefined)
-        .map(async (item) => {
-          const menuProduct = await ctx.db.get(item.menuProductId!);
-
-          const stockRow = await ctx.db
-            .query("productInventory")
-            .withIndex("by_product_location", (q) =>
-              q
-                .eq("menuProductId", item.menuProductId!)
-                .eq("locationId", args.locationId)
-            )
-            .first();
-
-          const quantityAvailable = stockRow?.quantity ?? 0;
-          const quantityNeeded = item.quantity;
-          const isSufficient = quantityAvailable >= quantityNeeded;
-
-          return {
-            orderItemId: item._id,
-            menuProductId: item.menuProductId!,
-            productName: menuProduct?.name ?? item.productName,
-            quantityNeeded,
-            quantityAvailable,
-            isSufficient,
-          };
-        })
+    // For each order item with a menuProductId, check stock at location.
+    // Exclude packaging-type products (e.g., Brochure - How to eat) — they are
+    // marketing/non-food items that don't live in finished-goods inventory and
+    // should never block order fulfillment.
+    const itemsWithProduct = orderItems.filter(
+      (item) => item.menuProductId !== undefined
     );
+
+    const availability = [];
+    for (const item of itemsWithProduct) {
+      const menuProduct = await ctx.db.get(item.menuProductId!);
+
+      // Skip packaging-type products — consistent with dispatchPlanner and POS queries
+      if (menuProduct?.productType === "packaging") continue;
+
+      const stockRow = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q
+            .eq("menuProductId", item.menuProductId!)
+            .eq("locationId", args.locationId)
+        )
+        .first();
+
+      const quantityAvailable = stockRow?.quantity ?? 0;
+      const quantityNeeded = item.quantity;
+      const isSufficient = quantityAvailable >= quantityNeeded;
+
+      availability.push({
+        orderItemId: item._id,
+        menuProductId: item.menuProductId!,
+        productName: menuProduct?.name ?? item.productName,
+        quantityNeeded,
+        quantityAvailable,
+        isSufficient,
+      });
+    }
 
     return availability;
   },
