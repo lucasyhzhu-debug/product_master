@@ -57,10 +57,10 @@ export const useConvexCreateIngredient = createMutationHook(
   { successMessage: "Ingredient created successfully", errorMessage: "Failed to create ingredient" }
 );
 
-/** Update ingredient mutation with toast notifications. */
+/** Update ingredient mutation — no success toast; EntityManager handles it. */
 export const useConvexUpdateIngredient = createMutationHook(
   api.ingredients.mutations.update,
-  { successMessage: "Ingredient updated successfully", errorMessage: "Failed to update ingredient" }
+  { successMessage: "", errorMessage: "Failed to update ingredient" }
 );
 
 /** Delete ingredient mutation with toast notifications. */
@@ -72,4 +72,9 @@ export const useConvexDeleteIngredient = createMutationHook(
 /** Link ingredient to an existing componentType for inventory tracking. */
 export function useLinkIngredientToComponentType() {
   return useMutation(api.ingredients.mutations.linkIngredientToComponentType);
+}
+
+/** Unlink an ingredient from its componentType inventory tracker. Admin only. */
+export function useUnlinkIngredientFromComponentType() {
+  return useMutation(api.ingredients.mutations.unlinkIngredientFromComponentType);
 }

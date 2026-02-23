@@ -69,7 +69,7 @@ const HUB_AREAS: AreaCard[] = [
     links: [
       { label: "Inventory", path: "/inventory" },
       { label: "Locations", path: "/inventory/locations" },
-      { label: "Restock Planner", path: "/restock-planner" },
+      { label: "Planner", path: "/restock-planner" },
       { label: "Ingredients", path: "/ingredients" },
     ],
     visible: (hp) => hp("canAccessInventory"),
@@ -128,7 +128,7 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Packaging: Package,
   Inventory: Warehouse,
   Locations: MapPin,
-  "Restock Planner": CalendarRange,
+  "Planner": CalendarRange,
   Ingredients: Salad,
   "GoFood Depot": Truck,
   "Sales Analytics": TrendingUp,

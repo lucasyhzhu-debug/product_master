@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { Leaf } from 'lucide-react';
+import { Leaf, Unlink } from 'lucide-react';
 import { EntityManager } from '@/components/shared/EntityManager';
 import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
@@ -15,6 +15,7 @@ import {
   useConvexDeleteIngredient,
   useConvexCreateIngredientComponentType,
   useLinkIngredientToComponentType,
+  useUnlinkIngredientFromComponentType,
 } from '@/hooks/convex';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -67,7 +68,7 @@ function EnableTrackingButton({ ingredient }: { ingredient: Ingredient }) {
   );
 }
 
-function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
+function LinkIngredientButton({ ingredient, allIngredients }: { ingredient: Ingredient; allIngredients: Ingredient[] }) {
   const { user } = useAuth();
   const linkIngredient = useLinkIngredientToComponentType();
   const componentTypes = useQuery(api.componentTypes.queries.list, { activeOnly: true });
@@ -75,9 +76,16 @@ function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
-  // Filter to only tracked production componentTypes
+  // IDs already claimed by other ingredients (excluding this ingredient)
+  const claimedIds = new Set(
+    allIngredients
+      .filter((i) => i._id !== ingredient._id && i.ingredientComponentTypeId)
+      .map((i) => i.ingredientComponentTypeId as string)
+  );
+
+  // Filter to only tracked production componentTypes that aren't already linked
   const trackableTypes = (componentTypes ?? []).filter(
-    (ct: any) => ct.trackInventory && ct.category === 'production'
+    (ct: any) => ct.trackInventory && ct.category === 'production' && !claimedIds.has(ct._id as string)
   );
 
   const handleLink = async () => {
@@ -134,6 +142,69 @@ function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
   );
 }
 
+function UntrackButton({ ingredient }: { ingredient: Ingredient }) {
+  const { user } = useAuth();
+  const unlinkIngredient = useUnlinkIngredientFromComponentType();
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const handleUntrack = async () => {
+    if (!user?.token) return;
+    setLoading(true);
+    try {
+      await unlinkIngredient({
+        token: user.token,
+        ingredientId: ingredient._id,
+      });
+      toast.success(`Tracking removed for ${ingredient.name}`);
+      setConfirming(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to untrack');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-muted-foreground">Remove tracking?</span>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="h-5 px-2 text-xs"
+          onClick={handleUntrack}
+          disabled={loading}
+        >
+          {loading ? '...' : 'Yes'}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-5 px-2 text-xs"
+          onClick={() => setConfirming(false)}
+          disabled={loading}
+        >
+          No
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-5 px-1 text-xs text-muted-foreground hover:text-destructive gap-1"
+      onClick={() => setConfirming(true)}
+      title="Remove inventory tracking link"
+    >
+      <Unlink className="h-3 w-3" />
+      Untrack
+    </Button>
+  );
+}
+
 export function IngredientsManager() {
   useDocumentTitle('Ingredients');
 
@@ -160,13 +231,16 @@ export function IngredientsManager() {
       header: 'Inventory',
       render: (item) =>
         item.ingredientComponentTypeId ? (
-          <Badge variant="outline" className="text-[var(--color-status-success)] border-[var(--color-status-success)] bg-[var(--color-status-success-bg)]">
-            Tracked
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="text-[var(--color-status-success)] border-[var(--color-status-success)] bg-[var(--color-status-success-bg)]">
+              Tracked
+            </Badge>
+            <UntrackButton ingredient={item} />
+          </div>
         ) : (
           <div className="flex flex-col gap-1 items-start">
             <EnableTrackingButton ingredient={item} />
-            <LinkIngredientButton ingredient={item} />
+            <LinkIngredientButton ingredient={item} allIngredients={ingredients ?? []} />
           </div>
         ),
     },
@@ -223,7 +297,7 @@ export function IngredientsManager() {
       })}
       transformFormData={transformData}
       onCreate={(data) => create.mutate(data)}
-      onUpdate={(id, data) => update.mutate({ id: id as Id<"ingredients">, ...data })}
+      onUpdate={async (id, data) => { await update.mutateAsync({ id: id as Id<"ingredients">, ...data }); }}
       onDelete={(id) => del.mutate({ id: id as Id<"ingredients"> })}
     />
   );

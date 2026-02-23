@@ -64,6 +64,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
 - [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress (completed 2026-02-23)
 - [x] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24) (completed 2026-02-23)
+- [x] **Phase 23: Bundle Size & Lazy Routes** — Route-level code splitting with React.lazy, vendor chunk splitting, ChunkErrorBoundary, lazyWithPreload utility (completed 2026-02-23)
 
 **Deferred to future milestone:**
 - ~~Consignment Upload~~ — CON-01 through CON-05
@@ -202,12 +203,12 @@ Plans:
   3. Initial load bundle significantly reduced from 1.8MB
   4. `npm run build` succeeds with no warnings
   5. No visual regressions (loading states graceful)
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 23-01-PLAN.md — Shared utilities: lazyWithPreload, RouteLoadingFallback (spinning Frollie logo, 200ms delay), ChunkErrorBoundary
-- [ ] 23-02-PLAN.md — Vite config: manualChunks vendor splitting + vite-plugin-bundlesize CI guard
-- [ ] 23-03-PLAN.md — App.tsx lazy conversion + nav prefetch + remove page fades + human verify checkpoint
+- [x] 23-01-PLAN.md — Shared utilities: lazyWithPreload, RouteLoadingFallback (spinning Frollie logo, 200ms delay), ChunkErrorBoundary
+- [x] 23-02-PLAN.md — Vite config: manualChunks vendor splitting + vite-plugin-bundlesize CI guard
+- [x] 23-03-PLAN.md — App.tsx lazy conversion + nav prefetch + remove page fades + human verify checkpoint
 
 ### Phase 24: Ingredient Simulation Fix + Restock-Kitchen Integration
 
@@ -239,7 +240,7 @@ Plans:
   9. Manager can overwrite restock override from kitchen page
   10. `npm run type-check` passes
   11. `npm run build` succeeds
-**Plans:** 7 plans
+**Plans:** 3/7 plans executed
 
 Plans:
 - [ ] 24-01-PLAN.md — Schema: kitchenDailyOverrides source field + setDailyOverride mutation + linkIngredientToComponentType mutation
@@ -297,7 +298,7 @@ Plans:
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
-| 23. Bundle Size & Lazy Routes | v1.3 | 0/3 | Not started | - |
-| 24. Simulation Fix + Restock-Kitchen | v1.3 | 4/7 | UAT gap closure | - |
+| 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
+| 24. Simulation Fix + Restock-Kitchen | 3/7 | In Progress|  | - |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
 | 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |

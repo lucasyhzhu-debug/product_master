@@ -26,7 +26,15 @@ export const CHANNEL_COLORS: Record<string, string> = {
  * Delegates to k3martCockpit/helpers.getWeekDates which does exactly this.
  */
 export function generateWeekDates(startDate: string): string[] {
-  return getWeekDates(startDate);
+  // Generate 7 consecutive days starting from startDate (no Monday snap).
+  // The Planner is yesterday-anchored: startDate = yesterday so today = column 2.
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startDate + "T12:00:00+07:00");
+    d.setDate(d.getDate() + i);
+    dates.push(d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }));
+  }
+  return dates;
 }
 
 /**

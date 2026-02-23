@@ -32,6 +32,7 @@ import {
   MapPin,
   ArrowLeftRight,
   Layers,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,7 @@ import {
 } from "@/hooks/convex";
 import { ProductStockCard } from "./ProductStockCard";
 import { FGAddStockDialog } from "./FGAddStockDialog";
+import { FGAdjustDialog } from "./FGAdjustDialog";
 import { TransactionLogPanel } from "./TransactionLogPanel";
 import { FinishedGoodsHero } from "./FinishedGoodsHero";
 import { StockTransferModal } from "./StockTransferModal";
@@ -71,6 +73,14 @@ import { api } from "../../../convex/_generated/api";
 // ============================================================================
 
 type GroupingMode = "product" | "location" | "platform";
+
+type AdjustDialogState = {
+  menuProductId: Id<"menuProducts">;
+  menuProductName: string;
+  locationId: Id<"storageLocations">;
+  locationName: string;
+  currentQuantity: number;
+};
 
 // ============================================================================
 // PLATFORM HELPERS
@@ -290,6 +300,7 @@ type ProductGroupedViewProps = {
     destinationLocationId: Id<"storageLocations">,
     quantity: number
   ) => Promise<void>;
+  onAdjust: (state: AdjustDialogState) => void;
   token: string;
 };
 
@@ -297,6 +308,7 @@ function ProductGroupedView({
   productGroups,
   allLocations,
   onTransfer,
+  onAdjust,
 }: ProductGroupedViewProps) {
   const [openInline, setOpenInline] = useState<InlineTransferState | null>(null);
 
@@ -457,6 +469,25 @@ function ProductGroupedView({
                             <ArrowLeft className="h-3 w-3" />
                             Receive
                           </Button>
+
+                          {/* Adjust button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs gap-1 border-amber-400/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                            onClick={() =>
+                              onAdjust({
+                                menuProductId: group.menuProductId as Id<"menuProducts">,
+                                menuProductName: group.menuProductName,
+                                locationId: loc.locationId as Id<"storageLocations">,
+                                locationName: loc.locationName,
+                                currentQuantity: loc.quantity,
+                              })
+                            }
+                          >
+                            <SlidersHorizontal className="h-3 w-3" />
+                            Adjust
+                          </Button>
                         </div>
                       </div>
 
@@ -495,12 +526,14 @@ type LocationGroupedViewProps = {
     destinationLocationId: Id<"storageLocations">,
     quantity: number
   ) => Promise<void>;
+  onAdjust: (state: AdjustDialogState) => void;
 };
 
 function LocationGroupedView({
   productGroups,
   allLocations,
   onTransfer,
+  onAdjust,
 }: LocationGroupedViewProps) {
   const [openInline, setOpenInline] = useState<InlineTransferState | null>(null);
 
@@ -705,6 +738,25 @@ function LocationGroupedView({
                             <ArrowLeft className="h-3 w-3" />
                             Receive
                           </Button>
+
+                          {/* Adjust button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs gap-1 border-amber-400/40 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                            onClick={() =>
+                              onAdjust({
+                                menuProductId: product.menuProductId as Id<"menuProducts">,
+                                menuProductName: product.menuProductName,
+                                locationId: location.locationId as Id<"storageLocations">,
+                                locationName: location.locationName,
+                                currentQuantity: product.quantity,
+                              })
+                            }
+                          >
+                            <SlidersHorizontal className="h-3 w-3" />
+                            Adjust
+                          </Button>
                         </div>
                       </div>
 
@@ -890,6 +942,7 @@ export function FinishedGoodsTab() {
   const [txLogOpen, setTxLogOpen] = useState(false);
   const [groupingMode, setGroupingMode] = useState<GroupingMode>("product");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [adjustDialogState, setAdjustDialogState] = useState<AdjustDialogState | null>(null);
 
   // Settings form state
   const [thresholdInput, setThresholdInput] = useState<string>("");
@@ -1337,6 +1390,7 @@ export function FinishedGoodsTab() {
             productGroups={groupedOverview}
             allLocations={locationsForTransfer}
             onTransfer={handleTransfer}
+            onAdjust={setAdjustDialogState}
             token={user?.token ?? ""}
           />
         ) : (
@@ -1358,6 +1412,7 @@ export function FinishedGoodsTab() {
             productGroups={groupedOverview}
             allLocations={locationsForTransfer}
             onTransfer={handleTransfer}
+            onAdjust={setAdjustDialogState}
           />
         ) : (
           <Skeleton className="h-32 w-full" />
@@ -1401,6 +1456,19 @@ export function FinishedGoodsTab() {
         locations={locations ?? []}
         productGroups={groupedOverview ?? []}
       />
+
+      {/* Adjust Stock Dialog */}
+      {adjustDialogState && (
+        <FGAdjustDialog
+          menuProductId={adjustDialogState.menuProductId}
+          menuProductName={adjustDialogState.menuProductName}
+          locationId={adjustDialogState.locationId}
+          locationName={adjustDialogState.locationName}
+          currentQuantity={adjustDialogState.currentQuantity}
+          open={adjustDialogState !== null}
+          onClose={() => setAdjustDialogState(null)}
+        />
+      )}
     </div>
   );
 }

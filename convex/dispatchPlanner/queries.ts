@@ -11,7 +11,6 @@ import type { Id, Doc } from "../_generated/dataModel";
 import {
   generateWeekDates,
   epochToDateString,
-  orderDueDateToProductionStart,
   CHANNEL_COLORS,
 } from "./helpers";
 import { getTodayJakarta } from "../k3martCockpit/helpers";
@@ -119,6 +118,8 @@ interface UnifiedWeeklyPlan {
   dailyCapacity: number;
   channels: ChannelSection[];
   dailyTotals: Record<string, Record<string, number>>;
+  /** BOM-expanded ball count per date (sum of bigBalls + midBalls across all channels) */
+  dailyBallTotals: Record<string, number>;
 }
 
 /**
@@ -132,9 +133,9 @@ export const getUnifiedWeeklyPlan = query({
     const dates = generateWeekDates(args.startDate);
     const todayStr = getTodayJakarta();
 
-    // Fetch planner settings
-    const settings = await ctx.db.query("dispatchPlannerSettings").first();
-    const dailyCapacity = settings?.dailyCapacity ?? 200;
+    // Capacity comes from kitchenConfig.maxProductionTarget (source of truth for kitchen defaults)
+    const kitchenCfg = await ctx.db.query("kitchenConfig").first();
+    const dailyCapacity = kitchenCfg?.maxProductionTarget ?? 200;
 
     // Fetch enabled channels sorted by priority
     const channelConfigs = await ctx.db
@@ -169,8 +170,11 @@ export const getUnifiedWeeklyPlan = query({
 
     // Initialize daily totals
     const dailyTotals: Record<string, Record<string, number>> = {};
+    // Per-product per-date quantities (used to compute dailyBallTotals via BOM expansion)
+    const dailyProductQty: Record<string, Record<string, number>> = {};
     for (const date of dates) {
       dailyTotals[date] = {};
+      dailyProductQty[date] = {};
     }
 
     const channels: ChannelSection[] = [];
@@ -188,23 +192,56 @@ export const getUnifiedWeeklyPlan = query({
 
       if (channelKey === "direct") {
         await assembleDirectChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
         );
       } else if (channelKey === "gofood") {
         await assembleGofoodChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
         );
       } else if (channelKey === "k3mart") {
         await assembleK3martChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, dailyProductQty
         );
       } else if (channelKey === "consignment") {
         await assembleConsignmentChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
         );
       }
 
       channels.push(section);
+    }
+
+    // Compute dailyBallTotals: BOM-expand dailyProductQty for each date
+    // Load BOM data once for the ball total computation
+    const allBomEntriesForBalls = await ctx.db.query("menuProductComponents").collect();
+    const componentTypesForBalls = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_active", (q: any) => q.eq("isActive", true))
+      .collect();
+    const componentTypeMapForBalls = new Map<string, Doc<"componentTypes">>();
+    for (const ct of componentTypesForBalls) {
+      componentTypeMapForBalls.set(ct._id as string, ct);
+    }
+    const bomByProductForBalls = new Map<string, Doc<"menuProductComponents">[]>();
+    for (const entry of allBomEntriesForBalls) {
+      const mpId = entry.menuProductId as string;
+      if (!bomByProductForBalls.has(mpId)) bomByProductForBalls.set(mpId, []);
+      bomByProductForBalls.get(mpId)!.push(entry);
+    }
+
+    const dailyBallTotals: Record<string, number> = {};
+    for (const date of dates) {
+      let balls = 0;
+      const productQtyForDate = dailyProductQty[date] ?? {};
+      for (const [mpId, qty] of Object.entries(productQtyForDate)) {
+        const bom = bomByProductForBalls.get(mpId) ?? [];
+        for (const entry of bom) {
+          const ct = componentTypeMapForBalls.get(entry.componentTypeId as string);
+          if (!ct || ct.category !== "production") continue;
+          balls += qty * entry.quantity;
+        }
+      }
+      dailyBallTotals[date] = balls;
     }
 
     return {
@@ -213,6 +250,7 @@ export const getUnifiedWeeklyPlan = query({
       dailyCapacity,
       channels,
       dailyTotals,
+      dailyBallTotals,
     };
   },
 });
@@ -233,6 +271,7 @@ async function assembleDirectChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
+  dailyProductQty: Record<string, Record<string, number>>,
 ) {
   const dateSet = new Set(dates);
   const firstDate = dates[0];
@@ -256,89 +295,75 @@ async function assembleDirectChannel(
     return o.dueDate >= rangeStart && o.dueDate <= rangeEnd;
   });
 
+  // Aggregate all orders into per-product-per-date totals (not one row per order)
+  // aggregatedQty[date][mpId] = { name, qty }
+  const aggregatedQty = new Map<string, Map<string, { name: string; qty: number }>>();
+  for (const date of dates) {
+    aggregatedQty.set(date, new Map());
+  }
+
   for (const order of relevantOrders) {
     const dueDateStr = epochToDateString(order.dueDate!);
-    const prodStartStr = orderDueDateToProductionStart(order.dueDate!);
+    if (!dateSet.has(dueDateStr)) continue;
 
-    // Fetch order items
     const items = await ctx.db
       .query("orderItems")
       .withIndex("by_order", (q: any) => q.eq("orderId", order._id))
       .collect();
 
-    // Group by menuProductId
-    const productQtyMap = new Map<string, { name: string; qty: number }>();
+    const dateMap = aggregatedQty.get(dueDateStr)!;
     for (const item of items) {
       if (item.isCancelled) continue;
       const mpId = item.menuProductId ? (item.menuProductId as string) : item.productName;
-      const existing = productQtyMap.get(mpId);
+      const existing = dateMap.get(mpId);
       if (existing) {
         existing.qty += item.quantity;
       } else {
-        productQtyMap.set(mpId, {
-          name: item.productName,
-          qty: item.quantity,
-        });
+        dateMap.set(mpId, { name: item.productName, qty: item.quantity });
       }
     }
+  }
 
+  // Collect all unique product IDs across all dates
+  const allProductIds = new Map<string, string>(); // mpId -> name
+  for (const dateMap of aggregatedQty.values()) {
+    for (const [mpId, { name }] of dateMap) {
+      if (!allProductIds.has(mpId)) allProductIds.set(mpId, name);
+    }
+  }
+
+  if (allProductIds.size > 0) {
     const products: ProductRow[] = [];
-    for (const [mpId, { name, qty }] of productQtyMap) {
+    for (const [mpId, name] of allProductIds) {
       const cells: Record<string, PlanCell> = {};
       for (const date of dates) {
-        const isPast = date < todayStr;
-        const isDueDate = date === dueDateStr;
-        const isProdStart = date === prodStartStr;
-
-        if (isDueDate) {
-          cells[date] = {
-            plannedQty: qty,
-            source: "order",
-            isReadOnly: true,
-            isFaded: false,
-          };
-        } else if (isProdStart && dateSet.has(prodStartStr)) {
-          cells[date] = {
-            plannedQty: qty,
-            source: "order_production",
-            isReadOnly: true,
-            isFaded: true, // faded for production-start day
-          };
-        } else {
-          cells[date] = {
-            plannedQty: 0,
-            source: "none",
-            isReadOnly: true,
-          };
-        }
-
-        // Past days are always read-only (already is for direct)
-        if (isPast) {
-          cells[date].isReadOnly = true;
-        }
+        const qty = aggregatedQty.get(date)?.get(mpId)?.qty ?? 0;
+        cells[date] = {
+          plannedQty: qty,
+          source: qty > 0 ? "order" : "none",
+          isReadOnly: true,
+        };
       }
-
       products.push({
         menuProductId: mpId as Id<"menuProducts">,
         productName: name,
         cells,
       });
+    }
 
-      // Add to daily totals ONLY at dueDate (not production-start)
-      if (dateSet.has(dueDateStr)) {
-        dailyTotals[dueDateStr]["direct"] =
-          (dailyTotals[dueDateStr]["direct"] ?? 0) + qty;
+    // Update daily totals and ball counts
+    for (const [date, dateMap] of aggregatedQty) {
+      for (const [mpId, { qty }] of dateMap) {
+        dailyTotals[date]["direct"] = (dailyTotals[date]["direct"] ?? 0) + qty;
+        if (!dailyProductQty[date]) dailyProductQty[date] = {};
+        dailyProductQty[date][mpId] = (dailyProductQty[date][mpId] ?? 0) + qty;
       }
     }
 
     section.outlets.push({
-      id: order._id as string,
-      name: `${order.orderNumber} - ${order.customerName}`,
-      type: "order",
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      dueDate: dueDateStr,
-      productionStartDate: prodStartStr,
+      id: "direct-orders",
+      name: "Orders (Aggregated)",
+      type: "outlet",
       products,
     });
   }
@@ -368,6 +393,10 @@ async function assembleDirectChannel(
       if ((plan?.plannedQty ?? 0) > 0) {
         dailyTotals[date]["direct"] =
           (dailyTotals[date]["direct"] ?? 0) + (plan?.plannedQty ?? 0);
+        // Track per-product qty for ball total computation
+        if (!dailyProductQty[date]) dailyProductQty[date] = {};
+        dailyProductQty[date][mpId] =
+          (dailyProductQty[date][mpId] ?? 0) + (plan?.plannedQty ?? 0);
       }
     }
 
@@ -400,6 +429,7 @@ async function assembleGofoodChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
+  dailyProductQty: Record<string, Record<string, number>>,
 ) {
   // Fetch active GoFood outlets
   const gofoodOutlets = await ctx.db
@@ -516,6 +546,10 @@ async function assembleGofoodChannel(
         if (qty > 0) {
           dailyTotals[date]["gofood"] =
             (dailyTotals[date]["gofood"] ?? 0) + qty;
+          // Track per-product qty for ball total computation
+          if (!dailyProductQty[date]) dailyProductQty[date] = {};
+          dailyProductQty[date][mpId] =
+            (dailyProductQty[date][mpId] ?? 0) + qty;
         }
       }
     }
@@ -539,6 +573,7 @@ async function assembleK3martChannel(
   _todayStr: string,
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
+  dailyProductQty: Record<string, Record<string, number>>,
 ) {
   // Fetch active K3Mart outlets
   const k3martOutlets = await ctx.db
@@ -602,6 +637,10 @@ async function assembleK3martChannel(
         if (qty > 0) {
           dailyTotals[date]["k3mart"] =
             (dailyTotals[date]["k3mart"] ?? 0) + qty;
+          // Track per-product qty for ball total computation
+          if (!dailyProductQty[date]) dailyProductQty[date] = {};
+          dailyProductQty[date][mpId] =
+            (dailyProductQty[date][mpId] ?? 0) + qty;
         }
       }
     }
@@ -626,6 +665,7 @@ async function assembleConsignmentChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
+  dailyProductQty: Record<string, Record<string, number>>,
 ) {
   // Fetch enabled consignment outlets
   const consignmentOutlets = await ctx.db
@@ -691,6 +731,10 @@ async function assembleConsignmentChannel(
         if (qty > 0) {
           dailyTotals[date]["consignment"] =
             (dailyTotals[date]["consignment"] ?? 0) + qty;
+          // Track per-product qty for ball total computation
+          if (!dailyProductQty[date]) dailyProductQty[date] = {};
+          dailyProductQty[date][mpId] =
+            (dailyProductQty[date][mpId] ?? 0) + qty;
         }
       }
     }
@@ -1020,12 +1064,45 @@ export const simulateInventory = query({
 export const getBallTotalsForDispatchPlanDate = query({
   args: { date: v.string() },
   handler: async (ctx, args) => {
+    // Source A: dispatch plan entries (all channels: gofood, consignment, direct-manual, k3mart via dispatchPlans)
     const dayPlans = await ctx.db
       .query("dispatchPlans")
       .withIndex("by_date", (q: any) => q.eq("date", args.date))
       .collect();
 
-    if (dayPlans.length === 0) {
+    // Source B: Direct Sales orders with dueDate matching args.date (not Draft/Cancelled)
+    // dueDate is stored as epoch ms; convert date string to epoch range for Jakarta timezone
+    const dateEpochStart = new Date(args.date + "T00:00:00+07:00").getTime();
+    const dateEpochEnd = new Date(args.date + "T23:59:59+07:00").getTime();
+    const excludeStatuses = new Set(["Draft", "Cancelled"]);
+
+    const allOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_status_due_date")
+      .collect();
+    const directOrders = allOrders.filter((o: Doc<"orders">) => {
+      if (!o.dueDate) return false;
+      if (excludeStatuses.has(o.status)) return false;
+      return o.dueDate >= dateEpochStart && o.dueDate <= dateEpochEnd;
+    });
+
+    // Build a menuProductId -> qty map from direct orders
+    const orderProductQty = new Map<string, number>();
+    for (const order of directOrders) {
+      const items = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q: any) => q.eq("orderId", order._id))
+        .collect();
+      for (const item of items) {
+        if (item.isCancelled) continue;
+        if (!item.menuProductId) continue;
+        const mpId = item.menuProductId as string;
+        orderProductQty.set(mpId, (orderProductQty.get(mpId) ?? 0) + item.quantity);
+      }
+    }
+
+    // Early return only if both sources are empty
+    if (dayPlans.length === 0 && orderProductQty.size === 0) {
       return { bigBalls: 0, midBalls: 0, packagingBreakdown: [] as Array<{ menuProductId: string; quantity: number }> };
     }
 
@@ -1050,6 +1127,7 @@ export const getBallTotalsForDispatchPlanDate = query({
     let midBalls = 0;
     const packagingMap = new Map<string, number>(); // menuProductId -> quantity
 
+    // Pass 1: dispatch plan entries
     for (const plan of dayPlans) {
       const mpId = plan.menuProductId as string;
       const bom = bomByProduct.get(mpId) ?? [];
@@ -1062,6 +1140,21 @@ export const getBallTotalsForDispatchPlanDate = query({
         const qty = plan.plannedQty * entry.quantity;
         if (ct.code === "BIG_BALL") bigBalls += qty;
         else if (ct.code === "MID_BALL") midBalls += qty;
+      }
+    }
+
+    // Pass 2: Direct Sales order-derived quantities
+    for (const [mpId, qty] of orderProductQty) {
+      const bom = bomByProduct.get(mpId) ?? [];
+      // Add to packaging map (same product may exist in both sources)
+      packagingMap.set(mpId, (packagingMap.get(mpId) ?? 0) + qty);
+      // Sum ball totals from BOM
+      for (const entry of bom) {
+        const ct = componentTypeMap.get(entry.componentTypeId as string);
+        if (!ct || ct.category !== "production") continue;
+        const ballQty = qty * entry.quantity;
+        if (ct.code === "BIG_BALL") bigBalls += ballQty;
+        else if (ct.code === "MID_BALL") midBalls += ballQty;
       }
     }
 
