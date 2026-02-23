@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 21 — Kitchen Production Targets (In Progress - UAT-r2 gap closure)
-Plan: 21-10 complete (10/11 plans done — UAT-r2 gap closure plans active)
-Status: 21-10 done; per-component toggle cascade (stat cards, badges, EoS rows); target display next to EoS inputs; chef selector in EoS form; chef name in kitchen header; order notes on order summary cards; build passes
-Last activity: 2026-02-23 - Completed 21-10: per-component toggle cascade + EoS polish
+Phase: Phase 21 — Kitchen Production Targets (Complete — all 11 plans done)
+Plan: 21-11 complete (11/11 plans done — UAT-r2 gap closure complete)
+Status: 21-11 done; shift review target deltas; waste-toward-target totals; success screen card layout + Framer Motion stagger; chef name in shift history; chef edit in ShiftEditDialog; build passes
+Last activity: 2026-02-23 - Completed 21-11: shift review deltas + success screen animation + chef history
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -97,6 +97,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 21]: productBallTypes map built in KitchenViewV2 via listAll — avoids per-product subscriptions; single flat query for all products
 - [Phase 21]: enabledComponents defaults to BIG_BALL+MID_BALL when config undefined or null — null-means-all pattern from 21-08
 - [Phase 21]: latestChefName from todayShiftRecords[0].chefName — no new query; most recent shift record first
+- [Phase 21]: Waste counts toward total made in review delta (totalMade = produced + waste) — staff want to know if their real output met the target regardless of spoilage reason
+- [Phase 21]: ShiftEditDialog uses plain text Input for chefName (not a user Select) — manager may type any name not in the system; no chefUserId update from dialog (name only)
 
 ### Pending Todos
 
@@ -142,13 +144,14 @@ None.
 | Phase 21-kitchen-production-targets P08 | 3 | 2 tasks | 6 files |
 | Phase 21-kitchen-production-targets P09 | 4 | 2 tasks | 5 files |
 | Phase 21 P10 | 8 | 2 tasks | 6 files |
+| Phase 21 P11 | 8 | 2 tasks | 6 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 21-10 — per-component toggle cascade; EoS target display + chef selector + filtered rows; order notes on cards; chef name in header; build passes
+Stopped at: Completed 21-11 — shift review target deltas; success screen card list + Framer Motion stagger; chef name in shift history; chef edit in ShiftEditDialog; Phase 21 all 11 plans complete
 Resume file: None
-Resume notes: 21-10 done. Continue with 21-11 to complete UAT-r2 gap closure.
+Resume notes: Phase 21 complete (11/11). Ready to merge gsd/phase-21-kitchen-production-targets to main.
 
 ---
 *Last updated: 2026-02-23 - Completed 21-07: read-only order summary; showJumbo kitchenConfig + Manager Settings toggle + ProductionTargetsBar conditional card; Phase 21 complete (7/7)*
