@@ -695,8 +695,8 @@ export const forceComplete = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Admin-only
-    const user = await requireRole(ctx, args.token, ["admin"]);
+    // Admin + Manager can force-complete
+    const user = await requireRole(ctx, args.token, ["admin", "manager"]);
 
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found");
