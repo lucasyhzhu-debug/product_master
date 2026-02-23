@@ -285,7 +285,7 @@ Plans:
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
-| 22. Remove legacy editors & Dashboard | 5/5 | Complete   | 2026-02-23 | - |
+| 22. Remove legacy editors & Dashboard | 5/5 | Complete    | 2026-02-23 | - |
 | 23. Bundle Size & Lazy Routes | v1.3 | 0/0 | Not started | - |
 | 24. Ingredient Simulation ID Linking | v1.3 | 0/0 | Not started | - |
 | 25. Restock-Kitchen Integration | v1.3 | 0/0 | Not started | - |
