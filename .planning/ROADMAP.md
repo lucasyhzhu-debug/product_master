@@ -61,8 +61,8 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and remove legacy recipe/packaging/product editors to clean the codebase.
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
-- [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
-- [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) (completed 2026-02-22)
+- [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
+- [ ] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress
 - [ ] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24)
 
 **Deferred to future milestone:**
@@ -142,13 +142,16 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** 5/5 plans complete
+**Plans:** 7 plans (5 core + 2 UAT gap closure)
 
 Plans:
 - [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
 - [ ] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
 - [ ] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
 - [ ] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
+- [ ] 21-05-PLAN.md — Raw ingredient FIFO deduction at shift submit/update
+- [ ] 21-06-PLAN.md — [GAP] Fix form binding inversion, defaultPackagingMix flow, food-only product filter
+- [ ] 21-07-PLAN.md — [GAP] Read-only order summary + showJumbo toggle (schema + backend + frontend)
 
 ### Phase 22: Remove legacy editors, tags & Dashboard
 
@@ -191,5 +194,5 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
-| 21. Kitchen Production Targets | 5/5 | Complete    | 2026-02-22 | - |
+| 21. Kitchen Production Targets | v1.3 | 5/7 | In Progress (UAT gaps) | - |
 | 22. Remove legacy editors & Dashboard | v1.3 | 0/5 | Not started | - |
