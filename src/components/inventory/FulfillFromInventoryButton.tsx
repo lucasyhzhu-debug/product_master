@@ -16,6 +16,7 @@ import { ConvexError } from 'convex/values';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,8 +48,16 @@ export function FulfillFromInventoryButton({
   orderStatus,
   token,
 }: FulfillFromInventoryButtonProps) {
+  const { user } = useAuth();
+
   // Only render for PaymentReceived or BeingPrepared orders
   if (orderStatus !== 'PaymentReceived' && orderStatus !== 'BeingPrepared') {
+    return null;
+  }
+
+  // Only render for roles authorized to fulfill from inventory (matches backend requireRole check)
+  const canFulfill = user?.role === 'order_staff' || user?.role === 'manager' || user?.role === 'admin';
+  if (!canFulfill) {
     return null;
   }
 
