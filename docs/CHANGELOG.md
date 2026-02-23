@@ -14,6 +14,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.12] - 2026-02-23 - Fix: Brochure No Longer Blocks Order Fulfillment
+
+"Brochure - How to eat" was blocking orders from being fulfilled — it showed up as a product needing stock, but there was never any stock to give it. Orders would permanently show "2 items short — cannot fulfill". This is now fixed: packaging/marketing items like brochures are silently skipped during the fulfillment stock check and drawdown, so they no longer hold up real orders.
+
+### Fixed
+- **Brochure blocks fulfillment**: `getStockForOrder` query now skips `productType="packaging"` menu products — they are not finished goods and have no finished-goods inventory to check against
+- **Fulfillment mutation aligned**: `fulfillFromInventory` mutation applies the same filter so packaging items are ignored during stock drawdown
+
+### Root Cause
+The `productInventory` system tracks finished goods (boxes of snacks) at storage locations. The brochure (`productType="packaging"`) is a marketing item tracked via the BOM/component system — a separate path with no finished-goods inventory. The fulfillment query was listing all order items regardless of product type, returning 0 stock for brochures and blocking fulfillment permanently.
+
+### Files Modified
+- `convex/productInventory/queries.ts` — skip `productType="packaging"` in stock availability check
+- `convex/productInventory/mutations.ts` — same filter applied to stock drawdown loop
+
+---
+
 ## [v1.3.11] - 2026-02-23 - Feature: Ingredient Cost Simulation & Dispatch Planner Upgrades
 
 You can now simulate "what if ingredient X costs more?" directly from the Ingredients page — instantly see how price changes ripple through recipes, products, and margins before committing. The Dispatch Planner got a major usability upgrade: the date grid now anchors on yesterday so today is always visible, each column header has a "Save to Kitchen" button, and a new Balls footer row shows the total ball count per day expanded from BOM. Direct Sales orders are now included in ball totals so nothing is missed. Finished Goods inventory can be adjusted inline with a new Adjust dialog.
