@@ -11,6 +11,7 @@ import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import { statusValidator, channelValidator } from "../validators";
+import { protectedMutation } from "../../lib/functions";
 
 // Ctx-dependent helpers
 import {
@@ -35,7 +36,6 @@ import {
 
 // Auth helper for token -> userId resolution
 import { getSessionUser } from "../../lib/auth";
-import { requireRole } from "../../lib/auth";
 
 // Inventory integration (internal helpers)
 import {
@@ -688,15 +688,15 @@ export const expediteOrder = mutation({
  *
  * Quick Task 2: Admin escape hatch for stuck orders.
  */
-export const forceComplete = mutation({
+export const forceComplete = protectedMutation({
+  roles: ["admin", "manager"],
   args: {
     orderId: v.id("orders"),
-    token: v.string(),
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Admin + Manager can force-complete
-    const user = await requireRole(ctx, args.token, ["admin", "manager"]);
+    // Belt-and-suspenders: roles already validated by protectedMutation wrapper
+    const user = ctx.user;
 
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found");
