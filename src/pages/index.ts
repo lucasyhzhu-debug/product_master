@@ -1,5 +1,4 @@
 export { IngredientsManager } from './IngredientsManager';
-export { MaterialsManager } from './MaterialsManager';
 export { OrderManager } from './OrderManager';
 export { OrderCreate } from './OrderCreate';
 export { OrderDetail } from './OrderDetail';

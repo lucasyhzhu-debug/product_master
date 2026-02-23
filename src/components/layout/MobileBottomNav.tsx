@@ -10,7 +10,6 @@ import {
   Circle,
   MessageSquare,
   Tag,
-  Tags,
   Ticket,
   Users,
   Contact,
@@ -51,7 +50,6 @@ const moreItems: TabItem[] = [
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
   { path: '/customers', icon: Contact, label: 'Customers', permission: 'canAccessOrders' },
-  { path: '/tags', icon: Tags, label: 'Tags', permission: 'canAccessRecipes' },
   { path: '/vouchers', icon: Ticket, label: 'Vouchers', permission: 'canAccessVouchers' },
   { path: '/users', icon: Users, label: 'Users', permission: 'canAccessUsers' },
 ];

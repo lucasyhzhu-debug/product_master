@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 // BANDWIDTH CONSERVATION: SalesAnalytics, K3MartCockpit temporarily removed — re-enable after March 1st
 import {
   IngredientsManager,
-  MaterialsManager,
   OrderManager,
   OrderCreate,
   OrderDetail,
@@ -109,15 +108,6 @@ function App() {
                 element={
                   <ProtectedRoute requiredPermission="canAccessIngredients">
                     <IngredientsManager />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="materials"
-                element={
-                  <ProtectedRoute requiredPermission="canAccessMaterials">
-                    <MaterialsManager />
                   </ProtectedRoute>
                 }
               />

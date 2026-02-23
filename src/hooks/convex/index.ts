@@ -18,18 +18,6 @@ export {
   type IngredientCreateInput,
 } from "./useIngredients";
 
-// Packaging Materials
-export {
-  useConvexMaterials,
-  useConvexMaterial,
-  useConvexMaterialSearch,
-  useConvexCreateMaterial,
-  useConvexUpdateMaterial,
-  useConvexDeleteMaterial,
-  type ConvexPackagingMaterial,
-  type MaterialCreateInput,
-} from "./useMaterials";
-
 // Menu Products
 export {
   // Query hooks

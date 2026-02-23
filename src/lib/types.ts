@@ -711,10 +711,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessKitchen: boolean;
   canAccessPackaging: boolean;  // PRD-5: All roles can access packaging
   canAccessOrders: boolean;
-  canAccessRecipes: boolean;
-  canAccessProducts: boolean;
   canAccessIngredients: boolean;
-  canAccessMaterials: boolean;
   canAccessUsers: boolean;
   canSeeCosts: boolean;
   canEditKitchen: boolean;
@@ -730,10 +727,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessKitchen: true,
     canAccessPackaging: true,  // PRD-5: Kitchen staff can access packaging
     canAccessOrders: false,
-    canAccessRecipes: false,
-    canAccessProducts: false,
     canAccessIngredients: false,
-    canAccessMaterials: false,
     canAccessUsers: false,
     canSeeCosts: false,
     canEditKitchen: true,
@@ -749,10 +743,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessKitchen: true,
     canAccessPackaging: true,  // PRD-5: Order staff can access packaging
     canAccessOrders: true,
-    canAccessRecipes: false,
-    canAccessProducts: false,
     canAccessIngredients: false,
-    canAccessMaterials: false,
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: false,
@@ -768,10 +759,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessKitchen: true,
     canAccessPackaging: true,  // PRD-5: Manager can access packaging
     canAccessOrders: true,
-    canAccessRecipes: true,
-    canAccessProducts: true,
     canAccessIngredients: true,
-    canAccessMaterials: true,
     canAccessUsers: false,
     canSeeCosts: true,
     canEditKitchen: true,
@@ -787,10 +775,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessKitchen: true,
     canAccessPackaging: true,  // PRD-5: Admin can access packaging
     canAccessOrders: true,
-    canAccessRecipes: true,
-    canAccessProducts: true,
     canAccessIngredients: true,
-    canAccessMaterials: true,
     canAccessUsers: true,
     canSeeCosts: true,
     canEditKitchen: true,
