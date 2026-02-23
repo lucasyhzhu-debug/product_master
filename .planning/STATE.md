@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (In Progress — 2/5 plans done)
-Plan: 22-02 complete (2/5 plans done)
-Status: 22-02 done; 23 legacy frontend files deleted (pages, hooks, components, directories); barrel exports cleaned; /materials route removed; canAccessRecipes/Products/Materials stripped from ROLE_PERMISSIONS; build passes
-Last activity: 2026-02-23 - Completed 22-02: frontend dead code removal
+Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (In Progress — 4/5 plans done)
+Plan: 22-04 complete (4/5 plans done)
+Status: 22-04 done; Frollie Pro branding across Header/Footer/Login/useDocumentTitle/index.html; Home nav link added for manager/admin in desktop (mainNavItems) + mobile (primaryTabs); Tags nav removal confirmed clean (done in 22-02)
+Last activity: 2026-02-23 - Completed 22-04: rebrand to Frollie Pro + Home nav link
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -103,6 +103,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: costInvalidation.ts stripped to 2 surviving functions: invalidateMenuProductCosts + invalidateProductionComponentCosts; ingredients/materials callers cleaned
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: IngredientSelector.tsx in src/components/recipes/ had zero consumers — deleted as orphaned dead code alongside RecipeCard.tsx
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: MobileBottomNav /tags entry with canAccessRecipes removed — discovered via grep and auto-fixed during Task 2 verification
+- [Phase 22-remove-legacy-editors-tags-and-dashboard]: Home nav link added as first item in mainNavItems and primaryTabs — forward-declared before /home route exists; parallel 22-03/22-04 execution is safe
+- [Phase 22-03]: HubPage /home route uses canAccessDashboard protection inside Layout; RoleBasedRedirect sends manager/admin to /home — kitchen and order_staff redirects unchanged
+- [Phase 22-03]: HubPage has zero Convex bandwidth — no useQuery or useMutation; static role-filtered nav cards only
 
 ### Pending Todos
 
@@ -152,13 +155,15 @@ None.
 | Phase 21 P11 | 8 | 2 tasks | 6 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P01 | 531 | 3 tasks | 27 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P02 | 264 | 2 tasks | 27 files |
+| Phase 22-remove-legacy-editors-tags-and-dashboard P03 | 145 | 2 tasks | 3 files |
+| Phase 22-remove-legacy-editors-tags-and-dashboard P04 | 2 | 1 tasks | 6 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 22-02 — delete 23 legacy frontend files, clean barrel exports, remove /materials route, strip canAccessRecipes/Products/Materials; Phase 22 plan 2/5 complete
+Stopped at: Completed 22-04 — Frollie Pro branding applied + Home nav link added for manager/admin; Phase 22 plan 4/5 complete
 Resume file: None
-Resume notes: Phase 22 in progress (2/5). Proceed to 22-03 for hub page and navigation restructure.
+Resume notes: Phase 22 in progress (4/5). Proceed to 22-05 for backend table drops.
 
 ---
-*Last updated: 2026-02-23 - Completed 21-07: read-only order summary; showJumbo kitchenConfig + Manager Settings toggle + ProductionTargetsBar conditional card; Phase 21 complete (7/7)*
+*Last updated: 2026-02-23 - Completed 22-03: HubPage with Frollie Pro branding; /home route; manager/admin landing updated*

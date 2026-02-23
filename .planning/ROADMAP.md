@@ -5,7 +5,7 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-22 (planned)
+- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup + Tech Debt** — Phases 19-27 (planned)
 
 ## Phases
 
@@ -178,7 +178,7 @@ Plans:
   5. `npm run type-check` passes
   6. `npm run build` succeeds
   7. No dead imports or references to removed tables/pages
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 - [ ] 22-01-PLAN.md — Drop 11 legacy schema tables, delete 5 backend modules, strip costInvalidation.ts
@@ -199,4 +199,4 @@ Plans:
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | 11/11 | Complete    | 2026-02-23 | - |
-| 22. Remove legacy editors & Dashboard | 2/5 | In Progress|  | - |
+| 22. Remove legacy editors & Dashboard | 4/5 | In Progress|  | - |
