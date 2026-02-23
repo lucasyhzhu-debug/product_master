@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (In Progress — 1/5 plans done)
-Plan: 22-01 complete (1/5 plans done)
-Status: 22-01 done; 11 legacy schema tables dropped; 5 backend modules deleted; costInvalidation.ts stripped to 2 functions; all legacy frontend pages/hooks deleted; build passes
-Last activity: 2026-02-23 - Completed 22-01: backend dead code removal
+Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (In Progress — 2/5 plans done)
+Plan: 22-02 complete (2/5 plans done)
+Status: 22-02 done; 23 legacy frontend files deleted (pages, hooks, components, directories); barrel exports cleaned; /materials route removed; canAccessRecipes/Products/Materials stripped from ROLE_PERMISSIONS; build passes
+Last activity: 2026-02-23 - Completed 22-02: frontend dead code removal
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -101,6 +101,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 21]: ShiftEditDialog uses plain text Input for chefName (not a user Select) — manager may type any name not in the system; no chefUserId update from dialog (name only)
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: All 11 legacy tables verified empty in production before dropping — no data export required
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: costInvalidation.ts stripped to 2 surviving functions: invalidateMenuProductCosts + invalidateProductionComponentCosts; ingredients/materials callers cleaned
+- [Phase 22-remove-legacy-editors-tags-and-dashboard]: IngredientSelector.tsx in src/components/recipes/ had zero consumers — deleted as orphaned dead code alongside RecipeCard.tsx
+- [Phase 22-remove-legacy-editors-tags-and-dashboard]: MobileBottomNav /tags entry with canAccessRecipes removed — discovered via grep and auto-fixed during Task 2 verification
 
 ### Pending Todos
 
@@ -149,13 +151,14 @@ None.
 | Phase 21 P10 | 8 | 2 tasks | 6 files |
 | Phase 21 P11 | 8 | 2 tasks | 6 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P01 | 531 | 3 tasks | 27 files |
+| Phase 22-remove-legacy-editors-tags-and-dashboard P02 | 264 | 2 tasks | 27 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 22-01 — drop 11 legacy schema tables, delete 5 backend modules, strip costInvalidation.ts; Phase 22 plan 1/5 complete
+Stopped at: Completed 22-02 — delete 23 legacy frontend files, clean barrel exports, remove /materials route, strip canAccessRecipes/Products/Materials; Phase 22 plan 2/5 complete
 Resume file: None
-Resume notes: Phase 22 in progress (1/5). Proceed to 22-02 for frontend navigation cleanup and hub page.
+Resume notes: Phase 22 in progress (2/5). Proceed to 22-03 for hub page and navigation restructure.
 
 ---
 *Last updated: 2026-02-23 - Completed 21-07: read-only order summary; showJumbo kitchenConfig + Manager Settings toggle + ProductionTargetsBar conditional card; Phase 21 complete (7/7)*
