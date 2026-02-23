@@ -2,7 +2,7 @@
  * KitchenViewV2 — Simplified production-focused kitchen page (Phase 21)
  *
  * Layout:
- *   1. Page header (title + date)
+ *   1. Page header (title + date + chef name when assigned)
  *   2. ProductionTargetsBar — ball totals (Original/Jumbo) + packaging breakdown
  *   3. EndOfShiftForm — produced quantities + optional waste, 3-step flow
  *   4. Today's shift records — compact list of submissions already recorded today
@@ -14,7 +14,7 @@
  * DueDateOrderList removed (Phase 21-07) — order management belongs in Order Management kanban.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { ChevronDown, ChevronUp, Eye, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -56,10 +56,59 @@ export function KitchenViewV2() {
   const { today, targets, todayShiftRecords } = useKitchenTargets();
 
   // ============================================
-  // Kitchen config (for ManagerTargetSettings + showJumbo)
+  // Kitchen config (for ManagerTargetSettings + enabledComponents)
   // ============================================
 
   const config = useQuery(api.kitchenConfig.queries.getConfig);
+
+  // ============================================
+  // Per-component toggle cascade (Phase 21-10)
+  // enabledComponents: which ball type codes are active
+  // ============================================
+
+  const enabledComponents: string[] = config?.enabledProductionComponents ?? ['BIG_BALL', 'MID_BALL'];
+
+  // ============================================
+  // BOM lookup for productBallTypes map
+  // menuProductComponents.listAll + componentTypes.list filtered to production
+  // ============================================
+
+  const menuProductComps = useQuery(api.menuProductComponents.queries.listAll);
+  const componentTypesList = useQuery(api.componentTypes.queries.list, {});
+
+  const productBallTypes = useMemo(() => {
+    if (!menuProductComps || !componentTypesList) return undefined;
+    const prodTypes = componentTypesList.filter((ct) => ct.category === 'production');
+    const codeMap = new Map(prodTypes.map((ct) => [String(ct._id), ct.code]));
+
+    const result: Record<string, string[]> = {};
+    for (const comp of menuProductComps) {
+      const code = codeMap.get(String(comp.componentTypeId));
+      if (!code) continue;
+      const key = String(comp.menuProductId);
+      if (!result[key]) result[key] = [];
+      if (!result[key].includes(code)) result[key].push(code);
+    }
+    return result;
+  }, [menuProductComps, componentTypesList]);
+
+  // ============================================
+  // Users list for chef selector in EndOfShiftForm
+  // ============================================
+
+  const allUsers = useQuery(api.auth.queries.listUsers);
+  const kitchenUsers = useMemo(
+    () => (allUsers ?? []).filter((u) => u.isActive).map((u) => ({ _id: String(u._id), name: u.name })),
+    [allUsers]
+  );
+
+  // ============================================
+  // Chef name from most recent today shift record (Gap 8 header display)
+  // ============================================
+
+  const latestChefName = todayShiftRecords && todayShiftRecords.length > 0
+    ? (todayShiftRecords[0] as { chefName?: string }).chefName
+    : undefined;
 
   // ============================================
   // Collapsible orders toggle state
@@ -117,12 +166,19 @@ export function KitchenViewV2() {
             </Badge>
           )}
         </div>
-        <div className="text-sm text-muted-foreground font-medium">
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          })}
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="text-sm text-muted-foreground font-medium">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </div>
+          {latestChefName && (
+            <div className="text-xs text-muted-foreground">
+              Shift for: <span className="font-medium text-foreground">{latestChefName}</span>
+            </div>
+          )}
         </div>
       </header>
 
@@ -131,12 +187,22 @@ export function KitchenViewV2() {
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Today's Targets
         </h2>
-        <ProductionTargetsBar targets={targets} showJumbo={config?.showJumbo ?? true} />
+        <ProductionTargetsBar
+          targets={targets}
+          enabledComponents={enabledComponents}
+          productBallTypes={productBallTypes}
+        />
       </section>
 
       {/* Section 2: End-of-shift form */}
       <section>
-        <EndOfShiftForm targets={targets} today={today} />
+        <EndOfShiftForm
+          targets={targets}
+          today={today}
+          enabledComponents={enabledComponents}
+          productBallTypes={productBallTypes}
+          users={kitchenUsers}
+        />
       </section>
 
       {/* Section 3: Today's shift records (compact list) */}

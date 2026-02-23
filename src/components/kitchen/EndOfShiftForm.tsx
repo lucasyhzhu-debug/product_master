@@ -10,11 +10,20 @@
  *   - At least one produced quantity > 0 before advancing to review
  *   - Waste quantity cannot exceed produced quantity for the same product
  *
+ * Per-component toggle support (Gap 7 cascade):
+ *   - enabledComponents: which ball type codes are enabled
+ *   - productBallTypes: map of menuProductId -> ball type code(s) from BOM
+ *   - Rows hidden if ALL ball types for that product are disabled
+ *   - Rows flagged if SOME ball types for that product are disabled
+ *
+ * Target display (Gap 1): target quantity shown next to each product name.
+ * Chef selector (Gap 8): select chef from users list; passed to submitShiftRecord.
+ *
  * On confirm, calls submitShiftRecord mutation via useProtectedMutation.
  */
 
 import { useState, useCallback } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -63,6 +72,12 @@ type Step = "input" | "review" | "success";
 interface EndOfShiftFormProps {
   targets: KitchenTargets | undefined;
   today: string;
+  /** Array of enabled component codes, e.g. ["BIG_BALL", "MID_BALL"] */
+  enabledComponents?: string[];
+  /** Map of menuProductId -> ball type codes used by that product (from BOM) */
+  productBallTypes?: Record<string, string[]>;
+  /** Active users for chef selector */
+  users?: Array<{ _id: string; name: string }>;
 }
 
 // -------------------------------------------------------
@@ -75,7 +90,13 @@ const WASTE_REASONS: { value: WasteReason; label: string }[] = [
   { value: "waste", label: "Waste" },
 ];
 
-export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
+export function EndOfShiftForm({
+  targets,
+  today,
+  enabledComponents,
+  productBallTypes,
+  users,
+}: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
   );
@@ -102,11 +123,38 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
   const [submittedWaste, setSubmittedWaste] = useState<WasteEntry[]>([]);
 
+  // Chef selector
+  const [selectedChefId, setSelectedChefId] = useState<string>("");
+
   // -------------------------------------------------------
   // Helpers
   // -------------------------------------------------------
 
   const packagingItems = targets?.packagingBreakdown ?? [];
+
+  // Filter items based on enabled components
+  const visibleItems = packagingItems.filter((item) => {
+    if (!enabledComponents || !productBallTypes) return true;
+    const ballTypes = productBallTypes[item.menuProductId] ?? [];
+    if (ballTypes.length === 0) return true; // No BOM data — show
+    // Hide if ALL ball types for this product are disabled
+    return ballTypes.some((bt) => enabledComponents.includes(bt));
+  });
+
+  // Items that have mixed ball type visibility (some enabled, some disabled)
+  const flaggedItemIds = new Set<string>(
+    packagingItems
+      .filter((item) => {
+        if (!enabledComponents || !productBallTypes) return false;
+        const ballTypes = productBallTypes[item.menuProductId] ?? [];
+        if (ballTypes.length <= 1) return false;
+        return (
+          ballTypes.some((bt) => enabledComponents.includes(bt)) &&
+          ballTypes.some((bt) => !enabledComponents.includes(bt))
+        );
+      })
+      .map((item) => item.menuProductId)
+  );
 
   function getProducedQty(menuProductId: string): number {
     return produced[menuProductId] ?? 0;
@@ -152,7 +200,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
   // -------------------------------------------------------
 
   function validate(): string | null {
-    const hasAnyProduced = packagingItems.some(
+    const hasAnyProduced = visibleItems.some(
       (item) => getProducedQty(item.menuProductId) > 0
     );
     if (!hasAnyProduced) {
@@ -176,7 +224,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
   // -------------------------------------------------------
 
   function buildProducedList(): ProducedItem[] {
-    return packagingItems
+    return visibleItems
       .filter((item) => getProducedQty(item.menuProductId) > 0)
       .map((item) => ({
         menuProductId: item.menuProductId,
@@ -206,6 +254,11 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
     const producedList = buildProducedList();
     const wasteList = buildWasteList();
 
+    // Resolve chef info
+    const selectedUser = users?.find((u) => u._id === selectedChefId);
+    const chefName = selectedUser?.name;
+    const chefUserId = selectedChefId || undefined;
+
     setIsSubmitting(true);
     try {
       await submitShiftRecord({
@@ -219,6 +272,8 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
           reason: w.reason,
           quantity: w.quantity,
         })),
+        ...(chefName ? { chefName } : {}),
+        ...(chefUserId ? { chefUserId: chefUserId as Id<"users"> } : {}),
       });
 
       // Store for success screen before resetting
@@ -232,7 +287,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [produced, wasteEntries, today, submitShiftRecord]);
+  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems]);
 
   function handleDone() {
     // Reset form to initial state
@@ -241,6 +296,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
     setWasteOpen(false);
     setSubmittedProduced([]);
     setSubmittedWaste([]);
+    setSelectedChefId("");
     setStep("input");
   }
 
@@ -278,7 +334,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
   // Render: Input
   // -------------------------------------------------------
 
-  if (packagingItems.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -300,32 +356,63 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Chef selector (Gap 8) */}
+        {users && users.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
+            <Select value={selectedChefId} onValueChange={setSelectedChefId}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Select chef..." />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((u) => (
+                  <SelectItem key={u._id} value={u._id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Produced quantities */}
         <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
             Produced
           </p>
-          {packagingItems.map((item) => (
-            <div key={item.menuProductId} className="flex items-center gap-3">
-              <Label
-                htmlFor={`produced-${item.menuProductId}`}
-                className="flex-1 text-sm font-normal"
-              >
-                {item.name}
-              </Label>
-              <Input
-                id={`produced-${item.menuProductId}`}
-                type="number"
-                min={0}
-                value={getProducedQty(item.menuProductId) || ""}
-                placeholder="0"
-                onChange={(e) =>
-                  setProducedQty(item.menuProductId, Number(e.target.value))
-                }
-                className="w-24 text-right tabular-nums"
-              />
-            </div>
-          ))}
+          {visibleItems.map((item) => {
+            const isFlagged = flaggedItemIds.has(item.menuProductId);
+            return (
+              <div key={item.menuProductId} className="flex items-center gap-3">
+                <Label
+                  htmlFor={`produced-${item.menuProductId}`}
+                  className="flex-1 text-sm font-normal min-w-0"
+                >
+                  <span className="block truncate">{item.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    target: {item.quantity}
+                  </span>
+                  {isFlagged && (
+                    <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                      <AlertTriangle className="h-3 w-3" />
+                      Mixed ball types — one type disabled
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id={`produced-${item.menuProductId}`}
+                  type="number"
+                  min={0}
+                  value={getProducedQty(item.menuProductId) || ""}
+                  placeholder="0"
+                  onChange={(e) =>
+                    setProducedQty(item.menuProductId, Number(e.target.value))
+                  }
+                  className="w-24 text-right tabular-nums shrink-0"
+                />
+              </div>
+            );
+          })}
         </div>
 
         {/* Waste section toggle */}
@@ -404,7 +491,7 @@ export function EndOfShiftForm({ targets, today }: EndOfShiftFormProps) {
 
             {/* Add waste entry buttons */}
             <div className="flex flex-wrap gap-2 pt-1">
-              {packagingItems.map((item) => (
+              {visibleItems.map((item) => (
                 <button
                   key={item.menuProductId}
                   type="button"
