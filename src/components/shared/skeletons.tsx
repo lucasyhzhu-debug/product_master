@@ -28,7 +28,7 @@ export function TablePageSkeleton() {
 }
 
 /**
- * Skeleton for editor pages (RecipeEditor, PackagingEditor, ProductEditor)
+ * Skeleton for detail/editor pages with a form layout.
  */
 export function EditorPageSkeleton() {
   return (
@@ -64,7 +64,7 @@ export function EditorPageSkeleton() {
 }
 
 /**
- * Skeleton for dashboard/analytics pages (Dashboard, SalesAnalytics, K3MartCockpit)
+ * Skeleton for analytics/cockpit pages (SalesAnalytics, K3MartCockpit)
  */
 export function DashboardSkeleton() {
   return (
