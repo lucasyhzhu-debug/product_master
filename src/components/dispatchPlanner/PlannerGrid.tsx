@@ -262,7 +262,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
           {renderColumnAction && (
             <div className="flex border-b">
               <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
-                <span className="text-[10px] text-muted-foreground">Save to Kitchen</span>
+                <span className="text-[10px] text-muted-foreground">Kitchen</span>
               </div>
               <div className="flex flex-1">
                 {dates.map((date) => (
@@ -303,7 +303,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
               ========================================== */}
           <div className="flex border-t-2 border-border bg-muted/20">
             <div className="w-[200px] min-w-[200px] px-3 py-2">
-              <span className="text-sm font-bold text-foreground">Total</span>
+              <span className="text-sm font-bold text-foreground">Total Products</span>
             </div>
             <div className="flex flex-1">
               {dates.map((date) => {
@@ -329,7 +329,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
           {dailyBallTotals && Object.keys(dailyBallTotals).length > 0 && (
             <div className="flex border-t border-border bg-blue-50 dark:bg-blue-950/30">
               <div className="w-[200px] min-w-[200px] px-3 py-2">
-                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Balls</span>
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Total Units (balls)</span>
               </div>
               <div className="flex flex-1">
                 {dates.map((date) => {

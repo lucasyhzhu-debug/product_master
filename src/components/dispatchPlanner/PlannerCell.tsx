@@ -86,13 +86,11 @@ export const PlannerCell = React.memo(
 
     const handleBlur = useCallback(() => {
       setIsFocused(false);
-      // On blur: revert to last-saved value if dirty (no auto-save on focus loss).
-      // User must press Enter to save.
+      // On blur: save if dirty (same as Enter key).
       if (isDirty) {
-        setEditValue(value > 0 ? value.toString() : "");
-        setIsDirty(false);
+        performSave(editValue);
       }
-    }, [isDirty, value]);
+    }, [isDirty, editValue, performSave]);
 
     const handleFocus = useCallback(
       (e: React.FocusEvent<HTMLInputElement>) => {

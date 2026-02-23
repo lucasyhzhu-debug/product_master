@@ -27,6 +27,7 @@ import {
   Check,
   Truck,
   MapPin,
+  Leaf,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -98,6 +99,7 @@ const depotItems: NavItem[] = [
 // Configurations dropdown - Manager + Admin
 const configItems: NavItem[] = [
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
+  { path: '/ingredients', label: 'Ingredients', icon: Leaf, permission: 'canAccessIngredients' },
   { path: '/inventory/locations', label: 'Locations', icon: MapPin, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },

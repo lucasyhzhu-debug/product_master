@@ -11,7 +11,6 @@ import type { Id, Doc } from "../_generated/dataModel";
 import {
   generateWeekDates,
   epochToDateString,
-  orderDueDateToProductionStart,
   CHANNEL_COLORS,
 } from "./helpers";
 import { getTodayJakarta } from "../k3martCockpit/helpers";
@@ -134,9 +133,9 @@ export const getUnifiedWeeklyPlan = query({
     const dates = generateWeekDates(args.startDate);
     const todayStr = getTodayJakarta();
 
-    // Fetch planner settings
-    const settings = await ctx.db.query("dispatchPlannerSettings").first();
-    const dailyCapacity = settings?.dailyCapacity ?? 200;
+    // Capacity comes from kitchenConfig.maxProductionTarget (source of truth for kitchen defaults)
+    const kitchenCfg = await ctx.db.query("kitchenConfig").first();
+    const dailyCapacity = kitchenCfg?.maxProductionTarget ?? 200;
 
     // Fetch enabled channels sorted by priority
     const channelConfigs = await ctx.db
@@ -296,93 +295,75 @@ async function assembleDirectChannel(
     return o.dueDate >= rangeStart && o.dueDate <= rangeEnd;
   });
 
+  // Aggregate all orders into per-product-per-date totals (not one row per order)
+  // aggregatedQty[date][mpId] = { name, qty }
+  const aggregatedQty = new Map<string, Map<string, { name: string; qty: number }>>();
+  for (const date of dates) {
+    aggregatedQty.set(date, new Map());
+  }
+
   for (const order of relevantOrders) {
     const dueDateStr = epochToDateString(order.dueDate!);
-    const prodStartStr = orderDueDateToProductionStart(order.dueDate!);
+    if (!dateSet.has(dueDateStr)) continue;
 
-    // Fetch order items
     const items = await ctx.db
       .query("orderItems")
       .withIndex("by_order", (q: any) => q.eq("orderId", order._id))
       .collect();
 
-    // Group by menuProductId
-    const productQtyMap = new Map<string, { name: string; qty: number }>();
+    const dateMap = aggregatedQty.get(dueDateStr)!;
     for (const item of items) {
       if (item.isCancelled) continue;
       const mpId = item.menuProductId ? (item.menuProductId as string) : item.productName;
-      const existing = productQtyMap.get(mpId);
+      const existing = dateMap.get(mpId);
       if (existing) {
         existing.qty += item.quantity;
       } else {
-        productQtyMap.set(mpId, {
-          name: item.productName,
-          qty: item.quantity,
-        });
+        dateMap.set(mpId, { name: item.productName, qty: item.quantity });
       }
     }
+  }
 
+  // Collect all unique product IDs across all dates
+  const allProductIds = new Map<string, string>(); // mpId -> name
+  for (const dateMap of aggregatedQty.values()) {
+    for (const [mpId, { name }] of dateMap) {
+      if (!allProductIds.has(mpId)) allProductIds.set(mpId, name);
+    }
+  }
+
+  if (allProductIds.size > 0) {
     const products: ProductRow[] = [];
-    for (const [mpId, { name, qty }] of productQtyMap) {
+    for (const [mpId, name] of allProductIds) {
       const cells: Record<string, PlanCell> = {};
       for (const date of dates) {
-        const isPast = date < todayStr;
-        const isDueDate = date === dueDateStr;
-        const isProdStart = date === prodStartStr;
-
-        if (isDueDate) {
-          cells[date] = {
-            plannedQty: qty,
-            source: "order",
-            isReadOnly: true,
-            isFaded: false,
-          };
-        } else if (isProdStart && dateSet.has(prodStartStr)) {
-          cells[date] = {
-            plannedQty: qty,
-            source: "order_production",
-            isReadOnly: true,
-            isFaded: true, // faded for production-start day
-          };
-        } else {
-          cells[date] = {
-            plannedQty: 0,
-            source: "none",
-            isReadOnly: true,
-          };
-        }
-
-        // Past days are always read-only (already is for direct)
-        if (isPast) {
-          cells[date].isReadOnly = true;
-        }
+        const qty = aggregatedQty.get(date)?.get(mpId)?.qty ?? 0;
+        cells[date] = {
+          plannedQty: qty,
+          source: qty > 0 ? "order" : "none",
+          isReadOnly: true,
+        };
       }
-
       products.push({
         menuProductId: mpId as Id<"menuProducts">,
         productName: name,
         cells,
       });
+    }
 
-      // Add to daily totals ONLY at dueDate (not production-start)
-      if (dateSet.has(dueDateStr)) {
-        dailyTotals[dueDateStr]["direct"] =
-          (dailyTotals[dueDateStr]["direct"] ?? 0) + qty;
-        // Track per-product qty for ball total computation
-        if (!dailyProductQty[dueDateStr]) dailyProductQty[dueDateStr] = {};
-        dailyProductQty[dueDateStr][mpId] =
-          (dailyProductQty[dueDateStr][mpId] ?? 0) + qty;
+    // Update daily totals and ball counts
+    for (const [date, dateMap] of aggregatedQty) {
+      for (const [mpId, { qty }] of dateMap) {
+        dailyTotals[date]["direct"] = (dailyTotals[date]["direct"] ?? 0) + qty;
+        if (!dailyProductQty[date]) dailyProductQty[date] = {};
+        dailyProductQty[date][mpId] = (dailyProductQty[date][mpId] ?? 0) + qty;
       }
     }
 
     section.outlets.push({
-      id: order._id as string,
-      name: `${order.orderNumber} - ${order.customerName}`,
-      type: "order",
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      dueDate: dueDateStr,
-      productionStartDate: prodStartStr,
+      id: "direct-orders",
+      name: "Orders (Aggregated)",
+      type: "outlet",
       products,
     });
   }

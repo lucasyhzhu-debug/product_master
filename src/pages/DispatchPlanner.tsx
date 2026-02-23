@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Settings, Send } from "lucide-react";
+import { Settings, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -104,10 +104,10 @@ function SaveTargetButton({ date }: { date: string }) {
       onClick={handleSave}
       disabled={saving || !hasData}
       title={hasData ? `${ballTotals.bigBalls} Jumbo + ${ballTotals.midBalls} Original balls` : "No dispatch plan for this date"}
-      className="gap-1.5 text-xs"
+      className="w-full flex-col gap-0.5 h-auto py-1 px-1 text-[10px] leading-tight"
     >
-      <Send className="h-3 w-3" />
-      {saving ? "Saving..." : "Save to Kitchen"}
+      <Utensils className="h-3 w-3" />
+      <span>{saving ? "Saving…" : "Save to\nKitchen"}</span>
     </Button>
   );
 }

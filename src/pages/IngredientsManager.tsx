@@ -68,7 +68,7 @@ function EnableTrackingButton({ ingredient }: { ingredient: Ingredient }) {
   );
 }
 
-function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
+function LinkIngredientButton({ ingredient, allIngredients }: { ingredient: Ingredient; allIngredients: Ingredient[] }) {
   const { user } = useAuth();
   const linkIngredient = useLinkIngredientToComponentType();
   const componentTypes = useQuery(api.componentTypes.queries.list, { activeOnly: true });
@@ -76,9 +76,16 @@ function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
-  // Filter to only tracked production componentTypes
+  // IDs already claimed by other ingredients (excluding this ingredient)
+  const claimedIds = new Set(
+    allIngredients
+      .filter((i) => i._id !== ingredient._id && i.ingredientComponentTypeId)
+      .map((i) => i.ingredientComponentTypeId as string)
+  );
+
+  // Filter to only tracked production componentTypes that aren't already linked
   const trackableTypes = (componentTypes ?? []).filter(
-    (ct: any) => ct.trackInventory && ct.category === 'production'
+    (ct: any) => ct.trackInventory && ct.category === 'production' && !claimedIds.has(ct._id as string)
   );
 
   const handleLink = async () => {
@@ -233,7 +240,7 @@ export function IngredientsManager() {
         ) : (
           <div className="flex flex-col gap-1 items-start">
             <EnableTrackingButton ingredient={item} />
-            <LinkIngredientButton ingredient={item} />
+            <LinkIngredientButton ingredient={item} allIngredients={ingredients ?? []} />
           </div>
         ),
     },
