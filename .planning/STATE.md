@@ -122,6 +122,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 25-codebase-cleanup]: StatCard bg-white/10 intentional opacity overlay on dark-first card; KanbanBoard Draft colorClass bg-gray-500 → bg-muted-foreground; FeedbackCaptureMode dark tooltip gets dark: pair for compliance; TemplateEditor uses WhatsApp hex dark palette not generic tokens
 - [Phase 25-codebase-cleanup]: useConvex prefix removed from 7 hook files (Batches 1-3); hooks scoped to src/hooks/convex/ making prefix redundant; aligns with already-clean hooks (useVouchers, useGoFoodDepot, etc.)
 - [Phase 25-codebase-cleanup]: useMenuProducts.ts renames done via replace_all (not full rewrite) after discovering source still had old names; useOrders.ts mutations NOT migrated to useSessionMutation — that is plan 25-05 scope
+- [Phase 25-05]: forceComplete has no pre-existing hook in useOrders.ts — added useForceComplete as new hook rather than updating an existing one
+- [Phase 25-05]: getByIdHelper requires explicit type param <tableName> when called from Convex query handlers to avoid TypeScript inferring union-of-all-docs return type
+- [Phase 25-05]: useSessionMutation call sites: remove all token args and !user?.token guards — auth enforced by session wrapper, not by token presence check
 
 ### Pending Todos
 
@@ -181,13 +184,14 @@ None.
 | Phase 25-codebase-cleanup P01 | 4 | 2 tasks | 10 files |
 | Phase 25-codebase-cleanup P02 | 5 | 2 tasks | 19 files |
 | Phase 25-codebase-cleanup P04 | 45 | 2 tasks | 49 files |
+| Phase 25-codebase-cleanup P05 | 16 | 2 tasks | 9 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 25-04-PLAN.md — 87 hooks renamed across Batches 4-5 (8 hook files), 49 consumer files updated, zero useConvex references remain in src/. Continue with plan 25-05.
+Stopped at: Completed 25-05-PLAN.md — useSessionMutation migration complete (6 productionRecipes mutations + useForceComplete), queryHelpers applied to 2 query files. Continue with plan 25-06.
 Resume file: None
-Resume notes: Phase 25 plan 04 complete. Hook prefix elimination fully done. Plan 25-05 migrates useOrders.ts and remaining mutation hooks from useMutation+token to useSessionMutation.
+Resume notes: Phase 25 plan 05 complete. All protectedMutation hooks use useSessionMutation. No manual token passing on any protectedMutation call sites. queryHelpers expansion done for whatsappTemplates/list and menuProducts/get.
 
 ---
-*Last updated: 2026-02-23 - Completed 25-04: 87 hooks renamed in Batches 4-5, zero useConvex references remain in src/*
+*Last updated: 2026-02-23 - Completed 25-05: useSessionMutation migration + queryHelpers for whatsappTemplates + menuProducts*
