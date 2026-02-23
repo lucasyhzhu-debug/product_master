@@ -43,7 +43,7 @@ import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromIn
 import { OrderItems } from './OrderItems';
 import { getStatusColor } from '@/lib/orderConstants';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDeleteOrder, useUpdateOrderShipping } from '@/hooks/convex';
+import { useDeleteOrder, useUpdateOrderShipping, useForceComplete } from '@/hooks/convex';
 import {
   Dialog,
   DialogContent,
@@ -139,7 +139,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
     orderId ? { id: orderId } : 'skip'
   );
 
-  const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
+  const forceComplete = useForceComplete();
   const deleteOrder = useDeleteOrder();
   const updateShipping = useUpdateOrderShipping();
 
@@ -184,18 +184,12 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
 
   const handleForceComplete = async () => {
     if (!orderId) return;
-    try {
-      await forceCompleteMutation({
-        orderId,
-        token: user?.token ?? '',
-        reason: forceCompleteReason || undefined,
-      });
-      toast.success('Order force-completed successfully');
-      setShowForceCompleteDialog(false);
-      setForceCompleteReason('');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to force-complete order');
-    }
+    await forceComplete.mutate({
+      orderId,
+      reason: forceCompleteReason || undefined,
+    });
+    setShowForceCompleteDialog(false);
+    setForceCompleteReason('');
   };
 
   const handleDelete = async () => {

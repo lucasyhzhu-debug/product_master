@@ -6,7 +6,8 @@
  * and components-with-tiers listing.
  */
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -52,32 +53,32 @@ export function useProductionComponentsWithTiers() {
 // MUTATION HOOKS
 // ============================================================================
 
-/** Add a sub-component link (parent -> child). */
+/** Add a sub-component link (parent -> child). Uses protectedMutation (admin/manager only). */
 export function useAddSubComponent() {
-  return useMutation(api.productionRecipes.mutations.addSubComponent);
+  return useSessionMutation(api.productionRecipes.mutations.addSubComponent);
 }
 
-/** Remove a sub-component link. */
+/** Remove a sub-component link. Uses protectedMutation (admin/manager only). */
 export function useRemoveSubComponent() {
-  return useMutation(api.productionRecipes.mutations.removeSubComponent);
+  return useSessionMutation(api.productionRecipes.mutations.removeSubComponent);
 }
 
-/** Update quantity/unit on a sub-component link. */
+/** Update quantity/unit on a sub-component link. Uses protectedMutation (admin/manager only). */
 export function useUpdateSubComponentQuantity() {
-  return useMutation(api.productionRecipes.mutations.updateSubComponentQuantity);
+  return useSessionMutation(api.productionRecipes.mutations.updateSubComponentQuantity);
 }
 
-/** Add a direct ingredient to a production component. */
+/** Add a direct ingredient to a production component. Uses protectedMutation (admin/manager only). */
 export function useAddIngredient() {
-  return useMutation(api.productionRecipes.mutations.addIngredient);
+  return useSessionMutation(api.productionRecipes.mutations.addIngredient);
 }
 
-/** Remove a direct ingredient from a production component. */
+/** Remove a direct ingredient from a production component. Uses protectedMutation (admin/manager only). */
 export function useRemoveIngredient() {
-  return useMutation(api.productionRecipes.mutations.removeIngredient);
+  return useSessionMutation(api.productionRecipes.mutations.removeIngredient);
 }
 
-/** Update quantity/unit on a direct ingredient link. */
+/** Update quantity/unit on a direct ingredient link. Uses protectedMutation (admin/manager only). */
 export function useUpdateIngredientQuantity() {
-  return useMutation(api.productionRecipes.mutations.updateIngredientQuantity);
+  return useSessionMutation(api.productionRecipes.mutations.updateIngredientQuantity);
 }

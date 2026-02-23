@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
@@ -28,6 +28,7 @@ import {
   useDeleteOrder,
   useUpdateOrderShipping,
   useCancelOrder,
+  useForceComplete,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
@@ -97,7 +98,7 @@ export function OrderDetail() {
   // Admin force-complete
   const { user } = useAuth();
   // const isAdmin = user?.role === 'admin'; // Temporarily disabled — Force Complete visible to all until button visibility confirmed
-  const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
+  const forceComplete = useForceComplete();
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
 
@@ -144,18 +145,12 @@ export function OrderDetail() {
 
   const handleForceComplete = async () => {
     if (!orderId) return;
-    try {
-      await forceCompleteMutation({
-        orderId,
-        token: user?.token ?? '',
-        reason: forceCompleteReason || undefined,
-      });
-      toast.success('Order force-completed successfully');
-      setShowForceCompleteDialog(false);
-      setForceCompleteReason('');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to force-complete order');
-    }
+    await forceComplete.mutate({
+      orderId,
+      reason: forceCompleteReason || undefined,
+    });
+    setShowForceCompleteDialog(false);
+    setForceCompleteReason('');
   };
 
   // ============================================

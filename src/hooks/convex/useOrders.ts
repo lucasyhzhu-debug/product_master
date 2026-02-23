@@ -4,6 +4,7 @@
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -722,4 +723,25 @@ export function useUpdateOrderDeliveryFee() {
   };
 
   return { mutate: execute };
+}
+
+/**
+ * Admin/manager: Force-complete a stuck order to Complete+Paid.
+ * Uses protectedMutation — auto-injects sessionId, no manual token passing.
+ * Roles enforced on backend: admin, manager.
+ */
+export function useForceComplete() {
+  const mutation = useSessionMutation(api.orders.mutations.statusUpdates.forceComplete);
+
+  const execute = async (data: { orderId: Id<"orders">; reason?: string }) => {
+    try {
+      await mutation(data);
+      toast.success("Order force-completed");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to force-complete order"));
+      throw error;
+    }
+  };
+
+  return { mutate: execute, mutateAsync: execute };
 }

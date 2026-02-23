@@ -76,6 +76,7 @@ export {
   useReplaceOrderItems,
   useUpdateOrderDiscount,
   useUpdateOrderDeliveryFee,
+  useForceComplete,
   // Types
   type OrderItemInput,
   type OrderCreateInput,
