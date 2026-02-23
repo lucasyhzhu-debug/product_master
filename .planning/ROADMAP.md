@@ -202,6 +202,12 @@ Plans:
   3. Initial load bundle significantly reduced from 1.8MB
   4. `npm run build` succeeds with no warnings
   5. No visual regressions (loading states graceful)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 23-01-PLAN.md — Shared utilities: lazyWithPreload, RouteLoadingFallback (spinning Frollie logo, 200ms delay), ChunkErrorBoundary
+- [ ] 23-02-PLAN.md — Vite config: manualChunks vendor splitting + vite-plugin-bundlesize CI guard
+- [ ] 23-03-PLAN.md — App.tsx lazy conversion + nav prefetch + remove page fades + human verify checkpoint
 
 ### Phase 24: Ingredient Simulation Fix + Restock-Kitchen Integration
 
@@ -288,7 +294,7 @@ Plans:
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
-| 23. Bundle Size & Lazy Routes | v1.3 | 0/0 | Not started | - |
+| 23. Bundle Size & Lazy Routes | v1.3 | 0/3 | Not started | - |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 0/4 | Not started | - |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
 | 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
