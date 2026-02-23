@@ -14,6 +14,18 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.9] - 2026-02-23 - Fix: Default Packaging Mix Product Dropdown
+
+The "Add product" dropdown in Kitchen Manager Settings → Default Packaging Mix now only shows real food products (e.g. Original Single, Jumbo Single) instead of every active product including brochures and packaging-only items.
+
+### Fixed
+- **PackagingMixEditor product dropdown**: switched from `list` (all active products) to `listPosProducts` query — filters server-side to food POS products only (`posSlot` defined, `productType ≠ "packaging"`)
+
+### Files
+- `src/components/kitchen/PackagingMixEditor.tsx`
+
+---
+
 ## [v1.3.8] - 2026-02-23 - Performance: Bundle Splitting & Lazy Route Loading
 
 The app now loads significantly faster on first visit. Instead of downloading all page code upfront (~1.4 MB), the browser only downloads the code for the page you're actually visiting. Vendor libraries (React, icons, charts) are split into stable cached chunks so returning users skip those downloads entirely. Hovering over a nav link pre-fetches the next page's code before you click — making navigation feel instant.
