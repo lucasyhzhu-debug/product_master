@@ -5,7 +5,8 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup + Tech Debt** — Phases 19-26 (planned)
+- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup + Tech Debt** — Phases 19-25 (planned)
+- 📋 **v1.4 Testing & Quality** — Phase 26+ (planned)
 
 ## Phases
 
@@ -70,6 +71,36 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 **Deferred to future milestone:**
 - ~~Consignment Upload~~ — CON-01 through CON-05
 - ~~Sales Analytics Extension~~ — ANLY-01 through ANLY-03
+
+### 📋 v1.4 Testing & Quality (Planned)
+
+**Milestone Goal:** Add end-to-end test coverage for critical user flows and improve overall quality assurance.
+
+- **Phase 26: E2E Playwright Tests** — Browser-level E2E tests for login, order creation, kitchen shift, restock planner + CI integration (context gathered 2026-02-23)
+
+**Also deferred from v1.3:**
+- Consignment Upload — CON-01 through CON-05
+- Sales Analytics Extension — ANLY-01 through ANLY-03
+
+#### Phase 26: E2E Playwright Tests
+
+**Goal:** Add Playwright browser-level end-to-end tests for critical user flows: login, order creation, kitchen shift submission, restock planner.
+**Depends on:** Phase 25 (codebase cleanup complete — test the final state)
+**Context:** `26-CONTEXT.md` (gathered 2026-02-23)
+**Implementation Notes:**
+- Existing Playwright infrastructure (config, global setup, helpers) — extend with 4 critical flow tests
+- Prod-to-dev snapshot script for realistic test data
+- `[E2E]` prefix convention for test-created entities
+- CI via GitHub Actions workflow_dispatch (manual, with suite/headed options)
+- Happy path + 1-2 error cases per flow
+- Sequential test chain (login → order → kitchen → restock)
+**Success Criteria** (what must be TRUE):
+  1. Prod-to-dev snapshot script works
+  2. Login flow E2E test passes (+ wrong PIN error case)
+  3. Order creation E2E test passes (full lifecycle: create → confirm → fulfill)
+  4. Kitchen shift submission E2E test passes (balls produced + wastage)
+  5. Restock planner E2E test passes
+  6. GitHub Actions workflow_dispatch with suite selection runs tests in CI
 
 ## Phase Details
 
@@ -269,23 +300,6 @@ Plans:
   5. `npm run type-check` passes
   6. `npm run build` succeeds
 
-### Phase 26: E2E Playwright Tests
-
-**Goal:** Add Playwright browser-level end-to-end tests for critical user flows: login, order creation, kitchen shift submission, restock planner.
-**Depends on:** Phase 24 (restock integration complete — test the final state)
-**Implementation Notes:**
-- Install and configure Playwright
-- Set up test fixtures (seed data, auth helpers)
-- Critical flows: login → order create → kitchen shift submit → restock planner save
-- CI integration (GitHub Actions)
-**Success Criteria** (what must be TRUE):
-  1. Playwright installed and configured
-  2. Login flow E2E test passes
-  3. Order creation E2E test passes
-  4. Kitchen shift submission E2E test passes
-  5. Restock planner E2E test passes
-  6. Tests run in CI
-
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -302,4 +316,4 @@ Plans:
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
-| 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
+| 26. E2E Playwright Tests | v1.4 | 0/0 | Deferred (context ready) | - |
