@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (In Progress — 4/5 plans done)
-Plan: 22-04 complete (4/5 plans done)
-Status: 22-04 done; Frollie Pro branding across Header/Footer/Login/useDocumentTitle/index.html; Home nav link added for manager/admin in desktop (mainNavItems) + mobile (primaryTabs); Tags nav removal confirmed clean (done in 22-02)
-Last activity: 2026-02-23 - Completed 22-04: rebrand to Frollie Pro + Home nav link
+Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (COMPLETE — 5/5 plans done)
+Plan: 22-05 complete (5/5 plans done)
+Status: 22-05 done; final verification sweep passed — type-check clean, build succeeds, zero dead references to legacy tables/pages/hooks/permissions; stale JSDoc comments cleaned; Phase 22 fully complete, ready to merge to main
+Last activity: 2026-02-23 - Completed 22-05: final verification sweep + Phase 22 complete
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -106,6 +106,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: Home nav link added as first item in mainNavItems and primaryTabs — forward-declared before /home route exists; parallel 22-03/22-04 execution is safe
 - [Phase 22-03]: HubPage /home route uses canAccessDashboard protection inside Layout; RoleBasedRedirect sends manager/admin to /home — kitchen and order_staff redirects unchanged
 - [Phase 22-03]: HubPage has zero Convex bandwidth — no useQuery or useMutation; static role-filtered nav cards only
+- [Phase 22-remove-legacy-editors-tags-and-dashboard]: 22-05: Test files in tests/convex/ referencing legacy tables are out of scope; plan grep targets src/ and convex/ only
+- [Phase 22-remove-legacy-editors-tags-and-dashboard]: 22-05: EditorPageSkeleton and DashboardSkeleton JSDoc comments updated to remove stale references to deleted pages
 
 ### Pending Todos
 
@@ -157,13 +159,14 @@ None.
 | Phase 22-remove-legacy-editors-tags-and-dashboard P02 | 264 | 2 tasks | 27 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P03 | 145 | 2 tasks | 3 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P04 | 2 | 1 tasks | 6 files |
+| Phase 22-remove-legacy-editors-tags-and-dashboard P05 | 4 | 1 tasks | 1 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 22-04 — Frollie Pro branding applied + Home nav link added for manager/admin; Phase 22 plan 4/5 complete
+Stopped at: Completed 22-05 — Final verification sweep; Phase 22 fully complete (5/5). Branch ready to merge to main.
 Resume file: None
-Resume notes: Phase 22 in progress (4/5). Proceed to 22-05 for backend table drops.
+Resume notes: Phase 22 COMPLETE. Merge branch gsd/phase-22-remove-legacy-editors-tags-and-dashboard to main. Update CHANGELOG.md after merge.
 
 ---
-*Last updated: 2026-02-23 - Completed 22-03: HubPage with Frollie Pro branding; /home route; manager/admin landing updated*
+*Last updated: 2026-02-23 - Completed 22-05: Final verification sweep; Phase 22 fully complete (5/5 plans done)*

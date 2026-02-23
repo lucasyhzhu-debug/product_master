@@ -63,7 +63,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
 - [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
 - [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress (completed 2026-02-23)
-- [ ] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24)
+- [x] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24) (completed 2026-02-23)
 
 **Deferred to future milestone:**
 - ~~Consignment Upload~~ — CON-01 through CON-05
@@ -178,7 +178,7 @@ Plans:
   5. `npm run type-check` passes
   6. `npm run build` succeeds
   7. No dead imports or references to removed tables/pages
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 22-01-PLAN.md — Drop 11 legacy schema tables, delete 5 backend modules, strip costInvalidation.ts
@@ -186,6 +186,92 @@ Plans:
 - [ ] 22-03-PLAN.md — Build Frollie Pro hub page at /home with role-filtered navigation cards
 - [ ] 22-04-PLAN.md — Rebrand to Frollie Pro + update navigation (Home link, remove dead nav items)
 - [ ] 22-05-PLAN.md — Final verification sweep (type-check, build, dead reference grep)
+
+### Phase 23: Bundle Size & Lazy Routes
+
+**Goal:** Reduce 1.8MB JS bundle size by implementing route-level code splitting with React.lazy and dynamic imports for heavy pages. Eliminate Vite bundle size warning.
+**Depends on:** Phase 22 (legacy pages removed first — fewer routes to split)
+**Implementation Notes:**
+- React.lazy + Suspense for all route-level page components in App.tsx
+- Dynamic imports for heavy dependencies (Recharts, Framer Motion, SheetJS)
+- Vite manual chunk configuration if needed
+- Measure before/after bundle sizes
+**Success Criteria** (what must be TRUE):
+  1. All page routes use React.lazy with Suspense fallback
+  2. Vite bundle size warning eliminated
+  3. Initial load bundle significantly reduced from 1.8MB
+  4. `npm run build` succeeds with no warnings
+  5. No visual regressions (loading states graceful)
+
+### Phase 24: Ingredient Simulation ID Linking
+
+**Goal:** Replace fragile name string matching in dispatch planner ingredient simulation with ID-based linking between ingredient records and componentType tracker records.
+**Depends on:** None (independent)
+**Implementation Notes:**
+- Current: ingredient simulation matches by name string — breaks if names diverge between ingredient and tracker componentType records
+- Fix: Add ID-based foreign key linking (ingredientId on productionComponentIngredients or similar)
+- Migrate existing name-matched data to ID references
+**Success Criteria** (what must be TRUE):
+  1. Ingredient simulation uses ID-based linking, not name matching
+  2. Existing simulation results unchanged (same outputs, safer inputs)
+  3. `npm run type-check` passes
+  4. `npm run build` succeeds
+
+### Phase 25: Restock Planner → Kitchen Target Integration
+
+**Goal:** Connect Restock Planner to Kitchen production targets bidirectionally. Remove standalone Capacity setting from Restock Planner. Restock reads defaults from kitchenConfig. "Save targets for kitchen" button writes kitchenDailyOverrides with source tag. Kitchen auto-displays restock-originated targets.
+**Depends on:** Phase 21 (kitchen targets infrastructure)
+**Design doc:** `docs/plans/2026-02-23-v1.4-milestone-brief.md`
+**Implementation Notes:**
+- Remove Capacity tab from Restock Planner Settings dialog
+- Restock Planner reads daily capacity from kitchenConfig.defaultTargets (same values managers set on Kitchen page)
+- Add `source` field to kitchenDailyOverrides: `"manual"` | `"restock_planner"`
+- "Save targets for kitchen" button per day at top of restock calendar writes kitchenDailyOverride with source="restock_planner"
+- Kitchen UI shows source badge when override comes from Restock Planner
+- Manager can always overwrite a restock-originated override (source changes to "manual")
+- Priority chain: kitchenDailyOverride (last write wins) > kitchenConfig defaults
+**Success Criteria** (what must be TRUE):
+  1. Restock Planner Settings no longer has a Capacity tab — capacity derived from kitchen defaults
+  2. "Save targets for kitchen" button exists per day in restock calendar
+  3. Clicking "Save targets" creates a kitchenDailyOverride with source="restock_planner"
+  4. Kitchen view shows the restock-originated target with a source indicator
+  5. Manager can overwrite restock override from kitchen page
+  6. `npm run type-check` passes
+  7. `npm run build` succeeds
+
+### Phase 26: Codebase Cleanup
+
+**Goal:** Fix dark mode gaps in K3Mart components, remove `useConvex` prefix from hook names, expand protectedMutation to complex entities (orders, recipes, products), expand generic query factory to remaining query files.
+**Depends on:** Phase 22 (legacy code removed first — less to refactor)
+**Implementation Notes:**
+- K3Mart dark mode: audit all K3Mart components for missing dark: variants
+- Hook rename: `useConvexOrders` → `useOrders` etc. across all 24 hooks + all import sites
+- protectedMutation: apply to orders/, recipes/, products/ mutation files (currently only simple entities use it)
+- Query factory: apply to remaining query files not yet using the generic pattern
+**Success Criteria** (what must be TRUE):
+  1. All K3Mart components have complete dark mode coverage
+  2. No `useConvex` prefix on any hook names
+  3. Complex entity mutations use protectedMutation wrapper
+  4. Generic query factory applied to all applicable query files
+  5. `npm run type-check` passes
+  6. `npm run build` succeeds
+
+### Phase 27: E2E Playwright Tests
+
+**Goal:** Add Playwright browser-level end-to-end tests for critical user flows: login, order creation, kitchen shift submission, restock planner.
+**Depends on:** Phase 25 (restock integration complete — test the final state)
+**Implementation Notes:**
+- Install and configure Playwright
+- Set up test fixtures (seed data, auth helpers)
+- Critical flows: login → order create → kitchen shift submit → restock planner save
+- CI integration (GitHub Actions)
+**Success Criteria** (what must be TRUE):
+  1. Playwright installed and configured
+  2. Login flow E2E test passes
+  3. Order creation E2E test passes
+  4. Kitchen shift submission E2E test passes
+  5. Restock planner E2E test passes
+  6. Tests run in CI
 
 ## Progress
 
@@ -198,5 +284,10 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
-| 21. Kitchen Production Targets | 11/11 | Complete    | 2026-02-23 | - |
-| 22. Remove legacy editors & Dashboard | 4/5 | In Progress|  | - |
+| 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
+| 22. Remove legacy editors & Dashboard | 5/5 | Complete   | 2026-02-23 | - |
+| 23. Bundle Size & Lazy Routes | v1.3 | 0/0 | Not started | - |
+| 24. Ingredient Simulation ID Linking | v1.3 | 0/0 | Not started | - |
+| 25. Restock-Kitchen Integration | v1.3 | 0/0 | Not started | - |
+| 26. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
+| 27. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
