@@ -239,13 +239,16 @@ Plans:
   9. Manager can overwrite restock override from kitchen page
   10. `npm run type-check` passes
   11. `npm run build` succeeds
-**Plans:** 4 plans
+**Plans:** 7 plans
 
 Plans:
 - [ ] 24-01-PLAN.md — Schema: kitchenDailyOverrides source field + setDailyOverride mutation + linkIngredientToComponentType mutation
 - [ ] 24-02-PLAN.md — Backend core: simulateInventory ID-fix + capacity migration + getKitchenTargetsForDate overrideSource + getBallTotalsForDispatchPlanDate query
 - [ ] 24-03-PLAN.md — Frontend cleanup: remove Capacity tab, unlinked warning in MaterialsCheckPanel, source badge in ProductionTargetsBar, ManagerTargetSettings source field
 - [ ] 24-04-PLAN.md — Frontend integration: "Save to Kitchen" button in DispatchPlanner + admin link UI in IngredientsManager
+- [ ] 24-05-PLAN.md — [GAP] Planner grid UX: fix direct-manual save, remove blur-save, rename to Planner, yesterday-anchored dates, Save to Kitchen button placement
+- [ ] 24-06-PLAN.md — [GAP] Planner data completeness: Direct Sales in ball totals, BOM expansion, Balls footer row
+- [ ] 24-07-PLAN.md — [GAP] Ingredients Manager: double toast fix, unlink mutation, FG Adjust dialog
 
 ### Phase 25: Codebase Cleanup
 
@@ -295,6 +298,6 @@ Plans:
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 0/3 | Not started | - |
-| 24. Simulation Fix + Restock-Kitchen | v1.3 | 0/4 | Not started | - |
+| 24. Simulation Fix + Restock-Kitchen | v1.3 | 4/7 | UAT gap closure | - |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
 | 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
