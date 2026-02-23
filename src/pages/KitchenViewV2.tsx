@@ -66,6 +66,7 @@ export function KitchenViewV2() {
   // ============================================
 
   const [ordersOpen, setOrdersOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // ============================================
   // Wake lock to prevent phone sleep
@@ -209,19 +210,35 @@ export function KitchenViewV2() {
         )}
       </section>
 
-      {/* Section 5: Manager settings (manager/admin only) */}
+      {/* Section 5: Manager settings (manager/admin only) — collapsible */}
       {isManager && (
-        <section className="space-y-6 border-t pt-6">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Settings className="h-5 w-5 text-muted-foreground" />
-            Manager Settings
-          </h2>
-          <ManagerTargetSettings
-            config={config}
-            targets={targets}
-            today={today}
-          />
-          <ShiftHistoryList />
+        <section className="border-t pt-4">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            <span className="flex items-center gap-2">
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              Manager Settings
+            </span>
+            {settingsOpen ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+
+          {settingsOpen && (
+            <div className="mt-3 space-y-6">
+              <ManagerTargetSettings
+                config={config}
+                targets={targets}
+                today={today}
+              />
+              <ShiftHistoryList />
+            </div>
+          )}
         </section>
       )}
     </div>

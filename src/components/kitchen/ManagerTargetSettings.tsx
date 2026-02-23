@@ -1,15 +1,21 @@
 /**
  * ManagerTargetSettings
  *
- * Manager-only section rendered on the kitchen page. Two sub-sections:
- *   1. Default Targets — permanent config (bigBallTarget, midBallTarget, defaultPackagingMix)
- *   2. Today's Override — per-day override without changing defaults
+ * Manager-only section rendered on the kitchen page.
+ * Unified single-form design (Phase 21-09):
+ *   - Ball targets (Original + Jumbo) at the top
+ *   - Per-component production toggles (replaces single showJumbo toggle)
+ *   - Packaging mix (new PackagingMixEditor with BOM info + allocation counters)
+ *   - Two save actions: "Save as Default Daily Targets" and "Apply Override for Today Only"
+ *   - Clear Override button when override is active
+ *
+ * Max Capacity field removed — ball targets are the ceiling.
+ * Two-card (Default + Override) layout replaced with single unified card.
  *
  * Requirements: KIT-09, KIT-18
  */
 
 import { useState, useEffect } from "react";
-import { Settings, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -25,23 +31,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PackagingMixEditor, type PackagingMixRow } from "./PackagingMixEditor";
 import type { KitchenTargets } from "./ProductionTargetsBar";
 
 // -------------------------------------------------------
 // Types
 // -------------------------------------------------------
-
-interface PackagingMixRow {
-  menuProductId: string;
-  quantity: number;
-}
 
 interface KitchenConfig {
   _id: Id<"kitchenConfig"> | null;
@@ -50,6 +45,7 @@ interface KitchenConfig {
   midBallTarget: number;
   defaultPackagingMix: Array<{ menuProductId: string; quantity: number }>;
   showJumbo: boolean;
+  enabledProductionComponents: string[] | null;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -61,152 +57,74 @@ interface ManagerTargetSettingsProps {
 }
 
 // -------------------------------------------------------
-// Sub-component: Packaging Mix Editor
-// -------------------------------------------------------
-
-interface PackagingMixEditorProps {
-  rows: PackagingMixRow[];
-  onChange: (rows: PackagingMixRow[]) => void;
-  menuProducts: Array<{ _id: string; name: string }>;
-}
-
-function PackagingMixEditor({ rows, onChange, menuProducts }: PackagingMixEditorProps) {
-  function addRow() {
-    onChange([...rows, { menuProductId: "", quantity: 0 }]);
-  }
-
-  function updateRow(index: number, field: "menuProductId" | "quantity", value: string | number) {
-    onChange(
-      rows.map((row, i) =>
-        i === index ? { ...row, [field]: field === "quantity" ? Math.max(0, Number(value)) : value } : row
-      )
-    );
-  }
-
-  function removeRow(index: number) {
-    onChange(rows.filter((_, i) => i !== index));
-  }
-
-  return (
-    <div className="space-y-2">
-      {rows.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No packaging mix configured. Add items below.
-        </p>
-      )}
-      {rows.map((row, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <Select
-            value={row.menuProductId}
-            onValueChange={(val) => updateRow(index, "menuProductId", val)}
-          >
-            <SelectTrigger className="flex-1 text-sm h-8">
-              <SelectValue placeholder="Select product..." />
-            </SelectTrigger>
-            <SelectContent>
-              {menuProducts.map((mp) => (
-                <SelectItem key={mp._id} value={mp._id}>
-                  {mp.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="number"
-            min={0}
-            value={row.quantity || ""}
-            placeholder="0"
-            onChange={(e) => updateRow(index, "quantity", e.target.value)}
-            className="w-20 text-right tabular-nums h-8 text-sm"
-          />
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
-            onClick={() => removeRow(index)}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={addRow}
-        className="text-xs h-7 px-2 text-muted-foreground"
-      >
-        <Plus className="h-3 w-3 mr-1" />
-        Add product
-      </Button>
-    </div>
-  );
-}
-
-// -------------------------------------------------------
 // Main component
 // -------------------------------------------------------
 
 export function ManagerTargetSettings({ config, targets, today }: ManagerTargetSettingsProps) {
   // -- Queries & mutations --
-  const menuProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
+  const productionComponents = useQuery(api.componentTypes.queries.getByCategory, {
+    category: "production",
+    activeOnly: true,
+  });
+
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
   const clearDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.clearDailyOverride);
 
-  // -- Default targets form state --
-  const [maxTarget, setMaxTarget] = useState(200);
-  const [bigBallDefault, setBigBallDefault] = useState(0);
-  const [midBallDefault, setMidBallDefault] = useState(0);
-  const [defaultPackagingMix, setDefaultPackagingMix] = useState<PackagingMixRow[]>([]);
-  const [showJumbo, setShowJumbo] = useState(true);
-  const [isSavingDefaults, setIsSavingDefaults] = useState(false);
+  // -- Unified form state --
+  const [bigBallTarget, setBigBallTarget] = useState(0);   // Jumbo (80g)
+  const [midBallTarget, setMidBallTarget] = useState(0);   // Original (45g)
+  const [packagingMix, setPackagingMix] = useState<PackagingMixRow[]>([]);
+  const [enabledComponents, setEnabledComponents] = useState<string[]>(["BIG_BALL", "MID_BALL"]);
 
-  // -- Override form state --
-  const [bigBallOverride, setBigBallOverride] = useState<string>("");
-  const [midBallOverride, setMidBallOverride] = useState<string>("");
+  // -- Saving states --
+  const [isSavingDefaults, setIsSavingDefaults] = useState(false);
   const [isSavingOverride, setIsSavingOverride] = useState(false);
   const [isClearingOverride, setIsClearingOverride] = useState(false);
 
   // Derive whether an override is currently active
   const overrideActive = targets?.source === "override";
 
-  // Pre-populate defaults form from config
+  // Pre-populate form from config
   useEffect(() => {
     if (config) {
-      setMaxTarget(config.maxProductionTarget);
-      setBigBallDefault(config.bigBallTarget);
-      setMidBallDefault(config.midBallTarget);
-      setDefaultPackagingMix(
+      setBigBallTarget(config.bigBallTarget);
+      setMidBallTarget(config.midBallTarget);
+      setPackagingMix(
         (config.defaultPackagingMix ?? []).map((row) => ({
           menuProductId: String(row.menuProductId),
           quantity: row.quantity,
         }))
       );
-      setShowJumbo(config.showJumbo ?? true);
+      // null means all enabled — resolve default from ["BIG_BALL", "MID_BALL"]
+      setEnabledComponents(config.enabledProductionComponents ?? ["BIG_BALL", "MID_BALL"]);
     }
   }, [config]);
 
   // -------------------------------------------------------
-  // Handlers: Save defaults
+  // Per-component toggle handler
+  // -------------------------------------------------------
+
+  function toggleComponent(code: string) {
+    setEnabledComponents((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  }
+
+  // -------------------------------------------------------
+  // Handler: Save as Default Daily Targets
   // -------------------------------------------------------
 
   async function handleSaveDefaults() {
-    if (maxTarget <= 0) {
-      toast.error("Max production target must be positive");
-      return;
-    }
-
-    const validMix = defaultPackagingMix.filter(
-      (row) => row.menuProductId && row.quantity > 0
-    );
+    const validMix = packagingMix.filter((row) => row.menuProductId && row.quantity > 0);
 
     setIsSavingDefaults(true);
     try {
       await updateConfig({
-        maxProductionTarget: maxTarget,
-        bigBallTarget: bigBallDefault,
-        midBallTarget: midBallDefault,
-        showJumbo,
+        maxProductionTarget: bigBallTarget + midBallTarget || 1, // keep legacy field > 0
+        bigBallTarget,
+        midBallTarget,
+        enabledProductionComponents: enabledComponents,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({
@@ -215,7 +133,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               }))
             : undefined,
       });
-      toast.success("Default targets saved");
+      toast.success("Default daily targets saved");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to save defaults";
       toast.error(msg);
@@ -225,15 +143,12 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   }
 
   // -------------------------------------------------------
-  // Handlers: Apply / Clear override
+  // Handler: Apply Override for Today Only
   // -------------------------------------------------------
 
   async function handleApplyOverride() {
-    const bigVal = bigBallOverride !== "" ? Number(bigBallOverride) : undefined;
-    const midVal = midBallOverride !== "" ? Number(midBallOverride) : undefined;
-
-    if (bigVal === undefined && midVal === undefined) {
-      toast.error("Enter at least one override value");
+    if (bigBallTarget === 0 && midBallTarget === 0) {
+      toast.error("Enter at least one ball target before applying override");
       return;
     }
 
@@ -241,10 +156,10 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     try {
       await setDailyOverride({
         date: today,
-        bigBallOverride: bigVal,
-        midBallOverride: midVal,
+        bigBallOverride: bigBallTarget,
+        midBallOverride: midBallTarget,
       });
-      toast.success("Override applied for today");
+      toast.success("Override applied for today only");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to apply override";
       toast.error(msg);
@@ -253,12 +168,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     }
   }
 
+  // -------------------------------------------------------
+  // Handler: Clear Override
+  // -------------------------------------------------------
+
   async function handleClearOverride() {
     setIsClearingOverride(true);
     try {
       await clearDailyOverride({ date: today });
-      setBigBallOverride("");
-      setMidBallOverride("");
       toast.success("Override cleared — using dispatch plan / defaults");
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to clear override";
@@ -272,188 +189,158 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Render
   // -------------------------------------------------------
 
-  const safeMenuProducts = (menuProducts ?? [])
-    .filter((mp) => mp.productType === "food")
-    .map((mp) => ({
-      _id: String(mp._id),
-      name: mp.name,
-    }));
-
   return (
-    <div className="space-y-4">
-      {/* Sub-section 1: Default Targets */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            Default Daily Targets
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Ball targets */}
-          <div className="grid grid-cols-3 gap-3">
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between">
+          <span>Production Targets</span>
+          {overrideActive ? (
+            <Badge variant="default" className="text-xs">
+              Override active
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">
+              Using plan / defaults
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        {/* Ball Targets */}
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
+            Ball Targets
+          </Label>
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Max capacity</Label>
-              <Input
-                type="number"
-                min={1}
-                value={maxTarget || ""}
-                placeholder="200"
-                onChange={(e) => setMaxTarget(Number(e.target.value))}
-                className="text-right tabular-nums"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Original balls</Label>
-              <Input
-                type="number"
-                min={0}
-                value={midBallDefault === 0 ? "" : midBallDefault}
-                placeholder="0"
-                onChange={(e) => setMidBallDefault(Number(e.target.value))}
-                className="text-right tabular-nums"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Jumbo balls</Label>
+              <Label className="text-xs text-muted-foreground">Original (45g)</Label>
               <Input
                 type="number"
                 min={0}
-                value={bigBallDefault === 0 ? "" : bigBallDefault}
+                value={midBallTarget === 0 ? "" : midBallTarget}
                 placeholder="0"
-                onChange={(e) => setBigBallDefault(Number(e.target.value))}
+                onChange={(e) => setMidBallTarget(Math.max(0, Number(e.target.value)))}
+                className="text-right tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Jumbo (80g)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={bigBallTarget === 0 ? "" : bigBallTarget}
+                placeholder="0"
+                onChange={(e) => setBigBallTarget(Math.max(0, Number(e.target.value)))}
                 className="text-right tabular-nums"
               />
             </div>
           </div>
+        </div>
 
-          {/* Jumbo visibility toggle */}
-          <div className="flex items-center justify-between py-1">
-            <Label className="text-xs text-muted-foreground">Show Jumbo (80g) targets</Label>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showJumbo}
-              onClick={() => setShowJumbo((v) => !v)}
-              className={[
-                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                showJumbo ? "bg-primary" : "bg-input",
-              ].join(" ")}
-            >
-              <span
-                className={[
-                  "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                  showJumbo ? "translate-x-4" : "translate-x-0",
-                ].join(" ")}
-              />
-            </button>
+        {/* Per-Component Production Toggles */}
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
+            Production Components
+          </Label>
+          <div className="flex flex-wrap gap-3">
+            {(productionComponents ?? []).map((ct) => {
+              const isOn = enabledComponents.includes(ct.code);
+              return (
+                <label
+                  key={ct._id}
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                >
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isOn}
+                    onClick={() => toggleComponent(ct.code)}
+                    className={[
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                      isOn ? "bg-primary" : "bg-input",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                        isOn ? "translate-x-4" : "translate-x-0",
+                      ].join(" ")}
+                    />
+                  </button>
+                  <span className="text-sm">{ct.name}</span>
+                </label>
+              );
+            })}
+            {productionComponents === undefined && (
+              <p className="text-xs text-muted-foreground">Loading components...</p>
+            )}
           </div>
+        </div>
 
-          {/* Packaging mix */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-              Default Packaging Mix
-            </Label>
-            <PackagingMixEditor
-              rows={defaultPackagingMix}
-              onChange={setDefaultPackagingMix}
-              menuProducts={safeMenuProducts}
-            />
-          </div>
+        {/* Packaging Mix */}
+        <div>
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
+            Packaging Mix
+          </Label>
+          <PackagingMixEditor
+            rows={packagingMix}
+            onChange={setPackagingMix}
+            originalBallTarget={midBallTarget}
+            jumboBallTarget={bigBallTarget}
+            enabledComponents={enabledComponents}
+          />
+        </div>
 
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-1">
           <Button
             onClick={handleSaveDefaults}
             disabled={isSavingDefaults}
             size="sm"
-            className="w-full"
+            variant="default"
+            className="flex-1"
           >
-            {isSavingDefaults ? "Saving..." : "Save Defaults"}
+            {isSavingDefaults ? "Saving..." : "Save as Default Daily Targets"}
           </Button>
+          <Button
+            onClick={handleApplyOverride}
+            disabled={isSavingOverride}
+            size="sm"
+            variant="outline"
+            className="flex-1"
+          >
+            {isSavingOverride ? "Applying..." : "Apply Override for Today Only"}
+          </Button>
+        </div>
 
-          {config?.updatedBy && config.updatedAt && (
-            <p className="text-xs text-muted-foreground text-center">
-              Last updated by {config.updatedBy} at{" "}
-              {new Date(config.updatedAt).toLocaleString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false,
-              })}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {/* Clear Override (only when active) */}
+        {overrideActive && (
+          <Button
+            onClick={handleClearOverride}
+            disabled={isClearingOverride}
+            size="sm"
+            variant="ghost"
+            className="w-full text-muted-foreground hover:text-destructive"
+          >
+            {isClearingOverride ? "Clearing..." : "Clear Override"}
+          </Button>
+        )}
 
-      {/* Sub-section 2: Today's Override */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Override Today's Targets</span>
-            {overrideActive ? (
-              <Badge variant="default" className="text-xs">
-                Override active
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs">
-                Using plan / defaults
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Original balls</Label>
-              <Input
-                type="number"
-                min={0}
-                value={midBallOverride}
-                placeholder={String(config?.midBallTarget ?? 0)}
-                onChange={(e) => setMidBallOverride(e.target.value)}
-                className="text-right tabular-nums"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Jumbo balls</Label>
-              <Input
-                type="number"
-                min={0}
-                value={bigBallOverride}
-                placeholder={String(config?.bigBallTarget ?? 0)}
-                onChange={(e) => setBigBallOverride(e.target.value)}
-                className="text-right tabular-nums"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleApplyOverride}
-              disabled={isSavingOverride}
-              size="sm"
-              className="flex-1"
-            >
-              {isSavingOverride ? "Applying..." : "Apply Override"}
-            </Button>
-            {overrideActive && (
-              <Button
-                onClick={handleClearOverride}
-                disabled={isClearingOverride}
-                size="sm"
-                variant="outline"
-                className="flex-1"
-              >
-                {isClearingOverride ? "Clearing..." : "Clear Override"}
-              </Button>
-            )}
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Override applies to today only and does not change default settings.
+        {/* Last updated */}
+        {config?.updatedBy && config.updatedAt && (
+          <p className="text-xs text-muted-foreground text-center">
+            Last updated by {config.updatedBy} at{" "}
+            {new Date(config.updatedAt).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
           </p>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -91,7 +91,16 @@ export const getKitchenTargetsForDate = query({
         // Explicit override packaging list — just look up names
         packagingBreakdown = await resolvePackagingBreakdown(ctx, override.packagingOverrides);
       }
-      // If no packaging overrides set, return empty breakdown (caller can fall through to plan)
+
+      // Gap 2 fix: If no packaging overrides set on the override document,
+      // fall through to defaultPackagingMix from config so packaging breakdown
+      // badges remain visible on the kitchen view even when an override is active.
+      if (packagingBreakdown.length === 0) {
+        const config = await ctx.db.query("kitchenConfig").first();
+        if (config?.defaultPackagingMix && config.defaultPackagingMix.length > 0) {
+          packagingBreakdown = await resolvePackagingBreakdown(ctx, config.defaultPackagingMix);
+        }
+      }
 
       return {
         bigBalls,
