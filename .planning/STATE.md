@@ -114,6 +114,9 @@ Key decisions affecting v1.3 phases:
 - [Phase 24-05]: PlannerCell blur reverts (not saves) — Enter-only saves prevent accidental data commits; amber ring indicates unsaved state
 - [Phase 24-07]: createMutationHook skips toast.success when successMessage is empty string — lets EntityManager own the single update toast
 - [Phase 24-07]: FGAdjustDialog uses useMutation+token pattern (not useSessionMutation) matching existing productInventory caller pattern
+- [Phase 24-06]: getBallTotalsForDispatchPlanDate dual-pass: Pass 1 = dispatchPlans, Pass 2 = orders+orderItems; same BOM loop for both
+- [Phase 24-06]: dailyProductQty accumulator in getUnifiedWeeklyPlan enables post-assembly BOM expansion for dailyBallTotals
+- [Phase 24-06]: dailyBallTotals optional in UnifiedWeeklyPlanData for backward compat; Balls footer row hidden when absent
 
 ### Pending Todos
 
@@ -168,13 +171,14 @@ None.
 | Phase 22-remove-legacy-editors-tags-and-dashboard P05 | 4 | 1 tasks | 1 files |
 | Phase 24-ingredient-simulation-id-linking P05 | 4 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P07 | 5 | 2 tasks | 7 files |
+| Phase 24-ingredient-simulation-id-linking P06 | 5 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 24-07-PLAN.md — Ingredients UAT-3 gap closure (double toast, Untrack, FG Adjust); build passes.
+Stopped at: Completed 24-06-PLAN.md — Direct Sales ball totals fix + Balls footer row in PlannerGrid; build passes.
 Resume file: None
-Resume notes: Phase 24 plan 07 complete. Continue with remaining plans in phase 24 or proceed to UAT verification.
+Resume notes: Phase 24 plan 06 complete. Save to Kitchen now includes Direct Sales orders; PlannerGrid shows Balls footer row. Continue with remaining plans in phase 24 or proceed to UAT verification.
 
 ---
-*Last updated: 2026-02-23 - Completed 24-07: Ingredients/FG gap closure (double toast fix, Untrack button, FGAdjustDialog)*
+*Last updated: 2026-02-23 - Completed 24-06: Direct Sales ball totals in getBallTotalsForDispatchPlanDate + dailyBallTotals in getUnifiedWeeklyPlan + Balls footer row in PlannerGrid*
