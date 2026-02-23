@@ -74,9 +74,9 @@ export function OrderManager() {
               type="checkbox"
               checked={highlightMine}
               onChange={(e) => setHighlightMine(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-border"
             />
-            <span className="inline-block w-3 h-3 rounded ring-2 ring-blue-400 bg-white" />
+            <span className="inline-block w-3 h-3 rounded ring-2 ring-blue-400 bg-card" />
             My orders
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
@@ -84,9 +84,9 @@ export function OrderManager() {
               type="checkbox"
               checked={highlightNotes}
               onChange={(e) => setHighlightNotes(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-border"
             />
-            <span className="inline-block w-3 h-3 rounded ring-1 ring-amber-300 bg-white" />
+            <span className="inline-block w-3 h-3 rounded ring-1 ring-amber-300 bg-card" />
             Orders with notes
           </label>
         </div>

@@ -95,7 +95,7 @@ function getDotColor(direction: 'forward' | 'backward' | 'cancel' | 'neutral') {
     case 'cancel':
       return 'bg-red-500';
     case 'neutral':
-      return 'bg-gray-400';
+      return 'bg-muted-foreground';
   }
 }
 

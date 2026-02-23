@@ -39,7 +39,7 @@ const CHANNEL_DISPLAY: Record<string, { short: string; full: string; color?: str
   legato_tamtem: { short: 'LGT', full: 'Legato Tamtem', color: 'text-purple-600' },
   legato_goldfinch: { short: 'LGG', full: 'Legato Goldfinch', color: 'text-yellow-600' },
   bazaar: { short: 'BZR', full: 'Bazaar', color: 'text-red-600' },
-  other: { short: 'OTH', full: 'Other', color: 'text-gray-600' },
+  other: { short: 'OTH', full: 'Other', color: 'text-muted-foreground' },
 };
 
 // Fallback top channels if no usage data
