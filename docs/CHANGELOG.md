@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.6] - 2026-02-23 - Kitchen: EoS Form Gap Closure — Waste Filter, Inline Error, Live Delta
+
+Three quality-of-life fixes for the End of Shift form. Waste entries now respect which ball types are enabled — if you turn off Jumbo in Manager Settings, Jumbo waste rows disappear and aren't submitted. If the shift submission fails (e.g. network error), the error now shows as an amber banner right on the review screen instead of a fleeting toast. And each produced row now shows the target next to the input with a live over/under delta so you can see at a glance whether you've hit the day's goal.
+
+### Changed
+- **Waste filter by enabled components**: Waste entries are filtered by the same enabled-component logic as produced rows. Disabled ball-type products are hidden from the waste section and excluded from submission.
+- **Inline confirm error**: Mutation errors on the review screen now render as an inline amber banner above the Back/Confirm buttons instead of a toast notification. Input validation errors still use toasts.
+- **Per-product live delta**: Each produced row shows `target: X` inline next to the product name, and a live `+/-N over/under` delta to the right of the input. Delta is invisible until a quantity is entered. Amber = under target, emerald = on target or over.
+
+### Files Modified
+- `src/components/kitchen/EndOfShiftForm.tsx` — `visibleWasteEntries` filter, `confirmError` state, produced row layout redesign with inline target + delta
+- `src/components/kitchen/ShiftReviewModal.tsx` — `error` prop + inline amber banner above action buttons
+
+---
+
 ## [v1.3.5] - 2026-02-23 - Kitchen: Shift Review Deltas, Success Screen Animation, Chef History
 
 The shift review step now shows each product's produced count vs. its target — including a +/- variance so staff know at a glance if they hit the day's goal. Waste counts toward the total made in the review summary. The success screen has been redesigned from a plain text summary into a card list with a sequential checkmark animation per product row. Shift history now shows the chef name on each record when one was set, and managers can update the chef field when editing a past record.
