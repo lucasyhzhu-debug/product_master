@@ -6,40 +6,28 @@
  *   2. ProductionTargetsBar — ball totals (Original/Jumbo) + packaging breakdown
  *   3. EndOfShiftForm — produced quantities + optional waste, 3-step flow
  *   4. Today's shift records — compact list of submissions already recorded today
- *   5. Collapsible "View Today's Orders" — DueDateOrderList (hidden by default)
+ *   5. Collapsible "View Today's Orders" — KitchenOrderSummary (read-only, no action buttons)
+ *   6. Manager Settings (manager/admin only)
  *
  * Boxing/stickering panels removed from view.
  * Old component files are NOT deleted — Phase 24 handles cleanup.
+ * DueDateOrderList removed (Phase 21-07) — order management belongs in Order Management kanban.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { ChevronDown, ChevronUp, Eye, Settings } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { LoadingCards } from '@/components/shared';
-import { DueDateOrderList } from '@/components/kitchen';
 import { ProductionTargetsBar } from '@/components/kitchen/ProductionTargetsBar';
 import { EndOfShiftForm } from '@/components/kitchen/EndOfShiftForm';
 import { ManagerTargetSettings } from '@/components/kitchen/ManagerTargetSettings';
 import { ShiftHistoryList } from '@/components/kitchen/ShiftHistoryList';
+import { KitchenOrderSummary } from '@/components/kitchen/KitchenOrderSummary';
 import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
-import { useKitchenProduction } from '@/hooks/convex/useKitchenProduction';
-import { useProtectedMutation } from '@/hooks/convex/useProtectedMutation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { ConvexError } from 'convex/values';
-import { toast } from 'sonner';
-import { actionToast } from '@/lib/actionToast';
-import type { Id } from '../../convex/_generated/dataModel';
-
-/** Extract error message from ConvexError or regular Error */
-function extractErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ConvexError) return String(error.data);
-  if (error instanceof Error) return error.message;
-  return fallback;
-}
 
 /** Format a timestamp (ms) as a local time string */
 function formatTime(ms: number): string {
@@ -59,7 +47,6 @@ export function KitchenViewV2() {
 
   const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
-  const canConfigure = canEditKitchen && (user?.role === 'manager' || user?.role === 'admin');
   const isManager = user?.role === 'manager' || user?.role === 'admin';
 
   // ============================================
@@ -69,29 +56,10 @@ export function KitchenViewV2() {
   const { today, targets, todayShiftRecords } = useKitchenTargets();
 
   // ============================================
-  // Kitchen config (for ManagerTargetSettings)
+  // Kitchen config (for ManagerTargetSettings + showJumbo)
   // ============================================
 
   const config = useQuery(api.kitchenConfig.queries.getConfig);
-
-  // ============================================
-  // Kitchen production data (for orders section)
-  // ============================================
-
-  const {
-    isLoading: isProductionLoading,
-    packingOrders,
-    k3MartSummary,
-  } = useKitchenProduction();
-
-  // ============================================
-  // Mutations for orders collapsible section
-  // ============================================
-
-  const togglePackOrderLineItem = useProtectedMutation(api.orders.mutations.index.togglePackOrderLineItem);
-  const markOrderReady = useProtectedMutation(api.orders.mutations.index.markOrderReady);
-  const sendBack = useProtectedMutation(api.orders.mutations.index.sendBackToOrderDesk);
-  const setProductTarget = useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 
   // ============================================
   // Collapsible orders toggle state
@@ -132,86 +100,6 @@ export function KitchenViewV2() {
   }, []);
 
   // ============================================
-  // Order count for the toggle button label
-  // ============================================
-
-  const orderCount = useMemo(() => {
-    const regular = packingOrders?.length ?? 0;
-    const k3mart = k3MartSummary?.items?.length ?? 0;
-    return regular + k3mart;
-  }, [packingOrders, k3MartSummary]);
-
-  // ============================================
-  // Handlers — orders
-  // ============================================
-
-  const handleTogglePack = async (orderId: string, orderItemId: string, event?: React.MouseEvent) => {
-    try {
-      await togglePackOrderLineItem({
-        orderId: orderId as Id<'orders'>,
-        orderItemId: orderItemId as Id<'orderItems'>,
-      });
-      actionToast('Packed', event);
-    } catch (error) {
-      actionToast(extractErrorMessage(error, 'Failed to toggle pack'), event, 'error');
-    }
-  };
-
-  const handleMarkOrderReady = async (orderId: string, event?: React.MouseEvent) => {
-    try {
-      await markOrderReady({ orderId: orderId as Id<'orders'> });
-      actionToast('Order marked as ready!', event);
-    } catch (error) {
-      actionToast(extractErrorMessage(error, 'Failed to mark order ready'), event, 'error');
-    }
-  };
-
-  const handleSendBack = async (orderId: string) => {
-    try {
-      await sendBack({ orderId: orderId as Id<'orders'> });
-      toast.success('Order sent back to order desk');
-    } catch (error) {
-      toast.error(extractErrorMessage(error, 'Failed to send back'));
-    }
-  };
-
-  const handleOverride = async (orderId: string, orderItemId: string, reason: string) => {
-    try {
-      await togglePackOrderLineItem({
-        orderId: orderId as Id<'orders'>,
-        orderItemId: orderItemId as Id<'orderItems'>,
-        forceOverride: true,
-        overrideReason: reason,
-      });
-      toast.success('Override applied — item packed');
-    } catch (error) {
-      toast.error(extractErrorMessage(error, 'Override failed'));
-    }
-  };
-
-  const handleSetProductTarget = async (menuProductId: string, source: string, quantity: number) => {
-    try {
-      await setProductTarget({
-        date: today,
-        source,
-        menuProductId: menuProductId as Id<'menuProducts'>,
-        quantity,
-      });
-    } catch (error) {
-      toast.error(extractErrorMessage(error, 'Failed to set target'));
-    }
-  };
-
-  // ============================================
-  // Loading state — only block on production data
-  // targets and shift records show skeletons inline
-  // ============================================
-
-  if (isProductionLoading) {
-    return <LoadingCards count={3} />;
-  }
-
-  // ============================================
   // Render
   // ============================================
 
@@ -242,7 +130,7 @@ export function KitchenViewV2() {
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Today's Targets
         </h2>
-        <ProductionTargetsBar targets={targets} />
+        <ProductionTargetsBar targets={targets} showJumbo={config?.showJumbo ?? true} />
       </section>
 
       {/* Section 2: End-of-shift form */}
@@ -306,11 +194,6 @@ export function KitchenViewV2() {
         >
           <span>
             {ordersOpen ? 'Hide' : 'View'} Today's Orders
-            {orderCount > 0 && (
-              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-                {orderCount}
-              </span>
-            )}
           </span>
           {ordersOpen ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -321,23 +204,7 @@ export function KitchenViewV2() {
 
         {ordersOpen && (
           <div className="mt-3">
-            <DueDateOrderList
-              orders={packingOrders ?? []}
-              k3MartSummary={k3MartSummary}
-              onTogglePack={handleTogglePack}
-              onMarkReady={handleMarkOrderReady}
-              onSendBack={handleSendBack}
-              onOverride={canConfigure ? handleOverride : undefined}
-              onK3MartQuantityChange={
-                handleSetProductTarget
-                  ? (mpId: string, qty: number) =>
-                      handleSetProductTarget(mpId, 'consignment', qty)
-                  : undefined
-              }
-              canOverride={canConfigure}
-              canEdit={canConfigure}
-              disabled={!canEditKitchen}
-            />
+            <KitchenOrderSummary />
           </div>
         )}
       </section>
