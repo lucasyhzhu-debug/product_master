@@ -158,6 +158,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         date: today,
         bigBallOverride: bigBallTarget,
         midBallOverride: midBallTarget,
+        source: "manual",
       });
       toast.success("Override applied for today only");
     } catch (error) {

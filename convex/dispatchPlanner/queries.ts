@@ -789,6 +789,16 @@ export const simulateInventory = query({
       );
     }
 
+    // Pre-load ingredient -> componentType mapping for ID-based stock lookup
+    const allIngredients = await ctx.db.query("ingredients").collect();
+    const ingredientToComponentTypeId = new Map<string, string>(); // ingredientId -> componentTypeId
+    const unlinkedIngredientSet = new Set<string>(); // ingredient names (for warning)
+    for (const ing of allIngredients) {
+      if (ing.ingredientComponentTypeId) {
+        ingredientToComponentTypeId.set(ing._id as string, ing.ingredientComponentTypeId as string);
+      }
+    }
+
     // Walk through days cumulatively
     const cumulativeRequired = new Map<string, number>();
     const cumulativeIngredientRequired = new Map<string, number>(); // ingredientName -> cumulative qty needed
@@ -885,8 +895,8 @@ export const simulateInventory = query({
         const ct = componentTypeMap.get(ctId);
         if (!ct) continue;
 
-        // Only check tracked inventory components
-        if (!ct.trackInventory && ct.category !== "production") continue;
+        // Skip non-tracked packaging items; always process production components
+        if (ct.category === "packaging" && !ct.trackInventory) continue;
 
         const available = stockByComponent.get(ctId) ?? 0;
 
@@ -925,24 +935,14 @@ export const simulateInventory = query({
         const ingInfo = ingredientNameMap.get(ingId);
         if (!ingInfo) continue;
 
-        // Find matching ingredient componentType by looking for production + trackInventory
-        // that links to this ingredient (via productionComponentIngredients)
-        // For simplicity, we use the ingredientId to find all componentTypes that might track this ingredient
-        // But the actual stock is on the componentType, so we need the mapping
-        // The ingredient stock is in componentStock for the ingredient-tracker componentType
-        // We check the cumulative ingredient consumption against available ingredient stock
-
-        // For ingredient stock: look for componentTypes where trackInventory=true
-        // and have this ingredient linked. Since we are using raw ingredient quantities from hierarchy,
-        // the stock tracking is per ingredient-tracker componentType, not per raw ingredient.
-        // This is a simplified check -- assume ingredient names map to componentType names
-        const matchingCt = ingredientComponentTypes.find(
-          (ct) => ct.name.toLowerCase() === ingInfo.name.toLowerCase()
-        );
-
-        const available = matchingCt
-          ? (ingredientStockMap.get(matchingCt._id as string) ?? 0)
-          : 0;
+        // ID-based ingredient -> componentType lookup
+        const linkedCtId = ingredientToComponentTypeId.get(ingId);
+        if (!linkedCtId) {
+          // Track unlinked ingredient name for warning; skip (no fallback to name match)
+          unlinkedIngredientSet.add(ingInfo.name);
+          continue;
+        }
+        const available = ingredientStockMap.get(linkedCtId) ?? 0;
 
         if (available < required) {
           if (dayStatus !== "out") dayStatus = "out";
@@ -991,12 +991,10 @@ export const simulateInventory = query({
       const ingInfo = ingredientNameMap.get(ingId);
       if (!ingInfo) continue;
 
-      const matchingCt = ingredientComponentTypes.find(
-        (ct) => ct.name.toLowerCase() === ingInfo.name.toLowerCase()
-      );
-      const currentStock = matchingCt
-        ? (ingredientStockMap.get(matchingCt._id as string) ?? 0)
-        : 0;
+      const linkedCtId = ingredientToComponentTypeId.get(ingId);
+      const currentStock = linkedCtId ? (ingredientStockMap.get(linkedCtId) ?? 0) : 0;
+      // Skip unlinked ingredients in the status summary (already captured in unlinkedIngredientSet)
+      if (!linkedCtId) continue;
 
       ingredientStatus.push({
         ingredientName: ingInfo.name,
@@ -1006,6 +1004,72 @@ export const simulateInventory = query({
       });
     }
 
-    return { days: result, ingredientStatus };
+    return {
+      days: result,
+      ingredientStatus,
+      unlinkedIngredients: Array.from(unlinkedIngredientSet),
+    };
+  },
+});
+
+/**
+ * Get ball totals and packaging breakdown for a specific date from dispatch plans.
+ * Used by "Save targets for kitchen" button in DispatchPlanner.
+ * Returns the same shape as getKitchenTargetsForDate source="dispatch_plan".
+ */
+export const getBallTotalsForDispatchPlanDate = query({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    const dayPlans = await ctx.db
+      .query("dispatchPlans")
+      .withIndex("by_date", (q: any) => q.eq("date", args.date))
+      .collect();
+
+    if (dayPlans.length === 0) {
+      return { bigBalls: 0, midBalls: 0, packagingBreakdown: [] as Array<{ menuProductId: string; quantity: number }> };
+    }
+
+    // Fetch BOM and componentTypes needed for traversal
+    const allBomEntries = await ctx.db.query("menuProductComponents").collect();
+    const componentTypes = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_active", (q: any) => q.eq("isActive", true))
+      .collect();
+    const componentTypeMap = new Map<string, Doc<"componentTypes">>();
+    for (const ct of componentTypes) {
+      componentTypeMap.set(ct._id as string, ct);
+    }
+    const bomByProduct = new Map<string, Doc<"menuProductComponents">[]>();
+    for (const entry of allBomEntries) {
+      const mpId = entry.menuProductId as string;
+      if (!bomByProduct.has(mpId)) bomByProduct.set(mpId, []);
+      bomByProduct.get(mpId)!.push(entry);
+    }
+
+    let bigBalls = 0;
+    let midBalls = 0;
+    const packagingMap = new Map<string, number>(); // menuProductId -> quantity
+
+    for (const plan of dayPlans) {
+      const mpId = plan.menuProductId as string;
+      const bom = bomByProduct.get(mpId) ?? [];
+      // Aggregate packaging quantity per product
+      packagingMap.set(mpId, (packagingMap.get(mpId) ?? 0) + plan.plannedQty);
+      // Sum ball totals from BOM
+      for (const entry of bom) {
+        const ct = componentTypeMap.get(entry.componentTypeId as string);
+        if (!ct || ct.category !== "production") continue;
+        const qty = plan.plannedQty * entry.quantity;
+        if (ct.code === "BIG_BALL") bigBalls += qty;
+        else if (ct.code === "MID_BALL") midBalls += qty;
+      }
+    }
+
+    const packagingBreakdown = Array.from(packagingMap.entries()).map(([menuProductId, quantity]) => ({
+      menuProductId,
+      quantity,
+    }));
+
+    return { bigBalls, midBalls, packagingBreakdown };
   },
 });

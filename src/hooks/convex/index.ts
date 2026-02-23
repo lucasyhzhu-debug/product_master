@@ -14,6 +14,7 @@ export {
   useConvexCreateIngredient,
   useConvexUpdateIngredient,
   useConvexDeleteIngredient,
+  useLinkIngredientToComponentType,
   type ConvexIngredient,
   type IngredientCreateInput,
 } from "./useIngredients";
@@ -346,6 +347,7 @@ export {
   useDispatchPlannerSettings,
   useDispatchConsignmentOutlets,
   useDispatchSimulateInventory,
+  useGetBallTotalsForDate,
   // Mutation hooks
   useDispatchSeedDefaults,
   useDispatchSavePlanCell,
@@ -355,4 +357,5 @@ export {
   useDispatchAddConsignmentOutlet,
   useDispatchUpdateConsignmentOutlet,
   useDispatchRemoveConsignmentOutlet,
+  useSetKitchenDailyOverride,
 } from "./useDispatchPlanner";

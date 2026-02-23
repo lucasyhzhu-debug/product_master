@@ -2,7 +2,7 @@
  * Convex hooks for ingredients.
  * Query hooks + factory-generated mutation hooks.
  */
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { createMutationHook } from "./createMutationHook";
@@ -68,3 +68,8 @@ export const useConvexDeleteIngredient = createMutationHook(
   api.ingredients.mutations.remove,
   { successMessage: "Ingredient deleted successfully", errorMessage: "Failed to delete ingredient" }
 );
+
+/** Link ingredient to an existing componentType for inventory tracking. */
+export function useLinkIngredientToComponentType() {
+  return useMutation(api.ingredients.mutations.linkIngredientToComponentType);
+}

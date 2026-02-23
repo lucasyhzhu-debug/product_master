@@ -124,3 +124,25 @@ export function useDispatchUpdateConsignmentOutlet() {
 export function useDispatchRemoveConsignmentOutlet() {
   return useProtectedMutation(api.dispatchPlanner.mutations.removeConsignmentOutlet);
 }
+
+// ========================
+// Phase 24: Save targets for kitchen
+// ========================
+
+/**
+ * Get ball totals for a specific date from dispatch plans (for Save targets button).
+ * Skips query when date is null.
+ */
+export function useGetBallTotalsForDate(date: string | null) {
+  return useQuery(
+    api.dispatchPlanner.queries.getBallTotalsForDispatchPlanDate,
+    date ? { date } : "skip"
+  );
+}
+
+/**
+ * Write kitchen daily override (restock planner source).
+ */
+export function useSetKitchenDailyOverride() {
+  return useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
+}

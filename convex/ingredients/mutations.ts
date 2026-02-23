@@ -1,7 +1,10 @@
 import { protectedMutation } from "../lib/functions";
+import { mutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { calculateCostPerBaseUnit } from "../lib/costCalculator";
+import { requireRole } from "../lib/auth";
 
 /**
  * Create a new ingredient.
@@ -128,5 +131,28 @@ export const remove = protectedMutation({
 
     await ctx.db.delete(args.id);
     return true;
+  },
+});
+
+/**
+ * Link an ingredient to an existing componentType for inventory tracking.
+ * Admin only. The componentType must have trackInventory=true.
+ */
+export const linkIngredientToComponentType = mutation({
+  args: {
+    token: v.string(),
+    ingredientId: v.id("ingredients"),
+    componentTypeId: v.id("componentTypes"),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    // Validate componentType exists and has trackInventory=true
+    const ct = await ctx.db.get(args.componentTypeId);
+    if (!ct) throw new ConvexError("Component type not found");
+    if (!ct.trackInventory) throw new ConvexError("Component type must have trackInventory=true to link as ingredient tracker");
+    await ctx.db.patch(args.ingredientId, {
+      ingredientComponentTypeId: args.componentTypeId,
+    });
+    return { success: true };
   },
 });

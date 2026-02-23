@@ -8,10 +8,11 @@
  * Per-component visibility is controlled by enabledComponents prop.
  * Packaging breakdown badges hide for products whose ball type is fully disabled.
  * Shows zeros instead of hiding when targets are zero (per user decision).
- * No source label shown (per user decision).
+ * Shows "from Restock Planner" badge when override source is restock_planner.
  */
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { StatCard } from "./StatCard";
 
 /** Shape returned by kitchenConfig.queries.getKitchenTargetsForDate */
@@ -24,6 +25,7 @@ export interface KitchenTargets {
     quantity: number;
   }>;
   source: "override" | "dispatch_plan" | "defaults";
+  overrideSource?: "manual" | "restock_planner";
 }
 
 interface ProductionTargetsBarProps {
@@ -99,6 +101,13 @@ export function ProductionTargetsBar({
 
   return (
     <div className="space-y-3">
+      {/* Source badge for restock planner overrides */}
+      {targets.source === "override" && targets.overrideSource === "restock_planner" && (
+        <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 dark:text-blue-400">
+          from Restock Planner
+        </Badge>
+      )}
+
       {/* Ball totals */}
       {visibleCount > 0 && (
         <div className={gridClass}>
