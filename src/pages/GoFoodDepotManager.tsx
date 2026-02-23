@@ -180,13 +180,13 @@ export function GoFoodDepotManager() {
 
       {/* Low-Stock Alert Banner */}
       {hasLowStock && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-[var(--color-status-error-bg)] bg-[var(--color-status-error-bg)] p-4">
           <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-red-800">
+            <p className="text-sm font-semibold text-[var(--color-status-error)]">
               Low Stock Alert — {lowStockProducts.length} product{lowStockProducts.length > 1 ? 's' : ''} below 5 units
             </p>
-            <p className="text-sm text-red-700 mt-0.5">
+            <p className="text-sm text-[var(--color-status-error)] mt-0.5">
               {lowStockProducts.map((p) => p.menuProductName).join(', ')}
             </p>
           </div>

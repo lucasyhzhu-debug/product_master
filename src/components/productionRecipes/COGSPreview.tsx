@@ -39,14 +39,14 @@ export function COGSPreview({
   // Manual mode
   if (cogsMode === "manual") {
     return (
-      <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-blue-50 border border-blue-200">
+      <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[var(--color-status-info-bg)] border border-[var(--color-status-info)]/30">
         <div className="flex items-center gap-2">
           <HandCoins className="h-4 w-4 text-blue-600" />
-          <span className="text-sm font-medium text-blue-800">
+          <span className="text-sm font-medium text-[var(--color-status-info)]">
             Manual COGS: {formatCurrency(manualUnitCostIdr ?? 0)}
           </span>
         </div>
-        <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+        <Badge variant="outline" className="text-xs text-[var(--color-status-info)] border-[var(--color-status-info)]/40">
           manual
         </Badge>
       </div>
@@ -67,14 +67,14 @@ export function COGSPreview({
   if (cogs.missingCount > 0) {
     return (
       <div className="space-y-1">
-        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-emerald-50 border border-emerald-200">
+        <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[var(--color-status-success-bg)] border border-[var(--color-status-success)]/30">
           <div className="flex items-center gap-2">
             <Calculator className="h-4 w-4 text-emerald-600" />
-            <span className="text-sm font-medium text-emerald-800">
+            <span className="text-sm font-medium text-[var(--color-status-success)]">
               Calculated COGS: {formatCurrency(cogs.totalCogs)}
             </span>
           </div>
-          <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+          <Badge variant="outline" className="text-xs text-[var(--color-status-success)] border-[var(--color-status-success)]/40">
             calculated
           </Badge>
         </div>
@@ -90,14 +90,14 @@ export function COGSPreview({
 
   // Calculated mode - complete
   return (
-    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-emerald-50 border border-emerald-200">
+    <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[var(--color-status-success-bg)] border border-[var(--color-status-success)]/30">
       <div className="flex items-center gap-2">
         <Calculator className="h-4 w-4 text-emerald-600" />
-        <span className="text-sm font-medium text-emerald-800">
+        <span className="text-sm font-medium text-[var(--color-status-success)]">
           Calculated COGS: {formatCurrency(cogs.totalCogs)}
         </span>
       </div>
-      <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+      <Badge variant="outline" className="text-xs text-[var(--color-status-success)] border-[var(--color-status-success)]/40">
         calculated
       </Badge>
     </div>

@@ -248,7 +248,7 @@ export function DepotCockpitTable({
                   key={row._id}
                   className={`border-b last:border-0 transition-colors ${
                     isLowStock
-                      ? 'bg-red-50/60 hover:bg-red-50'
+                      ? 'bg-[var(--color-status-error-bg)]/60 hover:bg-[var(--color-status-error-bg)]'
                       : 'hover:bg-muted/30'
                   }`}
                 >
@@ -284,7 +284,7 @@ export function DepotCockpitTable({
                     {restock ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium text-sm cursor-help border border-blue-100">
+                          <span className="inline-flex items-center justify-center px-2 py-1 rounded-md bg-[var(--color-gofood-light)] text-[var(--color-gofood)] font-medium text-sm cursor-help border border-[var(--color-gofood)]/20">
                             {restock.suggestion}
                           </span>
                         </TooltipTrigger>

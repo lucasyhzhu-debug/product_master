@@ -195,7 +195,7 @@ export function DepotStockTransferDialog({
 
           {/* Destination info */}
           {!destinationLocationId && (
-            <div className="text-sm text-amber-600 bg-amber-50 rounded p-2">
+            <div className="text-sm text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] rounded p-2">
               This outlet does not have a linked storage location. Run the seed migration first.
             </div>
           )}

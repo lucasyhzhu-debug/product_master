@@ -90,7 +90,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
         />
 
         {/* Preview text */}
-        <p className="relative text-sm text-foreground/80 line-clamp-2">
+        <p className="relative text-sm text-gray-800 line-clamp-2">
           "{previewText}..."
         </p>
 
@@ -111,7 +111,7 @@ export function TemplateCard({ template, onClick, index }: TemplateCardProps) {
             >
               <Badge
                 variant="secondary"
-                className="bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30"
               >
                 Modified
               </Badge>

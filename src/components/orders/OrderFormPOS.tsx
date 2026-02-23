@@ -751,8 +751,8 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             <Card className="overflow-visible border-2 border-border">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                    <User className="h-5 w-5 text-blue-600" />
+                  <div className="h-10 w-10 rounded-full bg-[var(--color-status-info-bg)] flex items-center justify-center">
+                    <User className="h-5 w-5 text-[var(--color-status-info)]" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-foreground">Customer</h3>
@@ -821,7 +821,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                             </button>
                           ))}
                           <button
-                            className="w-full px-4 py-3 text-left hover:bg-blue-50 text-sm text-blue-600 font-medium flex items-center gap-2"
+                            className="w-full px-4 py-3 text-left hover:bg-[var(--color-status-info-bg)] text-sm text-[var(--color-status-info)] font-medium flex items-center gap-2"
                             onClick={handleCreateNewCustomer}
                           >
                             <Plus className="h-4 w-4" />
@@ -844,8 +844,8 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
             <Card className="overflow-hidden border-2 border-border">
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
-                    <MapPin className="h-5 w-5 text-purple-600" />
+                  <div className="h-10 w-10 rounded-full bg-[var(--color-status-info-bg)] flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-[var(--color-status-info)]" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-foreground">Delivery</h3>
@@ -1008,10 +1008,10 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                   {(!hasItems || !hasCustomer) && (
                     <motion.div
                       {...fadeIn}
-                      className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2"
+                      className="p-3 rounded-lg bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 flex items-start gap-2"
                     >
-                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="text-xs text-amber-800">
+                      <AlertCircle className="h-4 w-4 text-[var(--color-status-warning)] mt-0.5 shrink-0" />
+                      <div className="text-xs text-[var(--color-status-warning)]">
                         {!hasItems && <p>• Add at least one product</p>}
                         {!hasCustomer && <p>• Select or create a customer</p>}
                       </div>

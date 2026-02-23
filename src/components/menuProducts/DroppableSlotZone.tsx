@@ -35,8 +35,8 @@ export function DroppableSlotZone({
   let ringClass = '';
   if (isOver && active && !isNoOp) {
     ringClass = isCompatible
-      ? 'ring-2 ring-blue-400 bg-blue-50/50 rounded-lg'
-      : 'ring-2 ring-red-300 bg-red-50/30 rounded-lg';
+      ? 'ring-2 ring-blue-400 bg-[var(--color-status-info-bg)]/50 rounded-lg'
+      : 'ring-2 ring-red-300 bg-[var(--color-status-error-bg)]/30 rounded-lg';
   }
 
   return (

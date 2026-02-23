@@ -59,7 +59,7 @@ export function PasteTemplateBox({ onParsed, initialValue = '' }: PasteTemplateB
       const customerFound = parseResult.customer !== null;
 
       return (
-        <Alert className="border-green-200 bg-green-50 text-green-900">
+        <Alert className="border-[var(--color-status-success)]/30 bg-[var(--color-status-success-bg)] text-[var(--color-status-success)]">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
           <AlertTitle>Success</AlertTitle>
           <AlertDescription>
@@ -72,7 +72,7 @@ export function PasteTemplateBox({ onParsed, initialValue = '' }: PasteTemplateB
     // Failure (no products)
     if (!parseResult.parseSuccess) {
       return (
-        <Alert className="border-red-200 bg-red-50 text-red-900">
+        <Alert className="border-[var(--color-status-error)]/30 bg-[var(--color-status-error-bg)] text-[var(--color-status-error)]">
           <AlertCircle className="h-4 w-4 text-red-600" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
@@ -89,7 +89,7 @@ export function PasteTemplateBox({ onParsed, initialValue = '' }: PasteTemplateB
     if (!parseResult || parseResult.parseWarnings.length === 0) return null;
 
     return (
-      <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+      <Alert className="border-[var(--color-status-warning)]/30 bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)]">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
         <AlertTitle>Warnings</AlertTitle>
         <AlertDescription>

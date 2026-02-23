@@ -384,8 +384,8 @@ export function StockFlowForm({
   const renderErrorRetry = () => {
     if (!lastError) return null;
     return (
-      <div className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md">
-        <span className="text-xs text-red-700 flex-1">{lastError}</span>
+      <div className="flex items-center gap-2 p-2 bg-[var(--color-status-error-bg)] border border-[var(--color-status-error)]/30 rounded-md">
+        <span className="text-xs text-[var(--color-status-error)] flex-1">{lastError}</span>
         {retryFn && (
           <Button
             type="button"
@@ -414,7 +414,7 @@ export function StockFlowForm({
             "w-full gap-2 font-semibold",
             mode === "rotation"
               ? "bg-amber-500 hover:bg-amber-600 text-white"
-              : "border-amber-300 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              : "border-amber-300 text-amber-700 hover:bg-[var(--color-status-warning-bg)]"
           )}
           onClick={() => setMode(mode === "rotation" ? "stock_in" : "rotation")}
           disabled={isSubmitting}
@@ -430,12 +430,12 @@ export function StockFlowForm({
           {renderProductSelector("rot")}
 
           {selectedProduct && (
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 p-3 space-y-2">
-              <div className="text-xs font-semibold text-amber-800 uppercase">Rotation Summary</div>
+            <div className="rounded-lg bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 p-3 space-y-2">
+              <div className="text-xs font-semibold text-[var(--color-status-warning)] uppercase">Rotation Summary</div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] text-amber-600">Stock Out (current)</div>
-                  <div className="text-lg font-bold text-amber-900 tabular-nums">
+                  <div className="text-[10px] text-[var(--color-status-warning)]">Stock Out (current)</div>
+                  <div className="text-lg font-bold text-[var(--color-status-warning)] tabular-nums">
                     {selectedProduct.currentStock}
                   </div>
                 </div>
@@ -488,7 +488,7 @@ export function StockFlowForm({
               value="stock_in"
               className={cn(
                 "text-xs font-semibold gap-1.5",
-                direction === "stock_in" && "text-green-700 bg-green-50 dark:bg-green-900/20"
+                direction === "stock_in" && "text-[var(--color-status-success)] bg-[var(--color-status-success-bg)]"
               )}
             >
               <ArrowDownToLine className="h-3.5 w-3.5" />
@@ -498,7 +498,7 @@ export function StockFlowForm({
               value="stock_out"
               className={cn(
                 "text-xs font-semibold gap-1.5",
-                direction === "stock_out" && "text-amber-700 bg-amber-50 dark:bg-amber-900/20"
+                direction === "stock_out" && "text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)]"
               )}
             >
               <ArrowUpFromLine className="h-3.5 w-3.5" />

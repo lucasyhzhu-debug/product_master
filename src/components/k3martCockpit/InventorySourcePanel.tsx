@@ -64,11 +64,11 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
       <div className="px-4 pb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Office Available */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800/30">
+          <div className="bg-[var(--color-status-info-bg)] rounded-lg p-3 border border-[var(--color-status-info)]/30">
             <div className="flex items-start justify-between mb-2">
               <Building2 className="h-5 w-5 text-blue-600" />
               {sources.office.total === 0 && (
-                <div className="flex items-center gap-1 bg-red-100 text-red-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-1 bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] text-[10px] font-semibold px-2 py-0.5 rounded-full">
                   <AlertTriangle className="h-3 w-3" />
                   Depleted
                 </div>
@@ -83,11 +83,11 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
           </div>
 
           {/* Goldfinch Depot */}
-          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800/30">
+          <div className="bg-[var(--color-status-info-bg)] rounded-lg p-3 border border-[var(--color-status-info)]/30">
             <div className="flex items-start justify-between mb-2">
               <Warehouse className="h-5 w-5 text-purple-600" />
               {sources.goldfinch.total === 0 && (
-                <div className="flex items-center gap-1 bg-red-100 text-red-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-1 bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] text-[10px] font-semibold px-2 py-0.5 rounded-full">
                   <AlertTriangle className="h-3 w-3" />
                   Depleted
                 </div>
@@ -112,7 +112,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
             <div className="flex items-start justify-between mb-2">
               <Store className="h-5 w-5" style={{ color: 'var(--color-k3mart)' }} />
               {sources.k3mart.total === 0 && (
-                <div className="flex items-center gap-1 bg-red-100 text-red-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-1 bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] text-[10px] font-semibold px-2 py-0.5 rounded-full">
                   <AlertTriangle className="h-3 w-3" />
                   Depleted
                 </div>
@@ -150,7 +150,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                     {sources.office.products.map((product) => (
                       <div
                         key={product.productName}
-                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-blue-50 dark:bg-blue-900/20"
+                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-[var(--color-status-info-bg)]"
                       >
                         <span className="text-foreground truncate">{product.productName}</span>
                         <span className="font-bold text-foreground tabular-nums ml-2">
@@ -175,7 +175,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                     {sources.goldfinch.products.map((product) => (
                       <div
                         key={product.productName}
-                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-purple-50 dark:bg-purple-900/20"
+                        className="flex items-center justify-between text-xs px-2 py-1.5 rounded bg-[var(--color-status-info-bg)]"
                       >
                         <span className="text-foreground truncate">{product.productName}</span>
                         <span className="font-bold text-foreground tabular-nums ml-2">

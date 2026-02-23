@@ -83,9 +83,9 @@ const STATUS_LABELS: Record<string, string> = {
 function getDueDateBadgeClass(dueDate: number | undefined): string {
   if (!dueDate) return '';
   const due = startOfDay(new Date(dueDate));
-  if (isPast(due) && !isToday(due)) return 'bg-red-100 text-red-700 font-bold border-red-300';
-  if (isToday(due)) return 'bg-red-50 text-red-600 border-red-200';
-  if (isTomorrow(due)) return 'bg-amber-50 text-amber-600 border-amber-200';
+  if (isPast(due) && !isToday(due)) return 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] font-bold border-[var(--color-status-error)]/30';
+  if (isToday(due)) return 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30';
+  if (isTomorrow(due)) return 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30';
   return '';
 }
 
@@ -274,7 +274,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                   {STATUS_LABELS[order.status as import('@/lib/types').OrderStatus] ?? order.status}
                 </Badge>
                 {order.expedited && (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs">
+                  <Badge className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30 text-xs">
                     EXPEDITED
                   </Badge>
                 )}

@@ -160,7 +160,7 @@ export function IngredientsManager() {
       header: 'Inventory',
       render: (item) =>
         item.ingredientComponentTypeId ? (
-          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50">
+          <Badge variant="outline" className="text-[var(--color-status-success)] border-[var(--color-status-success)] bg-[var(--color-status-success-bg)]">
             Tracked
           </Badge>
         ) : (

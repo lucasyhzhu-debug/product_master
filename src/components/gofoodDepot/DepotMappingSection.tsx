@@ -164,7 +164,7 @@ export function DepotMappingSection({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">GoFood Products</span>
           {unmappedCount > 0 && (
-            <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 text-xs">
+            <Badge variant="outline" className="text-[var(--color-status-warning)] border-[var(--color-status-warning)]/40 bg-[var(--color-status-warning-bg)] text-xs">
               {unmappedCount} unmapped
             </Badge>
           )}
@@ -190,11 +190,11 @@ export function DepotMappingSection({
                     {!isMapped && (
                       <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                     )}
-                    <span className={isMapped ? 'text-foreground' : 'text-amber-800'}>
+                    <span className={isMapped ? 'text-foreground' : 'text-[var(--color-status-warning)]'}>
                       {row.externalProductName}
                     </span>
                     {!isMapped && (
-                      <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50 text-xs ml-1">
+                      <Badge variant="outline" className="text-[var(--color-status-warning)] border-[var(--color-status-warning)]/40 bg-[var(--color-status-warning-bg)] text-xs ml-1">
                         Unmapped
                       </Badge>
                     )}

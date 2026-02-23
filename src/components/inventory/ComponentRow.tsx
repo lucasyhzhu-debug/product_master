@@ -179,11 +179,11 @@ export function ComponentRow({
         isLegacy
           ? "border-border/50 bg-muted/20"
           : isNegativeStock
-            ? "border-red-400 bg-red-50/60"
+            ? "border-red-400 bg-[var(--color-status-error-bg)]"
             : isCritical
-              ? "border-red-300 bg-red-50/50"
+              ? "border-red-300 bg-[var(--color-status-error-bg)]"
               : isLowStock
-                ? "border-amber-300 bg-amber-50/30"
+                ? "border-amber-300 bg-[var(--color-status-warning-bg)]"
                 : "border-border hover:border-border/80 hover:shadow-sm"
       )}
     >
@@ -219,7 +219,7 @@ export function ComponentRow({
                 {isIngredient && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] px-1.5 py-0 border-emerald-400 text-emerald-700 bg-emerald-50"
+                    className="text-[10px] px-1.5 py-0 border-[var(--color-status-success)]/40 text-[var(--color-status-success)] bg-[var(--color-status-success-bg)]"
                   >
                     Ingredient
                   </Badge>
@@ -227,7 +227,7 @@ export function ComponentRow({
                 {isProductionBall && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] px-1.5 py-0 border-blue-400 text-blue-700 bg-blue-50"
+                    className="text-[10px] px-1.5 py-0 border-[var(--color-status-info)]/40 text-[var(--color-status-info)] bg-[var(--color-status-info-bg)]"
                   >
                     Ball
                   </Badge>

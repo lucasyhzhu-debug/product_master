@@ -527,6 +527,39 @@ function CreateRecipeForm() {
 
 ## Frontend Patterns
 
+### Dark Mode — Use CSS Variable Tokens, Not Raw Tailwind Colors
+
+The project has a complete CSS variable token system in `src/index.css`. The `.dark {}` block overrides every semantic token automatically. **Do not use raw Tailwind color classes for semantic backgrounds** — use the CSS variable tokens instead.
+
+```tsx
+// ❌ WRONG — requires manual dark: maintenance per component, easy to forget
+<div className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+  Low stock warning
+</div>
+
+// ✅ CORRECT — token cascade handles dark mode in index.css, zero dark: classes needed
+<div className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border border-[var(--color-status-warning)]/30">
+  Low stock warning
+</div>
+```
+
+**Token quick reference:**
+
+| Semantic purpose | Background token | Text token |
+|-----------------|-----------------|------------|
+| Success / green | `--color-status-success-bg` | `--color-status-success` |
+| Warning / amber | `--color-status-warning-bg` | `--color-status-warning` |
+| Error / red | `--color-status-error-bg` | `--color-status-error` |
+| Info / blue | `--color-status-info-bg` | `--color-status-info` |
+| GoFood domain | `--color-gofood-light` | `--color-gofood` |
+| K3Mart domain | `--color-k3mart-light` | `--color-k3mart` |
+
+See `docs/UI_BRAND_REFERENCE.md` → "Semantic status color replacements" for the full table.
+
+**If a new semantic color category is needed:** Add it to `index.css @theme {}` (light) and `.dark {}` (dark override) — then reference it everywhere via `var(--color-*)`. Never add a color to components directly.
+
+---
+
 ### Page Structure
 ```typescript
 // Pages handle routing params and data fetching

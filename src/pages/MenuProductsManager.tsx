@@ -369,11 +369,11 @@ export function MenuProductsManager() {
           <div className="flex items-start justify-between gap-2 sm:gap-4">
             <div className="flex-1 min-w-0">
               {/* Header with name and slot badge */}
-              <div className="flex items-start gap-2 mb-2 flex-wrap">
-                <h3 className="font-semibold truncate flex-1 min-w-0 text-sm sm:text-base">
+              <div className="mb-2">
+                <h3 className="font-semibold truncate text-sm sm:text-base text-foreground mb-1">
                   {product.name}
                 </h3>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-1 flex-wrap">
                   {isPosProduct && (
                     <Badge variant="default" className="text-xs">
                       Slot {(product as PosProduct).posSlot}
@@ -385,10 +385,10 @@ export function MenuProductsManager() {
                     </Badge>
                   )}
                   {product.productType === "packaging" && (
-                    <Badge className="text-xs bg-blue-500 dark:bg-blue-600">Packaging</Badge>
+                    <Badge className="text-xs bg-[var(--color-status-info)] text-white">Packaging</Badge>
                   )}
                   {isFood && (
-                    <Badge className="text-xs bg-green-500 dark:bg-green-600">Food</Badge>
+                    <Badge className="text-xs bg-[var(--color-status-success)] text-white">Food</Badge>
                   )}
                   {(('posSlot' in product && product.posSlot !== undefined) || ('packagingPosSlot' in product && product.packagingPosSlot !== undefined)) && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
@@ -478,7 +478,7 @@ export function MenuProductsManager() {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleAssignToNextSlot(product._id, isFood ? 'food' : 'packaging')}
-                  className="text-green-600 dark:text-green-400 hover:text-green-600 dark:hover:text-green-400 h-7 w-7 sm:h-8 sm:w-8 p-0"
+                  className="text-[var(--color-status-success)] hover:text-[var(--color-status-success)] h-7 w-7 sm:h-8 sm:w-8 p-0"
                   title={`Add to ${isFood ? 'Food' : 'Packaging'} POS`}
                   aria-label="Add to POS"
                 >
@@ -806,7 +806,7 @@ export function MenuProductsManager() {
                         {formatCurrency(result.newCost)}
                       </td>
                       <td className={`py-2 pl-2 text-right font-medium ${
-                        result.delta > 0 ? 'text-red-600 dark:text-red-400' : result.delta < 0 ? 'text-green-600 dark:text-green-400' : ''
+                        result.delta > 0 ? 'text-[var(--color-status-error)]' : result.delta < 0 ? 'text-[var(--color-status-success)]' : ''
                       }`}>
                         {result.delta > 0 ? '+' : ''}{formatCurrency(result.delta)}
                       </td>

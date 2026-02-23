@@ -35,11 +35,11 @@ interface OutletCardProps {
 
 const PLAN_STATUS_CONFIG = {
   no_plan: { label: 'No Plan', bg: 'bg-muted', text: 'text-muted-foreground' },
-  draft: { label: 'Draft', bg: 'bg-amber-100', text: 'text-amber-700' },
-  confirmed: { label: 'Confirmed', bg: 'bg-blue-100', text: 'text-blue-700' },
-  submitted: { label: 'Submitted', bg: 'bg-green-100', text: 'text-green-700' },
-  partial: { label: 'Partial', bg: 'bg-orange-100', text: 'text-orange-700' },
-  failed: { label: 'Failed', bg: 'bg-red-100', text: 'text-red-700' },
+  draft: { label: 'Draft', bg: 'bg-[var(--color-status-warning-bg)]', text: 'text-[var(--color-status-warning)]' },
+  confirmed: { label: 'Confirmed', bg: 'bg-[var(--color-status-info-bg)]', text: 'text-[var(--color-status-info)]' },
+  submitted: { label: 'Submitted', bg: 'bg-[var(--color-status-success-bg)]', text: 'text-[var(--color-status-success)]' },
+  partial: { label: 'Partial', bg: 'bg-[var(--color-status-warning-bg)]', text: 'text-[var(--color-status-warning)]' },
+  failed: { label: 'Failed', bg: 'bg-[var(--color-status-error-bg)]', text: 'text-[var(--color-status-error)]' },
 };
 
 export const OutletCard = React.memo(function OutletCard({

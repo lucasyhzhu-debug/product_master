@@ -129,7 +129,7 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
                     {product ? (
                       <button
                         type="button"
-                        className="w-full flex flex-col items-start p-3 rounded-lg border bg-blue-50/50 border-blue-100 text-left transition-colors cursor-default"
+                        className="w-full flex flex-col items-start p-3 rounded-lg border bg-[var(--color-status-info-bg)]/50 border-[var(--color-status-info)]/20 text-left transition-colors cursor-default"
                       >
                         <span className="font-semibold text-xs truncate w-full">
                           {product.name}

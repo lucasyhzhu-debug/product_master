@@ -74,9 +74,9 @@ function getUrgencyLevel(dueDate: number | undefined): UrgencyLevel {
 
 const URGENCY_BADGE_CLASSES: Record<UrgencyLevel, string> = {
   default: '',
-  tomorrow: 'bg-amber-50 text-amber-600 border-amber-200',
-  today: 'bg-red-50 text-red-600 border-red-200',
-  overdue: 'bg-red-100 text-red-700 font-bold border-red-300',
+  tomorrow: 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30',
+  today: 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30',
+  overdue: 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] font-bold border-[var(--color-status-error)]/30',
 };
 
 // ============================================
@@ -164,7 +164,7 @@ export function KanbanCard({
         {!simplified && (dueDateStr || isExpedited || isCancelled) && (
           <div className="flex items-center gap-1.5">
             {isCancelled ? (
-              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-500 border-gray-300">
+              <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-border">
                 Cancelled
               </Badge>
             ) : (
@@ -179,7 +179,7 @@ export function KanbanCard({
                   </Badge>
                 )}
                 {isExpedited && (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
+                  <Badge className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30 text-[10px]">
                     EXPEDITED
                   </Badge>
                 )}
@@ -200,7 +200,7 @@ export function KanbanCard({
 
         {/* Notes display */}
         {order.notes && (
-          <p className="text-xs text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 line-clamp-2">
+          <p className="text-xs text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] rounded px-1.5 py-0.5 line-clamp-2">
             {order.notes}
           </p>
         )}
