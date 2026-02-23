@@ -72,6 +72,17 @@ export const getByMenuProductIds = query({
 });
 
 /**
+ * List all menu product components (flat, no enrichment).
+ * Used by KitchenViewV2 to build the productBallTypes map for per-component toggle cascade.
+ */
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("menuProductComponents").collect();
+  },
+});
+
+/**
  * Get a single component by ID.
  * Uses unified BOM via componentTypeId.
  */

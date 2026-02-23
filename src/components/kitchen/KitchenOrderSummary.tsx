@@ -4,6 +4,7 @@
  * Read-only 3-column view of active orders by status group.
  * Replaces the interactive DueDateOrderList in the kitchen collapsible section.
  * No action buttons — order management happens in the Order Management kanban.
+ * Shows order notes below items when present (Gap 11).
  */
 
 import { useQuery } from "convex/react";
@@ -16,6 +17,7 @@ interface OrderRow {
   customerName: string;
   status: string;
   items: Array<{ productName: string; quantity: number }>;
+  notes?: string;
 }
 
 const STATUS_COLUMNS = [
@@ -87,6 +89,11 @@ export function KitchenOrderSummary() {
                         .map((item) => `${item.quantity}x ${item.productName}`)
                         .join(", ")}
                     </div>
+                    {order.notes && (
+                      <div className="mt-1 text-muted-foreground italic line-clamp-2 border-t border-border/50 pt-1">
+                        {order.notes}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
