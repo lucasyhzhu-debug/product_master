@@ -119,6 +119,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 24-06]: dailyBallTotals optional in UnifiedWeeklyPlanData for backward compat; Balls footer row hidden when absent
 - [Phase 25-03]: requireRole() calls removed (not kept) — requireRole accepts a session token string and cannot be called without args.token after protectedMutation migration; wrapper already enforces roles
 - [Phase 25-03]: forceComplete is the only migration-eligible mutation in orders/mutations/ — other mutations use optional token only for audit trail userId resolution, not role enforcement
+- [Phase 25-codebase-cleanup]: StatCard bg-white/10 intentional opacity overlay on dark-first card; KanbanBoard Draft colorClass bg-gray-500 → bg-muted-foreground; FeedbackCaptureMode dark tooltip gets dark: pair for compliance; TemplateEditor uses WhatsApp hex dark palette not generic tokens
 
 ### Pending Todos
 
@@ -175,6 +176,7 @@ None.
 | Phase 24-ingredient-simulation-id-linking P07 | 5 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P06 | 5 | 2 tasks | 2 files |
 | Phase 25-codebase-cleanup P03 | 2 | 2 tasks | 2 files |
+| Phase 25-codebase-cleanup P01 | 4 | 2 tasks | 10 files |
 
 ## Session Continuity
 
