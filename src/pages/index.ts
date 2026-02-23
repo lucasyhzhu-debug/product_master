@@ -16,3 +16,4 @@ export { K3MartCockpit } from './K3MartCockpit';
 export { CustomersManager } from './CustomersManager';
 export { DispatchPlanner } from './DispatchPlanner';
 export { GoFoodDepotManager } from './GoFoodDepotManager';
+export { HubPage } from './HubPage';

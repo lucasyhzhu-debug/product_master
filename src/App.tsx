@@ -3,7 +3,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/contexts/AuthContext";
-// BANDWIDTH CONSERVATION: SalesAnalytics, K3MartCockpit temporarily removed — re-enable after March 1st
 import {
   IngredientsManager,
   OrderManager,
@@ -20,6 +19,7 @@ import {
   CustomersManager,
   DispatchPlanner,
   GoFoodDepotManager,
+  HubPage,
 } from "@/pages";
 import Login from "@/pages/Login";
 import UsersManager from "@/pages/UsersManager";
@@ -70,6 +70,16 @@ function App() {
 
             {/* Standard pages (with PageContainer) */}
             <Route element={<Layout />}>
+              {/* Hub page - Manager and Admin landing */}
+              <Route
+                path="home"
+                element={
+                  <ProtectedRoute requiredPermission="canAccessDashboard">
+                    <HubPage />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Packaging - All roles can access (PRD-5) */}
               <Route
                 path="packaging"
@@ -259,8 +269,8 @@ function RoleBasedRedirect() {
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "kitchen") return <Navigate to="/kitchen" replace />;
   if (user.role === "order_staff") return <Navigate to="/orders" replace />;
-  // Manager and Admin → Orders (BANDWIDTH CONSERVATION: was /sales, re-enable after March 1st)
-  return <Navigate to="/orders" replace />;
+  // Manager and Admin → Hub page
+  return <Navigate to="/home" replace />;
 }
 
 export default App;
