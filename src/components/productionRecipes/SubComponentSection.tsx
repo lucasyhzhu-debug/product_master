@@ -26,7 +26,7 @@ import {
   useRemoveSubComponent,
   useUpdateSubComponentQuantity,
 } from "@/hooks/convex/useProductionRecipes";
-import { useConvexComponentsByCategory, useConvexCreateComponentType } from "@/hooks/convex";
+import { useComponentsByCategory, useCreateComponentType } from "@/hooks/convex";
 import { formatCurrency } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -58,10 +58,10 @@ export function SubComponentSection({
   const addSubComponent = useAddSubComponent();
   const removeSubComponent = useRemoveSubComponent();
   const updateSubComponentQuantity = useUpdateSubComponentQuantity();
-  const createComponentType = useConvexCreateComponentType();
+  const createComponentType = useCreateComponentType();
 
   // All production components for dropdown
-  const allProductionComponents = useConvexComponentsByCategory("production", true);
+  const allProductionComponents = useComponentsByCategory("production", true);
 
   // Local state
   const [showAddForm, setShowAddForm] = useState(false);

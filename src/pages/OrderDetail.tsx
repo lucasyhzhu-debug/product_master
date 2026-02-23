@@ -24,10 +24,10 @@ import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromIn
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 
 import {
-  useConvexOrder,
-  useConvexDeleteOrder,
-  useConvexUpdateOrderShipping,
-  useConvexCancelOrder,
+  useOrder,
+  useDeleteOrder,
+  useUpdateOrderShipping,
+  useCancelOrder,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
@@ -74,10 +74,10 @@ export function OrderDetail() {
   const navigate = useNavigate();
   const orderId = id as Id<"orders"> | undefined;
 
-  const { data: order, isLoading } = useConvexOrder(orderId);
-  const updateShipping = useConvexUpdateOrderShipping();
-  const cancelOrder = useConvexCancelOrder();
-  const deleteOrder = useConvexDeleteOrder();
+  const { data: order, isLoading } = useOrder(orderId);
+  const updateShipping = useUpdateOrderShipping();
+  const cancelOrder = useCancelOrder();
+  const deleteOrder = useDeleteOrder();
 
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);

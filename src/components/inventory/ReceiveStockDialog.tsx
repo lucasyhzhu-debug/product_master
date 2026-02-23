@@ -24,10 +24,10 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
-  useConvexReceiveStock,
-  useConvexCreateComponentAndReceiveStock,
-  useConvexInventoryTrackedComponents,
-  useConvexLatestBatch,
+  useReceiveStock,
+  useCreateComponentAndReceiveStock,
+  useInventoryTrackedComponents,
+  useLatestBatch,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { ComponentType } from "@/hooks/convex";
@@ -89,12 +89,12 @@ export function ReceiveStockDialog({
   const { user } = useAuth();
 
   // Queries and mutations
-  const allComponents = useConvexInventoryTrackedComponents(true);
-  const receiveStock = useConvexReceiveStock();
-  const createAndReceive = useConvexCreateComponentAndReceiveStock();
+  const allComponents = useInventoryTrackedComponents(true);
+  const receiveStock = useReceiveStock();
+  const createAndReceive = useCreateComponentAndReceiveStock();
 
   // Auto-populate supplier info from latest batch
-  const latestBatch = useConvexLatestBatch(
+  const latestBatch = useLatestBatch(
     selectedComponentId ?? undefined,
     selectedLocationId ?? undefined
   );

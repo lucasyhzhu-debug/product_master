@@ -34,17 +34,17 @@ export interface IngredientCreateInput {
 }
 
 /** List all ingredients. */
-export function useConvexIngredients(limit?: number) {
+export function useIngredients(limit?: number) {
   return useQuery(api.ingredients.queries.list, { limit });
 }
 
 /** Get a single ingredient by ID. */
-export function useConvexIngredient(id: Id<"ingredients"> | undefined) {
+export function useIngredient(id: Id<"ingredients"> | undefined) {
   return useQuery(api.ingredients.queries.get, id ? { id } : "skip");
 }
 
 /** Search ingredients by name or brand. */
-export function useConvexIngredientSearch(query: string, limit?: number) {
+export function useIngredientSearch(query: string, limit?: number) {
   return useQuery(
     api.ingredients.queries.search,
     query ? { query, limit } : "skip"
@@ -52,19 +52,19 @@ export function useConvexIngredientSearch(query: string, limit?: number) {
 }
 
 /** Create ingredient mutation with toast notifications. */
-export const useConvexCreateIngredient = createMutationHook(
+export const useCreateIngredient = createMutationHook(
   api.ingredients.mutations.create,
   { successMessage: "Ingredient created successfully", errorMessage: "Failed to create ingredient" }
 );
 
 /** Update ingredient mutation — no success toast; EntityManager handles it. */
-export const useConvexUpdateIngredient = createMutationHook(
+export const useUpdateIngredient = createMutationHook(
   api.ingredients.mutations.update,
   { successMessage: "", errorMessage: "Failed to update ingredient" }
 );
 
 /** Delete ingredient mutation with toast notifications. */
-export const useConvexDeleteIngredient = createMutationHook(
+export const useDeleteIngredient = createMutationHook(
   api.ingredients.mutations.remove,
   { successMessage: "Ingredient deleted successfully", errorMessage: "Failed to delete ingredient" }
 );

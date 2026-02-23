@@ -23,7 +23,7 @@ import { TransferStockDialog } from "./TransferStockDialog";
 import { ReceiveStockDialog } from "./ReceiveStockDialog";
 import { EditComponentDialog } from "./EditComponentDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { useConvexComponentBatches, useConvexUpdateComponentType, useConvexDeleteComponentType } from "@/hooks/convex";
+import { useComponentBatches, useUpdateComponentType, useDeleteComponentType } from "@/hooks/convex";
 import { useProductionCogs } from "@/hooks/convex/useProductionRecipes";
 import { COGSBreakdownTooltip } from "@/components/shared/COGSBreakdownTooltip";
 import { toast } from "sonner";
@@ -76,14 +76,14 @@ export function ComponentRow({
   } | null>(null);
 
   // Get batches for selected location
-  const batches = useConvexComponentBatches(
+  const batches = useComponentBatches(
     expanded && selectedLocationForBatches ? component._id : undefined,
     selectedLocationForBatches ?? undefined,
     false
   );
 
-  const updateComponentType = useConvexUpdateComponentType();
-  const deleteComponentType = useConvexDeleteComponentType();
+  const updateComponentType = useUpdateComponentType();
+  const deleteComponentType = useDeleteComponentType();
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

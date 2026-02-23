@@ -15,7 +15,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 /**
  * List all component types
  */
-export function useConvexComponentTypes(activeOnly?: boolean) {
+export function useComponentTypes(activeOnly?: boolean) {
   return useQuery(api.componentTypes.queries.list, {
     activeOnly,
   });
@@ -24,7 +24,7 @@ export function useConvexComponentTypes(activeOnly?: boolean) {
 /**
  * Get component type by ID
  */
-export function useConvexComponentType(id: Id<"componentTypes"> | undefined) {
+export function useComponentType(id: Id<"componentTypes"> | undefined) {
   return useQuery(
     api.componentTypes.queries.getById,
     id ? { id } : "skip"
@@ -34,7 +34,7 @@ export function useConvexComponentType(id: Id<"componentTypes"> | undefined) {
 /**
  * Get component types by category
  */
-export function useConvexComponentsByCategory(
+export function useComponentsByCategory(
   category: "production" | "packaging",
   activeOnly?: boolean
 ) {
@@ -47,7 +47,7 @@ export function useConvexComponentsByCategory(
 /**
  * Get components that track inventory (packaging only)
  */
-export function useConvexInventoryTrackedComponents(activeOnly?: boolean) {
+export function useInventoryTrackedComponents(activeOnly?: boolean) {
   return useQuery(api.componentTypes.queries.getInventoryTracked, {
     activeOnly,
   });
@@ -56,7 +56,7 @@ export function useConvexInventoryTrackedComponents(activeOnly?: boolean) {
 /**
  * Get component by code
  */
-export function useConvexComponentByCode(code: string | undefined) {
+export function useComponentByCode(code: string | undefined) {
   return useQuery(
     api.componentTypes.queries.getByCode,
     code ? { code } : "skip"
@@ -70,21 +70,21 @@ export function useConvexComponentByCode(code: string | undefined) {
 /**
  * Create a new component type
  */
-export function useConvexCreateComponentType() {
+export function useCreateComponentType() {
   return useMutation(api.componentTypes.mutations.create);
 }
 
 /**
  * Update an existing component type
  */
-export function useConvexUpdateComponentType() {
+export function useUpdateComponentType() {
   return useMutation(api.componentTypes.mutations.update);
 }
 
 /**
  * Delete a component type
  */
-export function useConvexDeleteComponentType() {
+export function useDeleteComponentType() {
   return useMutation(api.componentTypes.mutations.remove);
 }
 
@@ -92,7 +92,7 @@ export function useConvexDeleteComponentType() {
  * Quick-create a packaging component type (name only).
  * Auto-generates code, sets sensible defaults.
  */
-export function useConvexCreatePackagingQuick() {
+export function useCreatePackagingQuick() {
   return useMutation(api.componentTypes.mutations.createPackagingQuick);
 }
 
@@ -100,7 +100,7 @@ export function useConvexCreatePackagingQuick() {
  * Create an ingredient-tracking component type and link it to an ingredient.
  * Phase 20: Enables inventory tracking for food ingredients.
  */
-export function useConvexCreateIngredientComponentType() {
+export function useCreateIngredientComponentType() {
   return useMutation(api.componentTypes.mutations.createIngredientComponentType);
 }
 

@@ -43,7 +43,7 @@ import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromIn
 import { OrderItems } from './OrderItems';
 import { getStatusColor } from '@/lib/orderConstants';
 import { useAuth } from '@/contexts/AuthContext';
-import { useConvexDeleteOrder, useConvexUpdateOrderShipping } from '@/hooks/convex';
+import { useDeleteOrder, useUpdateOrderShipping } from '@/hooks/convex';
 import {
   Dialog,
   DialogContent,
@@ -140,8 +140,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   );
 
   const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
-  const deleteOrder = useConvexDeleteOrder();
-  const updateShipping = useConvexUpdateOrderShipping();
+  const deleteOrder = useDeleteOrder();
+  const updateShipping = useUpdateOrderShipping();
 
   const cancelOrderMut = useMutation(api.orders.mutations.index.cancel);
 

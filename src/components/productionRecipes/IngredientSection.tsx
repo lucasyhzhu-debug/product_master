@@ -26,7 +26,7 @@ import {
   useRemoveIngredient,
   useUpdateIngredientQuantity,
 } from "@/hooks/convex/useProductionRecipes";
-import { useConvexIngredients, useConvexCreateIngredient } from "@/hooks/convex";
+import { useIngredients, useCreateIngredient } from "@/hooks/convex";
 import { formatCurrency } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -57,10 +57,10 @@ export function IngredientSection({
   const addIngredient = useAddIngredient();
   const removeIngredient = useRemoveIngredient();
   const updateIngredientQuantity = useUpdateIngredientQuantity();
-  const createIngredient = useConvexCreateIngredient();
+  const createIngredient = useCreateIngredient();
 
   // All ingredients for dropdown
-  const allIngredients = useConvexIngredients();
+  const allIngredients = useIngredients();
 
   // Local state
   const [showAddForm, setShowAddForm] = useState(false);

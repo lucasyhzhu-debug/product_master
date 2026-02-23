@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useConvexComponentsByCategory } from '@/hooks/convex';
+import { useComponentsByCategory } from '@/hooks/convex';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import type { Id } from '../../../convex/_generated/dataModel';
 
@@ -32,7 +32,7 @@ export function ProductionComponentsSection({
   disabled = false,
 }: ProductionComponentsSectionProps) {
   // Query production components
-  const productionComponents = useConvexComponentsByCategory("production", true);
+  const productionComponents = useComponentsByCategory("production", true);
   const isLoading = productionComponents === undefined;
 
   const handleAdd = () => {

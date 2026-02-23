@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useConvexUpdateComponentType } from "@/hooks/convex";
+import { useUpdateComponentType } from "@/hooks/convex";
 import { toast } from "sonner";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -35,7 +35,7 @@ export function RenameComponentDialog({
   const [newName, setNewName] = useState(currentName);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const updateComponentType = useConvexUpdateComponentType();
+  const updateComponentType = useUpdateComponentType();
 
   useEffect(() => {
     if (open) {
