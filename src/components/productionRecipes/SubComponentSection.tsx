@@ -89,11 +89,10 @@ export function SubComponentSection({
   );
 
   const handleAdd = async () => {
-    if (!selectedChildId || !user?.token) return;
+    if (!selectedChildId) return;
     setIsAdding(true);
     try {
       await addSubComponent({
-        token: user.token,
         parentComponentId,
         childComponentId: selectedChildId as Id<"componentTypes">,
         quantityPerUnit: Number(addQuantity) || 1,
@@ -130,9 +129,8 @@ export function SubComponentSection({
       });
 
       // Now add as sub-component
-      if (newId && user.token) {
+      if (newId) {
         await addSubComponent({
-          token: user.token,
           parentComponentId,
           childComponentId: newId,
           quantityPerUnit: Number(addQuantity) || 1,
@@ -154,9 +152,8 @@ export function SubComponentSection({
   };
 
   const handleRemove = async (linkId: Id<"productionComponentLinks">) => {
-    if (!user?.token) return;
     try {
-      await removeSubComponent({ token: user.token, linkId });
+      await removeSubComponent({ linkId });
       toast.success("Sub-component removed");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove sub-component");
@@ -170,10 +167,8 @@ export function SubComponentSection({
   };
 
   const handleSaveEdit = async (linkId: Id<"productionComponentLinks">) => {
-    if (!user?.token) return;
     try {
       await updateSubComponentQuantity({
-        token: user.token,
         linkId,
         quantityPerUnit: Number(editQuantity) || 1,
         unit: editUnit,
