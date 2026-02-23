@@ -66,24 +66,33 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   permission: PermissionKey;
+  preload?: () => void;
 };
+
+// Prefetch factories for hover prefetching — fire-and-forget dynamic imports
+const _prefetchHome = () => import('@/pages/HubPage');
+const _prefetchOrders = () => import('@/pages/OrderManager');
+const _prefetchKitchen = () => import('@/pages/KitchenViewV2');
+const _prefetchInventory = () => import('@/pages/InventoryManager');
+const _prefetchRestock = () => import('@/pages/DispatchPlanner');
+const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 
 // Main nav items - visible based on individual permissions
 const mainNavItems: NavItem[] = [
-  { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard' },
+  { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard', preload: _prefetchHome },
   // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
   // { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
-  { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
-  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen' },
-  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory' },
-  { path: '/restock-planner', label: 'Restock', icon: CalendarRange, permission: 'canAccessDashboard' },
+  { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
+  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
+  { path: '/restock-planner', label: 'Restock', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
 ];
 
 // Depot Management dropdown - Manager + Admin
 const depotItems: NavItem[] = [
   // BANDWIDTH CONSERVATION: K3Mart Cockpit hidden until March 1st quota reset
   // { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
-  { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard' },
+  { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
 ];
 
 // Configurations dropdown - Manager + Admin
@@ -176,6 +185,8 @@ export function Header() {
                         key={item.path}
                         to={item.path}
                         onClick={() => setMobileMenuOpen(false)}
+                        onMouseEnter={() => item.preload?.()}
+                        onFocus={() => item.preload?.()}
                         className={cn(
                           "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
                           isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
@@ -200,6 +211,8 @@ export function Header() {
                             key={item.path}
                             to={item.path}
                             onClick={() => setMobileMenuOpen(false)}
+                            onMouseEnter={() => item.preload?.()}
+                            onFocus={() => item.preload?.()}
                             className={cn(
                               "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
                               isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
@@ -321,6 +334,8 @@ export function Header() {
                   <Link
                     key={item.path}
                     to={item.path}
+                    onMouseEnter={() => item.preload?.()}
+                    onFocus={() => item.preload?.()}
                     className={cn(
                       "flex items-center space-x-1.5 transition-colors hover:text-foreground/80",
                       isActive(item.path) ? "text-foreground" : "text-foreground/60"
@@ -354,6 +369,8 @@ export function Header() {
                         <DropdownMenuItem key={item.path} asChild>
                           <Link
                             to={item.path}
+                            onMouseEnter={() => item.preload?.()}
+                            onFocus={() => item.preload?.()}
                             className={cn(
                               "flex items-center space-x-2 w-full",
                               isActive(item.path) && "font-medium"

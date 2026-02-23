@@ -34,15 +34,22 @@ interface TabItem {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   permission: PermissionKey;
+  preload?: () => void;
 }
 
+// Prefetch factories for primary tabs
+const _prefetchHome = () => import('@/pages/HubPage');
+const _prefetchOrders = () => import('@/pages/OrderManager');
+const _prefetchKitchen = () => import('@/pages/KitchenViewV2');
+const _prefetchInventory = () => import('@/pages/InventoryManager');
+
 const primaryTabs: TabItem[] = [
-  { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard' },
+  { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard', preload: _prefetchHome },
   // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
   // { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
-  { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders' },
-  { path: '/kitchen', icon: UtensilsCrossed, label: 'Kitchen', permission: 'canAccessKitchen' },
-  { path: '/inventory', icon: Warehouse, label: 'Inventory', permission: 'canAccessInventory' },
+  { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders', preload: _prefetchOrders },
+  { path: '/kitchen', icon: UtensilsCrossed, label: 'Kitchen', permission: 'canAccessKitchen', preload: _prefetchKitchen },
+  { path: '/inventory', icon: Warehouse, label: 'Inventory', permission: 'canAccessInventory', preload: _prefetchInventory },
 ];
 
 const moreItems: TabItem[] = [
@@ -81,6 +88,8 @@ export function MobileBottomNav() {
               key={tab.path}
               to={tab.path}
               end={tab.path === '/'}
+              onMouseEnter={() => tab.preload?.()}
+              onFocus={() => tab.preload?.()}
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center justify-center min-w-0 flex-1 h-14 transition-colors',
