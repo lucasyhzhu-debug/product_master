@@ -117,6 +117,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 24-06]: getBallTotalsForDispatchPlanDate dual-pass: Pass 1 = dispatchPlans, Pass 2 = orders+orderItems; same BOM loop for both
 - [Phase 24-06]: dailyProductQty accumulator in getUnifiedWeeklyPlan enables post-assembly BOM expansion for dailyBallTotals
 - [Phase 24-06]: dailyBallTotals optional in UnifiedWeeklyPlanData for backward compat; Balls footer row hidden when absent
+- [Phase 25-03]: requireRole() calls removed (not kept) — requireRole accepts a session token string and cannot be called without args.token after protectedMutation migration; wrapper already enforces roles
+- [Phase 25-03]: forceComplete is the only migration-eligible mutation in orders/mutations/ — other mutations use optional token only for audit trail userId resolution, not role enforcement
 
 ### Pending Todos
 
@@ -172,13 +174,14 @@ None.
 | Phase 24-ingredient-simulation-id-linking P05 | 4 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P07 | 5 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P06 | 5 | 2 tasks | 2 files |
+| Phase 25-codebase-cleanup P03 | 2 | 2 tasks | 2 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 24-06-PLAN.md — Direct Sales ball totals fix + Balls footer row in PlannerGrid; build passes.
+Stopped at: Completed 25-03-PLAN.md — forceComplete + 6 productionRecipes mutations migrated to protectedMutation; type-check passes.
 Resume file: None
-Resume notes: Phase 24 plan 06 complete. Save to Kitchen now includes Direct Sales orders; PlannerGrid shows Balls footer row. Continue with remaining plans in phase 24 or proceed to UAT verification.
+Resume notes: Phase 25 plan 03 complete. 7 mutations migrated: forceComplete (statusUpdates.ts) and 6 in productionRecipes/mutations.ts. requireRole() removed as redundant (wrapper handles roles). Continue with plan 25-04.
 
 ---
 *Last updated: 2026-02-23 - Completed 24-06: Direct Sales ball totals in getBallTotalsForDispatchPlanDate + dailyBallTotals in getUnifiedWeeklyPlan + Balls footer row in PlannerGrid*
