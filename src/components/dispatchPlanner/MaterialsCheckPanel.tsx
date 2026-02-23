@@ -247,6 +247,18 @@ export function MaterialsCheckPanel({ startDate }: MaterialsCheckPanelProps) {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Unlinked ingredients warning */}
+            {simulationData?.unlinkedIngredients && (simulationData.unlinkedIngredients as string[]).length > 0 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 text-sm text-amber-800 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  {(simulationData.unlinkedIngredients as string[]).length} ingredient{(simulationData.unlinkedIngredients as string[]).length > 1 ? "s" : ""} not linked to inventory tracking — forecasts may be incomplete.{" "}
+                  <span className="font-medium">
+                    {(simulationData.unlinkedIngredients as string[]).join(", ")}
+                  </span>
+                </span>
+              </div>
+            )}
             {/* Packaging Materials section */}
             <div className="rounded border">
               <SectionHeader

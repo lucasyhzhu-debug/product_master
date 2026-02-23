@@ -14,7 +14,10 @@ import {
   useConvexUpdateIngredient,
   useConvexDeleteIngredient,
   useConvexCreateIngredientComponentType,
+  useLinkIngredientToComponentType,
 } from '@/hooks/convex';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,6 +67,73 @@ function EnableTrackingButton({ ingredient }: { ingredient: Ingredient }) {
   );
 }
 
+function LinkIngredientButton({ ingredient }: { ingredient: Ingredient }) {
+  const { user } = useAuth();
+  const linkIngredient = useLinkIngredientToComponentType();
+  const componentTypes = useQuery(api.componentTypes.queries.list, { activeOnly: true });
+  const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  // Filter to only tracked production componentTypes
+  const trackableTypes = (componentTypes ?? []).filter(
+    (ct: any) => ct.trackInventory && ct.category === 'production'
+  );
+
+  const handleLink = async () => {
+    if (!user?.token || !selectedId) return;
+    setSaving(true);
+    try {
+      await linkIngredient({
+        token: user.token,
+        ingredientId: ingredient._id,
+        componentTypeId: selectedId as Id<'componentTypes'>,
+      });
+      toast.success(`Linked ${ingredient.name} to inventory tracker`);
+      setOpen(false);
+      setSelectedId('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to link');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="text-xs text-blue-600 h-auto py-0.5 px-1" onClick={() => setOpen(true)}>
+        Link existing
+      </Button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setOpen(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-lg p-6 w-96 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-1">Link to Inventory Tracker</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Link <strong>{ingredient.name}</strong> to an existing tracked component type so simulation can read its stock.
+            </p>
+            <select
+              className="w-full border rounded px-3 py-2 text-sm mb-4 bg-white dark:bg-gray-800"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+            >
+              <option value="">Select component type...</option>
+              {trackableTypes.map((ct: any) => (
+                <option key={ct._id} value={ct._id as string}>{ct.name}</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleLink} disabled={!selectedId || saving}>
+                {saving ? 'Linking...' : 'Link'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function IngredientsManager() {
   useDocumentTitle('Ingredients');
 
@@ -94,7 +164,10 @@ export function IngredientsManager() {
             Tracked
           </Badge>
         ) : (
-          <EnableTrackingButton ingredient={item} />
+          <div className="flex flex-col gap-1 items-start">
+            <EnableTrackingButton ingredient={item} />
+            <LinkIngredientButton ingredient={item} />
+          </div>
         ),
     },
   ];

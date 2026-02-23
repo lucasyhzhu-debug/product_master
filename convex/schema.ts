@@ -1335,6 +1335,7 @@ export default defineSchema({
     }))),
     setAt: v.number(),
     setBy: v.string(),
+    source: v.optional(v.union(v.literal("manual"), v.literal("restock_planner"))),
   })
     .index("by_date", ["date"]),
 

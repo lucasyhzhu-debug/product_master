@@ -107,6 +107,7 @@ export const getKitchenTargetsForDate = query({
         midBalls,
         packagingBreakdown,
         source: "override" as const,
+        overrideSource: (override.source ?? "manual") as "manual" | "restock_planner",
       };
     }
 

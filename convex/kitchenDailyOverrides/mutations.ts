@@ -21,6 +21,7 @@ export const setDailyOverride = mutation({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),
     }))),
+    source: v.optional(v.union(v.literal("manual"), v.literal("restock_planner"))),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -32,6 +33,7 @@ export const setDailyOverride = mutation({
       packagingOverrides: args.packagingOverrides,
       setAt: Date.now(),
       setBy: user.name,
+      source: args.source ?? "manual",
     };
 
     // Upsert: if override exists for date, patch; otherwise insert

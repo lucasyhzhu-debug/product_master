@@ -9,8 +9,9 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { Settings } from "lucide-react";
+import { Settings, Send } from "lucide-react";
 import { toast } from "sonner";
+import type { Id } from "../../convex/_generated/dataModel";
 
 // UI
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ import {
   useDispatchChannelConfig,
   useDispatchSeedDefaults,
   useDispatchSavePlanCell,
+  useGetBallTotalsForDate,
+  useSetKitchenDailyOverride,
 } from "@/hooks/convex";
 
 // ============================================
@@ -64,6 +67,57 @@ function getCurrentMonday(): string {
   const today = new Date(todayStr + "T12:00:00+07:00");
   today.setDate(today.getDate() + mondayOffset);
   return today.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+}
+
+// ============================================
+// Save targets for kitchen (per-day button)
+// ============================================
+
+function SaveTargetButton({ date }: { date: string }) {
+  const ballTotals = useGetBallTotalsForDate(date);
+  const setOverride = useSetKitchenDailyOverride();
+  const [saving, setSaving] = useState(false);
+
+  const hasData = ballTotals && (ballTotals.bigBalls > 0 || ballTotals.midBalls > 0);
+
+  const handleSave = async () => {
+    if (!ballTotals) {
+      toast.error("No dispatch plan data for this date");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setOverride({
+        date,
+        bigBallOverride: ballTotals.bigBalls,
+        midBallOverride: ballTotals.midBalls,
+        packagingOverrides: ballTotals.packagingBreakdown.map((p) => ({
+          menuProductId: p.menuProductId as Id<"menuProducts">,
+          quantity: p.quantity,
+        })),
+        source: "restock_planner",
+      });
+      toast.success(`Targets saved for kitchen on ${date}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save targets");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleSave}
+      disabled={saving || !hasData}
+      title={hasData ? `${ballTotals.bigBalls} Jumbo + ${ballTotals.midBalls} Original balls` : "No dispatch plan for this date"}
+      className="gap-1.5 text-xs"
+    >
+      <Send className="h-3 w-3" />
+      {saving ? "Saving..." : "Save to Kitchen"}
+    </Button>
+  );
 }
 
 // ============================================
@@ -178,10 +232,24 @@ export function DispatchPlanner() {
 
       {/* Main Grid */}
       {weeklyData ? (
-        <PlannerGrid
-          data={weeklyData}
-          onSaveCell={handleSaveCell}
-        />
+        <>
+          <PlannerGrid
+            data={weeklyData}
+            onSaveCell={handleSaveCell}
+          />
+          {/* Save targets for kitchen row */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <span className="text-xs text-muted-foreground font-medium mr-1">Save to Kitchen:</span>
+            {weeklyData.dates.map((date) => (
+              <div key={date} className="flex flex-col items-center gap-0.5">
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(date + "T00:00:00+07:00").toLocaleDateString("en-US", { weekday: "short", timeZone: "Asia/Jakarta" })}
+                </span>
+                <SaveTargetButton date={date} />
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
           No data available for this week.

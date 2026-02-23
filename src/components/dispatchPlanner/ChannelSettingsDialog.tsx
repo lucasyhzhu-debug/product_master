@@ -1,10 +1,9 @@
 /**
  * ChannelSettingsDialog - Settings dialog for the Unified Dispatch Planner.
  *
- * Three sections via Tabs:
+ * Two sections via Tabs:
  * 1. Channels: Priority reorder + enable/disable + display name per channel
  * 2. Outlets: Add/edit/remove consignment outlets with product mappings
- * 3. Capacity: Set daily production capacity
  *
  * Manager/Admin access. Uses shadcn Dialog, Tabs, Switch, Input, Select.
  */
@@ -43,11 +42,9 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { toast } from "sonner";
 import {
   useDispatchChannelConfig,
-  useDispatchPlannerSettings,
   useDispatchConsignmentOutlets,
   useDispatchReorderPriorities,
   useDispatchUpdateChannelConfig,
-  useDispatchUpdateSettings,
   useDispatchAddConsignmentOutlet,
   useDispatchUpdateConsignmentOutlet,
   useDispatchRemoveConsignmentOutlet,
@@ -92,7 +89,6 @@ export function ChannelSettingsDialog({
 
   // Data hooks
   const { data: channels, isLoading: channelsLoading } = useDispatchChannelConfig();
-  const { data: settings, isLoading: settingsLoading } = useDispatchPlannerSettings();
   const { data: outlets, isLoading: outletsLoading } = useDispatchConsignmentOutlets();
   const rawMenuProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
   const menuProducts = rawMenuProducts?.map((mp) => ({
@@ -104,12 +100,11 @@ export function ChannelSettingsDialog({
   // Mutation hooks
   const reorderPriorities = useDispatchReorderPriorities();
   const updateChannelConfig = useDispatchUpdateChannelConfig();
-  const updateSettings = useDispatchUpdateSettings();
   const addOutlet = useDispatchAddConsignmentOutlet();
   const updateOutlet = useDispatchUpdateConsignmentOutlet();
   const removeOutlet = useDispatchRemoveConsignmentOutlet();
 
-  const isLoading = channelsLoading || settingsLoading || outletsLoading;
+  const isLoading = channelsLoading || outletsLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,15 +122,12 @@ export function ChannelSettingsDialog({
           </div>
         ) : (
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="channels" className="text-xs">
                 Channels
               </TabsTrigger>
               <TabsTrigger value="outlets" className="text-xs">
                 Outlets
-              </TabsTrigger>
-              <TabsTrigger value="capacity" className="text-xs">
-                Capacity
               </TabsTrigger>
             </TabsList>
 
@@ -168,17 +160,6 @@ export function ChannelSettingsDialog({
               />
             </TabsContent>
 
-            {/* Tab 3: Daily Capacity */}
-            <TabsContent value="capacity" className="mt-4 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Set the maximum daily production capacity in total balls.
-              </p>
-              <Separator />
-              <DailyCapacityEditor
-                currentCapacity={settings?.dailyCapacity ?? 200}
-                onSave={updateSettings}
-              />
-            </TabsContent>
           </Tabs>
         )}
       </DialogContent>
@@ -749,79 +730,3 @@ function OutletEditForm({
   );
 }
 
-/**
- * Daily Capacity Editor.
- */
-function DailyCapacityEditor({
-  currentCapacity,
-  onSave,
-}: {
-  currentCapacity: number;
-  onSave: (args: { dailyCapacity: number }) => Promise<unknown>;
-}) {
-  const [capacity, setCapacity] = useState(String(currentCapacity));
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setCapacity(String(currentCapacity));
-  }, [currentCapacity]);
-
-  const hasChanges = parseInt(capacity) !== currentCapacity;
-
-  const handleSave = useCallback(async () => {
-    const value = parseInt(capacity);
-    if (isNaN(value) || value <= 0) {
-      toast.error("Capacity must be a positive number");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await onSave({ dailyCapacity: value });
-      toast.success("Daily capacity updated");
-    } catch (error) {
-      console.error("Update capacity error:", error);
-      toast.error("Failed to update capacity");
-    } finally {
-      setSaving(false);
-    }
-  }, [capacity, onSave]);
-
-  return (
-    <div className="space-y-4 py-2">
-      <div className="space-y-1.5">
-        <Label className="text-sm">Daily Production Capacity</Label>
-        <p className="text-xs text-muted-foreground">
-          Maximum number of balls (across all channels) that can be produced per day.
-          The planner will show warnings when daily totals exceed this limit.
-        </p>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Input
-          type="number"
-          min="1"
-          value={capacity}
-          onChange={(e) => setCapacity(e.target.value)}
-          className="h-10 text-lg w-32 tabular-nums font-medium"
-        />
-        <span className="text-sm text-muted-foreground">balls / day</span>
-      </div>
-
-      <Button
-        onClick={handleSave}
-        disabled={saving || !hasChanges}
-        className="w-full"
-      >
-        {saving ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Saving...
-          </>
-        ) : (
-          "Save Capacity"
-        )}
-      </Button>
-    </div>
-  );
-}
