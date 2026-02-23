@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.10] - 2026-02-23 - Fix: Dark Mode Colors Now Consistent Across All Pages
+
+Dark mode rendering has been cleaned up across the entire app. Status banners, badges, alert boxes, and card backgrounds (low stock warnings, order urgency indicators, K3Mart/GoFood domain colors, etc.) now correctly adapt to dark mode using the project's central color token system instead of fragile per-component overrides. Also: managers can now force-complete stuck orders without needing admin access.
+
+### Fixed
+- **Dark mode token refactor**: 35 components and pages migrated from per-component `dark:` Tailwind patches to CSS variable tokens — dark mode now handled by the central cascade in `index.css`
+- Inventory, Orders, K3Mart Cockpit, GoFood Depot, Menu Products, and 5 page files all covered
+- **Force-complete orders**: Manager role can now force-complete orders (was admin-only)
+
+### Docs
+- `docs/CODE_STYLE.md` — new "Dark Mode" section with token usage guide
+- `docs/UI_BRAND_REFERENCE.md` — full semantic token replacement table and cascade explanation
+
+---
+
 ## [v1.3.9] - 2026-02-23 - Fix: Default Packaging Mix Product Dropdown
 
 The "Add product" dropdown in Kitchen Manager Settings → Default Packaging Mix now only shows real food products (e.g. Original Single, Jumbo Single) instead of every active product including brochures and packaging-only items.
