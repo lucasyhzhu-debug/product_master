@@ -121,6 +121,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 25-03]: forceComplete is the only migration-eligible mutation in orders/mutations/ — other mutations use optional token only for audit trail userId resolution, not role enforcement
 - [Phase 25-codebase-cleanup]: StatCard bg-white/10 intentional opacity overlay on dark-first card; KanbanBoard Draft colorClass bg-gray-500 → bg-muted-foreground; FeedbackCaptureMode dark tooltip gets dark: pair for compliance; TemplateEditor uses WhatsApp hex dark palette not generic tokens
 - [Phase 25-codebase-cleanup]: useConvex prefix removed from 7 hook files (Batches 1-3); hooks scoped to src/hooks/convex/ making prefix redundant; aligns with already-clean hooks (useVouchers, useGoFoodDepot, etc.)
+- [Phase 25-codebase-cleanup]: useMenuProducts.ts renames done via replace_all (not full rewrite) after discovering source still had old names; useOrders.ts mutations NOT migrated to useSessionMutation — that is plan 25-05 scope
 
 ### Pending Todos
 
@@ -179,13 +180,14 @@ None.
 | Phase 25-codebase-cleanup P03 | 2 | 2 tasks | 2 files |
 | Phase 25-codebase-cleanup P01 | 4 | 2 tasks | 10 files |
 | Phase 25-codebase-cleanup P02 | 5 | 2 tasks | 19 files |
+| Phase 25-codebase-cleanup P04 | 45 | 2 tasks | 49 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 25-02-PLAN.md — 34 hooks renamed across 7 files (Batches 1-3), 12 consumer files updated, type-check passes.
+Stopped at: Completed 25-04-PLAN.md — 87 hooks renamed across Batches 4-5 (8 hook files), 49 consumer files updated, zero useConvex references remain in src/. Continue with plan 25-05.
 Resume file: None
-Resume notes: Phase 25 plan 03 complete. 7 mutations migrated: forceComplete (statusUpdates.ts) and 6 in productionRecipes/mutations.ts. requireRole() removed as redundant (wrapper handles roles). Continue with plan 25-04.
+Resume notes: Phase 25 plan 04 complete. Hook prefix elimination fully done. Plan 25-05 migrates useOrders.ts and remaining mutation hooks from useMutation+token to useSessionMutation.
 
 ---
-*Last updated: 2026-02-23 - Completed 24-06: Direct Sales ball totals in getBallTotalsForDispatchPlanDate + dailyBallTotals in getUnifiedWeeklyPlan + Balls footer row in PlannerGrid*
+*Last updated: 2026-02-23 - Completed 25-04: 87 hooks renamed in Batches 4-5, zero useConvex references remain in src/*
