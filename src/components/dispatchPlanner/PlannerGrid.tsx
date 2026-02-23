@@ -58,6 +58,8 @@ export interface UnifiedWeeklyPlanData {
   dailyCapacity: number;
   channels: ChannelSection[];
   dailyTotals: Record<string, Record<string, number>>;
+  /** BOM-expanded ball count per date (from backend) */
+  dailyBallTotals?: Record<string, number>;
 }
 
 export interface SimulationResult {
@@ -120,7 +122,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   simulationResults,
   renderColumnAction,
 }: PlannerGridProps) {
-  const { dates, todayStr, dailyCapacity, channels, dailyTotals } = data;
+  const { dates, todayStr, dailyCapacity, channels, dailyTotals, dailyBallTotals } = data;
 
   // Build capacity bar segments per day
   const capacitySegments = useMemo(() => {
@@ -322,6 +324,31 @@ export const PlannerGrid = React.memo(function PlannerGrid({
               })}
             </div>
           </div>
+
+          {/* Balls footer row: BOM-expanded ball count per day */}
+          {dailyBallTotals && Object.keys(dailyBallTotals).length > 0 && (
+            <div className="flex border-t border-border bg-blue-50 dark:bg-blue-950/30">
+              <div className="w-[200px] min-w-[200px] px-3 py-2">
+                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Balls</span>
+              </div>
+              <div className="flex flex-1">
+                {dates.map((date) => {
+                  const balls = dailyBallTotals[date] ?? 0;
+                  return (
+                    <div
+                      key={date}
+                      className={cn(
+                        "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-semibold border-l border-border text-blue-700 dark:text-blue-300",
+                        date === todayStr && "bg-primary/5"
+                      )}
+                    >
+                      {balls > 0 ? balls.toLocaleString() : "--"}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
