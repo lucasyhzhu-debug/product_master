@@ -120,6 +120,7 @@ Key decisions affecting v1.3 phases:
 - [Phase 25-03]: requireRole() calls removed (not kept) — requireRole accepts a session token string and cannot be called without args.token after protectedMutation migration; wrapper already enforces roles
 - [Phase 25-03]: forceComplete is the only migration-eligible mutation in orders/mutations/ — other mutations use optional token only for audit trail userId resolution, not role enforcement
 - [Phase 25-codebase-cleanup]: StatCard bg-white/10 intentional opacity overlay on dark-first card; KanbanBoard Draft colorClass bg-gray-500 → bg-muted-foreground; FeedbackCaptureMode dark tooltip gets dark: pair for compliance; TemplateEditor uses WhatsApp hex dark palette not generic tokens
+- [Phase 25-codebase-cleanup]: useConvex prefix removed from 7 hook files (Batches 1-3); hooks scoped to src/hooks/convex/ making prefix redundant; aligns with already-clean hooks (useVouchers, useGoFoodDepot, etc.)
 
 ### Pending Todos
 
@@ -177,11 +178,12 @@ None.
 | Phase 24-ingredient-simulation-id-linking P06 | 5 | 2 tasks | 2 files |
 | Phase 25-codebase-cleanup P03 | 2 | 2 tasks | 2 files |
 | Phase 25-codebase-cleanup P01 | 4 | 2 tasks | 10 files |
+| Phase 25-codebase-cleanup P02 | 5 | 2 tasks | 19 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 25-03-PLAN.md — forceComplete + 6 productionRecipes mutations migrated to protectedMutation; type-check passes.
+Stopped at: Completed 25-02-PLAN.md — 34 hooks renamed across 7 files (Batches 1-3), 12 consumer files updated, type-check passes.
 Resume file: None
 Resume notes: Phase 25 plan 03 complete. 7 mutations migrated: forceComplete (statusUpdates.ts) and 6 in productionRecipes/mutations.ts. requireRole() removed as redundant (wrapper handles roles). Continue with plan 25-04.
 
