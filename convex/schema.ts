@@ -1428,6 +1428,8 @@ export default defineSchema({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),
     }))),
+    // Phase 21-07: when false, Jumbo (80g) stat card is hidden in ProductionTargetsBar
+    showJumbo: v.optional(v.boolean()),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),

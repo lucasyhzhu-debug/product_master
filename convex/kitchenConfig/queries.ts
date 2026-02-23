@@ -29,6 +29,7 @@ export const getConfig = query({
         bigBallTarget: DEFAULTS.bigBallTarget,
         midBallTarget: DEFAULTS.midBallTarget,
         defaultPackagingMix: [] as Array<{ menuProductId: Id<"menuProducts">; quantity: number }>,
+        showJumbo: true,  // default to showing Jumbo
         updatedAt: null,
         updatedBy: null,
       };
@@ -40,6 +41,7 @@ export const getConfig = query({
       bigBallTarget: config.bigBallTarget,
       midBallTarget: config.midBallTarget,
       defaultPackagingMix: config.defaultPackagingMix ?? [],
+      showJumbo: config.showJumbo ?? true,  // null-coalesce: show Jumbo by default
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,
     };

@@ -21,6 +21,7 @@ export const updateConfig = mutation({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),
     }))),
+    showJumbo: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -40,6 +41,7 @@ export const updateConfig = mutation({
       ...(args.defaultPackagingMix !== undefined && {
         defaultPackagingMix: args.defaultPackagingMix,
       }),
+      ...(args.showJumbo !== undefined && { showJumbo: args.showJumbo }),
       updatedAt: Date.now(),
       updatedBy: user.name,
     };
