@@ -14,6 +14,31 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.7] - 2026-02-23 - Legacy Cleanup: Remove Old Editors & Rebrand to Frollie Pro
+
+The app has been cleaned up significantly — all legacy recipe, packaging, product editor pages, the tags system, and the old dashboard have been removed. What used to be 70 database tables is now 59. The app is also rebranded from "Frollie Recipe Master" to **Frollie Pro**, and managers/admins now land on a clean hub page at `/home` with navigation cards organized by functional area.
+
+### Changed
+- **Removed legacy editor pages**: RecipeEditor, PackagingEditor, ProductEditor, TagsManager, Dashboard, and MaterialsManager pages are gone — along with their routes, hooks, and components
+- **11 schema tables dropped**: `recipes`, `recipeVersions`, `recipeComponents`, `componentIngredients`, `packagingRecipes`, `packagingVersions`, `packagingComponents`, `packagingComponentMaterials`, `products`, `productVersions`, `tags` — all were empty in production
+- **costInvalidation.ts cleaned**: Now only contains `invalidateMenuProductCosts` and `invalidateProductionComponentCosts`; legacy recipe/packaging invalidation removed
+- **Hub page at `/home`**: Role-filtered navigation hub with Frollie Pro branding, time-of-day greeting, and 5 functional area sections (Operations, Inventory & Supply, Sales & Distribution, Configuration, Admin). Cards hidden when user lacks access. Zero live data queries
+- **Role redirects**: Manager/admin → `/home`; kitchen → `/kitchen`; order_staff → `/orders`
+- **Rebranded to Frollie Pro**: All "Frollie Recipe Master" references updated across header, footer, login page, document title hook, and `index.html`
+- **Home nav link added**: Desktop header and mobile bottom nav now include a Home link pointing to `/home` for manager/admin
+
+### Files Modified
+- `convex/schema.ts` — 11 legacy tables removed (70 → 59)
+- `convex/lib/costInvalidation.ts` — stripped to 2 active functions
+- `convex/ingredients/mutations.ts`, `convex/materials/mutations.ts` — legacy scheduler calls removed
+- `src/pages/HubPage.tsx` — new hub page (251 lines)
+- `src/App.tsx` — routes updated, `RoleBasedRedirect` added
+- `src/components/layout/Header.tsx`, `Footer.tsx`, `MobileBottomNav.tsx` — branding + nav updates
+- `src/pages/Login.tsx`, `src/hooks/useDocumentTitle.ts`, `index.html` — branding updates
+- ~60 files deleted (legacy pages, hooks, components)
+
+---
+
 ## [v1.3.6] - 2026-02-23 - Kitchen: EoS Form Gap Closure — Waste Filter, Inline Error, Live Delta
 
 Three quality-of-life fixes for the End of Shift form. Waste entries now respect which ball types are enabled — if you turn off Jumbo in Manager Settings, Jumbo waste rows disappear and aren't submitted. If the shift submission fails (e.g. network error), the error now shows as an amber banner right on the review screen instead of a fleeting toast. And each produced row now shows the target next to the input with a live over/under delta so you can see at a glance whether you've hit the day's goal.
