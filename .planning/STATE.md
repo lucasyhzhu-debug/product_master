@@ -7,10 +7,10 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 
 ## Current Position
 
-Phase: Phase 21 — Kitchen Production Targets (COMPLETE - 7/7 plans done)
-Plan: 21-07 complete (7/7 plans done)
-Status: Phase 21 complete; KitchenOrderSummary replaces DueDateOrderList; showJumbo schema + toggle + ProductionTargetsBar conditional card; build passes
-Last activity: 2026-02-23 - Completed 21-07: read-only order summary; showJumbo kitchenConfig field + Manager Settings toggle + ProductionTargetsBar guard
+Phase: Phase 21 — Kitchen Production Targets (In Progress - UAT-r2 gap closure)
+Plan: 21-08 complete (8/11 plans done — UAT-r2 gap closure plans active)
+Status: 21-08 done; chefName/chefUserId on kitchenShiftRecords; enabledProductionComponents on kitchenConfig with showJumbo backward compat; build passes
+Last activity: 2026-02-23 - Completed 21-08: chef attribution schema + per-component production toggle schema
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -90,6 +90,8 @@ Key decisions affecting v1.3 phases:
 - [Phase 21-06]: dispatch fallthrough: preserve ball totals from dispatch plan while using config defaultPackagingMix for packaging breakdown when BOM traversal yields empty result
 - [Phase 21-07]: KitchenOrderSummary uses listForKanban (existing kanban query) cast to Record<string, OrderRow[]> — avoids creating a new backend query for a read-only view
 - [Phase 21-07]: showJumbo toggle uses inline button[role=switch] — no shadcn/ui Switch import needed; PackagingMixEditor not filtered by showJumbo (toggle controls ProductionTargetsBar stat card only)
+- [Phase 21-08]: enabledProductionComponents null = all enabled; frontend resolves actual codes from componentTypes table
+- [Phase 21-08]: showJumbo preserved in schema and auto-derived from enabledProductionComponents for backward compat during migration
 
 ### Pending Todos
 
@@ -132,11 +134,12 @@ None.
 | Phase 21-kitchen-production-targets P05 | 3 | 2 tasks | 3 files |
 | Phase 21-kitchen-production-targets P06 | 2 | 2 tasks | 2 files |
 | Phase 21-kitchen-production-targets P07 | 3 | 3 tasks | 6 files |
+| Phase 21-kitchen-production-targets P08 | 3 | 2 tasks | 6 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 21-07 — KitchenOrderSummary replaces DueDateOrderList; showJumbo schema field + Manager Settings toggle + ProductionTargetsBar conditional Jumbo card; build passes; Phase 21 COMPLETE (7/7)
+Stopped at: Completed 21-08 — chef attribution fields on kitchenShiftRecords; enabledProductionComponents on kitchenConfig with showJumbo backward compat; build passes
 Resume file: None
 Resume notes: Phase 21 complete. Ready to merge gsd/phase-21-kitchen-production-targets to main. Update CHANGELOG.md and SCHEMA.md after merge.
 

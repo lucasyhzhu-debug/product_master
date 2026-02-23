@@ -14,6 +14,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.2] - 2026-02-23 - Kitchen: Chef Accountability + Per-Component Production Toggles (Schema)
+
+Shift records can now track who actually cooked — separate from whoever submitted the record. This lets a manager or senior staff submit on behalf of a team member while crediting the right person. Additionally, production component visibility is now configurable per component type (Original/Jumbo independently) instead of just a single Jumbo on/off toggle — the groundwork for full independent toggle controls in the kitchen view.
+
+### Added
+- **Chef attribution on shift records**: `chefName` and `chefUserId` fields on `kitchenShiftRecords`. Submission accepts optional chef info; managers can correct it on edit.
+- **Per-component production toggles**: `enabledProductionComponents` string array on `kitchenConfig` (e.g. `["BIG_BALL", "MID_BALL"]`). `null` means all enabled. When set, `showJumbo` is automatically derived for backward compatibility.
+
+### Files Modified
+- `convex/schema.ts` — `chefName`/`chefUserId` on `kitchenShiftRecords`; `enabledProductionComponents` on `kitchenConfig`
+- `convex/kitchenShiftRecords/mutations.ts` — `submitShiftRecord` and `updateShiftRecord` accept chef fields
+- `convex/kitchenShiftRecords/queries.ts` — `getShiftRecordsByDate` and `getShiftHistory` return chef fields
+- `convex/kitchenConfig/mutations.ts` — `updateConfig` accepts `enabledProductionComponents`; auto-syncs `showJumbo`
+- `convex/kitchenConfig/queries.ts` — `getConfig` returns `enabledProductionComponents` (null = all); derives `showJumbo` from new field when set
+
+---
+
 ## [v1.3.1] - 2026-02-22 - Kitchen Shift Records: Raw Ingredient Deduction at Shift End
 
 When kitchen staff submit an end-of-shift production record, the system now automatically deducts the raw ingredients that were consumed to make those balls from ingredient inventory — closing the ingredient loop so stock levels stay accurate without any manual adjustments.
