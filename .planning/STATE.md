@@ -3,16 +3,16 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 21 (Kitchen Production Targets) complete; 5/5 plans done
+**Current focus:** v1.3 — Phase 21 (Kitchen Production Targets) gap closure; 6/7 plans done
 
 ## Current Position
 
-Phase: Phase 21 — Kitchen Production Targets (Complete - 5/5 plans done)
-Plan: 21-05 complete (5/5 plans done)
-Status: Phase 21 complete; raw ingredient FIFO deduction wired into submitShiftRecord and updateShiftRecord; build passes
-Last activity: 2026-02-22 - Completed 21-05: raw ingredient deduction at shift end — ingredientDeduction.ts helper + mutations.ts wired with soft-failure pattern
+Phase: Phase 21 — Kitchen Production Targets (Gap Closure - 6/7 plans done)
+Plan: 21-06 complete (6/7 plans done)
+Status: Phase 21 gap closure in progress; 21-06 fixes getConfig defaultPackagingMix exposure, dispatch fallthrough, and product filter; build passes
+Last activity: 2026-02-23 - Completed 21-06: getConfig exposes defaultPackagingMix; dispatch falls through to config defaults for packaging; ManagerTargetSettings interface + useEffect + food-only filter fixed
 
-Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (5/5)
+Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 in progress (6/7)
 
 ## Performance Metrics
 
@@ -84,6 +84,10 @@ Key decisions affecting v1.3 phases:
 - [Phase 21-05]: buildIngredientNeeds extracted as private helper shared by deduct and restore to avoid BOM traversal duplication
 - [Phase 21-05]: restoreIngredientsForShift uses best-effort batch restore (newest active batch) — exact FIFO reversal not feasible for edits
 - [Phase 21-05]: updateShiftRecord ingredient diff uses produced[] arrays (not net maps) to correctly scope ingredient changes to production only, independent of waste
+- [Phase 21-06]: Form bindings in ManagerTargetSettings were already correct at time of execution; only interface, useEffect, and product filter changes were needed
+- [Phase 21-06]: dispatch fallthrough: preserve ball totals from dispatch plan while using config defaultPackagingMix for packaging breakdown when BOM traversal yields empty result
+- [Phase 21-06]: Form bindings in ManagerTargetSettings were already correct at time of execution; only interface, useEffect, and product filter changes were needed
+- [Phase 21-06]: dispatch fallthrough: preserve ball totals from dispatch plan while using config defaultPackagingMix for packaging breakdown when BOM traversal yields empty result
 
 ### Pending Todos
 
@@ -124,13 +128,14 @@ None.
 | Phase 21-kitchen-production-targets P03 | 4 | 2 tasks | 8 files |
 | Phase 21-kitchen-production-targets P04 | 5 | 2 tasks | 4 files |
 | Phase 21-kitchen-production-targets P05 | 3 | 2 tasks | 3 files |
+| Phase 21-kitchen-production-targets P06 | 2 | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-02-22
-Stopped at: Completed 21-05 — ingredientDeduction.ts helper + mutations.ts wired with soft-failure FIFO pattern; Phase 21 complete
+Last session: 2026-02-23
+Stopped at: Completed 21-06 — getConfig exposes defaultPackagingMix; dispatch fallthrough to config defaults for packaging; ManagerTargetSettings interface + useEffect + food-only filter fixed; build passes
 Resume file: None
-Resume notes: Phase 21 complete (5/5). All kitchen production target features shipped. Ready to merge feature/kitchen-production-targets to main.
+Resume notes: Phase 21 gap closure plan 06 complete (6/7). One plan remaining (21-07). Ready to execute 21-07 to close remaining UAT gaps.
 
 ---
-*Last updated: 2026-02-22 - Completed 21-05: raw ingredient FIFO deduction at shift end — ingredientDeduction.ts helper + mutations.ts ingredient deduction wired; build passes*
+*Last updated: 2026-02-23 - Completed 21-06: getConfig exposes defaultPackagingMix; dispatch fallthrough to config defaults; ManagerTargetSettings interface + useEffect + food-only filter; build passes*
