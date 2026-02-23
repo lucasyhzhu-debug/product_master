@@ -29,11 +29,19 @@ export const getConfig = query({
         bigBallTarget: DEFAULTS.bigBallTarget,
         midBallTarget: DEFAULTS.midBallTarget,
         defaultPackagingMix: [] as Array<{ menuProductId: Id<"menuProducts">; quantity: number }>,
-        showJumbo: true,  // default to showing Jumbo
+        // Phase 21-08: null = all production components enabled (frontend resolves from componentTypes)
+        enabledProductionComponents: null as string[] | null,
+        showJumbo: true,  // backward-compat default: show Jumbo
         updatedAt: null,
         updatedBy: null,
       };
     }
+
+    // Phase 21-08: If enabledProductionComponents is set, derive showJumbo from it.
+    // Otherwise fall back to the legacy showJumbo field.
+    const derivedShowJumbo = config.enabledProductionComponents
+      ? config.enabledProductionComponents.includes("BIG_BALL")
+      : (config.showJumbo ?? true);
 
     return {
       _id: config._id,
@@ -41,7 +49,9 @@ export const getConfig = query({
       bigBallTarget: config.bigBallTarget,
       midBallTarget: config.midBallTarget,
       defaultPackagingMix: config.defaultPackagingMix ?? [],
-      showJumbo: config.showJumbo ?? true,  // null-coalesce: show Jumbo by default
+      // Phase 21-08: null = all enabled; array = explicit enabled list
+      enabledProductionComponents: config.enabledProductionComponents ?? null,
+      showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,
     };

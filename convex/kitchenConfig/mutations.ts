@@ -22,6 +22,10 @@ export const updateConfig = mutation({
       quantity: v.number(),
     }))),
     showJumbo: v.optional(v.boolean()),
+    // Phase 21-08: Per-component visibility toggles (replaces showJumbo)
+    // Provide an array of component codes to enable, e.g. ["BIG_BALL", "MID_BALL"]
+    // When provided, showJumbo is auto-synced for backward compat
+    enabledProductionComponents: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -34,6 +38,12 @@ export const updateConfig = mutation({
       throw new ConvexError("Ball targets cannot be negative");
     }
 
+    // Phase 21-08: When enabledProductionComponents is provided, sync legacy showJumbo
+    // for any callers that still read it directly.
+    const derivedShowJumbo = args.enabledProductionComponents !== undefined
+      ? args.enabledProductionComponents.includes("BIG_BALL")
+      : args.showJumbo;
+
     const configData = {
       maxProductionTarget: args.maxProductionTarget,
       bigBallTarget: args.bigBallTarget,
@@ -41,7 +51,10 @@ export const updateConfig = mutation({
       ...(args.defaultPackagingMix !== undefined && {
         defaultPackagingMix: args.defaultPackagingMix,
       }),
-      ...(args.showJumbo !== undefined && { showJumbo: args.showJumbo }),
+      ...(args.enabledProductionComponents !== undefined && {
+        enabledProductionComponents: args.enabledProductionComponents,
+      }),
+      ...(derivedShowJumbo !== undefined && { showJumbo: derivedShowJumbo }),
       updatedAt: Date.now(),
       updatedBy: user.name,
     };

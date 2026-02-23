@@ -1430,6 +1430,10 @@ export default defineSchema({
     }))),
     // Phase 21-07: when false, Jumbo (80g) stat card is hidden in ProductionTargetsBar
     showJumbo: v.optional(v.boolean()),
+    // Phase 21-08: Per-component visibility toggles (replaces showJumbo long-term)
+    // Array of enabled production component codes, e.g. ["BIG_BALL", "MID_BALL"]
+    // When unset, defaults to all active production component codes (all enabled)
+    enabledProductionComponents: v.optional(v.array(v.string())),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),
