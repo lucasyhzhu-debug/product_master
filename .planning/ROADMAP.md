@@ -62,8 +62,8 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
 - [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
-- [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress (completed 2026-02-23)
-- [x] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24) (completed 2026-02-23)
+- [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress (completed 2026-02-23)
+- [x] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24) (completed 2026-02-23)
 
 **Deferred to future milestone:**
 - ~~Consignment Upload~~ — CON-01 through CON-05
@@ -233,6 +233,13 @@ Plans:
   9. Manager can overwrite restock override from kitchen page
   10. `npm run type-check` passes
   11. `npm run build` succeeds
+**Plans:** 4 plans
+
+Plans:
+- [ ] 24-01-PLAN.md — Schema: kitchenDailyOverrides source field + setDailyOverride mutation + linkIngredientToComponentType mutation
+- [ ] 24-02-PLAN.md — Backend core: simulateInventory ID-fix + capacity migration + getKitchenTargetsForDate overrideSource + getBallTotalsForDispatchPlanDate query
+- [ ] 24-03-PLAN.md — Frontend cleanup: remove Capacity tab, unlinked warning in MaterialsCheckPanel, source badge in ProductionTargetsBar, ManagerTargetSettings source field
+- [ ] 24-04-PLAN.md — Frontend integration: "Save to Kitchen" button in DispatchPlanner + admin link UI in IngredientsManager
 
 ### Phase 25: Codebase Cleanup
 
@@ -282,6 +289,6 @@ Plans:
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 0/0 | Not started | - |
-| 24. Simulation Fix + Restock-Kitchen | v1.3 | 0/0 | Not started | - |
+| 24. Simulation Fix + Restock-Kitchen | v1.3 | 0/4 | Not started | - |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
 | 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |
