@@ -14,6 +14,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.8] - 2026-02-23 - Performance: Bundle Splitting & Lazy Route Loading
+
+The app now loads significantly faster on first visit. Instead of downloading all page code upfront (~1.4 MB), the browser only downloads the code for the page you're actually visiting. Vendor libraries (React, icons, charts) are split into stable cached chunks so returning users skip those downloads entirely. Hovering over a nav link pre-fetches the next page's code before you click — making navigation feel instant.
+
+### Changed
+- **Lazy route loading**: All pages (except Login and Hub) are now loaded on-demand via React.lazy — initial JS bundle drops from ~1.4 MB to well under 500 kB
+- **Vendor chunk splitting**: `recharts/d3`, `framer-motion`, `react-dom/router`, `lucide-react`, `@radix-ui`, `convex`, and `@dnd-kit` each get their own cached chunk — stable hashes mean returning users skip these downloads
+- **Hover prefetching**: Hovering or focusing a nav link (desktop header + mobile bottom nav) pre-fetches the destination page chunk before the user clicks
+- **Route loading spinner**: A 200ms-delayed UtensilsCrossed spinner appears if a chunk takes time to load — invisible on fast connections, graceful on slow ones
+- **Chunk error boundary**: Automatically retries failed chunk loads once; detects deploy-drift (stale chunk hash) and reloads; shows "Please reload" prompt after two failures
+- **Bundle size CI guard**: `npm run build` now fails if the main index chunk exceeds 500 kB — prevents future regressions
+- **Bundle visualizer**: `dist/bundle-stats.html` generated on every build for interactive treemap analysis
+- **WhatsApp Templates**: Removed page-level fade-in animation (pages now snap in immediately per design decision)
+
+### Files Modified
+- `src/lib/lazyWithPreload.ts` — new utility: wraps React.lazy with `.preload()` method
+- `src/components/shared/RouteLoadingFallback.tsx` — new: 200ms delayed spinner component
+- `src/components/shared/ChunkErrorBoundary.tsx` — new: class-based error boundary for chunk load failures
+- `src/App.tsx` — all routes converted to lazy imports; Suspense + ChunkErrorBoundary added
+- `src/components/layout/Header.tsx` — onMouseEnter/onFocus prefetch wired to nav links
+- `src/components/layout/MobileBottomNav.tsx` — onMouseEnter/onFocus prefetch wired to primary tabs
+- `src/pages/WhatsAppTemplatesManager.tsx` — page-level AnimatePresence/motion.div wrapper removed
+- `vite.config.ts` — manualChunks, bundlesize plugin, visualizer plugin added
+- `package.json` — `vite-plugin-bundlesize`, `rollup-plugin-visualizer` added as devDependencies
+
+---
+
 ## [v1.3.7] - 2026-02-23 - Legacy Cleanup: Remove Old Editors & Rebrand to Frollie Pro
 
 The app has been cleaned up significantly — all legacy recipe, packaging, product editor pages, the tags system, and the old dashboard have been removed. What used to be 70 database tables is now 59. The app is also rebranded from "Frollie Recipe Master" to **Frollie Pro**, and managers/admins now land on a clean hub page at `/home` with navigation cards organized by functional area.

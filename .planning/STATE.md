@@ -3,14 +3,14 @@
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-02-22)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 22 (Remove Legacy Editors, Tags & Dashboard) in progress
+**Current focus:** v1.3 — Phase 23 complete (bundle splitting + lazy routes)
 
 ## Current Position
 
-Phase: Phase 22 — Remove Legacy Editors, Tags & Dashboard (COMPLETE — 5/5 plans done)
-Plan: 22-05 complete (5/5 plans done)
-Status: 22-05 done; final verification sweep passed — type-check clean, build succeeds, zero dead references to legacy tables/pages/hooks/permissions; stale JSDoc comments cleaned; Phase 22 fully complete, ready to merge to main
-Last activity: 2026-02-23 - Completed 22-05: final verification sweep + Phase 22 complete
+Phase: Phase 23 — Bundle Size & Lazy Routes (COMPLETE — 3/3 plans done, UAT passed 7/7)
+Plan: 23-03 complete (3/3 plans done)
+Status: All routes lazy-loaded, vendor chunks split, bundlesize CI guard active, UAT verified — merged to main
+Last activity: 2026-02-23 - Phase 23 UAT complete (7/7 passed), merged and closed
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
