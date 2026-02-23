@@ -239,7 +239,7 @@ Plans:
   9. Manager can overwrite restock override from kitchen page
   10. `npm run type-check` passes
   11. `npm run build` succeeds
-**Plans:** 7 plans
+**Plans:** 1/7 plans executed
 
 Plans:
 - [ ] 24-01-PLAN.md — Schema: kitchenDailyOverrides source field + setDailyOverride mutation + linkIngredientToComponentType mutation
@@ -298,6 +298,6 @@ Plans:
 | 21. Kitchen Production Targets | v1.3 | 11/11 | Complete | 2026-02-23 |
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 0/3 | Not started | - |
-| 24. Simulation Fix + Restock-Kitchen | v1.3 | 4/7 | UAT gap closure | - |
+| 24. Simulation Fix + Restock-Kitchen | 1/7 | In Progress|  | - |
 | 25. Codebase Cleanup | v1.3 | 0/0 | Not started | - |
 | 26. E2E Playwright Tests | v1.3 | 0/0 | Not started | - |

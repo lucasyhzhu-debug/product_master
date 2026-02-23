@@ -108,6 +108,10 @@ Key decisions affecting v1.3 phases:
 - [Phase 22-03]: HubPage has zero Convex bandwidth — no useQuery or useMutation; static role-filtered nav cards only
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: 22-05: Test files in tests/convex/ referencing legacy tables are out of scope; plan grep targets src/ and convex/ only
 - [Phase 22-remove-legacy-editors-tags-and-dashboard]: 22-05: EditorPageSkeleton and DashboardSkeleton JSDoc comments updated to remove stale references to deleted pages
+- [Phase 24-05]: direct-manual sentinel stripped in handleSaveCell (frontend) — keeps mutation validator clean
+- [Phase 24-05]: getYesterday() exported from DispatchPlanner.tsx for single-source date anchor; WeekNav imports it
+- [Phase 24-05]: renderColumnAction prop pattern on PlannerGrid — loose coupling between grid and Save-to-Kitchen semantics
+- [Phase 24-05]: PlannerCell blur reverts (not saves) — Enter-only saves prevent accidental data commits; amber ring indicates unsaved state
 
 ### Pending Todos
 
@@ -160,13 +164,14 @@ None.
 | Phase 22-remove-legacy-editors-tags-and-dashboard P03 | 145 | 2 tasks | 3 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P04 | 2 | 1 tasks | 6 files |
 | Phase 22-remove-legacy-editors-tags-and-dashboard P05 | 4 | 1 tasks | 1 files |
+| Phase 24-ingredient-simulation-id-linking P05 | 4 | 2 tasks | 7 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 22-05 — Final verification sweep; Phase 22 fully complete (5/5). Branch ready to merge to main.
+Stopped at: Completed 24-05-PLAN.md — Planner grid UX fixes (6 issues resolved); build passes.
 Resume file: None
-Resume notes: Phase 22 COMPLETE. Merge branch gsd/phase-22-remove-legacy-editors-tags-and-dashboard to main. Update CHANGELOG.md after merge.
+Resume notes: Phase 24 plan 05 complete. Continue with remaining plans in phase 24 or proceed to UAT verification.
 
 ---
 *Last updated: 2026-02-23 - Completed 22-05: Final verification sweep; Phase 22 fully complete (5/5 plans done)*
