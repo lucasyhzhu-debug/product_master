@@ -14,6 +14,26 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.5] - 2026-02-23 - Kitchen: Shift Review Deltas, Success Screen Animation, Chef History
+
+The shift review step now shows each product's produced count vs. its target — including a +/- variance so staff know at a glance if they hit the day's goal. Waste counts toward the total made in the review summary. The success screen has been redesigned from a plain text summary into a card list with a sequential checkmark animation per product row. Shift history now shows the chef name on each record when one was set, and managers can update the chef field when editing a past record.
+
+### Changed
+- **Shift review target deltas**: Each product row in the review step shows produced count, optional waste count, and a +/- variance vs. the target. Green = met or exceeded; amber = fell short.
+- **Waste toward target total**: The totals section in the review step shows produced, waste, and combined total made (produced + waste) so nothing is hidden.
+- **Success screen redesign**: Card list layout with Framer Motion stagger animation — each produced item animates in sequentially with a checkmark icon. Waste shown separately below.
+- **Chef name in shift history**: History cards show "(chef: Name)" next to the submitter when the chef differs from who submitted.
+- **Chef edit in ShiftEditDialog**: Manager edit dialog now includes a chef name input field, pre-populated from the existing record and saved back on confirm.
+
+### Files Modified
+- `src/components/kitchen/ShiftReviewModal.tsx` — card-style rows, target deltas, waste-toward-target totals summary
+- `src/components/kitchen/ShiftSuccessScreen.tsx` — card list layout, Framer Motion stagger animation, separate waste section
+- `src/components/kitchen/ShiftHistoryList.tsx` — chefName + chefUserId fields on ShiftRecord; chef display in record card
+- `src/components/kitchen/ShiftEditDialog.tsx` — chefName state, input field, included in updateShiftRecord call
+- `src/components/kitchen/EndOfShiftForm.tsx` — passes packagingItems as targets to ShiftReviewModal and ShiftSuccessScreen
+
+---
+
 ## [v1.3.4] - 2026-02-23 - Kitchen: Per-Component Toggle Cascade, Target Display, Chef Selector, Order Notes
 
 Kitchen production tracking is now fully toggle-aware — turning off a ball type (e.g. Jumbo) hides it from stat cards, packaging breakdown badges, and the End of Shift input rows. Each product row now shows its target quantity right next to the input for at-a-glance comparison. The End of Shift form has a chef selector so you can record who actually cooked. The read-only order summary cards now show order notes. The page header shows the chef name when one has been assigned for the current shift.

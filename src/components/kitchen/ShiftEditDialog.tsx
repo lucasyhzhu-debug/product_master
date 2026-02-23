@@ -115,6 +115,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   );
 
   const [editNote, setEditNote] = useState("");
+  const [chefName, setChefName] = useState(record.chefName ?? "");
   const [wasteOpen, setWasteOpen] = useState(record.waste.length > 0);
 
   // Confirmation dialog state
@@ -253,6 +254,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             quantity: w.quantity,
           })),
         editNote: editNote.trim() || undefined,
+        chefName: chefName.trim() || undefined,
       });
 
       toast.success("Shift record updated");
@@ -467,6 +469,17 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Chef name */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
+            <Input
+              value={chefName}
+              onChange={(e) => setChefName(e.target.value)}
+              placeholder="Chef name..."
+              className="h-8 text-sm"
+            />
           </div>
 
           {/* Edit note */}

@@ -2,15 +2,17 @@
  * ShiftSuccessScreen
  *
  * Displayed after a successful shift record submission.
- * Shows a brief summary of what was recorded and a Done button to reset.
+ * Shows a card list of produced items and waste rows with sequential Framer Motion
+ * stagger animation (Gap 9). Uses CheckCircle2 icon per produced row.
  */
 
 import { CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 const REASON_LABELS: Record<string, string> = {
-  qa_testing: "QA",
+  qa_testing: "QA / Testing",
   spoilage: "Spoilage",
   waste: "Waste",
 };
@@ -28,51 +30,106 @@ interface WasteEntry {
   quantity: number;
 }
 
+interface TargetItem {
+  menuProductId: string;
+  name: string;
+  quantity: number;
+}
+
 interface ShiftSuccessScreenProps {
   produced: ProducedItem[];
   waste: WasteEntry[];
+  targets?: TargetItem[];
   onDone: () => void;
 }
+
+// Framer Motion stagger variants
+const container = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariant = {
+  hidden: { opacity: 0, x: -10 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.3 } },
+};
 
 export function ShiftSuccessScreen({
   produced,
   waste,
   onDone,
 }: ShiftSuccessScreenProps) {
-  const producedSummary = produced
-    .map((p) => `${p.quantity} ${p.menuProductName}`)
-    .join(", ");
-
-  const wasteSummary =
-    waste.length > 0
-      ? waste
-          .map(
-            (w) =>
-              `${w.quantity} ${w.menuProductName} (${REASON_LABELS[w.reason] ?? w.reason})`
-          )
-          .join(", ")
-      : null;
-
   return (
     <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
-      <CardContent className="pt-6 pb-4 flex flex-col items-center text-center space-y-4">
-        <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-
-        <div>
-          <h3 className="text-lg font-semibold text-foreground mb-1">
-            Shift Recorded
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            Produced:{" "}
-            <span className="text-foreground font-medium">{producedSummary}</span>
-          </p>
-          {wasteSummary && (
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Waste:{" "}
-              <span className="text-foreground font-medium">{wasteSummary}</span>
-            </p>
-          )}
+      <CardContent className="pt-6 pb-4 space-y-4">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0" />
+          <h3 className="text-lg font-semibold text-foreground">Shift Recorded</h3>
         </div>
+
+        {/* Produced items — stagger animation */}
+        {produced.length > 0 && (
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="space-y-2"
+          >
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Production
+            </p>
+            {produced.map((p) => (
+              <motion.div
+                key={p.menuProductId}
+                variants={itemVariant}
+                className="flex items-center justify-between rounded-lg border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-card p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <span className="text-sm font-medium">{p.menuProductName}</span>
+                </div>
+                <span className="text-sm font-semibold tabular-nums">{p.quantity} units</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Waste items — separate section */}
+        {waste.length > 0 && (
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="space-y-2"
+          >
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Waste
+            </p>
+            {waste.map((w, idx) => (
+              <motion.div
+                key={`${w.menuProductId}-${w.reason}-${idx}`}
+                variants={itemVariant}
+                className="flex items-center justify-between rounded-lg border border-border bg-white dark:bg-card p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{w.menuProductName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({REASON_LABELS[w.reason] ?? w.reason})
+                  </span>
+                </div>
+                <span className="text-sm font-semibold tabular-nums text-destructive">
+                  -{w.quantity}
+                </span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
         <p className="text-xs text-muted-foreground">
           Inventory has been updated at the Kitchen location.

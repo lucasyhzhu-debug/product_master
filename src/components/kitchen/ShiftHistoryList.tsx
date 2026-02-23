@@ -52,6 +52,8 @@ export interface ShiftRecord {
   date: string;
   submittedAt: number;
   submittedBy: string;
+  chefName?: string;
+  chefUserId?: string;
   produced: ProducedEntry[];
   waste: WasteEntry[];
   editedAt?: number;
@@ -174,7 +176,7 @@ export function ShiftHistoryList() {
 
         {history !== undefined && history.length > 0 && (
           <div className="space-y-4">
-            {groupByDate(history).map(({ date, records }) => (
+            {groupByDate(history as unknown as ShiftRecord[]).map(({ date, records }) => (
               <div key={date}>
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                   {formatDate(date)}
@@ -183,7 +185,7 @@ export function ShiftHistoryList() {
                   {records.map((record) => (
                     <ShiftRecordCard
                       key={record._id}
-                      record={record as ShiftRecord}
+                      record={record}
                       onEdit={(r) => {
                         setEditRecord(r);
                         setEditOpen(true);
@@ -231,8 +233,13 @@ function ShiftRecordCard({
     <div className="rounded-lg border border-border bg-card p-3 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-0.5 min-w-0">
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-sm flex-wrap">
             <span className="font-medium">{record.submittedBy}</span>
+            {record.chefName && record.chefName !== record.submittedBy && (
+              <span className="text-xs text-muted-foreground">
+                (chef: {record.chefName})
+              </span>
+            )}
             <span className="text-muted-foreground text-xs">
               {formatTime(record.submittedAt)}
             </span>
@@ -281,9 +288,9 @@ function ShiftRecordCard({
 // -------------------------------------------------------
 
 function groupByDate(
-  records: Array<{ date: string; [key: string]: unknown }>
-): Array<{ date: string; records: typeof records }> {
-  const dateMap = new Map<string, typeof records>();
+  records: ShiftRecord[]
+): Array<{ date: string; records: ShiftRecord[] }> {
+  const dateMap = new Map<string, ShiftRecord[]>();
   for (const record of records) {
     const existing = dateMap.get(record.date) ?? [];
     dateMap.set(record.date, [...existing, record]);
