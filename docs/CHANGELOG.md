@@ -14,6 +14,100 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.5] - 2026-02-23 - Kitchen: Shift Review Deltas, Success Screen Animation, Chef History
+
+The shift review step now shows each product's produced count vs. its target — including a +/- variance so staff know at a glance if they hit the day's goal. Waste counts toward the total made in the review summary. The success screen has been redesigned from a plain text summary into a card list with a sequential checkmark animation per product row. Shift history now shows the chef name on each record when one was set, and managers can update the chef field when editing a past record.
+
+### Changed
+- **Shift review target deltas**: Each product row in the review step shows produced count, optional waste count, and a +/- variance vs. the target. Green = met or exceeded; amber = fell short.
+- **Waste toward target total**: The totals section in the review step shows produced, waste, and combined total made (produced + waste) so nothing is hidden.
+- **Success screen redesign**: Card list layout with Framer Motion stagger animation — each produced item animates in sequentially with a checkmark icon. Waste shown separately below.
+- **Chef name in shift history**: History cards show "(chef: Name)" next to the submitter when the chef differs from who submitted.
+- **Chef edit in ShiftEditDialog**: Manager edit dialog now includes a chef name input field, pre-populated from the existing record and saved back on confirm.
+
+### Files Modified
+- `src/components/kitchen/ShiftReviewModal.tsx` — card-style rows, target deltas, waste-toward-target totals summary
+- `src/components/kitchen/ShiftSuccessScreen.tsx` — card list layout, Framer Motion stagger animation, separate waste section
+- `src/components/kitchen/ShiftHistoryList.tsx` — chefName + chefUserId fields on ShiftRecord; chef display in record card
+- `src/components/kitchen/ShiftEditDialog.tsx` — chefName state, input field, included in updateShiftRecord call
+- `src/components/kitchen/EndOfShiftForm.tsx` — passes packagingItems as targets to ShiftReviewModal and ShiftSuccessScreen
+
+---
+
+## [v1.3.4] - 2026-02-23 - Kitchen: Per-Component Toggle Cascade, Target Display, Chef Selector, Order Notes
+
+Kitchen production tracking is now fully toggle-aware — turning off a ball type (e.g. Jumbo) hides it from stat cards, packaging breakdown badges, and the End of Shift input rows. Each product row now shows its target quantity right next to the input for at-a-glance comparison. The End of Shift form has a chef selector so you can record who actually cooked. The read-only order summary cards now show order notes. The page header shows the chef name when one has been assigned for the current shift.
+
+### Changed
+- **Per-component toggle cascade**: Disabling Original or Jumbo in Manager Settings now hides the stat card, packaging breakdown badge, and End of Shift input row for that ball type — consistently throughout the kitchen view.
+- **Target display in EoS form**: Each product row in End of Shift now shows "target: N" next to the product name so staff can compare what was planned vs. what to enter.
+- **Chef selector in End of Shift**: A dropdown lets you select the actual cook before submitting. Chef name is recorded alongside the submitter in the shift record.
+- **Chef name in header**: When a shift record with a chef has been submitted today, "Shift for: [Chef Name]" appears next to the date in the page header.
+- **Order notes on order cards**: Read-only order summary cards in the collapsible orders section now display order notes below the item list.
+- **Mixed ball type warning**: Products that use both Original and Jumbo balls get an amber warning flag in EoS when one type is toggled off, so staff know it's partially disabled.
+
+### Files Modified
+- `src/components/kitchen/ProductionTargetsBar.tsx` — per-component visibility via enabledComponents prop; packaging badges filtered and styled by ball type
+- `src/components/kitchen/EndOfShiftForm.tsx` — target display per row, row filtering, mixed-type warning flag, chef selector
+- `src/components/kitchen/KitchenOrderSummary.tsx` — order notes displayed on cards
+- `src/pages/KitchenViewV2.tsx` — BOM lookup for productBallTypes map, enabledComponents derivation, prop threading, chef header, users query
+- `convex/menuProductComponents/queries.ts` — added `listAll` query for BOM map building
+
+---
+
+## [v1.3.3] - 2026-02-23 - Kitchen: Unified Manager Settings + Smart Packaging Mix Editor
+
+The Manager Settings panel has been redesigned into a single, cleaner form. Instead of juggling two separate cards (Defaults and Today's Override), there's now one set of inputs with two save actions. The packaging mix editor now shows exactly what's in the BOM for each product — including which ball type it uses and how many balls per unit — with running allocation counters that update live as you adjust quantities. The whole section is now collapsible so kitchen staff don't see it cluttering their view. Setting a daily override no longer clears the packaging breakdown badges on the main targets bar.
+
+### Changed
+- **Unified Manager Settings form**: Single card replaces the two-card Default + Override layout. Max Capacity field removed — ball targets (Original + Jumbo) are the ceiling.
+- **Two save actions**: "Save as Default Daily Targets" persists to config; "Apply Override for Today Only" sets a daily override without touching defaults.
+- **Per-component toggles**: Individual enable/disable toggles per production component (Original 45g / Jumbo 80g) replace the single Show Jumbo toggle. Loaded dynamically from componentTypes.
+- **Packaging mix with BOM info**: Each product row now shows BOM component badges, balls-per-unit count, subtotal, and a running allocation counter per ball type. Products grouped by ball type. Soft warning when mix total doesn't match ball target.
+- **Food POS product filter**: Packaging mix dropdown now only shows products that are food type, active, and assigned to a POS slot — the ~3 products actually available for ordering.
+- **Collapsible Manager Settings**: The section starts collapsed, keeping the kitchen view clean for production staff.
+- **Override preserves packaging breakdown**: When a daily override is active without explicit packaging overrides, the target query now falls through to the default packaging mix so breakdown badges remain visible.
+
+### Files Modified
+- `src/components/kitchen/PackagingMixEditor.tsx` — new component: BOM-aware packaging mix editor with ball allocation counters
+- `src/components/kitchen/ManagerTargetSettings.tsx` — rewritten: unified form with per-component toggles and two save actions
+- `src/pages/KitchenViewV2.tsx` — Manager Settings section now collapsible (default: collapsed)
+- `convex/kitchenConfig/queries.ts` — `getKitchenTargetsForDate` override path now falls through to `defaultPackagingMix` when no packaging overrides set
+
+---
+
+## [v1.3.2] - 2026-02-23 - Kitchen: Chef Accountability + Per-Component Production Toggles (Schema)
+
+Shift records can now track who actually cooked — separate from whoever submitted the record. This lets a manager or senior staff submit on behalf of a team member while crediting the right person. Additionally, production component visibility is now configurable per component type (Original/Jumbo independently) instead of just a single Jumbo on/off toggle — the groundwork for full independent toggle controls in the kitchen view.
+
+### Added
+- **Chef attribution on shift records**: `chefName` and `chefUserId` fields on `kitchenShiftRecords`. Submission accepts optional chef info; managers can correct it on edit.
+- **Per-component production toggles**: `enabledProductionComponents` string array on `kitchenConfig` (e.g. `["BIG_BALL", "MID_BALL"]`). `null` means all enabled. When set, `showJumbo` is automatically derived for backward compatibility.
+
+### Files Modified
+- `convex/schema.ts` — `chefName`/`chefUserId` on `kitchenShiftRecords`; `enabledProductionComponents` on `kitchenConfig`
+- `convex/kitchenShiftRecords/mutations.ts` — `submitShiftRecord` and `updateShiftRecord` accept chef fields
+- `convex/kitchenShiftRecords/queries.ts` — `getShiftRecordsByDate` and `getShiftHistory` return chef fields
+- `convex/kitchenConfig/mutations.ts` — `updateConfig` accepts `enabledProductionComponents`; auto-syncs `showJumbo`
+- `convex/kitchenConfig/queries.ts` — `getConfig` returns `enabledProductionComponents` (null = all); derives `showJumbo` from new field when set
+
+---
+
+## [v1.3.1] - 2026-02-22 - Kitchen Shift Records: Raw Ingredient Deduction at Shift End
+
+When kitchen staff submit an end-of-shift production record, the system now automatically deducts the raw ingredients that were consumed to make those balls from ingredient inventory — closing the ingredient loop so stock levels stay accurate without any manual adjustments.
+
+### Added
+- **Automatic ingredient deduction on shift submit**: When a shift record is submitted, each produced ball quantity is traced through the production BOM (Big Ball / Mid Ball → ingredient hierarchy) and the corresponding raw ingredient quantities are deducted from inventory using FIFO (oldest batches consumed first).
+- **Soft failure with warnings**: If ingredient stock is insufficient, the shift submission is never blocked — the system deducts whatever is available and records a negative adjustment for the shortfall, returning warnings for optional display.
+- **Ingredient adjustment on shift edits**: Manager edits to shift records now also adjust raw ingredient stock for the production diff (more production = additional deduction; less production = ingredients restored to latest active batch).
+
+### Files Modified
+- `convex/kitchenShiftRecords/ingredientDeduction.ts` — new helper: `deductIngredientsForShift`, `restoreIngredientsForShift`, `buildIngredientNeeds`
+- `convex/kitchenShiftRecords/mutations.ts` — `submitShiftRecord` step 7 (deduct ingredients); `updateShiftRecord` step 5 (diff-based deduct/restore)
+
+---
+
 ## [v1.2.16] - 2026-02-22 - WhatsApp Template Editor: Delivery Fee Preview & Tooltips
 
 The template editor now correctly shows the delivery fee in the live preview (instead of the raw `{delivery_fee}` placeholder), the variable chip appears in the Delivery section so you can click to insert it, and hovering any variable now shows a small description of what it does.

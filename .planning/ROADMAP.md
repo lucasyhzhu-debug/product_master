@@ -5,7 +5,7 @@
 - ✅ **v1.0 Concerns Cleanup & Refactor** — Phases 1-11 (shipped 2026-02-15)
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
-- 📋 **v1.3 GoFood, Kitchen & Consignment** — Phases 19-23 (planned)
+- 📋 **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-22 (planned)
 
 ## Phases
 
@@ -56,15 +56,18 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 
 </details>
 
-### 📋 v1.3 GoFood, Kitchen & Consignment (Planned)
+### 📋 v1.3 GoFood, Kitchen & Legacy Cleanup (Planned)
 
-**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
+**Milestone Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and remove legacy recipe/packaging/product editors to clean the codebase.
 
 - [x] **Phase 19: GoFood Depot Management** — Per-outlet product mapping, per-depot stock tracking with alerts, restock suggestion algorithm, Tamtem silent-skip fix (GF-02, GF-03, GF-04, GF-05) (completed 2026-02-22)
-- [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
-- [ ] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18)
-- [ ] **Phase 22: Consignment Upload** — Excel template download, bulk and detail upload with row validation, audit log, batch delete (CON-01, CON-02, CON-03, CON-04, CON-05)
-- [ ] **Phase 23: Sales Analytics Extension** — Consignment channel in stacked charts, lifetime units sold headline counter with per-product and per-channel breakdown (ANLY-01, ANLY-02, ANLY-03)
+- [x] **Phase 20: Optimize top Convex query reads** — Reduce production bandwidth by optimizing high-traffic queries (completed 2026-02-22)
+- [x] **Phase 21: Kitchen Production Targets & Overhaul** — Simplified kitchen UI, targets from dispatch plan/defaults, end-of-shift production recording → Finished Goods, waste logging, shift history (KIT-09, KIT-12, KIT-13–18) — 5/5 core plans complete; 2 UAT gap closure plans in progress (completed 2026-02-23)
+- [ ] **Phase 22: Remove legacy editors, tags & Dashboard** — Drop 11 unused schema tables, remove 4 editor pages, strip legacy Dashboard, clean cost invalidation (formerly Phase 24)
+
+**Deferred to future milestone:**
+- ~~Consignment Upload~~ — CON-01 through CON-05
+- ~~Sales Analytics Extension~~ — ANLY-01 through ANLY-03
 
 ## Phase Details
 
@@ -139,61 +142,50 @@ Plans:
   4. End-of-shift input at middle-bottom accepts produced quantities by product type + optional waste by reason (QA/testing, spoilage, waste); two-step confirmation (review → success screen)
   5. Submitting end-of-shift adds produced quantities to Finished Goods Inventory at Kitchen location; waste quantities are deducted
   6. Shift production records are stored and viewable by managers; manager can edit past shifts with inventory impact warning
-**Plans:** 4 plans in 3 waves
+**Plans:** 11/11 plans complete
 
 Plans:
-- [ ] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
-- [ ] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
-- [ ] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
-- [ ] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
+- [x] 21-01-PLAN.md — Schema (kitchenShiftRecords, kitchenDailyOverrides, kitchenConfig extension) + target query + config/override mutations
+- [x] 21-02-PLAN.md — Shift record mutations (submit + update with inventory integration) + queries
+- [x] 21-03-PLAN.md — Frontend redesign: ProductionTargetsBar, EndOfShiftForm with two-step confirm, KitchenViewV2 restructure
+- [x] 21-04-PLAN.md — Manager settings (defaults + daily override), shift history list, shift edit dialog
+- [x] 21-05-PLAN.md — Raw ingredient FIFO deduction at shift submit/update
+- [x] 21-06-PLAN.md — [GAP-r1] Fix form binding inversion, defaultPackagingMix flow, food-only product filter
+- [x] 21-07-PLAN.md — [GAP-r1] Read-only order summary + showJumbo toggle (schema + backend + frontend)
+- [ ] 21-08-PLAN.md — [GAP-r2] Schema: chef field on shift records + enabledProductionComponents replacing showJumbo
+- [ ] 21-09-PLAN.md — [GAP-r2] Unified Manager Settings + Packaging Mix redesign (BOM info, allocation counters, per-component toggles)
+- [ ] 21-10-PLAN.md — [GAP-r2] Per-component toggle cascade (targets bar, badges, EoS form) + target display + order notes + chef display
+- [ ] 21-11-PLAN.md — [GAP-r2] Review summary deltas + success screen Framer Motion polish + chef in shift history
 
-### Phase 22: Consignment Upload
+### Phase 22: Remove legacy editors, tags & Dashboard
 
-**Goal:** User can download a pre-formatted Excel template, upload consignment sales in bulk or detail format with row-level validation and preview before committing, view the upload history per outlet, and delete a past batch to reverse its revenue rows
-**Depends on:** Phase 21 (all v1.3 backend infrastructure in place)
-**Requirements:** CON-01, CON-02, CON-03, CON-04, CON-05
+**Goal:** Remove the legacy recipe/packaging/product editor pages, tags system, and Dashboard page. Drop 11 unused schema tables, clean cost invalidation, remove 4 editor routes, strip legacy Dashboard (/ becomes clean landing). ~5,200 lines of dead code removed.
+**Depends on:** Phase 21
 **Implementation Notes:**
-- SheetJS 0.20.3 must be installed from CDN tarball: `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` — NOT from npm registry (registry version is abandoned 0.18.5)
-- CON-03 template download must be Wave 1 alongside schema — outlets need the template before they upload
-- Use static import only at top of Convex action file (`import * as XLSX from "xlsx"`) — never dynamic import (CLAUDE.md Pitfall #8)
-- Chunk mutation writes at 100-200 rows maximum; add 5 MB file size guard in UI before parsing begins
-- `convex/lib/dateUtils.ts` WIB utility must be created in this phase and imported by Phase 23
-- Inspect `dispatchConsignmentOutlets` data before Phase 22 Wave 1 to decide outlet FK strategy (reuse existing IDs vs. create parallel `externalOutlets` rows with `source = "consignment"`)
-- Validate merged-cell detection in parser before `sheet_to_json`; template must have zero merged cells
-- Use `/frontend-design` skill for holistic UI definition before implementation waves
+- Formerly Phase 24; renumbered after Phases 22 (Consignment Upload) and 23 (Sales Analytics Extension) were deferred to a future milestone
+- 11 schema tables to drop: recipes, recipeVersions, recipeComponents, componentIngredients, packagingRecipes, packagingVersions, packagingComponents, packagingComponentMaterials, products, productVersions, tags
+- Dashboard.tsx renders recipe/packaging/product carousels with tag filter — remove entirely, / route becomes clean landing
+- costInvalidation.ts: remove invalidateRecipeCosts and invalidatePackagingCosts, keep only menu product + production component invalidation
+- ingredients/mutations.ts and materials/mutations.ts: remove scheduler calls to legacy invalidation
+- Tags are ONLY used by legacy entities — safe to remove entirely
+- Verify production data in tables is either empty or exported before schema drop
+- No active system (orders, kitchen, inventory, menu products) references these tables
 **Success Criteria** (what must be TRUE):
-  1. User can download a pre-formatted Excel template with two sheets (Bulk Summary and Transaction Detail), example rows, no merged cells, and a note warning not to merge cells
-  2. User selects an outlet and uploads a Bulk Summary Excel file; system validates rows with row number and column name on error, shows a preview table, warns on duplicate outlet + date range, and only commits after confirmation
-  3. User uploads a Transaction Detail Excel file; system applies the same row-level validation and preview flow, auto-detects the format from the presence of a `transactionId` column header
-  4. User can view upload history per outlet showing status, row count, and upload date
-  5. User can delete a past upload batch; system reverses all associated revenue rows and removes the batch from history
-**Plans:** TBD (run /gsd:plan-phase 22 to break down)
+  1. RecipeEditor, PackagingEditor, ProductEditor, TagsManager pages removed; routes removed from App.tsx
+  2. All 11 legacy schema tables dropped from convex/schema.ts
+  3. Dashboard page removed; / route is a clean landing or redirect
+  4. costInvalidation.ts only contains menu product and production component invalidation
+  5. `npm run type-check` passes
+  6. `npm run build` succeeds
+  7. No dead imports or references to removed tables/pages
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD
-
-### Phase 23: Sales Analytics Extension
-
-**Goal:** Sales Analytics shows consignment outlets as distinct segments in stacked bar charts and displays a lifetime units sold headline counter with per-product and per-channel breakdown table across all channels
-**Depends on:** Phase 22 (consignment rows must exist in `externalRevenue` for lifetime aggregation; `convex/lib/dateUtils.ts` created in Phase 22)
-**Requirements:** ANLY-01, ANLY-02, ANLY-03
-**Implementation Notes:**
-- Fix `getDailySalesSummary` channel filter to `channel = "direct"` BEFORE writing `getLifetimeTotals` — building aggregation on a broken foundation guarantees wrong numbers
-- All aggregation date boundaries must use `convex/lib/dateUtils.ts` WIB utility from Phase 22
-- Per-channel source of truth: Direct = `orders` filtered to `channel = "direct"`; GoFood/K3Mart/Consignment = `externalRevenue` by source
-- `getLifetimeTotals` per-product join for Direct channel requires joining `orderItems` (not `externalRevenue`) — plan a design review to avoid N+1 patterns
-- Lifetime total must not exceed total balls from production log (physical upper bound validation)
-- Research flag: `getLifetimeTotals` per-product join complexity should be reviewed before assigning to executor
-- Use `/frontend-design` skill for holistic UI definition before implementation waves
-**Success Criteria** (what must be TRUE):
-  1. Each consignment outlet that has revenue data appears as its own color segment in the Sales Analytics stacked bar charts; outlets with no data are not shown
-  2. Sales Analytics has a Lifetime tab showing a headline counter of total units sold across all channels and all time
-  3. The Lifetime tab shows a per-product breakdown table (sortable by total units descending) aggregated across all channels
-  4. The Lifetime tab shows a per-channel breakdown (GoFood, K3Mart, Direct, and each consignment outlet separately) contributing to the grand total
-**Plans:** TBD (run /gsd:plan-phase 23 to break down)
-
-Plans:
-- [ ] TBD
+- [ ] 22-01-PLAN.md — Drop 11 legacy schema tables, delete 5 backend modules, strip costInvalidation.ts
+- [ ] 22-02-PLAN.md — Delete legacy frontend pages, hooks, components; clean barrel exports, routes, permissions
+- [ ] 22-03-PLAN.md — Build Frollie Pro hub page at /home with role-filtered navigation cards
+- [ ] 22-04-PLAN.md — Rebrand to Frollie Pro + update navigation (Home link, remove dead nav items)
+- [ ] 22-05-PLAN.md — Final verification sweep (type-check, build, dead reference grep)
 
 ## Progress
 
@@ -205,16 +197,6 @@ Plans:
 | 17.1. Product Inventory Tracker | v1.2 | 5/5 | Complete | 2026-02-21 |
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
-| 20. Optimize Convex Query Reads | 8/8 | Complete    | 2026-02-22 | - |
-| 21. Kitchen Production Targets | v1.3 | 0/TBD | Not started | - |
-| 22. Consignment Upload | v1.3 | 0/TBD | Not started | - |
-| 23. Sales Analytics Extension | v1.3 | 0/TBD | Not started | - |
-
-### Phase 24: Remove legacy recipe/packaging/product editors and tags system
-
-**Goal:** [To be planned]
-**Depends on:** Phase 23
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 24 to break down)
+| 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
+| 21. Kitchen Production Targets | 11/11 | Complete    | 2026-02-23 | - |
+| 22. Remove legacy editors & Dashboard | v1.3 | 0/5 | Not started | - |

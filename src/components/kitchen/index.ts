@@ -31,3 +31,10 @@ export { KitchenOrderCard } from './KitchenOrderCard';
 export { KitchenOrderChecklist } from './KitchenOrderChecklist';
 export { K3MartSyntheticCard } from './K3MartSyntheticCard';
 export { DueDateOrderList } from './DueDateOrderList';
+
+// Kitchen V4 Redesign — Phase 21
+export { ProductionTargetsBar } from './ProductionTargetsBar';
+export type { KitchenTargets } from './ProductionTargetsBar';
+export { EndOfShiftForm } from './EndOfShiftForm';
+export { ShiftReviewModal } from './ShiftReviewModal';
+export { ShiftSuccessScreen } from './ShiftSuccessScreen';
