@@ -14,6 +14,38 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.11] - 2026-02-23 - Feature: Ingredient Cost Simulation & Dispatch Planner Upgrades
+
+You can now simulate "what if ingredient X costs more?" directly from the Ingredients page — instantly see how price changes ripple through recipes, products, and margins before committing. The Dispatch Planner got a major usability upgrade: the date grid now anchors on yesterday so today is always visible, each column header has a "Save to Kitchen" button, and a new Balls footer row shows the total ball count per day expanded from BOM. Direct Sales orders are now included in ball totals so nothing is missed. Finished Goods inventory can be adjusted inline with a new Adjust dialog.
+
+### Added
+- **Ingredient cost simulation**: simulate price changes on any ingredient and see real-time impact on recipe costs, product COGS, and margins via BOM expansion
+- **Balls footer row**: PlannerGrid shows BOM-expanded ball count (Big Ball / Mid Ball) per day at the bottom
+- **Direct Sales in ball totals**: `getBallTotalsForDispatchPlanDate` now includes direct sales orders alongside regular dispatch orders
+- **FG Adjust dialog**: new `FGAdjustDialog` component + Adjust button in `FinishedGoodsTab` for inline inventory corrections
+- **Untrack button**: ingredients can be untracked directly from the Ingredients page
+
+### Changed
+- **Dispatch Planner date grid**: anchored on yesterday so today's column is always visible without scrolling
+- **Save to Kitchen**: moved from a single page button to per-column headers in the Planner grid
+- **Planner renamed**: page title updated from "Dispatch Plan" to "Planner"
+
+### Fixed
+- **Direct-manual save bug**: fixed save logic that was incorrectly persisting manual overrides
+- **Blur-save removed**: eliminated accidental saves triggered by clicking away from cells
+- **Double toast on ingredient edit**: prevented duplicate success notifications
+- **Nav fixes**: corrected Hub page navigation links
+
+### Files Modified
+- `convex/dispatchPlanner/queries.ts`, `helpers.ts` — ball totals, direct sales aggregation
+- `convex/ingredients/mutations.ts` — simulation endpoint
+- `src/pages/DispatchPlanner.tsx` — date grid, save-to-kitchen, planner rename
+- `src/pages/IngredientsManager.tsx` — simulation UI, untrack button
+- `src/components/dispatchPlanner/PlannerGrid.tsx`, `PlannerCell.tsx`, `WeekNav.tsx` — balls footer, UX polish
+- `src/components/inventory/FGAdjustDialog.tsx`, `FinishedGoodsTab.tsx` — new adjust flow
+
+---
+
 ## [v1.3.10] - 2026-02-23 - Fix: Dark Mode Colors Now Consistent Across All Pages
 
 Dark mode rendering has been cleaned up across the entire app. Status banners, badges, alert boxes, and card backgrounds (low stock warnings, order urgency indicators, K3Mart/GoFood domain colors, etc.) now correctly adapt to dark mode using the project's central color token system instead of fragile per-component overrides. Also: managers can now force-complete stuck orders without needing admin access.
