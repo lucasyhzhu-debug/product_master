@@ -6,6 +6,43 @@ import type { OrderWithItems } from "./types";
 // Mirrors the same prefix regex in helpers.ts — used for smart delivery info detection
 const PICKUP_PREFIX_RE = /^pick up:\s*/i;
 
+// Statuses that imply payment has been received (used to derive display payment status)
+const PAID_ORDER_STATUSES = new Set([
+  "PaymentReceived",
+  "BeingPrepared",
+  "AwaitingDelivery",
+  "Complete",
+  // Legacy statuses (unmigrated orders)
+  "Confirmed",
+  "InProduction",
+  "Boxed",
+  "Labeled",
+  "Packaging",
+  "WaitingShipment",
+  "WaitingPickup",
+  "CompleteShipped",
+  "PickedUp",
+]);
+
+/**
+ * Derive the effective payment status for display.
+ *
+ * The `paymentStatus` field on an order is manually managed and defaults to "Unpaid".
+ * It is NOT auto-updated when orders advance through the normal payment workflow
+ * (AwaitingPayment → PaymentReceived). Only `forceComplete` and manual `updatePayment`
+ * calls set it to "Paid".
+ *
+ * To avoid showing "Unpaid" on orders that have clearly been paid (i.e. status is
+ * PaymentReceived or later), we infer "Paid" from the order status when the stored
+ * paymentStatus is still "Unpaid".
+ */
+function deriveEffectivePaymentStatus(order: OrderWithItems): string {
+  if (order.paymentStatus === "Unpaid" && PAID_ORDER_STATUSES.has(order.status)) {
+    return "Paid";
+  }
+  return order.paymentStatus;
+}
+
 // ============================================
 // Template Variable Substitution
 // ============================================
@@ -80,8 +117,10 @@ function buildTemplateVariables(
     deliveryInfo = `📍 Pickup at: ${location}`;
   }
 
-  // Payment info
-  let paymentInfo = `Payment: ${order.paymentStatus}`;
+  // Payment info — use derived status so "Paid" shows for PaymentReceived+ orders
+  // even when the paymentStatus field was never explicitly updated from "Unpaid"
+  const effectivePaymentStatus = deriveEffectivePaymentStatus(order);
+  let paymentInfo = `Payment: ${effectivePaymentStatus}`;
   if (order.paymentMethod) {
     paymentInfo += ` (${order.paymentMethod})`;
   }
@@ -401,8 +440,10 @@ function generateReceipt(order: OrderWithItems): string {
     ? `\n🚚 Ongkir: ${formatCurrency(order.deliveryFee)}`
     : "";
 
-  // Payment info
-  let paymentInfo = `Payment: ${order.paymentStatus}`;
+  // Payment info — use derived status so "Paid" shows for PaymentReceived+ orders
+  // even when the paymentStatus field was never explicitly updated from "Unpaid"
+  const effectivePaymentStatus = deriveEffectivePaymentStatus(order);
+  let paymentInfo = `Payment: ${effectivePaymentStatus}`;
   if (order.paymentMethod) {
     paymentInfo += ` (${order.paymentMethod})`;
   }
