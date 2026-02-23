@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 21 — Kitchen Production Targets (Complete — all 11 plans done)
 Plan: 21-11 complete (11/11 plans done — UAT-r2 gap closure complete)
 Status: 21-11 done; shift review target deltas; waste-toward-target totals; success screen card layout + Framer Motion stagger; chef name in shift history; chef edit in ShiftEditDialog; build passes
-Last activity: 2026-02-23 - Completed 21-11: shift review deltas + success screen animation + chef history
+Last activity: 2026-02-23 - Completed quick task 25: EoS form gap closure: waste filter, inline confirm error, produced row redesign with targets and deltas
 
 Progress (v1.3): [██████████] ~100% — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (7/7)
 
@@ -128,6 +128,7 @@ None.
 | 22 | add {delivery_fee} template variable to payment_request and receipt WhatsApp DB templates (ID + EN); variable emits full ongkir line with emoji when fee set, empty when zero | 2026-02-22 | ee22f43 | Verified | [22-add-shipping-fee-variable-to-whatsapp-pa](./quick/22-add-shipping-fee-variable-to-whatsapp-pa/) |
 | 23 | Highlight my orders and orders with notes on order manager kanban with sorting and legend toggles | 2026-02-22 | 3fa94de | Verified | [23-highlight-my-orders-and-orders-with-note](./quick/23-highlight-my-orders-and-orders-with-note/) |
 | 24 | Disable Sales Analytics and K3Mart Cockpit pages; redirect / and disabled routes to /orders for bandwidth conservation until March 1st | 2026-02-22 | 7d7fcba | Done | [24-disable-sales-analytics-page-and-redirec](./quick/24-disable-sales-analytics-page-and-redirec/) |
+| 25 | EoS form gap closure: waste filter, inline confirm error, produced row redesign with targets and deltas | 2026-02-23 | 861afec | Verified | [25-eos-form-gap-closure-waste-filter-inline](./quick/25-eos-form-gap-closure-waste-filter-inline/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
