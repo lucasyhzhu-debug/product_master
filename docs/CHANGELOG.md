@@ -14,6 +14,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.3] - 2026-02-23 - Kitchen: Unified Manager Settings + Smart Packaging Mix Editor
+
+The Manager Settings panel has been redesigned into a single, cleaner form. Instead of juggling two separate cards (Defaults and Today's Override), there's now one set of inputs with two save actions. The packaging mix editor now shows exactly what's in the BOM for each product — including which ball type it uses and how many balls per unit — with running allocation counters that update live as you adjust quantities. The whole section is now collapsible so kitchen staff don't see it cluttering their view. Setting a daily override no longer clears the packaging breakdown badges on the main targets bar.
+
+### Changed
+- **Unified Manager Settings form**: Single card replaces the two-card Default + Override layout. Max Capacity field removed — ball targets (Original + Jumbo) are the ceiling.
+- **Two save actions**: "Save as Default Daily Targets" persists to config; "Apply Override for Today Only" sets a daily override without touching defaults.
+- **Per-component toggles**: Individual enable/disable toggles per production component (Original 45g / Jumbo 80g) replace the single Show Jumbo toggle. Loaded dynamically from componentTypes.
+- **Packaging mix with BOM info**: Each product row now shows BOM component badges, balls-per-unit count, subtotal, and a running allocation counter per ball type. Products grouped by ball type. Soft warning when mix total doesn't match ball target.
+- **Food POS product filter**: Packaging mix dropdown now only shows products that are food type, active, and assigned to a POS slot — the ~3 products actually available for ordering.
+- **Collapsible Manager Settings**: The section starts collapsed, keeping the kitchen view clean for production staff.
+- **Override preserves packaging breakdown**: When a daily override is active without explicit packaging overrides, the target query now falls through to the default packaging mix so breakdown badges remain visible.
+
+### Files Modified
+- `src/components/kitchen/PackagingMixEditor.tsx` — new component: BOM-aware packaging mix editor with ball allocation counters
+- `src/components/kitchen/ManagerTargetSettings.tsx` — rewritten: unified form with per-component toggles and two save actions
+- `src/pages/KitchenViewV2.tsx` — Manager Settings section now collapsible (default: collapsed)
+- `convex/kitchenConfig/queries.ts` — `getKitchenTargetsForDate` override path now falls through to `defaultPackagingMix` when no packaging overrides set
+
+---
+
 ## [v1.3.2] - 2026-02-23 - Kitchen: Chef Accountability + Per-Component Production Toggles (Schema)
 
 Shift records can now track who actually cooked — separate from whoever submitted the record. This lets a manager or senior staff submit on behalf of a team member while crediting the right person. Additionally, production component visibility is now configurable per component type (Original/Jumbo independently) instead of just a single Jumbo on/off toggle — the groundwork for full independent toggle controls in the kitchen view.
