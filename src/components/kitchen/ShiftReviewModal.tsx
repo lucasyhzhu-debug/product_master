@@ -2,7 +2,11 @@
  * ShiftReviewModal
  *
  * Inline review screen (not a dialog) shown before committing an end-of-shift submission.
- * Displays produced + waste summary, then offers Confirm / Back buttons.
+ * Displays produced + waste summary with target deltas, then offers Confirm / Back buttons.
+ *
+ * Target delta (Gap 10): each product row shows produced count, optional waste count,
+ * and a +/- variance against the target (produced + waste = total made).
+ * Waste is stored separately in the shift record but counts toward "total made" here.
  */
 
 import { Loader2 } from "lucide-react";
@@ -29,9 +33,17 @@ interface WasteEntry {
   quantity: number;
 }
 
+interface TargetItem {
+  menuProductId: string;
+  name: string;
+  quantity: number;
+}
+
 interface ShiftReviewModalProps {
   produced: ProducedItem[];
   waste: WasteEntry[];
+  /** Packaging breakdown targets for delta calculation */
+  targets?: TargetItem[];
   onConfirm: () => Promise<void>;
   onBack: () => void;
   isSubmitting: boolean;
@@ -40,11 +52,16 @@ interface ShiftReviewModalProps {
 export function ShiftReviewModal({
   produced,
   waste,
+  targets = [],
   onConfirm,
   onBack,
   isSubmitting,
 }: ShiftReviewModalProps) {
   const totalProduced = produced.reduce((s, p) => s + p.quantity, 0);
+  const totalWaste = waste.reduce((s, w) => s + w.quantity, 0);
+
+  // Build target map for O(1) lookup
+  const targetMap = new Map(targets.map((t) => [t.menuProductId, t.quantity]));
 
   return (
     <Card>
@@ -52,27 +69,59 @@ export function ShiftReviewModal({
         <CardTitle className="text-lg">Review Shift Summary</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Production summary */}
+        {/* Production summary — card-style rows with target deltas */}
         <div>
           <p className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wide">
             Production
           </p>
-          <ul className="space-y-1">
-            {produced.map((item) => (
-              <li
-                key={item.menuProductId}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-foreground">{item.menuProductName}</span>
-                <span className="font-semibold tabular-nums">
-                  {item.quantity} units
-                </span>
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {produced.map((item) => {
+              const target = targetMap.get(item.menuProductId) ?? 0;
+              const wasteForProduct = waste
+                .filter((w) => w.menuProductId === item.menuProductId)
+                .reduce((sum, w) => sum + w.quantity, 0);
+              const totalMade = item.quantity + wasteForProduct;
+              const delta = target > 0 ? totalMade - target : null;
+              const deltaColor =
+                delta === null
+                  ? ""
+                  : delta >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-amber-600 dark:text-amber-400";
+              const deltaSign = delta !== null && delta >= 0 ? "+" : "";
+
+              return (
+                <li
+                  key={item.menuProductId}
+                  className="rounded-lg border border-border bg-card p-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{item.menuProductName}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold tabular-nums">
+                        {item.quantity} produced
+                      </span>
+                      {wasteForProduct > 0 && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          + {wasteForProduct} waste
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {target > 0 && delta !== null && (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        Target: {target}
+                      </span>
+                      <span className={`text-xs font-medium tabular-nums ${deltaColor}`}>
+                        {deltaSign}{delta} ({totalMade}/{target})
+                      </span>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-          <p className="text-xs text-muted-foreground mt-2">
-            Total: {totalProduced} units produced
-          </p>
         </div>
 
         {/* Waste summary (only if any) */}
@@ -106,6 +155,24 @@ export function ShiftReviewModal({
         )}
 
         <Separator />
+
+        {/* Totals summary */}
+        <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+          <div className="flex justify-between text-sm">
+            <span>Total produced</span>
+            <span className="font-semibold tabular-nums">{totalProduced}</span>
+          </div>
+          {totalWaste > 0 && (
+            <div className="flex justify-between text-sm text-destructive/80">
+              <span>Total waste</span>
+              <span className="font-semibold tabular-nums">{totalWaste}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm font-medium border-t border-border/50 pt-1 mt-1">
+            <span>Total made (produced + waste)</span>
+            <span className="tabular-nums">{totalProduced + totalWaste}</span>
+          </div>
+        </div>
 
         {/* Inventory note */}
         <p className="text-xs text-muted-foreground">

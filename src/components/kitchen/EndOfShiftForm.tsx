@@ -309,6 +309,7 @@ export function EndOfShiftForm({
       <ShiftSuccessScreen
         produced={submittedProduced}
         waste={submittedWaste}
+        targets={packagingItems}
         onDone={handleDone}
       />
     );
@@ -323,6 +324,7 @@ export function EndOfShiftForm({
       <ShiftReviewModal
         produced={buildProducedList()}
         waste={buildWasteList()}
+        targets={packagingItems}
         onConfirm={handleConfirm}
         onBack={() => setStep("input")}
         isSubmitting={isSubmitting}
