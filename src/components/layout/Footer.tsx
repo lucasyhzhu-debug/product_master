@@ -18,7 +18,7 @@ export function Footer() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <UtensilsCrossed className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-sm">Frollie Recipe Master</span>
+              <span className="font-semibold text-sm">Frollie Pro</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Real-time recipe and product management for the Frollie team.

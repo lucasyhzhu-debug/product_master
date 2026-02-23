@@ -9,8 +9,8 @@ import {
   MoreHorizontal,
   Circle,
   MessageSquare,
+  Home,
   Tag,
-  Tags,
   Ticket,
   Users,
   Contact,
@@ -37,6 +37,7 @@ interface TabItem {
 }
 
 const primaryTabs: TabItem[] = [
+  { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard' },
   // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
   // { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
   { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders' },
@@ -51,7 +52,6 @@ const moreItems: TabItem[] = [
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
   { path: '/customers', icon: Contact, label: 'Customers', permission: 'canAccessOrders' },
-  { path: '/tags', icon: Tags, label: 'Tags', permission: 'canAccessRecipes' },
   { path: '/vouchers', icon: Ticket, label: 'Vouchers', permission: 'canAccessVouchers' },
   { path: '/users', icon: Users, label: 'Users', permission: 'canAccessUsers' },
 ];

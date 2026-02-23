@@ -97,12 +97,7 @@ export const update = protectedMutation({
       baseUnit: baseUnit,
     });
 
-    // Invalidate affected recipe costs asynchronously
-    await ctx.scheduler.runAfter(0, internal.lib.costInvalidation.invalidateRecipeCosts, {
-      ingredientId: id,
-    });
-
-    // Phase 20: Also invalidate production component costs
+    // Phase 20: Invalidate production component costs
     await ctx.scheduler.runAfter(0, internal.lib.costInvalidation.invalidateProductionComponentCosts, {
       ingredientId: id,
     });
@@ -119,15 +114,15 @@ export const remove = protectedMutation({
   roles: ["manager", "admin"],
   args: { id: v.id("ingredients") },
   handler: async (ctx, args) => {
-    // Check if ingredient is used in any recipe components
+    // Check if ingredient is used in any production component recipes
     const usages = await ctx.db
-      .query("componentIngredients")
+      .query("productionComponentIngredients")
       .withIndex("by_ingredient", (q) => q.eq("ingredientId", args.id))
       .first();
 
     if (usages) {
       throw new Error(
-        "Cannot delete ingredient: it is used in one or more recipes"
+        "Cannot delete ingredient: it is used in one or more production component recipes"
       );
     }
 

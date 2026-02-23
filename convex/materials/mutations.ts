@@ -1,5 +1,4 @@
 import { protectedMutation } from "../lib/functions";
-import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { calculateCostPerBaseUnit } from "../lib/costCalculator";
 
@@ -96,11 +95,6 @@ export const update = protectedMutation({
       baseUnit: baseUnit,
     });
 
-    // Invalidate affected packaging costs asynchronously
-    await ctx.scheduler.runAfter(0, internal.lib.costInvalidation.invalidatePackagingCosts, {
-      materialId: id,
-    });
-
     return id;
   },
 });
@@ -113,18 +107,6 @@ export const remove = protectedMutation({
   roles: ["manager", "admin"],
   args: { id: v.id("packagingMaterials") },
   handler: async (ctx, args) => {
-    // Check if material is used in any packaging components
-    const usages = await ctx.db
-      .query("packagingComponentMaterials")
-      .withIndex("by_material", (q) => q.eq("packagingMaterialId", args.id))
-      .first();
-
-    if (usages) {
-      throw new Error(
-        "Cannot delete material: it is used in one or more packaging recipes"
-      );
-    }
-
     await ctx.db.delete(args.id);
     return true;
   },

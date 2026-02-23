@@ -13,6 +13,7 @@ import {
   Warehouse,
   Circle,
   Tag,
+  Home,
   // BANDWIDTH CONSERVATION: TrendingUp (Sales), Store (K3Mart) hidden until March 1st
   // TrendingUp,
   // Store,
@@ -69,6 +70,7 @@ type NavItem = {
 
 // Main nav items - visible based on individual permissions
 const mainNavItems: NavItem[] = [
+  { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard' },
   // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
   // { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders' },
@@ -305,7 +307,7 @@ export function Header() {
           <div className="flex items-center space-x-2">
             <UtensilsCrossed className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block">
-              Frollie Recipe Master
+              Frollie Pro
             </span>
           </div>
 

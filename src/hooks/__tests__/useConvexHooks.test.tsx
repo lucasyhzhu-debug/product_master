@@ -18,25 +18,6 @@ vi.mock('sonner', () => ({
 // Mock the convex API
 vi.mock('../../../convex/_generated/api', () => ({
   api: {
-    recipes: {
-      queries: {
-        list: 'recipes.queries.list',
-        get: 'recipes.queries.get',
-        getVersion: 'recipes.queries.getVersion',
-        getReusableComponents: 'recipes.queries.getReusableComponents',
-        getRecipesUsingComponent: 'recipes.queries.getRecipesUsingComponent',
-        search: 'recipes.queries.search',
-      },
-      mutations: {
-        create: 'recipes.mutations.create',
-        copyVersion: 'recipes.mutations.copyVersion',
-        createVersion: 'recipes.mutations.createVersion',
-        updateTags: 'recipes.mutations.updateTags',
-        updateName: 'recipes.mutations.updateName',
-        remove: 'recipes.mutations.remove',
-        recalculateCosts: 'recipes.mutations.recalculateCosts',
-      },
-    },
     orders: {
       queries: {
         list: 'orders.queries.list',
@@ -71,15 +52,6 @@ vi.mock('../../../convex/_generated/api', () => ({
 
 import { useQuery, useMutation } from 'convex/react';
 import {
-  useConvexRecipes,
-  useConvexRecipe,
-  useConvexRecipeVersion,
-  useConvexReusableComponents,
-  useConvexCreateRecipe,
-  useConvexDeleteRecipe,
-  useConvexRecipeSearch,
-} from '../convex/useRecipes';
-import {
   useConvexOrders,
   useConvexOrder,
   useConvexKitchenOrders,
@@ -90,113 +62,6 @@ import type { Id } from '../../../convex/_generated/dataModel';
 
 const mockUseQuery = vi.mocked(useQuery);
 const mockUseMutation = vi.mocked(useMutation);
-
-describe('useRecipes hooks', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('useConvexRecipes', () => {
-    it('returns undefined while loading', () => {
-      mockUseQuery.mockReturnValue(undefined);
-
-      const { result } = renderHook(() => useConvexRecipes());
-
-      expect(result.current).toBeUndefined();
-    });
-
-    it('returns data when loaded', () => {
-      const mockRecipes = [
-        { _id: 'recipe1', name: 'Recipe 1', tagIds: [], createdBy: 'admin' },
-        { _id: 'recipe2', name: 'Recipe 2', tagIds: [], createdBy: 'admin' },
-      ];
-      mockUseQuery.mockReturnValue(mockRecipes);
-
-      const { result } = renderHook(() => useConvexRecipes());
-
-      expect(result.current).toEqual(mockRecipes);
-    });
-
-    it('handles empty list', () => {
-      mockUseQuery.mockReturnValue([]);
-
-      const { result } = renderHook(() => useConvexRecipes());
-
-      expect(result.current).toEqual([]);
-    });
-
-    it('passes limit parameter to query', () => {
-      mockUseQuery.mockReturnValue([]);
-
-      renderHook(() => useConvexRecipes(10));
-
-      expect(mockUseQuery).toHaveBeenCalledWith('recipes.queries.list', { limit: 10 });
-    });
-  });
-
-  describe('useConvexRecipe', () => {
-    it('skips query when id is undefined', () => {
-      mockUseQuery.mockReturnValue(undefined);
-
-      renderHook(() => useConvexRecipe(undefined));
-
-      expect(mockUseQuery).toHaveBeenCalledWith('recipes.queries.get', 'skip');
-    });
-
-    it('calls query with id when provided', () => {
-      const recipeId = 'recipe123' as Id<'recipes'>;
-      mockUseQuery.mockReturnValue({ _id: recipeId, name: 'Test Recipe' });
-
-      renderHook(() => useConvexRecipe(recipeId));
-
-      expect(mockUseQuery).toHaveBeenCalledWith('recipes.queries.get', { id: recipeId });
-    });
-  });
-
-  describe('useConvexCreateRecipe', () => {
-    it('provides mutate and mutateAsync functions', () => {
-      const mockMutate = vi.fn();
-      mockUseMutation.mockReturnValue(mockMutate);
-
-      const { result } = renderHook(() => useConvexCreateRecipe());
-
-      expect(result.current).toHaveProperty('mutate');
-      expect(result.current).toHaveProperty('mutateAsync');
-      expect(typeof result.current.mutate).toBe('function');
-      expect(typeof result.current.mutateAsync).toBe('function');
-    });
-  });
-
-  describe('useConvexDeleteRecipe', () => {
-    it('provides mutate function for deletion', () => {
-      const mockMutate = vi.fn();
-      mockUseMutation.mockReturnValue(mockMutate);
-
-      const { result } = renderHook(() => useConvexDeleteRecipe());
-
-      expect(result.current).toHaveProperty('mutate');
-      expect(typeof result.current.mutate).toBe('function');
-    });
-  });
-
-  describe('useConvexRecipeSearch', () => {
-    it('skips query when search string is empty', () => {
-      mockUseQuery.mockReturnValue(undefined);
-
-      renderHook(() => useConvexRecipeSearch(''));
-
-      expect(mockUseQuery).toHaveBeenCalledWith('recipes.queries.search', 'skip');
-    });
-
-    it('performs search when query is provided', () => {
-      mockUseQuery.mockReturnValue([]);
-
-      renderHook(() => useConvexRecipeSearch('chocolate'));
-
-      expect(mockUseQuery).toHaveBeenCalledWith('recipes.queries.search', { query: 'chocolate', limit: undefined });
-    });
-  });
-});
 
 describe('useOrders hooks', () => {
   beforeEach(() => {
