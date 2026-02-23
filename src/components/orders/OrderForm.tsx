@@ -26,7 +26,7 @@ import {
   type OrderCreateInput,
   type OrderItemInput,
 } from '@/hooks/convex/useOrders';
-import { useConvexCustomer, useConvexCustomerSearch, useConvexUpdateCustomer } from '@/hooks/convex/useCustomers';
+import { useCustomer, useCustomerSearch, useUpdateCustomer } from '@/hooks/convex/useCustomers';
 import { useConvexMenuProducts, useConvexCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
@@ -113,10 +113,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   });
 
   // Queries
-  const customers = useConvexCustomerSearch(customerSearch || '');
+  const customers = useCustomerSearch(customerSearch || '');
   const { data: sellerSuggestions } = useConvexSellerSuggestions();
-  const selectedCustomer = useConvexCustomer(customerId ?? undefined);
-  const updateCustomer = useConvexUpdateCustomer();
+  const selectedCustomer = useCustomer(customerId ?? undefined);
+  const updateCustomer = useUpdateCustomer();
 
   // Calculate totals
   const totals = formData.items.reduce(

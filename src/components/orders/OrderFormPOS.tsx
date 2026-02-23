@@ -39,7 +39,7 @@ import {
   useConvexCreateOrder,
   useConvexReplaceOrderItems,
   useConvexOrder,
-  useConvexCustomerSearch,
+  useCustomerSearch,
   useConvexOrderTemplate,
   type OrderCreateInput,
 } from '@/hooks/convex';
@@ -135,7 +135,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
   const { data: packagingProductsData } = useConvexPackagingPosProducts();
   const packagingProducts = packagingProductsData ?? [];
 
-  const customers = useConvexCustomerSearch(customerSearch || '');
+  const customers = useCustomerSearch(customerSearch || '');
 
   const { data: orderTemplate, isLoading: templateLoading } = useConvexOrderTemplate();
 

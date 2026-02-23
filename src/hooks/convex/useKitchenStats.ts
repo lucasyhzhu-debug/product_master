@@ -202,7 +202,7 @@ function transformOrderToKitchenOrder(order: ConvexKitchenOrder | ConvexComplete
  * Get kitchen stats for dashboard.
  * PRD-1: Ball production tracking.
  */
-export function useConvexKitchenStats() {
+export function useKitchenStats() {
   const data = useQuery(api.orders.queries.getKitchenStats, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -215,7 +215,7 @@ export function useConvexKitchenStats() {
  * Get kitchen orders (Confirmed status with ball calculations).
  * PRD-1: For production queue display.
  */
-export function useConvexKitchenOrdersWithBalls() {
+export function useKitchenOrdersWithBalls() {
   const data = useQuery(api.orders.queries.getKitchenOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -228,7 +228,7 @@ export function useConvexKitchenOrdersWithBalls() {
  * Get orders completed today.
  * PRD-1: For kitchen view history.
  */
-export function useConvexCompletedToday() {
+export function useCompletedToday() {
   const data = useQuery(api.orders.queries.getCompletedToday, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -245,7 +245,7 @@ export function useConvexCompletedToday() {
  * Complete an order (mark production as done).
  * PRD-1: Kitchen Core - moves order from Confirmed to ProductionComplete.
  */
-export function useConvexCompleteOrder() {
+export function useCompleteOrder() {
   const mutation = useMutation(api.orders.mutations.index.completeOrder);
 
   const execute = async (orderId: Id<"orders">) => {
@@ -266,7 +266,7 @@ export function useConvexCompleteOrder() {
  * Revert order back to Confirmed status.
  * PRD-1: Kitchen Core - undo production completion.
  */
-export function useConvexRevertToConfirmed() {
+export function useRevertToConfirmed() {
   const mutation = useMutation(api.orders.mutations.index.revertToConfirmed);
 
   const execute = async (orderId: Id<"orders">) => {
@@ -287,7 +287,7 @@ export function useConvexRevertToConfirmed() {
  * Complete balls in batches (gamification feature).
  * PRD-1: Kitchen Core - Wave 2 Gamification.
  */
-export function useConvexCompleteBalls() {
+export function useCompleteBalls() {
   const completeBalls = useMutation(api.orders.mutations.index.completeBalls);
   return {
     mutate: completeBalls,
@@ -299,7 +299,7 @@ export function useConvexCompleteBalls() {
  * Complete packaging for an order (move to WaitingShipment or WaitingPickup).
  * Kitchen UI Flow Fix - Phase 2: Replaces completeOrder for kitchen workflow.
  */
-export function useConvexCompletePackaging() {
+export function useCompletePackaging() {
   const mutation = useMutation(api.orders.mutations.index.completePackaging);
 
   const execute = async (orderId: Id<"orders">) => {
@@ -323,7 +323,7 @@ export function useConvexCompletePackaging() {
  * Revert order back to Packaging status.
  * Kitchen UI Flow Fix - Phase 2: Undo completion for kitchen workflow.
  */
-export function useConvexRevertToPackaging() {
+export function useRevertToPackaging() {
   const mutation = useMutation(api.orders.mutations.index.revertToPackaging);
 
   const execute = async (orderId: Id<"orders">) => {

@@ -86,14 +86,14 @@ export {
 // Customers
 export {
   // Query hooks
-  useConvexCustomers,
-  useConvexCustomer,
-  useConvexCustomerSearch,
-  useConvexCustomerByPhone,
+  useCustomers,
+  useCustomer,
+  useCustomerSearch,
+  useCustomerByPhone,
   // Mutation hooks
-  useConvexCreateCustomer,
-  useConvexUpdateCustomer,
-  useConvexDeleteCustomer,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
   // Types
   type CustomerCreateInput,
   type CustomerUpdateInput,
@@ -102,15 +102,15 @@ export {
 // Kitchen Stats (PRD-1: Kitchen Core)
 export {
   // Query hooks
-  useConvexKitchenStats,
-  useConvexKitchenOrdersWithBalls,
-  useConvexCompletedToday,
+  useKitchenStats,
+  useKitchenOrdersWithBalls,
+  useCompletedToday,
   // Mutation hooks
-  useConvexCompleteOrder,
-  useConvexRevertToConfirmed,
-  useConvexCompleteBalls,
-  useConvexCompletePackaging,
-  useConvexRevertToPackaging,
+  useCompleteOrder,
+  useRevertToConfirmed,
+  useCompleteBalls,
+  useCompletePackaging,
+  useRevertToPackaging,
 } from "./useKitchenStats";
 
 // Visual Feedback Overlay
@@ -204,13 +204,13 @@ export {
 // Storage Locations (Inventory Management System)
 export {
   // Query hooks
-  useConvexStorageLocations,
-  useConvexStorageLocation,
-  useConvexDefaultLocation,
+  useStorageLocations,
+  useStorageLocation,
+  useDefaultLocation,
   // Mutation hooks
-  useConvexCreateStorageLocation,
-  useConvexUpdateStorageLocation,
-  useConvexDeleteStorageLocation,
+  useCreateStorageLocation,
+  useUpdateStorageLocation,
+  useDeleteStorageLocation,
   // Types
   type StorageLocationCreateInput,
   type StorageLocationUpdateInput,

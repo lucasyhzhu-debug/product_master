@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/layout";
 import {
-  useConvexStorageLocations,
+  useStorageLocations,
   useConvexInventoryReport,
   useConvexLowStockAlerts,
 } from "@/hooks/convex";
@@ -44,7 +44,7 @@ export function InventoryManager() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Queries - get ALL components (active + legacy) so we can split client-side
-  const locations = useConvexStorageLocations(true);
+  const locations = useStorageLocations(true);
   const report = useConvexInventoryReport(false);
   const lowStockAlerts = useConvexLowStockAlerts();
 

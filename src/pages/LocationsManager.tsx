@@ -9,14 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import { EntityManager } from '@/components/shared/EntityManager';
 import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
-  useConvexStorageLocations,
-  useConvexCreateStorageLocation,
-  useConvexUpdateStorageLocation,
-  useConvexDeleteStorageLocation,
+  useStorageLocations,
+  useCreateStorageLocation,
+  useUpdateStorageLocation,
+  useDeleteStorageLocation,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 
-type Location = NonNullable<ReturnType<typeof useConvexStorageLocations>>[number];
+type Location = NonNullable<ReturnType<typeof useStorageLocations>>[number];
 
 const LOCATION_TYPES = [
   { value: 'office', label: 'Office' },
@@ -57,10 +57,10 @@ function transformData(data: Record<string, any>) {
 export function LocationsManager() {
   useDocumentTitle('Storage Locations');
 
-  const locations = useConvexStorageLocations(false);
-  const create = useConvexCreateStorageLocation();
-  const update = useConvexUpdateStorageLocation();
-  const del = useConvexDeleteStorageLocation();
+  const locations = useStorageLocations(false);
+  const create = useCreateStorageLocation();
+  const update = useUpdateStorageLocation();
+  const del = useDeleteStorageLocation();
 
   return (
     <EntityManager<Location>

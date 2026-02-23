@@ -52,7 +52,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useProductInventory,
   useProductInventoryGrouped,
-  useConvexStorageLocations,
+  useStorageLocations,
 } from "@/hooks/convex";
 import { ProductStockCard } from "./ProductStockCard";
 import { FGAddStockDialog } from "./FGAddStockDialog";
@@ -953,7 +953,7 @@ export function FinishedGoodsTab() {
 
   const { stockOverview, lowStockAlerts, settings, updateSettings } = useProductInventory();
   const groupedOverview = useProductInventoryGrouped();
-  const locations = useConvexStorageLocations(true);
+  const locations = useStorageLocations(true);
   const transferStockMutation = useMutation(api.productInventory.mutations.transferStock);
   const updateLocationTypeMut = useSessionMutation(api.storageLocations.mutations.update);
 
