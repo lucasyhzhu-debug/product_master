@@ -266,8 +266,8 @@ export function PackagingMixEditor({
   jumboBallTarget,
   enabledComponents,
 }: PackagingMixEditorProps) {
-  // -- Fetch all active menu products --
-  const menuProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
+  // -- Fetch food POS products (posSlot defined, non-packaging) --
+  const menuProducts = useQuery(api.menuProducts.queries.listPosProducts);
 
   // -- Build list of menu product IDs for batch BOM fetch --
   const allMenuProductIds = (menuProducts ?? [])
