@@ -153,7 +153,7 @@ function ImpactStep({ impact }: { impact: CancellationImpact }) {
         <span className="font-medium">Review Cancellation Impact</span>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+      <div className="rounded-lg border border-[var(--color-status-warning)]/30 bg-[var(--color-status-warning-bg)] p-4 space-y-3">
         <div className="flex items-center gap-3">
           <ShoppingCart className="h-5 w-5 text-muted-foreground" />
           <div>
@@ -166,7 +166,7 @@ function ImpactStep({ impact }: { impact: CancellationImpact }) {
           <div className="flex items-center gap-3">
             <Package className="h-5 w-5 text-muted-foreground" />
             <div>
-              <p className="font-medium text-amber-700">
+              <p className="font-medium text-[var(--color-status-warning)]">
                 Production has started
               </p>
               <p className="text-sm text-muted-foreground">
@@ -176,7 +176,7 @@ function ImpactStep({ impact }: { impact: CancellationImpact }) {
           </div>
         )}
 
-        <div className="pt-2 border-t border-amber-200">
+        <div className="pt-2 border-t border-[var(--color-status-warning)]/30">
           <p className="text-sm">
             Order total: <span className="font-medium">{formatCurrency(impact.totalAmount)}</span>
           </p>
@@ -244,7 +244,7 @@ function ConfirmationStep({
         className={cn(
           // Mobile: larger padding for touch targets
           'flex items-start gap-3 rounded-lg border p-4 sm:p-3 cursor-pointer transition-colors min-h-[56px] sm:min-h-[48px]',
-          confirmed && 'border-red-500 bg-red-50'
+          confirmed && 'border-[var(--color-status-error)] bg-[var(--color-status-error-bg)]'
         )}
         onClick={() => onConfirmedChange(!confirmed)}
       >

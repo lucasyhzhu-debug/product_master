@@ -22,27 +22,27 @@ interface TransactionLogPanelProps {
 const TX_CONFIG = {
   add: {
     label: "Added",
-    color: "bg-emerald-100 text-emerald-700 border-emerald-300",
+    color: "bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]/30",
     icon: TrendingUp,
-    iconColor: "text-emerald-600",
+    iconColor: "text-[var(--color-status-success)]",
   },
   drawdown: {
     label: "Order",
-    color: "bg-blue-100 text-blue-700 border-blue-300",
+    color: "bg-[var(--color-status-info-bg)] text-[var(--color-status-info)] border-[var(--color-status-info)]/30",
     icon: ShoppingCart,
-    iconColor: "text-blue-600",
+    iconColor: "text-[var(--color-status-info)]",
   },
   gofood_sale: {
     label: "GoFood",
-    color: "bg-purple-100 text-purple-700 border-purple-300",
+    color: "bg-[var(--color-gofood-light)] text-[var(--color-gofood)] border-[var(--color-gofood)]/30",
     icon: ShoppingCart,
-    iconColor: "text-purple-600",
+    iconColor: "text-[var(--color-gofood)]",
   },
   adjust: {
     label: "Adjusted",
-    color: "bg-amber-100 text-amber-700 border-amber-300",
+    color: "bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30",
     icon: RefreshCw,
-    iconColor: "text-amber-600",
+    iconColor: "text-[var(--color-status-warning)]",
   },
 } as const;
 

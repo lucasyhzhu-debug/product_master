@@ -49,8 +49,8 @@ export function BatchCard({ batch, isFifoNext, componentName }: BatchCardProps) 
     <Card
       className={cn(
         "p-3",
-        isFifoNext && !isExpired && "border-emerald-300 bg-emerald-50/50",
-        isExpired && "border-red-200 bg-red-50/30 opacity-60",
+        isFifoNext && !isExpired && "border-[var(--color-status-success)]/40 bg-[var(--color-status-success-bg)]",
+        isExpired && "border-[var(--color-status-error)]/40 bg-[var(--color-status-error-bg)] opacity-60",
         !isFifoNext && !isExpired && "border-border bg-muted/20"
       )}
     >

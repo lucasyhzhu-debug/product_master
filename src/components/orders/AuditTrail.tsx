@@ -75,13 +75,13 @@ function getEventDirection(event: {
 function getDirectionBadge(direction: 'forward' | 'backward' | 'cancel' | 'neutral') {
   switch (direction) {
     case 'forward':
-      return 'bg-green-100 text-green-700 border-green-300';
+      return 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]/30';
     case 'backward':
-      return 'bg-amber-100 text-amber-700 border-amber-300';
+      return 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30';
     case 'cancel':
-      return 'bg-red-100 text-red-700 border-red-300';
+      return 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30';
     case 'neutral':
-      return 'bg-gray-100 text-gray-700 border-gray-300';
+      return 'bg-muted text-muted-foreground border-border';
   }
 }
 

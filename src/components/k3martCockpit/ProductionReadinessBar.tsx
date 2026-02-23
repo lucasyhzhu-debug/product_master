@@ -42,7 +42,7 @@ export const ProductionReadinessBar = React.memo(function ProductionReadinessBar
 
   if (isLoading) {
     return (
-      <div className="w-full bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-600 rounded-lg p-4 animate-pulse">
+      <div className="w-full bg-[var(--color-status-warning-bg)] border-l-4 border-amber-600 rounded-lg p-4 animate-pulse">
         <div className="h-4 bg-amber-200 rounded w-32 mb-2"></div>
         <div className="h-3 bg-amber-200 rounded w-full"></div>
       </div>
@@ -51,13 +51,13 @@ export const ProductionReadinessBar = React.memo(function ProductionReadinessBar
 
   return (
     <div
-      className="w-full bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 rounded-lg shadow-sm overflow-hidden"
+      className="w-full bg-[var(--color-status-warning-bg)] border-l-4 rounded-lg shadow-sm overflow-hidden"
       style={{ borderLeftColor: 'var(--color-k3mart)' }}
     >
       {/* Header */}
       <div className="px-4 py-2.5 flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-        <h3 className="text-sm font-semibold text-amber-900">Production Deficit</h3>
+        <h3 className="text-sm font-semibold text-[var(--color-status-warning)]">Production Deficit</h3>
       </div>
 
       {/* Per-product rows */}

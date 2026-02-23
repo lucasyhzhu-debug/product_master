@@ -327,7 +327,7 @@ export function ReceiveStockDialog({
                               isSelected
                                 ? "border-emerald-500 bg-emerald-500/10 text-emerald-900"
                                 : isLow
-                                  ? "border-amber-400 bg-amber-50 hover:border-amber-500"
+                                  ? "border-[var(--color-status-warning)]/50 bg-[var(--color-status-warning-bg)] hover:border-[var(--color-status-warning)]/70"
                                   : "border-border hover:border-border/80"
                             )}
                           >
@@ -340,7 +340,7 @@ export function ReceiveStockDialog({
                             {isLow && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] shrink-0 bg-red-50 text-red-600 border-red-300"
+                                className="text-[10px] shrink-0 bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30"
                               >
                                 LOW
                               </Badge>

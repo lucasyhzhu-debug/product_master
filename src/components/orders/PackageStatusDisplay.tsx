@@ -41,26 +41,26 @@ const STATUS_CONFIG: Record<
 > = {
   empty: {
     label: 'Empty',
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100',
+    color: 'text-muted-foreground',
+    bgColor: 'bg-muted',
     icon: PackageX,
   },
   filling: {
     label: 'Filling',
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-100',
+    color: 'text-[var(--color-status-warning)]',
+    bgColor: 'bg-[var(--color-status-warning-bg)]',
     icon: PackageOpen,
   },
   filled: {
     label: 'Filled',
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100',
+    color: 'text-[var(--color-status-warning)]',
+    bgColor: 'bg-[var(--color-status-warning-bg)]',
     icon: Package,
   },
   packed: {
     label: 'Packed',
-    color: 'text-green-600',
-    bgColor: 'bg-green-100',
+    color: 'text-[var(--color-status-success)]',
+    bgColor: 'bg-[var(--color-status-success-bg)]',
     icon: PackageCheck,
   },
 };

@@ -258,9 +258,9 @@ export function PackagingComponentsSection({
                             className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${
                               (component.consumptionStage ?? 'boxing') === stage
                                 ? stage === 'production'
-                                  ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                  ? 'bg-[var(--color-status-warning-bg)] border-[var(--color-status-warning)]/40 text-[var(--color-status-warning)]'
                                   : stage === 'boxing'
-                                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                    ? 'bg-[var(--color-status-info-bg)] border-[var(--color-status-info)]/40 text-[var(--color-status-info)]'
                                     : 'bg-purple-100 border-purple-300 text-purple-700'
                                 : 'bg-transparent border-muted text-muted-foreground hover:border-muted-foreground/50'
                             }`}
@@ -315,9 +315,9 @@ export function PackagingComponentsSection({
                     className={`flex-1 px-3 py-2 text-sm rounded-lg border-2 transition-colors ${
                       newComponentStage === stage
                         ? stage === 'production'
-                          ? 'border-orange-400 bg-orange-50 text-orange-700'
+                          ? 'border-[var(--color-status-warning)]/60 bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)]'
                           : stage === 'boxing'
-                            ? 'border-blue-400 bg-blue-50 text-blue-700'
+                            ? 'border-[var(--color-status-info)]/60 bg-[var(--color-status-info-bg)] text-[var(--color-status-info)]'
                             : 'border-purple-400 bg-purple-50 text-purple-700'
                         : 'border-muted hover:border-muted-foreground/30'
                     }`}

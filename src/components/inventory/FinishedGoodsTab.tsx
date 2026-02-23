@@ -438,10 +438,10 @@ function ProductGroupedView({
                             variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1 border-green-500/40 text-green-700 dark:text-green-400 hover:bg-green-500/10",
+                              "h-6 px-2 text-xs gap-1 border-[var(--color-status-success)]/40 text-[var(--color-status-success)] hover:bg-[var(--color-status-success-bg)]",
                               openInline?.locationId === (loc.locationId as Id<"storageLocations">) &&
                                 openInline?.direction === "receive_from" &&
-                                "bg-green-500/10"
+                                "bg-[var(--color-status-success-bg)]"
                             )}
                             onClick={() =>
                               handleOpenInline(
@@ -685,11 +685,11 @@ function LocationGroupedView({
                             variant="outline"
                             size="sm"
                             className={cn(
-                              "h-6 px-2 text-xs gap-1 border-green-500/40 text-green-700 dark:text-green-400 hover:bg-green-500/10",
+                              "h-6 px-2 text-xs gap-1 border-[var(--color-status-success)]/40 text-[var(--color-status-success)] hover:bg-[var(--color-status-success-bg)]",
                               openInline?.locationId === (location.locationId as Id<"storageLocations">) &&
                                 openInline?.menuProductId === (product.menuProductId as Id<"menuProducts">) &&
                                 openInline?.direction === "receive_from" &&
-                                "bg-green-500/10"
+                                "bg-[var(--color-status-success-bg)]"
                             )}
                             onClick={() =>
                               handleOpenInline(
@@ -1059,10 +1059,10 @@ export function FinishedGoodsTab() {
 
       {/* Low-stock alert banner */}
       {lowStockAlerts.length > 0 && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4">
+        <div className="rounded-lg bg-[var(--color-status-error-bg)] border border-[var(--color-status-error)]/30 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0" />
-            <span className="text-sm font-semibold text-red-800">
+            <AlertTriangle className="h-4 w-4 text-[var(--color-status-error)] flex-shrink-0" />
+            <span className="text-sm font-semibold text-[var(--color-status-error)]">
               {lowStockAlerts.length} product{lowStockAlerts.length !== 1 ? "s" : ""} low on stock
             </span>
           </div>
@@ -1070,7 +1070,7 @@ export function FinishedGoodsTab() {
             {lowStockAlerts.map((alert) => (
               <span
                 key={alert._id}
-                className="text-xs bg-red-100 text-red-700 rounded px-2 py-0.5 font-medium"
+                className="text-xs bg-[var(--color-status-error)]/10 text-[var(--color-status-error)] rounded px-2 py-0.5 font-medium"
               >
                 {alert.menuProductName ?? "Unknown"} ({alert.quantity} left)
               </span>

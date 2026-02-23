@@ -17,20 +17,20 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
   );
 
   return (
-    <Card className="border-amber-300 bg-gradient-to-r from-amber-50 to-amber-50/50">
+    <Card className="border-[var(--color-status-warning)]/40 bg-[var(--color-status-warning-bg)]">
       <div className="flex items-center gap-4 p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-amber-100">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <div className="p-2 rounded-lg bg-[var(--color-status-warning)]/15">
+            <AlertTriangle className="h-5 w-5 text-[var(--color-status-warning)]" />
           </div>
           <div>
-            <p className="font-semibold text-amber-900">
+            <p className="font-semibold text-[var(--color-status-warning)]">
               {alerts.length} component{alerts.length === 1 ? "" : "s"} below reorder point
             </p>
-            <p className="text-sm text-amber-700/80">
+            <p className="text-sm text-[var(--color-status-warning)]/80">
               {criticalAlerts.length > 0 && (
                 <>
-                  <span className="font-medium text-red-600">
+                  <span className="font-medium text-[var(--color-status-error)]">
                     {criticalAlerts.length} critical
                   </span>
                   {" \u2022 "}
@@ -43,7 +43,7 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
                   {a.component.category === "production" && a.component.trackInventory && (
                     <Badge
                       variant="outline"
-                      className="ml-1 text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 bg-emerald-50 inline-flex"
+                      className="ml-1 text-[9px] px-1 py-0 border-[var(--color-status-success)]/40 text-[var(--color-status-success)] bg-[var(--color-status-success-bg)] inline-flex"
                     >
                       Ingredient
                     </Badge>
@@ -58,19 +58,19 @@ export function LowStockAlertsBanner({ alerts }: LowStockAlertsBannerProps) {
         <div className="ml-auto flex items-center gap-2">
           <Badge
             variant="outline"
-            className="bg-amber-100 text-amber-700 border-amber-300"
+            className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30"
           >
             {alerts.length} low
           </Badge>
           {criticalAlerts.length > 0 && (
             <Badge
               variant="outline"
-              className="bg-red-100 text-red-700 border-red-300"
+              className="bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30"
             >
               {criticalAlerts.length} critical
             </Badge>
           )}
-          <ChevronRight className="h-5 w-5 text-amber-500" />
+          <ChevronRight className="h-5 w-5 text-[var(--color-status-warning)]" />
         </div>
       </div>
     </Card>

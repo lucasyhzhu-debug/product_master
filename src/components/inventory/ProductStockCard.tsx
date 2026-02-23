@@ -41,9 +41,9 @@ export function ProductStockCard({
       className={cn(
         "transition-all",
         isNegativeStock
-          ? "border-red-400 bg-red-50/60"
+          ? "border-[var(--color-status-error)]/40 bg-[var(--color-status-error-bg)]"
           : group.isLowStock
-            ? "border-amber-300 bg-amber-50/30"
+            ? "border-[var(--color-status-warning)]/40 bg-[var(--color-status-warning-bg)]"
             : "border-border"
       )}
     >
@@ -72,10 +72,10 @@ export function ProductStockCard({
             className={cn(
               "text-base font-bold px-3 py-1 flex-shrink-0",
               isNegativeStock
-                ? "bg-red-100 text-red-700 border-red-300"
+                ? "bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error)]/30"
                 : group.isLowStock
-                  ? "bg-amber-100 text-amber-700 border-amber-300"
-                  : "bg-emerald-100 text-emerald-700 border-emerald-300"
+                  ? "bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30"
+                  : "bg-[var(--color-status-success-bg)] text-[var(--color-status-success)] border-[var(--color-status-success)]/30"
             )}
             variant="outline"
           >

@@ -585,8 +585,8 @@ export function OrderCreate() {
       {/* 1. Customer Section (TOP) */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-blue-50 flex items-center justify-center">
-            <User className="h-4 w-4 text-blue-600" />
+          <div className="h-9 w-9 rounded-full bg-[var(--color-status-info-bg)] flex items-center justify-center">
+            <User className="h-4 w-4 text-[var(--color-status-info)]" />
           </div>
           <div>
             <h3 className="text-base font-semibold">Customer</h3>
@@ -609,8 +609,8 @@ export function OrderCreate() {
       {/* 2. Due Date Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-amber-50 flex items-center justify-center">
-            <Calendar className="h-4 w-4 text-amber-600" />
+          <div className="h-9 w-9 rounded-full bg-[var(--color-status-warning-bg)] flex items-center justify-center">
+            <Calendar className="h-4 w-4 text-[var(--color-status-warning)]" />
           </div>
           <div>
             <h3 className="text-base font-semibold">Due Date</h3>
@@ -623,7 +623,7 @@ export function OrderCreate() {
       {/* 3. Delivery / Pickup Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-purple-50 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full bg-purple-50 dark:bg-purple-950/40 flex items-center justify-center">
             <MapPin className="h-4 w-4 text-purple-600" />
           </div>
           <div>
@@ -777,8 +777,8 @@ export function OrderCreate() {
       {/* 5. Voucher Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-emerald-50 flex items-center justify-center">
-            <Ticket className="h-4 w-4 text-emerald-600" />
+          <div className="h-9 w-9 rounded-full bg-[var(--color-status-success-bg)] flex items-center justify-center">
+            <Ticket className="h-4 w-4 text-[var(--color-status-success)]" />
           </div>
           <div>
             <h3 className="text-base font-semibold">Voucher</h3>
@@ -811,7 +811,7 @@ export function OrderCreate() {
       {/* 6. Notes Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
             <FileText className="h-4 w-4 text-slate-600" />
           </div>
           <div>
@@ -874,9 +874,9 @@ export function OrderCreate() {
 
         {/* Validation warnings */}
         {(!hasItems || !customerSet) && (
-          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2 mb-4">
-            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-            <div className="text-xs text-amber-800">
+          <div className="p-3 rounded-lg bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning-bg)] flex items-start gap-2 mb-4">
+            <AlertCircle className="h-4 w-4 text-[var(--color-status-warning)] mt-0.5 shrink-0" />
+            <div className="text-xs text-[var(--color-status-warning)]">
               {!hasItems && <p>Add at least one product</p>}
               {!customerSet && <p>Select or create a customer</p>}
             </div>

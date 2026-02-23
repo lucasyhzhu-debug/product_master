@@ -343,6 +343,56 @@ Used for date-based schedule views (e.g., K3Mart delivery cockpit in Phase 16).
 | `border-gray-*` | `border-border` |
 | `bg-black` | `bg-foreground` |
 
+**Semantic status color replacements (most common dark mode bug source):**
+
+The project has CSS variables for all status/state backgrounds. Use these instead of raw Tailwind color classes — they automatically resolve to the correct tint in both light and dark mode via the `.dark {}` block in `index.css`. No `dark:` Tailwind prefix needed.
+
+| Avoid (raw Tailwind) | Use Instead (CSS token) | Token resolves to |
+|----------------------|------------------------|-------------------|
+| `bg-green-50`, `bg-emerald-50` | `bg-[var(--color-status-success-bg)]` | Light: `#ECFDF5` / Dark: deep green tint |
+| `bg-amber-50`, `bg-yellow-50` | `bg-[var(--color-status-warning-bg)]` | Light: `#FFFBEB` / Dark: deep amber tint |
+| `bg-red-50`, `bg-rose-50` | `bg-[var(--color-status-error-bg)]` | Light: `#FEF2F2` / Dark: deep red tint |
+| `bg-blue-50`, `bg-sky-50` | `bg-[var(--color-status-info-bg)]` | Light: `#EFF6FF` / Dark: deep blue tint |
+| `text-green-700` on status bg | `text-[var(--color-status-success)]` | Light: `#059669` / Dark: `#34D399` |
+| `text-amber-700` on status bg | `text-[var(--color-status-warning)]` | Light: `#D97706` / Dark: `#FBBF24` |
+| `text-red-700` on status bg | `text-[var(--color-status-error)]` | Light: `#DC2626` / Dark: `#F87171` |
+| `text-blue-700` on status bg | `text-[var(--color-status-info)]` | Light: `#2563EB` / Dark: `#60A5FA` |
+| `bg-purple-50`, `bg-violet-50` | `bg-[var(--color-role-admin-bg)]` | Light: `#F5F3FF` / Dark: deep violet tint |
+
+**Domain-specific backgrounds (GoFood, K3Mart, channels) — also use tokens:**
+
+| Avoid | Use Instead |
+|-------|------------|
+| `bg-green-50` for GoFood | `bg-[var(--color-gofood-light)]` |
+| `bg-amber-50` for K3Mart | `bg-[var(--color-k3mart-light)]` |
+| `bg-blue-50` for internal channel | `bg-[var(--color-channel-internal-bg)]` |
+| `bg-purple-50` for K3Mart channel | `bg-[var(--color-channel-k3mart-bg)]` |
+| `bg-red-50` for GoBiz channel | `bg-[var(--color-channel-gobiz-bg)]` |
+
+**How the cascade works:**
+
+```
+index.css @theme { --color-status-warning-bg: #FFFBEB; }   ← light mode default
+index.css .dark  { --color-status-warning-bg: hsl(40 15% 14%); }  ← dark override
+
+Component: className="bg-[var(--color-status-warning-bg)]"
+→ Light mode: renders #FFFBEB (pale amber)
+→ Dark mode:  renders hsl(40 15% 14%) (deep amber tint)
+→ Zero dark: Tailwind prefix needed
+```
+
+**The wrong way (requires manual dark: maintenance per component):**
+```tsx
+// ❌ Both classes need to be maintained separately. Easy to forget.
+className="bg-amber-50 dark:bg-amber-950/40"
+```
+
+**The right way (set it once, works everywhere):**
+```tsx
+// ✅ Single class. Dark mode handled by CSS variable cascade in index.css.
+className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)]"
+```
+
 ---
 
 ## Responsive Breakpoints
@@ -387,6 +437,8 @@ Used for date-based schedule views (e.g., K3Mart delivery cockpit in Phase 16).
 | Anti-Pattern | Why It Breaks | Do Instead |
 |--------------|---------------|------------|
 | Hardcoded `text-gray-900` | Invisible in dark mode | `text-foreground` |
+| `bg-amber-50` / `bg-red-50` / `bg-green-50` / `bg-blue-50` | Light-mode-only; breaks dark mode | `bg-[var(--color-status-warning-bg)]` etc. (see token table above) |
+| `bg-*-50` + `dark:bg-*-950/40` per-component | Reinvents the token cascade on every component | Use CSS variable token; dark override lives in `index.css .dark {}` once |
 | Per-page `p-6` padding wrapper | Inconsistent margins | Let `PageContainer` in Layout handle it |
 | Custom inline `<h1>` header | Title size/style inconsistency | Use `<PageHeader>` component |
 | `window.innerWidth` checks | Layout thrashing, SSR-unsafe | Tailwind responsive prefixes |

@@ -58,9 +58,9 @@ const STATUS_LABELS: Record<string, string> = {
 function getDueDateBadgeClass(dueDate: string | null | undefined): string {
   if (!dueDate) return '';
   const due = startOfDay(new Date(dueDate));
-  if (isPast(due) && !isToday(due)) return 'bg-red-100 text-red-700 font-bold border-red-300';
-  if (isToday(due)) return 'bg-red-50 text-red-600 border-red-200';
-  if (isTomorrow(due)) return 'bg-amber-50 text-amber-600 border-amber-200';
+  if (isPast(due) && !isToday(due)) return 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] font-bold border-[var(--color-status-error)]';
+  if (isToday(due)) return 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error)] border-[var(--color-status-error-bg)]';
+  if (isTomorrow(due)) return 'bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning-bg)]';
   return '';
 }
 
@@ -318,9 +318,9 @@ export function OrderDetail() {
 
           {/* Stock Override Audit Trail */}
           {overrideEvents.length > 0 && (
-            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30">
+            <Card className="border-[var(--color-status-warning-bg)] bg-[var(--color-status-warning-bg)]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                <CardTitle className="text-sm flex items-center gap-2 text-[var(--color-status-warning)]">
                   <AlertTriangle className="h-4 w-4" />
                   Stock Override
                 </CardTitle>
@@ -330,13 +330,13 @@ export function OrderDetail() {
                   const meta = evt.metadata ? JSON.parse(evt.metadata) : {};
                   return (
                     <div key={evt._id} className="text-sm space-y-1">
-                      <p className="text-amber-800 dark:text-amber-300">
+                      <p className="text-[var(--color-status-warning)]">
                         Overridden by <span className="font-medium">{meta.overrideBy ?? evt.triggeredBy}</span>
                       </p>
                       {evt.reason && (
-                        <p className="text-amber-700 dark:text-amber-400 italic">&quot;{evt.reason}&quot;</p>
+                        <p className="text-[var(--color-status-warning)] italic">&quot;{evt.reason}&quot;</p>
                       )}
-                      <p className="text-xs text-amber-600 dark:text-amber-500">
+                      <p className="text-xs text-[var(--color-status-warning)]">
                         {new Date(evt.timestamp).toLocaleString()}
                       </p>
                     </div>
