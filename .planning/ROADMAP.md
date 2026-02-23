@@ -194,5 +194,5 @@ Plans:
 | 18. Production Ingredient Tracking & COGS | v1.2 | 9/9 | Complete | 2026-02-21 |
 | 19. GoFood Depot Management | v1.3 | 9/9 | Complete | 2026-02-22 |
 | 20. Optimize Convex Query Reads | v1.3 | 8/8 | Complete | 2026-02-22 |
-| 21. Kitchen Production Targets | 7/7 | Complete   | 2026-02-23 | - |
+| 21. Kitchen Production Targets | 7/7 | Complete    | 2026-02-23 | - |
 | 22. Remove legacy editors & Dashboard | v1.3 | 0/5 | Not started | - |
