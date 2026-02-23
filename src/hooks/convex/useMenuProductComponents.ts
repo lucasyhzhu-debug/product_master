@@ -22,7 +22,7 @@ export interface MenuProductComponentWithType extends Doc<"menuProductComponents
  * Get all components for a menu product.
  * Returns components with their production unit type details.
  */
-export function useConvexMenuProductComponents(menuProductId: Id<"menuProducts"> | undefined) {
+export function useMenuProductComponents(menuProductId: Id<"menuProducts"> | undefined) {
   const data = useQuery(
     api.menuProductComponents.queries.getByMenuProduct,
     menuProductId ? { menuProductId } : "skip"
@@ -39,7 +39,7 @@ export function useConvexMenuProductComponents(menuProductId: Id<"menuProducts">
 /**
  * Get components for multiple menu products (batch).
  */
-export function useConvexMenuProductComponentsBatch(
+export function useMenuProductComponentsBatch(
   menuProductIds: Id<"menuProducts">[] | undefined
 ) {
   const data = useQuery(

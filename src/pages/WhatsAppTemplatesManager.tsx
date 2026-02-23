@@ -5,8 +5,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { TemplateCard, TemplateEditor } from "@/components/whatsappTemplates";
 import {
-  useConvexWhatsAppTemplates,
-  useConvexSeedWhatsAppTemplates,
+  useWhatsAppTemplates,
+  useSeedWhatsAppTemplates,
   type WhatsAppTemplate,
 } from "@/hooks/convex/useWhatsAppTemplates";
 
@@ -20,8 +20,8 @@ const containerVariants = {
 };
 
 export function WhatsAppTemplatesManager() {
-  const { data: templates, isLoading } = useConvexWhatsAppTemplates();
-  const seedTemplates = useConvexSeedWhatsAppTemplates();
+  const { data: templates, isLoading } = useWhatsAppTemplates();
+  const seedTemplates = useSeedWhatsAppTemplates();
   const [selectedTemplate, setSelectedTemplate] =
     useState<WhatsAppTemplate | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);

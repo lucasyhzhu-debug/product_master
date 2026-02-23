@@ -143,17 +143,17 @@ export {
 
 // Production Unit Types (PRD-4: Menu Products Manager)
 export {
-  useConvexProductionUnitTypes,
-  useConvexProductionUnitType,
-  useConvexProductionUnitTypeByCode,
+  useProductionUnitTypes,
+  useProductionUnitType,
+  useProductionUnitTypeByCode,
   type ProductionUnitType,
   type ProductionUnitTypeWithId,
 } from "./useProductionUnitTypes";
 
 // Menu Product Components (PRD-4: Menu Products Manager)
 export {
-  useConvexMenuProductComponents,
-  useConvexMenuProductComponentsBatch,
+  useMenuProductComponents,
+  useMenuProductComponentsBatch,
   type MenuProductComponentWithType,
 } from "./useMenuProductComponents";
 
@@ -264,9 +264,9 @@ export { useProtectedMutation } from "./useProtectedMutation";
 
 // Sales Analytics Health Monitoring
 export {
-  useConvexSyncHealthStatus,
-  useConvexSyncHealthAlert,
-  useConvexCredentialStatusEnhanced,
+  useSyncHealthStatus,
+  useSyncHealthAlert,
+  useCredentialStatusEnhanced,
 } from "./useSalesAnalytics";
 
 // K3 Mart Cockpit (K3 Mart Management Cockpit)

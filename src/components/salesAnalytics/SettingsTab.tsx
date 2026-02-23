@@ -12,8 +12,8 @@ import {
   useConvexSyncK3MartSales,
   useConvexSyncGoBiz,
   useConvexSyncInternalOrders,
-  useConvexSyncHealthStatus,
-  useConvexCredentialStatusEnhanced,
+  useSyncHealthStatus,
+  useCredentialStatusEnhanced,
 } from "@/hooks/convex";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
@@ -35,18 +35,18 @@ export function SettingsTab() {
     useConvexExternalOutlets();
 
   // Sync health status (public, no auth)
-  const { data: syncHealthStatus } = useConvexSyncHealthStatus();
+  const { data: syncHealthStatus } = useSyncHealthStatus();
 
   // Credential status (admin-only -- skip for non-admin to avoid auth error)
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const canViewHealth = isAdmin || isManager;
 
-  const { data: k3CredStatus } = useConvexCredentialStatusEnhanced(
+  const { data: k3CredStatus } = useCredentialStatusEnhanced(
     "k3mart",
     isAdmin ? user?.token : undefined
   );
-  const { data: gobizCredStatus } = useConvexCredentialStatusEnhanced(
+  const { data: gobizCredStatus } = useCredentialStatusEnhanced(
     "gobiz",
     isAdmin ? user?.token : undefined
   );

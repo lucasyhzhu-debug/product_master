@@ -31,7 +31,7 @@ import {
   useConvexPosProducts,
   useConvexPackagingPosProducts,
   useConvexMenuProducts,
-  useConvexMenuProductComponents,
+  useMenuProductComponents,
   useConvexComponentsByCategory,
   type PosProduct,
   type AvailableProduct,
@@ -92,7 +92,7 @@ export function ProductForm({
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
-  const { data: existingComponents, isLoading: loadingComponents } = useConvexMenuProductComponents(
+  const { data: existingComponents, isLoading: loadingComponents } = useMenuProductComponents(
     isEditing ? productId : undefined
   );
 

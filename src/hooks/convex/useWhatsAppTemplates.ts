@@ -20,7 +20,7 @@ export type WhatsAppTemplate = Doc<"whatsappTemplates">;
 /**
  * List all WhatsApp templates.
  */
-export function useConvexWhatsAppTemplates() {
+export function useWhatsAppTemplates() {
   const data = useQuery(api.whatsappTemplates.queries.list);
   return {
     data: data,
@@ -31,7 +31,7 @@ export function useConvexWhatsAppTemplates() {
 /**
  * Get a specific template by code.
  */
-export function useConvexWhatsAppTemplateByCode(code: string | undefined) {
+export function useWhatsAppTemplateByCode(code: string | undefined) {
   const data = useQuery(
     api.whatsappTemplates.queries.getByCode,
     code ? { code } : "skip"
@@ -49,7 +49,7 @@ export function useConvexWhatsAppTemplateByCode(code: string | undefined) {
 /**
  * Update a WhatsApp template.
  */
-export function useConvexUpdateWhatsAppTemplate() {
+export function useUpdateWhatsAppTemplate() {
   const mutation = useMutation(api.whatsappTemplates.mutations.update);
 
   const execute = async (data: {
@@ -76,7 +76,7 @@ export function useConvexUpdateWhatsAppTemplate() {
 /**
  * Reset a WhatsApp template to default.
  */
-export function useConvexResetWhatsAppTemplate() {
+export function useResetWhatsAppTemplate() {
   const mutation = useMutation(api.whatsappTemplates.mutations.resetToDefault);
 
   const execute = async (data: {
@@ -101,7 +101,7 @@ export function useConvexResetWhatsAppTemplate() {
 /**
  * Seed default templates (admin use).
  */
-export function useConvexSeedWhatsAppTemplates() {
+export function useSeedWhatsAppTemplates() {
   const mutation = useMutation(api.whatsappTemplates.mutations.seedDefaults);
 
   return {
