@@ -50,6 +50,9 @@ export const submitShiftRecord = mutation({
         quantity: v.number(),
       })
     ),
+    // Phase 21-08: Actual cook (may differ from submitter)
+    chefName: v.optional(v.string()),
+    chefUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // 1. Auth: all roles can submit shift records
@@ -213,6 +216,8 @@ export const submitShiftRecord = mutation({
       submittedAt: now,
       submittedBy: user.name,
       submittedByUserId: user._id,
+      ...(args.chefName ? { chefName: args.chefName } : {}),
+      ...(args.chefUserId ? { chefUserId: args.chefUserId } : {}),
       produced: args.produced.filter((item) => item.quantity > 0),
       waste: args.waste.filter((item) => item.quantity > 0),
       inventoryUpdates,
@@ -275,6 +280,9 @@ export const updateShiftRecord = mutation({
       })
     ),
     editNote: v.optional(v.string()),
+    // Phase 21-08: Actual cook (manager can correct who cooked)
+    chefName: v.optional(v.string()),
+    chefUserId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     // 1. Auth: only managers and admins can edit shift records
@@ -462,6 +470,8 @@ export const updateShiftRecord = mutation({
       editedAt: now,
       editedBy: user.name,
       ...(args.editNote !== undefined ? { editNote: args.editNote } : {}),
+      ...(args.chefName !== undefined ? { chefName: args.chefName } : {}),
+      ...(args.chefUserId !== undefined ? { chefUserId: args.chefUserId } : {}),
     });
 
     return { success: true, adjustments: adjustmentUpdates.length };

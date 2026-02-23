@@ -25,6 +25,9 @@ async function enrichRecord(
     date: string;
     submittedAt: number;
     submittedBy: string;
+    // Phase 21-08: Actual cook fields
+    chefName?: string;
+    chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
     editedAt?: number;
@@ -54,6 +57,9 @@ async function enrichRecord(
     date: record.date,
     submittedAt: record.submittedAt,
     submittedBy: record.submittedBy,
+    // Phase 21-08: Actual cook fields (pass through, may be undefined)
+    chefName: record.chefName,
+    chefUserId: record.chefUserId,
     produced: record.produced.map((p) => ({
       menuProductId: p.menuProductId,
       menuProductName: productNameMap.get(p.menuProductId) ?? p.menuProductId,
@@ -98,6 +104,8 @@ export const getShiftRecordsByDate = query({
           date: record.date,
           submittedAt: record.submittedAt,
           submittedBy: record.submittedBy,
+          chefName: record.chefName,
+          chefUserId: record.chefUserId ? String(record.chefUserId) : undefined,
           produced: record.produced.map((p) => ({
             menuProductId: String(p.menuProductId),
             quantity: p.quantity,
@@ -169,6 +177,8 @@ export const getShiftHistory = query({
           date: record.date,
           submittedAt: record.submittedAt,
           submittedBy: record.submittedBy,
+          chefName: record.chefName,
+          chefUserId: record.chefUserId ? String(record.chefUserId) : undefined,
           produced: record.produced.map((p) => ({
             menuProductId: String(p.menuProductId),
             quantity: p.quantity,

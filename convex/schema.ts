@@ -1444,6 +1444,9 @@ export default defineSchema({
     submittedAt: v.number(),                   // Date.now()
     submittedBy: v.string(),                   // username from auth
     submittedByUserId: v.optional(v.id("users")),
+    // Phase 21-08: Actual cook (may differ from the person who submitted the record)
+    chefName: v.optional(v.string()),
+    chefUserId: v.optional(v.id("users")),
     produced: v.array(v.object({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),
