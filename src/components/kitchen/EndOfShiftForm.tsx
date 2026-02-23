@@ -156,6 +156,14 @@ export function EndOfShiftForm({
       .map((item) => item.menuProductId)
   );
 
+  // Filter waste entries to only enabled-component products (same logic as visibleItems)
+  const visibleWasteEntries = wasteEntries.filter((entry) => {
+    if (!enabledComponents || !productBallTypes) return true;
+    const ballTypes = productBallTypes[entry.menuProductId] ?? [];
+    if (ballTypes.length === 0) return true;
+    return ballTypes.some((bt) => enabledComponents.includes(bt));
+  });
+
   function getProducedQty(menuProductId: string): number {
     return produced[menuProductId] ?? 0;
   }
@@ -234,7 +242,7 @@ export function EndOfShiftForm({
   }
 
   function buildWasteList(): WasteEntry[] {
-    return wasteEntries.filter((e) => e.quantity > 0);
+    return visibleWasteEntries.filter((e) => e.quantity > 0);
   }
 
   // -------------------------------------------------------
@@ -439,13 +447,22 @@ export function EndOfShiftForm({
         {/* Waste entries */}
         {wasteOpen && (
           <div className="space-y-3 border-l-2 border-muted pl-4">
-            {wasteEntries.length === 0 && (
+            {visibleWasteEntries.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 No waste entries yet. Add one below.
               </p>
             )}
 
-            {wasteEntries.map((entry, index) => (
+            {wasteEntries.map((entry, index) => {
+              // Skip entries for disabled-component products (preserve original index for callbacks)
+              const ballTypes = productBallTypes?.[entry.menuProductId] ?? [];
+              const isDisabled =
+                enabledComponents &&
+                productBallTypes &&
+                ballTypes.length > 0 &&
+                ballTypes.every((bt) => !enabledComponents.includes(bt));
+              if (isDisabled) return null;
+              return (
               <div key={index} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">
@@ -489,7 +506,8 @@ export function EndOfShiftForm({
                   />
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Add waste entry buttons */}
             <div className="flex flex-wrap gap-2 pt-1">
