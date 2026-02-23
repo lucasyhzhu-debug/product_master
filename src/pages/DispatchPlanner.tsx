@@ -45,27 +45,19 @@ import {
 // Date helpers
 // ============================================
 
-/** Get the Monday of the current week in Jakarta timezone */
-function getCurrentMonday(): string {
+/**
+ * Get yesterday's date in Jakarta timezone (UTC+7).
+ * This anchors the 7-day grid so today is always the second column.
+ */
+export function getYesterday(): string {
   const now = new Date();
+  // Get today in Jakarta timezone
   const todayStr = now.toLocaleDateString("en-CA", {
     timeZone: "Asia/Jakarta",
   });
-
-  // Get Jakarta day-of-week using Intl (safe regardless of browser timezone)
-  const dayName = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    timeZone: "Asia/Jakarta",
-  }).format(now);
-
-  const dayMap: Record<string, number> = {
-    Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
-  };
-  const dayOfWeek = dayMap[dayName] ?? 0;
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
+  // Subtract 1 day
   const today = new Date(todayStr + "T12:00:00+07:00");
-  today.setDate(today.getDate() + mondayOffset);
+  today.setDate(today.getDate() - 1);
   return today.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
 
@@ -125,11 +117,11 @@ function SaveTargetButton({ date }: { date: string }) {
 // ============================================
 
 export function DispatchPlanner() {
-  useDocumentTitle("Restock Planner");
+  useDocumentTitle("Planner");
 
   // Week navigation state
-  const [startDate, setStartDate] = useState(() => getCurrentMonday());
-  const isCurrentWeek = startDate === getCurrentMonday();
+  const [startDate, setStartDate] = useState(() => getYesterday());
+  const isCurrentWeek = startDate === getYesterday();
 
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -164,9 +156,13 @@ export function DispatchPlanner() {
   const handleSaveCell: SaveCellFn = useCallback(
     async (channel, outletId, menuProductId, date, qty) => {
       try {
+        // "direct-manual" is a display-only sentinel from the query — NOT a valid Convex ID.
+        // Strip it to undefined so the mutation validator accepts the call.
+        const resolvedOutletId =
+          outletId === "direct-manual" ? undefined : (outletId as any);
         await savePlanCell({
           channel,
-          outletId: outletId as any,
+          outletId: resolvedOutletId,
           menuProductId: menuProductId as any,
           date,
           plannedQty: qty,
@@ -192,7 +188,7 @@ export function DispatchPlanner() {
   if (loadingWeekly) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Restock Planner" description="Loading..." />
+        <PageHeader title="Planner" description="Loading..." />
         <Skeleton className="h-14 w-full rounded-lg" />
         <Skeleton className="h-8 w-full rounded-lg" />
         <div className="space-y-1">
@@ -208,7 +204,7 @@ export function DispatchPlanner() {
     <div className="space-y-4">
       {/* Page Header with actions */}
       <PageHeader
-        title="Restock Planner"
+        title="Planner"
         description={subtitle}
         action={
           <Button

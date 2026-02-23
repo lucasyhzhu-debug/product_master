@@ -2,10 +2,11 @@
  * PlannerCell - Single editable number cell for the Dispatch Planner grid.
  *
  * Features:
- * - Auto-save on blur with 300ms debounce
+ * - Saves ONLY on Enter key press (blur reverts unsaved changes)
  * - Read-only mode for past days and K3Mart channel
  * - Faded styling for direct order production-start day cells
- * - Keyboard: Enter confirms, Escape reverts, Tab moves to next cell
+ * - Amber border ring when cell has unsaved changes (isDirty)
+ * - Keyboard: Enter saves, Escape reverts, Tab moves to next cell (reverts if dirty)
  * - Compact cell with centered text
  *
  * Follows the K3Mart EditablePlannerCell pattern.
@@ -85,10 +86,13 @@ export const PlannerCell = React.memo(
 
     const handleBlur = useCallback(() => {
       setIsFocused(false);
+      // On blur: revert to last-saved value if dirty (no auto-save on focus loss).
+      // User must press Enter to save.
       if (isDirty) {
-        performSave(editValue);
+        setEditValue(value > 0 ? value.toString() : "");
+        setIsDirty(false);
       }
-    }, [isDirty, editValue, performSave]);
+    }, [isDirty, value]);
 
     const handleFocus = useCallback(
       (e: React.FocusEvent<HTMLInputElement>) => {
