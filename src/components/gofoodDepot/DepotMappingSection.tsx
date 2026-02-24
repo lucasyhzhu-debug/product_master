@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useGoFoodSaveOutletMappings, useGoFoodInitOutletMappings } from '@/hooks/convex/useGoFoodDepot';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Id } from '../../../convex/_generated/dataModel';
 
 // ============================================================================
@@ -67,6 +68,8 @@ export function DepotMappingSection({
 }: DepotMappingSectionProps) {
   const saveOutletMappings = useGoFoodSaveOutletMappings();
   const initOutletMappings = useGoFoodInitOutletMappings();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
 
   const [saving, setSaving] = useState(false);
   const [initDone, setInitDone] = useState(false);
@@ -261,7 +264,8 @@ export function DepotMappingSection({
       <div className="px-4 py-3 border-t bg-muted/20 flex justify-end">
         <Button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !isAdmin}
+          title={!isAdmin ? 'Admin access required' : undefined}
           className="gap-2"
         >
           <Save className="h-4 w-4" />
