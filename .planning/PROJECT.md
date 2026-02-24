@@ -2,21 +2,15 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning (GoFood × 3 outlets + K3Mart + Direct + Consignment), finished goods inventory with order drawdown, production ingredient tracking with auto-calculated COGS, and multi-platform API integration (GoBiz/GoFood). Moving toward GoFood depot management, kitchen target automation, and consignment revenue tracking.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning (GoFood × 3 outlets + K3Mart + Direct), finished goods inventory with order drawdown, GoFood depot management with per-outlet product mappings and stock alerts, kitchen production targets driven by dispatch plans, production ingredient tracking with auto-calculated COGS, and multi-platform API integration (GoBiz/GoFood). Codebase fully cleaned: bundle split, dark mode complete, hook naming unified.
 
 ## Core Value
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.3 GoFood, Kitchen & Consignment
+## Current Milestone: v1.4 Testing & Quality
 
-**Goal:** Close GoFood depot management gaps, link dispatch planning to kitchen production targets, and add consignment sales tracking with manual Excel upload and unified lifetime sales analytics.
-
-**Target features:**
-- GoFood per-outlet product mapping, per-depot stock tracking, and restock suggestion algorithm
-- Kitchen production targets driven by dispatch planner output
-- Consignment sales upload (Excel, bulk + detail formats) for Legato and similar outlets
-- Sales Analytics extended with consignment channel data and lifetime totals dashboard
+**Goal:** Add E2E Playwright test coverage for critical user flows (login, order creation, kitchen shift, restock planner) and integrate into CI for ongoing quality assurance.
 
 ## Requirements
 
@@ -68,19 +62,20 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ Finished goods inventory tracker: location-aware stock by product, order drawdown skipping production, GoFood auto-deduction, per-product low-stock alerts — v1.2
 - ✓ Production ingredient tracking: ingredient recipes per ball type (BIG_BALL, MID_BALL), FIFO inventory for food ingredients, auto-calculated COGS replacing manual entry — v1.2
 - ✓ Dispatch planner simulation: day-by-day packaging + ingredient shortage forecasts with "Runs Out By" resupply dates in Materials Check panel — v1.2
+- ✓ GoFood per-outlet product mapping, per-depot stock tracking with alerts, depot restock suggestion algorithm — v1.3 (GF-02, GF-03, GF-04)
+- ✓ Kitchen production targets: configurable defaults, dispatch planner drives kitchen targets (singles + triples) — v1.3 (KIT-09, KIT-12)
+- ✓ Kitchen overhaul: EoS production recording to Finished Goods, waste logging, shift history — v1.3 (KIT-13–18)
+- ✓ Legacy editor removal: 11 unused schema tables dropped, 4 editor pages deleted, Dashboard stripped — v1.3
+- ✓ Bundle splitting: React.lazy routes, main bundle 76kB (was 1,474kB), ChunkErrorBoundary for deploy-drift — v1.3
+- ✓ Codebase modernisation: dark mode across all pages, useConvex prefix removed, protectedMutation expanded to orders/ — v1.3
+- ✓ Convex query optimisation: heavy analytical queries on-demand, N+1 eliminated, delivery fee reporting separated — v1.3
 
 ### Active
 
-- [ ] GF-02: Per-outlet product mapping (outlet selector in mapping tab; new outlets default to previous depot's mapping) — Phase 19
-- [ ] GF-03: Per-outlet GoFood depot stock tracking with alert when any depot < 5 products remaining — Phase 19
-- [ ] GF-04: Depot restock suggestion algorithm: n+1 avg last 3 days; n+2 Fri/Sat; Mon reset to prev Thu total — Phase 19
-- [ ] KIT-09: Default daily production target 200 units (110 Original singles + 30 Original triples), configurable by manager — Phase 20
-- [ ] KIT-12: Dispatch planner output drives kitchen view — kitchen displays today's production targets as two numbers (singles + triples) — Phase 20
-- [ ] CON-01: User can upload consignment sales via Excel (bulk summary: product + qty sold + qty returned + revenue per outlet per date range) — Phase 21
-- [ ] CON-02: User can upload consignment sales via Excel (detail format: per-transaction with ID and line items) — Phase 21
-- [ ] CON-03: System provides downloadable pre-formatted Excel template (summary + detail sheets) for consignment data entry — Phase 21
-- [ ] ANLY-01: Sales Analytics shows consignment channel data alongside GoFood, K3Mart, and Direct channels — Phase 22
-- [ ] ANLY-02: Sales Analytics displays lifetime totals: headline units sold counter + per-product breakdown table — Phase 22
+- [ ] E2E-01: Playwright login flow test (valid PIN, invalid PIN, role redirect) — Phase 26
+- [ ] E2E-02: Playwright order creation E2E (customer select, items, submit, confirm) — Phase 26
+- [ ] E2E-03: Playwright kitchen shift submission E2E (open shift, record production, submit) — Phase 26
+- [ ] E2E-04: Playwright restock planner E2E (view suggestions, adjust quantities) — Phase 26
 
 ### Out of Scope
 
@@ -95,11 +90,13 @@ Production reliability — the system is the single source of truth for recipes,
 | GoBiz official OAuth2 migration | GoBiz stopped issuing new client credentials (Phase 16.1 dropped) |
 | Mobile app (React Native) | Responsive web design covers kitchen mobile use |
 | Multi-language i18n | All users are Indonesian staff comfortable with English UI |
-| Kitchen integration from dispatch planner (auto-push) | Deferred until dispatch planner is validated; v1.3+ |
-| Audio alerts for kitchen (KIT-11) | Deferred to v1.3+ |
+| Kitchen integration from dispatch planner (auto-push) | Dispatch planner now drives targets via confirmDayPlan; auto-push complete — v1.3 |
+| Audio alerts for kitchen (KIT-11) | Deferred indefinitely; visual alerts sufficient |
 | Automated settlement reconciliation | Metric flagging sufficient at this scale; CON-04 simplified |
 | Full double-entry accounting for consignment | Production system, not accounting; export summaries to spreadsheets |
 | Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
+| Consignment sales upload (CON-01–05) | Deferred to v1.4+; depends on consignment revenue strategy |
+| Sales Analytics consignment segments (ANLY-01–03) | Deferred to v1.4+; blocked by CON-01–05 |
 | Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
 | Customer CRM / Sales pipeline | Deferred |
 | Notifications bell (NTF-01) | Deferred |
@@ -107,28 +104,22 @@ Production reliability — the system is the single source of truth for recipes,
 
 ## Context
 
-Shipped v1.2 with ~97,824 lines TypeScript across 62 Convex tables.
+Shipped v1.3 with ~106,940 lines TypeScript across 59 Convex tables (3 tables removed in legacy cleanup).
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
 Deployed via Vercel with GitHub Actions CI.
 
-**Current state after v1.2:**
-- 7/12 v1.2 requirements satisfied; 5 carried to v1.3 (GoFood depot management + kitchen targets)
-- Dispatch planning: unified multi-channel weekly planner at /dispatch-planner with GoFood, K3Mart, Direct, Consignment
-- Finished goods inventory: 3 new tables (productInventory, productInventoryTransactions, productInventorySettings)
-- Production ingredients: 2 new tables (productionComponentLinks, productionComponentIngredients) with FIFO via inventoryBatches
-- API: 3 GoFood outlets (Goldfinch, Crystal, Tamtem), GoBiz JSON blob token paste, auto-refresh cron
-- Schema: 62 tables
-- UI: 26 pages under teal brand with dark mode
+**Current state after v1.3:**
+- GoFood Depot Manager: per-outlet product mappings, per-depot stock with low-stock alerts, daily restock suggestions
+- Kitchen: targets from dispatch plan, EoS recording to Finished Goods, waste logging, shift history
+- Codebase: 11 legacy tables removed, 4 editor pages deleted, bundle split (main 76kB vs 1,474kB before), dark mode complete across all pages, hook naming unified (no useConvex prefix), protectedMutation expanded to orders/
+- Schema: 59 tables
+- UI: 26 pages, route-level code splitting with React.lazy, ChunkErrorBoundary for deploy-drift
 
 **Known technical debt:**
-- E2E Playwright tests not yet written (test infrastructure is Vitest + convex-test only)
+- E2E Playwright tests not yet written — v1.4 target
 - Generic query factory not applied to all query files (only simple entities)
-- protectedMutation not applied to complex entities (orders, recipes, products)
-- `useConvex` prefix not removed from hook names (cosmetic)
-- 1.8MB JS bundle size triggers Vite warning
-- Partial dark mode coverage in some K3Mart components
 - Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run (mitigation: run seed before Tamtem GoFood sales begin)
-- Ingredient simulation uses name string matching — fragile if names diverge between ingredient and tracker componentType records
+- Ingredient simulation uses name string matching — fragile if names diverge between componentType records
 
 ## Constraints
 
@@ -167,6 +158,12 @@ Deployed via Vercel with GitHub Actions CI.
 | GoBiz token accepted as full JSON blob | Dual-field input caused paste errors; single JSON paste is safer and faster | ✓ Good — improved UX, no functional regression |
 | commissionRate removed from dispatch schema | Net/gross revenue comes from external APIs; commission is API-derived, not locally stored | ✓ Good — avoided data duplication and sync mismatch |
 | Direct Sales "Planned (Manual)" outlet | Managers need ad-hoc planning for non-confirmed direct orders | ✓ Good — flexible without polluting confirmed order data |
+| GoFood depot stock as simple aggregate (not FIFO) | GoFood deductions are approximate batch totals; FIFO adds complexity without traceability benefit | ✓ Good — simpler model, negative stock flagged visually |
+| Kitchen EoS records to Finished Goods immediately | Avoids double-entry; kitchen output directly feeds inventory drawdown | ✓ Good — productionLog → productInventory pipeline clean |
+| React.lazy route splitting over manual chunk config | Automatic code splitting per route, no manual Rollup config needed | ✓ Good — main bundle shrunk from 1,474kB to 76kB |
+| Defer consignment (CON-01–05) to v1.4+ | GoFood + kitchen integration was higher priority; consignment revenue tracking needs separate planning | — Accepted — consignment outlets use manual records for now |
+| Remove 11 legacy schema tables in Phase 22 | Legacy editors unused post v1.1; tables held orphan data with no UI | ✓ Good — schema 62→59 tables, no data loss (tables were empty or UI-dead) |
+| protectedMutation expanded to orders/ in Phase 25 | Consistency across all mutation patterns; orders/ was last holdout | ✓ Good — uniform auth pattern, type safety improved |
 
 ---
-*Last updated: 2026-02-21 after milestone v1.3 started*
+*Last updated: 2026-02-24 after v1.3 milestone*

@@ -71,3 +71,28 @@
 
 ---
 
+
+## v1.3 GoFood, Kitchen & Legacy Cleanup (Shipped: 2026-02-24)
+
+**Phases completed:** 8 phases (+ 1 inserted decimal: 20.1), 49 plans
+**Timeline:** 3 days (2026-02-21 to 2026-02-24)
+**Commits:** 348 | **Files changed:** 443 | **Lines:** +48,853 / -12,945 (net +35,908)
+**Requirements:** 12/20 satisfied | 8 intentionally deferred (CON-01–05, ANLY-01–03) | **Audit:** gaps_found (no critical blockers)
+
+**Key accomplishments:**
+1. GoFood Depot Management: per-outlet product mappings, per-depot stock tracking with low-stock alerts, daily restock suggestions, Tamtem silent-skip fix — closes GF-02/03/04/05
+2. Convex query optimization: 5 heaviest analytical queries converted to on-demand fetches, N+1 patterns eliminated, unbounded scans bounded — production bandwidth significantly reduced
+3. Kitchen overhaul: simplified kitchen UI with production targets from dispatch plan, end-of-shift recording to Finished Goods inventory, waste logging, shift history, EoS form gap closure
+4. Legacy cleanup: 11 unused schema tables removed, 4 editor pages deleted, legacy Dashboard stripped — codebase significantly smaller and cleaner
+5. Bundle splitting: React.lazy route-level code splitting reduces main bundle from 1,474kB to 76kB, ChunkErrorBoundary handles deploy-drift gracefully
+6. Ingredient simulation fix + restock-kitchen integration: ID-based ingredient linking, dispatch planner UX overhaul with yesterday-anchored grid, Save to Kitchen, FG Adjust dialog
+7. Codebase cleanup: dark mode across all 26 pages, useConvex prefix removed from all 161 hooks, protectedMutation expanded to orders/ and productionRecipes/
+
+**Delivered:** Full GoFood depot management, kitchen production target system, legacy editor removal, and systematic codebase modernisation (bundle splitting, dark mode, hook naming). System measurably smaller, faster, and more maintainable.
+
+**Known Gaps (deferred to v1.4+):**
+- CON-01 through CON-05: Consignment sales upload via Excel — explicitly deferred during milestone planning
+- ANLY-01 through ANLY-03: Sales Analytics consignment segments and lifetime counters — depends on CON-01–05
+
+---
+
