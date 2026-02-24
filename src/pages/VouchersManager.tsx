@@ -752,7 +752,7 @@ function OverrideCard({ voucher, onCopyCode }: OverrideCardProps) {
   // Fetch linked order details if override has been used
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orderDetails = useQuery(
-    (api as any).vouchers.getOverrideOrderDetails,
+    (api as any).vouchers.queries.getOverrideOrderDetails,
     voucher.overrideOrderId ? { voucherId: voucher._id } : "skip"
   );
 
