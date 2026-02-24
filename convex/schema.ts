@@ -635,6 +635,10 @@ export default defineSchema({
     overrideReason: v.optional(v.string()), // Required reason for override
     overrideOrderId: v.optional(v.id("orders")), // Link to specific order
 
+    // Free Voucher fields (admin-only, 100% discount)
+    isFreeVoucher: v.optional(v.boolean()), // True if created via createFreeVoucher
+    freeReason: v.optional(v.string()), // "QA Testing" | "Gift" | "Other: {text}"
+
     // Audit
     createdBy: v.string(),
     createdAt: v.number(),

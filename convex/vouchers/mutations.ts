@@ -433,6 +433,66 @@ export const decrementUsage = mutation({
 });
 
 /**
+ * Create a free (100% discount) voucher.
+ * Admin only — managers are explicitly excluded.
+ *
+ * Always creates a 100% percentage discount voucher with no usage limit
+ * and no expiry by default. Requires a structured reason.
+ */
+export const createFreeVoucher = mutation({
+  args: {
+    token: v.string(),
+    name: v.string(),
+    freeReason: v.string(), // "QA Testing" | "Gift" | "Other: {user text}"
+    code: v.optional(v.string()), // Auto-generated if not provided
+    usageLimit: v.optional(v.number()),
+    validUntil: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]); // admin ONLY
+
+    if (!args.freeReason.trim()) {
+      throw new Error("Reason is required for free voucher");
+    }
+    if (!args.name.trim()) {
+      throw new Error("Voucher name is required");
+    }
+
+    // Generate or normalize code
+    let code = args.code
+      ? args.code.toUpperCase().trim().replace(/\s+/g, "-")
+      : generateVoucherCode("FREE");
+
+    // Ensure unique code
+    const existing = await ctx.db
+      .query("vouchers")
+      .withIndex("by_code", (q) => q.eq("code", code))
+      .first();
+    if (existing) {
+      throw new Error(`Voucher code "${code}" already exists`);
+    }
+
+    const voucherId = await ctx.db.insert("vouchers", {
+      code,
+      name: args.name.trim(),
+      description: `Free voucher — ${args.freeReason}`,
+      discountType: "percentage",
+      discountValue: 100,
+      isActive: true,
+      usageLimit: args.usageLimit,
+      validUntil: args.validUntil,
+      usageCount: 0,
+      isFreeVoucher: true,
+      freeReason: args.freeReason,
+      createdBy: user.name,
+      createdAt: Date.now(),
+    });
+
+    return { voucherId, code };
+  },
+});
+
+/**
  * Generate a random voucher code (utility endpoint).
  * Admin only.
  */
