@@ -13,7 +13,8 @@
 #
 # PREREQUISITES:
 #   - npx convex CLI available
-#   - unzip and zip available (install with: brew install zip / apt install zip)
+#   - unzip available (Git Bash on Windows includes this)
+#   - zip OR PowerShell (script auto-detects; PowerShell is used on Windows if zip not found)
 #   - .env.local exists pointing to dev:exciting-fennec-671
 #   - You are authenticated: npx convex login
 #
@@ -77,9 +78,16 @@ ls "$WORK_DIR" | sed 's/^/     /'
 
 echo ""
 echo "Step 4/6: Re-zipping sanitized snapshot..."
-cd "$WORK_DIR"
-zip -rq "../$SANITIZED" .
-cd ..
+if command -v zip &>/dev/null; then
+  cd "$WORK_DIR"
+  zip -rq "../$SANITIZED" .
+  cd ..
+else
+  # Fallback: use PowerShell (available on Windows)
+  WORK_DIR_ABS=$(pwd)/"$WORK_DIR"
+  SANITIZED_ABS=$(pwd)/"$SANITIZED"
+  powershell.exe -NoProfile -Command "Compress-Archive -Path '${WORK_DIR_ABS}/*' -DestinationPath '${SANITIZED_ABS}' -Force"
+fi
 echo "  -> Saved to $SANITIZED"
 
 echo ""
