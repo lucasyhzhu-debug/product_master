@@ -32,6 +32,7 @@ const vouchersApi = (api as any).vouchers as {
     toggleActive: unknown;
     remove: unknown;
     createManagerOverride: unknown;
+    createFreeVoucher: unknown;
     incrementUsage: unknown;
     decrementUsage: unknown;
     generateCode: unknown;
@@ -81,6 +82,14 @@ export interface ManagerOverrideInput {
   discountType: "amount" | "percentage";
   discountValue: number;
   orderId?: Id<"orders">;
+}
+
+export interface FreeVoucherInput {
+  name: string;
+  freeReason: string; // "QA Testing" | "Gift" | "Other: {text}"
+  code?: string;
+  usageLimit?: number;
+  validUntil?: number;
 }
 
 // ============================================
@@ -274,6 +283,30 @@ export function useCreateManagerOverride() {
       } catch (error) {
         if (!(error instanceof Error && error.message === "Not authenticated")) {
           toast.error(getErrorMessage(error, "Failed to create override voucher"));
+        }
+        throw error;
+      }
+    },
+  };
+}
+
+/**
+ * Hook to create a free (100% discount) voucher.
+ * Admin only.
+ */
+export function useCreateFreeVoucher() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const protectedCreate = useProtectedMutation(vouchersApi.mutations.createFreeVoucher as any);
+
+  return {
+    createFreeVoucher: async (data: FreeVoucherInput) => {
+      try {
+        const result = await protectedCreate({ ...data });
+        toast.success(`Free voucher created: ${result.code}`);
+        return result;
+      } catch (error) {
+        if (!(error instanceof Error && error.message === "Not authenticated")) {
+          toast.error(getErrorMessage(error, "Failed to create free voucher"));
         }
         throw error;
       }
