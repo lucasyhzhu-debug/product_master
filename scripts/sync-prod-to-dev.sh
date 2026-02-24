@@ -77,7 +77,9 @@ ls "$WORK_DIR" | sed 's/^/     /'
 
 echo ""
 echo "Step 4/6: Re-zipping sanitized snapshot..."
-(cd "$WORK_DIR" && zip -rq "../$SANITIZED" .)
+cd "$WORK_DIR"
+zip -rq "../$SANITIZED" .
+cd ..
 echo "  -> Saved to $SANITIZED"
 
 echo ""
