@@ -68,14 +68,12 @@ const DispatchPlanner = lazyWithPreload(() =>
 const GoFoodDepotManager = lazyWithPreload(() =>
   import('./pages/GoFoodDepotManager').then(m => ({ default: m.GoFoodDepotManager }))
 );
-// SalesAnalytics and K3MartCockpit: uncomment these lazy declarations when
-// their routes are re-enabled after March 1st bandwidth quota reset.
-// const SalesAnalytics = lazyWithPreload(() =>
-//   import('./pages/SalesAnalytics').then(m => ({ default: m.SalesAnalytics }))
-// );
-// const K3MartCockpit = lazyWithPreload(() =>
-//   import('./pages/K3MartCockpit').then(m => ({ default: m.K3MartCockpit }))
-// );
+const SalesAnalytics = lazyWithPreload(() =>
+  import('./pages/SalesAnalytics').then(m => ({ default: m.SalesAnalytics }))
+);
+const K3MartCockpit = lazyWithPreload(() =>
+  import('./pages/K3MartCockpit').then(m => ({ default: m.K3MartCockpit }))
+);
 
 function App() {
   return (
@@ -253,7 +251,6 @@ function App() {
                     }
                   />
 
-                  {/* BANDWIDTH CONSERVATION: Sales Analytics disabled until March 1st quota reset
                   <Route
                     path="sales"
                     element={
@@ -262,9 +259,7 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  */}
 
-                  {/* BANDWIDTH CONSERVATION: K3Mart Cockpit disabled until March 1st quota reset
                   <Route
                     path="k3mart-cockpit"
                     element={
@@ -273,7 +268,6 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  */}
 
                   {/* Restock Planner - Manager and Admin */}
                   <Route
@@ -300,9 +294,6 @@ function App() {
                 <Route path="restock" element={<Navigate to="/k3mart-cockpit" replace />} />
                 <Route path="inventory/components" element={<Navigate to="/components/production" replace />} />
                 <Route path="components/packaging" element={<Navigate to="/inventory" replace />} />
-                {/* BANDWIDTH CONSERVATION: redirect disabled pages to orders */}
-                <Route path="sales" element={<Navigate to="/orders" replace />} />
-                <Route path="k3mart-cockpit" element={<Navigate to="/orders" replace />} />
               </Route>
 
               {/* Catch-all redirect to login */}
