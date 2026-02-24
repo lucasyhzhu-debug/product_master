@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-22)
 Phase: Phase 24 — Ingredient Simulation Fix + Restock-Kitchen Integration (IN PROGRESS — 2/7 plans executed, UAT gaps being closed)
 Plan: 24-07 complete (gap closure); remaining plans 24-01 through 24-04 unexecuted
 Status: UAT diagnosed with gaps; gap closure plans (24-05, 24-06, 24-07) executed; core plans pending
-Last activity: 2026-02-23 - Phase 24 gap closure + Phase 23 closed as complete
+Last activity: 2026-02-24 - Completed quick task 27: Restore Sales Analytics and K3Mart Cockpit navigation
 
 Progress (v1.3): [████████████████░░░░] 39/44 plans (89%) — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (11/11), Phase 22 complete (5/5), Phase 23 complete (3/3), Phase 24 in progress (2/7)
 
@@ -158,6 +158,7 @@ Key decisions affecting v1.3 phases:
 | 24 | Disable Sales Analytics and K3Mart Cockpit pages; redirect / and disabled routes to /orders for bandwidth conservation until March 1st | 2026-02-22 | 7d7fcba | Done | [24-disable-sales-analytics-page-and-redirec](./quick/24-disable-sales-analytics-page-and-redirec/) |
 | 25 | EoS form gap closure: waste filter, inline confirm error, produced row redesign with targets and deltas | 2026-02-23 | 861afec | Verified | [25-eos-form-gap-closure-waste-filter-inline](./quick/25-eos-form-gap-closure-waste-filter-inline/) |
 | 26 | Add free voucher creation: admin-only 100% discount vouchers with structured reason (QA Testing/Gift/Other), green Free badge in UI | 2026-02-24 | 1f13ead | Verified | [26-create-a-way-for-us-to-make-free-voucher](./quick/26-create-a-way-for-us-to-make-free-voucher/) |
+| 27 | Restore Sales Analytics and K3Mart Cockpit navigation | 2026-02-24 | 2d2cc36 | Verified | [27-bring-back-sales-analytics-and-k3mart-co](./quick/27-bring-back-sales-analytics-and-k3mart-co/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
