@@ -130,7 +130,7 @@ Key decisions affecting v1.3 phases:
 
 ### Pending Todos
 
-None.
+- [grabfood-pos-api-integration] GrabFood POS API integration — POC committed, full integration planned for next milestone (see `docs/GRABFOOD_API.md`)
 
 ### Blockers/Concerns
 
