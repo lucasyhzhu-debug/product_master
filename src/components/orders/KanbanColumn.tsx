@@ -92,7 +92,7 @@ export function KanbanColumn({ config, orders, onCardClick, currentUserId, highl
 
       {/* Scrollable card list */}
       <ScrollArea className="flex-1 px-3 pb-3 max-h-[calc(100vh-220px)]">
-        <div className="space-y-2">
+        <div className="space-y-2 pt-1">
           {sortedOrders.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">
               No orders

@@ -264,22 +264,22 @@ export function TemplateEditor({
                 </div>
 
                 {/* WhatsApp-style preview */}
-                <div className="flex-1 bg-[#ECE5DD] rounded-lg p-4 overflow-auto">
+                <div className="flex-1 bg-[#ECE5DD] dark:bg-[#0d1117] rounded-lg p-4 overflow-auto">
                   <div className="max-w-[300px] mx-auto">
                     {/* Message bubble */}
                     <motion.div
                       key={currentContent}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="bg-[#DCF8C6] rounded-lg p-3 shadow-sm"
+                      className="bg-[#DCF8C6] dark:bg-[#005c4b] rounded-lg p-3 shadow-sm"
                     >
-                      <pre className="text-sm text-foreground/80 whitespace-pre-wrap font-sans">
+                      <pre className="text-sm text-foreground/80 dark:text-[#e9edef] whitespace-pre-wrap font-sans">
                         {previewContent}
                       </pre>
 
                       {/* Timestamp */}
                       <div className="flex items-center justify-end gap-1 mt-2">
-                        <span className="text-[10px] text-[#667781]">
+                        <span className="text-[10px] text-[#667781] dark:text-[#8696a0]">
                           {new Date().toLocaleTimeString("en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
