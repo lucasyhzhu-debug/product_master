@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { useConvexExternalProductMappings } from "@/hooks/convex";
+import { useExternalProductMappings } from "@/hooks/convex";
 import { ProductMappingCard } from "./ProductMappingCard";
 
 /**
@@ -12,7 +12,7 @@ import { ProductMappingCard } from "./ProductMappingCard";
  */
 export function ProductMappingTab() {
   const { data: allMappings, isLoading: loadingMappings } =
-    useConvexExternalProductMappings();
+    useExternalProductMappings();
   // Use raw Convex query to get menu products with their Convex IDs
   const rawMenuProducts = useQuery(api.menuProducts.queries.list, {});
 

@@ -24,17 +24,17 @@ import { SortableProductCard } from '@/components/menuProducts/SortableProductCa
 import { DroppableSlotZone } from '@/components/menuProducts/DroppableSlotZone';
 import { DragOverlayCard } from '@/components/menuProducts/DragOverlayCard';
 import {
-  useConvexPosProducts,
-  useConvexAvailableProducts,
-  useConvexDeleteMenuProduct,
-  useConvexRemoveFromSlot,
-  useConvexAssignToSlot,
-  useConvexPackagingPosProducts,
-  useConvexRemoveFromPackagingSlot,
-  useConvexAssignToPackagingSlot,
-  useConvexReorderSlots,
-  useConvexReorderPackagingSlots,
-  useConvexRecalculateAllCosts,
+  usePosProducts,
+  useAvailableProducts,
+  useDeleteMenuProduct,
+  useRemoveFromSlot,
+  useAssignToSlot,
+  usePackagingPosProducts,
+  useRemoveFromPackagingSlot,
+  useAssignToPackagingSlot,
+  useReorderSlots,
+  useReorderPackagingSlots,
+  useRecalculateAllCosts,
   type PosProduct,
   type AvailableProduct,
   type PackagingPosProduct,
@@ -51,17 +51,17 @@ export function MenuProductsManager() {
   const isAdmin = hasRole('admin');
 
   // Convex hooks
-  const { data: posProducts, isLoading: loadingPos } = useConvexPosProducts();
-  const { data: availableProducts, isLoading: loadingAvailable } = useConvexAvailableProducts();
-  const { data: packagingPosProducts, isLoading: loadingPackagingPos } = useConvexPackagingPosProducts();
-  const deleteMutation = useConvexDeleteMenuProduct();
-  const removeFromSlotMutation = useConvexRemoveFromSlot();
-  const assignSlotMutation = useConvexAssignToSlot();
-  const removeFromPackagingSlotMutation = useConvexRemoveFromPackagingSlot();
-  const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
-  const reorderSlotsMutation = useConvexReorderSlots();
-  const reorderPackagingSlotsMutation = useConvexReorderPackagingSlots();
-  const recalcAllCosts = useConvexRecalculateAllCosts();
+  const { data: posProducts, isLoading: loadingPos } = usePosProducts();
+  const { data: availableProducts, isLoading: loadingAvailable } = useAvailableProducts();
+  const { data: packagingPosProducts, isLoading: loadingPackagingPos } = usePackagingPosProducts();
+  const deleteMutation = useDeleteMenuProduct();
+  const removeFromSlotMutation = useRemoveFromSlot();
+  const assignSlotMutation = useAssignToSlot();
+  const removeFromPackagingSlotMutation = useRemoveFromPackagingSlot();
+  const assignPackagingSlotMutation = useAssignToPackagingSlot();
+  const reorderSlotsMutation = useReorderSlots();
+  const reorderPackagingSlotsMutation = useReorderPackagingSlots();
+  const recalcAllCosts = useRecalculateAllCosts();
 
   // DnD state
   const [activeProduct, setActiveProduct] = useState<PosProduct | AvailableProduct | PackagingPosProduct | null>(null);

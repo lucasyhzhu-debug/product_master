@@ -8,12 +8,12 @@ export { createMutationHook, type MutationHookConfig } from "./createMutationHoo
 
 // Ingredients
 export {
-  useConvexIngredients,
-  useConvexIngredient,
-  useConvexIngredientSearch,
-  useConvexCreateIngredient,
-  useConvexUpdateIngredient,
-  useConvexDeleteIngredient,
+  useIngredients,
+  useIngredient,
+  useIngredientSearch,
+  useCreateIngredient,
+  useUpdateIngredient,
+  useDeleteIngredient,
   useLinkIngredientToComponentType,
   useUnlinkIngredientFromComponentType,
   type ConvexIngredient,
@@ -23,20 +23,20 @@ export {
 // Menu Products
 export {
   // Query hooks
-  useConvexMenuProducts,
-  useConvexMenuProduct,
-  useConvexMenuProductByCode,
-  useConvexPosProducts,
-  useConvexAvailableProducts,
-  useConvexPackagingPosProducts,
+  useMenuProducts,
+  useMenuProduct,
+  useMenuProductByCode,
+  usePosProducts,
+  useAvailableProducts,
+  usePackagingPosProducts,
   // Mutation hooks
-  useConvexCreateMenuProduct,
-  useConvexUpdateMenuProduct,
-  useConvexDeleteMenuProduct,
-  useConvexAssignToSlot,
-  useConvexRemoveFromSlot,
-  useConvexAssignToPackagingSlot,
-  useConvexRemoveFromPackagingSlot,
+  useCreateMenuProduct,
+  useUpdateMenuProduct,
+  useDeleteMenuProduct,
+  useAssignToSlot,
+  useRemoveFromSlot,
+  useAssignToPackagingSlot,
+  useRemoveFromPackagingSlot,
   // Types
   type MenuProductCreateInput,
   type MenuProductUpdateInput,
@@ -48,34 +48,35 @@ export {
 // Orders
 export {
   // Query hooks
-  useConvexOrders,
-  useConvexOrdersPaginated,
-  useConvexOrder,
-  useConvexOrderByNumber,
-  useConvexKitchenOrders,
-  useConvexOrdersByCustomer,
-  useConvexProductSuggestions,
-  useConvexSellerSuggestions,
-  useConvexChannelSuggestions,
-  useConvexWhatsAppMessage,
-  useConvexOrderTemplate,
+  useOrders,
+  useOrdersPaginated,
+  useOrder,
+  useOrderByNumber,
+  useKitchenOrders,
+  useOrdersByCustomer,
+  useProductSuggestions,
+  useSellerSuggestions,
+  useChannelSuggestions,
+  useWhatsAppMessage,
+  useOrderTemplate,
   useKanbanOrders,
   // Mutation hooks
   useCreateDraft,
   useUpdateDraft,
-  useConvexCreateOrder,
-  useConvexUpdateOrderStatus,
-  useConvexUpdateOrderPayment,
-  useConvexUpdateOrderShipping,
-  useConvexUpdateOrderDetails,
-  useConvexCancelOrder,
-  useConvexDeleteOrder,
-  useConvexAddOrderItem,
-  useConvexRemoveOrderItem,
-  useConvexUpdateOrderItemQuantity,
-  useConvexReplaceOrderItems,
-  useConvexUpdateOrderDiscount,
-  useConvexUpdateOrderDeliveryFee,
+  useCreateOrder,
+  useUpdateOrderStatus,
+  useUpdateOrderPayment,
+  useUpdateOrderShipping,
+  useUpdateOrderDetails,
+  useCancelOrder,
+  useDeleteOrder,
+  useAddOrderItem,
+  useRemoveOrderItem,
+  useUpdateOrderItemQuantity,
+  useReplaceOrderItems,
+  useUpdateOrderDiscount,
+  useUpdateOrderDeliveryFee,
+  useForceComplete,
   // Types
   type OrderItemInput,
   type OrderCreateInput,
@@ -86,14 +87,14 @@ export {
 // Customers
 export {
   // Query hooks
-  useConvexCustomers,
-  useConvexCustomer,
-  useConvexCustomerSearch,
-  useConvexCustomerByPhone,
+  useCustomers,
+  useCustomer,
+  useCustomerSearch,
+  useCustomerByPhone,
   // Mutation hooks
-  useConvexCreateCustomer,
-  useConvexUpdateCustomer,
-  useConvexDeleteCustomer,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
   // Types
   type CustomerCreateInput,
   type CustomerUpdateInput,
@@ -102,33 +103,33 @@ export {
 // Kitchen Stats (PRD-1: Kitchen Core)
 export {
   // Query hooks
-  useConvexKitchenStats,
-  useConvexKitchenOrdersWithBalls,
-  useConvexCompletedToday,
+  useKitchenStats,
+  useKitchenOrdersWithBalls,
+  useCompletedToday,
   // Mutation hooks
-  useConvexCompleteOrder,
-  useConvexRevertToConfirmed,
-  useConvexCompleteBalls,
-  useConvexCompletePackaging,
-  useConvexRevertToPackaging,
+  useCompleteOrder,
+  useRevertToConfirmed,
+  useCompleteBalls,
+  useCompletePackaging,
+  useRevertToPackaging,
 } from "./useKitchenStats";
 
 // Visual Feedback Overlay
 export {
   // Query hooks
-  useConvexFeedbackList,
-  useConvexFeedback,
-  useConvexFeedbackExport,
-  useConvexFeedbackStats,
-  useConvexOngoingFeedbackCount,
+  useFeedbackList,
+  useFeedback,
+  useFeedbackExport,
+  useFeedbackStats,
+  useOngoingFeedbackCount,
   // Mutation hooks
-  useConvexGenerateUploadUrl,
-  useConvexCreateFeedback,
-  useConvexAddFeedbackComment,
-  useConvexToggleFeedbackStatus,
-  useConvexUpdateFeedbackPriority,
-  useConvexUpdateFeedbackTags,
-  useConvexDeleteFeedback,
+  useGenerateUploadUrl,
+  useCreateFeedback,
+  useAddFeedbackComment,
+  useToggleFeedbackStatus,
+  useUpdateFeedbackPriority,
+  useUpdateFeedbackTags,
+  useDeleteFeedback,
   // Helper
   uploadScreenshot,
   // Types
@@ -143,37 +144,37 @@ export {
 
 // Production Unit Types (PRD-4: Menu Products Manager)
 export {
-  useConvexProductionUnitTypes,
-  useConvexProductionUnitType,
-  useConvexProductionUnitTypeByCode,
+  useProductionUnitTypes,
+  useProductionUnitType,
+  useProductionUnitTypeByCode,
   type ProductionUnitType,
   type ProductionUnitTypeWithId,
 } from "./useProductionUnitTypes";
 
 // Menu Product Components (PRD-4: Menu Products Manager)
 export {
-  useConvexMenuProductComponents,
-  useConvexMenuProductComponentsBatch,
+  useMenuProductComponents,
+  useMenuProductComponentsBatch,
   type MenuProductComponentWithType,
 } from "./useMenuProductComponents";
 
 // Inventory (Inventory Management System)
 export {
   // Query hooks
-  useConvexLowStockAlerts,
-  useConvexComponentInventory,
-  useConvexLocationInventory,
-  useConvexInventoryReport,
-  useConvexComponentBatches,
-  useConvexLocationTransactions,
-  useConvexLatestBatch,
+  useLowStockAlerts,
+  useComponentInventory,
+  useLocationInventory,
+  useInventoryReport,
+  useComponentBatches,
+  useLocationTransactions,
+  useLatestBatch,
   // Mutation hooks
-  useConvexReceiveStock,
-  useConvexCreateComponentAndReceiveStock,
-  useConvexTransferStock,
-  useConvexAdjustStock,
-  useConvexDeleteBatch,
-  useConvexExpireBatch,
+  useReceiveStock,
+  useCreateComponentAndReceiveStock,
+  useTransferStock,
+  useAdjustStock,
+  useDeleteBatch,
+  useExpireBatch,
   // Types
   type ReceiveStockInput,
   type TransferStockInput,
@@ -184,17 +185,17 @@ export {
 // Component Types (Inventory Management System)
 export {
   // Query hooks
-  useConvexComponentTypes,
-  useConvexComponentType,
-  useConvexComponentsByCategory,
-  useConvexInventoryTrackedComponents,
-  useConvexComponentByCode,
+  useComponentTypes,
+  useComponentType,
+  useComponentsByCategory,
+  useInventoryTrackedComponents,
+  useComponentByCode,
   // Mutation hooks
-  useConvexCreateComponentType,
-  useConvexUpdateComponentType,
-  useConvexDeleteComponentType,
-  useConvexCreatePackagingQuick,
-  useConvexCreateIngredientComponentType,
+  useCreateComponentType,
+  useUpdateComponentType,
+  useDeleteComponentType,
+  useCreatePackagingQuick,
+  useCreateIngredientComponentType,
   // Types
   type ComponentTypeCreateInput,
   type ComponentTypeUpdateInput,
@@ -204,13 +205,13 @@ export {
 // Storage Locations (Inventory Management System)
 export {
   // Query hooks
-  useConvexStorageLocations,
-  useConvexStorageLocation,
-  useConvexDefaultLocation,
+  useStorageLocations,
+  useStorageLocation,
+  useDefaultLocation,
   // Mutation hooks
-  useConvexCreateStorageLocation,
-  useConvexUpdateStorageLocation,
-  useConvexDeleteStorageLocation,
+  useCreateStorageLocation,
+  useUpdateStorageLocation,
+  useDeleteStorageLocation,
   // Types
   type StorageLocationCreateInput,
   type StorageLocationUpdateInput,
@@ -220,35 +221,35 @@ export {
 // External Data (Multi-Platform Sales Integration)
 export {
   // Query hooks
-  useConvexExternalOutlets,
-  useConvexExternalSnapshots,
-  useConvexExternalRevenue,
-  useConvexExternalSyncLogs,
-  useConvexExternalProductMappings,
-  useConvexDashboardSalesSummary,
-  useConvexDashboardSalesSummaryByPeriod,
-  useConvexOrderDetailsByOrderNumber,
-  useConvexRevenueItems,
+  useExternalOutlets,
+  useExternalSnapshots,
+  useExternalRevenue,
+  useExternalSyncLogs,
+  useExternalProductMappings,
+  useDashboardSalesSummary,
+  useDashboardSalesSummaryByPeriod,
+  useOrderDetailsByOrderNumber,
+  useRevenueItems,
   // Platform credentials hooks
-  useConvexCredentialStatus,
-  useConvexRefreshK3MartToken,
+  useCredentialStatus,
+  useRefreshK3MartToken,
   // Action hooks
-  useConvexDiscoverK3MartOutlets,
-  useConvexSyncK3MartSales,
-  useConvexSyncK3MartStock,
-  useConvexSyncGoBiz,
-  useConvexSyncInternalOrders,
+  useDiscoverK3MartOutlets,
+  useSyncK3MartSales,
+  useSyncK3MartStock,
+  useSyncGoBiz,
+  useSyncInternalOrders,
   // Restock planner hooks
-  useConvexRestockOverview,
-  useConvexChannelSellThrough,
-  useConvexSaveRestockTarget,
-  useConvexUpdateManualStock,
+  useRestockOverview,
+  useChannelSellThrough,
+  useSaveRestockTarget,
+  useUpdateManualStock,
   // Product mapping hooks
-  useConvexCountMappingImpact,
-  useConvexUpdateProductMapping,
+  useCountMappingImpact,
+  useUpdateProductMapping,
   // Chart / analytics hooks
-  useConvexRevenueTimeSeries,
-  useConvexRevenueByOutlet,
+  useRevenueTimeSeries,
+  useRevenueByOutlet,
   // Types
   type PeriodPreset,
 } from "./useExternalData";
@@ -264,38 +265,38 @@ export { useProtectedMutation } from "./useProtectedMutation";
 
 // Sales Analytics Health Monitoring
 export {
-  useConvexSyncHealthStatus,
-  useConvexSyncHealthAlert,
-  useConvexCredentialStatusEnhanced,
+  useSyncHealthStatus,
+  useSyncHealthAlert,
+  useCredentialStatusEnhanced,
 } from "./useSalesAnalytics";
 
 // K3 Mart Cockpit (K3 Mart Management Cockpit)
 export {
   // Query hooks
-  useConvexOutletStockSummary,
-  useConvexWeeklyDispatchPlans,
-  useConvexProductionReadiness,
-  useConvexInventorySources,
-  useConvexOutletDetail,
-  useConvexStockMovementHistory,
+  useOutletStockSummary,
+  useWeeklyDispatchPlans,
+  useProductionReadiness,
+  useInventorySources,
+  useOutletDetail,
+  useStockMovementHistory,
   // Action hooks
-  useConvexFetchOutletDashboard,
-  useConvexSubmitStockFlow,
-  useConvexSubmitBulkStockIns,
-  useConvexCancelStockFlow,
-  useConvexFetchStockFlowHistory,
-  useConvexFetchStockFlowDetail,
-  useConvexVerifySubmissionStatuses,
-  useConvexRefreshOutlets,
+  useFetchOutletDashboard,
+  useSubmitStockFlow,
+  useSubmitBulkStockIns,
+  useCancelStockFlow,
+  useFetchStockFlowHistory,
+  useFetchStockFlowDetail,
+  useVerifySubmissionStatuses,
+  useRefreshOutlets,
   // Protected mutation hooks
-  useConvexSaveWeeklyDispatchPlan,
-  useConvexConfirmDayPlan,
-  useConvexProcessStockOutDestination,
-  useConvexToggleOutletActive,
-  useConvexSaveOutletSettings,
-  useConvexCopyLastWeek,
-  useConvexSetProductTarget,
-  useConvexOutletSettings,
+  useSaveWeeklyDispatchPlan,
+  useConfirmDayPlan,
+  useProcessStockOutDestination,
+  useToggleOutletActive,
+  useSaveOutletSettings,
+  useCopyLastWeek,
+  useSetProductTarget,
+  useOutletSettings,
 } from "./useK3MartCockpit";
 
 // Production Recipes (Production Component Hierarchy & COGS)

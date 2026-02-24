@@ -35,8 +35,8 @@ import {
 import { PageHeader } from "@/components/layout";
 import { EmptyState } from "@/components/shared";
 import {
-  useConvexCreateComponentType,
-  useConvexUpdateComponentType,
+  useCreateComponentType,
+  useUpdateComponentType,
   type ComponentType,
 } from "@/hooks/convex";
 import { useProductionComponentsWithTiers } from "@/hooks/convex/useProductionRecipes";
@@ -70,8 +70,8 @@ export function ProductionComponentsManager() {
   const rawComponents = useProductionComponentsWithTiers();
 
   // Mutations
-  const createComponentType = useConvexCreateComponentType();
-  const updateComponentType = useConvexUpdateComponentType();
+  const createComponentType = useCreateComponentType();
+  const updateComponentType = useUpdateComponentType();
 
   // Form state for create/edit dialog
   const [name, setName] = useState("");

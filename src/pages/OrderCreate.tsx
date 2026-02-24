@@ -17,11 +17,11 @@ import { VoucherInput, type AppliedVoucher } from '@/components/orders/VoucherIn
 import { ManagerOverrideDialog } from '@/components/orders/ManagerOverrideDialog';
 import { LowPriceWarningDialog } from '@/components/orders/LowPriceWarningDialog';
 import {
-  useConvexPosProducts,
-  useConvexPackagingPosProducts,
-  useConvexCreateOrder,
-  useConvexUpdateOrderStatus,
-  useConvexDeleteOrder,
+  usePosProducts,
+  usePackagingPosProducts,
+  useCreateOrder,
+  useUpdateOrderStatus,
+  useDeleteOrder,
   type OrderCreateInput,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
@@ -174,15 +174,15 @@ export function OrderCreate() {
     customerId ? { id: customerId } : 'skip'
   );
 
-  const { data: posProductsData, isLoading: productsLoading } = useConvexPosProducts();
+  const { data: posProductsData, isLoading: productsLoading } = usePosProducts();
   const posProducts = posProductsData ?? [];
 
-  const { data: packagingProductsData } = useConvexPackagingPosProducts();
+  const { data: packagingProductsData } = usePackagingPosProducts();
   const packagingProducts = packagingProductsData ?? [];
 
-  const createOrder = useConvexCreateOrder();
-  const updateOrderStatus = useConvexUpdateOrderStatus();
-  const deleteOrder = useConvexDeleteOrder();
+  const createOrder = useCreateOrder();
+  const updateOrderStatus = useUpdateOrderStatus();
+  const deleteOrder = useDeleteOrder();
   const createDraftMutation = useMutation(api.orders.mutations.orderCrud.createDraft);
   const updateDraftMutation = useMutation(api.orders.mutations.orderCrud.updateDraft);
   const replaceItemsMutation = useMutation(api.orders.mutations.itemCrud.replaceItems);
@@ -664,7 +664,7 @@ export function OrderCreate() {
                 type="checkbox"
                 checked={updateCustomerAddress}
                 onChange={(e) => setUpdateCustomerAddress(e.target.checked)}
-                className="rounded border-gray-300"
+                className="rounded border-border"
               />
               Save as customer&apos;s default address
             </label>

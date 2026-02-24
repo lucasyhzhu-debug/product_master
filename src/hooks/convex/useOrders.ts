@@ -4,6 +4,7 @@
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -252,7 +253,7 @@ export function useKanbanOrders() {
  * List orders with optional filters.
  * Pass `"skip"` to disable the query (e.g., when using paginated hook instead).
  */
-export function useConvexOrders(filters?: OrderFilters | "skip") {
+export function useOrders(filters?: OrderFilters | "skip") {
   const data = useQuery(
     api.orders.queries.list,
     filters === "skip" ? "skip" : (filters ?? {})
@@ -268,12 +269,12 @@ export function useConvexOrders(filters?: OrderFilters | "skip") {
  * List orders with cursor-based pagination (Load More pattern).
  * Uses Convex usePaginatedQuery with 25 items per page.
  * Only supports single status or no filter (paginate() cannot chain after .filter()).
- * For multi-status category views, use useConvexOrders instead.
+ * For multi-status category views, use useOrders instead.
  *
  * @param options.status - Optional single status filter
  * @param options.skip - When true, disables the query (returns empty results)
  */
-export function useConvexOrdersPaginated(options?: { status?: OrderStatusType; skip?: boolean }) {
+export function useOrdersPaginated(options?: { status?: OrderStatusType; skip?: boolean }) {
   const skip = options?.skip ?? false;
   const status = options?.status;
 
@@ -305,7 +306,7 @@ export function useConvexOrdersPaginated(options?: { status?: OrderStatusType; s
 /**
  * Get a single order by ID with items.
  */
-export function useConvexOrder(id: Id<"orders"> | undefined) {
+export function useOrder(id: Id<"orders"> | undefined) {
   const data = useQuery(api.orders.queries.get, id ? { id } : "skip");
   if (data === undefined) return { data: undefined, isLoading: id !== undefined };
   if (data === null) return { data: null, isLoading: false };
@@ -318,7 +319,7 @@ export function useConvexOrder(id: Id<"orders"> | undefined) {
 /**
  * Get order by order number.
  */
-export function useConvexOrderByNumber(orderNumber: string | undefined) {
+export function useOrderByNumber(orderNumber: string | undefined) {
   const data = useQuery(
     api.orders.queries.getByOrderNumber,
     orderNumber ? { orderNumber } : "skip"
@@ -334,7 +335,7 @@ export function useConvexOrderByNumber(orderNumber: string | undefined) {
 /**
  * Get orders for kitchen view (production pipeline).
  */
-export function useConvexKitchenOrders() {
+export function useKitchenOrders() {
   const data = useQuery(api.orders.queries.getKitchenOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -346,7 +347,7 @@ export function useConvexKitchenOrders() {
 /**
  * Get orders by customer.
  */
-export function useConvexOrdersByCustomer(customerId: Id<"customers"> | undefined) {
+export function useOrdersByCustomer(customerId: Id<"customers"> | undefined) {
   const data = useQuery(
     api.orders.queries.getByCustomer,
     customerId ? { customerId } : "skip"
@@ -361,7 +362,7 @@ export function useConvexOrdersByCustomer(customerId: Id<"customers"> | undefine
 /**
  * Get product suggestions for order creation.
  */
-export function useConvexProductSuggestions(limit?: number) {
+export function useProductSuggestions(limit?: number) {
   const data = useQuery(api.orders.queries.getProductSuggestions, { limit });
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -373,7 +374,7 @@ export function useConvexProductSuggestions(limit?: number) {
 /**
  * Get seller suggestions.
  */
-export function useConvexSellerSuggestions() {
+export function useSellerSuggestions() {
   const data = useQuery(api.orders.queries.getSellerSuggestions, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -385,7 +386,7 @@ export function useConvexSellerSuggestions() {
 /**
  * Get channel suggestions.
  */
-export function useConvexChannelSuggestions() {
+export function useChannelSuggestions() {
   const data = useQuery(api.orders.queries.getChannelSuggestions, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
@@ -397,7 +398,7 @@ export function useConvexChannelSuggestions() {
 /**
  * Get WhatsApp message for an order.
  */
-export function useConvexWhatsAppMessage(
+export function useWhatsAppMessage(
   orderId: Id<"orders"> | undefined,
   template: WhatsAppTemplate
 ) {
@@ -415,7 +416,7 @@ export function useConvexWhatsAppMessage(
  * Get the dynamic WhatsApp order template with current POS products and prices.
  * Used by OrderFormPOS to pre-fill the order sheet textarea.
  */
-export function useConvexOrderTemplate() {
+export function useOrderTemplate() {
   const data = useQuery(api.orders.whatsapp.getOrderTemplate);
   return {
     data,
@@ -446,7 +447,7 @@ export function useUpdateDraft() {
 /**
  * Create a new order with items.
  */
-export function useConvexCreateOrder() {
+export function useCreateOrder() {
   const mutation = useMutation(api.orders.mutations.index.create);
 
   const execute = async (data: OrderCreateInput) => {
@@ -466,7 +467,7 @@ export function useConvexCreateOrder() {
 /**
  * Update order status.
  */
-export function useConvexUpdateOrderStatus() {
+export function useUpdateOrderStatus() {
   const mutation = useMutation(api.orders.mutations.index.updateStatus);
 
   const execute = async (data: { orderId: Id<"orders">; status: "Draft" | "AwaitingPayment" | "PaymentReceived" | "BeingPrepared" | "AwaitingDelivery" | "Complete" | "Cancelled"; skipStockCheck?: boolean; overrideReason?: string; overrideBy?: string; userId?: Id<"users"> }) => {
@@ -486,7 +487,7 @@ export function useConvexUpdateOrderStatus() {
  * Update payment status.
  * PRD-0: Uses type-safe PaymentStatusType.
  */
-export function useConvexUpdateOrderPayment() {
+export function useUpdateOrderPayment() {
   const mutation = useMutation(api.orders.mutations.index.updatePayment);
 
   const execute = async (data: {
@@ -509,7 +510,7 @@ export function useConvexUpdateOrderPayment() {
 /**
  * Update shipping info.
  */
-export function useConvexUpdateOrderShipping() {
+export function useUpdateOrderShipping() {
   const mutation = useMutation(api.orders.mutations.index.updateShipping);
 
   const execute = async (data: {
@@ -532,7 +533,7 @@ export function useConvexUpdateOrderShipping() {
 /**
  * Update order details (notes, delivery info, etc.).
  */
-export function useConvexUpdateOrderDetails() {
+export function useUpdateOrderDetails() {
   const mutation = useMutation(api.orders.mutations.index.updateDetails);
 
   const execute = async (data: {
@@ -565,7 +566,7 @@ export function useConvexUpdateOrderDetails() {
  */
 type CancellationCategory = "customer_request" | "out_of_stock" | "payment_issue" | "duplicate" | "other";
 
-export function useConvexCancelOrder() {
+export function useCancelOrder() {
   const mutation = useMutation(api.orders.mutations.index.cancel);
 
   const execute = async (data: { orderId: Id<"orders">; reason?: string; reasonCategory?: CancellationCategory }) => {
@@ -584,7 +585,7 @@ export function useConvexCancelOrder() {
 /**
  * Delete an order (Draft only).
  */
-export function useConvexDeleteOrder() {
+export function useDeleteOrder() {
   const mutation = useMutation(api.orders.mutations.index.remove);
 
   const execute = async (orderId: Id<"orders">) => {
@@ -604,7 +605,7 @@ export function useConvexDeleteOrder() {
 /**
  * Add item to existing order.
  */
-export function useConvexAddOrderItem() {
+export function useAddOrderItem() {
   const mutation = useMutation(api.orders.mutations.index.addItem);
 
   const execute = async (data: { orderId: Id<"orders">; item: OrderItemInput }) => {
@@ -624,7 +625,7 @@ export function useConvexAddOrderItem() {
 /**
  * Remove item from order.
  */
-export function useConvexRemoveOrderItem() {
+export function useRemoveOrderItem() {
   const mutation = useMutation(api.orders.mutations.index.removeItem);
 
   const execute = async (itemId: Id<"orderItems">) => {
@@ -644,7 +645,7 @@ export function useConvexRemoveOrderItem() {
 /**
  * Update order item quantity.
  */
-export function useConvexUpdateOrderItemQuantity() {
+export function useUpdateOrderItemQuantity() {
   const mutation = useMutation(api.orders.mutations.index.updateItemQuantity);
 
   const execute = async (data: { itemId: Id<"orderItems">; quantity: number }) => {
@@ -664,7 +665,7 @@ export function useConvexUpdateOrderItemQuantity() {
  * Replace all items in an order.
  * Used by the "Edit Order" flow.
  */
-export function useConvexReplaceOrderItems() {
+export function useReplaceOrderItems() {
   const mutation = useMutation(api.orders.mutations.index.replaceItems);
 
   const execute = async (data: { orderId: Id<"orders">; items: OrderItemInput[] }) => {
@@ -684,7 +685,7 @@ export function useConvexReplaceOrderItems() {
  * Update order-level discount.
  * PRD-5: Order System V2 - Wave 1.
  */
-export function useConvexUpdateOrderDiscount() {
+export function useUpdateOrderDiscount() {
   const mutation = useMutation(api.orders.mutations.index.updateOrderDiscount);
 
   const execute = async (data: {
@@ -708,7 +709,7 @@ export function useConvexUpdateOrderDiscount() {
  * Update delivery fee on an order.
  * Pass deliveryFee: 0 to clear the fee.
  */
-export function useConvexUpdateOrderDeliveryFee() {
+export function useUpdateOrderDeliveryFee() {
   const mutation = useMutation(api.orders.mutations.index.updateDeliveryFee);
 
   const execute = async (data: { orderId: Id<"orders">; deliveryFee: number }) => {
@@ -722,4 +723,25 @@ export function useConvexUpdateOrderDeliveryFee() {
   };
 
   return { mutate: execute };
+}
+
+/**
+ * Admin/manager: Force-complete a stuck order to Complete+Paid.
+ * Uses protectedMutation — auto-injects sessionId, no manual token passing.
+ * Roles enforced on backend: admin, manager.
+ */
+export function useForceComplete() {
+  const mutation = useSessionMutation(api.orders.mutations.statusUpdates.forceComplete);
+
+  const execute = async (data: { orderId: Id<"orders">; reason?: string }) => {
+    try {
+      await mutation(data);
+      toast.success("Order force-completed");
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to force-complete order"));
+      throw error;
+    }
+  };
+
+  return { mutate: execute, mutateAsync: execute };
 }

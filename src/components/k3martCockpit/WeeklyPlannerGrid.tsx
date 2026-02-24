@@ -21,10 +21,10 @@ import { PlannerActionBar } from './PlannerActionBar';
 import { getWeekNumber, getWeekDates, getTodayJakarta } from '../../../convex/k3martCockpit/helpers';
 import { getDayType, getEventName } from '@/lib/indonesianHolidays';
 import {
-  useConvexWeeklyDispatchPlans,
-  useConvexSaveWeeklyDispatchPlan,
-  useConvexCopyLastWeek,
-  useConvexConfirmDayPlan,
+  useWeeklyDispatchPlans,
+  useSaveWeeklyDispatchPlan,
+  useCopyLastWeek,
+  useConfirmDayPlan,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -64,12 +64,12 @@ export function WeeklyPlannerGrid() {
   }, [hasUnsavedChanges]);
 
   // Data query
-  const { data: weeklyData, isLoading } = useConvexWeeklyDispatchPlans(currentWeekNumber);
+  const { data: weeklyData, isLoading } = useWeeklyDispatchPlans(currentWeekNumber);
 
   // Mutations
-  const saveDispatchPlan = useConvexSaveWeeklyDispatchPlan();
-  const copyLastWeek = useConvexCopyLastWeek();
-  const confirmDayPlan = useConvexConfirmDayPlan();
+  const saveDispatchPlan = useSaveWeeklyDispatchPlan();
+  const copyLastWeek = useCopyLastWeek();
+  const confirmDayPlan = useConfirmDayPlan();
 
   // Track which days have local edits (for "Update Kitchen" button)
   const [editedDays, setEditedDays] = useState<Set<string>>(new Set());

@@ -33,7 +33,7 @@ type OutletStockSummary = {
   lastSyncAt: number | null;
 };
 
-export function useConvexOutletStockSummary(date: string) {
+export function useOutletStockSummary(date: string) {
   const [data, setData] = useState<OutletStockSummary | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const fetchAction = useAction(api.externalData.actions.fetchOutletStockSummary);
@@ -55,17 +55,17 @@ export function useConvexOutletStockSummary(date: string) {
   return { data, isLoading, refresh: load };
 }
 
-export function useConvexWeeklyDispatchPlans(weekNumber: string) {
+export function useWeeklyDispatchPlans(weekNumber: string) {
   const data = useQuery(api.k3martCockpit.queries.getWeeklyDispatchPlans, { weekNumber });
   return { data, isLoading: data === undefined };
 }
 
-export function useConvexProductionReadiness(date: string) {
+export function useProductionReadiness(date: string) {
   const data = useQuery(api.k3martCockpit.queries.getProductionReadiness, { date });
   return { data, isLoading: data === undefined };
 }
 
-export function useConvexInventorySources() {
+export function useInventorySources() {
   const data = useQuery(api.k3martCockpit.queries.getInventorySources);
   return { data, isLoading: data === undefined };
 }
@@ -74,7 +74,7 @@ export function useConvexInventorySources() {
  * Fetch detailed outlet information including stock history.
  * Skips the query if outletId is not provided.
  */
-export function useConvexOutletDetail(outletId?: Id<"externalOutlets">, days?: number) {
+export function useOutletDetail(outletId?: Id<"externalOutlets">, days?: number) {
   const data = useQuery(
     api.k3martCockpit.queries.getOutletDetail,
     outletId ? { outletId, days } : "skip"
@@ -86,7 +86,7 @@ export function useConvexOutletDetail(outletId?: Id<"externalOutlets">, days?: n
  * Fetch stock movement history for a specific outlet and date.
  * Skips the query if required parameters are not provided.
  */
-export function useConvexStockMovementHistory(
+export function useStockMovementHistory(
   outletId?: Id<"externalOutlets">,
   date?: string,
   limit?: number
@@ -101,7 +101,7 @@ export function useConvexStockMovementHistory(
 /**
  * Fetch outlet settings (active/inactive, product visibility, custom pricing).
  */
-export function useConvexOutletSettings() {
+export function useOutletSettings() {
   const data = useQuery(api.k3martCockpit.queries.getOutletSettings);
   return { data, isLoading: data === undefined };
 }
@@ -110,35 +110,35 @@ export function useConvexOutletSettings() {
 // Action Hooks (8)
 // ========================
 
-export function useConvexFetchOutletDashboard() {
+export function useFetchOutletDashboard() {
   return useAction(api.integrations.k3mart.adapter.fetchOutletDashboard);
 }
 
-export function useConvexSubmitStockFlow() {
+export function useSubmitStockFlow() {
   return useAction(api.integrations.k3mart.adapter.submitStockFlow);
 }
 
-export function useConvexSubmitBulkStockIns() {
+export function useSubmitBulkStockIns() {
   return useAction(api.integrations.k3mart.adapter.submitBulkStockIns);
 }
 
-export function useConvexCancelStockFlow() {
+export function useCancelStockFlow() {
   return useAction(api.integrations.k3mart.adapter.cancelStockFlow);
 }
 
-export function useConvexFetchStockFlowHistory() {
+export function useFetchStockFlowHistory() {
   return useAction(api.integrations.k3mart.adapter.fetchStockFlowHistory);
 }
 
-export function useConvexFetchStockFlowDetail() {
+export function useFetchStockFlowDetail() {
   return useAction(api.integrations.k3mart.adapter.fetchStockFlowDetail);
 }
 
-export function useConvexVerifySubmissionStatuses() {
+export function useVerifySubmissionStatuses() {
   return useAction(api.integrations.k3mart.adapter.verifySubmissionStatuses);
 }
 
-export function useConvexRefreshOutlets() {
+export function useRefreshOutlets() {
   return useAction(api.integrations.k3mart.adapter.refreshOutlets);
 }
 
@@ -146,30 +146,30 @@ export function useConvexRefreshOutlets() {
 // Protected Mutation Hooks (7)
 // ========================
 
-export function useConvexSaveWeeklyDispatchPlan() {
+export function useSaveWeeklyDispatchPlan() {
   return useProtectedMutation(api.k3martCockpit.mutations.saveWeeklyDispatchPlan);
 }
 
-export function useConvexConfirmDayPlan() {
+export function useConfirmDayPlan() {
   return useProtectedMutation(api.k3martCockpit.mutations.confirmDayPlan);
 }
 
-export function useConvexProcessStockOutDestination() {
+export function useProcessStockOutDestination() {
   return useProtectedMutation(api.k3martCockpit.mutations.processStockOutDestination);
 }
 
-export function useConvexToggleOutletActive() {
+export function useToggleOutletActive() {
   return useProtectedMutation(api.k3martCockpit.mutations.toggleOutletActive);
 }
 
-export function useConvexSaveOutletSettings() {
+export function useSaveOutletSettings() {
   return useProtectedMutation(api.k3martCockpit.mutations.saveOutletSettings);
 }
 
-export function useConvexCopyLastWeek() {
+export function useCopyLastWeek() {
   return useProtectedMutation(api.k3martCockpit.mutations.copyLastWeek);
 }
 
-export function useConvexSetProductTarget() {
+export function useSetProductTarget() {
   return useProtectedMutation(api.productionTargets.mutations.setProductTarget);
 }

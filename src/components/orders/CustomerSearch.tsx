@@ -3,7 +3,7 @@ import { Search, Plus, X, User, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useConvexCustomerSearch } from '@/hooks/convex';
+import { useCustomerSearch } from '@/hooks/convex';
 import type { Id } from '../../../convex/_generated/dataModel';
 
 interface CustomerSearchProps {
@@ -28,7 +28,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
     return () => clearTimeout(timer);
   }, [searchText]);
 
-  const customers = useConvexCustomerSearch(debouncedSearch, 10);
+  const customers = useCustomerSearch(debouncedSearch, 10);
 
   // Click outside to close dropdown
   useEffect(() => {

@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeedbackCard } from './FeedbackCard';
 import { ExportButton } from './ExportButton';
-import { useConvexFeedbackList, type FeedbackStatus } from '@/hooks/convex/useFeedback';
+import { useFeedbackList, type FeedbackStatus } from '@/hooks/convex/useFeedback';
 
 interface FeedbackPanelProps {
   open: boolean;
@@ -24,7 +24,7 @@ export function FeedbackPanel({ open, onOpenChange, onStartCapture }: FeedbackPa
   const [activeTab, setActiveTab] = useState<FeedbackStatus>('ongoing');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data: feedbackList, isLoading } = useConvexFeedbackList(activeTab);
+  const { data: feedbackList, isLoading } = useFeedbackList(activeTab);
 
   const handleToggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);

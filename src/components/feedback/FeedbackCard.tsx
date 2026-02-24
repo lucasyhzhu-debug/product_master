@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared';
 import { CommentSection } from './CommentSection';
 import {
-  useConvexDeleteFeedback,
-  useConvexToggleFeedbackStatus,
+  useDeleteFeedback,
+  useToggleFeedbackStatus,
   type FeedbackItem,
 } from '@/hooks/convex/useFeedback';
 import { formatTimestamp } from '@/lib/feedbackExport';
@@ -21,8 +21,8 @@ interface FeedbackCardProps {
 
 export function FeedbackCard({ feedback, isExpanded, onToggleExpand }: FeedbackCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const deleteFeedback = useConvexDeleteFeedback();
-  const toggleStatus = useConvexToggleFeedbackStatus();
+  const deleteFeedback = useDeleteFeedback();
+  const toggleStatus = useToggleFeedbackStatus();
 
   const handleDelete = async () => {
     try {

@@ -13,14 +13,14 @@ import { createMutationHook } from "./createMutationHook";
 // ============================================================================
 
 /** List all storage locations */
-export function useConvexStorageLocations(activeOnly?: boolean) {
+export function useStorageLocations(activeOnly?: boolean) {
   return useQuery(api.storageLocations.queries.list, {
     activeOnly,
   });
 }
 
 /** Get location by ID */
-export function useConvexStorageLocation(
+export function useStorageLocation(
   id: Id<"storageLocations"> | undefined
 ) {
   return useQuery(
@@ -30,7 +30,7 @@ export function useConvexStorageLocation(
 }
 
 /** Get default storage location */
-export function useConvexDefaultLocation() {
+export function useDefaultLocation() {
   return useQuery(api.storageLocations.queries.getDefault);
 }
 
@@ -39,19 +39,19 @@ export function useConvexDefaultLocation() {
 // ============================================================================
 
 /** Create a new storage location */
-export const useConvexCreateStorageLocation = createMutationHook(
+export const useCreateStorageLocation = createMutationHook(
   api.storageLocations.mutations.create,
   { successMessage: "Location created", errorMessage: "Failed to create location" }
 );
 
 /** Update an existing storage location */
-export const useConvexUpdateStorageLocation = createMutationHook(
+export const useUpdateStorageLocation = createMutationHook(
   api.storageLocations.mutations.update,
   { successMessage: "Location updated", errorMessage: "Failed to update location" }
 );
 
 /** Delete a storage location */
-export const useConvexDeleteStorageLocation = createMutationHook(
+export const useDeleteStorageLocation = createMutationHook(
   api.storageLocations.mutations.remove,
   { successMessage: "Location deleted", errorMessage: "Failed to delete location" }
 );

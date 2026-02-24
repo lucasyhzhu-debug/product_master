@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { listAll } from "../lib/queryHelpers";
 
 /**
  * List all WhatsApp templates.
@@ -7,7 +8,7 @@ import { v } from "convex/values";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("whatsappTemplates").collect();
+    return await listAll(ctx, "whatsappTemplates");
   },
 });
 

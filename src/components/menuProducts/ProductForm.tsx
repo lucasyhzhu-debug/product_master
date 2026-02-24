@@ -24,15 +24,15 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
-  useConvexCreateMenuProduct,
-  useConvexUpdateMenuProduct,
-  useConvexAssignToSlot,
-  useConvexAssignToPackagingSlot,
-  useConvexPosProducts,
-  useConvexPackagingPosProducts,
-  useConvexMenuProducts,
-  useConvexMenuProductComponents,
-  useConvexComponentsByCategory,
+  useCreateMenuProduct,
+  useUpdateMenuProduct,
+  useAssignToSlot,
+  useAssignToPackagingSlot,
+  usePosProducts,
+  usePackagingPosProducts,
+  useMenuProducts,
+  useMenuProductComponents,
+  useComponentsByCategory,
   type PosProduct,
   type AvailableProduct,
 } from '@/hooks/convex';
@@ -70,29 +70,29 @@ export function ProductForm({
   prefilledProductType,
   onSlotSwapRequested,
 }: ProductFormProps) {
-  const createMutation = useConvexCreateMenuProduct();
-  const updateMutation = useConvexUpdateMenuProduct();
-  const assignSlotMutation = useConvexAssignToSlot();
-  const assignPackagingSlotMutation = useConvexAssignToPackagingSlot();
+  const createMutation = useCreateMenuProduct();
+  const updateMutation = useUpdateMenuProduct();
+  const assignSlotMutation = useAssignToSlot();
+  const assignPackagingSlotMutation = useAssignToPackagingSlot();
 
   const isEditing = !!product;
 
   // Query POS products to check for slot conflicts (separate namespaces)
-  const { data: posProducts } = useConvexPosProducts();
-  const { data: packagingPosProducts } = useConvexPackagingPosProducts();
+  const { data: posProducts } = usePosProducts();
+  const { data: packagingPosProducts } = usePackagingPosProducts();
 
   // Query all component types for cost calculation
-  const productionComponents = useConvexComponentsByCategory("production", true);
-  const packagingComponents = useConvexComponentsByCategory("packaging", true);
+  const productionComponents = useComponentsByCategory("production", true);
+  const packagingComponents = useComponentsByCategory("packaging", true);
   const allComponentsLoaded = productionComponents !== undefined &&
                                packagingComponents !== undefined;
 
   // Query all products for duplicate name detection
-  const { data: allProducts } = useConvexMenuProducts();
+  const { data: allProducts } = useMenuProducts();
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
-  const { data: existingComponents, isLoading: loadingComponents } = useConvexMenuProductComponents(
+  const { data: existingComponents, isLoading: loadingComponents } = useMenuProductComponents(
     isEditing ? productId : undefined
   );
 

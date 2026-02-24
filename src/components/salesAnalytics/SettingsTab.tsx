@@ -7,13 +7,13 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useConvexExternalOutlets,
-  useConvexDiscoverK3MartOutlets,
-  useConvexSyncK3MartSales,
-  useConvexSyncGoBiz,
-  useConvexSyncInternalOrders,
-  useConvexSyncHealthStatus,
-  useConvexCredentialStatusEnhanced,
+  useExternalOutlets,
+  useDiscoverK3MartOutlets,
+  useSyncK3MartSales,
+  useSyncGoBiz,
+  useSyncInternalOrders,
+  useSyncHealthStatus,
+  useCredentialStatusEnhanced,
 } from "@/hooks/convex";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
@@ -32,21 +32,21 @@ export function SettingsTab() {
 
   // Fetch data
   const { data: outlets, isLoading: loadingOutlets } =
-    useConvexExternalOutlets();
+    useExternalOutlets();
 
   // Sync health status (public, no auth)
-  const { data: syncHealthStatus } = useConvexSyncHealthStatus();
+  const { data: syncHealthStatus } = useSyncHealthStatus();
 
   // Credential status (admin-only -- skip for non-admin to avoid auth error)
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const canViewHealth = isAdmin || isManager;
 
-  const { data: k3CredStatus } = useConvexCredentialStatusEnhanced(
+  const { data: k3CredStatus } = useCredentialStatusEnhanced(
     "k3mart",
     isAdmin ? user?.token : undefined
   );
-  const { data: gobizCredStatus } = useConvexCredentialStatusEnhanced(
+  const { data: gobizCredStatus } = useCredentialStatusEnhanced(
     "gobiz",
     isAdmin ? user?.token : undefined
   );
@@ -55,10 +55,10 @@ export function SettingsTab() {
   const toggleOutletActive = useMutation(
     api.externalData.mutations.toggleOutletActive
   );
-  const discoverK3MartOutlets = useConvexDiscoverK3MartOutlets();
-  const syncK3MartSales = useConvexSyncK3MartSales();
-  const syncGoBiz = useConvexSyncGoBiz();
-  const syncInternal = useConvexSyncInternalOrders();
+  const discoverK3MartOutlets = useDiscoverK3MartOutlets();
+  const syncK3MartSales = useSyncK3MartSales();
+  const syncGoBiz = useSyncGoBiz();
+  const syncInternal = useSyncInternalOrders();
 
   // Handle sync actions
   const handleDiscoverK3MartOutlets = async () => {

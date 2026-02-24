@@ -8,14 +8,14 @@ import { Users } from 'lucide-react';
 import { EntityManager } from '@/components/shared/EntityManager';
 import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
-  useConvexCustomers,
-  useConvexCreateCustomer,
-  useConvexUpdateCustomer,
-  useConvexDeleteCustomer,
+  useCustomers,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 
-type Customer = NonNullable<ReturnType<typeof useConvexCustomers>>[number];
+type Customer = NonNullable<ReturnType<typeof useCustomers>>[number];
 
 const columns: EntityColumn<Customer>[] = [
   { key: 'name', header: 'Name', sortable: true },
@@ -46,10 +46,10 @@ function transformData(data: Record<string, any>) {
 export function CustomersManager() {
   useDocumentTitle('Customers');
 
-  const customers = useConvexCustomers();
-  const create = useConvexCreateCustomer();
-  const update = useConvexUpdateCustomer();
-  const del = useConvexDeleteCustomer();
+  const customers = useCustomers();
+  const create = useCreateCustomer();
+  const update = useUpdateCustomer();
+  const del = useDeleteCustomer();
 
   return (
     <EntityManager<Customer>

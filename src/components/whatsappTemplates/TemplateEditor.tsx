@@ -12,8 +12,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { VariableReference } from "./VariableReference";
 import {
-  useConvexUpdateWhatsAppTemplate,
-  useConvexResetWhatsAppTemplate,
+  useUpdateWhatsAppTemplate,
+  useResetWhatsAppTemplate,
 } from "@/hooks/convex/useWhatsAppTemplates";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Doc } from "../../../convex/_generated/dataModel";
@@ -72,8 +72,8 @@ export function TemplateEditor({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const updateTemplate = useConvexUpdateWhatsAppTemplate();
-  const resetTemplate = useConvexResetWhatsAppTemplate();
+  const updateTemplate = useUpdateWhatsAppTemplate();
+  const resetTemplate = useResetWhatsAppTemplate();
 
   // Reset form when template changes
   useEffect(() => {
@@ -292,7 +292,7 @@ export function TemplateEditor({
 
                     {/* Sample data indicator */}
                     <div className="text-center mt-3">
-                      <span className="text-xs text-muted-foreground bg-white/50 px-2 py-1 rounded">
+                      <span className="text-xs text-muted-foreground bg-white/50 dark:bg-white/10 px-2 py-1 rounded">
                         Using sample data
                       </span>
                     </div>

@@ -9,7 +9,7 @@ import { api } from "../../../convex/_generated/api";
  * Get per-platform sync health status with 6-hour staleness detection.
  * Public query -- no auth required (read-only health data).
  */
-export function useConvexSyncHealthStatus() {
+export function useSyncHealthStatus() {
   const data = useQuery(api.externalData.queries.getSyncHealthStatus, {});
   return { data, isLoading: data === undefined };
 }
@@ -18,7 +18,7 @@ export function useConvexSyncHealthStatus() {
  * Get sync health alerts for dashboard banner.
  * Returns platforms that have been stale for 6+ hours.
  */
-export function useConvexSyncHealthAlert() {
+export function useSyncHealthAlert() {
   const data = useQuery(api.externalData.queries.getSyncHealthAlert, {});
   return { data, isLoading: data === undefined };
 }
@@ -27,7 +27,7 @@ export function useConvexSyncHealthAlert() {
  * Get enhanced credential status with tokenExpiresIn for countdown.
  * Admin-only -- pass token to enable, undefined to skip.
  */
-export function useConvexCredentialStatusEnhanced(
+export function useCredentialStatusEnhanced(
   platformId: string,
   token?: string
 ) {

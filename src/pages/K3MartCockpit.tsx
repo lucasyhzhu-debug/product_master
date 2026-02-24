@@ -36,17 +36,17 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import {
-  useConvexOutletStockSummary,
-  useConvexProductionReadiness,
-  useConvexInventorySources,
-  useConvexSubmitStockFlow,
-  useConvexSubmitBulkStockIns,
-  useConvexSyncK3MartSales,
-  useConvexSyncK3MartStock,
-  useConvexOutletSettings,
-  useConvexToggleOutletActive,
-  useConvexSaveOutletSettings,
-  useConvexSetProductTarget,
+  useOutletStockSummary,
+  useProductionReadiness,
+  useInventorySources,
+  useSubmitStockFlow,
+  useSubmitBulkStockIns,
+  useSyncK3MartSales,
+  useSyncK3MartStock,
+  useOutletSettings,
+  useToggleOutletActive,
+  useSaveOutletSettings,
+  useSetProductTarget,
 } from '@/hooks/convex';
 
 // ==========================================
@@ -92,24 +92,24 @@ export function K3MartCockpit() {
   const [bulkSubmitCompleted, setBulkSubmitCompleted] = useState(0);
 
   // Queries
-  const { data: outletStockData, isLoading: loadingOutletStock, refresh: refreshOutletStock } = useConvexOutletStockSummary(today);
+  const { data: outletStockData, isLoading: loadingOutletStock, refresh: refreshOutletStock } = useOutletStockSummary(today);
   const { data: productionReadinessData, isLoading: loadingProductionReadiness } =
-    useConvexProductionReadiness(today);
-  const { data: inventorySourcesData, isLoading: loadingInventorySources } = useConvexInventorySources();
+    useProductionReadiness(today);
+  const { data: inventorySourcesData, isLoading: loadingInventorySources } = useInventorySources();
 
   // Actions
-  const submitStockFlow = useConvexSubmitStockFlow();
-  const submitBulkStockIns = useConvexSubmitBulkStockIns();
-  const syncK3MartSales = useConvexSyncK3MartSales();
-  const syncK3MartStock = useConvexSyncK3MartStock();
+  const submitStockFlow = useSubmitStockFlow();
+  const submitBulkStockIns = useSubmitBulkStockIns();
+  const syncK3MartSales = useSyncK3MartSales();
+  const syncK3MartStock = useSyncK3MartStock();
   const [syncing, setSyncing] = useState(false);
 
   // Outlet settings
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { data: outletSettingsData } = useConvexOutletSettings();
-  const toggleOutletActive = useConvexToggleOutletActive();
-  const saveOutletSettings = useConvexSaveOutletSettings();
-  const setProductTarget = useConvexSetProductTarget();
+  const { data: outletSettingsData } = useOutletSettings();
+  const toggleOutletActive = useToggleOutletActive();
+  const saveOutletSettings = useSaveOutletSettings();
+  const setProductTarget = useSetProductTarget();
 
   // ==========================================
   // HANDLERS

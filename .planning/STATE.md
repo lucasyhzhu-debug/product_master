@@ -117,6 +117,16 @@ Key decisions affecting v1.3 phases:
 - [Phase 24-06]: getBallTotalsForDispatchPlanDate dual-pass: Pass 1 = dispatchPlans, Pass 2 = orders+orderItems; same BOM loop for both
 - [Phase 24-06]: dailyProductQty accumulator in getUnifiedWeeklyPlan enables post-assembly BOM expansion for dailyBallTotals
 - [Phase 24-06]: dailyBallTotals optional in UnifiedWeeklyPlanData for backward compat; Balls footer row hidden when absent
+- [Phase 25-03]: requireRole() calls removed (not kept) — requireRole accepts a session token string and cannot be called without args.token after protectedMutation migration; wrapper already enforces roles
+- [Phase 25-03]: forceComplete is the only migration-eligible mutation in orders/mutations/ — other mutations use optional token only for audit trail userId resolution, not role enforcement
+- [Phase 25-codebase-cleanup]: StatCard bg-white/10 intentional opacity overlay on dark-first card; KanbanBoard Draft colorClass bg-gray-500 → bg-muted-foreground; FeedbackCaptureMode dark tooltip gets dark: pair for compliance; TemplateEditor uses WhatsApp hex dark palette not generic tokens
+- [Phase 25-codebase-cleanup]: useConvex prefix removed from 7 hook files (Batches 1-3); hooks scoped to src/hooks/convex/ making prefix redundant; aligns with already-clean hooks (useVouchers, useGoFoodDepot, etc.)
+- [Phase 25-codebase-cleanup]: useMenuProducts.ts renames done via replace_all (not full rewrite) after discovering source still had old names; useOrders.ts mutations NOT migrated to useSessionMutation — that is plan 25-05 scope
+- [Phase 25-05]: forceComplete has no pre-existing hook in useOrders.ts — added useForceComplete as new hook rather than updating an existing one
+- [Phase 25-05]: getByIdHelper requires explicit type param <tableName> when called from Convex query handlers to avoid TypeScript inferring union-of-all-docs return type
+- [Phase 25-05]: useSessionMutation call sites: remove all token args and !user?.token guards — auth enforced by session wrapper, not by token presence check
+- [Phase 25-codebase-cleanup]: Pre-existing test failures (53 of 583) confirmed not caused by Phase 25 — identical failure set before and after via git stash comparison
+- [Phase 25-codebase-cleanup]: Dark mode grep sweep: all 11 hardcoded-color hits in src/ have dark: counterparts — no stragglers; CHECK 5 passed
 
 ### Pending Todos
 
@@ -172,13 +182,19 @@ None.
 | Phase 24-ingredient-simulation-id-linking P05 | 4 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P07 | 5 | 2 tasks | 7 files |
 | Phase 24-ingredient-simulation-id-linking P06 | 5 | 2 tasks | 2 files |
+| Phase 25-codebase-cleanup P03 | 2 | 2 tasks | 2 files |
+| Phase 25-codebase-cleanup P01 | 4 | 2 tasks | 10 files |
+| Phase 25-codebase-cleanup P02 | 5 | 2 tasks | 19 files |
+| Phase 25-codebase-cleanup P04 | 45 | 2 tasks | 49 files |
+| Phase 25-codebase-cleanup P05 | 16 | 2 tasks | 9 files |
+| Phase 25-codebase-cleanup P06 | 5 | 1 tasks | 0 files |
 
 ## Session Continuity
 
 Last session: 2026-02-23
-Stopped at: Completed 24-06-PLAN.md — Direct Sales ball totals fix + Balls footer row in PlannerGrid; build passes.
+Stopped at: 25-06 checkpoint — all 7 automated checks passed (type-check, build, tests baseline, zero useConvex, dark mode audit, protectedMutation coverage, queryHelpers). Awaiting human visual verification of dark mode + order runtime before Phase 25 merge.
 Resume file: None
-Resume notes: Phase 24 plan 06 complete. Save to Kitchen now includes Direct Sales orders; PlannerGrid shows Balls footer row. Continue with remaining plans in phase 24 or proceed to UAT verification.
+Resume notes: Phase 25 plan 06 checkpoint reached. Task 1 complete (automated verification). Task 2 is human-verify checkpoint — user must confirm dark mode looks correct and orders work in browser.
 
 ---
-*Last updated: 2026-02-23 - Completed 24-06: Direct Sales ball totals in getBallTotalsForDispatchPlanDate + dailyBallTotals in getUnifiedWeeklyPlan + Balls footer row in PlannerGrid*
+*Last updated: 2026-02-23 - Completed 25-05: useSessionMutation migration + queryHelpers for whatsappTemplates + menuProducts*

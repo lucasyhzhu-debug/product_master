@@ -46,9 +46,9 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
   }, [packagingPosProducts, packagingSlotCount]);
 
   return (
-    <Card className="border-2 border-gray-100 overflow-hidden">
+    <Card className="border-2 border-border overflow-hidden">
       {/* Header */}
-      <CardHeader className="pb-3 bg-gradient-to-r from-gray-50 to-white">
+      <CardHeader className="pb-3 bg-gradient-to-r from-muted to-card">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Eye className="h-4 w-4 text-muted-foreground" />
           <span>POS Order Preview</span>
@@ -66,7 +66,7 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
         {/* Food Products Grid */}
         {foodSlots.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Food
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -96,8 +96,8 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
                         </span>
                       </button>
                     ) : (
-                      <div className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-gray-200 min-h-[68px]">
-                        <span className="text-[10px] text-gray-300">
+                      <div className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-border min-h-[68px]">
+                        <span className="text-[10px] text-muted-foreground/50">
                           Slot {index + 1}
                         </span>
                       </div>
@@ -112,7 +112,7 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
         {/* Packaging Products Grid */}
         {(packagingSlots.length > 0 || (packagingPosProducts && packagingPosProducts.length > 0)) && (
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
               Packaging
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -139,8 +139,8 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
                         </span>
                       </button>
                     ) : (
-                      <div className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-blue-100 min-h-[56px]">
-                        <span className="text-[10px] text-blue-200">
+                      <div className="w-full flex items-center justify-center p-3 rounded-lg border-2 border-dashed border-blue-200 dark:border-blue-900 min-h-[56px]">
+                        <span className="text-[10px] text-blue-300 dark:text-blue-700">
                           Slot {index + 1}
                         </span>
                       </div>
@@ -156,10 +156,10 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
 
         {/* Mock Order Summary */}
         <div className="space-y-2 opacity-40">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Order Summary
           </p>
-          <div className="space-y-1 text-xs text-gray-400">
+          <div className="space-y-1 text-xs text-muted-foreground">
             <div className="flex justify-between">
               <span>Subtotal</span>
               <span>-</span>
@@ -169,7 +169,7 @@ export function POSPreviewPanel({ posProducts, packagingPosProducts }: POSPrevie
               <span>-</span>
             </div>
             <Separator />
-            <div className="flex justify-between font-semibold text-sm text-gray-400">
+            <div className="flex justify-between font-semibold text-sm text-muted-foreground">
               <span>Total</span>
               <span>-</span>
             </div>

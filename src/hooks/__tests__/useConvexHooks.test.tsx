@@ -52,11 +52,11 @@ vi.mock('../../../convex/_generated/api', () => ({
 
 import { useQuery, useMutation } from 'convex/react';
 import {
-  useConvexOrders,
-  useConvexOrder,
-  useConvexKitchenOrders,
-  useConvexCreateOrder,
-  useConvexUpdateOrderStatus,
+  useOrders,
+  useOrder,
+  useKitchenOrders,
+  useCreateOrder,
+  useUpdateOrderStatus,
 } from '../convex/useOrders';
 import type { Id } from '../../../convex/_generated/dataModel';
 
@@ -68,11 +68,11 @@ describe('useOrders hooks', () => {
     vi.clearAllMocks();
   });
 
-  describe('useConvexOrders', () => {
+  describe('useOrders', () => {
     it('returns isLoading true while data is undefined', () => {
       mockUseQuery.mockReturnValue(undefined);
 
-      const { result } = renderHook(() => useConvexOrders());
+      const { result } = renderHook(() => useOrders());
 
       expect(result.current.data).toBeUndefined();
       expect(result.current.isLoading).toBe(true);
@@ -97,7 +97,7 @@ describe('useOrders hooks', () => {
       ];
       mockUseQuery.mockReturnValue(mockOrders);
 
-      const { result } = renderHook(() => useConvexOrders());
+      const { result } = renderHook(() => useOrders());
 
       expect(result.current.isLoading).toBe(false);
       expect(result.current.data).toBeDefined();
@@ -108,7 +108,7 @@ describe('useOrders hooks', () => {
     it('handles empty orders list', () => {
       mockUseQuery.mockReturnValue([]);
 
-      const { result } = renderHook(() => useConvexOrders());
+      const { result } = renderHook(() => useOrders());
 
       expect(result.current.isLoading).toBe(false);
       expect(result.current.data).toEqual([]);
@@ -118,18 +118,18 @@ describe('useOrders hooks', () => {
       mockUseQuery.mockReturnValue([]);
       const filters = { status: 'Draft', limit: 10 };
 
-      renderHook(() => useConvexOrders(filters));
+      renderHook(() => useOrders(filters));
 
       expect(mockUseQuery).toHaveBeenCalledWith('orders.queries.list', filters);
     });
   });
 
-  describe('useConvexOrder', () => {
+  describe('useOrder', () => {
     it('returns isLoading true when id is provided but data is undefined', () => {
       mockUseQuery.mockReturnValue(undefined);
       const orderId = 'order123' as Id<'orders'>;
 
-      const { result } = renderHook(() => useConvexOrder(orderId));
+      const { result } = renderHook(() => useOrder(orderId));
 
       expect(result.current.data).toBeUndefined();
       expect(result.current.isLoading).toBe(true);
@@ -139,7 +139,7 @@ describe('useOrders hooks', () => {
       mockUseQuery.mockReturnValue(null);
       const orderId = 'order123' as Id<'orders'>;
 
-      const { result } = renderHook(() => useConvexOrder(orderId));
+      const { result } = renderHook(() => useOrder(orderId));
 
       expect(result.current.data).toBeNull();
       expect(result.current.isLoading).toBe(false);
@@ -148,13 +148,13 @@ describe('useOrders hooks', () => {
     it('skips query when id is undefined', () => {
       mockUseQuery.mockReturnValue(undefined);
 
-      renderHook(() => useConvexOrder(undefined));
+      renderHook(() => useOrder(undefined));
 
       expect(mockUseQuery).toHaveBeenCalledWith('orders.queries.get', 'skip');
     });
   });
 
-  describe('useConvexKitchenOrders', () => {
+  describe('useKitchenOrders', () => {
     it('returns orders for kitchen view', () => {
       const mockOrders = [
         {
@@ -174,31 +174,31 @@ describe('useOrders hooks', () => {
       ];
       mockUseQuery.mockReturnValue(mockOrders);
 
-      const { result } = renderHook(() => useConvexKitchenOrders());
+      const { result } = renderHook(() => useKitchenOrders());
 
       expect(result.current.isLoading).toBe(false);
       expect(result.current.data?.[0]).toHaveProperty('status', 'In Production');
     });
   });
 
-  describe('useConvexCreateOrder', () => {
+  describe('useCreateOrder', () => {
     it('provides mutate and mutateAsync functions', () => {
       const mockMutate = vi.fn();
       mockUseMutation.mockReturnValue(mockMutate);
 
-      const { result } = renderHook(() => useConvexCreateOrder());
+      const { result } = renderHook(() => useCreateOrder());
 
       expect(result.current).toHaveProperty('mutate');
       expect(result.current).toHaveProperty('mutateAsync');
     });
   });
 
-  describe('useConvexUpdateOrderStatus', () => {
+  describe('useUpdateOrderStatus', () => {
     it('provides status update mutation function', () => {
       const mockMutate = vi.fn();
       mockUseMutation.mockReturnValue(mockMutate);
 
-      const { result } = renderHook(() => useConvexUpdateOrderStatus());
+      const { result } = renderHook(() => useUpdateOrderStatus());
 
       expect(result.current).toHaveProperty('mutate');
       expect(typeof result.current.mutate).toBe('function');

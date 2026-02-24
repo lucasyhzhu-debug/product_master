@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useConvexFeedbackExport } from '@/hooks/convex/useFeedback';
+import { useFeedbackExport } from '@/hooks/convex/useFeedback';
 import { generatePrdMarkdown, copyToClipboard } from '@/lib/feedbackExport';
 import { toast } from 'sonner';
 
 export function ExportButton() {
-  const { data: feedbackItems, isLoading } = useConvexFeedbackExport();
+  const { data: feedbackItems, isLoading } = useFeedbackExport();
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 

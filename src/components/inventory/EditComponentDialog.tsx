@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useConvexUpdateComponentType } from "@/hooks/convex";
+import { useUpdateComponentType } from "@/hooks/convex";
 import type { ComponentType } from "@/hooks/convex";
 import { toast } from "sonner";
 import { cn, SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS } from "@/lib/utils";
@@ -46,7 +46,7 @@ export function EditComponentDialog({
   const [category, setCategory] = useState<"production" | "packaging">("packaging");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const updateComponentType = useConvexUpdateComponentType();
+  const updateComponentType = useUpdateComponentType();
 
   const COMMON_UNITS = ["pcs", "box", "sheet", "roll"];
 

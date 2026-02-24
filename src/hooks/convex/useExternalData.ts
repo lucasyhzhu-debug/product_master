@@ -41,7 +41,7 @@ type DashboardSummaryByPeriod = {
 /**
  * List all external outlets, optionally filtered by source.
  */
-export function useConvexExternalOutlets(source?: "k3mart" | "gobiz" | "internal") {
+export function useExternalOutlets(source?: "k3mart" | "gobiz" | "internal") {
   const data = useQuery(api.externalData.queries.listOutlets, { source });
   return { data, isLoading: data === undefined };
 }
@@ -49,7 +49,7 @@ export function useConvexExternalOutlets(source?: "k3mart" | "gobiz" | "internal
 /**
  * Get latest stock snapshots for an outlet.
  */
-export function useConvexExternalSnapshots(outletId?: Id<"externalOutlets">) {
+export function useExternalSnapshots(outletId?: Id<"externalOutlets">) {
   const data = useQuery(
     api.externalData.queries.getLatestSnapshots,
     outletId ? { outletId } : "skip"
@@ -62,7 +62,7 @@ export function useConvexExternalSnapshots(outletId?: Id<"externalOutlets">) {
  * Always applies a periodStart bound (defaults to last 90 days) to prevent
  * unbounded full table scans (~80 MB bandwidth savings).
  */
-export function useConvexExternalRevenue(
+export function useExternalRevenue(
   source?: "k3mart" | "gobiz" | "internal",
   periodStart?: number,
   periodEnd?: number
@@ -80,7 +80,7 @@ export function useConvexExternalRevenue(
 /**
  * Get sync logs, optionally filtered by source.
  */
-export function useConvexExternalSyncLogs(
+export function useExternalSyncLogs(
   source?: "k3mart" | "gobiz" | "internal",
   limit?: number
 ) {
@@ -94,7 +94,7 @@ export function useConvexExternalSyncLogs(
 /**
  * Get product mappings, optionally filtered by source.
  */
-export function useConvexExternalProductMappings(
+export function useExternalProductMappings(
   source?: "k3mart" | "gobiz" | "internal"
 ) {
   const data = useQuery(api.externalData.queries.getProductMappings, {
@@ -106,7 +106,7 @@ export function useConvexExternalProductMappings(
 /**
  * Get dashboard sales summary (outlet counts, recent revenue, last sync per platform).
  */
-export function useConvexDashboardSalesSummary() {
+export function useDashboardSalesSummary() {
   const data = useQuery(api.externalData.queries.getDashboardSummary, {});
   return { data, isLoading: data === undefined };
 }
@@ -121,7 +121,7 @@ export type PeriodPreset = "past24hours" | "today" | "yesterday" | "thisWeek" | 
  * Uses on-demand action fetch instead of reactive subscription to eliminate
  * bandwidth spikes during sync runs (~205 MB / 1.9K calls savings).
  */
-export function useConvexDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
+export function useDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
   const [data, setData] = useState<DashboardSummaryByPeriod | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const fetchAction = useAction(api.externalData.actions.fetchDashboardSummaryByPeriod);
@@ -147,7 +147,7 @@ export function useConvexDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
  * Get order details by order number (for expanding internal order rows).
  * Uses skip pattern - pass undefined to skip the query.
  */
-export function useConvexOrderDetailsByOrderNumber(orderNumber?: string) {
+export function useOrderDetailsByOrderNumber(orderNumber?: string) {
   const data = useQuery(
     api.externalData.queries.getOrderDetailsByOrderNumber,
     orderNumber ? { orderNumber } : "skip"
@@ -162,7 +162,7 @@ export function useConvexOrderDetailsByOrderNumber(orderNumber?: string) {
 /**
  * Get credential status for a platform (admin-only).
  */
-export function useConvexCredentialStatus(
+export function useCredentialStatus(
   platformId: string,
   token?: string
 ) {
@@ -176,7 +176,7 @@ export function useConvexCredentialStatus(
 /**
  * Get the refreshK3MartToken action reference.
  */
-export function useConvexRefreshK3MartToken() {
+export function useRefreshK3MartToken() {
   return useAction(api.platformCredentials.actions.refreshK3MartToken);
 }
 
@@ -187,35 +187,35 @@ export function useConvexRefreshK3MartToken() {
 /**
  * Trigger K3Mart outlet discovery via product detail API (<1s).
  */
-export function useConvexDiscoverK3MartOutlets() {
+export function useDiscoverK3MartOutlets() {
   return useAction(api.integrations.k3mart.adapter.discoverK3MartOutlets);
 }
 
 /**
  * Trigger K3Mart sales sync action (incremental, ~2s).
  */
-export function useConvexSyncK3MartSales() {
+export function useSyncK3MartSales() {
   return useAction(api.integrations.k3mart.adapter.syncK3MartSales);
 }
 
 /**
  * Trigger K3Mart stock refresh via product detail API (<1s).
  */
-export function useConvexSyncK3MartStock() {
+export function useSyncK3MartStock() {
   return useAction(api.integrations.k3mart.adapter.syncK3MartStock);
 }
 
 /**
  * Trigger GoBiz revenue sync action.
  */
-export function useConvexSyncGoBiz() {
+export function useSyncGoBiz() {
   return useAction(api.integrations.gobiz.adapter.syncGoBizRevenue);
 }
 
 /**
  * Trigger internal orders sync action.
  */
-export function useConvexSyncInternalOrders() {
+export function useSyncInternalOrders() {
   return useAction(api.integrations.internal.adapter.syncInternalOrders);
 }
 
@@ -223,7 +223,7 @@ export function useConvexSyncInternalOrders() {
  * Get revenue line items for a specific revenue record.
  * Uses skip pattern for conditional fetching (only when expanded).
  */
-export function useConvexRevenueItems(revenueId?: Id<"externalRevenue">) {
+export function useRevenueItems(revenueId?: Id<"externalRevenue">) {
   const data = useQuery(
     api.externalData.queries.getRevenueItems,
     revenueId ? { revenueId } : "skip"
@@ -267,7 +267,7 @@ type RestockOverview = {
  * Get restock overview (all channels with stock + demand summary).
  * On-demand fetch: loads on page visit, no persistent subscription.
  */
-export function useConvexRestockOverview() {
+export function useRestockOverview() {
   const [data, setData] = useState<RestockOverview | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const fetchAction = useAction(api.externalData.actions.fetchRestockOverview);
@@ -293,7 +293,7 @@ export function useConvexRestockOverview() {
  * Get detailed sell-through analysis for a channel/outlet.
  * Uses skip pattern when channel is null.
  */
-export function useConvexChannelSellThrough(
+export function useChannelSellThrough(
   channel?: "k3mart" | "gobiz" | "internal",
   outletId?: Id<"externalOutlets">
 ) {
@@ -307,14 +307,14 @@ export function useConvexChannelSellThrough(
 /**
  * Save a restock target mutation.
  */
-export function useConvexSaveRestockTarget() {
+export function useSaveRestockTarget() {
   return useMutation(api.restock.mutations.saveRestockTarget);
 }
 
 /**
  * Update manual stock entry mutation.
  */
-export function useConvexUpdateManualStock() {
+export function useUpdateManualStock() {
   return useMutation(api.restock.mutations.updateManualStock);
 }
 
@@ -325,7 +325,7 @@ export function useConvexUpdateManualStock() {
 /**
  * Get count of revenue items that would be affected by a mapping change.
  */
-export function useConvexCountMappingImpact(
+export function useCountMappingImpact(
   source?: "k3mart" | "gobiz" | "internal",
   externalProductName?: string
 ) {
@@ -339,7 +339,7 @@ export function useConvexCountMappingImpact(
 /**
  * Update a product mapping with retroactive revenue item updates.
  */
-export function useConvexUpdateProductMapping() {
+export function useUpdateProductMapping() {
   return useMutation(api.externalData.mutations.updateProductMapping);
 }
 
@@ -351,7 +351,7 @@ export function useConvexUpdateProductMapping() {
  * Get time-series revenue data for stacked charts.
  * Bucketed by daily/weekly/monthly, split by platform.
  */
-export function useConvexRevenueTimeSeries(
+export function useRevenueTimeSeries(
   preset: PeriodPreset,
   granularity: "hourly" | "daily" | "weekly" | "monthly",
   metric: "gross" | "net" | "volume"
@@ -378,7 +378,7 @@ type RevenueByOutlet = Array<{
  * On-demand fetch: loads on component mount and when preset changes.
  * Eliminates reactive subscription (~30 MB bandwidth savings).
  */
-export function useConvexRevenueByOutlet(preset: PeriodPreset) {
+export function useRevenueByOutlet(preset: PeriodPreset) {
   const [data, setData] = useState<RevenueByOutlet | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const fetchAction = useAction(api.externalData.actions.fetchRevenueByOutlet);

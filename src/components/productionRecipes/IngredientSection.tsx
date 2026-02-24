@@ -20,13 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   useAddIngredient,
   useRemoveIngredient,
   useUpdateIngredientQuantity,
 } from "@/hooks/convex/useProductionRecipes";
-import { useConvexIngredients, useConvexCreateIngredient } from "@/hooks/convex";
+import { useIngredients, useCreateIngredient } from "@/hooks/convex";
 import { formatCurrency } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -53,14 +52,13 @@ export function IngredientSection({
   parentName,
   ingredients,
 }: IngredientSectionProps) {
-  const { user } = useAuth();
   const addIngredient = useAddIngredient();
   const removeIngredient = useRemoveIngredient();
   const updateIngredientQuantity = useUpdateIngredientQuantity();
-  const createIngredient = useConvexCreateIngredient();
+  const createIngredient = useCreateIngredient();
 
   // All ingredients for dropdown
-  const allIngredients = useConvexIngredients();
+  const allIngredients = useIngredients();
 
   // Local state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -91,7 +89,7 @@ export function IngredientSection({
   );
 
   const handleAdd = async () => {
-    if (!selectedIngredientId || !user?.token) return;
+    if (!selectedIngredientId) return;
     setIsAdding(true);
     try {
       // Determine unit from selected ingredient's baseUnit if available
@@ -99,7 +97,6 @@ export function IngredientSection({
       const resolvedUnit = addUnit || selectedIng?.baseUnit || "g";
 
       await addIngredient({
-        token: user.token,
         componentTypeId,
         ingredientId: selectedIngredientId as Id<"ingredients">,
         quantityPerUnit: Number(addQuantity) || 1,
@@ -142,13 +139,12 @@ export function IngredientSection({
       });
 
       // Now add as ingredient link
-      if (result && user?.token) {
+      if (result) {
         // Determine base unit from unitType
         const baseUnitMap: Record<string, string> = { kg: "g", l: "ml", m: "cm" };
         const baseUnit = baseUnitMap[newUnitType] || newUnitType;
 
         await addIngredient({
-          token: user.token,
           componentTypeId,
           ingredientId: result as Id<"ingredients">,
           quantityPerUnit: Number(addQuantity) || 1,
@@ -172,9 +168,8 @@ export function IngredientSection({
   };
 
   const handleRemove = async (linkId: Id<"productionComponentIngredients">) => {
-    if (!user?.token) return;
     try {
-      await removeIngredient({ token: user.token, linkId });
+      await removeIngredient({ linkId });
       toast.success("Ingredient removed");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove ingredient");
@@ -188,10 +183,8 @@ export function IngredientSection({
   };
 
   const handleSaveEdit = async (linkId: Id<"productionComponentIngredients">) => {
-    if (!user?.token) return;
     try {
       await updateIngredientQuantity({
-        token: user.token,
         linkId,
         quantityPerUnit: Number(editQuantity) || 1,
         unit: editUnit,

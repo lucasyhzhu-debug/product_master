@@ -66,7 +66,7 @@ export interface FeedbackStats {
  * Get all feedback items with optional status filter.
  * Includes screenshot URLs.
  */
-export function useConvexFeedbackList(status?: FeedbackStatus) {
+export function useFeedbackList(status?: FeedbackStatus) {
   const data = useQuery(api.feedback.queries.list, { status });
 
   if (data === undefined) {
@@ -79,7 +79,7 @@ export function useConvexFeedbackList(status?: FeedbackStatus) {
 /**
  * Get a single feedback item by ID.
  */
-export function useConvexFeedback(id: Id<"feedback"> | undefined) {
+export function useFeedback(id: Id<"feedback"> | undefined) {
   const data = useQuery(
     api.feedback.queries.get,
     id ? { id } : "skip"
@@ -95,7 +95,7 @@ export function useConvexFeedback(id: Id<"feedback"> | undefined) {
 /**
  * Get only ongoing feedback for export.
  */
-export function useConvexFeedbackExport() {
+export function useFeedbackExport() {
   const data = useQuery(api.feedback.queries.getExportData, {});
 
   if (data === undefined) {
@@ -108,7 +108,7 @@ export function useConvexFeedbackExport() {
 /**
  * Get feedback statistics for dashboard.
  */
-export function useConvexFeedbackStats() {
+export function useFeedbackStats() {
   const data = useQuery(api.feedback.queries.getStats, {});
 
   if (data === undefined) {
@@ -121,8 +121,8 @@ export function useConvexFeedbackStats() {
 /**
  * Get count of ongoing feedback (for badge display).
  */
-export function useConvexOngoingFeedbackCount() {
-  const { data, isLoading } = useConvexFeedbackStats();
+export function useOngoingFeedbackCount() {
+  const { data, isLoading } = useFeedbackStats();
 
   if (isLoading || !data) {
     return { count: 0, isLoading };
@@ -139,7 +139,7 @@ export function useConvexOngoingFeedbackCount() {
  * Generate upload URL for screenshot.
  * Call this before uploading the screenshot blob.
  */
-export function useConvexGenerateUploadUrl() {
+export function useGenerateUploadUrl() {
   const mutation = useMutation(api.feedback.mutations.generateUploadUrl);
 
   return {
@@ -159,7 +159,7 @@ export function useConvexGenerateUploadUrl() {
  * Create a new feedback item.
  * Screenshot must be uploaded first using generateUploadUrl.
  */
-export function useConvexCreateFeedback() {
+export function useCreateFeedback() {
   const mutation = useMutation(api.feedback.mutations.create);
 
   return {
@@ -180,7 +180,7 @@ export function useConvexCreateFeedback() {
 /**
  * Add a comment to existing feedback.
  */
-export function useConvexAddFeedbackComment() {
+export function useAddFeedbackComment() {
   const mutation = useMutation(api.feedback.mutations.addComment);
 
   return {
@@ -201,7 +201,7 @@ export function useConvexAddFeedbackComment() {
 /**
  * Toggle feedback status between ongoing and archived.
  */
-export function useConvexToggleFeedbackStatus() {
+export function useToggleFeedbackStatus() {
   const mutation = useMutation(api.feedback.mutations.toggleStatus);
 
   return {
@@ -221,7 +221,7 @@ export function useConvexToggleFeedbackStatus() {
 /**
  * Update feedback priority.
  */
-export function useConvexUpdateFeedbackPriority() {
+export function useUpdateFeedbackPriority() {
   const mutation = useMutation(api.feedback.mutations.updatePriority);
 
   return {
@@ -241,7 +241,7 @@ export function useConvexUpdateFeedbackPriority() {
 /**
  * Update feedback tags.
  */
-export function useConvexUpdateFeedbackTags() {
+export function useUpdateFeedbackTags() {
   const mutation = useMutation(api.feedback.mutations.updateTags);
 
   return {
@@ -261,7 +261,7 @@ export function useConvexUpdateFeedbackTags() {
 /**
  * Delete feedback and its screenshot.
  */
-export function useConvexDeleteFeedback() {
+export function useDeleteFeedback() {
   const mutation = useMutation(api.feedback.mutations.remove);
 
   return {

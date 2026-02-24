@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useConvexCreateComponentType } from "@/hooks/convex";
+import { useCreateComponentType } from "@/hooks/convex";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS, cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ export function ComponentTypeDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useAuth();
-  const createComponentType = useConvexCreateComponentType();
+  const createComponentType = useCreateComponentType();
 
   useEffect(() => {
     if (open) {

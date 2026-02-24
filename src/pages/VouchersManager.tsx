@@ -86,7 +86,7 @@ import {
   type Voucher,
   type VoucherCreateInput,
 } from "@/hooks/convex/useVouchers";
-import { useConvexMenuProducts } from "@/hooks/convex/useMenuProducts";
+import { useMenuProducts } from "@/hooks/convex/useMenuProducts";
 
 // ============================================
 // Helper Functions
@@ -191,7 +191,7 @@ export function VouchersManager() {
   // Data queries
   const vouchers = useVouchers();
   const overrides = useManagerOverrides(30); // Last 30 days
-  const { data: menuProductsData } = useConvexMenuProducts(true); // Active menu products for item-linked vouchers
+  const { data: menuProductsData } = useMenuProducts(true); // Active menu products for item-linked vouchers
 
   // Mutations
   const { createVoucher } = useCreateVoucher();

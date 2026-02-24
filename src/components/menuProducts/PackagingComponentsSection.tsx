@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  useConvexComponentsByCategory,
-  useConvexCreatePackagingQuick,
+  useComponentsByCategory,
+  useCreatePackagingQuick,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, SELECTABLE_STAGES, CONSUMPTION_STAGE_LABELS } from '@/lib/utils';
@@ -50,7 +50,7 @@ export function PackagingComponentsSection({
   const { user } = useAuth();
 
   // Query packaging components (unified category)
-  const packagingComponents = useConvexComponentsByCategory("packaging", true);
+  const packagingComponents = useComponentsByCategory("packaging", true);
 
   const isLoading = packagingComponents === undefined;
 
@@ -64,7 +64,7 @@ export function PackagingComponentsSection({
   const [newComponentName, setNewComponentName] = useState('');
   const [newComponentStage, setNewComponentStage] = useState<SelectableStage>("boxing");
   const [isCreating, setIsCreating] = useState(false);
-  const createPackagingQuick = useConvexCreatePackagingQuick();
+  const createPackagingQuick = useCreatePackagingQuick();
 
   const handleAdd = () => {
     onChange([

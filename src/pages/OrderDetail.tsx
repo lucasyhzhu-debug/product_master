@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
@@ -24,10 +24,11 @@ import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromIn
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 
 import {
-  useConvexOrder,
-  useConvexDeleteOrder,
-  useConvexUpdateOrderShipping,
-  useConvexCancelOrder,
+  useOrder,
+  useDeleteOrder,
+  useUpdateOrderShipping,
+  useCancelOrder,
+  useForceComplete,
 } from '@/hooks/convex';
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
@@ -35,7 +36,6 @@ import type { CancellationCategory } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 
 // ============================================
 // Status Display Labels
@@ -74,10 +74,10 @@ export function OrderDetail() {
   const navigate = useNavigate();
   const orderId = id as Id<"orders"> | undefined;
 
-  const { data: order, isLoading } = useConvexOrder(orderId);
-  const updateShipping = useConvexUpdateOrderShipping();
-  const cancelOrder = useConvexCancelOrder();
-  const deleteOrder = useConvexDeleteOrder();
+  const { data: order, isLoading } = useOrder(orderId);
+  const updateShipping = useUpdateOrderShipping();
+  const cancelOrder = useCancelOrder();
+  const deleteOrder = useDeleteOrder();
 
   // Local state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -97,7 +97,7 @@ export function OrderDetail() {
   // Admin force-complete
   const { user } = useAuth();
   const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
-  const forceCompleteMutation = useMutation(api.orders.mutations.statusUpdates.forceComplete);
+  const forceComplete = useForceComplete();
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
 
@@ -144,18 +144,12 @@ export function OrderDetail() {
 
   const handleForceComplete = async () => {
     if (!orderId) return;
-    try {
-      await forceCompleteMutation({
-        orderId,
-        token: user?.token ?? '',
-        reason: forceCompleteReason || undefined,
-      });
-      toast.success('Order force-completed successfully');
-      setShowForceCompleteDialog(false);
-      setForceCompleteReason('');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to force-complete order');
-    }
+    await forceComplete.mutate({
+      orderId,
+      reason: forceCompleteReason || undefined,
+    });
+    setShowForceCompleteDialog(false);
+    setForceCompleteReason('');
   };
 
   // ============================================

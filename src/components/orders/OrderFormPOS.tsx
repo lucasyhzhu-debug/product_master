@@ -34,13 +34,13 @@ import { VoucherInput, type AppliedVoucher } from './VoucherInput';
 import { ManagerOverrideDialog } from './ManagerOverrideDialog';
 import { LowPriceWarningDialog } from './LowPriceWarningDialog';
 import {
-  useConvexPosProducts,
-  useConvexPackagingPosProducts,
-  useConvexCreateOrder,
-  useConvexReplaceOrderItems,
-  useConvexOrder,
-  useConvexCustomerSearch,
-  useConvexOrderTemplate,
+  usePosProducts,
+  usePackagingPosProducts,
+  useCreateOrder,
+  useReplaceOrderItems,
+  useOrder,
+  useCustomerSearch,
+  useOrderTemplate,
   type OrderCreateInput,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
@@ -129,21 +129,21 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
   // Queries & Mutations
   // ============================================
 
-  const { data: posProductsData, isLoading: productsLoading } = useConvexPosProducts();
+  const { data: posProductsData, isLoading: productsLoading } = usePosProducts();
   const posProducts = posProductsData ?? [];
 
-  const { data: packagingProductsData } = useConvexPackagingPosProducts();
+  const { data: packagingProductsData } = usePackagingPosProducts();
   const packagingProducts = packagingProductsData ?? [];
 
-  const customers = useConvexCustomerSearch(customerSearch || '');
+  const customers = useCustomerSearch(customerSearch || '');
 
-  const { data: orderTemplate, isLoading: templateLoading } = useConvexOrderTemplate();
+  const { data: orderTemplate, isLoading: templateLoading } = useOrderTemplate();
 
-  const createOrder = useConvexCreateOrder();
-  const replaceOrderItems = useConvexReplaceOrderItems();
+  const createOrder = useCreateOrder();
+  const replaceOrderItems = useReplaceOrderItems();
 
   // Edit mode: load existing order
-  const { data: editOrder } = useConvexOrder(
+  const { data: editOrder } = useOrder(
     editOrderId ? editOrderId as Id<"orders"> : undefined
   );
 

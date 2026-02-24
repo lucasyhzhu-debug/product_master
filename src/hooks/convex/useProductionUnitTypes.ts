@@ -24,7 +24,7 @@ export interface ProductionUnitTypeWithId extends ProductionUnitType {
  * List all production unit types.
  * Returns active types by default, sorted by sortOrder.
  */
-export function useConvexProductionUnitTypes(includeInactive?: boolean) {
+export function useProductionUnitTypes(includeInactive?: boolean) {
   const data = useQuery(api.productionUnitTypes.queries.list, {
     includeInactive: includeInactive ?? false,
   });
@@ -40,7 +40,7 @@ export function useConvexProductionUnitTypes(includeInactive?: boolean) {
 /**
  * Get a single production unit type by ID.
  */
-export function useConvexProductionUnitType(id: Id<"productionUnitTypes"> | undefined) {
+export function useProductionUnitType(id: Id<"productionUnitTypes"> | undefined) {
   const data = useQuery(
     api.productionUnitTypes.queries.getById,
     id ? { id } : "skip"
@@ -58,7 +58,7 @@ export function useConvexProductionUnitType(id: Id<"productionUnitTypes"> | unde
 /**
  * Get a production unit type by code.
  */
-export function useConvexProductionUnitTypeByCode(code: string | undefined) {
+export function useProductionUnitTypeByCode(code: string | undefined) {
   const data = useQuery(
     api.productionUnitTypes.queries.getByCode,
     code ? { code } : "skip"

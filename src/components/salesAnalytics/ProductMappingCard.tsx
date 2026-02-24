@@ -12,8 +12,8 @@ import {
 import { ConfirmDialog } from "@/components/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useConvexCountMappingImpact,
-  useConvexUpdateProductMapping,
+  useCountMappingImpact,
+  useUpdateProductMapping,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -57,8 +57,8 @@ export function ProductMappingCard({
   );
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const updateMapping = useConvexUpdateProductMapping();
-  const { data: impact } = useConvexCountMappingImpact(
+  const updateMapping = useUpdateProductMapping();
+  const { data: impact } = useCountMappingImpact(
     showConfirm ? mapping.source : undefined,
     showConfirm ? mapping.externalProductName : undefined
   );

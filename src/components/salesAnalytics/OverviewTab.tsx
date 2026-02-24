@@ -25,14 +25,14 @@ import { SalesChart } from "./SalesChart";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  useConvexExternalRevenue,
-  useConvexDashboardSalesSummaryByPeriod,
-  useConvexRevenueItems,
-  useConvexOrderDetailsByOrderNumber,
-  useConvexSyncK3MartSales,
-  useConvexSyncGoBiz,
-  useConvexSyncInternalOrders,
-  useConvexRevenueByOutlet,
+  useExternalRevenue,
+  useDashboardSalesSummaryByPeriod,
+  useRevenueItems,
+  useOrderDetailsByOrderNumber,
+  useSyncK3MartSales,
+  useSyncGoBiz,
+  useSyncInternalOrders,
+  useRevenueByOutlet,
   type PeriodPreset,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -174,7 +174,7 @@ function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal"
 // ─── Expanded row components ───
 
 function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> }) {
-  const { data: items, isLoading } = useConvexRevenueItems(revenueId);
+  const { data: items, isLoading } = useRevenueItems(revenueId);
 
   if (isLoading) {
     return (
@@ -244,7 +244,7 @@ function ExpandedRevenueItems({ revenueId }: { revenueId: Id<"externalRevenue"> 
 }
 
 function ExpandedInternalOrder({ orderNumber }: { orderNumber: string }) {
-  const { data: order, isLoading } = useConvexOrderDetailsByOrderNumber(orderNumber);
+  const { data: order, isLoading } = useOrderDetailsByOrderNumber(orderNumber);
 
   if (isLoading) {
     return (
@@ -602,7 +602,7 @@ function ChannelSummary({
 // ─── Platform Hierarchy (Platform -> Outlet drill-down) ───
 
 function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
-  const { data, isLoading, refresh: refreshByOutlet } = useConvexRevenueByOutlet(preset);
+  const { data, isLoading, refresh: refreshByOutlet } = useRevenueByOutlet(preset);
   void refreshByOutlet; // available for sync handlers if needed
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
 
@@ -923,7 +923,7 @@ export function OverviewTab() {
 
   // Fetch data using period-based action (on-demand, not reactive subscription)
   const { data: summary, isLoading: loadingSummary, refresh: refreshSummary } =
-    useConvexDashboardSalesSummaryByPeriod(selectedPeriod);
+    useDashboardSalesSummaryByPeriod(selectedPeriod);
 
   // Compute period bounds for revenue query from summary (or fall back to hook default)
   // When summary is available, pass its bounds so getRevenue uses the indexed path.
@@ -944,7 +944,7 @@ export function OverviewTab() {
   }, [selectedPeriod, summary?.currentPeriod?.periodStart, summary?.currentPeriod?.periodEnd]);
 
   const { data: revenueRecords, isLoading: loadingRevenue } =
-    useConvexExternalRevenue(
+    useExternalRevenue(
       platformFilter === "all" ? undefined : platformFilter,
       revenuePeriodBounds.periodStart,
       revenuePeriodBounds.periodEnd
@@ -959,9 +959,9 @@ export function OverviewTab() {
   }, [summary?.currentPeriod.periodStart, summary?.currentPeriod.periodEnd]);
 
   // Sync actions
-  const syncK3Mart = useConvexSyncK3MartSales();
-  const syncGoBiz = useConvexSyncGoBiz();
-  const syncInternal = useConvexSyncInternalOrders();
+  const syncK3Mart = useSyncK3MartSales();
+  const syncGoBiz = useSyncGoBiz();
+  const syncInternal = useSyncInternalOrders();
 
   const handleRefreshAll = async () => {
     setRefreshing(true);

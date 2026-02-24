@@ -6,7 +6,7 @@
  * - Count Correction: Set new absolute quantity with explanation
  * - Price Correction: Fix total cost for the batch (recalculates unit cost)
  *
- * All use useConvexAdjustStock hook. Reason is stored in referenceNote
+ * All use useAdjustStock hook. Reason is stored in referenceNote
  * prefixed with [WASTAGE], [COUNT], or [PRICE] for reporting.
  */
 
@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useConvexAdjustStock } from "@/hooks/convex";
+import { useAdjustStock } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -74,7 +74,7 @@ export function AdjustStockDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useAuth();
-  const adjustStock = useConvexAdjustStock();
+  const adjustStock = useAdjustStock();
 
   const maxWastage = currentQuantity - reservedQuantity;
 

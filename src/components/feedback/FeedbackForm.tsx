@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  useConvexGenerateUploadUrl,
-  useConvexCreateFeedback,
+  useGenerateUploadUrl,
+  useCreateFeedback,
   uploadScreenshot,
   type FeedbackPriority,
   type FeedbackTag,
@@ -33,8 +33,8 @@ export function FeedbackForm({
   const [createdBy, setCreatedBy] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const generateUploadUrl = useConvexGenerateUploadUrl();
-  const createFeedback = useConvexCreateFeedback();
+  const generateUploadUrl = useGenerateUploadUrl();
+  const createFeedback = useCreateFeedback();
 
   const screenshotUrl = URL.createObjectURL(capturedBlob);
   const pageUrl = window.location.href;

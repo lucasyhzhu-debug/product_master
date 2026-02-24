@@ -1,7 +1,7 @@
 import { MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useConvexOngoingFeedbackCount } from '@/hooks/convex/useFeedback';
+import { useOngoingFeedbackCount } from '@/hooks/convex/useFeedback';
 
 interface FeedbackPanelToggleProps {
   open: boolean;
@@ -9,7 +9,7 @@ interface FeedbackPanelToggleProps {
 }
 
 export function FeedbackPanelToggle({ open, onToggle }: FeedbackPanelToggleProps) {
-  const { count, isLoading } = useConvexOngoingFeedbackCount();
+  const { count, isLoading } = useOngoingFeedbackCount();
 
   return (
     <div className="fixed bottom-4 right-4 z-40">

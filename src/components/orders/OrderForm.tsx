@@ -21,13 +21,13 @@ import {
 } from '@/components/ui/tooltip';
 
 import {
-  useConvexCreateOrder,
-  useConvexSellerSuggestions,
+  useCreateOrder,
+  useSellerSuggestions,
   type OrderCreateInput,
   type OrderItemInput,
 } from '@/hooks/convex/useOrders';
-import { useConvexCustomer, useConvexCustomerSearch, useConvexUpdateCustomer } from '@/hooks/convex/useCustomers';
-import { useConvexMenuProducts, useConvexCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
+import { useCustomer, useCustomerSearch, useUpdateCustomer } from '@/hooks/convex/useCustomers';
+import { useMenuProducts, useCreateMenuProduct } from '@/hooks/convex/useMenuProducts';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
 import { getChannelOptions } from '@/lib/channels';
@@ -64,8 +64,8 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ onSuccess }: OrderFormProps) {
-  const createOrder = useConvexCreateOrder();
-  const createMenuProduct = useConvexCreateMenuProduct();
+  const createOrder = useCreateOrder();
+  const createMenuProduct = useCreateMenuProduct();
 
   // Customer state
   const [customerId, setCustomerId] = useState<Id<"customers"> | null>(null);
@@ -85,7 +85,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   const [productSearches, setProductSearches] = useState<string[]>(['']);
 
   // Convex queries
-  const { data: menuProductsData, isLoading: productsLoading } = useConvexMenuProducts(true);
+  const { data: menuProductsData, isLoading: productsLoading } = useMenuProducts(true);
   const menuProducts: MenuProduct[] = menuProductsData ?? [];
 
   const [formData, setFormData] = useState<FormOrderCreate>({
@@ -113,10 +113,10 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
   });
 
   // Queries
-  const customers = useConvexCustomerSearch(customerSearch || '');
-  const { data: sellerSuggestions } = useConvexSellerSuggestions();
-  const selectedCustomer = useConvexCustomer(customerId ?? undefined);
-  const updateCustomer = useConvexUpdateCustomer();
+  const customers = useCustomerSearch(customerSearch || '');
+  const { data: sellerSuggestions } = useSellerSuggestions();
+  const selectedCustomer = useCustomer(customerId ?? undefined);
+  const updateCustomer = useUpdateCustomer();
 
   // Calculate totals
   const totals = formData.items.reduce(

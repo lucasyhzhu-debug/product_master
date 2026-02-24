@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { getById as getByIdHelper } from "../lib/queryHelpers";
 
 /**
  * List all menu products.
@@ -25,7 +26,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id("menuProducts") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await getByIdHelper<"menuProducts">(ctx, args.id);
   },
 });
 

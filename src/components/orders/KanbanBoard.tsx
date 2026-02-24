@@ -15,7 +15,7 @@ import type { KanbanOrder } from './KanbanCard';
 // ============================================
 
 const KANBAN_COLUMNS: KanbanColumnConfig[] = [
-  { key: 'draft', title: 'Draft', colorClass: 'bg-gray-500' },
+  { key: 'draft', title: 'Draft', colorClass: 'bg-muted-foreground' },
   { key: 'awaiting_payment', title: 'Awaiting Payment', colorClass: 'bg-amber-500' },
   { key: 'payment_received', title: 'Payment Received', colorClass: 'bg-blue-500' },
   { key: 'being_prepared', title: 'Being Prepared', colorClass: 'bg-purple-500' },

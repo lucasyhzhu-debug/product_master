@@ -9,11 +9,11 @@ import { Leaf, Unlink } from 'lucide-react';
 import { EntityManager } from '@/components/shared/EntityManager';
 import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
-  useConvexIngredients,
-  useConvexCreateIngredient,
-  useConvexUpdateIngredient,
-  useConvexDeleteIngredient,
-  useConvexCreateIngredientComponentType,
+  useIngredients,
+  useCreateIngredient,
+  useUpdateIngredient,
+  useDeleteIngredient,
+  useCreateIngredientComponentType,
   useLinkIngredientToComponentType,
   useUnlinkIngredientFromComponentType,
 } from '@/hooks/convex';
@@ -26,7 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { Id } from '../../convex/_generated/dataModel';
 
-type Ingredient = NonNullable<ReturnType<typeof useConvexIngredients>>[number];
+type Ingredient = NonNullable<ReturnType<typeof useIngredients>>[number];
 
 const UNITS = ['g', 'kg', 'ml', 'l', 'pcs'];
 
@@ -42,7 +42,7 @@ function transformData(data: Record<string, any>) {
 
 function EnableTrackingButton({ ingredient }: { ingredient: Ingredient }) {
   const { user } = useAuth();
-  const createIngredientComponentType = useConvexCreateIngredientComponentType();
+  const createIngredientComponentType = useCreateIngredientComponentType();
   const [loading, setLoading] = useState(false);
 
   const handleEnable = async () => {
@@ -208,10 +208,10 @@ function UntrackButton({ ingredient }: { ingredient: Ingredient }) {
 export function IngredientsManager() {
   useDocumentTitle('Ingredients');
 
-  const ingredients = useConvexIngredients();
-  const create = useConvexCreateIngredient();
-  const update = useConvexUpdateIngredient();
-  const del = useConvexDeleteIngredient();
+  const ingredients = useIngredients();
+  const create = useCreateIngredient();
+  const update = useUpdateIngredient();
+  const del = useDeleteIngredient();
 
   const columns: EntityColumn<Ingredient>[] = [
     { key: 'name', header: 'Name', sortable: true },

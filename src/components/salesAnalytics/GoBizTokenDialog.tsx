@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
-import { useConvexSyncGoBiz } from "@/hooks/convex";
+import { useSyncGoBiz } from "@/hooks/convex";
 import { api } from "../../../convex/_generated/api";
 
 interface GoBizTokenDialogProps {
@@ -46,7 +46,7 @@ export function GoBizTokenDialog({
   const saveDirectToken = useProtectedMutation(
     api.platformCredentials.mutations.saveDirectToken
   );
-  const syncGoBiz = useConvexSyncGoBiz();
+  const syncGoBiz = useSyncGoBiz();
 
   const handleSaveAndSync = async () => {
     const raw = jsonInput.trim();

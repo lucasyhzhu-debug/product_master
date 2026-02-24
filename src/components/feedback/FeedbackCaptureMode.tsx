@@ -260,7 +260,7 @@ export function FeedbackCaptureMode({
         {/* Tooltip following cursor */}
         {elementInfo && !isCapturing && (
           <div
-            className="fixed pointer-events-none bg-gray-900 text-white text-xs px-2 py-1.5 rounded shadow-lg"
+            className="fixed pointer-events-none bg-gray-900 dark:bg-gray-800 text-white text-xs px-2 py-1.5 rounded shadow-lg"
             style={{
               top: mousePosition.y + 10,
               left: mousePosition.x + 10,
@@ -270,7 +270,7 @@ export function FeedbackCaptureMode({
             <div className="font-mono">
               <span className="text-blue-400">{elementInfo.tag}</span>
               {elementInfo.className && (
-                <span className="text-gray-300 ml-1">.{elementInfo.className}</span>
+                <span className="text-gray-300 dark:text-gray-400 ml-1">.{elementInfo.className}</span>
               )}
             </div>
           </div>
