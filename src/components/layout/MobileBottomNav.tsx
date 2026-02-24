@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
-  // BANDWIDTH CONSERVATION: TrendingUp (Sales), Store (K3Mart) hidden until March 1st
-  // TrendingUp,
+  TrendingUp,
   ShoppingCart,
   UtensilsCrossed,
   Warehouse,
@@ -14,7 +13,7 @@ import {
   Ticket,
   Users,
   Contact,
-  // Store,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -45,16 +44,14 @@ const _prefetchInventory = () => import('@/pages/InventoryManager');
 
 const primaryTabs: TabItem[] = [
   { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard', preload: _prefetchHome },
-  // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
-  // { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
+  { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
   { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', icon: UtensilsCrossed, label: 'Kitchen', permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', icon: Warehouse, label: 'Inventory', permission: 'canAccessInventory', preload: _prefetchInventory },
 ];
 
 const moreItems: TabItem[] = [
-  // BANDWIDTH CONSERVATION: K3Mart Cockpit hidden until March 1st quota reset
-  // { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
+  { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },

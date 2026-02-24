@@ -14,9 +14,8 @@ import {
   Circle,
   Tag,
   Home,
-  // BANDWIDTH CONSERVATION: TrendingUp (Sales), Store (K3Mart) hidden until March 1st
-  // TrendingUp,
-  // Store,
+  TrendingUp,
+  Store,
   CalendarRange,
   Settings,
   Shield,
@@ -81,8 +80,7 @@ const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 // Main nav items - visible based on individual permissions
 const mainNavItems: NavItem[] = [
   { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard', preload: _prefetchHome },
-  // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
-  // { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
@@ -91,8 +89,7 @@ const mainNavItems: NavItem[] = [
 
 // Depot Management dropdown - Manager + Admin
 const depotItems: NavItem[] = [
-  // BANDWIDTH CONSERVATION: K3Mart Cockpit hidden until March 1st quota reset
-  // { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
   { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
 ];
 
