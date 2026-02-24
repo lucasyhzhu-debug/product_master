@@ -250,9 +250,15 @@ export function ManagerOverrideDialog({
               rows={3}
               disabled={isSubmitting}
             />
-            <p className="text-xs text-muted-foreground">
-              This reason will be logged and attached to the voucher.
-            </p>
+            {reason.length > 0 && reason.trim().length < 5 ? (
+              <p className="text-xs text-destructive">
+                Reason must be at least 5 characters ({reason.trim().length}/5)
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This reason will be logged and attached to the voucher.
+              </p>
+            )}
           </div>
         </div>
 
