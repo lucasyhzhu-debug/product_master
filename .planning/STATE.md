@@ -157,7 +157,7 @@ Key decisions affecting v1.3 phases:
 | 23 | Highlight my orders and orders with notes on order manager kanban with sorting and legend toggles | 2026-02-22 | 3fa94de | Verified | [23-highlight-my-orders-and-orders-with-note](./quick/23-highlight-my-orders-and-orders-with-note/) |
 | 24 | Disable Sales Analytics and K3Mart Cockpit pages; redirect / and disabled routes to /orders for bandwidth conservation until March 1st | 2026-02-22 | 7d7fcba | Done | [24-disable-sales-analytics-page-and-redirec](./quick/24-disable-sales-analytics-page-and-redirec/) |
 | 25 | EoS form gap closure: waste filter, inline confirm error, produced row redesign with targets and deltas | 2026-02-23 | 861afec | Verified | [25-eos-form-gap-closure-waste-filter-inline](./quick/25-eos-form-gap-closure-waste-filter-inline/) |
-| 26 | Add free voucher creation: admin-only 100% discount vouchers with structured reason (QA Testing/Gift/Other), green Free badge in UI | 2026-02-24 | 1f13ead | Done | [26-create-a-way-for-us-to-make-free-voucher](./quick/26-create-a-way-for-us-to-make-free-voucher/) |
+| 26 | Add free voucher creation: admin-only 100% discount vouchers with structured reason (QA Testing/Gift/Other), green Free badge in UI | 2026-02-24 | 1f13ead | Verified | [26-create-a-way-for-us-to-make-free-voucher](./quick/26-create-a-way-for-us-to-make-free-voucher/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
