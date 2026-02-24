@@ -14,6 +14,20 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.3.15] - 2026-02-24 - Restore: Sales Analytics and K3Mart Cockpit Navigation
+
+Sales Analytics and K3Mart Cockpit navigation links are back. These were temporarily hidden on February 22nd to conserve Convex bandwidth before the monthly quota reset — that period is now over.
+
+### Restored
+- **Sales Analytics** now appears in the desktop header after "Home" and as the 5th tab in mobile bottom nav
+- **K3Mart Cockpit** now appears in the desktop Depots dropdown and in the mobile More sheet as the first item
+
+### Files Modified
+- `src/components/layout/Header.tsx` — TrendingUp + Store icons restored; Sales entry in mainNavItems; K3Mart entry in depotItems
+- `src/components/layout/MobileBottomNav.tsx` — TrendingUp + Store icons restored; Sales entry in primaryTabs; K3Mart entry in moreItems
+
+---
+
 ## [v1.3.14] - 2026-02-23 - Fix: WhatsApp Messages Now Show Correct Payment Status
 
 WhatsApp messages were always showing "Payment: Unpaid" even for paid orders. This is now fixed — confirmed, in-production, shipped, and completed orders will correctly show "Payment: Paid".
