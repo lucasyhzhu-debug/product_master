@@ -73,6 +73,54 @@ grep CONVEX_DEPLOYMENT .env.local
 
 ---
 
+## Refreshing Dev with Production Data
+
+When dev data gets stale, you can replace it with a sanitized snapshot of production.
+
+**What gets replaced:** All business tables (~56 tables: orders, recipes, products, inventory, customers, etc.)
+
+**What stays untouched:** `users`, `sessions`, `platformCredentials` (dev credentials remain intact)
+
+### Prerequisites
+
+- `unzip` and `zip` must be installed (`brew install zip` / `apt install zip` / Git Bash on Windows has both)
+- You must be authenticated with Convex: `npx convex login`
+- `.env.local` must exist and point to `dev:exciting-fennec-671`
+
+### Run the sync
+
+```bash
+bash scripts/sync-prod-to-dev.sh
+```
+
+The script will:
+1. Export all tables from `prod:decisive-wombat-7`
+2. Strip `users`, `sessions`, `platformCredentials` from the export
+3. Import the sanitized snapshot into `dev:exciting-fennec-671` with `--replace-all`
+4. Clean up all temp files
+
+**Duration:** ~2–5 minutes depending on data size.
+
+### After the sync
+
+Restart your dev server to pick up the new data:
+
+```bash
+# Terminal 1 (if running): stop and restart
+npx convex dev
+
+# Spot-check in a new terminal
+npx convex run orders:list --env-file .env.local
+```
+
+### ⚠ Caution
+
+- This is **destructive to dev** — all existing dev data will be replaced
+- Do NOT run while someone else is actively using dev for testing
+- The script has a confirmation prompt before it does anything
+
+---
+
 ## See Also
 
 - [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing workflows
