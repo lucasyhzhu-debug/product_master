@@ -326,5 +326,5 @@ Plans:
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
-| 25. Codebase Cleanup | 6/6 | Complete   | 2026-02-23 | - |
+| 25. Codebase Cleanup | 6/6 | Complete    | 2026-02-24 | - |
 | 26. E2E Playwright Tests | v1.4 | 0/0 | Deferred (context ready) | - |
