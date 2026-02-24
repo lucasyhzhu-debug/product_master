@@ -89,3 +89,5 @@ nul
 # =============================================================================
 scripts/debug-screenshots/
 scripts/.gobiz_creds.json
+prod-snapshot*.zip
+prod-snapshot-work/
