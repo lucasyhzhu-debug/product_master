@@ -58,6 +58,8 @@ fi
 
 echo ""
 echo "Step 1/6: Exporting prod snapshot..."
+rm -f "$SNAPSHOT" "$SANITIZED"
+rm -rf "$WORK_DIR"
 npx convex export --prod --path "$SNAPSHOT"
 echo "  -> Saved to $SNAPSHOT"
 
