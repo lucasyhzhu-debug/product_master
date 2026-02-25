@@ -1,31 +1,63 @@
 ---
 phase: 26-platform-auth-schema
-verified: 2026-02-25T00:00:00Z
+verified: 2026-02-25T12:00:00Z
 status: passed
 score: 4/4 requirements verified
-re_verification: null
+re_verification:
+  previous_status: passed
+  previous_score: 4/4
+  gaps_closed:
+    - "GoBiz one-click token refresh (loginWithCredentials) flattened credential body + error surfacing fixed"
+    - "BigSeller JWT preview now shows uid via multi-key fallback (uid, user_id, sub, id)"
+    - "Platform cards (K3Mart, GoBiz) expand to show sync log history — collapsible toggle restored"
+  gaps_remaining: []
+  regressions: []
 gaps: []
 human_verification:
   - test: "Open Sales Analytics > Settings tab as admin — confirm all 6 platform rows render"
     expected: "Six rows: K3 Mart, GoBiz (GoFood), Internal Orders, GrabFood, BigSeller, Consignment — each with status dot, category icon, platform name, status badge, and optional action button"
     why_human: "Registry-driven rendering requires live Convex query data; cannot verify row count statically"
   - test: "GoBiz row — click 'Refresh Token' button"
-    expected: "Button triggers loginWithCredentials action; shows spinner; toasts success or 'env vars not configured' error"
-    why_human: "End-to-end action execution requires live Convex runtime"
+    expected: "Button triggers loginWithCredentials action; credentials sent as flat JSON { client_id, grant_type, email, password }; on 400 the error message includes GoBiz response body; on success toast 'GoBiz token refreshed'"
+    why_human: "End-to-end action execution requires live Convex runtime and configured env vars"
   - test: "BigSeller row — click 'Paste Token' button, paste a valid JWT muc_token"
-    expected: "Dialog auto-previews 'X days remaining' with correct color (green >7d, yellow 3-7d, red <3d); 'Save Token' button enabled; on confirm token is stored"
+    expected: "Dialog auto-previews 'X days remaining' with correct color (green >7d, yellow 3-7d, red <3d) AND shows uid decoded from token; 'Save Token' button enabled; on confirm token is stored"
     why_human: "JWT decode preview requires real token input and live action execution"
+  - test: "K3Mart or GoBiz card — click the chevron expand toggle"
+    expected: "Sync history section expands below the row showing up to 5 recent sync entries with status icon, relative timestamp, and record count; clicking again collapses it"
+    why_human: "Requires live externalSyncLogs data and Convex query execution"
   - test: "GrabFood row — status when credentials exist vs. not configured"
     expected: "'Connected' (green) when email/client_id present in platformCredentials; 'Client credentials not configured' (disconnected) otherwise"
     why_human: "Status depends on database state; cannot verify statically"
 ---
 
-# Phase 26: Platform Auth & Schema Foundation — Verification Report
+# Phase 26: Platform Auth & Schema Foundation — Verification Report (Re-verification)
 
 **Phase Goal:** Establish authentication for all three new platforms (GoBiz one-click refresh, BigSeller paste-once JWT with expiry monitoring, GrabFood on-demand token resolve) and deploy all new schema tables and source union extensions that every subsequent phase depends on.
 **Verified:** 2026-02-25
 **Status:** PASSED
-**Re-verification:** No — initial verification
+**Re-verification:** Yes — after UAT gap closure (Plans 04 and 05)
+
+---
+
+## Re-verification Context
+
+The initial VERIFICATION.md (written after Plans 01-03) reported `status: passed`. Subsequent UAT (`26-UAT.md`) identified three gaps:
+
+1. **GoBiz 400 error** — `loginWithCredentials` body nested credentials under a `data` key instead of top-level
+2. **BigSeller uid not shown** — `previewBigSellerToken` only checked `payload.uid`; BigSeller tokens use a different claim key
+3. **Sync log expand removed** — Phase 26-03 refactor stripped the collapsible sync history from `IntegrationHealthCard`
+
+Gap closure plans 04 and 05 were executed. This re-verification confirms all three gaps are closed and no regressions introduced.
+
+**Commits confirming gap closure:**
+
+| Commit | Description |
+|--------|-------------|
+| `de4f8ca` | fix(26-04): flatten GoBiz loginWithCredentials body + surface error message |
+| `df8090b` | fix(26-04): expand BigSeller uid lookup to 4 JWT claim keys |
+| `40d5650` | feat(26-05): add SyncLogEntry type and syncHistory to PlatformHealthStatus |
+| `cf2b553` | feat(26-05): add collapsible sync log to IntegrationHealthCard |
 
 ---
 
@@ -35,88 +67,123 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | GoBiz admin can one-click refresh token via password grant (AUTH-01) | VERIFIED | `loginWithCredentials` action in `convex/integrations/gobiz/adapter.ts:1025`; reads `GOBIZ_EMAIL`/`GOBIZ_PASSWORD` env vars; calls `internal.platformCredentials.mutations.saveDirectToken`; graceful error when env vars absent |
-| 2 | Admin can paste BigSeller muc_token with JWT expiry preview before saving (AUTH-02) | VERIFIED | `previewBigSellerToken` and `saveBigSellerToken` actions in `convex/integrations/bigseller/adapter.ts`; `BigSellerTokenDialog.tsx` has paste → preview → confirm flow; token stored with actual JWT `exp` not 6h estimate |
-| 3 | GrabFood OAuth2 token resolves on-demand via client_credentials strategy (AUTH-03) | VERIFIED | `resolveToken()` fully implemented in `convex/integrations/grabfood/adapter.ts:49`; all 8 GrabFood action invocations call it lazily; no cron, no manual paste; credentials stored in `platformCredentials` table; handles no-credentials case gracefully |
-| 4 | Unified credential health panel shows status for all platforms in Settings (AUTH-04) | VERIFIED | `SettingsTab.tsx` loops over `getHealthStatusAll` query results; `IntegrationHealthCard` accepts `PlatformHealthStatus` prop; action dispatch via `authStrategy` switch; `BigSellerTokenDialog` and `GoBizTokenDialog` wired |
+| 1 | GoBiz admin can one-click refresh token via password grant (AUTH-01) | VERIFIED | `loginWithCredentials` in `convex/integrations/gobiz/adapter.ts:1049-1060`; flat body `{ client_id, grant_type, email, password }` — no nested `data` key; error body read and surfaced on non-200; token saved via `internal.platformCredentials.mutations.saveDirectToken` |
+| 2 | Admin can paste BigSeller muc_token with JWT expiry preview and uid (AUTH-02) | VERIFIED | `previewBigSellerToken` in `convex/integrations/bigseller/adapter.ts:58-59`: uid uses `.find()` across `[payload.uid, payload.user_id, payload.sub, payload.id]`; `BigSellerTokenDialog` wired via `useAction`; expiry preview + confirm flow intact |
+| 3 | GrabFood OAuth2 token resolves on-demand via client_credentials strategy (AUTH-03) | VERIFIED | `resolveToken()` in `convex/integrations/grabfood/adapter.ts`; GrabFood in registry as `authStrategy: 'client_credentials'`; all GrabFood actions call it lazily; credentials stored in `platformCredentials` |
+| 4 | Unified credential health panel shows status for all platforms in Settings (AUTH-04) | VERIFIED | `SettingsTab.tsx:182` passes `health={health}` full object to `IntegrationHealthCard`; `getHealthStatusAll` returns `PlatformHealthStatus[]` with `syncHistory`; K3Mart/GoBiz cards have expand toggle; `npm run type-check` exits 0 |
 
 **Score:** 4/4 truths verified
 
 ---
 
-## Required Artifacts
+## Gap Closure Verification
 
-### Plan 01 Artifacts
+### Gap 1: GoBiz loginWithCredentials credential body (AUTH-01)
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `convex/lib/jwt.ts` | Shared JWT payload decode utility | VERIFIED | Exports `decodeJwtPayload(token: string): Record<string, unknown>`; uses `atob` for base64url decode |
-| `convex/integrations/registry.ts` | Extended PlatformMeta with authStrategy, category, healthConfig + 6 platforms | VERIFIED | 6 platform entries: k3mart, gobiz, internal, grabfood, bigseller, consignment; all with `authStrategy`, `category`, `healthConfig` |
-| `convex/schema.ts` | 4 new tables + shared `externalSource` union in 5 external tables | VERIFIED | `grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements` at lines 1436–1530; `externalSource` exported at line 18; all 5 external tables use it at lines 985, 1027, 1072, 1093, 1111 |
-| `convex/platformCredentials/queries.ts` | Registry-driven `getHealthStatusAll` query with auth | VERIFIED | Query at line 181; requires `token: v.string()`; calls `requireRole(ctx, args.token, ["manager", "admin"])`; iterates `PLATFORM_IDS`; returns `PlatformHealthStatus[]` |
+**Status: CLOSED**
 
-### Plan 02 Artifacts
+Previous issue: credentials nested under `data: { email, password }` causing 400 from GoBiz API.
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `convex/platformCredentials/mutations.ts` | `saveDirectToken` as `internalMutation` with optional `tokenExpiresAt` | VERIFIED | `internalMutation` at line 91; optional `tokenExpiresAt: v.optional(v.number())`; uses `tokenExpiresAt ?? 6h estimate`; `saveDirectTokenPublic` public wrapper at line 136 |
-| `convex/integrations/gobiz/adapter.ts` | `loginWithCredentials` action (password grant) | VERIFIED | Public `action` at line 1025; reads env vars; POSTs to `https://api.gobiz.co.id/goid/token`; calls `internal.platformCredentials.mutations.saveDirectToken` |
-| `convex/integrations/bigseller/adapter.ts` | `previewBigSellerToken` + `saveBigSellerToken` actions | VERIFIED | Both actions present; imports `decodeJwtPayload` from `../../lib/jwt`; preview returns `{expiresAt, daysRemaining, uid}`; save calls internal `saveDirectToken` with actual `tokenExpiresAt` |
-| `convex/integrations/bigseller/config.ts` | BigSeller configuration constants | VERIFIED | Exports `BIGSELLER_PLATFORM_ID`, `BIGSELLER_TOKEN_COOKIE_NAME`, `BIGSELLER_MAX_SYNC_DAYS` |
+Verified fix at `convex/integrations/gobiz/adapter.ts` lines 1055-1060:
 
-### Plan 03 Artifacts
+```typescript
+body: JSON.stringify({
+  client_id: "go-biz-web-new",
+  grant_type: "password",
+  email,
+  password,
+}),
+```
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `src/lib/formatters.ts` | Shared `formatCountdown` utility | VERIFIED | Exports `formatCountdown(daysRemaining: number \| null): string` and `formatRelativeTime(timestamp: number): string` |
-| `src/components/salesAnalytics/IntegrationHealthCard.tsx` | Registry-driven health row using `PlatformHealthStatus` prop | VERIFIED | Single `health: PlatformHealthStatus` prop; derives action label from `authStrategy`; derives icon from `category`; imports `formatCountdown` from `src/lib/formatters` |
-| `src/components/salesAnalytics/SettingsTab.tsx` | Settings tab with 6-platform loop using `getHealthStatusAll` | VERIFIED | Calls `api.platformCredentials.queries.getHealthStatusAll` with auth token; maps over `PlatformHealthStatus[]`; dispatches via `authStrategy` switch |
-| `src/components/salesAnalytics/BigSellerTokenDialog.tsx` | BigSeller paste-token dialog with JWT expiry preview | VERIFIED | Full paste → auto-preview → confirm flow; imports `previewBigSellerToken` + `saveBigSellerToken`; uses `formatCountdown` from shared util |
-| `src/components/salesAnalytics/GoBizTokenDialog.tsx` | GoBiz dialog with Refresh Token button | VERIFIED | `useAction(api.integrations.gobiz.adapter.loginWithCredentials)` at line 45; one-click button at line 76; manual paste as collapsible fallback |
+No `data` key present. Error handler at lines 1069-1083 reads `errData.error_description` from response body and includes it in the returned error string.
+
+### Gap 2: BigSeller uid lookup (AUTH-02)
+
+**Status: CLOSED**
+
+Previous issue: `previewBigSellerToken` only checked `payload.uid`.
+
+Verified fix at `convex/integrations/bigseller/adapter.ts` lines 58-59:
+
+```typescript
+const uid = [payload.uid, payload.user_id, payload.sub, payload.id]
+  .find((v): v is string => typeof v === "string");
+```
+
+Multi-key fallback covers the four most common JWT user-id claim names.
+
+### Gap 3: Sync log expand removed from IntegrationHealthCard (AUTH-04)
+
+**Status: CLOSED**
+
+**Backend** (`convex/platformCredentials/queries.ts`):
+- `SyncLogEntry` type exported at line 160
+- `PlatformHealthStatus` has `syncHistory: SyncLogEntry[]` at line 185
+- `getHealthStatusAll` populates `syncHistory` for `last_sync` platforms (k3mart, gobiz) via `ctx.db.query("externalSyncLogs").withIndex("by_source")...take(5)` at lines 213-275
+- `always_green` and `token_expiry` platforms get `syncHistory: []`
+
+**Frontend** (`src/components/salesAnalytics/IntegrationHealthCard.tsx`):
+- `ChevronDown`/`ChevronUp` imported (lines 15-16)
+- `isExpanded` state at line 123
+- `hasSyncHistory = health.syncHistory.length > 0` at line 130
+- Expand toggle visible only when `hasSyncHistory` (lines 211-219)
+- Sync log renders at lines 226-230+ with `health.syncHistory.map()`
+
+**SettingsTab** (`src/components/salesAnalytics/SettingsTab.tsx`):
+- Passes full `health={health}` object at line 182 — `syncHistory` field propagates automatically
 
 ---
 
-## Key Link Verification
+## Required Artifacts (All Plans)
 
-### Plan 01 Key Links
+| Artifact | Status | Details |
+|----------|--------|---------|
+| `convex/lib/jwt.ts` | VERIFIED | Exports `decodeJwtPayload`; used by `actions.ts` and `bigseller/adapter.ts` |
+| `convex/integrations/registry.ts` | VERIFIED | 6 platform entries with `authStrategy`, `category`, `healthConfig`; `PLATFORM_IDS` exported |
+| `convex/schema.ts` | VERIFIED | `externalSource` exported; 4 new tables (`grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements`); all 5 external tables use `externalSource` |
+| `convex/platformCredentials/queries.ts` | VERIFIED | `getHealthStatusAll` requires manager/admin auth; returns `PlatformHealthStatus[]` with `syncHistory`; `SyncLogEntry` type exported |
+| `convex/platformCredentials/mutations.ts` | VERIFIED | `saveDirectToken` as `internalMutation` with optional `tokenExpiresAt` |
+| `convex/integrations/gobiz/adapter.ts` | VERIFIED | `loginWithCredentials` with flat body + error body surfacing (Plan 04 fix applied) |
+| `convex/integrations/bigseller/adapter.ts` | VERIFIED | `previewBigSellerToken` with multi-key uid lookup (Plan 04 fix applied); `saveBigSellerToken` stores actual JWT `exp` |
+| `convex/integrations/bigseller/config.ts` | VERIFIED | Exports `BIGSELLER_PLATFORM_ID`, `BIGSELLER_TOKEN_COOKIE_NAME`, `BIGSELLER_MAX_SYNC_DAYS` |
+| `src/lib/formatters.ts` | VERIFIED | Exports `formatCountdown` and `formatRelativeTime` |
+| `src/components/salesAnalytics/IntegrationHealthCard.tsx` | VERIFIED | Registry-driven; expand toggle + collapsible sync log (Plan 05 restore applied); uses `PlatformHealthStatus` prop |
+| `src/components/salesAnalytics/SettingsTab.tsx` | VERIFIED | `getHealthStatusAll` wired; passes full `health` object to cards |
+| `src/components/salesAnalytics/BigSellerTokenDialog.tsx` | VERIFIED | Paste -> preview -> confirm flow; `formatCountdown` for color display |
+| `src/components/salesAnalytics/GoBizTokenDialog.tsx` | VERIFIED | One-click `loginWithCredentials`; manual paste as collapsible fallback |
 
-| From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
-| `convex/integrations/registry.ts` | `convex/schema.ts` | PlatformId literals match source union literals | VERIFIED | Both define 6 literals: k3mart, gobiz, internal, grabfood, bigseller, consignment |
-| `convex/platformCredentials/queries.ts` | `convex/integrations/registry.ts` | Query iterates `PLATFORMS` registry | VERIFIED | Imports `PLATFORMS`, `PLATFORM_IDS` from `../integrations/registry`; `for (const platformId of PLATFORM_IDS)` loop |
-| `convex/lib/jwt.ts` | `convex/platformCredentials/actions.ts` | `actions.ts` imports `decodeJwtPayload` from shared util | VERIFIED | Line 7: `import { decodeJwtPayload } from "../lib/jwt"` |
+---
 
-### Plan 02 Key Links
+## Key Links
 
-| From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
-| `convex/integrations/gobiz/adapter.ts` | `convex/platformCredentials/mutations.ts` | `loginWithCredentials` calls `saveDirectToken` via `internal.*` | VERIFIED | Calls `internal.platformCredentials.mutations.saveDirectToken` |
-| `convex/integrations/bigseller/adapter.ts` | `convex/lib/jwt.ts` | Uses `decodeJwtPayload` from shared util | VERIFIED | Line 6: `import { decodeJwtPayload } from "../../lib/jwt"` |
-| `convex/integrations/bigseller/adapter.ts` | `convex/platformCredentials/mutations.ts` | `saveBigSellerToken` calls `saveDirectToken` with `tokenExpiresAt` via `internal.*` | VERIFIED | `ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {..., tokenExpiresAt})` at line 120 |
-
-### Plan 03 Key Links
-
-| From | To | Via | Status | Details |
-|------|----|-----|--------|---------|
-| `src/components/salesAnalytics/SettingsTab.tsx` | `convex/platformCredentials/queries.ts` | `useQuery(api.platformCredentials.queries.getHealthStatusAll, { token })` | VERIFIED | Line 39: `api.platformCredentials.queries.getHealthStatusAll` |
-| `src/components/salesAnalytics/GoBizTokenDialog.tsx` | `convex/integrations/gobiz/adapter.ts` | `useAction(api.integrations.gobiz.adapter.loginWithCredentials)` | VERIFIED | Lines 45–46 |
-| `src/components/salesAnalytics/BigSellerTokenDialog.tsx` | `convex/integrations/bigseller/adapter.ts` | `useAction` for `previewBigSellerToken` + `saveBigSellerToken` | VERIFIED | Lines 52–57 |
-| `src/components/salesAnalytics/IntegrationHealthCard.tsx` | `PlatformHealthStatus` type | Reads `authStrategy` and `category` from query return type | VERIFIED | Type imported from `convex/platformCredentials/queries`; `getActionLabel(health.authStrategy)` and `getCategoryIcon(health.category)` |
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `gobiz/adapter.ts loginWithCredentials` | GoBiz API | flat JSON body with `email, password` at top-level (no `data` wrapper) | VERIFIED |
+| `bigseller/adapter.ts previewBigSellerToken` | JWT payload | `.find()` across 4 claim keys | VERIFIED |
+| `getHealthStatusAll` | `externalSyncLogs` | `withIndex("by_source").order("desc").take(5)` | VERIFIED |
+| `IntegrationHealthCard` | `syncHistory[]` | `isExpanded` state + conditional render on `hasSyncHistory` | VERIFIED |
+| `SettingsTab` | `IntegrationHealthCard` | `health={health}` full object pass-through at line 182 | VERIFIED |
+| `getHealthStatusAll` | `registry.ts` | iterates `PLATFORM_IDS` | VERIFIED |
+| `platformCredentials/queries.ts` | `requireRole` | `token: v.string()` arg, manager/admin check | VERIFIED |
 
 ---
 
 ## Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
-|-------------|------------|-------------|--------|----------|
-| AUTH-01 | 26-02 | Admin can one-click refresh GoBiz token via password grant | SATISFIED | `loginWithCredentials` action in gobiz adapter; GoBizTokenDialog one-click button wired; env-var graceful fallback verified |
-| AUTH-02 | 26-02, 26-03 | Admin can paste BigSeller muc_token with 30-day expiry countdown and dashboard warning | SATISFIED | `previewBigSellerToken` + `saveBigSellerToken`; actual JWT `exp` stored as `tokenExpiresAt`; `BigSellerTokenDialog` with preview+confirm flow; health dashboard shows countdown via `hasExpiry: true` |
-| AUTH-03 | 26-01 | GrabFood OAuth2 token resolves on-demand via `resolveToken()` | SATISFIED | `resolveToken()` in `convex/integrations/grabfood/adapter.ts` (untracked — pre-existing implementation verified in codebase); GrabFood added to registry as `authStrategy: 'client_credentials'` with `always_green` health type; health panel checks `email` (client_id) presence for connected/disconnected state |
-| AUTH-04 | 26-01, 26-03 | Unified credential health panel for all 3 platforms (GoBiz, GrabFood, BigSeller) | SATISFIED | Panel actually shows all 6 platforms (exceeds requirement); `IntegrationHealthCard` is registry-driven; `SettingsTab` loop replaces hardcoded blocks |
+| Requirement | Source Plans | Description | Status | Evidence |
+|-------------|-------------|-------------|--------|----------|
+| AUTH-01 | 26-02, 26-04 | Admin can one-click refresh GoBiz token via password grant | SATISFIED | `loginWithCredentials` flat body fix in 26-04; `GoBizTokenDialog` one-click wired; error body surfaced; REQUIREMENTS.md marked Complete |
+| AUTH-02 | 26-02, 26-03, 26-04 | Admin pastes BigSeller muc_token with expiry countdown and uid preview | SATISFIED | `previewBigSellerToken` multi-key uid fix in 26-04; JWT `exp` stored as `tokenExpiresAt`; `BigSellerTokenDialog` full preview flow; REQUIREMENTS.md marked Complete |
+| AUTH-03 | 26-01 | GrabFood OAuth2 token resolves on-demand via `resolveToken()` | SATISFIED | `resolveToken()` in `grabfood/adapter.ts`; GrabFood in registry as `client_credentials`; lazy resolution on all GrabFood actions; REQUIREMENTS.md marked Complete |
+| AUTH-04 | 26-01, 26-03, 26-05 | Unified credential health panel for all platforms | SATISFIED | Panel shows 6 platforms; K3Mart/GoBiz cards expand to show sync log (Plan 05 restore); auth-gated query; registry-driven rendering; REQUIREMENTS.md marked Complete |
 
-**Note on AUTH-02 threshold deviation:** REQUIREMENTS.md states "dashboard warning when < 5 days remaining". CONTEXT.md (post-research locked decision) set thresholds as Red < 3 days, Yellow 3-7 days. The implementation follows CONTEXT.md (green >7d, yellow 3-7d, red <3d). This diverges from the < 5 day warning wording in REQUIREMENTS.md but is intentional and documented in the phase research. The resulting behavior (yellow warning at 7 days, red at 3 days) is more conservative than the < 5 day requirement, so the spirit of AUTH-02 is met.
+**Note on AUTH-02 threshold deviation:** REQUIREMENTS.md specifies "dashboard warning when < 5 days remaining". Implementation follows CONTEXT.md locked thresholds: green >7d, yellow 3-7d, red <3d. More conservative than the < 5 day requirement; intentional per phase research.
 
-**Note on AUTH-03 + untracked files:** `convex/integrations/grabfood/adapter.ts` and `convex/integrations/grabfood/config.ts` are untracked (not committed to git). The research doc confirms `resolveToken()` was pre-existing before phase 26. These files exist and work in the codebase but are not in version control. This is a housekeeping issue, not a goal blocker — AUTH-03's requirement is that the functionality exists and is wired to the registry, which is verified.
+---
+
+## Build Verification
+
+`npm run type-check` exits 0 — no TypeScript errors across all modified files.
 
 ---
 
@@ -124,31 +191,11 @@ human_verification:
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `src/components/salesAnalytics/BigSellerTokenDialog.tsx` | 175 | HTML `placeholder` attribute | Info | Normal UI placeholder text in textarea — not a code stub |
-| `src/components/salesAnalytics/IntegrationHealthCard.tsx` | 97, 99 | `return null` | Info | Intentional — `getActionLabel` returns null for `session_auth` and `default` to suppress action button (correct behavior) |
+| `convex/integrations/gobiz/adapter.ts` | 186 | `return null` | Info | End of helper function — intentional null return, not a stub |
+| `src/components/salesAnalytics/IntegrationHealthCard.tsx` | 100, 102 | `return null` | Info | `getActionLabel()` returns null for `session_auth`/`default` to suppress action button — intentional |
+| `convex/platformCredentials/queries.ts` | 114 | `return null` | Info | Auth helper returns null on no session — intentional pattern |
 
-No blocker or warning-level anti-patterns found. No TODO/FIXME/HACK/PLACEHOLDER comments in phase-created files. No empty handlers or unimplemented stubs.
-
----
-
-## Commit Verification
-
-All 12 documented commits verified present in git log:
-
-| Commit | Description | Plan |
-|--------|-------------|------|
-| `1199718` | feat(26-01): extract decodeJwtPayload to shared convex/lib/jwt.ts | 01 |
-| `0f2fc12` | feat(26-01): extend platform registry with 6 platforms + PlatformMeta fields | 01 |
-| `e071ef0` | feat(26-01): add 4 new schema tables + extend source unions in 5 external tables | 01 |
-| `0ffe356` | feat(26-01): create registry-driven credential health query getHealthStatusAll | 01 |
-| `14b9fb3` | feat(26-02): convert saveDirectToken to internalMutation + add tokenExpiresAt param | 02 |
-| `699363c` | feat(26-02): GoBiz loginWithCredentials password grant action | 02 |
-| `4caef7a` | feat(26-02): BigSeller paste-token flow with JWT decode preview | 02 |
-| `f0f9a32` | fix(26-02): update externalSource types in frontend after Plan 01 schema expansion | 02 |
-| `ee8eaec` | feat(26-03): extract formatCountdown + refactor IntegrationHealthCard + SettingsTab | 03 |
-| `daaed32` | feat(26-03): GoBiz Refresh Token button + BigSeller paste dialog with JWT preview | 03 |
-| `a5780aa` | fix(26-03): update api.d.ts + fix TypeScript strict mode errors | 03 |
-| `a183785` | docs(26-03): update CHANGELOG + SCHEMA + API_REFERENCE for Phase 26 | 03 |
+No blocker or warning anti-patterns. No TODO/FIXME/HACK/PLACEHOLDER in any phase-created files.
 
 ---
 
@@ -157,41 +204,47 @@ All 12 documented commits verified present in git log:
 ### 1. Six-Platform Health Panel Render
 
 **Test:** Log in as admin, navigate to Sales Analytics > Settings tab
-**Expected:** Six rows render with correct platform names: K3 Mart, GoBiz (GoFood), Internal Orders, GrabFood, BigSeller, Consignment — each with status dot, icon, name, status badge
-**Why human:** Registry-driven query result requires live Convex runtime to verify row count and correct data
+**Expected:** Six rows render: K3 Mart, GoBiz (GoFood), Internal Orders, GrabFood, BigSeller, Consignment — each with status dot, icon, name, status badge
+**Why human:** Registry-driven query requires live Convex runtime
 
-### 2. GoBiz One-Click Token Refresh
+### 2. GoBiz One-Click Token Refresh (Post-Fix)
 
 **Test:** In Settings > GoBiz row, click "Refresh Token" button
-**Expected:** If `GOBIZ_EMAIL`/`GOBIZ_PASSWORD` env vars configured: spinner appears, success toast "GoBiz token refreshed". If not configured: error message "GOBIZ_EMAIL and GOBIZ_PASSWORD env vars not configured in Convex dashboard."
-**Why human:** Requires live GoBiz API call and Convex action execution
+**Expected:** If `GOBIZ_EMAIL`/`GOBIZ_PASSWORD` configured: flat credential body sent, token saved, success toast. If not configured: error "GOBIZ_EMAIL and GOBIZ_PASSWORD env vars not configured." On API 400: actionable error message including GoBiz's response body
+**Why human:** Requires live GoBiz API call and configured env vars
 
-### 3. BigSeller Paste → Preview → Save Flow
+### 3. BigSeller Paste -> Preview -> Save (Post-Fix)
 
-**Test:** In Settings > BigSeller row, click "Paste Token", paste a valid muc_token JWT
-**Expected:** Auto-preview fires showing "X days remaining" with correct color (green >7d, yellow 3-7d, red <3d); "Save Token" button becomes enabled; on click token is saved and dialog closes with toast
-**Why human:** Requires real JWT token and live Convex action execution
+**Test:** In Settings > BigSeller row, click "Paste Token", paste a real muc_token JWT
+**Expected:** Auto-preview fires showing days remaining (correct color) AND uid extracted from token; "Save Token" button enabled; on click stored successfully
+**Why human:** Requires real JWT with actual user-id claim
 
-### 4. GrabFood Status Display
+### 4. Sync Log Expand (K3Mart or GoBiz)
 
-**Test:** Check GrabFood row status with and without credentials in `platformCredentials` table
-**Expected:** "Connected" (green) when `email` field populated; "Client credentials not configured" (disconnected) when no credentials record
-**Why human:** Status depends on database state; requires checking against live data
+**Test:** In Settings, click the ChevronDown expand toggle on the K3Mart or GoBiz card
+**Expected:** Sync history section appears with up to 5 recent entries showing status icon, relative timestamp, record count; clicking again collapses
+**Why human:** Requires live `externalSyncLogs` data in Convex
+
+### 5. GrabFood Status Display
+
+**Test:** Check GrabFood row status with and without credentials
+**Expected:** "Connected" (green) when `email` populated; "Client credentials not configured" otherwise
+**Why human:** Depends on database state
 
 ---
 
 ## Summary
 
-Phase 26 achieved its goal. All four requirements (AUTH-01, AUTH-02, AUTH-03, AUTH-04) are satisfied with full three-level verification (existence, substance, wiring).
+Phase 26 achieved its goal. The three UAT gaps identified after initial verification have been fully closed in Plans 04 and 05.
 
-**Key architectural outcomes delivered:**
-- Platform registry extended to 6 platforms with `authStrategy`/`category`/`healthConfig` — the foundation all subsequent phases depend on
-- `externalSource` union exported from `schema.ts` and applied to all 5 external tables — consistent source of truth for platform-sourced data
-- 4 new schema tables deployed (`grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements`) with complete indexes
-- `saveDirectToken` converted to `internalMutation` — the correct pattern for action-to-mutation calls
-- Registry-driven UI pattern established — `IntegrationHealthCard` derives all behavior from `authStrategy`/`category`, no hardcoded platform branches
+**Gap closure results:**
+- GoBiz `loginWithCredentials` now sends a flat credential body — the 400 error root cause is fixed
+- BigSeller `previewBigSellerToken` uses a 4-key fallback for uid extraction
+- `IntegrationHealthCard` restored with expand toggle and collapsible sync log; `PlatformHealthStatus` type now carries `syncHistory: SyncLogEntry[]` populated from `externalSyncLogs`
 
-**One housekeeping item not blocking the goal:** `convex/integrations/grabfood/adapter.ts` and `convex/integrations/grabfood/config.ts` are untracked in git. These files contain the pre-existing `resolveToken()` implementation satisfying AUTH-03. They should be committed to version control, but their absence from git does not affect runtime functionality.
+**No regressions detected.** `npm run type-check` passes clean. All 4 requirement IDs (AUTH-01 through AUTH-04) are SATISFIED with three-level verification (existence, substance, wiring). Both REQUIREMENTS.md checks and the requirements tracker table show Phase 26 Complete for all four IDs.
+
+The schema foundation (4 new tables, `externalSource` union, 6-platform registry) required by Phases 27-30 remains intact and unaffected by the gap closure changes.
 
 ---
 
