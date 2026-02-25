@@ -52,7 +52,7 @@ export function GoBizTokenDialog({
 
   // Load current credential status (to show "Active" / "Expired" badge)
   const credStatus = useQuery(
-    api.platformCredentials.getCredentialStatus,
+    api.platformCredentials.queries.getCredentialStatus,
     authToken ? { token: authToken, platformId: "gobiz" } : "skip"
   );
 

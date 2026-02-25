@@ -17,6 +17,7 @@ import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
 import { BigSellerTokenDialog } from "./BigSellerTokenDialog";
 import { IntegrationHealthCard } from "./IntegrationHealthCard";
+import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export function SettingsTab() {
@@ -35,7 +36,7 @@ export function SettingsTab() {
 
   // Registry-driven health status for all 6 platforms (Plan 01 query)
   const healthData = useQuery(
-    api.platformCredentials.getHealthStatusAll,
+    api.platformCredentials.queries.getHealthStatusAll,
     canViewHealth && user?.token ? { token: user.token } : "skip"
   );
 
@@ -141,7 +142,7 @@ export function SettingsTab() {
   };
 
   // Registry-driven action dispatcher based on authStrategy
-  const handleAction = (platformId: string, authStrategy: string) => {
+  const handleAction = (_platformId: string, authStrategy: string) => {
     switch (authStrategy) {
       case "password_grant":
         setGobizDialogOpen(true);
@@ -157,7 +158,9 @@ export function SettingsTab() {
   };
 
   // Find BigSeller reconnect steps from health data (passed to BigSellerTokenDialog)
-  const bigsellerHealth = healthData?.find((h) => h.platformId === "bigseller");
+  const bigsellerHealth = (healthData as PlatformHealthStatus[] | undefined)?.find(
+    (h) => h.platformId === "bigseller"
+  );
 
   return (
     <div className="space-y-6">
@@ -173,7 +176,7 @@ export function SettingsTab() {
             </div>
           ) : (
             <div className="space-y-2 rounded-lg border overflow-hidden">
-              {healthData.map((health) => (
+              {(healthData as PlatformHealthStatus[]).map((health) => (
                 <IntegrationHealthCard
                   key={health.platformId}
                   health={health}

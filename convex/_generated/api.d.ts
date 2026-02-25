@@ -33,6 +33,8 @@ import type * as gofoodDepot_queries from "../gofoodDepot/queries.js";
 import type * as http from "../http.js";
 import type * as ingredients_mutations from "../ingredients/mutations.js";
 import type * as ingredients_queries from "../ingredients/queries.js";
+import type * as integrations_bigseller_adapter from "../integrations/bigseller/adapter.js";
+import type * as integrations_bigseller_config from "../integrations/bigseller/config.js";
 import type * as integrations_gobiz_adapter from "../integrations/gobiz/adapter.js";
 import type * as integrations_gobiz_config from "../integrations/gobiz/config.js";
 import type * as integrations_gobiz_helpers from "../integrations/gobiz/helpers.js";
@@ -167,6 +169,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "ingredients/mutations": typeof ingredients_mutations;
   "ingredients/queries": typeof ingredients_queries;
+  "integrations/bigseller/adapter": typeof integrations_bigseller_adapter;
+  "integrations/bigseller/config": typeof integrations_bigseller_config;
   "integrations/gobiz/adapter": typeof integrations_gobiz_adapter;
   "integrations/gobiz/config": typeof integrations_gobiz_config;
   "integrations/gobiz/helpers": typeof integrations_gobiz_helpers;
