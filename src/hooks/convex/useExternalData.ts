@@ -326,7 +326,7 @@ export function useUpdateManualStock() {
  * Get count of revenue items that would be affected by a mapping change.
  */
 export function useCountMappingImpact(
-  source?: "k3mart" | "gobiz" | "internal",
+  source?: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment",
   externalProductName?: string
 ) {
   const data = useQuery(

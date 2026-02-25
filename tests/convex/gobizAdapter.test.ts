@@ -146,7 +146,7 @@ describe("Token management", () => {
     });
 
     // Save GoBiz token with refresh token
-    const credId = await t.mutation(api.platformCredentials.mutations.saveDirectToken, {
+    const credId = await t.mutation(api.platformCredentials.mutations.saveDirectTokenPublic, {
       token,
       platformId: "gobiz",
       bearerToken: "Bearer abc123",

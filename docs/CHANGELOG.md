@@ -14,6 +14,38 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.0] - 2026-02-25 - Platform Auth & Schema Foundation (Phase 26)
+
+Admin can now manage all 6 platform integrations from one Settings panel — refresh GoBiz tokens with one click, paste and preview BigSeller JWT expiry, and see sync history logs for every token refresh and data sync at a glance.
+
+### Added
+- Platform registry extended to 6 platforms: K3Mart, GoBiz, Internal, GrabFood, BigSeller, Consignment
+- Registry-driven credential health dashboard in Sales Analytics Settings tab
+- GoBiz one-click token refresh using 2-step GoID auth (request + password grant)
+- BigSeller paste-token flow with JWT expiry preview — "X days remaining" before confirming
+- Expandable sync history on platform cards — click to see last 5 sync/refresh entries
+- Token refresh sync log entries — blue "Token" badge distinguishes refreshes from gray "Sync" data syncs
+- Sync log entries created for all token refreshes: K3Mart, GoBiz (success + error paths), BigSeller (on paste), GrabFood (on OAuth refresh)
+- 4 new schema tables: `grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements`
+- Shared `externalSource` union (6 literals) across all 5 external tables
+- Shared `decodeJwtPayload` utility in `convex/lib/jwt.ts`
+- Shared `formatCountdown` utility in `src/lib/formatters.ts`
+- `getHealthStatusAll` query — single call returns health + sync history for all 6 platforms
+- `syncType: "token_refresh"` added to `externalSyncLogs` schema
+
+### Changed
+- `saveDirectToken` converted to `internalMutation` with optional `tokenExpiresAt` parameter
+- `IntegrationHealthCard` refactored to registry-driven rendering (single `PlatformHealthStatus` prop)
+- `SettingsTab` renders all 6 platforms via `getHealthStatusAll` query loop
+- All 5 external tables now use shared exported `externalSource` validator from `schema.ts`
+- `GoBizTokenDialog` now has one-click refresh as primary button; manual paste as collapsible fallback
+- GoBiz auth flow corrected: 2-step GoID login (request endpoint + token endpoint with flat credential body)
+- GoBiz error messages now surface actual API response (not generic errors)
+- BigSeller UID extraction handles numeric JWT claims and filters generic role strings
+- `createSyncLog` mutation `sourceValidator` widened to shared `externalSource` (was missing bigseller/grabfood/consignment)
+
+---
+
 ## [v1.3.15] - 2026-02-24 - Restore: Sales Analytics and K3Mart Cockpit Navigation
 
 Sales Analytics and K3Mart Cockpit navigation links are back. These were temporarily hidden on February 22nd to conserve Convex bandwidth before the monthly quota reset — that period is now over.

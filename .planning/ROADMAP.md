@@ -6,7 +6,7 @@
 - ✅ **v1.1 Stabilization & QoL** — Phases 12-16 (shipped 2026-02-16)
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
 - ✅ **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-25 (shipped 2026-02-24)
-- 🚧 **v1.4 Testing & Quality** — Phase 26+ (in progress)
+- 🚧 **v1.4 Sales & Channel Integration** — Phases 26-30 (in progress)
 
 ## Phases
 
@@ -75,35 +75,15 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.4 Testing & Quality (In Progress)
+### 🚧 v1.4 Sales & Channel Integration (In Progress)
 
-**Milestone Goal:** Add E2E Playwright test coverage for critical user flows and integrate into CI.
+**Milestone Goal:** Unify sales data across all channels — GrabFood POS, BigSeller (Shopee + Tokopedia), and Consignment outlets — with one-click platform auth, manual-trigger syncs, and a revamped multi-channel Sales Analytics view.
 
-- **Phase 26: E2E Playwright Tests** — Browser-level E2E tests for login, order creation, kitchen shift submission, restock planner + CI GitHub Actions integration (context gathered 2026-02-23)
-
-**Also deferred from v1.3:**
-- Consignment Upload — CON-01 through CON-05
-- Sales Analytics Extension — ANLY-01 through ANLY-03
-
-#### Phase 26: E2E Playwright Tests
-
-**Goal:** Add Playwright browser-level end-to-end tests for critical user flows: login, order creation, kitchen shift submission, restock planner.
-**Depends on:** Phase 25 (codebase cleanup complete — test the final state)
-**Context:** `26-CONTEXT.md` (gathered 2026-02-23)
-**Implementation Notes:**
-- Existing Playwright infrastructure (config, global setup, helpers) — extend with 4 critical flow tests
-- Prod-to-dev snapshot script for realistic test data
-- `[E2E]` prefix convention for test-created entities
-- CI via GitHub Actions workflow_dispatch (manual, with suite/headed options)
-- Happy path + 1-2 error cases per flow
-- Sequential test chain (login → order → kitchen → restock)
-**Success Criteria** (what must be TRUE):
-  1. Prod-to-dev snapshot script works
-  2. Login flow E2E test passes (+ wrong PIN error case)
-  3. Order creation E2E test passes (full lifecycle: create → confirm → fulfill)
-  4. Kitchen shift submission E2E test passes (balls produced + wastage)
-  5. Restock planner E2E test passes
-  6. GitHub Actions workflow_dispatch with suite selection runs tests in CI
+- [x] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed (completed 2026-02-25)
+- [ ] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call
+- [ ] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI
+- [ ] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet
+- [ ] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter
 
 ## Phase Details
 
@@ -238,7 +218,7 @@ Plans:
   3. Initial load bundle significantly reduced from 1.8MB
   4. `npm run build` succeeds with no warnings
   5. No visual regressions (loading states graceful)
-**Plans:** 3/3 plans complete
+**Plans:** 5 plans (3 complete + 2 gap closure)
 
 Plans:
 - [x] 23-01-PLAN.md — Shared utilities: lazyWithPreload, RouteLoadingFallback (spinning Frollie logo, 200ms delay), ChunkErrorBoundary
@@ -314,6 +294,140 @@ Plans:
 - [ ] 25-05-PLAN.md — protectedMutation frontend (useSessionMutation migration) + query factory selective rollout
 - [ ] 25-06-PLAN.md — Verification sweep: type-check, build, test, grep sweeps + human dark mode verify
 
+### Phase 26: Platform Auth & Schema Foundation
+
+**Goal:** Establish authentication for all three new platforms (GoBiz one-click refresh, BigSeller paste-once JWT with expiry monitoring, GrabFood on-demand token resolve) and deploy all new schema tables and source union extensions that every subsequent phase depends on.
+**Depends on:** Phase 25 (codebase cleanup complete)
+**Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04
+**Implementation Notes:**
+- GoBiz auto-login: `POST https://api.gobiz.co.id/goid/token` with email/password from Convex env vars — no browser paste, one-click refresh button in credentials panel
+- BigSeller: decode `muc_token` JWT at paste time, persist `exp` field as `tokenExpiresAt`, show dashboard warning when < 5 days remaining; token auto-extended on each sync use
+- GrabFood: `resolveToken()` already scaffolded in `convex/integrations/grabfood/adapter.ts` — verify pattern, no cron needed (on-demand)
+- Schema: 4 new tables (`grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements`) + source union extended with `"grabfood"`, `"bigseller"`, `"consignment"` in ALL 4 affected tables (`externalRevenue`, `externalRevenueItems`, `externalSyncLogs`, `externalOutlets`)
+- Update `integrations/registry.ts` PlatformId union to include new platforms
+- Credential health panel: extend existing Sales Analytics Settings panel — add GrabFood connection row (client credentials configured + last token refresh) and BigSeller row (JWT expiry countdown badge, green/yellow/red)
+- Deploy schema with `npx convex deploy` before any integration code writes data
+**Success Criteria** (what must be TRUE):
+  1. Admin can click "Refresh GoBiz Token" in credentials panel and get a fresh token without pasting anything — system uses stored email/password env vars
+  2. Admin can paste BigSeller `muc_token` once; settings panel shows expiry countdown (e.g. "28 days remaining") and turns yellow/red when under 5 days
+  3. GrabFood token resolves automatically when any GrabFood action is triggered — no manual paste required, no cron needed
+  4. Credential health panel shows green/yellow/red status indicator for all three platforms (GoBiz, GrabFood, BigSeller) in one unified view
+  5. `npm run type-check` passes with new schema tables and source union literals — all 4 union tables updated
+  6. `npx convex deploy` succeeds with new schema deployed to production
+**Plans:** 5/5 plans complete
+
+Plans:
+- [ ] 26-01-PLAN.md — Registry extension (6 platforms + PlatformMeta fields) + 4 new schema tables + source union extension + credential health query
+- [ ] 26-02-PLAN.md — GoBiz password grant action + BigSeller paste-token flow with JWT decode preview
+- [ ] 26-03-PLAN.md — Frontend credential health panel (registry-driven SettingsTab, GoBiz refresh button, BigSeller paste dialog, build verification)
+- [ ] 26-04-PLAN.md — [GAP] Fix GoBiz credential body nesting + BigSeller uid lookup fallback
+- [ ] 26-05-PLAN.md — [GAP] Restore sync log expand/collapse on last_sync platform cards
+
+### Phase 27: GrabFood POS Integration
+
+**Goal:** Admin can manually pull GrabFood order history into the system, manager can view and control store status (open/pause/unpause) per outlet, and manager can toggle individual menu item availability — all via manual button trigger with no cron dependency.
+**Depends on:** Phase 26 (grabfoodOrders table deployed, GrabFood token management in place)
+**Requirements:** GF-06, GF-07, GF-08
+**Implementation Notes:**
+- Order history pull: `GET /partner/v1/orders?merchantID=...&fromDate=...&page=N`, paginate while `more: true`; each order upserted into `grabfoodOrders` (dedup on `orderID`) and bridged to `externalRevenue` with `source: "grabfood"`
+- IDR price handling: `currency.exponent = 0` for IDR — store price as-is, no division by 100; add unit test: `subtotal: 25000` + `exponent: 0` → stored as `25000`
+- Webhook handler: `handleOrderWebhook` must return HTTP 200 before any processing; schedule async upsert via `ctx.scheduler.runAfter(0, ...)`; implement HMAC-SHA256 `X-Grab-Signature` validation before production webhook registration
+- Register webhook HTTP routes in `http.ts`: `/api/grabfood/order` → `handleOrderWebhook`, `/api/grabfood/menu-sync` → `handleMenuSyncWebhook`
+- Store status: call `getStoreStatus` action per outlet, display OPEN/CLOSED/PAUSED badge; pause/unpause via `pauseStore` action (30/60/120 min options)
+- Menu toggle: `PUT /partner/v1/batch/menu` to set AVAILABLE/UNAVAILABLE; MUST call `notifyMenuUpdate()` as second step or changes do not go live; save `Job-ID` from notification response for status tracking
+- GrabFood merchant ID setup: confirm whether Crystal/Goldfinch/Tamtem share a credential or use separate client_id/client_secret per outlet before implementation
+- New page: `src/pages/GrabFoodManager.tsx` with store status cards per outlet, order history table, pause/unpause controls, menu availability toggle panel
+- New hook: `src/hooks/convex/useGrabFoodOrders.ts`
+- New backend modules: `convex/grabfoodOrders/mutations.ts` (upsertOrder internal + externalRevenue bridge), `convex/grabfoodOrders/queries.ts` (listOrders, getOrdersByMerchant)
+**Success Criteria** (what must be TRUE):
+  1. Admin clicks "Sync Order History" button and GrabFood orders for configured date range are pulled, stored, and visible in an order history table — no cron, manual trigger only
+  2. GrabFood orders appear as `source: "grabfood"` records in `externalRevenue` after sync, ready for analytics aggregation
+  3. Manager can see current store status (OPEN/CLOSED/PAUSED) for each outlet and one-click pause for 30/60/120 minutes or unpause from within the system
+  4. Manager can toggle a menu item from AVAILABLE to UNAVAILABLE (or back); system calls `notifyMenuUpdate` automatically — change goes live in GrabFood app
+  5. Webhook endpoint receives GrabFood order pushes, returns HTTP 200 immediately, and processes the order asynchronously without duplicates
+**Plans:** 3 plans
+
+Plans:
+- [ ] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate)
+- [ ] 27-02-PLAN.md — Backend: syncOrders action, grabfoodOrders mutations/queries, revenue bridge, menu batch update, webhook HMAC, HTTP routes
+- [ ] 27-03-PLAN.md — Frontend: GrabFoodManager.tsx page (Orders/Store Status/Menu tabs), useGrabFood hook, App.tsx route
+
+### Phase 28: BigSeller Integration
+
+**Goal:** Admin can manually trigger a BigSeller sync that uses the scheduler-chain pattern to poll until complete, stores per-order data with SKU breakdowns, and bridges revenue to the unified analytics layer — with an admin UI to map BigSeller SKU codes to internal menu products.
+**Depends on:** Phase 26 (bigsellerOrders table deployed, BigSeller JWT credential management in place)
+**Requirements:** BS-01, BS-02, BS-03
+**Implementation Notes:**
+- Scheduler-chain: `triggerSync` → schedules `pollSync` every 60s → when `taskStatus="complete"` → `fetchSyncData`; max 20 poll retries before marking as failed; NO while-loops in Convex actions
+- Pre-flight check before triggering: call `sync/task/detail/new/get.json` first; if `taskStatus="progress"`, show "Sync already running" and re-enter polling — never create a new task while one is running
+- Per-order data: `POST /pageList.json`, paginate loop while `pageNo < totalPage`; store in `bigsellerOrders` with `platformOrderId` as dedup key; skip `bigsellerDailyStats` table — derive aggregates from per-order data
+- Fee sign convention: `commissionFee`, `sellerShippingFee`, `otherFee` are negative values representing costs; profit = `platformIncome + commissionFee + sellerShippingFee + otherFee`; unit test required with `commissionFee: -5850` → profit reduced by 5850
+- BigSeller JWT expiry: decode `exp` from JWT; if HTML response received instead of JSON → treat as auth failure, set `lastRefreshStatus: "error"` — never let HTML propagate as a JSON parse crash
+- 31-day limit: sync window must not exceed 31 days; UI exposes date range picker; initial backfill requires sequential triggers by admin
+- SKU mapping: store all orders even with `linkedMenuProductId: undefined`; admin UI to explicitly map SKU codes to menuProducts; surface unmapped SKUs in a reconciliation panel — never silently drop unmapped SKU revenue
+- No cron jobs — manual trigger only per architecture decision
+- BigSeller COGS caveat: when all `costFee` values are 0 for BigSeller records, show "Profit = Revenue (COGS not configured in BigSeller)" in analytics
+- New backend module: `convex/integrations/bigseller/` with `config.ts`, `adapter.ts` ("use node"), `helpers.ts`, `mutations.ts` (internalMutation)
+- New backend module: `convex/bigsellerOrders/mutations.ts` (upsertOrder internal), `convex/bigsellerOrders/queries.ts` (listOrders, getDailyStats)
+- New frontend: BigSeller panel in `src/components/salesAnalytics/BigSellerPanel.tsx` (sync trigger button, progress indicator showing sync state machine, last synced display, SKU mapping access)
+- New hook: `src/hooks/convex/useBigSeller.ts`
+**Success Criteria** (what must be TRUE):
+  1. Admin clicks "Sync BigSeller" button; system triggers sync, shows progress through state machine ("Triggering..." → "Syncing (est. 5-10 min)" → "Fetching data..." → "Complete") — no cron, manual trigger only
+  2. BigSeller per-order data stored in `bigsellerOrders` with platform (shopee/tokopedia), shop name, SKU list, and all fee fields; duplicate sync for same date range does not create double records
+  3. BigSeller orders bridge to `externalRevenue` with `source: "bigseller"` — Shopee and Tokopedia revenue visible in Sales Analytics after sync
+  4. Admin can map BigSeller SKU codes to internal menu products via an explicit mapping UI; unmapped SKUs are flagged in a reconciliation view rather than silently dropped
+  5. System handles BigSeller JWT expiry gracefully — shows "Re-login required" warning rather than crashing; admin can paste new token in settings without redeploying
+**Plans:** TBD
+
+### Phase 29: Consignment Settlements
+
+**Goal:** Admin can manage consignment outlets with per-outlet revenue sharing percentages, enter settlement records for each period, mark payments as received, and see running totals per outlet — all via a simple form-based UI with no Excel dependency.
+**Depends on:** Phase 26 (consignmentOutlets and consignmentSettlements tables deployed)
+**Requirements:** CON-01, CON-02, CON-03, CON-04
+**Implementation Notes:**
+- No Excel upload — consignment is manual settlement entry form; no SheetJS dependency for this phase
+- Outlet CRUD: `consignmentOutlets` table (name, revSharePercent, isActive); simple CRUD page section; existing outlets (Goldfinch 10%, Tamtem 10%) as defaults
+- Settlement entry: admin selects outlet, enters period (date range), enters total revenue; system auto-calculates: rev share amount = totalRevenue × revSharePercent, payment to Frollie = totalRevenue - revShareAmount
+- Payment tracking: `consignmentSettlements` table with `status: "pending" | "paid"`, `paidAt` date; "Mark as Paid" button updates status
+- Running totals: per-outlet aggregate view — total settlements, total due, total paid, outstanding balance; settlement history list sorted by period descending
+- Revenue bridge: each settlement creates `externalRevenue` record with `source: "consignment"`, `externalOutletId` linking to consignment outlet, for unified analytics aggregation
+- Access: manager/admin only — consignment revenue is manager-level data
+- New backend module: `convex/consignment/mutations.ts` (createOutlet, updateOutlet, createSettlement, markPaid), `convex/consignment/queries.ts` (listOutlets, listSettlements, getOutletTotals)
+- New page: `src/pages/ConsignmentManager.tsx` with outlet list + CRUD panel and settlement history per outlet
+- New hook: `src/hooks/convex/useConsignment.ts`
+- Route: `/consignment` in App.tsx
+**Success Criteria** (what must be TRUE):
+  1. Admin can create and edit consignment outlets with a configurable revenue sharing percentage (e.g. Goldfinch 10%, Tamtem 15%); outlet list is visible and manageable
+  2. Admin can enter a settlement record (select outlet, date range, total revenue); system auto-displays the calculated rev share and payment to Frollie amounts before saving
+  3. Admin can mark a settlement as paid with a payment date; status visibly changes from "Pending" to "Paid" in the settlement history
+  4. Consignment page shows per-outlet running totals — total revenue, total rev share paid out, outstanding balance — alongside full settlement history with status
+  5. Each settlement creates an `externalRevenue` record with `source: "consignment"` — consignment revenue is available for unified analytics aggregation
+**Plans:** TBD
+
+### Phase 30: Unified Sales Analytics
+
+**Goal:** All sales channels appear in one stacked bar chart with per-outlet consignment segments, a lifetime units sold headline counter across all channels with per-product breakdown, and a multi-select channel filter — making cross-channel sales comparison the primary analytics experience.
+**Depends on:** Phase 26 (source union deployed), Phase 27 (GrabFood externalRevenue records), Phase 28 (BigSeller externalRevenue records), Phase 29 (consignment externalRevenue records)
+**Requirements:** ANLY-01, ANLY-02, ANLY-03
+**Implementation Notes:**
+- All new analytics queries must follow the established on-demand action pattern from v1.3: `internalQuery` in `convex/externalData/queries.ts` wrapped in an `action` in `convex/externalData/actions.ts` — no new direct `useQuery(api.externalData.*)` subscriptions for analytical data
+- Extend `getRevenueTimeSeries` and `getDashboardSummaryByPeriod` for new sources: `"grabfood"`, `"bigseller"`, `"consignment"` — additive only, existing channel totals unaffected
+- Update `sourceToPlatform()` display name mapping for new sources
+- Recharts stacked bar chart: 3 new data series with distinct colors (GrabFood green-600, Shopee orange-500, Tokopedia red-500; Consignment outlets each get their own color segment — only shown when revenue data exists)
+- Consignment segmentation: each outlet (Goldfinch, Tamtem) appears as its own bar segment differentiated by outlet name, not just `source: "consignment"`; query groups consignment by `externalOutletId`
+- Channel filter: upgrade from current radio-button platform filter to multi-select checkbox filter (8+ channels); channels only appear in filter when data exists for selected period
+- Lifetime totals: new `getLifetimeTotals` query (full `externalRevenue` scan — acceptable at current scale per architecture decisions; v1.5+ cache if >50K rows); headline counter shows total units sold across all channels; per-product breakdown table
+- BigSeller COGS caveat: display "Profit = Revenue (COGS not configured in BigSeller)" banner whenever BigSeller records are in view with all `costFee = 0`
+- Extend SettingsTab: GrabFood connection status row (client credentials configured, last token refresh date); BigSeller JWT expiry row (already added in Phase 28 panel — integrate here for unified view); consignment link to `/consignment` page
+- Timezone: all period calculations use Asia/Jakarta UTC+7 for "today", "this week", "this month" boundaries
+**Success Criteria** (what must be TRUE):
+  1. Sales Analytics stacked bar chart shows all channels — GoFood, GrabFood, K3Mart, Shopee, Tokopedia, Direct, and each consignment outlet as its own segment — with segments only rendered when revenue data exists for the selected period
+  2. Multi-select channel filter lets admin show/hide individual channels and outlets; defaults to all channels selected; persists within the session
+  3. Lifetime units sold headline displays a total counter across all channels; expanding the view shows a per-product breakdown table with units sold per channel
+  4. GrabFood and BigSeller data flows into the existing Sales Analytics aggregation layer via `externalRevenue` — no separate analytics path; existing GoFood/K3Mart/Direct data unaffected
+  5. No new reactive `useQuery` subscriptions on `externalRevenue` — all new analytics queries use the on-demand action pattern; no bandwidth regression from v1.3 optimization work
+**Plans:** TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -329,5 +443,9 @@ Plans:
 | 22. Remove legacy editors & Dashboard | v1.3 | 5/5 | Complete | 2026-02-23 |
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
-| 25. Codebase Cleanup | 6/6 | Complete    | 2026-02-24 | - |
-| 26. E2E Playwright Tests | v1.4 | 0/0 | Deferred (context ready) | - |
+| 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
+| 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
+| 27. GrabFood POS Integration | v1.4 | 0/3 | Planned | - |
+| 28. BigSeller Integration | v1.4 | 0/TBD | Not started | - |
+| 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
+| 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |

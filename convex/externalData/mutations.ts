@@ -1,9 +1,10 @@
 import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireRole } from "../lib/auth";
+import { externalSource } from "../schema";
 
-// Source validator reused across functions
-const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"));
+// Source validator reused across functions (uses shared externalSource from schema for consistency)
+const sourceValidator = externalSource;
 
 // ─── INTERNAL MUTATIONS (called by platform adapter actions) ───
 
@@ -106,7 +107,7 @@ export const createSyncLog = internalMutation({
     source: sourceValidator,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual"), v.literal("cron")),
+    syncType: v.union(v.literal("manual"), v.literal("cron"), v.literal("token_refresh")),
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),

@@ -4,21 +4,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { K3MART_CONFIG } from "../integrations/k3mart/config";
-
-/**
- * Decode a JWT payload without verification (we validate by test-fetching instead).
- */
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const parts = token.split(".");
-  if (parts.length !== 3) {
-    throw new Error("Invalid JWT format");
-  }
-  // Base64url -> base64 -> decode
-  const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const json = atob(padded);
-  return JSON.parse(json);
-}
+import { decodeJwtPayload } from "../lib/jwt";
 
 type ActionCtx = {
   runQuery: (...args: any[]) => Promise<any>;
@@ -149,6 +135,15 @@ async function performK3MartRefresh(
       }
     );
 
+    // Record token refresh in sync history
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "k3mart" as const,
+      syncType: "token_refresh" as const,
+      status: "success" as const,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
+
     return { success: true, tokenExpiresAt };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -162,6 +157,16 @@ async function performK3MartRefresh(
         lastRefreshError: errorMsg,
       }
     );
+
+    // Record token refresh failure in sync history
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "k3mart" as const,
+      syncType: "token_refresh" as const,
+      status: "error" as const,
+      errorMessage: errorMsg,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
 
     return { success: false, error: errorMsg };
   }

@@ -4,8 +4,9 @@ import { paginationOptsValidator } from "convex/server";
 import { calculatePeriodRange } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
+import { externalSource } from "../schema";
 
-const sourceValidator = v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"));
+const sourceValidator = externalSource;
 
 // ─── INTERNAL QUERIES (called by platform adapter actions) ───
 

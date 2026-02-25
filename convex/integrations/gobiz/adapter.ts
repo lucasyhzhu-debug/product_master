@@ -42,118 +42,54 @@ async function resolveGoBizToken(ctx: ActionCtx): Promise<{
   };
 }
 
-// ─── Token Refresh (3-method cascade) ────────────────────────────────────────
+// ─── GoID Auth Headers (from HAR capture) ────────────────────────────────────
+
+const GOBIZ_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.7632.110 Safari/537.36";
+const PORTAL_ORIGIN = "https://portal.gofoodmerchant.co.id";
+
+function goidAuthHeaders(): Record<string, string> {
+  return {
+    "user-agent": GOBIZ_UA,
+    "origin": PORTAL_ORIGIN,
+    "referer": `${PORTAL_ORIGIN}/auth/login/email`,
+    "accept": "application/json, text/plain, */*",
+    "content-type": "application/json",
+    "Gojek-Country-Code": "ID",
+    "Gojek-Timezone": "Asia/Jakarta",
+    "X-AppVersion": "transaction-1.22.0-3d465258",
+    "X-PhoneMake": "Windows 10 64-bit",
+    "X-PhoneModel": "Chrome 145.0.7632.110 on Windows 10 64-bit",
+    "X-Platform": "Web",
+    "X-User-Locale": "en-US",
+    "X-User-Type": "merchant",
+    "x-DeviceOS": "Web",
+    "x-appId": "go-biz-web-dashboard",
+    "x-uniqueid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  };
+}
+
+// ─── Token Refresh (GoID API) ────────────────────────────────────────────────
 
 async function attemptTokenRefresh(
   ctx: ActionCtx,
   refreshToken: string,
-  oldAccessToken: string | null
+  _oldAccessToken: string | null
 ): Promise<string | null> {
-  console.log("  Attempting GoBiz token refresh...");
+  console.log("  Attempting GoBiz token refresh via GoID API...");
 
-  const cookies: Record<string, string> = {
-    refresh_token: refreshToken,
-    auth_method: "goid",
-    language: "en",
-  };
-
-  if (oldAccessToken) {
-    const token = oldAccessToken.startsWith("Bearer ")
-      ? oldAccessToken.substring(7)
-      : oldAccessToken;
-    cookies.access_token = token;
-  }
-
-  const headers = {
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-  };
-
-  // Method 1: Cookie refresh
   try {
-    const resp = await fetch(GOBIZ_CONFIG.tokenRefresh.microAppUrl, {
-      method: "GET",
-      headers: {
-        ...headers,
-        cookie: Object.entries(cookies)
-          .map(([k, v]) => `${k}=${v}`)
-          .join("; "),
-      },
-      redirect: "manual",
-    });
-
-    const setCookie = resp.headers.get("set-cookie") ?? "";
-    const accessMatch = setCookie.match(/access_token=([^;]+)/);
-    const refreshMatch = setCookie.match(/refresh_token=([^;]+)/);
-
-    if (accessMatch) {
-      const newAccessToken = `Bearer ${accessMatch[1]}`;
-      const newRefreshToken = refreshMatch ? refreshMatch[1] : refreshToken;
-
-      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
-        platformId: "gobiz",
-        currentToken: newAccessToken,
-        refreshToken: newRefreshToken,
-        lastRefreshAt: Date.now(),
-        lastRefreshStatus: "success",
-      });
-
-      console.log("  Token refresh successful (cookie method)");
-      return newAccessToken;
-    }
-  } catch (err) {
-    console.log("  Cookie refresh failed:", err instanceof Error ? err.message : String(err));
-  }
-
-  // Method 2: Token rotate
-  try {
-    const resp = await fetch(GOBIZ_CONFIG.tokenRefresh.rotateUrl, {
+    const resp = await fetch("https://api.gobiz.co.id/goid/token", {
       method: "POST",
-      headers: {
-        ...headers,
-        "content-type": "application/json",
-        "origin": GOBIZ_CONFIG.portalBaseUrl,
-        "referer": `${GOBIZ_CONFIG.portalBaseUrl}/analytics/sales-gofood`,
-        cookie: Object.entries(cookies)
-          .map(([k, v]) => `${k}=${v}`)
-          .join("; "),
-      },
-    });
-
-    const setCookie = resp.headers.get("set-cookie") ?? "";
-    const accessMatch = setCookie.match(/access_token=([^;]+)/);
-
-    if (accessMatch) {
-      const newAccessToken = `Bearer ${accessMatch[1]}`;
-
-      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
-        platformId: "gobiz",
-        currentToken: newAccessToken,
-        lastRefreshAt: Date.now(),
-        lastRefreshStatus: "success",
-      });
-
-      console.log("  Token refresh successful (rotate method)");
-      return newAccessToken;
-    }
-  } catch (err) {
-    console.log("  Token rotate failed:", err instanceof Error ? err.message : String(err));
-  }
-
-  // Method 3: API refresh
-  try {
-    const resp = await fetch(GOBIZ_CONFIG.tokenRefresh.apiUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "origin": GOBIZ_CONFIG.portalBaseUrl,
-        "user-agent": headers["user-agent"],
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      headers: goidAuthHeaders(),
+      body: JSON.stringify({
+        client_id: "go-biz-web-new",
+        grant_type: "refresh_token",
+        data: { refresh_token: refreshToken },
+      }),
     });
 
     if (resp.ok) {
-      const data = await resp.json();
+      const data = await resp.json() as { access_token?: string; refresh_token?: string };
       if (data.access_token) {
         const newAccessToken = `Bearer ${data.access_token}`;
         const newRefreshToken = data.refresh_token ?? refreshToken;
@@ -166,12 +102,55 @@ async function attemptTokenRefresh(
           lastRefreshStatus: "success",
         });
 
-        console.log("  Token refresh successful (API method)");
+        console.log("  Token refresh successful (GoID API)");
+        return newAccessToken;
+      }
+    }
+
+    // Try form-urlencoded fallback (some GoID versions accept this)
+    const fallbackResp = await fetch("https://api.gobiz.co.id/goid/token", {
+      method: "POST",
+      headers: {
+        ...goidAuthHeaders(),
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: "go-biz-web-new",
+        refresh_token: refreshToken,
+      }).toString(),
+    });
+
+    if (fallbackResp.ok) {
+      const data = await fallbackResp.json() as { access_token?: string; refresh_token?: string };
+      if (data.access_token) {
+        const newAccessToken = `Bearer ${data.access_token}`;
+        const newRefreshToken = data.refresh_token ?? refreshToken;
+
+        await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+          platformId: "gobiz",
+          currentToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          lastRefreshAt: Date.now(),
+          lastRefreshStatus: "success",
+        });
+
+        console.log("  Token refresh successful (form-urlencoded fallback)");
         return newAccessToken;
       }
     }
   } catch (err) {
-    console.log("  API refresh failed:", err instanceof Error ? err.message : String(err));
+    console.log("  GoID refresh failed:", err instanceof Error ? err.message : String(err));
+  }
+
+  // Refresh failed — try password grant as last resort
+  const email = process.env.GOBIZ_EMAIL;
+  const password = process.env.GOBIZ_PASSWORD;
+
+  if (email && password) {
+    console.log("  Attempting password re-login...");
+    const newToken = await loginViaGoID(ctx, email, password);
+    if (newToken) return newToken;
   }
 
   // All methods failed
@@ -180,10 +159,84 @@ async function attemptTokenRefresh(
     platformId: "gobiz",
     lastRefreshAt: Date.now(),
     lastRefreshStatus: "error",
-    lastRefreshError: "All refresh methods failed (cookie, rotate, API)",
+    lastRefreshError: "Refresh token expired and password re-login failed",
   });
 
   return null;
+}
+
+// ─── GoID 2-Step Password Login ──────────────────────────────────────────────
+
+/**
+ * Two-step GoID password login (from HAR capture):
+ * Step 1: POST /goid/login/request → {email, login_type, client_id}
+ * Step 2: POST /goid/token → {client_id, grant_type: "password", data: {email, password}}
+ *
+ * Both use JSON body with specific Gojek merchant headers.
+ * Returns Bearer token string or null on failure.
+ */
+async function loginViaGoID(
+  ctx: ActionCtx,
+  email: string,
+  password: string
+): Promise<string | null> {
+  const headers = goidAuthHeaders();
+
+  // Step 1: Login request (challenge initiation)
+  const step1Resp = await fetch("https://api.gobiz.co.id/goid/login/request", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      email,
+      login_type: "password",
+      client_id: "go-biz-web-new",
+    }),
+  });
+
+  if (step1Resp.status !== 201 && step1Resp.status !== 200) {
+    const step1Text = await step1Resp.text();
+    console.log(`  GoID login/request failed (${step1Resp.status}):`, step1Text.substring(0, 200));
+    return null;
+  }
+
+  // Step 2: Token grant (password + email in nested data object)
+  const step2Resp = await fetch("https://api.gobiz.co.id/goid/token", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      client_id: "go-biz-web-new",
+      grant_type: "password",
+      data: { email, password },
+    }),
+  });
+
+  if (!step2Resp.ok) {
+    const step2Text = await step2Resp.text();
+    console.log(`  GoID token grant failed (${step2Resp.status}):`, step2Text.substring(0, 200));
+    return null;
+  }
+
+  const tokenData = await step2Resp.json() as {
+    access_token?: string;
+    refresh_token?: string;
+  };
+
+  if (!tokenData.access_token) {
+    console.log("  GoID token response missing access_token");
+    return null;
+  }
+
+  const newAccessToken = `Bearer ${tokenData.access_token}`;
+  const newRefreshToken = tokenData.refresh_token ?? null;
+
+  await ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {
+    platformId: "gobiz",
+    bearerToken: newAccessToken,
+    refreshToken: newRefreshToken ?? undefined,
+  });
+
+  console.log("  GoID password login successful");
+  return newAccessToken;
 }
 
 // ─── API Fetch Helpers ───────────────────────────────────────────────────────
@@ -1012,3 +1065,143 @@ export const autoRefreshGoBizToken = internalAction({
 
 // seedGoBizOutlets moved to convex/integrations/gobiz/mutations.ts
 // (internalMutation not allowed in "use node" files)
+
+// ─── One-Click Password Grant (AUTH-01) ──────────────────────────────────────
+
+/**
+ * Login with GoBiz credentials via password grant endpoint.
+ * Reads GOBIZ_EMAIL and GOBIZ_PASSWORD env vars from Convex dashboard.
+ * Saves access_token + refresh_token to platformCredentials via internal mutation.
+ *
+ * Returns { success: true } or { success: false, error: string }.
+ */
+export const loginWithCredentials = action({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate admin role
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    // ── Step 1: Try refresh_token grant (preferred — no captcha needed) ─────
+    const dbCred = await ctx.runQuery(
+      internal.platformCredentials.queries.getCredentialsInternal,
+      { platformId: "gobiz" }
+    );
+    const storedRefreshToken = dbCred?.refreshToken ?? null;
+
+    if (storedRefreshToken) {
+      try {
+        // Try JSON body with nested data (matching HAR pattern)
+        const refreshResp = await fetch("https://api.gobiz.co.id/goid/token", {
+          method: "POST",
+          headers: goidAuthHeaders(),
+          body: JSON.stringify({
+            client_id: "go-biz-web-new",
+            grant_type: "refresh_token",
+            data: { refresh_token: storedRefreshToken },
+          }),
+        });
+
+        if (refreshResp.ok) {
+          const refreshData = await refreshResp.json() as { access_token?: string; refresh_token?: string };
+          if (refreshData.access_token) {
+            await ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {
+              platformId: "gobiz",
+              bearerToken: `Bearer ${refreshData.access_token}`,
+              refreshToken: refreshData.refresh_token ?? storedRefreshToken,
+            });
+            // Record successful token refresh in sync history
+            await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+              source: "gobiz" as const,
+              syncType: "token_refresh" as const,
+              status: "success" as const,
+              timestamp: Date.now(),
+              triggeredBy: "system",
+            });
+            return { success: true as const };
+          }
+        }
+        // Refresh token expired/invalid — fall through to password grant
+      } catch {
+        // Network error — fall through to password grant
+      }
+    }
+
+    // ── Step 2: Two-step GoID password login ────────────────────────────────
+    const email = process.env.GOBIZ_EMAIL;
+    const password = process.env.GOBIZ_PASSWORD;
+
+    if (!email || !password) {
+      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+        platformId: "gobiz",
+        lastRefreshAt: Date.now(),
+        lastRefreshStatus: "error",
+        lastRefreshError: "No refresh_token in DB and GOBIZ_EMAIL/PASSWORD env vars not set",
+      });
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: "No refresh_token in DB and GOBIZ_EMAIL/PASSWORD env vars not set",
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
+      return {
+        success: false,
+        error:
+          "Token refresh failed and no credentials configured. Set GOBIZ_EMAIL and GOBIZ_PASSWORD in Convex Dashboard environment variables.",
+      };
+    }
+
+    try {
+      const newToken = await loginViaGoID(ctx, email, password);
+      if (newToken) {
+        // Record successful password grant login in sync history
+        await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+          source: "gobiz" as const,
+          syncType: "token_refresh" as const,
+          status: "success" as const,
+          timestamp: Date.now(),
+          triggeredBy: "system",
+        });
+        return { success: true as const };
+      }
+
+      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+        platformId: "gobiz",
+        lastRefreshAt: Date.now(),
+        lastRefreshStatus: "error",
+        lastRefreshError: "GoID 2-step password login failed",
+      });
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: "GoID 2-step password login failed",
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
+      return {
+        success: false,
+        error: "GoID login failed. Check that GOBIZ_EMAIL and GOBIZ_PASSWORD are correct in Convex Dashboard.",
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: errMsg,
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
+      return {
+        success: false,
+        error: `GoBiz login error: ${errMsg}`,
+      };
+    }
+  },
+});
