@@ -104,29 +104,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
-| GF-06 | TBD | Pending |
-| GF-07 | TBD | Pending |
-| GF-08 | TBD | Pending |
-| BS-01 | TBD | Pending |
-| BS-02 | TBD | Pending |
-| BS-03 | TBD | Pending |
-| CON-01 | TBD | Pending |
-| CON-02 | TBD | Pending |
-| CON-03 | TBD | Pending |
-| CON-04 | TBD | Pending |
-| ANLY-01 | TBD | Pending |
-| ANLY-02 | TBD | Pending |
-| ANLY-03 | TBD | Pending |
+| AUTH-01 | Phase 26 | Pending |
+| AUTH-02 | Phase 26 | Pending |
+| AUTH-03 | Phase 26 | Pending |
+| AUTH-04 | Phase 26 | Pending |
+| GF-06 | Phase 27 | Pending |
+| GF-07 | Phase 27 | Pending |
+| GF-08 | Phase 27 | Pending |
+| BS-01 | Phase 28 | Pending |
+| BS-02 | Phase 28 | Pending |
+| BS-03 | Phase 28 | Pending |
+| CON-01 | Phase 29 | Pending |
+| CON-02 | Phase 29 | Pending |
+| CON-03 | Phase 29 | Pending |
+| CON-04 | Phase 29 | Pending |
+| ANLY-01 | Phase 30 | Pending |
+| ANLY-02 | Phase 30 | Pending |
+| ANLY-03 | Phase 30 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 17 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 17
+- Mapped to phases: 17/17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after requirements scoping session*
+*Last updated: 2026-02-25 — traceability mapped after roadmap creation*
