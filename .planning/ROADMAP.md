@@ -314,7 +314,12 @@ Plans:
   4. Credential health panel shows green/yellow/red status indicator for all three platforms (GoBiz, GrabFood, BigSeller) in one unified view
   5. `npm run type-check` passes with new schema tables and source union literals — all 4 union tables updated
   6. `npx convex deploy` succeeds with new schema deployed to production
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — Registry extension (6 platforms + PlatformMeta fields) + 4 new schema tables + source union extension + credential health query
+- [ ] 26-02-PLAN.md — GoBiz password grant action + BigSeller paste-token flow with JWT decode preview
+- [ ] 26-03-PLAN.md — Frontend credential health panel (registry-driven SettingsTab, GoBiz refresh button, BigSeller paste dialog, build verification)
 
 ### Phase 27: GrabFood POS Integration
 
@@ -432,7 +437,7 @@ Plans:
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
-| 26. Platform Auth & Schema Foundation | v1.4 | 0/TBD | Not started | - |
+| 26. Platform Auth & Schema Foundation | v1.4 | 0/3 | Planned | - |
 | 27. GrabFood POS Integration | v1.4 | 0/TBD | Not started | - |
 | 28. BigSeller Integration | v1.4 | 0/TBD | Not started | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
