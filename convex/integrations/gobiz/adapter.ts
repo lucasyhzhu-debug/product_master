@@ -1055,7 +1055,8 @@ export const loginWithCredentials = action({
         body: JSON.stringify({
           client_id: "go-biz-web-new",
           grant_type: "password",
-          data: { email, password },
+          email,
+          password,
         }),
       });
     } catch (err) {
@@ -1066,9 +1067,18 @@ export const loginWithCredentials = action({
     }
 
     if (!response.ok) {
+      let errorBody = "";
+      try {
+        const errData = await response.json() as Record<string, unknown>;
+        errorBody = errData.error_description
+          ? String(errData.error_description)
+          : JSON.stringify(errData);
+      } catch {
+        errorBody = await response.text().catch(() => "");
+      }
       return {
         success: false,
-        error: `GoBiz login failed (${response.status})`,
+        error: `GoBiz login failed (${response.status})${errorBody ? `: ${errorBody}` : ""}`,
       };
     }
 
