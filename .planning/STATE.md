@@ -159,6 +159,7 @@ Key decisions affecting v1.3 phases:
 | 25 | EoS form gap closure: waste filter, inline confirm error, produced row redesign with targets and deltas | 2026-02-23 | 861afec | Verified | [25-eos-form-gap-closure-waste-filter-inline](./quick/25-eos-form-gap-closure-waste-filter-inline/) |
 | 26 | Add free voucher creation: admin-only 100% discount vouchers with structured reason (QA Testing/Gift/Other), green Free badge in UI | 2026-02-24 | 1f13ead | Verified | [26-create-a-way-for-us-to-make-free-voucher](./quick/26-create-a-way-for-us-to-make-free-voucher/) |
 | 27 | Restore Sales Analytics and K3Mart Cockpit navigation | 2026-02-24 | 2d2cc36 | Verified | [27-bring-back-sales-analytics-and-k3mart-co](./quick/27-bring-back-sales-analytics-and-k3mart-co/) |
+| 28 | Harden sync-prod-to-dev.sh: auth pre-flight (npx convex whoami), --no-confirm CI flag, Windows path guard (cygpath fallback), post-import spot-check (ingredients:list count) | 2026-02-25 | 3b3af6f | Done | [28-build-a-reliable-process-to-run-the-sync](./quick/28-build-a-reliable-process-to-run-the-sync/) |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P02 | 25 | 2 tasks | 5 files |
 | Phase 20 P01 | 750 | 1 tasks | 3 files |
 | Phase 20-optimize-top-convex-query-reads-to-reduce-production-bandwidth P04 | 12 | 2 tasks | 4 files |
@@ -193,10 +194,10 @@ Key decisions affecting v1.3 phases:
 
 ## Session Continuity
 
-Last session: 2026-02-24
-Stopped at: Quick task 26 complete — free voucher creation (admin-only, 100% discount, reason dropdown).
+Last session: 2026-02-25
+Stopped at: Quick task 28 complete — hardened sync-prod-to-dev.sh with auth pre-flight, --no-confirm flag, Windows path guard, post-import spot-check.
 Resume file: None
-Resume notes: Quick task 26 done. Phase 25 plan 06 checkpoint still pending human verification of dark mode + orders in browser before Phase 25 merge.
+Resume notes: Quick task 28 done. Phase 25 plan 06 checkpoint still pending human verification of dark mode + orders in browser before Phase 25 merge.
 
 ---
 *Last updated: 2026-02-23 - Completed 25-05: useSessionMutation migration + queryHelpers for whatsappTemplates + menuProducts*
