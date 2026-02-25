@@ -154,6 +154,19 @@ export const validateAdminToken = internalQuery({
 // ============================================
 
 /**
+ * A single entry from the externalSyncLogs table.
+ * Included in PlatformHealthStatus for last_sync platforms (k3mart, gobiz).
+ */
+export type SyncLogEntry = {
+  timestamp: number;
+  status: "started" | "success" | "error";
+  syncType: "manual" | "cron";
+  productsCount?: number;
+  durationMs?: number;
+  errorMessage?: string;
+};
+
+/**
  * Health status shape for a single platform.
  * Consumed by Plan 03's IntegrationHealthCard component.
  * Replaces the old syncHealth + credentialStatus dual-prop pattern.
@@ -169,6 +182,7 @@ export type PlatformHealthStatus = {
   daysRemaining: number | null; // for token_expiry platforms, null otherwise
   hasExpiry: boolean;          // from healthConfig
   reconnectSteps: string[];    // from registry — for help dialogs
+  syncHistory: SyncLogEntry[]; // last 5 sync logs; empty for non-last_sync platforms
 };
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -196,6 +210,7 @@ export const getHealthStatusAll = query({
       let label = "Not configured";
       let lastActivity: number | null = null;
       let daysRemaining: number | null = null;
+      let syncHistory: SyncLogEntry[] = [];
 
       if (healthConfig.healthCheckType === "always_green") {
         // Internal, consignment, grabfood (once creds exist) — always connected
@@ -249,6 +264,22 @@ export const getHealthStatusAll = query({
             label = `Last synced ${daysAgo} days ago`;
           }
         }
+
+        // Fetch last 5 sync logs for this platform (for expandable history in UI)
+        const recentLogs = await ctx.db
+          .query("externalSyncLogs")
+          .withIndex("by_source", (q) => q.eq("source", platformId))
+          .order("desc")
+          .take(5);
+
+        syncHistory = recentLogs.map((log) => ({
+          timestamp: log.timestamp,
+          status: log.status,
+          syncType: log.syncType,
+          productsCount: log.productsCount,
+          durationMs: log.durationMs,
+          errorMessage: log.errorMessage,
+        }));
       } else if (healthConfig.healthCheckType === "token_expiry") {
         // bigseller — health determined by token expiry
         const cred = await ctx.db
@@ -299,6 +330,7 @@ export const getHealthStatusAll = query({
         daysRemaining,
         hasExpiry: healthConfig.hasExpiry,
         reconnectSteps: meta.reconnectSteps,
+        syncHistory,
       });
     }
 
