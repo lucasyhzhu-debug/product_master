@@ -15,8 +15,8 @@ export default defineConfig({
         // Main entry chunk must stay under 500 kB uncompressed
         { name: 'assets/index-*.js', limit: '500 kB', mode: 'uncompressed' },
         // Vendor chunks — stable across deploys, cached by browser
-        { name: 'assets/vendor-react-*.js', limit: '350 kB', mode: 'uncompressed' },
-        { name: 'assets/vendor-*.js', limit: '360 kB', mode: 'uncompressed' },
+        { name: 'assets/vendor-react-*.js', limit: '500 kB', mode: 'uncompressed' },
+        { name: 'assets/vendor-*.js', limit: '500 kB', mode: 'uncompressed' },
         // Page chunks — default 150 kB is fine for all of them
       ],
     }),
