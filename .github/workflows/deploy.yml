@@ -21,13 +21,6 @@ on:
           - 'false'
   push:
     branches: [main]
-    paths:
-      - 'convex/**'           # Backend changes
-      - 'src/**'              # Frontend changes
-      - 'package.json'        # Dependency changes
-      - 'package-lock.json'
-      - 'vite.config.ts'      # Build config
-      - 'tsconfig.json'
 
 jobs:
   # Job 1: Lint check for forbidden patterns (always runs if workflow triggers)
