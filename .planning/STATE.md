@@ -10,7 +10,7 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
 Plan: 5 of 5 complete
 Status: Complete — All 5 plans complete (gap closure plans 04 and 05 added), ready for merge to main
-Last activity: 2026-02-25 — Plan 05 complete (2 tasks, 2 commits, 4 min)
+Last activity: 2026-02-25 - Completed quick task 29: Add sync history entries for platform token refreshes
 
 Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (5/5 plans done)
 
@@ -63,6 +63,12 @@ Key decisions affecting v1.4 phases:
 - [Phase 27]: GrabFood grabItemID values per outlet needed before menu toggle can be activated — obtain from GrabFood portal or via API product listing
 - [Phase 28]: BigSeller API is reverse-engineered (MEDIUM confidence) — verify taskStatus values, code:-1 behavior, and pageList pagination against live Frollie account before finalizing adapter
 - [Phase 28]: BigSeller COGS = 0 for all current Frollie orders — profit margin analytics are meaningless until COGS configured in BigSeller; surface caveat prominently in UI
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
 
 ## Session Continuity
 
