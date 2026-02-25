@@ -90,6 +90,15 @@ async function resolveToken(ctx: {
     );
 
     console.log("GrabFood: token fetched OK, expires in 1h");
+
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "grabfood" as const,
+      syncType: "token_refresh" as const,
+      status: "success" as const,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
+
     return token;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -104,6 +113,15 @@ async function resolveToken(ctx: {
         lastRefreshError: msg,
       }
     );
+
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "grabfood" as const,
+      syncType: "token_refresh" as const,
+      status: "error" as const,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+      errorMessage: msg,
+    });
 
     return null;
   }

@@ -56,7 +56,8 @@ export const previewBigSellerToken = action({
     }
 
     const uid = [payload.uid, payload.user_id, payload.sub, payload.id]
-      .find((v): v is string => typeof v === "string");
+      .map((v) => (typeof v === "number" ? String(v) : v))
+      .find((v): v is string => typeof v === "string" && v !== "user");
 
     return {
       success: true as const,
