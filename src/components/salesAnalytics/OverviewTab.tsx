@@ -149,7 +149,7 @@ function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
   }
 }
 
-function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" }) {
+function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" }) {
   if (platform === "k3mart") {
     return (
       <Badge variant="outline" className="border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400">
@@ -161,6 +161,27 @@ function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal"
     return (
       <Badge variant="outline" className="border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400">
         Local
+      </Badge>
+    );
+  }
+  if (platform === "grabfood") {
+    return (
+      <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400">
+        GrabFood
+      </Badge>
+    );
+  }
+  if (platform === "bigseller") {
+    return (
+      <Badge variant="outline" className="border-orange-500 dark:border-orange-600 text-orange-700 dark:text-orange-400">
+        BigSeller
+      </Badge>
+    );
+  }
+  if (platform === "consignment") {
+    return (
+      <Badge variant="outline" className="border-teal-500 dark:border-teal-600 text-teal-700 dark:text-teal-400">
+        Consignment
       </Badge>
     );
   }
@@ -345,7 +366,7 @@ type RevenueRecord = {
   _id: string;
   periodStart: number;
   transactionDate?: number;
-  source: "k3mart" | "gobiz" | "internal";
+  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment";
   productName?: string;
   quantitySold?: number;
   revenueGross?: number;

@@ -112,6 +112,7 @@ export const saveDirectToken = internalMutation({
       lastRefreshAt: now,
       lastRefreshStatus: "success" as const,
       lastRefreshError: undefined,
+      updatedBy: "system",
       updatedAt: now,
     };
 
