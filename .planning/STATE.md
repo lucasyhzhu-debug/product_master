@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: —
-Status: Roadmap created — ready to plan Phase 26
-Last activity: 2026-02-25 — v1.4 roadmap created (5 phases, 17 requirements mapped)
+Plan: 1 of 3 complete
+Status: In Progress — Plan 01 complete, Plans 02-03 remaining
+Last activity: 2026-02-25 — Plan 01 complete (4 tasks, 4 commits, 4 min)
 
-Progress (v1.4): [████░░░░░░░░░░░░░░░░] 20% — Roadmap defined, Phase 26 next
+Progress (v1.4): [████░░░░░░░░░░░░░░░░] 20% — Phase 26 in progress (1/3 plans done)
 
 ## Performance Metrics
 
@@ -35,6 +35,9 @@ Key decisions affecting v1.4 phases:
 - [v1.4 arch]: No bigsellerDailyStats table — derive aggregates from per-order data
 - [v1.4 arch]: Extend existing credential health panel in Sales Analytics Settings
 - [Phase 26]: Schema must deploy before Phases 27-30 — grabfoodOrders, bigsellerOrders, consignmentOutlets, consignmentSettlements; source union in ALL 4 tables
+- [Phase 26-platform-auth-schema]: externalSource validator exported from schema.ts for shared use across integrations
+- [Phase 26-platform-auth-schema]: getHealthStatusAll query requires manager/admin auth matching getCredentialStatusForManagers pattern
+- [Phase 26-platform-auth-schema]: bigseller token_expiry thresholds: green >7d, yellow 3-7d, red <3d per CONTEXT.md
 
 ### Pending Todos
 
@@ -50,6 +53,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: v1.4 roadmap created — 5 phases (26-30), 17/17 requirements mapped, STATE.md and REQUIREMENTS.md updated
+Stopped at: Completed 26-01-PLAN.md — registry extended, 4 schema tables added, source unions in 5 tables, health query created
 Resume file: None
-Resume notes: Ready to plan Phase 26. Run `/gsd:plan-phase 26` to begin.
+Resume notes: Phase 26, Plan 02 next (BigSeller adapter + platformCredentials mutations).

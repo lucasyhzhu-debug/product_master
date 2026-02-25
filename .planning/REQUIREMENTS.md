@@ -12,8 +12,8 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
 - [ ] **AUTH-01**: Admin can one-click refresh GoBiz token via password grant (email/password stored in Convex env vars, no browser paste required)
 - [ ] **AUTH-02**: Admin can paste BigSeller muc_token once; system stores it with 30-day expiry countdown, auto-refreshes on each sync, and shows dashboard warning when < 5 days remaining
-- [ ] **AUTH-03**: GrabFood OAuth2 token resolves on-demand when any GrabFood action is triggered (no cron, no manual paste — fetches fresh token lazily via resolveToken())
-- [ ] **AUTH-04**: Unified credential health panel in Sales Analytics Settings shows connection status (green/yellow/red) for all 3 platforms (GoBiz, GrabFood, BigSeller) — extends existing settings panel
+- [x] **AUTH-03**: GrabFood OAuth2 token resolves on-demand when any GrabFood action is triggered (no cron, no manual paste — fetches fresh token lazily via resolveToken())
+- [x] **AUTH-04**: Unified credential health panel in Sales Analytics Settings shows connection status (green/yellow/red) for all 3 platforms (GoBiz, GrabFood, BigSeller) — extends existing settings panel
 
 ### GrabFood POS Integration
 
@@ -106,8 +106,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AUTH-01 | Phase 26 | Pending |
 | AUTH-02 | Phase 26 | Pending |
-| AUTH-03 | Phase 26 | Pending |
-| AUTH-04 | Phase 26 | Pending |
+| AUTH-03 | Phase 26 | Complete |
+| AUTH-04 | Phase 26 | Complete |
 | GF-06 | Phase 27 | Pending |
 | GF-07 | Phase 27 | Pending |
 | GF-08 | Phase 27 | Pending |
