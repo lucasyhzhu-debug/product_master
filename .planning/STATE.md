@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: 3 of 3 complete
-Status: Complete — All 3 plans complete, ready for merge to main
-Last activity: 2026-02-25 — Plan 03 complete (3 tasks + 3 deviation fixes, 4 commits, 15 min)
+Plan: 4 of 4 complete
+Status: Complete — All 4 plans complete (gap closure plans 04 added), ready for merge to main
+Last activity: 2026-02-25 — Plan 04 complete (2 tasks, 2 commits, 5 min)
 
-Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (3/3 plans done)
+Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (4/4 plans done)
 
 ## Performance Metrics
 
@@ -47,6 +47,9 @@ Key decisions affecting v1.4 phases:
 - [Phase 26-03]: Convex API path for queries file is api.platformCredentials.queries.getHealthStatusAll (not api.platformCredentials.getHealthStatusAll)
 - [Phase 26-03]: api.d.ts must be manually updated when new Convex modules are added without running npx convex dev
 - [Phase 26-03]: BigSellerTokenDialog auto-previews token on paste when input has 3 dot-separated JWT parts
+- [Phase 26-04]: GoBiz loginWithCredentials body is flat — email/password at top-level, no nested data key
+- [Phase 26-04]: GoBiz error handler reads response body and surfaces error_description for admin visibility
+- [Phase 26-04]: BigSeller uid resolved via find() across [uid, user_id, sub, id] JWT claim keys
 
 ### Pending Todos
 
@@ -62,6 +65,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 26-03-PLAN.md — credential health UI, IntegrationHealthCard refactor, BigSellerTokenDialog, GoBiz one-click refresh
+Stopped at: Completed 26-04-PLAN.md — GoBiz credential body fix, BigSeller uid multi-key lookup
 Resume file: None
-Resume notes: Phase 26 complete. Merge feature/gsd-phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.
+Resume notes: Phase 26 complete (all 4 plans). Merge gsd/phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.
