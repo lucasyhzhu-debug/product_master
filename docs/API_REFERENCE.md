@@ -1312,6 +1312,15 @@ Get health status for ALL 6 platforms in a single registry-driven query. Require
 **Returns:** `PlatformHealthStatus[]` — one entry per platform from the registry.
 
 ```typescript
+type SyncLogEntry = {
+  timestamp: number;
+  status: "started" | "success" | "error";
+  syncType: "manual" | "cron" | "token_refresh";
+  productsCount?: number;
+  durationMs?: number;
+  errorMessage?: string;
+};
+
 type PlatformHealthStatus = {
   platformId: string;        // "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment"
   platformName: string;      // Human-readable name from registry
@@ -1323,13 +1332,14 @@ type PlatformHealthStatus = {
   daysRemaining: number | null; // For token_expiry platforms (bigseller), null otherwise
   hasExpiry: boolean;          // From healthConfig — true only for bigseller
   reconnectSteps: string[];    // From registry — for help dialogs
+  syncHistory: SyncLogEntry[]; // Last 5 sync/refresh entries (empty for internal/consignment)
 };
 ```
 
 **Health check strategies:**
-- `always_green`: Internal, Consignment (always connected), GrabFood (checks client_id presence)
+- `always_green`: Internal, Consignment (always connected), GrabFood (checks client_id presence + fetches sync history)
 - `last_sync`: K3Mart, GoBiz — green <=2d, yellow 2-7d, red >7d since last `externalSyncLogs` entry
-- `token_expiry`: BigSeller — green >7d, yellow 3-7d, red <3d until `tokenExpiresAt`
+- `token_expiry`: BigSeller — green >7d, yellow 3-7d, red <3d until `tokenExpiresAt` (fetches sync history when token configured)
 
 ---
 

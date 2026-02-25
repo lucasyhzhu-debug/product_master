@@ -1015,10 +1015,10 @@ Sync operation logs with timing and error details.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
+| source | `externalSource` (6 literals) | Platform identifier |
 | outletId | Id<"externalOutlets">? | Optional outlet reference |
 | snapshotBatchId | string? | Batch ID for stock syncs |
-| syncType | `"manual"` | Sync trigger type |
+| syncType | `"manual" \| "cron" \| "token_refresh"` | Sync trigger type |
 | status | `"started" \| "success" \| "error"` | Sync status |
 | productsCount | number? | Products processed |
 | errorMessage | string? | Error details |

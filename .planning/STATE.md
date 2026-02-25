@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
 Plan: 5 of 5 complete
-Status: Complete — All 5 plans complete (gap closure plans 04 and 05 added), ready for merge to main
-Last activity: 2026-02-25 - Completed quick task 29: Add sync history entries for platform token refreshes
+Status: MERGED — Phase 26 complete, UAT verified, merged to main
+Last activity: 2026-02-25 - Phase 26 merged to main (5 plans + Quick Task 29 + UAT fixes)
 
-Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (5/5 plans done)
+Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 merged, ready for Phase 27
 
 ## Performance Metrics
 
@@ -73,6 +73,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 26-05-PLAN.md — Restored expand-to-show-sync-log on K3Mart and GoBiz platform cards
+Stopped at: Phase 26 merged to main. CHANGELOG, SCHEMA.md, API_REFERENCE.md updated.
 Resume file: None
-Resume notes: Phase 26 complete (all 5 plans). Merge gsd/phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.
+Resume notes: Phase 26 fully complete. Start Phase 27 (GrabFood POS Integration) next.
