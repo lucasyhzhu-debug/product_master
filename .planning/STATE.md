@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: 2 of 3 complete
-Status: In Progress — Plans 01-02 complete, Plan 03 remaining
-Last activity: 2026-02-25 — Plan 02 complete (3 tasks + 1 deviation fix, 4 commits, 8 min)
+Plan: 3 of 3 complete
+Status: Complete — All 3 plans complete, ready for merge to main
+Last activity: 2026-02-25 — Plan 03 complete (3 tasks + 3 deviation fixes, 4 commits, 15 min)
 
-Progress (v1.4): [████████░░░░░░░░░░░░] 40% — Phase 26 in progress (2/3 plans done)
+Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (3/3 plans done)
 
 ## Performance Metrics
 
@@ -43,6 +43,10 @@ Key decisions affecting v1.4 phases:
 - [Phase 26-02]: GoBiz loginWithCredentials wraps Bearer prefix around raw access_token from password grant
 - [Phase 26-02]: BigSeller muc_token stored as currentToken (not refreshToken) — it is the primary access credential
 - [Phase 26-02]: externalData/queries.ts uses shared externalSource validator from schema.ts (not local 3-literal union)
+- [Phase 26-03]: IntegrationHealthCard accepts single PlatformHealthStatus prop — all behavior from authStrategy/category fields
+- [Phase 26-03]: Convex API path for queries file is api.platformCredentials.queries.getHealthStatusAll (not api.platformCredentials.getHealthStatusAll)
+- [Phase 26-03]: api.d.ts must be manually updated when new Convex modules are added without running npx convex dev
+- [Phase 26-03]: BigSellerTokenDialog auto-previews token on paste when input has 3 dot-separated JWT parts
 
 ### Pending Todos
 
@@ -58,6 +62,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 26-02-PLAN.md — saveDirectToken as internalMutation, GoBiz loginWithCredentials, BigSeller previewBigSellerToken + saveBigSellerToken
+Stopped at: Completed 26-03-PLAN.md — credential health UI, IntegrationHealthCard refactor, BigSellerTokenDialog, GoBiz one-click refresh
 Resume file: None
-Resume notes: Phase 26, Plan 03 next (credential management UI — health panel + auth dialogs).
+Resume notes: Phase 26 complete. Merge feature/gsd-phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.

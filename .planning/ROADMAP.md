@@ -79,7 +79,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 **Milestone Goal:** Unify sales data across all channels — GrabFood POS, BigSeller (Shopee + Tokopedia), and Consignment outlets — with one-click platform auth, manual-trigger syncs, and a revamped multi-channel Sales Analytics view.
 
-- [ ] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed
+- [x] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed (completed 2026-02-25)
 - [ ] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call
 - [ ] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI
 - [ ] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet
@@ -314,7 +314,7 @@ Plans:
   4. Credential health panel shows green/yellow/red status indicator for all three platforms (GoBiz, GrabFood, BigSeller) in one unified view
   5. `npm run type-check` passes with new schema tables and source union literals — all 4 union tables updated
   6. `npx convex deploy` succeeds with new schema deployed to production
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 26-01-PLAN.md — Registry extension (6 platforms + PlatformMeta fields) + 4 new schema tables + source union extension + credential health query
@@ -437,7 +437,7 @@ Plans:
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
-| 26. Platform Auth & Schema Foundation | 2/3 | In Progress|  | - |
+| 26. Platform Auth & Schema Foundation | 3/3 | Complete   | 2026-02-25 | - |
 | 27. GrabFood POS Integration | v1.4 | 0/TBD | Not started | - |
 | 28. BigSeller Integration | v1.4 | 0/TBD | Not started | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
