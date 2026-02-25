@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: 1 of 3 complete
-Status: In Progress — Plan 01 complete, Plans 02-03 remaining
-Last activity: 2026-02-25 — Plan 01 complete (4 tasks, 4 commits, 4 min)
+Plan: 2 of 3 complete
+Status: In Progress — Plans 01-02 complete, Plan 03 remaining
+Last activity: 2026-02-25 — Plan 02 complete (3 tasks + 1 deviation fix, 4 commits, 8 min)
 
-Progress (v1.4): [████░░░░░░░░░░░░░░░░] 20% — Phase 26 in progress (1/3 plans done)
+Progress (v1.4): [████████░░░░░░░░░░░░] 40% — Phase 26 in progress (2/3 plans done)
 
 ## Performance Metrics
 
@@ -38,6 +38,11 @@ Key decisions affecting v1.4 phases:
 - [Phase 26-platform-auth-schema]: externalSource validator exported from schema.ts for shared use across integrations
 - [Phase 26-platform-auth-schema]: getHealthStatusAll query requires manager/admin auth matching getCredentialStatusForManagers pattern
 - [Phase 26-platform-auth-schema]: bigseller token_expiry thresholds: green >7d, yellow 3-7d, red <3d per CONTEXT.md
+- [Phase 26-02]: saveDirectToken converted to internalMutation; saveDirectTokenPublic wrapper for frontend callers
+- [Phase 26-02]: saveDirectToken uses updatedBy: 'system' for internal callers with no user context
+- [Phase 26-02]: GoBiz loginWithCredentials wraps Bearer prefix around raw access_token from password grant
+- [Phase 26-02]: BigSeller muc_token stored as currentToken (not refreshToken) — it is the primary access credential
+- [Phase 26-02]: externalData/queries.ts uses shared externalSource validator from schema.ts (not local 3-literal union)
 
 ### Pending Todos
 
@@ -53,6 +58,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 26-01-PLAN.md — registry extended, 4 schema tables added, source unions in 5 tables, health query created
+Stopped at: Completed 26-02-PLAN.md — saveDirectToken as internalMutation, GoBiz loginWithCredentials, BigSeller previewBigSellerToken + saveBigSellerToken
 Resume file: None
-Resume notes: Phase 26, Plan 02 next (BigSeller adapter + platformCredentials mutations).
+Resume notes: Phase 26, Plan 03 next (credential management UI — health panel + auth dialogs).
