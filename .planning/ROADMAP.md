@@ -218,7 +218,7 @@ Plans:
   3. Initial load bundle significantly reduced from 1.8MB
   4. `npm run build` succeeds with no warnings
   5. No visual regressions (loading states graceful)
-**Plans:** 3/3 plans complete
+**Plans:** 5 plans (3 complete + 2 gap closure)
 
 Plans:
 - [x] 23-01-PLAN.md — Shared utilities: lazyWithPreload, RouteLoadingFallback (spinning Frollie logo, 200ms delay), ChunkErrorBoundary
@@ -314,12 +314,14 @@ Plans:
   4. Credential health panel shows green/yellow/red status indicator for all three platforms (GoBiz, GrabFood, BigSeller) in one unified view
   5. `npm run type-check` passes with new schema tables and source union literals — all 4 union tables updated
   6. `npx convex deploy` succeeds with new schema deployed to production
-**Plans:** 3/3 plans complete
+**Plans:** 5 plans (3 complete + 2 gap closure)
 
 Plans:
 - [ ] 26-01-PLAN.md — Registry extension (6 platforms + PlatformMeta fields) + 4 new schema tables + source union extension + credential health query
 - [ ] 26-02-PLAN.md — GoBiz password grant action + BigSeller paste-token flow with JWT decode preview
 - [ ] 26-03-PLAN.md — Frontend credential health panel (registry-driven SettingsTab, GoBiz refresh button, BigSeller paste dialog, build verification)
+- [ ] 26-04-PLAN.md — [GAP] Fix GoBiz credential body nesting + BigSeller uid lookup fallback
+- [ ] 26-05-PLAN.md — [GAP] Restore sync log expand/collapse on last_sync platform cards
 
 ### Phase 27: GrabFood POS Integration
 
