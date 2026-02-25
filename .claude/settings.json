@@ -201,6 +201,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node C:/Users/Irfan/.claude/statusline-vbw.cjs"
+    "command": "node C:/Users/Irfan/.claude/statusline-vbw.cjs",
+    "lines": 4
   }
 }
