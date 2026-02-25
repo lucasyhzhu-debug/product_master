@@ -6,6 +6,24 @@ import { v } from "convex/values";
 // Migrated from FastAPI + SQLAlchemy
 // ============================================
 
+// ============================================
+// SHARED VALIDATORS
+// Exported so integrations/type guards can reference without re-defining.
+// ============================================
+
+/**
+ * Shared source union for all external integration tables.
+ * Must stay in sync with PlatformId in convex/integrations/registry.ts.
+ */
+export const externalSource = v.union(
+  v.literal("k3mart"),
+  v.literal("gobiz"),
+  v.literal("internal"),
+  v.literal("grabfood"),
+  v.literal("bigseller"),
+  v.literal("consignment"),
+);
+
 export default defineSchema({
   // ============================================
   // BASE TABLES - Simple entities
@@ -964,7 +982,7 @@ export default defineSchema({
   // ============================================
 
   externalOutlets: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    source: externalSource,
     externalId: v.string(),
     name: v.string(),
     address: v.optional(v.string()),
@@ -1006,7 +1024,7 @@ export default defineSchema({
 
   externalRevenue: defineTable({
     outletId: v.optional(v.id("externalOutlets")),
-    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    source: externalSource,
     externalProductCode: v.optional(v.string()),
     productName: v.optional(v.string()),
     quantitySold: v.optional(v.number()),
@@ -1051,7 +1069,7 @@ export default defineSchema({
 
   externalRevenueItems: defineTable({
     revenueId: v.id("externalRevenue"),
-    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    source: externalSource,
     externalItemId: v.optional(v.string()),
     productName: v.string(),
     unitPrice: v.number(),
@@ -1072,7 +1090,7 @@ export default defineSchema({
     .index("by_product_name", ["source", "productName"]),
 
   externalSyncLogs: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    source: externalSource,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
     syncType: v.union(v.literal("manual"), v.literal("cron")),
@@ -1090,7 +1108,7 @@ export default defineSchema({
     .index("by_outlet", ["outletId"]),
 
   externalProductMappings: defineTable({
-    source: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    source: externalSource,
     externalProductCode: v.string(),
     externalProductName: v.string(),
     menuProductId: v.optional(v.id("menuProducts")),
@@ -1408,4 +1426,106 @@ export default defineSchema({
     .index("by_outlet_date", ["outletId", "date"])
     .index("by_outlet_direction", ["outletId", "direction"])
     .index("by_status", ["k3martStatus"]),
+
+  // ============================================
+  // PHASE 26: NEW PLATFORM ORDER TABLES
+  // GrabFood, BigSeller, and Consignment settlement tables.
+  // Source union in all 5 external tables extended to include these platforms.
+  // ============================================
+
+  grabfoodOrders: defineTable({
+    orderID: v.string(),            // Dedup key from GrabFood API
+    merchantID: v.string(),
+    shortOrderNumber: v.string(),
+    orderState: v.optional(v.string()),
+    orderTime: v.string(),          // ISO 8601 string from API
+    orderTimeMs: v.number(),        // Unix ms for range queries
+    currency: v.string(),
+    items: v.array(v.any()),        // Raw item data -- schema refined in Phase 27
+    price: v.any(),                 // Raw price object -- refined in Phase 27
+    rawJson: v.optional(v.string()),
+    syncLogId: v.optional(v.id("externalSyncLogs")),
+    outletId: v.optional(v.id("externalOutlets")),
+    linkedRevenueId: v.optional(v.id("externalRevenue")),
+    createdAt: v.number(),
+  })
+    .index("by_order_id", ["orderID"])
+    .index("by_merchant", ["merchantID"])
+    .index("by_outlet", ["outletId"])
+    .index("by_time", ["orderTimeMs"])
+    .index("by_sync_log", ["syncLogId"])
+    .index("by_linked_revenue", ["linkedRevenueId"]),
+
+  bigsellerOrders: defineTable({
+    platformOrderId: v.string(),    // Dedup key from BigSeller API
+    shopId: v.number(),
+    shopName: v.string(),
+    platform: v.string(),           // "shopee", "tokopedia", etc.
+    orderState: v.string(),
+    orderTimeMs: v.number(),        // Unix ms for range queries
+    saleAmount: v.number(),
+    platformIncome: v.number(),
+    costFee: v.number(),
+    profit: v.number(),
+    profitMargin: v.string(),
+    commissionFee: v.number(),
+    sellerShippingFee: v.number(),
+    buyerShippingFee: v.number(),
+    otherFee: v.number(),
+    allSkuNum: v.number(),
+    skuVoList: v.array(v.object({
+      sku: v.string(),
+      skuNum: v.number(),
+      returnNum: v.number(),
+      isAddition: v.number(),
+    })),
+    syncLogId: v.optional(v.id("externalSyncLogs")),
+    linkedRevenueId: v.optional(v.id("externalRevenue")),
+    createdAt: v.number(),
+  })
+    .index("by_platform_order", ["platformOrderId"])
+    .index("by_shop", ["shopId"])
+    .index("by_platform", ["platform"])
+    .index("by_time", ["orderTimeMs"])
+    .index("by_sync_log", ["syncLogId"])
+    .index("by_state", ["orderState"])
+    .index("by_linked_revenue", ["linkedRevenueId"]),
+
+  consignmentOutlets: defineTable({
+    name: v.string(),
+    revSharePercent: v.number(),
+    mode: v.union(v.literal("automated"), v.literal("manual")),
+    isActive: v.boolean(),
+    externalOutletId: v.optional(v.id("externalOutlets")),
+    address: v.optional(v.string()),
+    contactName: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedBy: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_active", ["isActive"])
+    .index("by_mode", ["mode"]),
+
+  consignmentSettlements: defineTable({
+    outletId: v.id("consignmentOutlets"),
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    totalRevenue: v.number(),
+    revSharePercent: v.number(),
+    revShareAmount: v.number(),
+    frolliePayment: v.number(),
+    status: v.union(v.literal("pending"), v.literal("paid")),
+    paidAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedBy: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_outlet", ["outletId"])
+    .index("by_period", ["periodStart"])
+    .index("by_outlet_period", ["outletId", "periodStart"])
+    .index("by_status", ["status"]),
 });
