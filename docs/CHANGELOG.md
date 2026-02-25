@@ -14,6 +14,31 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.0] - 2026-02-25 - Platform Auth & Schema Foundation (Phase 26)
+
+Multi-platform credential management and schema expansion — admin can now refresh GoBiz token with one click, paste and preview BigSeller JWT expiry before saving, and see all 6 platforms at a glance in the Settings panel.
+
+### Added
+- Platform registry extended to 6 platforms: K3Mart, GoBiz, Internal, GrabFood, BigSeller, Consignment
+- Registry-driven credential health dashboard in Sales Analytics Settings tab
+- GoBiz one-click password grant token refresh (uses GOBIZ_EMAIL + GOBIZ_PASSWORD env vars)
+- BigSeller paste-token flow with JWT expiry preview — "X days remaining" before confirming
+- 4 new schema tables: `grabfoodOrders`, `bigsellerOrders`, `consignmentOutlets`, `consignmentSettlements`
+- Shared `externalSource` union (6 literals) across all 5 external tables
+- Shared `decodeJwtPayload` utility in `convex/lib/jwt.ts`
+- Shared `formatCountdown` utility in `src/lib/formatters.ts`
+- `getHealthStatusAll` query — single call returns health for all 6 platforms
+
+### Changed
+- `saveDirectToken` converted to `internalMutation` with optional `tokenExpiresAt` parameter
+- `IntegrationHealthCard` refactored to registry-driven rendering (single `PlatformHealthStatus` prop)
+- `SettingsTab` renders all 6 platforms via `getHealthStatusAll` query loop
+- All 5 external tables now use shared exported `externalSource` validator from `schema.ts`
+- `GoBizTokenDialog` now has one-click refresh as primary button; manual paste as collapsible fallback
+- `api.d.ts` updated to include `integrations/bigseller/adapter` and `integrations/bigseller/config`
+
+---
+
 ## [v1.3.15] - 2026-02-24 - Restore: Sales Analytics and K3Mart Cockpit Navigation
 
 Sales Analytics and K3Mart Cockpit navigation links are back. These were temporarily hidden on February 22nd to conserve Convex bandwidth before the monthly quota reset — that period is now over.

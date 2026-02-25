@@ -1302,6 +1302,37 @@ Updates manual stock entry for GoBiz/Internal channels.
 
 ### Queries
 
+#### `platformCredentials.queries.getHealthStatusAll` (Phase 26)
+Get health status for ALL 6 platforms in a single registry-driven query. Requires manager or admin auth.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Auth token (manager or admin) |
+
+**Returns:** `PlatformHealthStatus[]` — one entry per platform from the registry.
+
+```typescript
+type PlatformHealthStatus = {
+  platformId: string;        // "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment"
+  platformName: string;      // Human-readable name from registry
+  authStrategy: string;      // "password_grant" | "paste_token" | "client_credentials" | "pos_login" | "session_auth"
+  category: string;          // "delivery" | "marketplace" | "pos" | "internal"
+  status: "green" | "yellow" | "red" | "disconnected";
+  label: string;             // "Connected", "7 days remaining", "Not configured", etc.
+  lastActivity: number | null; // Last sync timestamp (ms) or null
+  daysRemaining: number | null; // For token_expiry platforms (bigseller), null otherwise
+  hasExpiry: boolean;          // From healthConfig — true only for bigseller
+  reconnectSteps: string[];    // From registry — for help dialogs
+};
+```
+
+**Health check strategies:**
+- `always_green`: Internal, Consignment (always connected), GrabFood (checks client_id presence)
+- `last_sync`: K3Mart, GoBiz — green <=2d, yellow 2-7d, red >7d since last `externalSyncLogs` entry
+- `token_expiry`: BigSeller — green >7d, yellow 3-7d, red <3d until `tokenExpiresAt`
+
+---
+
 #### `platformCredentials.queries.getCredentialStatus`
 Get credential status for a platform (admin-only). Never exposes the password.
 
@@ -1325,6 +1356,52 @@ Save or update platform credentials. Upserts by platformId.
 | password | string | Login password |
 
 ### Actions
+
+#### `integrations.gobiz.adapter.loginWithCredentials` (Phase 26, AUTH-01)
+One-click GoBiz token refresh via password grant endpoint. Admin-only.
+
+Reads `GOBIZ_EMAIL` and `GOBIZ_PASSWORD` from Convex environment variables. POSTs to GoBiz password grant endpoint, saves `Bearer {access_token}` + `refresh_token` via internal mutation.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin auth token |
+
+**Returns:** `{ success: true }` or `{ success: false, error: string }`
+
+**Graceful fallback:** If `GOBIZ_EMAIL` or `GOBIZ_PASSWORD` are not configured, returns `{ success: false, error: "...not configured..." }` without throwing.
+
+---
+
+#### `integrations.bigseller.adapter.previewBigSellerToken` (Phase 26, AUTH-02)
+Decode a pasted BigSeller `muc_token` JWT and return expiry info for preview. Admin-only. Does NOT save the token.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin auth token |
+| mucToken | string | Raw JWT string from BigSeller cookies |
+
+**Returns:**
+```typescript
+{ success: true, expiresAt: number, daysRemaining: number, uid?: string }
+| { success: false, error: string }
+```
+
+---
+
+#### `integrations.bigseller.adapter.saveBigSellerToken` (Phase 26, AUTH-02)
+Save a pasted BigSeller `muc_token` with decoded JWT expiry. Admin-only.
+
+Stores `muc_token` as `currentToken` (not refreshToken — it is the primary access credential).
+Stores actual JWT `exp` as `tokenExpiresAt` for health dashboard countdown.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin auth token |
+| mucToken | string | Raw JWT string from BigSeller cookies |
+
+**Returns:** `{ success: true, daysRemaining: number }` or `{ success: false, error: string }`
+
+---
 
 #### `platformCredentials.actions.refreshK3MartToken`
 Refresh K3Mart token by logging in via HTTP, validating the JWT, and storing it in DB. Admin-only.

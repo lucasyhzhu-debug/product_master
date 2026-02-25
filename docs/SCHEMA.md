@@ -914,14 +914,14 @@ export const createRecipeWithVersion = mutation({
 
 ---
 
-## External Integration Tables (6 Tables + 2 Restock Tables)
+## External Integration Tables (6 Tables + 4 Phase 26 Tables + 2 Restock Tables)
 
 ### externalOutlets
 Platform outlet/store definitions with sync tracking.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"k3mart" \| "gobiz" \| "internal"` | Platform identifier |
+| source | `"k3mart" \| "gobiz" \| "internal" \| "grabfood" \| "bigseller" \| "consignment"` | Platform identifier (shared `externalSource` validator) |
 | externalId | string | Platform-specific outlet ID |
 | name | string | Outlet display name |
 | address | string? | Optional address |
@@ -1041,6 +1041,83 @@ Maps external product codes to internal menu products.
 | createdAt | number | Creation timestamp |
 
 **Indexes:** `by_source_code`, `by_menu_product`
+
+### grabfoodOrders (Phase 26)
+GrabFood order records synced via POS API for revenue and menu analytics.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"grabfood"` | Always "grabfood" |
+| externalOrderId | string | GrabFood order ID |
+| orderStatus | string | GrabFood order status |
+| orderTime | number | Order placement timestamp (ms) |
+| totalAmount | number | Order gross total in IDR |
+| items | `{ name: string; quantity: number; price: number }[]` | Line items snapshot |
+| outletId | Id<"externalOutlets">? | Linked outlet if matched |
+| linkedMenuProductIds | Id<"menuProducts">[] | Auto-matched internal products |
+| syncLogId | Id<"externalSyncLogs">? | Sync operation reference |
+| createdAt | number | Record creation timestamp |
+
+**Indexes:** `by_source`, `by_order_id`, `by_order_time`, `by_outlet`, `by_linked_revenue`
+
+---
+
+### bigsellerOrders (Phase 26)
+BigSeller multi-marketplace order records (Shopee, Tokopedia, etc.) for revenue analytics.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"bigseller"` | Always "bigseller" |
+| externalOrderId | string | BigSeller order ID |
+| platform | string | Marketplace platform (e.g., "shopee", "tokopedia") |
+| orderStatus | string | BigSeller order status |
+| orderTime | number | Order placement timestamp (ms) |
+| totalAmount | number | Order gross total in IDR |
+| items | `{ name: string; quantity: number; price: number }[]` | Line items snapshot |
+| outletId | Id<"externalOutlets">? | Linked outlet if matched |
+| linkedMenuProductIds | Id<"menuProducts">[] | Auto-matched internal products |
+| syncLogId | Id<"externalSyncLogs">? | Sync operation reference |
+| createdAt | number | Record creation timestamp |
+
+**Indexes:** `by_source`, `by_order_id`, `by_order_time`, `by_platform`, `by_linked_revenue`
+
+---
+
+### consignmentOutlets (Phase 26)
+Consignment outlet definitions for manual settlement tracking.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"consignment"` | Always "consignment" |
+| name | string | Outlet display name |
+| location | string? | Optional location description |
+| contactName | string? | Primary contact |
+| contactPhone | string? | Contact phone number |
+| isActive | boolean | Whether outlet is active |
+| createdBy | string | Admin who created the outlet |
+| createdAt | number | Creation timestamp |
+
+**Indexes:** `by_source`, `by_name`, `by_active`
+
+---
+
+### consignmentSettlements (Phase 26)
+Manual consignment revenue settlement entries per outlet per period.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| source | `"consignment"` | Always "consignment" |
+| outletId | Id<"consignmentOutlets"> | Reference to outlet |
+| periodStart | number | Settlement period start timestamp (ms) |
+| periodEnd | number | Settlement period end timestamp (ms) |
+| totalRevenue | number | Gross revenue collected in IDR |
+| notes | string? | Optional settlement notes |
+| settledBy | string | Admin who recorded the settlement |
+| settledAt | number | Settlement entry timestamp |
+
+**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_outlet_period`
+
+---
 
 ### restockTargets
 User-edited restock quantities per channel/outlet per product. Persisted overrides for the computed suggestions.
