@@ -1,170 +1,346 @@
-# Domain Pitfalls: v1.3 GoFood, Kitchen & Consignment
+# Domain Pitfalls: v1.4 Sales & Channel Integration
 
-**Domain:** Excel upload + per-outlet GoFood depot management + lifetime analytics in Convex + React 19
-**Researched:** 2026-02-22
-**Confidence:** HIGH (based on direct codebase analysis of 62-table schema, existing integration code, prior v1.2 pitfalls review, and verified against Convex official documentation + SheetJS docs)
+**Domain:** GrabFood POS API, BigSeller marketplace sync (Shopee + Tokopedia), consignment Excel upload, and unified multi-channel analytics — added to an existing Convex + React 19 + TypeScript production system
+**Researched:** 2026-02-25
+**Confidence:** HIGH (GrabFood/BigSeller from official SDK + verified API docs in `docs/`; Convex-specific from direct codebase inspection; Excel from known SheetJS patterns confirmed in prior v1.3 research)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause data corruption, revenue misreporting, or a rewrite of a complete phase.
+Mistakes that cause data corruption, silent revenue misreporting, API credential suspension, or a rewrite of a complete phase.
 
 ---
 
-### Pitfall 1: Excel Parsing Parsed on the Client, Then Bulk-Inserted via Mutation — Hits 16 MiB Argument Limit
+### Pitfall 1: Requesting a New GrabFood OAuth2 Token on Every API Call
 
 **What goes wrong:**
-The natural Excel upload pattern in a Convex app is: parse the `.xlsx` file in the browser (using SheetJS/ExcelJS), build a JSON array of rows, then call a Convex mutation with that array as the argument. For small files (20–100 rows) this is fine. A bulk consignment summary file with 6 months of transaction history across 5 products and 3 outlets could be hundreds or thousands of rows. At Convex's verified 16 MiB mutation argument cap (5 MiB for Node.js actions), a large parsed payload will hit the limit and fail with an opaque error.
+The adapter calls the OAuth2 token endpoint (`POST https://api.grab.com/grabid/v1/oauth2/token`) before every API request instead of caching the token for its full `expires_in` duration (3600 seconds). GrabFood's official documentation explicitly states: "Requesting a new token per API call is not permitted." This produces HTTP 429 rate limit errors, unnecessary latency per call, and risks GrabFood suspending the partner credentials.
 
 **Why it happens:**
-Developers test with small sample files and never hit the limit. The edge case surfaces only when a user tries to upload their first real file after months of accumulated data entry.
+Developers copy the token-fetch example from docs without reading the caching requirement. The existing GoBiz integration in this codebase uses a manual cookie paste (not OAuth2), so there is no prior OAuth2 caching pattern to follow internally.
 
 **How to avoid:**
-1. Parse the Excel file on the client. Chunk the resulting rows into batches of 100–200 rows maximum. Call the mutation iteratively per batch, not once with all rows.
-2. Show progress: "Uploading batch 3 of 7…" so users are not staring at a frozen UI.
-3. Alternatively, use Convex file storage (`generateUploadUrl`): upload the raw `.xlsx` binary to Convex storage (no 16 MiB limit on file storage uploads, only a 2-minute upload timeout), then trigger a Convex action to parse the stored file server-side via `ctx.storage.get(storageId)`. For a consignment upload that runs manually at most once per week, the simpler client-side batch approach is sufficient and avoids storing raw Excel files permanently.
-4. Set an explicit file size guard in the UI: reject files larger than 5 MB with a clear error message.
+The `resolveToken()` function in `convex/integrations/grabfood/adapter.ts` already implements the correct pattern: check `platformCredentials` cache first; only fetch a fresh token if `tokenExpiresAt - Date.now() < tokenRefreshBufferMs` (5 minutes). Every new action that calls GrabFood must call `resolveToken()`. Never call `fetchFreshToken()` directly from outside `resolveToken()`.
 
 **Warning signs:**
-- Upload appears to start, then fails with "NetworkError" or a 413 status
-- Works on small test files, fails on real data
-- No error visible in UI because the Convex client swallows the oversized argument error silently in some versions
+- HTTP 429 responses from `api.grab.com/grabid/v1/oauth2/token`
+- Token fetch logs appearing more than once per hour in Convex function logs
+- GrabFood partner support flagging the credentials
 
-**Phase to address:** Phase 21 (CON-01, CON-02 — Consignment Excel Upload)
+**Phase to address:** GrabFood foundation phase (GF credentials + token management). Pattern is already scaffolded — the pitfall is bypassing it during feature expansion.
 
 ---
 
-### Pitfall 2: Excel Date Cells Return Serial Numbers Instead of Date Strings
+### Pitfall 2: GrabFood Webhook Handler Processes Order Before Returning HTTP 200
 
 **What goes wrong:**
-Excel stores dates internally as floating-point serial numbers (days since 1900-01-00). When SheetJS parses an `.xlsx` file with default options, date cells come back as JavaScript `Date` objects only if the cell's format code is detected as a date format. If the Legato staff who fills in the consignment spreadsheet uses a custom format (e.g., `dd/mm/yyyy` as text or `dd-mmm-yy`), SheetJS returns a number like `45678` instead of a Date. If the cell was typed as a plain string ("01/02/26"), it comes back as a raw string with no Date object. The parser then tries to insert `45678` or `"01/02/26"` as a date into Convex, and the `periodStart` field (which expects a Unix timestamp in milliseconds) gets wrong values — specifically, records land in 1900 or are rejected.
+The webhook handler processes the incoming order synchronously — writing to DB, calling `respondToOrder` — before returning HTTP 200. If processing takes longer than GrabFood's acknowledgment timeout, Grab marks the webhook as failed and retries. Each retry re-runs the same processing, creating duplicate order records.
 
 **Why it happens:**
-Developers test with files they create themselves in Excel using a consistent format. Real-world spreadsheets filled by non-technical staff in Indonesia frequently mix date formats, use custom locale formats (dd/mm vs mm/dd), or type dates as plain text. ExcelJS has a known bug (issue #2695) where Strict Mode xlsx files treat date cells as raw floats and parse them as circa-1904 dates.
+The correct pattern (return 200 immediately, then process asynchronously) feels counterintuitive. The current `handleOrderWebhook` in `convex/integrations/grabfood/adapter.ts` already returns 200 immediately with a TODO for async processing. The trap is moving the DB write above the `return new Response("OK")` line when implementing the actual storage logic.
 
 **How to avoid:**
-1. Use SheetJS with `{ cellDates: true, dateNF: "yyyy-mm-dd" }` parse options. This instructs SheetJS to convert numeric date serials to Date objects.
-2. After parsing, still validate: check if the value is a valid Date object (`!isNaN(date.getTime())`), a numeric serial (>40000 = plausible Excel date since 2009), or a string that matches known patterns (`dd/mm/yyyy`, `dd-mmm-yy`, `mm/dd/yyyy`).
-3. Write a `parseConsignmentDate(raw: unknown): number | null` helper that handles all three cases and returns a WIB-midnight UTC timestamp in milliseconds, or `null` for unrecognizable input.
-4. If `null`, surface a row-level error: "Row 5: Date '01/02/26' not recognized — expected DD/MM/YYYY format." Do not silently skip the row or insert a fallback date.
-5. Include the date format expected in the downloadable template (CON-03): lock the date column format in the template to `yyyy-mm-dd` or `dd/mm/yyyy` with cell format enforcement.
+Structure the HTTP handler as:
+1. Parse body
+2. `return new Response("OK", { status: 200 })` immediately
+3. Schedule async processing: `ctx.scheduler.runAfter(0, internal.grabfood.processIncomingOrder, { order })`
+
+Never `await` a mutation or action before returning 200. Deduplicate on `orderID` in the processing action: check if the order already exists before inserting.
 
 **Warning signs:**
-- Uploaded data shows dates in 1900 or 1904
-- Date-grouped analytics show a spike on a single old date with all uploaded records
-- `periodStart` values are all identical (parser silently defaulted to a fallback)
+- Duplicate order records for the same `orderID` in `grabfoodIncomingOrders`
+- GrabFood dashboard showing webhook delivery failures despite orders appearing in the system
+- Convex logs showing the same `orderID` processed twice within 30 seconds
 
-**Phase to address:** Phase 21 (CON-01, CON-02) — must be in the date parsing utility written before any insertion logic
+**Phase to address:** GrabFood webhook implementation phase. The TODO comment in the existing adapter marks the exact danger point.
 
 ---
 
-### Pitfall 3: Merged Cells in Excel Cause Silent Data Loss for Repeated Header Rows
+### Pitfall 3: Menu Changes Not Going Live — `notifyMenuUpdate` Step Skipped
 
 **What goes wrong:**
-Consignment files from outlets like Legato frequently use merged header cells for date ranges (e.g., "February 2026" merged across 6 product columns). When SheetJS reads merged cells in a worksheet, only the top-left cell of the merge range holds the value; all other cells in the range return `undefined`. If the summary format uses merged cells for outlet names across multiple rows (e.g., "Legato Tamtem" merged across 10 product rows), and the parser tries to read the outlet name from each row, rows 2–10 have `undefined` for the outlet field. The parser silently inserts rows with `outletId: undefined`, bypassing the Convex validator (if the field is `v.optional`) or crashing (if required).
+After calling `PUT /partner/v1/menu` or `PUT /partner/v1/batch/menu`, menu changes are staged but NOT live in the GrabFood consumer app until `POST /partner/v1/merchant/menu/notification` is called. Developers see no API error from the PUT and assume the change propagated. Items remain at their old availability status in production.
 
 **Why it happens:**
-Legato's current manual spreadsheet (which CON-03 aims to replace) almost certainly uses merged cells for visual grouping. Developers testing against the new template (which will not use merged cells) never hit this. Users who deviate from the template or upload their own format get silent data loss.
+Most REST APIs apply changes immediately on a successful PUT. GrabFood requires an explicit "notify" step to trigger their internal sync job. This two-step requirement is documented but easy to skip.
 
 **How to avoid:**
-1. Design the downloadable template (CON-03) with NO merged cells. Repeat outlet name, date, and period values on every data row. Include a comment in the template header: "Do not merge cells — required for import."
-2. In the parser, detect and unmerge before extracting data. SheetJS exposes `ws['!merges']` — iterate this array and propagate the top-left cell value to all covered cells before calling `XLSX.utils.sheet_to_json`.
-3. Add a validation step that rejects files containing merged cells in the data area with a user-facing message: "This file contains merged cells in columns A–F. Please use the Frollie template or unmerge before uploading."
-4. Provide a clear template download link (CON-03) directly above the upload button so staff reach for it first.
+Always call `notifyMenuUpdate()` as a mandatory second step after any menu write. Treat it as part of the same operation, not optional cleanup. Save the `Job-ID` from the notification response header and store it so `traceMenuSync` can poll for the result. Surface `PARTIAL_FAILURE` results to the admin UI — do not silently discard sync errors.
 
 **Warning signs:**
-- Upload shows "X rows imported" but some rows are missing from the analytics view
-- Some outlet or product entries show as blank/Unknown after upload
-- Debug: `console.log(parsed rows)` shows `undefined` in expected string fields
+- Menu changes confirmed via API but not visible in GrabFood app after 10 minutes
+- `menuTrace` returns `PENDING` indefinitely (notification step was skipped entirely)
+- `PARTIAL_FAILURE` webhooks arriving silently with item errors
 
-**Phase to address:** Phase 21 (CON-01, CON-02) — parser must unmerge before `sheet_to_json`; Phase 21 also owns CON-03 template design
+**Phase to address:** GrabFood menu sync phase. Add integration test: after batch availability update, confirm `notifyMenuUpdate` was called and `traceMenuSync` reaches `SUCCESS` or surfaces a `PARTIAL_FAILURE` alert.
 
 ---
 
-### Pitfall 4: GoFood Depot Stock Table Has No `outletId` — GF-03 Requires Per-Outlet Tracking
+### Pitfall 4: BigSeller Querying Data Before Sync Completes — Silent All-Zero Results
 
 **What goes wrong:**
-The existing `gofoodDepotStock` table (Phase 19 target: GF-03) is keyed only by `menuProductId`:
-
-```
-gofoodDepotStock: { menuProductId, quantity, stickerDeficit, lastUpdated }
-```
-
-There is no `outletId` or `depotId` field. This was flagged as a known pitfall in v1.2 (Pitfall 5 and the Technical Debt table). GF-03 requires "per-outlet GoFood depot stock tracking with alert when any depot < 5 products remaining." There are three GoFood outlets: Goldfinch, Crystal, and Tamtem. Each is a separate physical depot. Implementing GF-03 without a schema migration means all three outlets share a single stock counter — every GoFood sale from any outlet deducts from the same pool, and "any depot < 5" becomes impossible to compute.
+`POST listStatsData.json` and `POST pageList.json` both return `code: -1, msg: "Failed, please try again later"` when called while `taskStatus = "progress"`. If the query fires before sync completes (which takes 1–10 minutes), the response returns no data. If this `-1` code is treated as a success with empty results, the upsert commits zero records without any error. The codebase appears to have "synced successfully" while storing nothing.
 
 **Why it happens:**
-The table was originally designed for Goldfinch only (Phase 12). Adding Crystal and Tamtem incrementally made the single-depot assumption load-bearing across `getDepotStock`, `getGoFoodDailyOrder`, `getDepotFreshness`, `addShipment`, and the `seedFinishedGoodsLocations` seed function. All of these assume one depot per menuProduct row.
+The two-phase async nature of BigSeller is documented in `docs/BIGSELLER_PROFIT_API.md` but easy to short-circuit. A cron that triggers sync and then immediately queries (`await triggerSync(); await queryData()`) will always return empty because sync takes minutes, not seconds.
 
 **How to avoid:**
-1. Add `outletId: v.optional(v.id("externalOutlets"))` to `gofoodDepotStock` (optional first for backward compat with existing Goldfinch rows).
-2. Add a composite index `by_outlet_product: ["outletId", "menuProductId"]` to `gofoodDepotStock`.
-3. Migrate existing rows: run a one-time mutation that sets `outletId` to the Goldfinch outlet's `_id` for all current `gofoodDepotStock` rows.
-4. After migration, update all queries/mutations that read or write `gofoodDepotStock` to filter by `outletId`.
-5. `gofoodDepotShipments` already has no `outletId` either — add it there too (same pattern).
-6. Do NOT skip this schema migration and try to infer the outlet from some other field — there is no reliable proxy.
+Implement the complete poll-then-query workflow using Convex scheduler (not a while-loop — see Pitfall 12):
+1. Cron triggers `bigsellerStartSync` → creates task → schedules `bigsellerPollSync` in 60 seconds
+2. `bigsellerPollSync` checks `sync/task/detail/new/get.json` — if `"progress"`, reschedules in 60 seconds (max 20 retries); if `"complete"`, schedules `bigsellerFetchData`
+3. `bigsellerFetchData` calls `listStatsData` + `pageList` (paginating fully) and upserts results
+
+Treat `code: -1` as a hard error that must be logged and retried, never silently skipped.
 
 **Warning signs:**
-- Stock alert "depot < 5" fires for the wrong outlet
-- Crystal or Tamtem shipment confirmations silently update Goldfinch's stock counter
-- `getDepotStock` returns one row per product instead of three (one per outlet)
+- BigSeller data never appears despite sync creation succeeding
+- `code: -1` responses in Convex action logs being swallowed
+- `successOrderNum` shows orders in sync detail but `pageList` returns empty `rows`
 
-**Phase to address:** Phase 19 (GF-03) — must be the FIRST change in Phase 19 before any GF-03 UI is built; all subsequent GF-03/GF-04 query logic depends on this
+**Phase to address:** BigSeller foundation phase. This is the most critical constraint of the entire BigSeller integration.
 
 ---
 
-### Pitfall 5: Lifetime Totals Double-Count Consignment Sales Already Present as GoFood/K3Mart Revenue
+### Pitfall 5: BigSeller Cron Collision — Second Sync Triggered While First is Still Running
 
 **What goes wrong:**
-ANLY-02 requires "lifetime totals: headline units sold counter + per-product breakdown table" combining all channels. The existing `externalRevenue` table already contains K3Mart stock-delta-inferred sales (`source: "k3mart"`, `dataOrigin: "stock_delta"`) and GoBiz API revenue (`source: "gobiz"`, `dataOrigin: "api_revenue"`). Phase 21 will add consignment upload records for Legato outlets. If Legato uploads cover a period that overlaps with data already in `externalRevenue` from another path (e.g., a Legato outlet that was previously tracked via manual entry or by the dispatch planner), the lifetime total query counts the same units twice.
-
-Additionally, the `orders` table contains direct sales (channel = "direct"). `getDailySalesSummary` (the existing report) aggregates ALL non-cancelled orders regardless of channel. If a "GoFood" or "k3mart" order was created in the orders table for tracking purposes, it also appears in the direct sales aggregate — adding it again to lifetime totals alongside the `externalRevenue` records gives a third count.
+If a daily cron fires and the previous sync task is still `"progress"`, `sync/task/create.json` returns `code: -1, "The sync task is in progress, please try again later"`. If unhandled, the cron fails silently and no data is collected. The next day's cron collides again, creating a permanent gap.
 
 **Why it happens:**
-`getDailySalesSummary` was written when only direct orders existed. The schema has evolved to track GoFood/K3Mart via `externalRevenue`, but `getDailySalesSummary` was never updated to exclude API-sourced channels from the orders table query. With consignment now added as a 4th channel via manual Excel upload to `externalRevenue`, the aggregation problem becomes more severe.
+BigSeller enforces one sync at a time per account. Convex crons run on a fixed schedule regardless of whether the previous run completed. A long sync (10+ minutes for large order volumes or slow platform API) overlaps the next scheduled cron.
 
 **How to avoid:**
-1. Define a canonical source-of-truth per channel for "units sold":
-   - **Direct orders:** `orders` table (channel = "direct" or null), status != Draft/Cancelled
-   - **GoFood:** `externalRevenue` + `externalRevenueItems` (source = "gobiz")
-   - **K3Mart:** `externalRevenue` (source = "k3mart", dataOrigin = "stock_delta")
-   - **Consignment (Legato etc.):** `externalRevenue` (source = new literal, e.g., "consignment", dataOrigin = "csv_upload")
-2. Update `getDailySalesSummary` to filter `orders` to channel = "direct" only. Currently it collects all non-cancelled orders with no channel filter.
-3. For ANLY-02 lifetime totals, write a dedicated `getLifetimeTotals` query that sums across all four sources with explicit `UNION ALL` logic and a per-source attribution field. Never sum `orders` + `externalRevenue` for the same channel.
-4. Add a uniqueness guard before consignment upload: query `externalRevenue` for existing records with `source: "consignment"` in the same date range and outlet. Surface a warning: "X records already exist for Legato Tamtem in Feb 2026 — uploading will add duplicates. Delete existing first?"
-5. Consider adding `dataOrigin: "csv_upload"` as a literal in `externalRevenue.dataOrigin` (it already exists as a valid value but is not used by any current code path).
+Before calling `sync/task/create.json`, always check `sync/task/detail/new/get.json` first. If `taskStatus = "progress"`, skip the new sync and re-enter the polling loop to complete the existing task. Persist sync state in the DB (last triggered timestamp, current phase, last completed range) so the poll workflow can resume after a Convex cold start.
 
 **Warning signs:**
-- Lifetime units sold > total production log units ever made (production is the physical upper bound)
-- Channel breakdown sums to more than the lifetime total (double-counted rows)
-- Same product appears with identical quantities in both GoFood and Consignment channels for the same week
+- Daily cron logs showing `code: -1` from `sync/task/create.json`
+- BigSeller data gap (missing days) with no error in the UI
+- `platformCredentials` or sync state record showing `lastSyncAt` not advancing day-over-day
 
-**Phase to address:** Phase 22 (ANLY-01, ANLY-02) must define source-of-truth map before writing any aggregation query; Phase 21 must add the consignment upload dedup guard
+**Phase to address:** BigSeller foundation phase — cron + polling architecture design.
 
 ---
 
-### Pitfall 6: WIB Timezone Conversion Produces Off-By-One Dates in Lifetime Aggregates
+### Pitfall 6: BigSeller JWT Cookie Expiry — Silent Auth Failure After 30 Days
 
 **What goes wrong:**
-The codebase has WIB timezone handling in at least 5+ places with inconsistent implementations. `getDailySalesSummary` converts timestamps with `new Date(order.orderDate + 7 * 60 * 60 * 1000)` (WIB offset applied to UTC timestamp). `getGoFoodDailyOrder` uses `new Date(args.date + "T00:00:00+07:00").getTime()`. `getDepotFreshness` uses `new Date(Date.now() + 7 * 60 * 60 * 1000)`. These approaches are equivalent but if any future aggregation query forgets the +7h offset, orders created between 17:00 UTC and 23:59 UTC (midnight to 06:59 WIB next day) land on the wrong calendar date. For lifetime totals, this is a persistent error that silently accumulates.
-
-Consignment Excel uploads introduce a new vector: the uploaded date cells represent WIB dates (Jakarta time), but the parser converts them to UTC midnight. If `parseConsignmentDate` produces midnight UTC for "2026-02-15", that timestamp in WIB is 07:00 WIB — correct for daily attribution. But if it produces midnight WIB (i.e., UTC-7h = 2026-02-14T17:00:00Z), the record lands on Feb 14 in any UTC-based query.
+The `muc_token` JWT expires 30 days after the last login. The token refreshes on each authenticated request, but if the Convex cron is disabled or no API calls are made for 30 consecutive days, the cookie expires. Subsequent calls to BigSeller receive an HTML login page redirect instead of JSON — the JSON parser crashes with an opaque error, not a clear "re-authenticate" message.
 
 **Why it happens:**
-JavaScript `new Date("2026-02-15")` (date-only string, ISO 8601) is parsed as UTC midnight, not local or WIB midnight. Developers test in Jakarta, where the system timezone is WIB, so local-time-based `toLocaleDateString()` returns the correct date. In production on Vercel/Convex (UTC), the same code produces dates one day behind.
+30-day session cookies feel "permanent enough" during development. The GoBiz integration has the same cookie-paste pattern but has a reconnect UI; BigSeller needs the same. There is currently no proactive expiry warning for session-cookie-based integrations.
 
 **How to avoid:**
-1. Establish a project-wide convention: all timestamps stored in Convex are Unix milliseconds in UTC. All date strings in query args and display are `YYYY-MM-DD` in WIB.
-2. Write one canonical `toWibDateString(timestamp: number): string` utility and use it everywhere. Centralize in `convex/lib/dateUtils.ts`.
-3. For consignment date parsing: interpret uploaded date cells as WIB dates. Convert to UTC by appending `T00:00:00+07:00` before creating a Date object: `new Date("2026-02-15T00:00:00+07:00").getTime()` gives the correct WIB midnight in UTC.
-4. In the lifetime totals query, always pass a WIB date string for range boundaries, not a raw timestamp from `new Date("YYYY-MM-DD")`.
+Decode the `muc_token` JWT at storage time and persist the `exp` field (Unix seconds) in `platformCredentials.tokenExpiresAt`. Add a pre-flight check before every BigSeller API call: if `exp - Date.now()/1000 < 3 * 24 * 3600` (3 days), surface a "BigSeller session expiring soon — re-login required" warning in the dashboard sync health panel.
+
+Add explicit non-JSON response handling in the BigSeller HTTP client: if `Content-Type` is `text/html`, treat as auth failure and set `lastRefreshStatus: "error"` with message "Re-login required" — never let it propagate as a JSON parse crash.
 
 **Warning signs:**
-- Analytics "today" shows no data until after 7 AM WIB (cutoff missed)
-- Uploaded consignment records for Feb 15 appear under Feb 14 in the analytics chart
-- Date ranges in the UI show mismatches between GoFood data and consignment data for boundary dates
+- JSON parse errors in BigSeller action logs (HTML page being parsed as JSON)
+- `lastRefreshStatus: "error"` in `platformCredentials` for BigSeller platform
+- Dashboard sync health showing BigSeller stale for more than 3 days
 
-**Phase to address:** Phase 21 (consignment date parsing must use WIB-aware conversion); Phase 22 (lifetime totals query must use the shared utility)
+**Phase to address:** BigSeller auth phase — must be addressed before first production deployment.
+
+---
+
+### Pitfall 7: BigSeller 31-Day Range Limit Breaking Historical Backfill
+
+**What goes wrong:**
+On initial deployment, the user wants to backfill 3+ months of historical marketplace data. Calling `sync/task/create.json` with a 90-day range returns an error (31-day maximum). If the backfill logic does not chunk the range into 31-day segments and does not respect the "one sync at a time" constraint, the backfill either errors immediately or fires concurrent syncs that all fail.
+
+**Why it happens:**
+The 31-day limit is documented in the API reference but developers typically test with small ranges (7 days) and only discover the constraint during the first production backfill.
+
+**How to avoid:**
+Implement a sequential chunked backfill: split any date range longer than 31 days into 31-day segments and process each segment serially (trigger → poll → fetch → store → advance window). Never parallelize BigSeller syncs. Store the last successfully synced `endTime` in the DB so a interrupted backfill resumes from where it left off.
+
+**Warning signs:**
+- `sync/task/create.json` error on first deploy with a large date range
+- Incomplete backfill with no indication of which date range succeeded
+- Missing analytics data for the first weeks after deployment
+
+**Phase to address:** BigSeller foundation phase — backfill design must be included in the initial sync architecture.
+
+---
+
+### Pitfall 8: `externalOutlets.source` Schema Union Excludes New Platform Sources
+
+**What goes wrong:**
+The `externalOutlets.source` field is currently `v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"))`. The same union is repeated in `externalRevenue`, `externalRevenueItems`, and `externalSyncLogs`. Adding BigSeller data requires new source values (`"shopee"`, `"tokopedia"`, or `"bigseller"`). If these literals are added to some tables but not all, TypeScript type errors are hidden at the boundaries and analytics queries silently exclude records from the missing source.
+
+**Why it happens:**
+The same enum is defined four times across four table schemas rather than in a single shared validator. Updating one is easy; remembering to update all four requires a checklist.
+
+**How to avoid:**
+Add `v.literal("shopee")`, `v.literal("tokopedia")`, and `v.literal("bigseller")` to the `source` union in ALL four tables in a single schema change: `externalOutlets`, `externalRevenue`, `externalRevenueItems`, `externalSyncLogs`. Also update `registry.ts` `PlatformId` type. Run `npm run type-check` after the change — TypeScript will catch any missed location.
+
+**Warning signs:**
+- TypeScript compile error on new source literals — good, this is early detection
+- New revenue records written but not appearing in analytics queries (source filter excludes new value)
+- `externalOutlets` query returning zero results for BigSeller outlets
+
+**Phase to address:** Schema migration — must be the FIRST task of the BigSeller integration phase, before any data fetching code is written.
+
+---
+
+### Pitfall 9: SKU-to-MenuProduct Mapping via String Matching — Fragile Like Ingredient Simulation
+
+**What goes wrong:**
+BigSeller order data contains SKU codes like `"FRO-DubChe-Reg1"`. Mapping these to `menuProducts` records using substring or similarity string matching (identical to the documented ingredient simulation fragility in `PROJECT.md` technical debt) silently breaks when a SKU code changes or a new product is added. Revenue from unmapped SKUs disappears from analytics without any error.
+
+**Why it happens:**
+The `externalRevenueItems` table already has a `matchConfidence` field with fuzzy values — suggesting the existing GoFood/K3Mart item matching uses name-based fuzzy logic. Extending the same pattern to BigSeller SKUs is the path of least resistance but inherits all its fragility.
+
+**How to avoid:**
+Build an explicit `bigsellerSkuMappings` table (or extend the existing product mapping system used for GoFood/K3Mart) that stores `sku → menuProductId` with an admin-editable UI. On sync, auto-map SKUs that match a configured mapping exactly. Flag unmapped SKUs in a "needs review" state. Never silently drop unmapped SKU revenue — store every order even with `linkedMenuProductId: undefined` and surface unmapped SKUs in a reconciliation panel.
+
+**Warning signs:**
+- Analytics showing lower Shopee/Tokopedia revenue than expected
+- No error logs but `linkedMenuProductId` is undefined for most `externalRevenueItems` rows
+- Adding a new menu product does not retroactively map existing synced orders
+
+**Phase to address:** BigSeller data mapping phase — SKU mapping table design must be finalized before the first production sync runs.
+
+---
+
+### Pitfall 10: GrabFood Minor-Unit Price Misinterpretation — IDR Divided by 100 Gives 100x Wrong Revenue
+
+**What goes wrong:**
+GrabFood API prices are in minor units. For IDR, the minor unit IS the whole Rupiah (IDR has no decimal places; `currency.exponent = 0`). Developers familiar with Stripe or other payment APIs where minor units require division by 100 apply the same rule: `price / 100`. An order with `subtotal: 25000` (Rp 25,000) is stored as Rp 250. In a multi-channel analytics view next to BigSeller's whole-IDR values, this appears as GrabFood revenue being 100x lower than other channels.
+
+**Why it happens:**
+The GrabFood API documentation notes that `exponent` varies by currency and is 0 for IDR. This is easy to overlook. The existing `externalRevenue` table stores GoFood and K3Mart revenue as whole IDR, establishing a convention the GrabFood integration must follow.
+
+**How to avoid:**
+When ingesting GrabFood order data, check `currency.exponent`: if `exponent === 0` (IDR), store `price` as-is with no conversion. Add a comment in the GrabFood ingest code: "IDR prices from GrabFood are whole Rupiah. No division needed." Write a unit test: parse a sample GrabFood order with `subtotal: 25000` and `currency.exponent: 0` and assert the stored value is `25000`, not `250`.
+
+**Warning signs:**
+- GrabFood channel showing 100x lower revenue than expected in analytics
+- Order-level margin showing Rp 190 for a product priced at Rp 19,000
+- Cross-channel total significantly misaligned with bank settlements
+
+**Phase to address:** GrabFood data ingestion phase and unified analytics schema design phase.
+
+---
+
+### Pitfall 11: BigSeller Negative Fee Fields Added Instead of Subtracted in Profit Calculation
+
+**What goes wrong:**
+BigSeller fee fields `commissionFee`, `sellerShippingFee`, and `otherFee` are documented as **negative values when they represent costs**. For example, a Rp 5,850 platform commission is returned as `commissionFee: -5850`. If these fields are naively summed with `platformIncome` in a profit calculation (`platformIncome + commissionFee`), the negative value correctly reduces profit. But if someone "fixes" the sign by writing `platformIncome - commissionFee`, the negative value is subtracted and profit is INCREASED by the commission cost — resulting in inflated analytics.
+
+**Why it happens:**
+The sign convention (`negative = cost`) is documented in the API reference's Data Glossary but counterintuitive. The BigSeller UI displays fees as positive numbers to users, so developers assume the API also returns positive values.
+
+**How to avoid:**
+Store all fee fields in `externalRevenue` as the raw values from BigSeller (negative for costs). Compute profit as: `platformIncome + commissionFee + sellerShippingFee + otherFee + serviceFee` — because adding a negative number correctly reduces the total. Add a comment to the profit calculation: "Fee fields are negative — adding them reduces profit." Write a unit test with a known order where `commissionFee: -5850` and verify the resulting `profit` is reduced by exactly 5850.
+
+**Warning signs:**
+- Tokopedia/TikTok channel showing higher profit margins than Shopee for equivalent orders
+- Per-order profit exceeds `platformIncome` (impossible without negative cost fields being sign-flipped)
+- BigSeller COGS-less profit margin showing >100%
+
+**Phase to address:** BigSeller data ingestion phase — fee calculation must be unit-tested before analytics queries are built.
+
+---
+
+### Pitfall 12: Convex Action Timeout on BigSeller Polling — While-Loop Approach
+
+**What goes wrong:**
+Convex actions have a maximum execution time. A BigSeller sync can take 1–10 minutes. If polling is implemented as a `while` loop with `sleep(60000)` inside a single action, the action times out. When the action times out mid-poll, the sync is left in `"progress"` state with no scheduled continuation — the system is permanently stuck until manually reset.
+
+**Why it happens:**
+Polling loops feel natural in synchronous code. The Convex action timeout is easy to forget when developing against small datasets where sync completes in under 60 seconds.
+
+**How to avoid:**
+Never implement polling as a loop inside a single Convex action. Use the scheduler-based pattern: each poll check is a separate short-lived action scheduled 60 seconds after the previous one. This pattern also survives Convex deployment restarts because the scheduler persists jobs across function reloads. Cap the maximum poll reschedules at 20 (20 minutes total) before marking the sync as `"fail"` and alerting the admin.
+
+**Warning signs:**
+- Convex function logs showing action timeout errors for BigSeller sync actions
+- Sync state stuck in `"progress"` indefinitely with no subsequent poll actions scheduled
+- Dashboard showing sync running for more than 15 minutes
+
+**Phase to address:** BigSeller foundation phase. The scheduler-based polling architecture must be the design baseline — not a later refactor from a loop-based approach.
+
+---
+
+### Pitfall 13: Consignment Excel Upload — SheetJS Numeric Cell Type Coercion Returns NaN
+
+**What goes wrong:**
+SheetJS parses Excel cells as their native type. Indonesian consignment POS exports frequently have number-formatted cells where the value looks like `"Rp 25.000"` (with period as thousands separator) or `"4"` stored as a text cell. SheetJS's default mode returns these as strings. JavaScript `Number("Rp 25.000")` returns `NaN`. Arithmetic on NaN silently propagates. Convex's `v.number()` validator rejects `NaN` with a type error that surfaces as a generic mutation failure, not a per-row validation message.
+
+**Why it happens:**
+Developers test with well-formed files they create. Real-world Indonesian POS exports vary in cell formatting. The `.000` thousands separator format is extremely common in Indonesia and always produces NaN via `Number()`.
+
+**How to avoid:**
+After parsing with SheetJS, coerce every numeric column explicitly: strip non-digit characters before converting (`parseInt(String(cell).replace(/[^\d]/g, ""), 10)`), then validate `isNaN()`. Return a structured validation result per row (row number, column name, raw value, error message) so the UI shows exactly which rows failed. Reject the entire upload if any required numeric column contains invalid values — do not partially insert.
+
+**Warning signs:**
+- Revenue totals showing 0 or NaN after upload despite correct-looking data
+- Convex mutation error: "Value is not a valid number" with no indication of which row
+- `externalRevenue.revenueGross` stored as 0 (fell through a `Number() || 0` fallback)
+
+**Phase to address:** Consignment upload foundation phase — write validation unit tests against sample files before implementing the upload UI.
+
+---
+
+### Pitfall 14: Consignment Upload Partial Failure — No Idempotent Batch Rollback
+
+**What goes wrong:**
+A consignment upload inserts 50 `externalRevenue` records. If row 35 fails, records 1–34 are already committed. The user sees an error and re-uploads the file. Records 1–34 are now duplicated. There is no automatic rollback in Convex for partial batch failures unless the entire batch is in a single mutation.
+
+**Why it happens:**
+Progress-reporting during upload tempts developers to split the batch into per-row mutations (one per row allows updating a progress bar). Without idempotency guards, re-uploads double the existing data.
+
+**How to avoid:**
+Process the entire upload batch in a single Convex mutation. Use a `uploadBatchId` (UUID generated client-side before the upload) stored on every inserted record. Before inserting, check if any record with this `uploadBatchId` already exists — if so, skip all inserts (idempotent re-upload). Implement a `deleteConsignmentBatch(uploadBatchId)` mutation that atomically removes all records from the bad upload batch. Surface the `uploadBatchId` in the upload confirmation UI so admins can reference it for reversal.
+
+**Warning signs:**
+- Duplicate revenue records with the same date and outlet after re-upload attempts
+- Revenue totals showing double the expected amount
+- No way to identify which records came from which specific upload
+
+**Phase to address:** Consignment upload phase — design the `uploadBatchId` idempotency pattern before writing the upload mutation.
+
+---
+
+### Pitfall 15: Unified Analytics — Adding New Channel as Reactive Subscription Instead of On-Demand Action
+
+**What goes wrong:**
+The v1.3 optimization converted heavy analytical queries to on-demand (action-backed) fetches to reduce Convex bandwidth. If new BigSeller/GrabFood analytics queries are added as reactive `useQuery` subscriptions rather than on-demand actions, the bandwidth spikes return. The `externalRevenue` table will grow significantly with multi-channel data — a subscription scanning it on every render becomes increasingly expensive.
+
+**Why it happens:**
+Reactive queries are the natural Convex pattern. The on-demand action wrapper pattern (from `convex/externalData/actions.ts`) is a less obvious indirection layer. New developers adding analytics for a new channel default to `useQuery`.
+
+**How to avoid:**
+All multi-channel analytics queries must follow the established pattern: `internalQuery` function in `convex/externalData/queries.ts` wrapped in an on-demand `action` in `convex/externalData/actions.ts`. Never expose a reactive `useQuery(api.externalData.*)` subscription for analytical aggregations. Add `by_source_period` composite index scans so source filters apply at the index level, not post-scan.
+
+**Warning signs:**
+- Convex bandwidth dashboard spike after adding new analytics queries
+- New analytics query not wrapped in an `action` (grep: `useQuery(api.externalData` should return no new results)
+- `SalesAnalytics.tsx` re-fetching on every render rather than explicit user-triggered refresh
+
+**Phase to address:** Unified analytics phase — apply the on-demand pattern consistently from the start, not after noticing bandwidth issues.
+
+---
+
+### Pitfall 16: GrabFood Webhook Without HMAC Signature Validation — Fake Orders
+
+**What goes wrong:**
+The GrabFood webhook endpoint (`/api/grabfood/order`) is a public HTTPS URL. Without HMAC signature validation, any actor who discovers the URL can POST fake order payloads. The adapter's current `handleOrderWebhook` in `adapter.ts` has a `// TODO: Add HMAC signature validation` comment. Shipping without implementing this means the production order queue can be polluted with fabricated orders.
+
+**Why it happens:**
+HMAC validation is a "Phase 5 — Reliability" item in the GrabFood Integration Checklist. Developers implement basic functionality first and defer security hardening, then the TODO remains indefinitely.
+
+**How to avoid:**
+GrabFood provides an HMAC Secret in the partner project dashboard (Credentials section). Implement HMAC-SHA256 signature validation before the webhook goes to production. Verify the `X-Grab-Signature` header against the request body using the HMAC Secret. Reject requests with invalid or missing signatures with HTTP 401 (but still ensure the 200-first pattern applies for valid requests). This is a one-time implementation of ~20 lines.
+
+**Warning signs:**
+- The `// TODO: Add HMAC signature validation` comment still present in `handleOrderWebhook`
+- Unexpected orders appearing in the system with unknown `merchantID` values
+- Order queue showing orders with malformed or missing required fields
+
+**Phase to address:** GrabFood webhook implementation phase — HMAC validation must be implemented before the webhook is registered in the GrabFood production portal.
 
 ---
 
@@ -174,41 +350,51 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Parse Excel entirely client-side and send as one mutation call | Simple single-step upload | Fails silently on real data files >2–5 MB | Never — always batch or chunk |
-| Reuse existing `externalRevenue.source` union without adding "consignment" literal | No schema change needed | Consignment records stored as `"internal"` break source-based filtering for lifetime aggregates | Never — add the literal properly |
-| Skip outlet dedup check on upload | Simpler upload flow | Repeat uploads double-count lifetime totals permanently (no easy cleanup) | Never — always show "records already exist" warning |
-| Use one global `gofoodDepotStock` row per product for all 3 outlets | No migration needed | GF-03 per-outlet alert and GF-04 restock algorithm become impossible | Never — migration is mandatory for Phase 19 |
-| Derive lifetime totals from `getDailySalesSummary` by summing its output | Reuse existing query | `getDailySalesSummary` does not filter by channel, missing GoFood/K3Mart `externalRevenue` records | Only for direct-orders-only scope; not for cross-channel lifetime |
-| Hard-code the 200 default production target in the kitchen view component | Quick fix | Target becomes stale when `kitchenConfig` row is updated via manager UI (KIT-09) | Never — always read from `kitchenConfig` table |
+| Store BigSeller `costFee: 0` without flagging in UI | Simpler schema, no COGS setup required | Profit margin shows ~100% — misleading analytics, wrong business decisions | Never — always surface "COGS not configured" caveat in UI |
+| Add new `source` literal to one schema table only | Avoids touching multiple files | TypeScript errors at table boundaries; analytics queries silently exclude new sources | Never — update all four tables in one schema change |
+| Poll BigSeller sync with a `while` loop in a single action | Simpler linear code | Action timeout after Convex limit, no recovery path | Never — use scheduler pattern from day one |
+| Fuzzy SKU string matching for BigSeller → menuProduct | Auto-maps most SKUs without admin effort | Silent revenue misattribution, compounds over time | Only as fallback — require admin confirmation for non-exact matches |
+| Skip webhook HMAC validation for faster shipping | Saves ~20 lines of implementation | Fake orders can be injected into the production queue | Never before production registration of the webhook |
+| Fetch GrabFood token per API call for simpler code | No token state management needed | Rate limit errors, possible credential suspension per GrabFood's explicit prohibition | Never |
+| Inline hardcoded BigSeller shop IDs instead of table-driven config | Faster to implement | Breaks when a new Shopee/Tokopedia shop is added; requires code deploy to add shop | Never — store shop IDs in `platformCredentials` or a `bigsellerShops` config table |
 
 ---
 
 ## Integration Gotchas
 
-Common mistakes when connecting the new v1.3 features to existing systems.
+Common mistakes when connecting to GrabFood, BigSeller, and consignment systems.
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Consignment upload → `externalRevenue` | Using `source: "internal"` for uploaded records | Add `v.literal("consignment")` to the `externalRevenue.source` union; deploy schema first |
-| GoFood depot → per-outlet stock | Reading `gofoodDepotStock` without filtering by `outletId` | Migrate table to add `outletId`, then always filter by outlet in queries |
-| Dispatch planner → kitchen targets (KIT-12) | Overwriting `kitchenConfig.bigBallTarget`/`midBallTarget` on every dispatch confirmation | Write to a separate `productionProductTargets` row (source="dispatch") instead; kitchen reads both and shows totals |
-| Lifetime totals → existing `orders` table | Summing all `orders` including GoFood/K3Mart channel orders | Filter `orders` to `channel = "direct"` only before counting; GoFood/K3Mart counted via `externalRevenue` |
-| Excel date → Convex timestamp | `new Date("2026-02-15").getTime()` (UTC midnight) | `new Date("2026-02-15T00:00:00+07:00").getTime()` (WIB midnight) |
-| Consignment outlet → `dispatchConsignmentOutlets` ID | Creating a separate `externalOutlets` row for Legato | Legato is already a `dispatchConsignmentOutlets` row; link consignment revenue to this table's ID, not `externalOutlets` |
-| `externalRevenue.outletId` polymorphic union | Passing a `dispatchConsignmentOutlets` ID where an `externalOutlets` ID is expected | The schema already uses `v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets")))` for `dispatchPlans.outletId` — follow the same pattern for new consignment revenue records |
+| GrabFood OAuth2 | Fetch token per API call | Cache in `platformCredentials`, reuse until `tokenExpiresAt - 5 min`; call `resolveToken()` in every action |
+| GrabFood OAuth2 | Use `prdBaseUrl` for staging tests | Always use sandbox `baseUrl` for testing; switch to `prdBaseUrl` only when deploying against production merchant credentials |
+| GrabFood menu sync | Assume `PUT /menu` applies immediately | Always call `POST /merchant/menu/notification` after any menu write; poll `traceMenuSync` for result |
+| GrabFood webhooks | Process order synchronously before returning 200 | Return 200 immediately; schedule async processing via `ctx.scheduler.runAfter` |
+| GrabFood webhooks | Skip HMAC validation for speed | Implement HMAC-SHA256 check before production webhook registration |
+| BigSeller auth | Treat `muc_token` as an opaque string | Decode JWT, persist `exp` field, surface expiry warning 3 days before expiry |
+| BigSeller sync | Query `listStatsData` immediately after `sync/task/create` | Poll `sync/task/detail/new/get.json` until `taskStatus = "complete"` — takes 1–10 minutes |
+| BigSeller sync | Trigger daily cron without checking current sync state | Always check existing task status first; if in-progress, re-enter polling instead of creating new task |
+| BigSeller date range | Use a 90-day range for initial backfill | Split into 31-day chunks and process serially |
+| BigSeller fees | Assume `commissionFee`, `otherFee`, `sellerShippingFee` are positive costs | These are **negative values** — add them to profit (negative + profit = correctly reduced profit); never subtract |
+| BigSeller pagination | Fetch only page 1 of `pageList` | Loop until `pageNo >= totalPage`; Frollie currently small but will grow |
+| SheetJS | Assume cell values are typed correctly | Explicitly coerce every numeric column; handle Indonesian Rp thousands separator |
+| SheetJS | Trust `sheet['!ref']` range for data extent | Use `sheet_to_json` with explicit header; validate column names before processing |
+| `externalRevenue.source` | Cram Shopee/Tokopedia data under `"internal"` | Add proper source literals to the union in all four tables |
 
 ---
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as historical data grows.
+Patterns that work at small scale but fail as multi-channel data accumulates.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| `getLifetimeTotals` does `.collect()` on full `orders` + full `externalRevenue` in one query | Query times out (1-second Convex query limit) | Use indexed range scans with date boundaries; paginate if needed; consider a pre-aggregated `lifetimeSalesSummary` table updated on write | ~500+ orders + 1000+ externalRevenue rows (within 6–12 months of operation) |
-| Upload 500 consignment rows in one batch to Convex mutation | 413 / argument-too-large error | Chunk into 100-row batches with progress indicator | Any file with >200 rows parsed to objects |
-| `getDailySalesSummary` scans all orders on every page load of Analytics | Slow initial render; no visible issue at <200 orders | Add date range filter argument; default to last 90 days; allow user to extend to "all time" | ~300+ orders (currently approaching this threshold) |
-| Per-outlet depot stock queries N+1 pattern in `getDepotStock` (loops over each product to get `menuProduct.name`) | Slow depot view on pages with 10+ menu products | Batch fetch all menu products at once, build a map, enrich without per-row DB calls | 15+ active menu products |
+| Reactive `useQuery` subscription on `externalRevenue` table scan | Analytics page causes high bandwidth; slow on mobile | Use on-demand action pattern established in v1.3 | When `externalRevenue` exceeds ~500 rows (3–4 months of multi-channel data) |
+| BigSeller `pageList` not fully paginated | Sync appears complete but 90% of orders missing | Loop until `pageNo >= totalPage` | When monthly Shopee+Tokopedia orders exceed `pageSize: 50` |
+| GrabFood order list without pagination loop | Historical backfill incomplete | Loop incrementing `page` until `more: false` | When GrabFood order backfill exceeds one page |
+| Storing BigSeller `skuVoList` as a JSON blob | Simple insert, no normalization needed | Store as separate table rows; JSON blobs are not queryable in Convex | Immediately — JSON blobs cannot be indexed or filtered |
+| Analytics period aggregation without timezone normalization | Different channels show different "today" totals | Normalize all ingested timestamps to WIB midnight UTC (`T00:00:00+07:00`) at ingest time | On first cross-channel daily comparison |
+| BigSeller polling loop inside single Convex action | Linear code, easy to read | Use `ctx.scheduler` chain instead | When sync takes more than Convex action max duration |
 
 ---
 
@@ -216,10 +402,11 @@ Patterns that work at small scale but fail as historical data grows.
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Accepting any file type in the upload input | Malicious file execution; server-side parse errors | Validate `file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"` and file extension `.xlsx` before parsing |
-| Storing raw uploaded Excel file in Convex `_storage` permanently | Storage accumulation; files may contain personally identifiable supplier data | If storing for audit purposes, delete after successful parse (call `ctx.storage.delete(storageId)` in the same mutation that confirms import success); or store only metadata |
-| Consignment upload mutation is not protected by `requireRole` | Any logged-in user including `kitchen` role can upload and corrupt revenue data | Wrap in `requireRole(ctx, args.token, ["manager", "admin"])` — consignment revenue is manager-level data |
-| No row-count validation on uploaded data | Attacker can upload a 50,000-row file to exhaust Convex document write quota | Reject files that parse to more than N rows (recommend 2,000 as ceiling for a weekly consignment file) |
+| Logging full GrabFood `access_token` in Convex console | Token visible in dashboard logs to any dashboard-access user | Log only `tokenPreview` (first 30 chars) — already done in current `adapter.ts`; ensure no new log lines add the full token |
+| GrabFood webhook endpoint without HMAC validation | Fake orders injected into production queue | Implement `X-Grab-Signature` HMAC-SHA256 check before production registration (see Pitfall 16) |
+| BigSeller `muc_token` JWT stored in `platformCredentials.password` field without access restriction | JWT grants full BigSeller account access | Acceptable for internal tool (same risk pattern as GoBiz token); ensure only `admin` role can read `platformCredentials` |
+| Consignment upload mutation not gated by `requireRole` | `kitchen` role staff can upload and corrupt revenue data | Wrap in `requireRole(ctx, args.token, ["manager", "admin"])` — consignment revenue is manager-level data |
+| No file size guard on Excel upload | 50k-row file exhausts Convex document write quota | Reject files >5 MB or >2,000 parsed rows with clear user error message |
 
 ---
 
@@ -227,26 +414,29 @@ Patterns that work at small scale but fail as historical data grows.
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Upload succeeds but shows no confirmation of what was imported | Staff re-upload the same file, thinking the first upload failed, creating duplicates | Show a post-upload summary: "Imported 47 rows: Legato Tamtem Feb 1–15, 5 products. 2 rows skipped (see details)." |
-| Template (CON-03) has no example data | Staff guess the format, enter wrong column order, upload fails | Include 2–3 rows of example data in the template with a "DELETE BEFORE UPLOADING" note in the first row |
-| Lifetime totals headline shows "all time" with no date range context | Staff don't know if the counter includes old test data from seeding | Show "since YYYY-MM-DD" beneath the headline — use the earliest `order.createdAt` as the start anchor |
-| Per-outlet depot alert shows absolute stock number without context | "3 boxes remaining" is alarming or fine depending on daily sales velocity | Show as "3 boxes (≈0.5 days at current 6/day rate)" using the GF-04 algorithm's own avg calculation |
-| Upload button active even before an outlet is selected | Users upload a file with no outlet context; all rows go to "Unknown outlet" | Require outlet selection before the upload button becomes active; grey it out with tooltip "Select outlet first" |
+| BigSeller sync progress not visible during 8-minute wait | User thinks feature is broken; re-clicks sync, triggering "already in progress" errors | Show sync state machine in dashboard: "Triggering...", "Syncing (est. 5–10 min)", "Fetching data...", "Complete" with timestamps |
+| Analytics showing `profit: Rp 1,770,500` with no COGS caveat | Manager thinks margin is 99% when COGS has not been entered in BigSeller | Show "Profit = Revenue (COGS not configured in BigSeller)" whenever all `costFee` values are 0 for BigSeller records |
+| Excel upload with no row-level validation feedback | User re-uploads whole file guessing at what was wrong | Show a table of failed rows with column name, raw cell value, and error reason before accepting the upload |
+| GrabFood menu sync `PARTIAL_FAILURE` silently logged but not surfaced | Menu items appear available when they are actually unavailable in the GrabFood app | Show a persistent banner on the GrabFood settings page when the last menu sync resulted in `PARTIAL_FAILURE` |
+| Multi-channel analytics defaulting to UTC midnight boundaries | Analytics for "today" shows different totals depending on time of day (pre/post midnight UTC) | Apply `Asia/Jakarta UTC+7` offset for all "today", "this week", "this month" period calculations across all channels |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-Things that appear complete during demo but are missing critical pieces in production.
-
-- [ ] **Excel Upload (CON-01/CON-02):** Works on the test file but not on Legato's actual format — verify against a real Legato Excel export, not a synthetic test file
-- [ ] **Consignment Revenue (CON-01/CON-02):** Rows appear in the DB but lifetime totals (ANLY-02) do not include them — verify the `getLifetimeTotals` query reads from `source: "consignment"` entries
-- [ ] **Per-Outlet Depot Stock (GF-03):** Depot stock page shows 3 outlet columns but all show the same number — verify that the `gofoodDepotStock` migration ran and `outletId` is populated on all rows
-- [ ] **GF-04 Restock Suggestion:** Algorithm returns "n+1 avg last 3 days" but Mon reset to prev Thu is not triggering — verify the day-of-week branch is reading WIB date, not UTC date
-- [ ] **Kitchen Targets (KIT-09/KIT-12):** Kitchen view shows 200/200 hardcoded — verify it reads from `kitchenConfig` table, not the default constant
-- [ ] **Lifetime Analytics (ANLY-02):** Headline counter shows all units — verify it is NOT double-counting by running total against the production log's historical ball count
-- [ ] **Consignment Upload Dedup:** Upload the same file twice — verify a warning appears on the second upload, no duplicates are created
-- [ ] **Role Protection:** Consignment upload is accessible from kitchen role — verify `requireRole(["manager", "admin"])` is enforced on the mutation
+- [ ] **GrabFood OAuth**: `resolveToken()` is called in every new action — verify no `fetchFreshToken()` calls outside `resolveToken()`
+- [ ] **GrabFood webhooks**: HTTP 200 returned before any `await` — verify no processing logic above the `return new Response("OK")` line
+- [ ] **GrabFood HMAC**: Signature validation implemented — the `// TODO: Add HMAC signature validation` comment must be resolved before production webhook registration
+- [ ] **GrabFood menu sync**: `notifyMenuUpdate` called after every menu write — verify in Convex logs that the notification endpoint is called
+- [ ] **BigSeller polling**: Scheduler-based poll loop, not a `while` loop — no `while` or `do-while` in any BigSeller sync action
+- [ ] **BigSeller auth**: `exp` decoded from JWT and stored in `tokenExpiresAt` — verify `platformCredentials` record has expiry date, not `undefined`
+- [ ] **BigSeller fees**: Negative fees correctly handled — verify per-order profit calculation with a known test order where `commissionFee: -5850`
+- [ ] **BigSeller pagination**: All pages fetched from `pageList` — verify `pageNo < totalPage` loop condition is present
+- [ ] **Schema migration**: All four `source` union validators updated — `npm run type-check` passes with new literals
+- [ ] **Consignment upload**: `uploadBatchId` stored on every inserted record — verify reversal mutation deletes all records for a given batch ID
+- [ ] **Analytics pattern**: All new multi-channel analytics queries use on-demand action pattern — no new direct `useQuery(api.externalData.*)` reactive subscriptions for analytical data
+- [ ] **Price units**: GrabFood IDR prices stored as whole Rupiah (not divided by 100) — verify with a known test order where `subtotal: 25000` stores as `25000`
+- [ ] **BigSeller COGS**: "COGS not configured" caveat visible in UI whenever `costFee: 0` for BigSeller records
 
 ---
 
@@ -254,57 +444,52 @@ Things that appear complete during demo but are missing critical pieces in produ
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Consignment revenue double-counted via duplicate upload | MEDIUM | Query `externalRevenue` for `source: "consignment"` duplicates (same outlet + date + product + quantity). Delete the later-inserted duplicates. Re-run lifetime totals. Add dedup guard before next release. |
-| Lifetime totals double-counting direct orders + GoFood/K3Mart | MEDIUM | Update `getDailySalesSummary` to filter by `channel = "direct"`. Verify `getLifetimeTotals` sums from correct tables per channel. Test against production log as upper bound. |
-| Dates imported off-by-one (WIB vs UTC) | MEDIUM | Identify all `externalRevenue` records with `source: "consignment"` and `dataOrigin: "csv_upload"`. Shift their `periodStart`/`periodEnd` by +7 hours (25200000 ms) via a one-time migration mutation. Fix the parser before the next upload. |
-| `gofoodDepotStock` per-outlet migration skipped | HIGH | Every depot stock query now returns wrong per-outlet numbers. Must add `outletId` field, run migration to backfill existing rows to Goldfinch outlet ID, and verify all three outlet rows exist per product. Blocks GF-03 delivery until done. |
-| Excel file with merged cells uploaded silently drops rows | LOW | User re-uploads using the CON-03 template. No DB corruption since dropped rows were never inserted. Add merge detection to parser and retry. |
-| Consignment upload mutation unprotected | LOW-to-HIGH depending on when caught | Add `requireRole` immediately. Audit `externalRevenue` for any records inserted by non-manager users. Delete if clearly test/junk entries. |
+| Duplicate GrabFood webhook orders (P2) | MEDIUM | Query for duplicate `orderID` records in `grabfoodIncomingOrders`; run deduplication mutation; add `requestID` uniqueness constraint going forward |
+| BigSeller sync stuck in "progress" indefinitely (P4/P5) | LOW | Manually check `sync/task/detail/new/get.json` via Convex action; if truly stuck, wait for BigSeller's own timeout; trigger fresh sync for the affected date range |
+| `externalRevenue` records with wrong/missing source enum (P8) | LOW | Schema migration adding new literals is non-destructive; existing records need no field updates; fix enum, redeploy, re-sync affected date ranges |
+| Consignment upload with duplicate records (P14) | LOW | Call `deleteConsignmentBatch(uploadBatchId)` to atomically remove all records from bad upload; re-upload corrected file |
+| GrabFood minor-unit price stored as /100 IDR (P10) | HIGH | Data migration: multiply affected `externalRevenue.revenueGross` records by 100; identify by `source: "grabfood"` and `revenueGross < 10000` (below minimum plausible product price) |
+| BigSeller JWT expired with no warning (P6) | LOW | Admin re-pastes fresh `muc_token` via settings UI (same reconnect pattern as GoBiz); implement proactive expiry warning to prevent recurrence |
+| BigSeller fees sign-flipped in profit calculation (P11) | MEDIUM | Recalculate `profit` for all stored BigSeller orders using raw fee fields; update analytics derived values; add unit test to prevent regression |
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
-How v1.3 roadmap phases should address these pitfalls.
-
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Excel argument size limit (Pitfall 1) | Phase 21 — chunk mutation calls, add file size guard | Upload a test file >500 rows; verify no 413 errors, progress shown |
-| Excel date serial number parsing (Pitfall 2) | Phase 21 — `parseConsignmentDate()` utility with `cellDates: true` | Upload file with 3 date formats (ISO, dd/mm/yyyy, serial number); all must resolve correctly |
-| Merged cells silent data loss (Pitfall 3) | Phase 21 — unmerge before `sheet_to_json`, CON-03 template has no merges | Upload file with merged outlet header; verify error message or auto-unmerge |
-| `gofoodDepotStock` missing `outletId` (Pitfall 4) | Phase 19 — schema migration BEFORE GF-03 UI | Query `gofoodDepotStock` with `withIndex("by_outlet_product")` — must return 3 rows per product |
-| Lifetime totals double-counting (Pitfall 5) | Phase 22 — define per-channel source-of-truth before writing aggregation | Lifetime units sold <= total balls produced (production log upper bound) |
-| WIB timezone off-by-one in aggregates (Pitfall 6) | Phase 21 (date parsing) + Phase 22 (lifetime query) | Upload records for Feb 15; verify they appear on Feb 15 in analytics, not Feb 14 |
-| `gofoodDepotStock` N+1 query pattern | Phase 19 — batch fetch menu products in `getDepotStock` | Depot stock query executes in <200ms with 15 products across 3 outlets |
-| Consignment mutation unprotected | Phase 21 — add `requireRole` in mutation | Login as `kitchen` role; upload endpoint returns 403/unauthorized |
-
----
-
-## Existing Technical Debt That Amplifies v1.3 Risks
-
-Pre-existing issues from v1.2 that become more dangerous with v1.3 features.
-
-| Debt Item | v1.2 Impact | v1.3 Amplification |
-|-----------|-------------|---------------------|
-| `gofoodDepotStock` has no `outletId` field | Implicitly Goldfinch-only; tolerable for single depot | GF-03 per-outlet alerts and GF-04 per-outlet algorithm are physically impossible without migration; blocks entire Phase 19 GF-03 |
-| `getDailySalesSummary` collects all non-cancelled orders without channel filter | Minor inaccuracy for GoFood orders entered as orders | Lifetime totals built on top of this query will double-count GoFood/K3Mart channels that also appear in `externalRevenue` |
-| Ingredient simulation uses name string matching | Fragile; breaks when names diverge | Not directly related to v1.3 features; but Phase 22 analytics must NOT use this pattern for product matching in consignment uploads — use `menuProductId` linkage via product mappings |
-| Tamtem depot deduction silently skips when `seedFinishedGoodsLocations` not run | Known workaround; acceptable with manual seed | Adding per-outlet depot stock makes seed order more critical; document as Phase 19 deployment prerequisite |
-| `productionProductTargets.source` is `v.string()` not union | Any string accepted | KIT-12 dispatch-driven targets must use a consistent source literal; without type enforcement, future queries filtering by source silently miss rows |
-| WIB timezone implementations scattered across 5+ files | Occasional off-by-one bugs | Consignment upload adds a 6th implementation site; each new implementation multiplies the risk |
+| GrabFood token per call (P1) | GrabFood foundation — token management | `resolveToken()` in all actions; no direct `fetchFreshToken()` calls outside it |
+| Webhook 200 after processing (P2) | GrabFood webhook handler implementation | Send 2 rapid webhook POSTs for same order; confirm only 1 record created |
+| Menu sync without notify (P3) | GrabFood menu sync phase | Confirm `notifyMenuUpdate` called in all menu-write flows; `menuTrace` reaches SUCCESS |
+| BigSeller query during progress (P4) | BigSeller foundation — polling architecture | `code: -1` from BigSeller is logged as error, not treated as empty success |
+| BigSeller cron collision (P5) | BigSeller foundation — cron design | Two rapid sync triggers: second is gracefully skipped or absorbed into existing poll |
+| JWT expiry silent failure (P6) | BigSeller auth phase | HTML response from BigSeller → "Re-login required" error, not JSON parse crash |
+| 31-day range limit (P7) | BigSeller foundation — backfill design | 90-day backfill request correctly splits into 3 sequential 31-day syncs |
+| Schema union excludes new sources (P8) | Schema migration phase — first task | `npm run type-check` passes with new source literals; `externalOutlets` query returns BigSeller outlets |
+| SKU mapping via string matching (P9) | BigSeller data mapping phase | Unknown SKU stored with `linkedMenuProductId: undefined` and surfaced in reconciliation UI |
+| SheetJS numeric coercion (P10 / old P13) | Consignment upload foundation | Unit tests with Indonesian Rp-formatted cells, text-typed numbers, empty cells |
+| GrabFood IDR minor unit (P10) | GrabFood ingest phase | Unit test: `subtotal: 25000` + `exponent: 0` → stored as `25000` |
+| BigSeller negative fees (P11) | BigSeller ingest phase | Unit test: known order with `commissionFee: -5850` → profit reduced by 5850 |
+| Upload batch no rollback (P14) | Consignment upload mutation design | Upload with invalid row 35; confirm zero records inserted; re-upload succeeds with exactly N records |
+| Action timeout on polling (P12) | BigSeller foundation — architecture | Code review: no `while` loops in BigSeller actions; all polls via `ctx.scheduler` |
+| Analytics reactive subscription (P15) | Unified analytics phase | No new `useQuery(api.externalData.*)` subscriptions for analytical data; all wrapped in actions |
+| Webhook without HMAC (P16) | GrabFood webhook implementation | `// TODO: Add HMAC` comment removed; signature validation tested with a known-valid and known-invalid payload |
 
 ---
 
 ## Sources
 
-- Codebase analysis: `convex/schema.ts` (62 tables, specifically `gofoodDepotStock`, `externalRevenue`, `externalRevenueItems`, `dispatchConsignmentOutlets`, `productInventory`), `convex/gofoodDepot/queries.ts`, `convex/gofoodDepot/mutations.ts`, `convex/reports/dailySales.ts` — HIGH confidence (direct code review)
-- v1.2 PITFALLS.md (`.planning/research/PITFALLS.md`) — Pitfall 5 (3rd GoFood outlet) and the Technical Debt table confirmed `gofoodDepotStock` missing `outletId` — HIGH confidence (prior research)
-- PROJECT.md Known Technical Debt section — confirmed 6 specific debt items carried to v1.3 — HIGH confidence (project document)
-- SheetJS official docs: [Dates and Times](https://docs.sheetjs.com/docs/csf/features/dates/), [Merged Cells](https://docs.sheetjs.com/docs/csf/features/merges/), [Parse Options](https://docs.sheetjs.com/docs/api/parse-options/) — HIGH confidence (official docs)
-- ExcelJS GitHub issue #2695 — Strict Mode xlsx files return date cells as floats (1904 dates) — MEDIUM confidence (GitHub issue, not official release note)
-- Convex official limits: [docs.convex.dev/production/state/limits](https://docs.convex.dev/production/state/limits) — Mutation argument cap 16 MiB (5 MiB for Node.js actions); HTTP action response cap 20 MiB; 2-minute upload timeout via `generateUploadUrl` — HIGH confidence (official docs, fetched directly)
-- Convex file storage docs: [docs.convex.dev/file-storage/upload-files](https://docs.convex.dev/file-storage/upload-files) — `generateUploadUrl` pattern, 1-hour URL expiry — HIGH confidence (official docs)
+- GrabFood Partner API official SDK documentation — `docs/GRABFOOD_API.md` (OpenAPI v1.1.3, SDK v1.0.2, verified 2026-02-24)
+- BigSeller Profit Analytics API — `docs/BIGSELLER_PROFIT_API.md` (reverse-engineered, verified 2026-02-25)
+- Existing GrabFood adapter implementation — `convex/integrations/grabfood/adapter.ts` (scaffolded, staging-ready)
+- Existing schema design — `convex/schema.ts` (59 tables, specifically `externalRevenue`, `externalOutlets`, `externalSyncLogs`, `externalRevenueItems`)
+- Integration registry — `convex/integrations/registry.ts` (current PlatformId union)
+- v1.3 on-demand query pattern — `convex/externalData/actions.ts`
+- GoBiz integration (comparison pattern) — `convex/integrations/gobiz/`
+- Known technical debt — `PROJECT.md` (ingredient simulation name-matching fragility, current source union gaps)
+- Production outage lessons — `docs/LESSONS_LEARNED.md` (Vite TDZ crash, gsd-debugger commits to main)
+- Prior v1.3 PITFALLS.md — SheetJS date parsing, merged cells, mutation argument limits (patterns applicable to consignment upload in v1.4)
 
 ---
-*Pitfalls research for: v1.3 GoFood Depot, Kitchen Targets, Consignment Upload, Lifetime Analytics*
-*Researched: 2026-02-22*
+*Pitfalls research for: v1.4 Sales & Channel Integration (GrabFood POS, BigSeller, Consignment, Unified Analytics)*
+*Researched: 2026-02-25*

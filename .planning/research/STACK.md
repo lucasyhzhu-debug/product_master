@@ -1,229 +1,249 @@
-# Stack Research: v1.3 Consignment Excel Upload and Analytics Extension
+# Stack Research
 
-**Domain:** Excel file parsing/generation in a browser-based Convex + React 19 app
-**Researched:** 2026-02-22
-**Confidence:** HIGH
-
----
-
-## Summary
-
-v1.3 requires exactly **one new npm dependency**: SheetJS (xlsx 0.20.3). Everything else — file upload architecture, charting, UI — is handled by the existing stack. This document explains the how and why for each decision, and what to explicitly avoid.
+**Domain:** Multi-channel sales integration — GrabFood POS API (OAuth2), BigSeller profit analytics (cookie auth, async sync), consignment Excel upload, unified Sales Analytics
+**Researched:** 2026-02-25
+**Confidence:** HIGH — verified against existing codebase, official API docs, and official library documentation
 
 ---
 
-## New Dependency Required
+## What This Document Covers
 
-### SheetJS (xlsx 0.20.3)
+v1.4 (Sales & Channel Integration) adds four new capability areas to the existing Convex + React 19 stack:
 
-The only stack addition for v1.3.
+1. **GrabFood POS API** — OAuth2 client credentials, order polling, store control, inventory read/write
+2. **BigSeller profit sync** — JWT cookie auth, async sync-first workflow (1–10 min), order-level data
+3. **Consignment Excel upload** — `.xlsx` parse in browser, structured rows to Convex
+4. **Unified Sales Analytics** — multi-channel charts combining GoFood, BigSeller (Shopee + TikTok), consignment, direct
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| xlsx (SheetJS Community Edition) | 0.20.3 | Parse uploaded `.xlsx` files from consignment outlets; generate downloadable template `.xlsx` files | The dominant browser-compatible Excel library. Handles read + write in one package, works in Vite (ESM, named imports, tree-shaking), no server-side component needed. The only library that does both parsing and generation well in-browser. |
+---
 
-**Install command (CDN tarball — do not use npm registry):**
+## Existing Stack — What's Already There (DO NOT Re-Add)
+
+| Already Have | Version | Relevant Capability |
+|---|---|---|
+| Convex | ^1.31.7 | serverless backend, HTTP actions (webhooks), cron jobs, `ctx.scheduler`, `platformCredentials` table |
+| React | ^19.2.0 | file input, hooks, lazy loading |
+| TypeScript | ~5.9.3 | type safety |
+| Vite | ^7.2.4 | build tool, code splitting |
+| Recharts | ^3.7.0 | stacked bar charts, line charts — already in `SalesAnalytics.tsx` |
+| date-fns | ^4.1.0 | date arithmetic |
+| Tailwind CSS | ^4.1.18 | styling |
+| shadcn/ui (Radix UI) | various | UI primitives including `<Table>`, `<Dialog>`, `<Progress>` |
+| Sonner | ^2.0.7 | toast notifications |
+| Lucide React | ^0.564.0 | icons including `Upload`, `FileSpreadsheet` |
+
+**GrabFood partial infrastructure already built:**
+- `convex/integrations/grabfood/config.ts` — OAuth2 config, all endpoint paths, typed interfaces
+- `convex/integrations/grabfood/adapter.ts` — token management, `testConnection`, `respondToOrder`, `markOrderReady`, `getStoreStatus`, `pauseStore`, `notifyMenuUpdate`, `autoRefreshToken`, webhook HTTP handlers
+- `convex/http.ts` — HTTP router exists, grabfood webhook routes need registration
+- `platformCredentials` table — stores `client_id`, `client_secret`, token, expiry
+
+**No BigSeller infrastructure exists yet.** No consignment upload infrastructure exists yet.
+
+---
+
+## Recommended Stack Additions
+
+### New Dependencies Required
+
+| Library | Version | Purpose | Why |
+|---|---|---|---|
+| `xlsx` (SheetJS Community Edition) | 0.20.3 (CDN tarball) | Parse `.xlsx` consignment Excel uploads in-browser | Only maintained browser-compatible Excel parser. Reads `ArrayBuffer` from `<input type="file">` with no server round-trip. Named ESM imports are tree-shakeable. Apache 2.0 license. |
+
+**That is the only new dependency.** All other v1.4 requirements are satisfied by existing stack.
+
+### Decision Matrix — Why No Other New Libraries
+
+| Requirement | How to Solve | New Library? |
+|---|---|---|
+| GrabFood OAuth2 token exchange | Native `fetch` with `URLSearchParams` body — already in `adapter.ts` | No |
+| GrabFood API calls (list orders, pause store, etc.) | Native `fetch` with Bearer header — already in `adapter.ts` | No |
+| GrabFood webhook receive | Convex `httpAction` — already in `adapter.ts`, register in `http.ts` | No |
+| GrabFood token cron refresh | `internalAction` + `cronJobs()` — `autoRefreshToken` exists, `crons.ts` empty | No |
+| BigSeller cookie-based API calls | Native `fetch` with `Cookie` header in `"use node"` action — same pattern as GoBiz | No |
+| BigSeller async sync polling (1–10 min) | `ctx.scheduler.runAfter(60000, ...)` chain — Convex native async workflow | No |
+| BigSeller daily sync cron | `cronJobs()` in `crons.ts` | No |
+| BigSeller token storage | `platformCredentials` table — already supports any platform | No |
+| Consignment Excel parse | SheetJS `XLSX.read(arrayBuffer)` | **YES — add SheetJS** |
+| Multi-channel analytics charts | Recharts (already ^3.7.0 in `SalesAnalytics.tsx`) — add new data series | No |
+| Date range filtering | date-fns (already ^4.1.0) | No |
+| Registry extension (new platforms) | Edit `convex/integrations/registry.ts` | No |
+
+---
+
+## SheetJS Installation
+
+The npm registry `xlsx` package (version 0.18.5) is **stale and unmaintained**. SheetJS stopped publishing to the npm registry. The current version (0.20.3) is only available from the SheetJS CDN:
 
 ```bash
 npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 ```
 
-**Why the CDN tarball, not `npm install xlsx`:**
-The `xlsx` package on the public npm registry is version 0.18.5, which is outdated and unmaintained. SheetJS stopped publishing to npm. Version 0.20.3 (current as of April 2024) is only available from `cdn.sheetjs.com`. The CDN tarball installs identically to a registry package — it saves into `node_modules/xlsx` and appears in `package.json` as `"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"`.
+The tarball installs identically to a registry package — saves to `node_modules/xlsx`, appears in `package.json` as the tarball URL. All imports like `import { read, utils } from 'xlsx'` work unchanged.
 
-**Import pattern for Vite + React (named imports, tree-shakeable):**
-
-```typescript
-// Parsing only (upload path)
-import { read, utils } from 'xlsx';
-
-// Generation only (template download path)
-import { utils, writeFileXLSX } from 'xlsx';
+**Post-install `package.json` entry:**
+```json
+"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
 ```
 
-Using `writeFileXLSX` instead of the generic `writeFile` significantly reduces bundle size — it only includes the XLSX serializer, not all format serializers.
+Types are bundled in the package — no `@types/xlsx` needed.
 
 ---
 
-## Existing Stack — What's Already There
+## Integration Patterns by Feature
 
-All of these are sufficient as-is. Do not add alternatives.
+### GrabFood: Complete the Existing Module
 
-### Core Technologies (Unchanged)
+The `adapter.ts` already has token management and most actions. What v1.4 adds on top:
 
-| Technology | Version | v1.3 Use | Status |
-|------------|---------|----------|--------|
-| Convex | ^1.31.7 | Storage for parsed data (new `consignmentSales` table). `generateUploadUrl` for file uploads if needed. | Already installed |
-| React | ^19.2.0 | File input `<input type="file">`, `onChange` handler, `FileReader` for `.arrayBuffer()` | Already installed |
-| TypeScript | ~5.9.3 | Type the parsed row shape for both bulk-summary and transaction-detail formats | Already installed |
-| Vite | ^7.2.4 | No config changes needed for xlsx 0.20.3 (SheetJS added Vite-compatible metadata in 0.18.10) | Already installed |
-| Tailwind CSS + shadcn/ui | ^4.1.18 | Upload dropzone, progress states, error display, table display of imported rows | Already installed |
-| Recharts | ^3.7.0 | Extend existing `SalesChart.tsx` stacked bar — add `"Consignment"` as a new platform color/series. No new chart types needed. | Already installed |
-| Sonner | ^2.0.7 | Toast on upload success/failure, row count feedback | Already installed |
-| Lucide React | ^0.564.0 | `Upload`, `Download`, `FileSpreadsheet` icons for upload UI | Already installed |
+1. **`grabfoodOrders` table** — persist incoming webhook orders and polled history. The `handleOrderWebhook` handler has a TODO comment explicitly for this.
+2. **`listOrders` action** — call `GET /partner/v1/orders` to backfill historical order data (pagination via `more: boolean` flag)
+3. **Store control UI** — surface `getStoreStatus` and `pauseStore` to frontend. Per merchant ID (3 outlets: Crystal, Goldfinch, Tamtem).
+4. **Register webhooks in `http.ts`** — `handleOrderWebhook` and `handleMenuSyncWebhook` exist but are not registered in the HTTP router
+5. **Activate cron** — `autoRefreshToken` exists but `crons.ts` is empty. Token expires every 1h — cron every 45min.
 
----
+**No new libraries.** Pattern extension of existing module.
 
-## Architecture: File Upload Without Convex Storage
+### BigSeller: New Module Following GoBiz Pattern
 
-**Decision: Parse Excel client-side in the browser. Store only the structured data in Convex, not the file.**
+BigSeller uses **JWT cookie auth** (`muc_token`, 30-day expiry). This is the same pattern as GoBiz — manual cookie paste, store in `platformCredentials`, use on every API call.
 
-For consignment uploads, there is no reason to store the raw `.xlsx` file. The workflow is:
+**The sync-first async workflow requires a scheduler chain, not a polling loop:**
 
-1. User selects `.xlsx` file via `<input type="file">`
-2. Browser reads it as `ArrayBuffer` using `FileReader.readAsArrayBuffer()`
-3. SheetJS parses the `ArrayBuffer` into rows of structured data
-4. React renders a preview table for the user to confirm
-5. On confirm, a Convex mutation saves the parsed rows to `consignmentSales` table
+```
+Daily cron (11pm) → triggerBigSellerSync action
+  → POST sync/task/create.json
+  → scheduler.runAfter(60000, checkBigSellerSyncStatus)
+    → GET sync/task/detail/new/get.json
+    → if taskStatus === "complete" → scheduler.runAfter(0, fetchBigSellerData)
+    → if taskStatus === "progress" → scheduler.runAfter(60000, checkBigSellerSyncStatus)  // repeat
+    → if taskStatus === "fail" → log error, alert dashboard health
+  → fetchBigSellerData action
+    → POST listStatsData.json (daily aggregates)
+    → POST pageList.json (paginate all pages, pageSize: 50)
+    → upsert to Convex by platformOrderId (idempotent)
+```
 
-This is entirely client-side parsing — no HTTP upload endpoint, no Convex `generateUploadUrl`, no `_storage` table involvement. The file never leaves the browser.
+**Critical constraint:** A single Convex action cannot run for 10 minutes. The scheduler chain pattern (each action schedules the next) is the correct Convex approach for async external workflows that take longer than a single action timeout. This is documented in Convex best practices.
 
-**Why this is correct:**
-- The file is transient input data; the rows are the durable record
-- Avoids 20MB HTTP action limit (irrelevant, but avoid complexity)
-- No storage costs, no cleanup cron needed
-- Standard pattern for structured data import in internal tools
+**31-day max range** — BigSeller enforces this server-side. For sync ranges > 31 days, trigger multiple syncs sequentially. For daily incremental sync (recommended), this is never an issue.
 
-**File upload code pattern:**
+### Consignment Excel: Client-Side Parse Only
+
+Parse the Excel file entirely in the browser. Send structured JSON rows to a Convex mutation. The file never leaves the browser — no Convex `generateUploadUrl`, no `_storage` table.
 
 ```typescript
 import { read, utils } from 'xlsx';
 
-async function parseExcelFile(file: File): Promise<ConsignmentRow[]> {
+async function parseConsignmentFile(file: File): Promise<ConsignmentRow[]> {
   const buffer = await file.arrayBuffer();
   const wb = read(buffer, { type: 'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = utils.sheet_to_json<RawConsignmentRow>(ws, { header: 1 });
-  // validate and transform rows...
-  return rows;
+  return utils.sheet_to_json<ConsignmentRow>(ws);
 }
 ```
 
-**Template download code pattern:**
-
+Lazy-load the upload component — SheetJS adds ~180KB to the chunk it's in:
 ```typescript
-import { utils, writeFileXLSX } from 'xlsx';
-
-function downloadTemplate() {
-  const summarySheet = utils.aoa_to_sheet([
-    ['Date From', 'Date To', 'Outlet', 'Product', 'Qty Sold', 'Qty Returned', 'Revenue (Rp)'],
-    ['2026-01-01', '2026-01-15', 'Legato BSD', 'Frollie Original', 0, 0, 0],
-  ]);
-  const detailSheet = utils.aoa_to_sheet([
-    ['Transaction ID', 'Date', 'Outlet', 'Product', 'Qty', 'Unit Price (Rp)', 'Total (Rp)'],
-    ['TXN-001', '2026-01-05', 'Legato BSD', 'Frollie Original', 2, 45000, 90000],
-  ]);
-  const wb = utils.book_new();
-  utils.book_append_sheet(wb, summarySheet, 'Bulk Summary');
-  utils.book_append_sheet(wb, detailSheet, 'Transaction Detail');
-  writeFileXLSX(wb, 'consignment_template.xlsx');
-}
+const ConsignmentUploadPage = React.lazy(() => import('./pages/ConsignmentUploadPage'));
 ```
+
+### Unified Analytics: Extend Existing Recharts Patterns
+
+`SalesAnalytics.tsx` already has `PLATFORM_COLORS`, stacked `<Bar>` charts, and period presets. Adding BigSeller/consignment channels is:
+
+1. Extend `externalRevenue` table with `source` literals: add `"shopee"`, `"tiktok"` (currently only `"k3mart"`, `"gobiz"`, `"internal"`)
+2. Add corresponding color entries to `PLATFORM_COLORS`
+3. Add new `<Bar dataKey="..." />` for each new channel
+4. Update `SalesAnalytics` Convex query to aggregate new sources
+
+No new chart types, no new charting library.
 
 ---
 
-## Analytics Extension: No New Libraries
+## Registry Extension Required
 
-The ANLY-01 and ANLY-02 requirements (consignment channel in charts, lifetime totals) extend existing Recharts patterns.
+`convex/integrations/registry.ts` `PlatformId` type is `"k3mart" | "gobiz" | "internal"`. Two additions:
 
-**ANLY-01 — Add consignment channel to stacked bar charts:**
+```typescript
+export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller";
+```
 
-`SalesChart.tsx` already has a `PLATFORM_COLORS` map and renders one `<Bar>` per channel. Adding consignment is:
-1. Add `"Consignment": "#8b5cf6"` (violet-500) to `PLATFORM_COLORS`
-2. Include consignment data in the time-series query result
-3. Add a `<Bar dataKey="Consignment" ... />` in the chart JSX
-
-No new Recharts components, no new chart types.
-
-**ANLY-02 — Lifetime totals counter + per-product table:**
-
-This is a Convex aggregate query (sum across all time, no date filter) plus a simple HTML table rendered with Tailwind. Recharts is not needed for a number counter or a text table. Use shadcn `<Table>` components already in the codebase.
+GrabFood already uses `platformId: "grabfood"` in its config but is not in the registry type union or `PLATFORMS` object. BigSeller is entirely new.
 
 ---
 
 ## What NOT to Add
 
 | Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| `xlsx` from npm registry (`npm install xlsx`) | npm registry version is 0.18.5 — outdated, unmaintained, security vulnerabilities. Missing Vite metadata. | CDN tarball: `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` |
-| `exceljs` (npm) | Last major update 2 years ago. Literally doubles Vite bundle size (no tree-shaking, ~200KB minified). Browser support is secondary use case. TypeScript types are inaccurate in some cases. | SheetJS 0.20.3 — smaller, tree-shakeable, active CDN distribution |
-| `papaparse` | CSV only. The consignment outlets use `.xlsx`, not `.csv`. Wrong tool. | SheetJS handles both .xlsx and .csv if needed |
-| `node-xlsx` | Node.js-only. Cannot run in browser. Would require a Convex action with `"use node"` just to parse the file, adding unnecessary round-trip. | SheetJS client-side parsing |
-| `FileSaver.js` | ExcelJS dependency. Not needed with SheetJS — `writeFileXLSX()` handles browser download natively via `<a>` tag + Blob URL. | SheetJS `writeFileXLSX` built-in download |
-| Convex `generateUploadUrl` + file storage | Would store the raw `.xlsx` bytes durably, requiring cleanup cron and storage cost. The rows are the data we care about, not the file. | Client-side parsing — store structured rows only |
-| `react-dropzone` | Adds ~30KB for a styled dropzone. The upload UI for this internal tool is a simple `<input type="file" accept=".xlsx">` button. | Native HTML `<input type="file">` + shadcn `Button` |
-| `@tanstack/react-table` | Not needed for the lifetime per-product table. It's a static read-only table with ~10 rows. | shadcn `<Table>` components |
-| New charting library (`nivo`, `victory`, `chart.js`) | Recharts already handles all chart types needed. Adding a second charting library fragments the visual language. | Recharts ^3.7.0 (already installed) |
-| Recharts upgrade | Currently on ^3.7.0 which is the current major version. Mid-milestone upgrades risk type breaks. | Stay on ^3.7.0 |
+|---|---|---|
+| `xlsx` from npm registry (`npm install xlsx`) | npm version 0.18.5 is 2+ years stale, missing bug fixes, security-unfixed issues | CDN tarball `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` |
+| `exceljs` | No browser build — Node.js only. Would require server-side parse, adding unnecessary round-trip + `"use node"` action | SheetJS 0.20.3 — native browser support |
+| `papaparse` | CSV only — cannot parse `.xlsx` binary format | SheetJS handles both formats |
+| `axios` | Not in codebase by design; `fetch` with `Cookie` header handles BigSeller auth identically | Native `fetch` |
+| Official GrabFood JS SDK | No JS/TypeScript SDK exists — only Go, Java, Python | Native `fetch` (already implemented in `adapter.ts`) |
+| `node-cron` or external cron service | Convex provides native `cronJobs()` | `crons.ts` with `cronJobs()` |
+| Any polling helper library | Convex scheduler chain (`ctx.scheduler.runAfter`) handles async polling natively | `ctx.scheduler.runAfter` |
+| New charting library (nivo, Victory, Chart.js) | Recharts ^3.7.0 is already installed and handles all needed chart types | Recharts existing install |
+| Recharts upgrade | Currently on ^3.7.0 (current major). Mid-milestone upgrades risk type breakage | Stay on ^3.7.0 |
+| `react-dropzone` | ~30KB for a styled dropzone not needed — this is an infrequent admin action | Native `<input type="file" accept=".xlsx">` |
+| `FileSaver.js` | Not needed — SheetJS `writeFileXLSX()` handles browser download natively | SheetJS built-in download |
+| `@tanstack/react-table` | Tables in analytics are simple read-only — no sorting/filtering complexity | shadcn `<Table>` components (already installed) |
+| Convex file storage for Excel uploads | Raw file bytes are not the durable record — structured rows are | Client-side parse, store rows only |
+
+---
+
+## Alternatives Considered
+
+| Recommended | Alternative | When Alternative Makes Sense |
+|---|---|---|
+| SheetJS 0.20.3 (CDN tarball) | ExcelJS 4.x | Only if pixel-perfect Excel formatting is needed (cell colors, merged cells, print areas). For data import/export, SheetJS is simpler. |
+| Client-side Excel parse | Server-side via Convex `"use node"` action | Only for password-protected files or complex VBA macros — not applicable here |
+| Convex scheduler chain for BigSeller polling | External webhook from BigSeller | BigSeller does not provide webhooks — poll-only API |
+| Manual cookie paste for BigSeller (GoBiz pattern) | Full OAuth2 authorization code flow | BigSeller has no OAuth2 — cookie-based session is the only supported auth method |
+| React.lazy() for consignment upload page | Including SheetJS in main bundle | Only if upload is used so frequently that lazy-load flicker is unacceptable. Admin-only, infrequent — lazy load always preferred |
 
 ---
 
 ## Version Compatibility
 
 | Package | Version | Compatibility Notes |
-|---------|---------|---------------------|
-| xlsx (SheetJS) | 0.20.3 | Compatible with Vite 7.x — SheetJS added required package.json metadata in 0.18.10. Named ESM imports work. No config changes to `vite.config.ts` needed. |
-| xlsx (SheetJS) | 0.20.3 | Compatible with React 19 — SheetJS is UI-framework agnostic. No peer dependency conflicts. |
-| xlsx (SheetJS) | 0.20.3 | Compatible with TypeScript ~5.9 — types are bundled in the package. No `@types/xlsx` needed (that's for the old 0.18.5 version). |
-| recharts | ^3.7.0 | No changes. Adding a new `<Bar>` to existing charts is backward-compatible. |
-
----
-
-## Bundle Size Impact
-
-The project already has a 1.8MB JS bundle (noted as technical debt in PROJECT.md). SheetJS adds approximately:
-
-- Full library: ~340KB minified + gzipped
-- With tree-shaking (named imports + `writeFileXLSX`): ~180–220KB for parse + generate
-
-**Mitigation:** Lazy-load the consignment upload component. Since Excel upload is an infrequent admin action (not on any hot path), wrap the upload page/modal in `React.lazy()`:
-
-```typescript
-const ConsignmentUpload = React.lazy(() => import('./ConsignmentUpload'));
-```
-
-This keeps SheetJS out of the initial bundle and only loads it when a manager navigates to the upload page. This is the recommended pattern for heavy upload libraries.
+|---|---|---|
+| xlsx (SheetJS) | 0.20.3 | Vite 7.x compatible — SheetJS added required `package.json` metadata in 0.18.10. Named ESM imports tree-shake correctly. No `vite.config.ts` changes needed. |
+| xlsx (SheetJS) | 0.20.3 | React 19 compatible — UI-framework agnostic. No peer dependency conflicts. |
+| xlsx (SheetJS) | 0.20.3 | TypeScript ~5.9 compatible — types bundled in package. No `@types/xlsx` needed. |
+| Recharts | ^3.7.0 | Adding new `<Bar>` data keys to existing chart is backward-compatible. No API changes. |
+| Convex | ^1.31.7 | `ctx.scheduler.runAfter` available since Convex 0.x — fully supported. `"use node"` fetch with `Cookie` header — verified via GoBiz integration pattern. |
 
 ---
 
 ## Installation
 
 ```bash
-# The only new package
+# The only new dependency for v1.4
 npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 
-# Verify nothing broke
+# Verify installation
 npm run type-check
 npm run build
 ```
 
-After install, `package.json` will show:
-```json
-"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
-```
-
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| SheetJS 0.20.3 (CDN tarball) | ExcelJS 4.4.0 (npm) | Only if you need pixel-perfect Excel formatting (cell colors, merged cells, print layout). For data import/export templates, SheetJS is simpler and smaller. |
-| Client-side parsing only | Convex action with `"use node"` + `xlsx` | Only if parsing logic is too complex for browser (e.g., password-protected files, macro-enabled .xlsm). Not the case here. |
-| `React.lazy()` for upload component | Include in main bundle | Only if consignment upload is used so frequently that lazy load flicker is unacceptable. For infrequent admin uploads, lazy loading is always preferable. |
+No dev dependencies needed.
 
 ---
 
 ## Sources
 
-- SheetJS official docs (current): [Installation for Frameworks/Bundlers](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/) — HIGH confidence
-- SheetJS official docs: [Vite integration guide](https://docs.sheetjs.com/docs/demos/frontend/bundler/vitejs/) — HIGH confidence
-- SheetJS official docs: [React integration](https://docs.sheetjs.com/docs/demos/frontend/react/) — HIGH confidence
-- SheetJS CDN: [Version 0.20.3 tarball](https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz) — HIGH confidence
-- Convex official docs: [File Storage - Upload Files](https://docs.convex.dev/file-storage/upload-files) — HIGH confidence (verified; not used for this feature but architecture decision documented)
-- Codebase analysis: `src/components/salesAnalytics/SalesChart.tsx`, `package.json`, `convex/http.ts` — HIGH confidence
-- ExcelJS bundle size: [GitHub Issue #1236](https://github.com/exceljs/exceljs/issues/1236), [Bundlephobia](https://bundlephobia.com/package/exceljs) — MEDIUM confidence (community reports, consistent across multiple sources)
+- SheetJS installation (frameworks/bundlers): [https://docs.sheetjs.com/docs/getting-started/installation/frameworks/](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/) — version 0.20.3, CDN tarball method confirmed — HIGH confidence
+- SheetJS React integration: [https://docs.sheetjs.com/docs/demos/frontend/react/](https://docs.sheetjs.com/docs/demos/frontend/react/) — `ArrayBuffer` read pattern confirmed — HIGH confidence
+- Convex actions + Node runtime: [https://docs.convex.dev/functions/actions](https://docs.convex.dev/functions/actions) — `"use node"` + `fetch` with headers confirmed — HIGH confidence
+- Convex cron jobs: [https://docs.convex.dev/scheduling/cron-jobs](https://docs.convex.dev/scheduling/cron-jobs) — `internalAction` scheduling confirmed — HIGH confidence
+- Convex best practices: [https://docs.convex.dev/understanding/best-practices/](https://docs.convex.dev/understanding/best-practices/) — scheduler chain pattern for long-running async work confirmed — HIGH confidence
+- Existing codebase: `convex/integrations/grabfood/adapter.ts`, `convex/integrations/gobiz/config.ts`, `convex/integrations/registry.ts`, `convex/http.ts`, `convex/crons.ts`, `package.json` — verified directly — HIGH confidence
+- GrabFood API reference: `docs/GRABFOOD_API.md` — OAuth2 client credentials, endpoint paths, 1h token expiry confirmed — HIGH confidence
+- BigSeller API reference: `docs/BIGSELLER_PROFIT_API.md` — cookie auth, sync-first workflow, 31-day limit, async duration confirmed — HIGH confidence
 
 ---
-*Stack research for: v1.3 Consignment Excel Upload and Analytics Extension*
-*Researched: 2026-02-22*
+
+*Stack research for: Frollie Recipe Master v1.4 — Sales & Channel Integration*
+*Researched: 2026-02-25*
