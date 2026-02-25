@@ -1044,49 +1044,27 @@ export const loginWithCredentials = action({
     }
 
     const PORTAL_ORIGIN = "https://portal.gofoodmerchant.co.id";
-    const BASE_HEADERS = {
-      "Content-Type": "application/json",
-      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-      "origin": PORTAL_ORIGIN,
-      "referer": `${PORTAL_ORIGIN}/`,
-    };
 
-    // Step 1: Announce email to initiate the login challenge
-    try {
-      const step1 = await fetch("https://api.gobiz.co.id/goid/login/request", {
-        method: "POST",
-        headers: BASE_HEADERS,
-        body: JSON.stringify({
-          email,
-          login_type: "password",
-          client_id: "go-biz-web-new",
-        }),
-      });
-      if (!step1.ok) {
-        const errText = await step1.text().catch(() => "");
-        return {
-          success: false,
-          error: `GoBiz login/request failed (${step1.status})${errText ? `: ${errText}` : ""}`,
-        };
-      }
-    } catch (err) {
-      return {
-        success: false,
-        error: `GoBiz login/request failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-
-    // Step 2: Submit password to get tokens
+    // /goid/token uses application/x-www-form-urlencoded (JSON body → 400 missing_field)
+    // Sandbox confirmed: form-urlencoded reaches auth (401) vs JSON stuck at field validation (400)
     let response: Response;
     try {
+      const formBody = new URLSearchParams({
+        grant_type: "password",
+        client_id: "go-biz-web-new",
+        email,
+        password,
+      }).toString();
+
       response = await fetch("https://api.gobiz.co.id/goid/token", {
         method: "POST",
-        headers: BASE_HEADERS,
-        body: JSON.stringify({
-          client_id: "go-biz-web-new",
-          grant_type: "password",
-          data: { email, password },
-        }),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+          "origin": PORTAL_ORIGIN,
+          "referer": `${PORTAL_ORIGIN}/`,
+        },
+        body: formBody,
       });
     } catch (err) {
       return {
