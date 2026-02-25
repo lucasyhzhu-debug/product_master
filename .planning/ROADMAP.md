@@ -444,7 +444,7 @@ Plans:
 | 23. Bundle Size & Lazy Routes | v1.3 | 3/3 | Complete | 2026-02-23 |
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
-| 26. Platform Auth & Schema Foundation | 5/5 | Complete   | 2026-02-25 | - |
+| 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | v1.4 | 0/3 | Planned | - |
 | 28. BigSeller Integration | v1.4 | 0/TBD | Not started | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
