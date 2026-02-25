@@ -1,64 +1,70 @@
 # Requirements: Frollie Recipe Master
 
-**Defined:** 2026-02-22
-**Milestone:** v1.3 GoFood, Kitchen & Consignment
+**Defined:** 2026-02-25
+**Milestone:** v1.4 Sales & Channel Integration
 **Core Value:** Production reliability — single source of truth for recipes, orders, kitchen production, and inventory
 
-## v1.3 Requirements
+## v1.4 Requirements
 
-Requirements for milestone v1.3. Each maps to roadmap phases (19–22).
+Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
-### GoFood Depot Management
+### Platform Authentication
 
-- [x] **GF-02**: Admin can configure per-outlet product mappings for each GoFood depot (outlet selector in mapping tab; new outlets default to previous depot's mapping)
-- [x] **GF-03**: Each GoFood depot displays current stock level; alert fires when any depot drops below 5 total products remaining
-- [x] **GF-04**: Depot restock suggestion shown per depot: n+1 avg last 3 days; n+2 on Fri/Sat; Monday reset to previous Thursday's total
-- [x] **GF-05**: When `seedFinishedGoodsLocations` has not been run, an admin-visible warning appears on the GoFood depot page instead of a silent skip
+- [ ] **AUTH-01**: Admin can one-click refresh GoBiz token via password grant (email/password stored in Convex env vars, no browser paste required)
+- [ ] **AUTH-02**: Admin can paste BigSeller muc_token once; system stores it with 30-day expiry countdown, auto-refreshes on each sync, and shows dashboard warning when < 5 days remaining
+- [ ] **AUTH-03**: GrabFood OAuth2 token resolves on-demand when any GrabFood action is triggered (no cron, no manual paste — fetches fresh token lazily via resolveToken())
+- [ ] **AUTH-04**: Unified credential health panel in Sales Analytics Settings shows connection status (green/yellow/red) for all 3 platforms (GoBiz, GrabFood, BigSeller) — extends existing settings panel
 
-### Kitchen Production Targets & Overhaul
+### GrabFood POS Integration
 
-- [x] **KIT-09**: Default daily production target configurable by manager on the kitchen page (default: 110 Original singles + 30 Original triples = 140 total balls)
-- [x] **KIT-12**: Kitchen view displays today's production targets (ball totals by type + packaging breakdown) driven by dispatch plan via BOM; fallback to configured defaults when no plan exists
-- [x] **KIT-13**: Kitchen view simplified: boxing/stickering columns removed; full-screen production-focused layout with collapsible order context toggle
-- [x] **KIT-14**: End-of-shift input records produced units by product type + optional waste by reason (QA/testing, spoilage, waste); submission adds produced quantities to Finished Goods Inventory at Kitchen location
-- [x] **KIT-15**: Two-step end-of-shift confirmation: review summary screen before commit, success summary screen after submit
-- [x] **KIT-16**: Shift production records stored per shift (date, submitted by, produced quantities, waste breakdown); viewable by managers
-- [x] **KIT-17**: Manager can edit past shift records; edit triggers inventory impact confirmation ("this will adjust inventory by N units — confirm?")
-- [x] **KIT-18**: Manager can override today's production targets on the kitchen page (per-day only, does not change configured defaults)
+- [ ] **GF-06**: Admin can manually trigger GrabFood order history sync (button pull, not cron) that fetches paginated orders via GET /partner/v1/orders per outlet, stores in grabfoodOrders table, and bridges to externalRevenue for analytics
+- [ ] **GF-07**: Manager can view GrabFood store status (OPEN/CLOSED/PAUSED) per outlet, and one-click pause (30/60/120 min) or unpause any outlet from internal system
+- [ ] **GF-08**: Manager can toggle GrabFood menu item availability (AVAILABLE/UNAVAILABLE) via batch API; requires initial grabItemID mapping setup per outlet
 
-### Consignment Upload
+### BigSeller Integration
 
-- [ ] **CON-01**: User can upload consignment sales via Excel (bulk summary: product + qty sold + qty returned + revenue per outlet per date range), with row-level validation errors and preview before commit
-- [ ] **CON-02**: User can upload consignment sales via Excel (detail format: per-transaction ID with product line items), with row-level validation and preview
-- [ ] **CON-03**: User can download a pre-formatted Excel template containing both Bulk Summary and Transaction Detail sheets with example rows and no merged cells
-- [ ] **CON-04**: User can view upload history (audit log per outlet: status, row count, date uploaded)
-- [ ] **CON-05**: User can delete a past upload batch and system reverses the associated revenue rows
+- [ ] **BS-01**: Admin can manually trigger BigSeller sync (button, not cron); system calls sync/task/create.json, scheduler-chain polls every 60s until taskStatus="complete", then pulls per-order data via pageList with full pagination
+- [ ] **BS-02**: Per-order data stored in bigsellerOrders table with SKU breakdown (skuVoList), platform (shopee/tokopedia), shop-level breakdown, and all fee fields; bridges to externalRevenue for analytics
+- [ ] **BS-03**: Admin can map BigSeller SKU codes (e.g., FRO-DubChe-Reg1) to internal menuProducts for unified per-product reporting across channels
+
+### Consignment Settlements
+
+- [ ] **CON-01**: Admin can manage consignment outlets (CRUD) with configurable rev sharing percentage per outlet (e.g., Goldfinch 10%, Tamtem 10%)
+- [ ] **CON-02**: Admin can enter consignment settlement records: select outlet, enter period (date range), enter total revenue; system auto-calculates rev sharing and payment to Frollie based on outlet's configured percentage
+- [ ] **CON-03**: Admin can mark settlement as paid with payment date; system tracks payment status per settlement period
+- [ ] **CON-04**: Consignment page shows running totals per outlet and settlement history with status
 
 ### Sales Analytics
 
-- [ ] **ANLY-01**: Each consignment outlet appears as its own segment in Sales Analytics stacked bar charts; segments only shown when revenue data exists for that outlet
+- [ ] **ANLY-01**: Each consignment outlet (Goldfinch, Tamtem) appears as its own segment in Sales Analytics stacked bar charts; segments only shown when revenue data exists for that outlet
 - [ ] **ANLY-02**: Sales Analytics displays a lifetime units sold headline counter with per-product breakdown table across all channels
-- [ ] **ANLY-03**: Lifetime totals show per-channel breakdown (GoFood, K3Mart, Direct, and each Consignment outlet separately)
+- [ ] **ANLY-03**: Unified multi-channel Sales Analytics view with all channels (GoFood × 3, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment outlets) in one stacked bar chart with multi-select channel filter
 
 ## Future Requirements
 
-Acknowledged but deferred to v1.4+.
+Acknowledged but deferred to v1.5+.
 
-### GoFood / API
+### GrabFood (v1.5+)
 
-- **GF-06**: GoFood order acceptance via GoFood Facilitator Model (out of scope — requires partnership)
-- **GF-07**: GoBiz official OAuth2 migration (out of scope — GoBiz stopped issuing new client credentials)
+- **GF-09**: GrabFood menu sync status tracking (trace job result after batch update) — add after item toggle works
+- **GF-10**: GrabFood operating hours management via API — use GrabFood portal for now
+- **GF-11**: GrabFood webhook real-time order intake — requires Facilitator Model partnership
 
-### Consignment (v1.4+)
+### BigSeller (v1.5+)
 
-- **CON-06**: Consignment outlet CRUD page with contact info and commission rates (defer — string name sufficient for 2–3 outlets)
-- **CON-07**: Period gap indicator per outlet showing missing upload windows (medium complexity; useful but not blocking)
-- **CON-08**: Automated settlement reconciliation (explicitly out of scope per PROJECT.md)
+- **BS-04**: Automated daily BigSeller cron sync — deferred; manual trigger sufficient; 8-min sync + one-at-a-time constraint requires careful scheduling
+- **BS-05**: BigSeller inventory sync to Shopee/Tokopedia (stock push) — deferred until COGS configured in BigSeller
+- **BS-06**: BigSeller period-over-period comparison (growthRatio from API) — nice-to-have after base data flows
 
-### Analytics (v1.4+)
+### Analytics (v1.5+)
 
-- **ANLY-04**: Pre-aggregated lifetime sales cache table (defer — add at ~50K externalRevenue rows)
-- **ANLY-05**: Export Sales Analytics to CSV/Excel (separate reporting page — v1.4)
+- **ANLY-04**: Pre-aggregated lifetime sales cache table — defer until ~50K externalRevenue rows
+- **ANLY-05**: Export Sales Analytics to CSV/Excel — separate reporting feature
+- **ANLY-06**: Per-channel COGS and true profitability view — requires BigSeller COGS setup + ingredient cost attribution
+
+### Testing (v1.5+)
+
+- **E2E-01 to E2E-04**: Playwright E2E tests — deferred from v1.3
 
 ## Out of Scope
 
@@ -66,17 +72,31 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| GoFood Facilitator Model (order acceptance) | Requires GoFood partnership; massive scope |
-| Automated settlement reconciliation | Production system, not accounting; export summaries sufficient |
-| Full double-entry accounting for consignment | Out of scope per PROJECT.md |
-| Per-unit consignment serialization | Batch tracking sufficient for product at this price point |
-| Consignment outlet CRUD page | String name sufficient for Legato + 1–2 others; build when commission rates needed |
-| Frontend food ordering platform API integration | Future milestone; manual consignment upload covers current need |
-| Sales Analytics export to CSV | v1.4; extend once consignment data is validated |
+| GrabFood Facilitator Model (order acceptance) | Requires GrabFood partnership; massive scope |
+| GrabFood campaign management | Requires special partner scope; use GrabFood portal |
+| GrabFood dine-in vouchers | Frollie outlets are delivery-only |
+| BigSeller inventory sync | COGS not configured; premature |
+| BigSeller daily cron auto-sync | Manual trigger sufficient; one-sync-at-a-time constraint |
+| BigSeller auto-login (CAPTCHA blocks it) | Login form has visual CAPTCHA; paste-once with 30-day auto-refresh is acceptable |
+| Automated settlement reconciliation | Production system, not accounting; export summaries |
+| Full double-entry accounting | Out of scope per PROJECT.md |
+| Per-unit consignment serialization | Batch tracking sufficient at this price point |
+| Consignment Excel upload (full CON-01–05 from v1.3) | Replaced by simpler manual settlement entry form |
+| Consignment inventory deduction | Consignment is separate domain; don't touch productInventory |
+| E2E Playwright tests | Deferred to v1.5; API integrations are v1.4 priority |
 
-## Planning Note
+## Architecture Decisions (v1.4)
 
-All UI phases use the `/frontend-design` skill for holistic UI definition before implementation waves begin.
+| Decision | Rationale |
+|----------|-----------|
+| Option A: Lean Completion | Cron pull for data sync, manual trigger buttons, no real-time webhooks |
+| No cron jobs for data sync | All syncs are manual-trigger (button press). No automatic background pulls. |
+| GrabFood token refresh on-demand | resolveToken() fetches lazily when action used. No 45-min cron. Already scaffolded. |
+| GoBiz auto-login via password grant | Discovered password grant endpoint; no CAPTCHA. Store email/password in env vars. |
+| BigSeller "paste once, forget" | CAPTCHA blocks auto-login. JWT cookie lasts 30 days, auto-refreshes on use. |
+| BigSeller skip daily stats table | Derive aggregates from per-order data. No separate bigsellerDailyStats table. |
+| Consignment manual form (not Excel) | Simple settlement entry replaces complex CON-01–05 Excel upload. Rev share % per outlet. |
+| Extend existing credential health panel | Sales Analytics Settings already has platform connections. Add GrabFood + BigSeller. |
 
 ## Traceability
 
@@ -84,32 +104,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GF-02 | Phase 19 | Complete |
-| GF-03 | Phase 19 | Complete |
-| GF-04 | Phase 19 | Complete |
-| GF-05 | Phase 19 | Complete |
-| KIT-09 | Phase 20 | Complete |
-| KIT-12 | Phase 20 | Complete |
-| KIT-13 | Phase 20 | Complete |
-| KIT-14 | Phase 20 | Complete |
-| KIT-15 | Phase 20 | Complete |
-| KIT-16 | Phase 20 | Complete |
-| KIT-17 | Phase 20 | Complete |
-| KIT-18 | Phase 20 | Complete |
-| CON-01 | Phase 21 | Pending |
-| CON-02 | Phase 21 | Pending |
-| CON-03 | Phase 21 | Pending |
-| CON-04 | Phase 21 | Pending |
-| CON-05 | Phase 21 | Pending |
-| ANLY-01 | Phase 22 | Pending |
-| ANLY-02 | Phase 22 | Pending |
-| ANLY-03 | Phase 22 | Pending |
+| AUTH-01 | TBD | Pending |
+| AUTH-02 | TBD | Pending |
+| AUTH-03 | TBD | Pending |
+| AUTH-04 | TBD | Pending |
+| GF-06 | TBD | Pending |
+| GF-07 | TBD | Pending |
+| GF-08 | TBD | Pending |
+| BS-01 | TBD | Pending |
+| BS-02 | TBD | Pending |
+| BS-03 | TBD | Pending |
+| CON-01 | TBD | Pending |
+| CON-02 | TBD | Pending |
+| CON-03 | TBD | Pending |
+| CON-04 | TBD | Pending |
+| ANLY-01 | TBD | Pending |
+| ANLY-02 | TBD | Pending |
+| ANLY-03 | TBD | Pending |
 
 **Coverage:**
-- v1.3 requirements: 20 total (GF-02–05, KIT-09/12–18, CON-01–05, ANLY-01–03)
-- Mapped to phases: 20
-- Unmapped: 0 ✓
+- v1.4 requirements: 17 total
+- Mapped to phases: 0 (awaiting roadmap)
+- Unmapped: 17
 
 ---
-*Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 — 6 KIT requirements added after Phase 20 context discussion*
+*Requirements defined: 2026-02-25*
+*Last updated: 2026-02-25 after requirements scoping session*
