@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -12,13 +12,11 @@ import {
   useSyncK3MartSales,
   useSyncGoBiz,
   useSyncInternalOrders,
-  useSyncHealthStatus,
-  useCredentialStatusEnhanced,
 } from "@/hooks/convex";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
+import { BigSellerTokenDialog } from "./BigSellerTokenDialog";
 import { IntegrationHealthCard } from "./IntegrationHealthCard";
-import { PLATFORMS } from "../../../convex/integrations/registry";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 export function SettingsTab() {
@@ -29,27 +27,20 @@ export function SettingsTab() {
   const [syncingInternal, setSyncingInternal] = useState(false);
   const [credDialogOpen, setCredDialogOpen] = useState(false);
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
+  const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
 
-  // Fetch data
-  const { data: outlets, isLoading: loadingOutlets } =
-    useExternalOutlets();
-
-  // Sync health status (public, no auth)
-  const { data: syncHealthStatus } = useSyncHealthStatus();
-
-  // Credential status (admin-only -- skip for non-admin to avoid auth error)
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const canViewHealth = isAdmin || isManager;
 
-  const { data: k3CredStatus } = useCredentialStatusEnhanced(
-    "k3mart",
-    isAdmin ? user?.token : undefined
+  // Registry-driven health status for all 6 platforms (Plan 01 query)
+  const healthData = useQuery(
+    api.platformCredentials.getHealthStatusAll,
+    canViewHealth && user?.token ? { token: user.token } : "skip"
   );
-  const { data: gobizCredStatus } = useCredentialStatusEnhanced(
-    "gobiz",
-    isAdmin ? user?.token : undefined
-  );
+
+  // Fetch data
+  const { data: outlets, isLoading: loadingOutlets } = useExternalOutlets();
 
   // Mutations
   const toggleOutletActive = useMutation(
@@ -149,64 +140,106 @@ export function SettingsTab() {
     }
   };
 
+  // Registry-driven action dispatcher based on authStrategy
+  const handleAction = (platformId: string, authStrategy: string) => {
+    switch (authStrategy) {
+      case "password_grant":
+        setGobizDialogOpen(true);
+        break;
+      case "paste_token":
+        setBigsellerDialogOpen(true);
+        break;
+      case "pos_login":
+        setCredDialogOpen(true);
+        break;
+      // client_credentials and session_auth have no dialog
+    }
+  };
+
+  // Find BigSeller reconnect steps from health data (passed to BigSellerTokenDialog)
+  const bigsellerHealth = healthData?.find((h) => h.platformId === "bigseller");
+
   return (
     <div className="space-y-6">
-      {/* Integration Health Dashboard */}
+      {/* Integration Health Dashboard — registry-driven, 6 platforms */}
       {canViewHealth && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <IntegrationHealthCard
-            platformId="k3mart"
-            platformMeta={PLATFORMS.k3mart}
-            syncHealth={syncHealthStatus?.k3mart}
-            credentialStatus={k3CredStatus ?? undefined}
-            isAdmin={isAdmin}
-            onSyncNow={handleSyncK3MartSales}
-            onConfigure={() => setCredDialogOpen(true)}
-            isSyncing={syncingK3MartSales}
-            syncLabel="Sync Sales"
-            onSecondarySync={handleDiscoverK3MartOutlets}
-            secondarySyncLabel="Refresh Stores"
-            isSecondarySyncing={discoveringK3Mart}
-          />
+        <div>
+          <h3 className="text-sm font-semibold mb-3">Platform Health</h3>
+          {healthData === undefined ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2 rounded-lg border overflow-hidden">
+              {healthData.map((health) => (
+                <IntegrationHealthCard
+                  key={health.platformId}
+                  health={health}
+                  onAction={() => handleAction(health.platformId, health.authStrategy)}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-          <IntegrationHealthCard
-            platformId="gobiz"
-            platformMeta={PLATFORMS.gobiz}
-            syncHealth={syncHealthStatus?.gobiz}
-            credentialStatus={gobizCredStatus ?? undefined}
-            isAdmin={isAdmin}
-            onSyncNow={handleSyncGoBiz}
-            onConfigure={() => setGobizDialogOpen(true)}
-            isSyncing={syncingGoBiz}
-            syncLabel="Sync Journals"
-          />
-
-          <IntegrationHealthCard
-            platformId="internal"
-            platformMeta={PLATFORMS.internal}
-            syncHealth={syncHealthStatus?.internal}
-            credentialStatus={undefined}
-            isAdmin={isAdmin}
-            onSyncNow={handleSyncInternal}
-            isSyncing={syncingInternal}
-          />
+      {/* Sync actions section (K3Mart, GoBiz, Internal) */}
+      {canViewHealth && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Sync Actions</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleSyncK3MartSales}
+              disabled={syncingK3MartSales || discoveringK3Mart}
+              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              {syncingK3MartSales ? "Syncing K3 Mart..." : "Sync K3 Mart Sales"}
+            </button>
+            <button
+              onClick={handleDiscoverK3MartOutlets}
+              disabled={discoveringK3Mart || syncingK3MartSales}
+              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              {discoveringK3Mart ? "Discovering..." : "Refresh K3 Mart Stores"}
+            </button>
+            <button
+              onClick={handleSyncGoBiz}
+              disabled={syncingGoBiz}
+              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              {syncingGoBiz ? "Syncing GoBiz..." : "Sync GoBiz Journals"}
+            </button>
+            <button
+              onClick={handleSyncInternal}
+              disabled={syncingInternal}
+              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              {syncingInternal ? "Syncing..." : "Sync Internal Orders"}
+            </button>
+          </div>
         </div>
       )}
 
       {/* Admin-only dialogs */}
-      {isAdmin && (
+      {isAdmin && user?.token && (
         <>
           <K3MartCredentialsDialog
             open={credDialogOpen}
             onOpenChange={setCredDialogOpen}
-            currentEmail={k3CredStatus?.email}
           />
           <GoBizTokenDialog
             open={gobizDialogOpen}
             onOpenChange={setGobizDialogOpen}
-            hasExistingToken={gobizCredStatus?.hasToken}
-            tokenExpiresIn={gobizCredStatus?.tokenExpiresIn}
-            hasRefreshToken={gobizCredStatus?.hasRefreshToken}
+            authToken={user.token}
+          />
+          <BigSellerTokenDialog
+            open={bigsellerDialogOpen}
+            onClose={() => setBigsellerDialogOpen(false)}
+            authToken={user.token}
+            reconnectSteps={bigsellerHealth?.reconnectSteps ?? []}
           />
         </>
       )}
@@ -244,49 +277,49 @@ export function SettingsTab() {
               </thead>
               <tbody>
                 {outlets.map((outlet) => (
-                    <tr key={outlet._id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-2">
-                        <Badge
-                          variant="outline"
-                          className={
-                            outlet.source === "k3mart"
-                              ? "border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400"
-                              : outlet.source === "internal"
-                              ? "border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400"
-                              : "border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400"
-                          }
-                        >
-                          {outlet.source === "k3mart" ? "K3 Mart" : outlet.source === "internal" ? "Internal" : "GoBiz"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-2 font-mono text-xs">
-                        {outlet.externalId}
-                      </td>
-                      <td className="py-3 px-2">{outlet.name}</td>
-                      <td className="py-3 px-2">
-                        <Switch
-                          checked={outlet.isActive}
-                          onCheckedChange={() =>
-                            handleToggleOutlet(outlet._id, outlet.isActive)
-                          }
-                        />
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">
-                        {outlet.lastSyncAt
-                          ? new Date(outlet.lastSyncAt).toLocaleString(
-                              "id-ID",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )
-                          : "\u2014"}
-                      </td>
-                    </tr>
-                  )
-                )}
+                  <tr key={outlet._id} className="border-b hover:bg-muted/50">
+                    <td className="py-3 px-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          outlet.source === "k3mart"
+                            ? "border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400"
+                            : outlet.source === "internal"
+                            ? "border-emerald-500 dark:border-emerald-600 text-emerald-700 dark:text-emerald-400"
+                            : "border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400"
+                        }
+                      >
+                        {outlet.source === "k3mart"
+                          ? "K3 Mart"
+                          : outlet.source === "internal"
+                          ? "Internal"
+                          : "GoBiz"}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-2 font-mono text-xs">
+                      {outlet.externalId}
+                    </td>
+                    <td className="py-3 px-2">{outlet.name}</td>
+                    <td className="py-3 px-2">
+                      <Switch
+                        checked={outlet.isActive}
+                        onCheckedChange={() =>
+                          handleToggleOutlet(outlet._id, outlet.isActive)
+                        }
+                      />
+                    </td>
+                    <td className="py-3 px-2 text-muted-foreground">
+                      {outlet.lastSyncAt
+                        ? new Date(outlet.lastSyncAt).toLocaleString("id-ID", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "\u2014"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
