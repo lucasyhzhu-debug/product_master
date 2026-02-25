@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: 4 of 4 complete
-Status: Complete — All 4 plans complete (gap closure plans 04 added), ready for merge to main
-Last activity: 2026-02-25 — Plan 04 complete (2 tasks, 2 commits, 5 min)
+Plan: 5 of 5 complete
+Status: Complete — All 5 plans complete (gap closure plans 04 and 05 added), ready for merge to main
+Last activity: 2026-02-25 — Plan 05 complete (2 tasks, 2 commits, 4 min)
 
-Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (4/4 plans done)
+Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 complete (5/5 plans done)
 
 ## Performance Metrics
 
@@ -50,6 +50,8 @@ Key decisions affecting v1.4 phases:
 - [Phase 26-04]: GoBiz loginWithCredentials body is flat — email/password at top-level, no nested data key
 - [Phase 26-04]: GoBiz error handler reads response body and surfaces error_description for admin visibility
 - [Phase 26-04]: BigSeller uid resolved via find() across [uid, user_id, sub, id] JWT claim keys
+- [Phase 26-05]: syncHistory initialized as [] before branch logic — always_green and token_expiry platforms get empty array automatically
+- [Phase 26-05]: SettingsTab passes full health object to IntegrationHealthCard — syncHistory flows through without SettingsTab changes
 
 ### Pending Todos
 
@@ -65,6 +67,6 @@ Key decisions affecting v1.4 phases:
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: Completed 26-04-PLAN.md — GoBiz credential body fix, BigSeller uid multi-key lookup
+Stopped at: Completed 26-05-PLAN.md — Restored expand-to-show-sync-log on K3Mart and GoBiz platform cards
 Resume file: None
-Resume notes: Phase 26 complete (all 4 plans). Merge gsd/phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.
+Resume notes: Phase 26 complete (all 5 plans). Merge gsd/phase-26-platform-auth-schema to main, then update CHANGELOG and start Phase 27.
