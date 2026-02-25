@@ -124,6 +124,15 @@ export const saveBigSellerToken = action({
       tokenExpiresAt, // actual JWT exp — Task 1 added this optional param
     });
 
+    // Record token paste in sync history so it appears in the platform card
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "bigseller" as const,
+      syncType: "token_refresh" as const,
+      status: "success" as const,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
+
     return {
       success: true as const,
       daysRemaining,

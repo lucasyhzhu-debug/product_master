@@ -1113,6 +1113,14 @@ export const loginWithCredentials = action({
               bearerToken: `Bearer ${refreshData.access_token}`,
               refreshToken: refreshData.refresh_token ?? storedRefreshToken,
             });
+            // Record successful token refresh in sync history
+            await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+              source: "gobiz" as const,
+              syncType: "token_refresh" as const,
+              status: "success" as const,
+              timestamp: Date.now(),
+              triggeredBy: "system",
+            });
             return { success: true as const };
           }
         }
@@ -1133,6 +1141,14 @@ export const loginWithCredentials = action({
         lastRefreshStatus: "error",
         lastRefreshError: "No refresh_token in DB and GOBIZ_EMAIL/PASSWORD env vars not set",
       });
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: "No refresh_token in DB and GOBIZ_EMAIL/PASSWORD env vars not set",
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
       return {
         success: false,
         error:
@@ -1143,6 +1159,14 @@ export const loginWithCredentials = action({
     try {
       const newToken = await loginViaGoID(ctx, email, password);
       if (newToken) {
+        // Record successful password grant login in sync history
+        await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+          source: "gobiz" as const,
+          syncType: "token_refresh" as const,
+          status: "success" as const,
+          timestamp: Date.now(),
+          triggeredBy: "system",
+        });
         return { success: true as const };
       }
 
@@ -1152,14 +1176,31 @@ export const loginWithCredentials = action({
         lastRefreshStatus: "error",
         lastRefreshError: "GoID 2-step password login failed",
       });
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: "GoID 2-step password login failed",
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
       return {
         success: false,
         error: "GoID login failed. Check that GOBIZ_EMAIL and GOBIZ_PASSWORD are correct in Convex Dashboard.",
       };
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "gobiz" as const,
+        syncType: "token_refresh" as const,
+        status: "error" as const,
+        errorMessage: errMsg,
+        timestamp: Date.now(),
+        triggeredBy: "system",
+      });
       return {
         success: false,
-        error: `GoBiz login error: ${err instanceof Error ? err.message : String(err)}`,
+        error: `GoBiz login error: ${errMsg}`,
       };
     }
   },

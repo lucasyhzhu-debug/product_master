@@ -1093,7 +1093,7 @@ export default defineSchema({
     source: externalSource,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual"), v.literal("cron")),
+    syncType: v.union(v.literal("manual"), v.literal("cron"), v.literal("token_refresh")),
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),

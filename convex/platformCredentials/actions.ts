@@ -135,6 +135,15 @@ async function performK3MartRefresh(
       }
     );
 
+    // Record token refresh in sync history
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "k3mart" as const,
+      syncType: "token_refresh" as const,
+      status: "success" as const,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
+
     return { success: true, tokenExpiresAt };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -148,6 +157,16 @@ async function performK3MartRefresh(
         lastRefreshError: errorMsg,
       }
     );
+
+    // Record token refresh failure in sync history
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "k3mart" as const,
+      syncType: "token_refresh" as const,
+      status: "error" as const,
+      errorMessage: errorMsg,
+      timestamp: Date.now(),
+      triggeredBy: "system",
+    });
 
     return { success: false, error: errorMsg };
   }
