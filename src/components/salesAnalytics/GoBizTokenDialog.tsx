@@ -44,7 +44,7 @@ export function GoBizTokenDialog({
   const [error, setError] = useState<string | null>(null);
 
   const saveDirectToken = useProtectedMutation(
-    api.platformCredentials.mutations.saveDirectToken
+    api.platformCredentials.mutations.saveDirectTokenPublic
   );
   const syncGoBiz = useSyncGoBiz();
 

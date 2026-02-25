@@ -84,16 +84,61 @@ export const updateToken = internalMutation({
 });
 
 /**
- * Save a pasted bearer token directly (admin-only).
- * Used for platforms like GoBiz where tokens come from browser DevTools,
- * not from a programmatic login.
+ * Internal: Save a bearer token directly.
+ * Called by actions (GoBiz password grant, BigSeller paste flow) via internal.* path.
+ * Accepts optional tokenExpiresAt — when provided, uses it instead of 6h estimate.
  */
-export const saveDirectToken = mutation({
+export const saveDirectToken = internalMutation({
+  args: {
+    platformId: v.string(),
+    bearerToken: v.string(),
+    refreshToken: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+
+    const now = Date.now();
+    // Use provided expiry if available; fall back to 6h conservative estimate
+    const tokenExpiry = args.tokenExpiresAt ?? (now + 6 * 60 * 60 * 1000);
+
+    const data = {
+      currentToken: args.bearerToken,
+      tokenExpiresAt: tokenExpiry,
+      refreshToken: args.refreshToken,
+      lastRefreshAt: now,
+      lastRefreshStatus: "success" as const,
+      lastRefreshError: undefined,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, data);
+      return existing._id;
+    }
+
+    return await ctx.db.insert("platformCredentials", {
+      platformId: args.platformId,
+      ...data,
+    });
+  },
+});
+
+/**
+ * Public wrapper: Save a pasted bearer token directly (admin-only).
+ * Used by frontend (GoBizTokenDialog) for manual token paste flow.
+ * Delegates to internal saveDirectToken after admin auth check.
+ */
+export const saveDirectTokenPublic = mutation({
   args: {
     token: v.string(),
     platformId: v.string(),
     bearerToken: v.string(),
     refreshToken: v.optional(v.string()),
+    tokenExpiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin"]);
@@ -104,12 +149,12 @@ export const saveDirectToken = mutation({
       .first();
 
     const now = Date.now();
-    // Conservative estimate: GoBiz tokens last ~4-8h, use 6h
-    const estimatedExpiry = now + 6 * 60 * 60 * 1000;
+    // Use provided expiry if available; fall back to 6h conservative estimate
+    const tokenExpiry = args.tokenExpiresAt ?? (now + 6 * 60 * 60 * 1000);
 
     const data = {
       currentToken: args.bearerToken,
-      tokenExpiresAt: estimatedExpiry,
+      tokenExpiresAt: tokenExpiry,
       refreshToken: args.refreshToken,
       lastRefreshAt: now,
       lastRefreshStatus: "success" as const,

@@ -914,7 +914,7 @@ describe("saveDirectToken refresh token", () => {
       return "test-token";
     });
 
-    const credId = await t.mutation(api.platformCredentials.mutations.saveDirectToken, {
+    const credId = await t.mutation(api.platformCredentials.mutations.saveDirectTokenPublic, {
       token,
       platformId: "gobiz",
       bearerToken: "bearer-abc123",
