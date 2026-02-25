@@ -368,3 +368,156 @@ export const autoRefreshToken = internalAction({
 });
 
 // Webhook HTTP handlers live in webhooks.ts (httpAction cannot be in "use node" files).
+
+// ─── TEMPORARY: Remove after API discovery ───────────────────────────────────
+
+/**
+ * TEMPORARY: API discovery action for Phase 27 gate validation.
+ * Exercises all GrabFood Partner API endpoint categories and returns
+ * structured findings for field mapping and merchantID documentation.
+ *
+ * Run via: npx convex run integrations/grabfood/adapter:discoverApi '{}'
+ * Review output in Convex dashboard Logs tab.
+ *
+ * Remove this action after completing 27-01 discovery gate.
+ */
+export const discoverApi = action({
+  args: {
+    merchantID: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results: Record<string, any> = {};
+
+    // ── 1. Token Resolution ──────────────────────────────────────────────────
+    console.log("=== GrabFood API Discovery: Starting ===");
+    const accessToken = await resolveToken(ctx);
+
+    if (!accessToken) {
+      results.token = {
+        success: false,
+        error: "No credentials configured. Add GRAB_CLIENT_ID + GRAB_CLIENT_SECRET via Settings.",
+      };
+      console.log("GATE FAIL: Token resolution failed. Phase 27 deferred.");
+      return { gateDecision: "FAIL", reason: "No token", results };
+    }
+
+    const tokenPreview = accessToken.substring(0, 40) + "...";
+    results.token = { success: true, preview: tokenPreview };
+    console.log("Token resolved OK:", tokenPreview);
+
+    const merchantID = args.merchantID ?? "";
+
+    // ── 2. Order List Endpoint ───────────────────────────────────────────────
+    try {
+      // Last 7 days
+      const toDate = new Date().toISOString();
+      const fromDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      let ordersPath = GRABFOOD_CONFIG.endpoints.ordersList;
+      if (merchantID) {
+        ordersPath += `?merchantID=${encodeURIComponent(merchantID)}&fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}&page=1`;
+      } else {
+        ordersPath += `?fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}&page=1`;
+      }
+
+      console.log("Calling orders endpoint:", ordersPath);
+      const ordersResult = await grabRequest(accessToken, "GET", ordersPath);
+      console.log("Orders endpoint status:", ordersResult.status);
+      console.log("Orders raw response:", JSON.stringify(ordersResult.data, null, 2));
+
+      const orderCount = Array.isArray(ordersResult.data?.orders) ? ordersResult.data.orders.length : 0;
+      const firstOrder = ordersResult.data?.orders?.[0] ?? null;
+      const currencyExponent = firstOrder?.currency?.exponent ?? "N/A (no orders)";
+
+      results.orders = {
+        status: ordersResult.status,
+        ok: ordersResult.ok,
+        orderCount,
+        more: ordersResult.data?.more ?? null,
+        currencyExponent,
+        firstOrderKeys: firstOrder ? Object.keys(firstOrder) : [],
+        firstOrderSample: firstOrder,
+      };
+
+      if (firstOrder) {
+        console.log("First order fields:", JSON.stringify(Object.keys(firstOrder)));
+        console.log("First order currency:", JSON.stringify(firstOrder.currency));
+        console.log("First order price:", JSON.stringify(firstOrder.price));
+        console.log("First order items[0]:", JSON.stringify(firstOrder.items?.[0]));
+        console.log("IDR exponent check:", firstOrder.currency?.exponent, "(expected 0 for IDR = no decimals)");
+      }
+    } catch (err) {
+      results.orders = { error: String(err) };
+      console.log("Orders endpoint error:", err);
+    }
+
+    // ── 3. Store Status Endpoint ─────────────────────────────────────────────
+    if (merchantID) {
+      try {
+        const statusPath = GRABFOOD_CONFIG.endpoints.storeStatus.replace("{merchantID}", merchantID);
+        console.log("Calling store status endpoint:", statusPath);
+        const statusResult = await grabRequest(accessToken, "GET", statusPath);
+        console.log("Store status HTTP:", statusResult.status);
+        console.log("Store status response:", JSON.stringify(statusResult.data, null, 2));
+
+        results.storeStatus = {
+          status: statusResult.status,
+          ok: statusResult.ok,
+          data: statusResult.data,
+        };
+      } catch (err) {
+        results.storeStatus = { error: String(err) };
+        console.log("Store status error:", err);
+      }
+    } else {
+      results.storeStatus = { skipped: "No merchantID provided — pass as arg to test" };
+      console.log("Store status: skipped (no merchantID arg)");
+    }
+
+    // ── 4. Menu Batch Endpoint ───────────────────────────────────────────────
+    try {
+      // Test with empty menuEntities to check accessibility
+      const menuBatchBody = merchantID
+        ? { merchantID, field: "AVAILABILITY", menuEntities: [] }
+        : { field: "AVAILABILITY", menuEntities: [] };
+
+      console.log("Calling menu batch endpoint (empty array probe):", GRABFOOD_CONFIG.endpoints.menuBatch);
+      const menuResult = await grabRequest(accessToken, "PUT", GRABFOOD_CONFIG.endpoints.menuBatch, menuBatchBody);
+      console.log("Menu batch HTTP:", menuResult.status);
+      console.log("Menu batch response:", JSON.stringify(menuResult.data, null, 2));
+
+      results.menuBatch = {
+        status: menuResult.status,
+        ok: menuResult.ok,
+        data: menuResult.data,
+      };
+    } catch (err) {
+      results.menuBatch = { error: String(err) };
+      console.log("Menu batch error:", err);
+    }
+
+    // ── 5. MerchantID Discovery ──────────────────────────────────────────────
+    // GrabFood Partner API does not provide a /merchants listing endpoint.
+    // MerchantIDs must be obtained from the GrabFood Merchant Portal or
+    // from the first webhook/order response (order.merchantID field).
+    results.merchantIDDiscovery = {
+      note: "No /merchants listing endpoint in GrabFood Partner API v1.1.3",
+      instruction: "MerchantIDs must be obtained from GrabFood Merchant Portal or from live order webhooks",
+      providedMerchantID: merchantID || "none provided as arg",
+    };
+    console.log("MerchantID discovery note:", results.merchantIDDiscovery.note);
+
+    // ── 6. Gate Decision ─────────────────────────────────────────────────────
+    const tokenOk = results.token?.success === true;
+    const ordersResponded = results.orders?.status !== undefined;
+    const gateDecision = tokenOk && ordersResponded ? "PASS" : "FAIL";
+
+    console.log("=== GATE DECISION:", gateDecision, "===");
+    console.log("Token OK:", tokenOk);
+    console.log("Orders endpoint responded:", ordersResponded, "(status:", results.orders?.status, ")");
+
+    return {
+      gateDecision,
+      results,
+    };
+  },
+});

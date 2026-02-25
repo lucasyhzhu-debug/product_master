@@ -39,6 +39,10 @@ import type * as integrations_gobiz_adapter from "../integrations/gobiz/adapter.
 import type * as integrations_gobiz_config from "../integrations/gobiz/config.js";
 import type * as integrations_gobiz_helpers from "../integrations/gobiz/helpers.js";
 import type * as integrations_gobiz_mutations from "../integrations/gobiz/mutations.js";
+import type * as integrations_gobiz_testProbe from "../integrations/gobiz/testProbe.js";
+import type * as integrations_grabfood_adapter from "../integrations/grabfood/adapter.js";
+import type * as integrations_grabfood_config from "../integrations/grabfood/config.js";
+import type * as integrations_grabfood_webhooks from "../integrations/grabfood/webhooks.js";
 import type * as integrations_internal_adapter from "../integrations/internal/adapter.js";
 import type * as integrations_internal_config from "../integrations/internal/config.js";
 import type * as integrations_internal_queries from "../integrations/internal/queries.js";
@@ -67,6 +71,7 @@ import type * as lib_costCalculator from "../lib/costCalculator.js";
 import type * as lib_costInvalidation from "../lib/costInvalidation.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hierarchyTraversal from "../lib/hierarchyTraversal.js";
+import type * as lib_jwt from "../lib/jwt.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
@@ -175,6 +180,10 @@ declare const fullApi: ApiFromModules<{
   "integrations/gobiz/config": typeof integrations_gobiz_config;
   "integrations/gobiz/helpers": typeof integrations_gobiz_helpers;
   "integrations/gobiz/mutations": typeof integrations_gobiz_mutations;
+  "integrations/gobiz/testProbe": typeof integrations_gobiz_testProbe;
+  "integrations/grabfood/adapter": typeof integrations_grabfood_adapter;
+  "integrations/grabfood/config": typeof integrations_grabfood_config;
+  "integrations/grabfood/webhooks": typeof integrations_grabfood_webhooks;
   "integrations/internal/adapter": typeof integrations_internal_adapter;
   "integrations/internal/config": typeof integrations_internal_config;
   "integrations/internal/queries": typeof integrations_internal_queries;
@@ -203,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   "lib/costInvalidation": typeof lib_costInvalidation;
   "lib/functions": typeof lib_functions;
   "lib/hierarchyTraversal": typeof lib_hierarchyTraversal;
+  "lib/jwt": typeof lib_jwt;
   "lib/periodRange": typeof lib_periodRange;
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
