@@ -1055,8 +1055,7 @@ export const loginWithCredentials = action({
         body: JSON.stringify({
           client_id: "go-biz-web-new",
           grant_type: "password",
-          email,
-          password,
+          data: { email, password },
         }),
       });
     } catch (err) {
