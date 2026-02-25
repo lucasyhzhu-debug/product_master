@@ -1,18 +1,18 @@
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-02-22)
+See: .planning/PROJECT.md (updated 2026-02-25)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.3 — Phase 24 in progress (ingredient simulation ID linking + restock-kitchen integration)
+**Current focus:** v1.4 — Sales & Channel Integration
 
 ## Current Position
 
-Phase: Phase 24 — Ingredient Simulation Fix + Restock-Kitchen Integration (IN PROGRESS — 2/7 plans executed, UAT gaps being closed)
-Plan: 24-07 complete (gap closure); remaining plans 24-01 through 24-04 unexecuted
-Status: UAT diagnosed with gaps; gap closure plans (24-05, 24-06, 24-07) executed; core plans pending
-Last activity: 2026-02-25 - Completed quick task 28: harden sync-prod-to-dev.sh with auth pre-flight, --no-confirm flag, Windows path guard, post-import spot-check
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-25 — Milestone v1.4 started
 
-Progress (v1.3): [████████████████░░░░] 39/44 plans (89%) — Phase 19 complete (9/9), Phase 20 complete (8/8), Phase 20.1 complete (1/1), Phase 21 complete (11/11), Phase 22 complete (5/5), Phase 23 complete (3/3), Phase 24 in progress (2/7)
+Progress (v1.4): [░░░░░░░░░░░░░░░░░░░░] 0% — Defining requirements
 
 ## Performance Metrics
 

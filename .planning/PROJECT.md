@@ -8,9 +8,15 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.4 Testing & Quality
+## Current Milestone: v1.4 Sales & Channel Integration
 
-**Goal:** Add E2E Playwright test coverage for critical user flows (login, order creation, kitchen shift, restock planner) and integrate into CI for ongoing quality assurance.
+**Goal:** Unify sales data across all channels (GrabFood, Shopee, Tokopedia, Consignment, Direct) with API integrations, manual upload, and a revamped analytics view.
+
+**Target features:**
+- GrabFood POS API: OAuth2 one-click auth, pull order history, inventory read/write, product toggles, outlet pause/unpause
+- BigSeller integration: Shopee + Tokopedia order data (SKUs, volumes, revenue) + shop inventory, mapped to menuProducts
+- Consignment sales upload: Manual Excel upload for consignment POS data (deferred CON-01–05)
+- Sales Analytics revamp: Unified multi-channel sales tracking with all channel data in one view
 
 ## Requirements
 
@@ -72,10 +78,7 @@ Production reliability — the system is the single source of truth for recipes,
 
 ### Active
 
-- [ ] E2E-01: Playwright login flow test (valid PIN, invalid PIN, role redirect) — Phase 26
-- [ ] E2E-02: Playwright order creation E2E (customer select, items, submit, confirm) — Phase 26
-- [ ] E2E-03: Playwright kitchen shift submission E2E (open shift, record production, submit) — Phase 26
-- [ ] E2E-04: Playwright restock planner E2E (view suggestions, adjust quantities) — Phase 26
+(Defined in REQUIREMENTS.md — see v1.4 requirements)
 
 ### Out of Scope
 
@@ -95,8 +98,9 @@ Production reliability — the system is the single source of truth for recipes,
 | Automated settlement reconciliation | Metric flagging sufficient at this scale; CON-04 simplified |
 | Full double-entry accounting for consignment | Production system, not accounting; export summaries to spreadsheets |
 | Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
-| Consignment sales upload (CON-01–05) | Deferred to v1.4+; depends on consignment revenue strategy |
-| Sales Analytics consignment segments (ANLY-01–03) | Deferred to v1.4+; blocked by CON-01–05 |
+| Consignment sales upload (CON-01–05) | Now in scope for v1.4 |
+| Sales Analytics consignment segments (ANLY-01–03) | Now in scope for v1.4 |
+| E2E Playwright tests (E2E-01–04) | Deferred to v1.5; API integrations are v1.4 priority |
 | Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
 | Customer CRM / Sales pipeline | Deferred |
 | Notifications bell (NTF-01) | Deferred |
@@ -166,4 +170,4 @@ Deployed via Vercel with GitHub Actions CI.
 | protectedMutation expanded to orders/ in Phase 25 | Consistency across all mutation patterns; orders/ was last holdout | ✓ Good — uniform auth pattern, type safety improved |
 
 ---
-*Last updated: 2026-02-24 after v1.3 milestone*
+*Last updated: 2026-02-25 after v1.4 milestone start*
