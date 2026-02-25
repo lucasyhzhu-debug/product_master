@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom';
 import { UtensilsCrossed } from 'lucide-react';
 
 const quickLinks = [
-  // BANDWIDTH CONSERVATION: Sales Analytics hidden until March 1st quota reset
-  // { path: '/sales', label: 'Sales' },
+  { path: '/sales', label: 'Sales' },
   { path: '/orders', label: 'Orders' },
   { path: '/kitchen', label: 'Kitchen' },
   { path: '/inventory', label: 'Inventory' },

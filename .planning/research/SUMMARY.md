@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** Frollie Recipe Master — v1.3 Consignment Excel Upload and Analytics Extension
-**Domain:** Excel file import/export, multi-channel sales analytics (FMCG F&B, Indonesian market)
-**Researched:** 2026-02-22
+**Project:** Frollie Recipe Master v1.4 — Sales & Channel Integration
+**Domain:** Multi-channel sales integration (GrabFood POS API, BigSeller marketplace analytics, Consignment Excel upload, Unified Analytics)
+**Researched:** 2026-02-25
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Frollie v1.3 extends an existing Convex + React 19 + TypeScript production system with two new capability clusters: manual consignment sales upload (CON-01/02/03, Phase 21) and lifetime multi-channel analytics (ANLY-01/02, Phase 22). Both features are additive extensions to an already mature codebase — no architectural rethinking is needed. The dominant pattern is to extend the existing `externalRevenue` table with a new `source = "consignment"` literal, reuse existing query shapes, and add two new Convex modules (`consignment/actions.ts`, `consignment/mutations.ts`, `consignment/queries.ts`) plus two new frontend components (`ConsignmentUploadTab`, `LifetimeTab`).
+This milestone extends an existing Convex + React 19 production system with four new capability areas: GrabFood POS store control and order history, BigSeller profit sync covering Shopee and Tokopedia channels, consignment outlet Excel upload, and a unified multi-channel Sales Analytics view. The system already has significant foundational work in place — a GrabFood adapter module with token management and most actions is scaffolded, the `externalRevenue` table with `source` discriminator is the correct analytics hub to extend, and the GoBiz/K3Mart integrations provide proven patterns for external data sync. Only one new dependency is required: SheetJS 0.20.3 from the CDN tarball for client-side Excel parsing.
 
-The single most important architecture decision is to parse Excel files inside a Convex action (Node.js runtime) rather than in a mutation (V8 isolate). Mutations cannot run Node.js modules such as SheetJS. The correct flow is: browser posts raw bytes to an HTTP action endpoint, which passes them to a Convex action for parsing, which then calls a mutation for the transactional database write. For the Excel library, **SheetJS 0.20.3 (CDN tarball) is the single library for both parsing and template generation.** FEATURES.md initially recommended ExcelJS for template generation due to richer styling, but ExcelJS has a confirmed date-parsing bug (issue #2695) in Strict Mode xlsx files — a non-trivial risk given that outlet staff upload files with varied date formats. SheetJS 0.20.3 supports column widths, frozen header rows, bold headers, and cell number formats via cell styles — sufficient for the CON-03 template requirement without the ExcelJS risk. Use SheetJS exclusively; one library, one install.
+The recommended approach is additive and pattern-consistent. Every new external platform follows the established adapter module pattern in `convex/integrations/{platform}/`. All sales events from all channels flow into the existing `externalRevenue` table with a `source` literal — raw platform tables (`grabfoodOrders`, `bigsellerOrders`) are stored separately for drill-down only. BigSeller's multi-minute async sync workflow requires a scheduler-chain polling pattern (not a blocking loop) because Convex actions have a finite execution timeout. Consignment Excel files should be parsed client-side in the browser, with only validated typed JSON submitted to Convex mutations.
 
-The primary risks are data-quality and aggregation correctness rather than technical difficulty. Three risks dominate: (1) Excel date cells from non-technical outlet staff using mixed formats must be parsed with `cellDates: true` and a WIB-aware conversion utility (`new Date("YYYY-MM-DD T00:00:00+07:00").getTime()`), not raw `new Date("YYYY-MM-DD")` which treats dates as UTC midnight; (2) lifetime totals (ANLY-02) must not double-count channels — the `orders` table must be filtered to `channel = "direct"` only, with GoFood/K3Mart/Consignment sourced exclusively from `externalRevenue`; (3) duplicate upload detection (same outlet + date range) must warn before inserting to prevent permanent double-counting in lifetime analytics.
+The primary risks are: GrabFood webhook handler returning 200 after processing (produces duplicate orders from retries); BigSeller sync being triggered while one is already running (silent data gap); incorrect sign handling of BigSeller negative fee fields (inflated profit analytics); GrabFood IDR minor-unit prices being divided by 100 (100x revenue underreporting); and SheetJS numeric coercion failing on Indonesian Rp-formatted cells (NaN propagating into revenue records). Each of these has a clear prevention strategy and must be verified before the relevant phase is considered complete.
 
 ---
 
@@ -19,141 +19,136 @@ The primary risks are data-quality and aggregation correctness rather than techn
 
 ### Recommended Stack
 
-v1.3 requires exactly one new npm dependency. The existing stack (Convex, React 19, TypeScript 5.9, Vite 7, Tailwind + shadcn/ui, Recharts, Sonner, Lucide React) handles everything else without additions or upgrades.
+The existing stack handles all v1.4 requirements without major additions. Convex `"use node"` actions support native `fetch()` with `Cookie` headers (BigSeller auth) and standard OAuth2 flows (GrabFood auth). Recharts is already installed for analytics charts. The only new dependency is SheetJS 0.20.3 installed from the CDN tarball (`npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`) — the npm registry version 0.18.5 is stale and must be avoided. GrabFood has no official JS/TypeScript SDK; native `fetch` via the existing adapter is correct.
 
 **Core technologies:**
+- **SheetJS 0.20.3 (CDN tarball only):** Client-side `.xlsx` parsing for consignment upload — the only browser-compatible maintained Excel parser; named ESM imports tree-shake correctly with Vite 7.x
+- **Convex `ctx.scheduler.runAfter`:** Scheduler-chain polling for BigSeller's 1–10 minute async sync workflow — required because BigSeller does not provide webhooks and Convex action timeouts preclude blocking poll loops
+- **Recharts `^3.7.0` (existing):** Unified analytics charts — additive new `<Bar>` data series for GrabFood, Shopee/Tokopedia, and Consignment channels; no chart library change needed
+- **`platformCredentials` table (existing):** Credential storage for all new platforms — GrabFood OAuth2 tokens and BigSeller JWT cookie follow the same storage pattern as GoBiz
 
-- **SheetJS 0.20.3 (CDN tarball)** — Excel parsing (CON-01/02) AND template generation (CON-03) — the only option that is actively maintained, Vite-compatible via named ESM imports, tree-shakeable to ~180–220KB, and free of the ExcelJS Strict Mode date bug. Install via `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`. Do NOT use `npm install xlsx` (npm registry is stuck at 0.18.5, outdated and unmaintained).
-- **Recharts ^3.7.0 (already installed)** — add one `<Bar dataKey="consignment">` to existing stacked charts; no new chart types, no library version changes needed.
-- **shadcn `<Table>` (already installed)** — per-product lifetime breakdown table (ANLY-02); no TanStack Table or new table library needed.
-- **`React.lazy()`** — lazy-load the ConsignmentUpload component to keep SheetJS out of the initial bundle; consignment upload is an infrequent admin action.
-
-**Critical install note:** The CDN tarball path must be followed exactly. `npm install xlsx` silently installs the abandoned 0.18.5 version. Always verify `package.json` shows `"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"` after install. Run `npm run type-check` and `npm run build` immediately after to confirm no breakage.
+**Critical install note:** Run `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`. Do NOT run `npm install xlsx` — the npm registry version is 2+ years stale and abandoned. Verify `package.json` shows the CDN tarball URL, not a semver string.
 
 ### Expected Features
 
-**Must have (table stakes — Phase 21):**
-- Excel file upload (.xlsx), outlet selector before upload, row preview before commit — industry-standard import UX; missing any of these means data is uploaded silently without staff trust
-- Per-row validation errors with row number and column name — "import failed" with no specifics is unusable
-- Duplicate upload detection with warning — re-uploading the same outlet + period creates permanent double-counting in lifetime analytics
-- Upload history / audit log with delete capability — admin must be able to undo batch mistakes
-- Downloadable template (CON-03) — both Bulk Summary and Transaction Detail sheets, with example rows and no merged cells
+**Must have (table stakes for v1.4 launch):**
+- GrabFood OAuth2 token management with caching — calling the token endpoint per request is explicitly prohibited by GrabFood and risks credential suspension
+- GrabFood outlet store status display (OPEN/CLOSED/PAUSED per outlet) and pause/unpause control — emergency kitchen tool to stop orders when stock runs out
+- GrabFood order history pull and storage — managers need revenue data without logging into the GrabFood Merchant portal
+- GrabFood menu item availability toggle (batch) — prevents overselling out-of-stock items on the platform
+- BigSeller muc_token JWT storage with expiry warning — prerequisite for all BigSeller functionality
+- BigSeller sync trigger + scheduler-chain poll until complete + daily stats and per-order data storage
+- BigSeller Shopee + Tokopedia revenue visible in Sales Analytics
+- Consignment Excel upload with column mapping, row preview table, and per-row validation errors
+- Consignment template download (.xlsx pre-formatted)
+- Unified Sales Analytics with all channels in one view (GoFood x3 existing + GrabFood + Shopee + Tokopedia + Consignment)
+- Lifetime units sold counter with per-product channel breakdown
 
-**Must have (table stakes — Phase 22):**
-- Consignment channel visible in existing Sales Analytics stacked bar charts (ANLY-01) — the entire point of uploading data is to see it alongside other channels
-- Lifetime units sold headline counter + per-product breakdown table (ANLY-02)
+**Should have (differentiators that eliminate portal context-switching):**
+- GrabFood menu sync status tracking — surface PARTIAL_FAILURE results in UI; managers confirm changes propagated
+- BigSeller per-shop breakdown (Frollie-S Shopee vs Frollie-T Tokopedia) in analytics filter
+- Explicit SKU-to-menuProduct mapping table with admin confirmation UI — no silent fuzzy matching
+- BigSeller period-over-period comparison (growthRatio from API response — essentially free to display)
+- Consignment upload history with delete (audit log with batch reversal)
+- Sync health dashboard covering all channels (extend existing GoFood/K3Mart health panel)
 
-**Should have (differentiators — low cost, high value):**
-- Net units auto-calculated on upload (`qtySold - qtyReturned`) — returns are a real consignment reality; manual subtraction is error-prone
-- Revenue per unit derived on upload with implausibility flag (< Rp 1k or > Rp 500k)
-- Format auto-detection (bulk vs detail) from presence of `transactionId` column header
-- Consignment Upload tab placed directly on the SalesAnalytics page — unified entry point, reduces context switching
-- Lifetime totals shown per channel alongside grand total (GoFood / K3Mart / Direct / Consignment)
-
-**Defer (v2+):**
-- Consignment outlet CRUD page — string name is sufficient for 2–3 outlets; build when commission rates or contacts need per-outlet configuration
-- Automated settlement reconciliation — explicitly out of scope per PROJECT.md
-- Period gap indicator per outlet — medium complexity; useful but not blocking
-- Pre-aggregated `lifetimeSalesSummary` cache table — not needed at current scale; add at ~50K `externalRevenue` rows
+**Defer to v1.5+:**
+- GrabFood operating hours management (use GrabFood portal; rare enough that portal access is faster)
+- BigSeller inventory sync to Shopee/Tokopedia (COGS is 0 in BigSeller; premature until configured)
+- Automated BigSeller daily cron without manual trigger (8-minute sync + one-at-a-time constraint requires careful scheduling)
+- GrabFood campaign management (requires special partner scope; use GrabFood portal)
+- Full accounting integration for any channel (out of scope; export summaries for accountant)
 
 ### Architecture Approach
 
-The architecture extends the existing `externalRevenue` unified revenue store rather than creating a separate `consignmentRevenue` table. Adding `v.literal("consignment")` to the `source` union means all existing analytics queries (`getRevenueTimeSeries`, `getDashboardSummaryByPeriod`, `getRevenueByOutlet`) gain consignment data with minimal changes. A new `consignmentUploads` audit table tracks batch-level upload metadata (parallel to how `externalSyncLogs` tracks GoFood/K3Mart sync batches), and individual revenue rows link back via `consignmentUploadId` for batch-level deletion. All schema changes for Phase 21 are additive — no existing data migration required.
+All four features extend a proven architecture pattern: external platforms live in `convex/integrations/{platform}/` adapter modules; all sales events converge in `externalRevenue` with a `source` discriminator; analytics queries read exclusively from `externalRevenue` using the on-demand action pattern (not reactive `useQuery` subscriptions) established in v1.3. Four new schema tables are needed (`grabfoodOrders`, `bigsellerOrders`, `bigsellerDailyStats`, `consignmentUploads`), three new `source` literals (`"grabfood"`, `"bigseller"`, `"consignment"`), and two new frontend pages (`GrabFoodManager.tsx`, `ConsignmentUpload.tsx`). The GrabFood adapter is already mostly built — the missing pieces are webhook persistence, HTTP route registration in `http.ts`, cron wiring in `crons.ts`, and the `syncOrderHistory` pull action. BigSeller is built from scratch following the GoBiz adapter pattern.
 
 **Major components:**
-
-1. **`convex/consignment/actions.ts`** — receives raw Excel bytes (as `number[]` array passed from HTTP action), parses with SheetJS in Node.js runtime, validates rows, calls mutation. Must use static import at top of file (`import * as XLSX from "xlsx"`) — never dynamic import, which fails silently in production per CLAUDE.md Pitfall #8.
-2. **`convex/consignment/mutations.ts`** — transactional writes: upsert `externalOutlets` row for consignment outlet (idempotent), insert `consignmentUploads` audit row at `status: "processing"`, bulk-insert `externalRevenue` rows in chunks (and `externalRevenueItems` for detail format), update audit row to `status: "complete"`.
-3. **`convex/consignment/queries.ts`** — `listUploads`, `getUploadById` for the upload history UI.
-4. **HTTP action in `convex/http.ts`** — POST `/api/consignment-upload` receives multipart file, calls `ctx.runAction`. GET `/api/consignment-template` returns a programmatically generated SheetJS XLSX buffer with `Content-Disposition: attachment` header.
-5. **Extended `convex/externalData/queries.ts`** — extend `getRevenueTimeSeries` and `getDashboardSummaryByPeriod` for `"consignment"` source; add new `getLifetimeTotals` query covering all four channels.
-6. **`src/components/salesAnalytics/ConsignmentUploadTab.tsx`** — outlet picker, file input (`<input type="file" accept=".xlsx">`), preview table, validation error display, upload history list, delete confirmation dialog.
-7. **`src/components/salesAnalytics/LifetimeTab.tsx`** — headline counter ("Units Sold All Time"), per-channel breakdown cards, per-product table (sortable by total units descending).
-
-**Source union extension checklist** — all of the following must be updated when adding `"consignment"`:
-- `externalRevenue.source` union in schema
-- `externalRevenueItems.source` union in schema
-- `externalOutlets.source` union in schema
-- `sourceToPlatform()` mapping function in `externalData/queries.ts`
-- `platforms` arrays in `getRevenueTimeSeries` and `getDashboardSummaryByPeriod`
-- `aggregate()` channel breakdown in `getDashboardSummaryByPeriod`
-
-Missing even one of these creates silent gaps in analytics — no error, just absent data.
+1. **`integrations/grabfood/adapter.ts` (extend)** — Complete webhook persistence via `ctx.scheduler.runAfter(0, ...)`, register routes in `http.ts`, wire `autoRefreshToken` cron, add `syncOrderHistory` pull action, implement HMAC-SHA256 webhook signature validation
+2. **`integrations/bigseller/` (new)** — Full adapter module: `config.ts`, `adapter.ts` with `triggerSync` → `pollSync` → `fetchSyncData` scheduler chain, `mutations.ts` for DB writes; follows GoBiz pattern exactly
+3. **`consignment/` Convex module (new)** — `mutations.ts` for batch upsert with `uploadBatchId` idempotency and `deleteConsignmentBatch`, `queries.ts` for upload history
+4. **`ConsignmentUpload.tsx` (new frontend page)** — ExcelDropzone, ColumnMapper, SalePreviewTable components; SheetJS parses file in browser; validated JSON submitted to Convex mutation
+5. **`GrabFoodManager.tsx` (new frontend page)** — StoreStatusCard per outlet, OrderHistoryTable, pause/unpause controls
+6. **`SalesAnalytics.tsx` / `OverviewTab.tsx` (extend)** — 3 new data series in Recharts stacked chart; BigSeller settings panel with JWT paste and sync trigger; updated `getRevenueTimeSeries` query via on-demand action wrapper
 
 ### Critical Pitfalls
 
-1. **Mutation argument size limit (16 MiB) hit by large Excel files.** Parse client-side or in action, but chunk mutation write calls at 100–200 rows maximum. Show progress ("Uploading batch 3 of 7"). Add a 5 MB file size guard in the UI before parsing begins. Do not pass all parsed rows as a single mutation argument.
+1. **BigSeller query before sync completes (Pitfall 4)** — `listStatsData` and `pageList` return `code: -1` (empty, no data) while sync is in progress. Never treat `code: -1` as empty success. Implement the full scheduler-chain poll: trigger → pollSync every 60s (max 20 retries) → fetchData only when `taskStatus = "complete"`.
 
-2. **Excel date cells returned as serial numbers or wrong-format strings.** Parse with SheetJS `{ cellDates: true, dateNF: "yyyy-mm-dd" }`. Write a single `parseConsignmentDate(raw: unknown): number | null` utility that handles Date objects, numeric serials (>40000 = plausible Excel date since 2009), and string patterns (`dd/mm/yyyy`, `dd-mmm-yy`, etc.). Always convert to WIB-midnight UTC via `new Date("2026-02-15T00:00:00+07:00").getTime()`. Surface `null` as a per-row error with row number + column name; never silently skip or insert a fallback date. Note: ExcelJS issue #2695 — Strict Mode xlsx files return date cells as floats; this is another reason to use SheetJS with `cellDates: true` instead.
+2. **GrabFood webhook returns 200 after processing (Pitfall 2)** — Any `await` before `return new Response("OK")` causes GrabFood to retry and creates duplicate orders. Pattern: parse body → return 200 immediately → `ctx.scheduler.runAfter(0, internal.grabfoodOrders.upsertOrder, order)`. The existing adapter has a TODO comment marking this exact location.
 
-3. **Merged cells in outlet-provided files cause silent data loss.** The CON-03 template must have zero merged cells and include a note: "Do not merge cells — required for import." The parser must call `ws['!merges']` detection before `utils.sheet_to_json` and either auto-propagate the top-left cell value to covered cells, or reject with a user-facing message.
+3. **GrabFood IDR minor-unit prices divided by 100 (Pitfall 10)** — IDR has `currency.exponent = 0`; no division needed. `subtotal: 25000` stores as 25000 IDR. Mismatch produces 100x revenue underreporting visible only in cross-channel comparison. Requires a unit test: `subtotal: 25000` + `exponent: 0` → stored as `25000`.
 
-4. **Lifetime totals double-counting channels.** Define a canonical source-of-truth per channel before writing any ANLY-02 aggregation code: Direct = `orders` table filtered to `channel = "direct"` only; GoFood/K3Mart/Consignment = `externalRevenue` by source. The existing `getDailySalesSummary` query collects all non-cancelled orders without a channel filter — this must be fixed before ANLY-02 is built. Validate: lifetime units sold must never exceed total balls produced (production log is the physical upper bound).
+4. **BigSeller negative fee fields sign-flipped (Pitfall 11)** — `commissionFee`, `sellerShippingFee`, and `otherFee` are negative values representing costs. Profit = `platformIncome + commissionFee + sellerShippingFee + otherFee`. Never subtract them. Unit test required: `commissionFee: -5850` → profit reduced by 5850.
 
-5. **WIB timezone off-by-one in aggregates.** `new Date("YYYY-MM-DD")` is UTC midnight, not WIB midnight. Orders placed between 17:00 UTC and 23:59 UTC (midnight to 06:59 WIB next day) land on the wrong calendar date. Consignment upload adds a 6th timezone implementation site in the codebase. Centralize in `convex/lib/dateUtils.ts` — create this utility in Phase 21 and import it from Phase 22.
+5. **Schema source union missing new literals in some tables (Pitfall 8)** — The `source` union appears in four separate table definitions: `externalRevenue`, `externalRevenueItems`, `externalSyncLogs`, `externalOutlets`. All four must be updated in a single schema change. `npm run type-check` catches any missed location.
+
+6. **Consignment upload partial failure without rollback (Pitfall 14)** — Process the entire upload batch in a single Convex mutation. Generate `uploadBatchId` client-side before submitting; store on every record; check for existing batch before inserting (idempotent re-upload). `deleteConsignmentBatch(uploadBatchId)` enables reversal.
+
+7. **GrabFood webhook without HMAC validation (Pitfall 16)** — The `// TODO: Add HMAC signature validation` comment in the existing `handleOrderWebhook` must be resolved before production webhook registration. Implement `X-Grab-Signature` HMAC-SHA256 check. ~20 lines of code; fake orders can be injected without it.
 
 ---
 
 ## Implications for Roadmap
 
-Based on combined research, the two-phase structure already identified in PROJECT.md is correct and well-supported. No restructuring is recommended. The main contribution of this research is the ordering of steps within phases, identifying specific implementation guards, and resolving the ExcelJS vs SheetJS conflict in favor of SheetJS.
+Based on the dependency graph and architecture, a clear 5-phase structure emerges. Phases 2, 3, and 4 are independent of each other after Phase 1 completes and can be parallelized across agents.
 
-### Phase 21: Consignment Upload (CON-01, CON-02, CON-03)
+### Phase 1: Schema Foundation
 
-**Rationale:** CON-03 (template download) must exist before outlets are asked to submit data via CON-01/02. The backend schema and mutation layer must be in place before the frontend. This phase has no dependency on Phase 22 and can be built independently.
+**Rationale:** Four new tables and three new `source` literals across four existing tables must be deployed before any integration code can write data. This is the hard dependency gate for all parallel work in Phases 2–4. A `npx convex deploy` is required after this phase.
+**Delivers:** Updated `schema.ts` with `grabfoodOrders`, `bigsellerOrders`, `bigsellerDailyStats`, `consignmentUploads` tables; `source` union extended with `"grabfood"`, `"bigseller"`, `"consignment"` in all four affected tables; `registry.ts` PlatformId union updated; `externalRevenue` gets optional `consignmentUploadId` field
+**Addresses:** Prerequisite for all v1.4 features
+**Avoids:** Pitfall 8 (source union missing from some tables) — update all four tables atomically in this single phase
 
-**Delivers:** Complete consignment upload capability — template download, file upload with validation, preview table, dedup warning, audit history, and delete. Consignment data exists in `externalRevenue` ready for Phase 22 to aggregate.
+### Phase 2: GrabFood Integration
 
-**Addresses features:** CON-01 (bulk summary upload), CON-02 (transaction detail upload), CON-03 (downloadable template), outlet selector, row preview, per-row validation, duplicate detection, upload history with delete.
+**Rationale:** GrabFood has the most pre-built infrastructure (adapter, token management, config) — lowest implementation friction of the three new integrations. Store control (pause/unpause) has immediate operational value enabling managers to stop incoming orders during kitchen emergencies without switching apps.
+**Delivers:** Webhook persistence via scheduler (`handleOrderWebhook` → `ctx.scheduler` → `upsertOrder` → `externalRevenue`); HMAC-SHA256 webhook signature validation; HTTP route registration in `http.ts`; `autoRefreshToken` cron in `crons.ts`; `syncOrderHistory` pull action with pagination; `GrabFoodManager.tsx` page (store status per outlet, pause/unpause, menu availability toggle, order history); GrabFood channel feeding `externalRevenue` with `source: "grabfood"`
+**Addresses:** GrabFood token management, order history pull, store status display, outlet pause/unpause, menu item availability toggle
+**Avoids:** Pitfall 1 (token per call — use `resolveToken()` in every action); Pitfall 2 (webhook 200-first pattern); Pitfall 3 (menu change without `notifyMenuUpdate` — always call notification endpoint after menu write); Pitfall 10 (IDR minor-unit price — no division, unit test required); Pitfall 16 (HMAC validation before production webhook registration)
+**Research flag:** Well-documented via official GrabFood OpenAPI SDK v1.1.3. No additional research needed.
 
-**Avoids pitfalls:**
-- Pitfall 1: Chunk mutation calls at 100–200 rows; 5 MB file size guard
-- Pitfall 2: `parseConsignmentDate()` utility with SheetJS `cellDates: true` and WIB-aware conversion
-- Pitfall 3: Merged cell detection before `sheet_to_json`; template has no merged cells
-- Pitfall 5 (partial): `convex/lib/dateUtils.ts` created here, consumed in Phase 22
+### Phase 3: BigSeller Integration
 
-**Wave structure:**
-- Wave 1 (parallel backend): Schema additions — `consignmentUploads` table + all source union extensions; Convex action + mutation module in `convex/consignment/`; HTTP endpoints (POST upload + GET template) in `convex/http.ts`; SheetJS template generation function; `convex/lib/dateUtils.ts` WIB utility
-- Wave 2 (parallel frontend, after Wave 1): `ConsignmentUploadTab.tsx` (outlet picker, file input, preview, validation errors, dedup warning, upload history, delete); template download trigger button
-- Wave 3 (sequential): `npm run type-check` + `npm run build` must pass; upload a 200-row test file to verify chunked batch behavior
+**Rationale:** Highest technical complexity due to async sync-poll-query workflow and JWT cookie auth. Must be completed before Phase 5 (analytics) can show Shopee/Tokopedia data. The scheduler-chain pattern is the critical design baseline — implementing it incorrectly (while-loop) requires a full rewrite.
+**Delivers:** `integrations/bigseller/` adapter module (config, adapter with scheduler chain, helpers, mutations); `triggerSync` → `pollSync` (60s intervals, max 20 retries before fail) → `fetchSyncData` workflow; `bigsellerDailyStats` and `bigsellerOrders` upsert with idempotency; `externalRevenue` bridge (`source: "bigseller"`); daily cron in `crons.ts` with pre-flight sync status check; BigSeller settings panel in SalesAnalytics SettingsTab (JWT paste, sync trigger, progress indicator, last-synced display)
+**Addresses:** BigSeller muc_token storage and expiry warning, sync trigger and poll, daily stats, per-order data, shop-level breakdown, sync status visibility
+**Avoids:** Pitfall 4 (query during sync — full scheduler-chain poll, `code: -1` is hard error not empty success); Pitfall 5 (cron collision — pre-flight check for in-progress sync before triggering); Pitfall 6 (JWT expiry — decode `exp`, store `tokenExpiresAt`, surface 3-day warning); Pitfall 7 (31-day limit — sequential chunked backfill, sequential not parallel); Pitfall 11 (negative fees — unit test required); Pitfall 12 (while-loop action timeout — scheduler chain pattern only, no `while` loops)
+**Research flag:** BigSeller API is reverse-engineered from browser traffic (MEDIUM confidence). Implement with defensive error handling. Verify `taskStatus` values, `code: -1` behavior, and pagination behavior against live Frollie BigSeller account before considering production-ready. Do not skip this validation step.
 
-### Phase 22: Analytics Extension (ANLY-01, ANLY-02)
+### Phase 4: Consignment Upload
 
-**Rationale:** Requires consignment data in `externalRevenue` (Phase 21 prerequisite). However, ANLY-01 chart extension can be coded while Phase 21 is still underway — the consignment series shows zero values gracefully until data is uploaded. ANLY-02 needs the source-of-truth map defined before any aggregation code is written.
+**Rationale:** Fully independent of GrabFood and BigSeller — no shared code paths. Simpler implementation (no async polling, no OAuth). Can be developed in parallel with Phase 3. Unblocks consignment outlet revenue tracking which is currently done manually outside the system.
+**Delivers:** SheetJS installed (CDN tarball); `consignment/` Convex module (`upsertSales` mutation with `uploadBatchId` idempotency, `deleteConsignmentBatch`, `listUploads` query); `ConsignmentUpload.tsx` page (ExcelDropzone, ColumnMapper with fuzzy Indonesian header pre-fill, SalePreviewTable with per-row validation errors); template download; upload history with delete; `/consignment` route in `App.tsx`; consignment channel feeding `externalRevenue` with `source: "consignment"`
+**Addresses:** Excel upload (bulk summary + transaction detail formats), outlet selector, row preview, per-row validation, duplicate period detection, upload history, template download
+**Avoids:** Pitfall 13/SheetJS coercion (strip non-digit chars from Indonesian Rp-formatted cells, unit test with known `.000`-separator values); Pitfall 14 (partial batch failure — `uploadBatchId` idempotency, single-mutation batch insert); Anti-pattern of parsing Excel in a Convex mutation (parse client-side in browser, submit typed JSON only)
+**Research flag:** Column mapping logic for variable-format Indonesian POS Excel exports needs validation against real outlet files before finalizing the ColumnMapper. Recommend collecting sample files from each consignment partner before Phase 4 Wave 2 frontend work begins.
 
-**Delivers:** Consignment channel visible in all existing Sales Analytics stacked bar charts + lifetime units sold headline counter with per-product, per-channel breakdown table.
+### Phase 5: Unified Analytics Revamp
 
-**Addresses features:** ANLY-01 (consignment in stacked bar charts), ANLY-02 (lifetime totals dashboard), per-channel lifetime breakdown.
-
-**Avoids pitfalls:**
-- Pitfall 4: Per-channel source-of-truth defined first; `getDailySalesSummary` fixed to filter `channel = "direct"`; validate lifetime total against production log upper bound
-- Pitfall 5 (full): All aggregation query date boundaries use `convex/lib/dateUtils.ts` from Phase 21
-
-**Wave structure:**
-- Wave 1 (backend): Extend `getRevenueTimeSeries` + `getDashboardSummaryByPeriod` for `"consignment"` source; fix `getDailySalesSummary` channel filter; new `getLifetimeTotals` query with documented per-source join strategy
-- Wave 2 (parallel frontend, after Wave 1): Extend `OverviewTab.tsx` with consignment `<Bar>` entry + legend; new `LifetimeTab.tsx` with headline card + per-product table; add Lifetime tab to `SalesAnalytics.tsx`
-- Wave 3 (sequential): `npm run build` must pass; validate lifetime total does not exceed production log ball count
+**Rationale:** This phase makes all new channel data visible in one place — it is the culmination of the milestone. Depends on Phases 2, 3, and 4 having schema and `externalRevenue` records in place. The chart extensions show zero values gracefully before data exists, so the frontend changes can be coded earlier, but the query extensions should wait for real data to validate against.
+**Delivers:** Extended `getRevenueTimeSeries` and `getDashboardSummaryByPeriod` queries for three new sources (wrapped in on-demand action pattern); updated `sourceToPlatform()` mapping; Recharts stacked chart with 3 new data series (GrabFood green-600, Shopee orange-500, Tokopedia red-500, Consignment purple-500); PlatformFilter updated for 8+ channels (checkbox multi-select recommended over radio buttons); lifetime totals cross-channel aggregation query; per-product lifetime breakdown table; GrabFood connection status in SettingsTab; BigSeller COGS-not-configured caveat displayed whenever `costFee = 0`
+**Addresses:** All-channel unified view, period presets, channel filter, lifetime totals, per-product breakdown, cross-channel strategic insight
+**Avoids:** Pitfall 15 (reactive `useQuery` subscription on externalRevenue — wrap all new analytical queries in on-demand action pattern, no new `useQuery(api.externalData.*)` subscriptions for analytical data); COGS-not-configured caveat for BigSeller records surfaced explicitly
 
 ### Phase Ordering Rationale
 
-- Phase 21 before Phase 22: consignment rows must exist in `externalRevenue` for ANLY-02 to aggregate; ANLY-01 chart extension can be developed in parallel but schema must be in place.
-- Template (CON-03) must be built in Phase 21 Wave 1 alongside schema — outlets need it before they upload any data; building it after upload UI is backwards.
-- Schema changes are all additive (no existing data migration required for Phase 21) — schema can be deployed independently and verified before frontend work begins.
-- `convex/lib/dateUtils.ts` WIB utility created in Phase 21 Wave 1 and imported in Phase 22 Wave 1 — this dependency must be explicit in Wave plans.
-- Fix `getDailySalesSummary` channel filter in Phase 22 Wave 1 before writing `getLifetimeTotals` — building the aggregation on a broken foundation guarantees wrong numbers.
+- **Phase 1 first and alone:** Schema is the hard dependency gate. Without new tables and source literals deployed, no integration code can write or be tested against real data. Deploying schema changes before any integration code is also safer — additive schema changes require no data migration.
+- **Phases 2, 3, 4 in parallel:** After schema deploys, GrabFood, BigSeller, and Consignment share no code paths. Assigning to separate agents simultaneously compresses calendar time significantly.
+- **BigSeller before Consignment (if sequential):** BigSeller's scheduler chain is the most complex new pattern in the codebase. Implementing GrabFood's simpler async pattern (webhook → scheduler → upsert) first gives the team experience with Convex scheduler before tackling BigSeller's multi-phase poll.
+- **Phase 5 last:** Analytics revamp reads from all new data sources. Building it last ensures query extensions are validated against real data shapes and `externalRevenue` records actually exist for new channels.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
+Phases needing attention during implementation:
 
-- **Phase 22 — `getLifetimeTotals` per-product join strategy:** The per-product breakdown requires different join strategies per source (GoFood: `externalRevenueItems`; K3Mart: `externalRevenue.quantitySold`; Direct: `orderItems` directly for per-product accuracy; Consignment bulk: `externalRevenue.quantitySold`; Consignment detail: `externalRevenueItems`). The aggregation logic is non-trivial and could create N+1 query patterns if implemented without a design review. A targeted query design pass before assigning to executor is recommended.
-- **Phase 21 — chunked batch upload UX:** The exact UX for multi-batch uploads (progress state, per-batch error handling, partial success when batch 3 of 7 fails) is not fully specified in research. During planning, define exact user-facing states before assigning to executor.
+- **Phase 3 (BigSeller):** API is reverse-engineered from browser traffic (MEDIUM confidence). Verify `code: -1` error handling, `taskStatus` values, `listStatsData` vs `pageList` data shapes, and pagination behavior against live Frollie BigSeller account before finalizing the adapter. Do not treat the API reference as authoritative without live verification.
+- **Phase 4 (Consignment):** Column mapping logic needs validation against actual Excel files from each consignment outlet. The header fuzzy-match list (e.g., "Tanggal" → Date, "Nama Produk" → Product Name, "Qty" → Quantity) should be tested against real outlet files — not just the pre-formatted template — before ColumnMapper is finalized.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 21 — Schema changes:** All additive union extensions to well-understood tables; established Convex pattern with no migration needed.
-- **Phase 21 — HTTP action + action + mutation separation:** Well-documented Convex file upload pattern; ARCHITECTURE.md has working code examples for the full flow.
-- **Phase 21 — CON-03 template download:** SheetJS `aoa_to_sheet` + `writeFileXLSX` pattern is fully specified in STACK.md with working code samples.
-- **Phase 22 — ANLY-01 chart extension:** One new `<Bar>` entry in an existing declarative Recharts chart; no design uncertainty, purely additive.
+Phases with established patterns (no additional research needed):
+- **Phase 1 (Schema):** Pure Convex schema extension — additive only, no migration, fully documented pattern
+- **Phase 2 (GrabFood):** Official OpenAPI SDK; existing adapter skeleton with scaffolded patterns; HIGH confidence across all endpoints
+- **Phase 5 (Analytics):** Extends existing proven Recharts + on-demand action wrapper pattern from v1.3
 
 ---
 
@@ -161,49 +156,45 @@ Phases with standard patterns (skip research-phase):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | SheetJS 0.20.3 verified via official CDN docs; Vite + React 19 + TypeScript 5.9 compatibility confirmed. ExcelJS conflict resolved in favor of SheetJS — avoids date bug #2695, smaller bundle, tree-shakeable. Basic styling (column widths, frozen row, bold headers) achievable in SheetJS without ExcelJS. |
-| Features | MEDIUM-HIGH | Upload UX patterns documented from multiple authoritative sources. CON-03 styling scope achievable with SheetJS cell styles. Anti-feature decisions (no settlement reconciliation, no outlet CRUD page, no inventory connection) are explicit in PROJECT.md. Per-product lifetime join complexity requires implementation-time verification. |
-| Architecture | HIGH | Based on direct codebase inspection of 62-table schema, existing query layer (1622 lines), and `convex/http.ts`. All architectural decisions verified against actual code. SheetJS confirmed to work in Convex actions (Node.js runtime). Source union extension checklist derived from auditing every query that enumerates the source field. |
-| Pitfalls | HIGH | Six critical pitfalls identified from direct code analysis (schema, queries, reports), Convex official limit documentation, and SheetJS official docs for date/merge handling. ExcelJS date bug confirmed via GitHub issue #2695. WIB timezone scatter confirmed by counting 5+ existing implementations. |
+| Stack | HIGH | Only one new dependency (SheetJS 0.20.3 CDN tarball). All other decisions use existing verified libraries. CDN tarball install verified against official SheetJS docs. Version compatibility with Vite 7.x and TypeScript 5.9 confirmed. |
+| Features | HIGH | GrabFood features from official OpenAPI SDK v1.1.3. BigSeller features verified against live Frollie account data (19 orders, 2 shops, ~8 min sync observed). Consignment patterns carried forward from v1.3 research with known-good results. |
+| Architecture | HIGH | Direct codebase inspection confirms adapter module pattern, `externalRevenue` hub, on-demand action query pattern. Build order is dependency-validated against actual file structure and schema. |
+| Pitfalls | HIGH | GrabFood pitfalls from official API docs and existing TODO comments in `adapter.ts`. BigSeller pitfalls from live data verification. Convex-specific pitfalls from direct codebase inspection and CLAUDE.md documented patterns. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **SheetJS cell styling for CON-03 template:** FEATURES.md assumed ExcelJS was needed for "pretty template" styling. Resolution: SheetJS supports column widths (`!cols`), frozen rows (`!freeze`), and cell styles (`s` property on cell objects) via the xlsxs format. During Phase 21 planning, the executor should verify SheetJS cell styling produces the required visual output before Wave 1 begins. If SheetJS cell styles prove insufficient for the specific design requirements, the acceptable fallback is a structurally correct template without color styling (headers bold, columns wide, example rows present — but no fill colors), which is still a significant improvement over a blank file.
-
-- **`getLifetimeTotals` per-product join complexity:** Direct channel per-product counts require joining `orderItems`, not `externalRevenue` (the mirrored revenue rows do not store per-product quantities for multi-item orders). This join logic needs a design review during Phase 22 planning to avoid N+1 query patterns at scale. Specifically: batch-fetch all `orderItems` for completed direct orders, build a product-keyed map, then merge with `externalRevenue` aggregates.
-
-- **Outlet FK strategy for `externalRevenue.outletId`:** ARCHITECTURE.md recommends Option A — add consignment outlets to `externalOutlets` table with `source = "consignment"`. However, PITFALLS.md notes that `dispatchConsignmentOutlets` already holds Legato outlet data, and some schema fields use a polymorphic union. The executor must inspect current `dispatchConsignmentOutlets` data during Phase 21 planning and decide: reuse those IDs or create parallel `externalOutlets` rows. This decision must be made before schema migration starts to avoid a second migration.
-
-- **Real Legato Excel file format:** All upload parsing must be validated against an actual Legato outlet Excel file, not a synthetic test file. Staff formatting habits (date cells, merged headers, custom column names) will differ from the template. Request a real sample file before Phase 21 Wave 2 frontend work begins.
+- **GrabFood merchant ID setup per outlet:** Research confirms 3 outlets (Crystal, Goldfinch, Tamtem) may have separate `merchantID` values and potentially separate `client_id`/`client_secret` pairs. The per-outlet credential structure must be confirmed with actual GrabFood partner portal credentials before Phase 2 implementation. If all 3 outlets share a single credential, the `platformCredentials` design simplifies considerably.
+- **GrabFood grabItemID values per outlet:** Menu availability toggle requires GrabFood's internal item IDs for each product per outlet. These must be obtained from the GrabFood portal or via API product listing before the menu toggle feature can be activated. This is a setup dependency, not a code dependency.
+- **Consignment outlet Excel format variability:** Column headers vary by outlet. A real file from each consignment partner is needed before finalizing ColumnMapper logic. Recommend collecting samples before Phase 4 starts.
+- **BigSeller COGS is 0:** `costFee = 0` for all current Frollie orders because COGS is not configured in BigSeller. Profit margin analytics are meaningless until COGS is entered. Surface this caveat prominently — this is a data quality gap that persists after v1.4 unless the business configures COGS in BigSeller separately.
+- **BigSeller `pageList` pagination at scale:** Current Frollie data is small (19 orders observed during research). The pagination loop (`pageNo < totalPage`) is designed but not yet stress-tested with larger volumes. Monitor on first full production sync and verify the loop terminates correctly.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-- SheetJS official docs — Installation for Frameworks/Bundlers, Vite integration guide, React integration, Dates and Times, Merged Cells, Parse Options (`https://docs.sheetjs.com/`)
-- SheetJS CDN version 0.20.3 — `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`
-- Convex official docs — Production limits (16 MiB mutation arg cap, 5 MiB action cap), File Storage upload pattern, action/mutation separation for file processing (`https://docs.convex.dev/production/state/limits`)
-- Direct codebase analysis — `convex/schema.ts` (62 tables, 1472 lines), `convex/externalData/queries.ts` (1622 lines), `convex/http.ts`, `src/pages/SalesAnalytics.tsx`, `convex/reports/dailySales.ts`
-- `.planning/PROJECT.md` — CON-01 to ANLY-02 requirements, explicit out-of-scope decisions, Known Technical Debt section
-- `CLAUDE.md` — Pitfall #8 (no dynamic imports in Convex), project-wide conventions, file path map
+- `docs/GRABFOOD_API.md` — GrabFood Partner API OpenAPI v1.1.3, SDK v1.0.2; OAuth2 flow, order endpoints, menu batch API, webhook HMAC requirements
+- `convex/integrations/grabfood/adapter.ts` — existing GrabFood module skeleton; all existing actions verified
+- `convex/integrations/gobiz/adapter.ts` — canonical multi-phase sync pattern; BigSeller adapter follows this model
+- `convex/schema.ts` — current 59-table schema; source union definitions across all four affected tables confirmed by direct inspection
+- `convex/externalData/actions.ts` and `queries.ts` — on-demand action pattern for analytics queries; `sourceToPlatform()` mapping
+- `src/pages/SalesAnalytics.tsx` — existing analytics page structure, Recharts usage, PLATFORM_COLORS, PlatformFilter type
+- SheetJS official docs: `https://docs.sheetjs.com/docs/getting-started/installation/frameworks/` — CDN tarball installation verified for Vite and React
+- Convex official docs: `https://docs.convex.dev/scheduling/cron-jobs` and `https://docs.convex.dev/functions/actions` — scheduler chain pattern for long-running async work
 
 ### Secondary (MEDIUM confidence)
+- `docs/BIGSELLER_PROFIT_API.md` — BigSeller API reverse-engineered from browser network traffic; behavior verified against live Frollie data 2026-02-25; no official API documentation exists
+- `convex/integrations/registry.ts` — platform registry; current `PlatformId` union confirmed
+- Previous v1.3 FEATURES.md and PITFALLS.md (2026-02-22) — consignment upload UX patterns and SheetJS pitfalls carried forward
 
-- ExcelJS GitHub issue #2695 — Strict Mode xlsx date cells parsed as 1904-era floats (confirmed from GitHub issue thread, not an official release note)
-- Smashing Magazine — Designing An Attractive And Usable Data Importer (import UX patterns)
-- ImportCSV.com — Data import UX: designing spreadsheet imports users don't hate (per-row error pattern, step-by-step flow)
-- Smart Interface Design Patterns — How To Design Bulk Import UX
-- Bundlephobia / community reports — ExcelJS bundle size ~500KB unshaken, SheetJS tree-shaken to ~180–220KB
-
-### Tertiary (LOW confidence)
-
-- FieldAssist — Top 6 FMCG Sales Metrics (context for what analytics metrics managers need)
-- AccountingTools — Consignment Sales Accounting (context for net vs gross revenue distinction and returns handling)
+### Tertiary (context)
+- `docs/LESSONS_LEARNED.md` — production outage patterns (Vite TDZ crash, import discipline)
+- `.planning/PROJECT.md` — out-of-scope declarations, technical debt acknowledgments (ingredient simulation name-matching fragility)
+- `CLAUDE.md` — Pitfall #8 (no dynamic imports in Convex actions); project-wide conventions and file path map
 
 ---
-*Research completed: 2026-02-22*
+*Research completed: 2026-02-25*
 *Ready for roadmap: yes*
