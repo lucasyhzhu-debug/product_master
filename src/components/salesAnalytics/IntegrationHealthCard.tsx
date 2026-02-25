@@ -239,13 +239,21 @@ export function IntegrationHealthCard({
                     <Clock className="h-3 w-3 text-amber-500" />
                   )}
                   <span className="text-muted-foreground">{formatRelativeTime(entry.timestamp)}</span>
+                  <span className={cn(
+                    "text-[10px] px-1 py-0.5 rounded",
+                    entry.syncType === "token_refresh"
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                  )}>
+                    {entry.syncType === "token_refresh" ? "Token" : "Sync"}
+                  </span>
                   {entry.errorMessage && (
                     <span className="text-red-500 truncate max-w-[200px]" title={entry.errorMessage}>
                       {entry.errorMessage}
                     </span>
                   )}
                 </div>
-                {entry.productsCount !== undefined && (
+                {entry.syncType !== "token_refresh" && entry.productsCount !== undefined && (
                   <span className="text-muted-foreground">{entry.productsCount} records</span>
                 )}
               </div>

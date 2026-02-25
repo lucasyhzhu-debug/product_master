@@ -160,7 +160,7 @@ export const validateAdminToken = internalQuery({
 export type SyncLogEntry = {
   timestamp: number;
   status: "started" | "success" | "error";
-  syncType: "manual" | "cron";
+  syncType: "manual" | "cron" | "token_refresh";
   productsCount?: number;
   durationMs?: number;
   errorMessage?: string;
@@ -226,6 +226,22 @@ export const getHealthStatusAll = query({
             status = "green";
             label = "Connected";
             lastActivity = cred.lastRefreshAt ?? null;
+
+            // Fetch sync history (token_refresh entries from grabfood source)
+            const recentLogs = await ctx.db
+              .query("externalSyncLogs")
+              .withIndex("by_source", (q) => q.eq("source", "grabfood"))
+              .order("desc")
+              .take(5);
+
+            syncHistory = recentLogs.map((log) => ({
+              timestamp: log.timestamp,
+              status: log.status,
+              syncType: log.syncType,
+              productsCount: log.productsCount,
+              durationMs: log.durationMs,
+              errorMessage: log.errorMessage,
+            }));
           } else {
             status = "disconnected";
             label = "Client credentials not configured";
@@ -329,6 +345,28 @@ export const getHealthStatusAll = query({
             status = "green";
             const days = Math.ceil(daysRemaining);
             label = `${days} day${days === 1 ? "" : "s"} remaining`;
+          }
+        }
+
+        // Fetch sync history for token_expiry platforms (token paste events) if credentials exist
+        if (cred && cred.currentToken) {
+          try {
+            const recentLogs = await ctx.db
+              .query("externalSyncLogs")
+              .withIndex("by_source", (q) => q.eq("source", platformId as "bigseller"))
+              .order("desc")
+              .take(5);
+
+            syncHistory = recentLogs.map((log) => ({
+              timestamp: log.timestamp,
+              status: log.status,
+              syncType: log.syncType,
+              productsCount: log.productsCount,
+              durationMs: log.durationMs,
+              errorMessage: log.errorMessage,
+            }));
+          } catch {
+            // Platform not in externalSyncLogs index — skip silently
           }
         }
       }
