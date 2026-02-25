@@ -1074,6 +1074,22 @@ export const loginWithCredentials = action({
     }
 
     if (!response.ok) {
+      // 401 = GoBiz rejected the credentials — either wrong or requires browser-based auth (OTP).
+      // Direct the user to the manual paste fallback.
+      if (response.status === 401) {
+        // Record the failure so the health badge turns yellow
+        await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+          platformId: "gobiz",
+          lastRefreshAt: Date.now(),
+          lastRefreshStatus: "error",
+          lastRefreshError: "One-click login rejected (401) — browser-based auth required",
+        });
+        return {
+          success: false,
+          error:
+            "GoBiz requires browser login. Open portal.gofoodmerchant.co.id, log in, then use DevTools → Application → Cookies to copy access_token and refresh_token, and paste them using the manual method below.",
+        };
+      }
       let errorBody = "";
       try {
         const errData = await response.json() as Record<string, unknown>;

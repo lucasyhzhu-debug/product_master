@@ -243,6 +243,14 @@ export const getHealthStatusAll = query({
           .order("desc")
           .first();
 
+        // Also check credential record for token refresh failures
+        const cred = await ctx.db
+          .query("platformCredentials")
+          .withIndex("by_platform", (q) => q.eq("platformId", platformId))
+          .first();
+
+        const tokenRefreshFailed = cred?.lastRefreshStatus === "error";
+
         if (!lastSyncLog) {
           status = "disconnected";
           label = "Never synced";
@@ -252,8 +260,14 @@ export const getHealthStatusAll = query({
           const ageDays = ageMs / MS_PER_DAY;
 
           if (ageDays <= 2) {
-            status = "green";
-            label = "Connected";
+            // Recent sync — but warn if token refresh has failed
+            if (tokenRefreshFailed) {
+              status = "yellow";
+              label = "Token refresh failed";
+            } else {
+              status = "green";
+              label = "Connected";
+            }
           } else if (ageDays <= 7) {
             status = "yellow";
             const daysAgo = Math.round(ageDays);
