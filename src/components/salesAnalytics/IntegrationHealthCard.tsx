@@ -127,7 +127,8 @@ export function IntegrationHealthCard({
   const CategoryIcon = getCategoryIcon(health.category);
   const actionLabel = getActionLabel(health.authStrategy);
   const ActionIcon = getActionIcon(health.authStrategy);
-  const hasSyncHistory = health.syncHistory.length > 0;
+  const syncHistory = health.syncHistory ?? [];
+  const hasSyncHistory = syncHistory.length > 0;
 
   return (
     <div className="rounded-lg border bg-card">
@@ -227,7 +228,7 @@ export function IntegrationHealthCard({
         <div className="mt-0 px-4 pb-3 border-t pt-2">
           <p className="text-xs font-medium text-muted-foreground mb-1.5">Sync History</p>
           <div className="space-y-1">
-            {health.syncHistory.map((entry, i) => (
+            {syncHistory.map((entry, i) => (
               <div key={i} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   {entry.status === "success" ? (
