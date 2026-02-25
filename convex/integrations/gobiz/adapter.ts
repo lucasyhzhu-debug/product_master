@@ -1032,21 +1032,73 @@ export const loginWithCredentials = action({
       token: args.token,
     });
 
-    // Read env vars
+    const PORTAL_ORIGIN = "https://portal.gofoodmerchant.co.id";
+    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+
+    // ── Step 1: Try refresh_token grant (preferred — no OTP required) ──────────
+    // Sandbox confirmed: grant_type=refresh_token on /goid/token (form-urlencoded) works
+    // when refresh_token is valid. GoBiz password grant requires browser OTP.
+    const dbCred = await ctx.runQuery(
+      internal.platformCredentials.queries.getCredentialsInternal,
+      { platformId: "gobiz" }
+    );
+    const storedRefreshToken = dbCred?.refreshToken ?? null;
+
+    if (storedRefreshToken) {
+      try {
+        const refreshBody = new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: "go-biz-web-new",
+          refresh_token: storedRefreshToken,
+        }).toString();
+
+        const refreshResp = await fetch("https://api.gobiz.co.id/goid/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "user-agent": UA,
+            "origin": PORTAL_ORIGIN,
+            "referer": `${PORTAL_ORIGIN}/`,
+          },
+          body: refreshBody,
+        });
+
+        if (refreshResp.ok) {
+          const refreshData = await refreshResp.json() as { access_token?: string; refresh_token?: string };
+          if (refreshData.access_token) {
+            await ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {
+              platformId: "gobiz",
+              bearerToken: `Bearer ${refreshData.access_token}`,
+              refreshToken: refreshData.refresh_token ?? storedRefreshToken,
+            });
+            return { success: true as const };
+          }
+        }
+        // Refresh token expired/invalid — fall through to password grant
+      } catch {
+        // Network error — fall through to password grant
+      }
+    }
+
+    // ── Step 2: Try password grant (fallback — may require OTP) ──────────────
     const email = process.env.GOBIZ_EMAIL;
     const password = process.env.GOBIZ_PASSWORD;
 
     if (!email || !password) {
+      // No stored refresh_token, no env credentials — nothing we can do headlessly
+      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+        platformId: "gobiz",
+        lastRefreshAt: Date.now(),
+        lastRefreshStatus: "error",
+        lastRefreshError: "No refresh_token in DB and GOBIZ_EMAIL/PASSWORD env vars not set",
+      });
       return {
         success: false,
-        error: "GOBIZ_EMAIL and GOBIZ_PASSWORD env vars not configured in Convex dashboard.",
+        error:
+          "Token refresh failed. Open portal.gofoodmerchant.co.id, log in, then go to DevTools → Application → Cookies and copy both access_token and refresh_token. Paste them using the manual method below.",
       };
     }
 
-    const PORTAL_ORIGIN = "https://portal.gofoodmerchant.co.id";
-
-    // /goid/token uses application/x-www-form-urlencoded (JSON body → 400 missing_field)
-    // Sandbox confirmed: form-urlencoded reaches auth (401) vs JSON stuck at field validation (400)
     let response: Response;
     try {
       const formBody = new URLSearchParams({
@@ -1060,7 +1112,7 @@ export const loginWithCredentials = action({
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+          "user-agent": UA,
           "origin": PORTAL_ORIGIN,
           "referer": `${PORTAL_ORIGIN}/`,
         },
@@ -1074,34 +1126,17 @@ export const loginWithCredentials = action({
     }
 
     if (!response.ok) {
-      // 401 = GoBiz rejected the credentials — either wrong or requires browser-based auth (OTP).
-      // Direct the user to the manual paste fallback.
-      if (response.status === 401) {
-        // Record the failure so the health badge turns yellow
-        await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
-          platformId: "gobiz",
-          lastRefreshAt: Date.now(),
-          lastRefreshStatus: "error",
-          lastRefreshError: "One-click login rejected (401) — browser-based auth required",
-        });
-        return {
-          success: false,
-          error:
-            "GoBiz requires browser login. Open portal.gofoodmerchant.co.id, log in, then use DevTools → Application → Cookies to copy access_token and refresh_token, and paste them using the manual method below.",
-        };
-      }
-      let errorBody = "";
-      try {
-        const errData = await response.json() as Record<string, unknown>;
-        errorBody = errData.error_description
-          ? String(errData.error_description)
-          : JSON.stringify(errData);
-      } catch {
-        errorBody = await response.text().catch(() => "");
-      }
+      // 401 = credentials rejected or OTP required
+      await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
+        platformId: "gobiz",
+        lastRefreshAt: Date.now(),
+        lastRefreshStatus: "error",
+        lastRefreshError: `Password grant rejected (${response.status}) — browser login required`,
+      });
       return {
         success: false,
-        error: `GoBiz token failed (${response.status})${errorBody ? `: ${errorBody}` : ""}`,
+        error:
+          "One-click refresh failed. GoBiz requires browser-based login (OTP). Open portal.gofoodmerchant.co.id, log in, then use DevTools → Application → Cookies to copy access_token and refresh_token. Paste them using the manual method below.",
       };
     }
 
@@ -1122,7 +1157,6 @@ export const loginWithCredentials = action({
       };
     }
 
-    // Save tokens via internal saveDirectToken (converted from public mutation in Plan 02 Task 1)
     await ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {
       platformId: "gobiz",
       bearerToken: `Bearer ${data.access_token}`,
