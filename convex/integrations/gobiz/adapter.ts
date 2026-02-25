@@ -1012,3 +1012,90 @@ export const autoRefreshGoBizToken = internalAction({
 
 // seedGoBizOutlets moved to convex/integrations/gobiz/mutations.ts
 // (internalMutation not allowed in "use node" files)
+
+// ─── One-Click Password Grant (AUTH-01) ──────────────────────────────────────
+
+/**
+ * Login with GoBiz credentials via password grant endpoint.
+ * Reads GOBIZ_EMAIL and GOBIZ_PASSWORD env vars from Convex dashboard.
+ * Saves access_token + refresh_token to platformCredentials via internal mutation.
+ *
+ * Returns { success: true } or { success: false, error: string }.
+ */
+export const loginWithCredentials = action({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Validate admin role
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    // Read env vars
+    const email = process.env.GOBIZ_EMAIL;
+    const password = process.env.GOBIZ_PASSWORD;
+
+    if (!email || !password) {
+      return {
+        success: false,
+        error: "GOBIZ_EMAIL and GOBIZ_PASSWORD env vars not configured in Convex dashboard.",
+      };
+    }
+
+    // Call password grant endpoint
+    let response: Response;
+    try {
+      response = await fetch("https://api.gobiz.co.id/goid/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        },
+        body: JSON.stringify({
+          client_id: "go-biz-web-new",
+          grant_type: "password",
+          data: { email, password },
+        }),
+      });
+    } catch (err) {
+      return {
+        success: false,
+        error: `GoBiz login request failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `GoBiz login failed (${response.status})`,
+      };
+    }
+
+    let data: { access_token?: string; refresh_token?: string };
+    try {
+      data = await response.json();
+    } catch {
+      return {
+        success: false,
+        error: "GoBiz login response was not valid JSON",
+      };
+    }
+
+    if (!data.access_token) {
+      return {
+        success: false,
+        error: "GoBiz login response did not contain access_token",
+      };
+    }
+
+    // Save tokens via internal saveDirectToken (converted from public mutation in Plan 02 Task 1)
+    await ctx.runMutation(internal.platformCredentials.mutations.saveDirectToken, {
+      platformId: "gobiz",
+      bearerToken: `Bearer ${data.access_token}`,
+      refreshToken: data.refresh_token,
+    });
+
+    return { success: true as const };
+  },
+});
