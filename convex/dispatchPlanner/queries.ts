@@ -186,7 +186,7 @@ export const getUnifiedWeeklyPlan = query({
         displayName: config.displayName,
         color: config.color || CHANNEL_COLORS[channelKey] || "#888888",
         priority: config.priority,
-        isEditable: channelKey !== "k3mart", // K3Mart is read-only
+        isEditable: true, // All channels are editable (past days are read-only per cell)
         outlets: [],
       };
 
@@ -200,7 +200,7 @@ export const getUnifiedWeeklyPlan = query({
         );
       } else if (channelKey === "k3mart") {
         await assembleK3martChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, dailyProductQty
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
         );
       } else if (channelKey === "consignment") {
         await assembleConsignmentChannel(
@@ -564,15 +564,19 @@ async function assembleGofoodChannel(
 }
 
 /**
- * K3Mart channel: read-only. Pulls from k3martDispatchPlans.
+ * K3Mart channel: editable. Uses dispatchPlans for future cells,
+ * k3martDispatchPlans as baseline/past data (from K3Mart Cockpit).
+ * Past days show data from k3martDispatchPlans (read-only).
+ * Future days are editable via dispatchPlans table.
  */
 async function assembleK3martChannel(
   ctx: { db: any },
   section: ChannelSection,
   dates: string[],
-  _todayStr: string,
+  todayStr: string,
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
+  allDispatchPlans: Doc<"dispatchPlans">[],
   dailyProductQty: Record<string, Record<string, number>>,
 ) {
   // Fetch active K3Mart outlets
@@ -582,7 +586,7 @@ async function assembleK3martChannel(
     .filter((q: any) => q.eq(q.field("isActive"), true))
     .collect();
 
-  // Fetch k3mart dispatch plans for the date range
+  // Fetch k3mart dispatch plans (from K3Mart Cockpit) for baseline/past data
   const allK3Plans: Doc<"k3martDispatchPlans">[] = [];
   for (const date of dates) {
     const plans = await ctx.db
@@ -592,14 +596,25 @@ async function assembleK3martChannel(
     allK3Plans.push(...plans);
   }
 
+  // Filter dispatch plans for k3mart channel (editable overrides)
+  const k3martEditablePlans = allDispatchPlans.filter(
+    (p: Doc<"dispatchPlans">) => p.channel === "k3mart"
+  );
+
   for (const outlet of k3martOutlets) {
-    const outletPlans = allK3Plans.filter(
+    const outletK3Plans = allK3Plans.filter(
       (p: Doc<"k3martDispatchPlans">) => p.outletId === outlet._id
     );
+    const outletEditablePlans = k3martEditablePlans.filter(
+      (p: Doc<"dispatchPlans">) => p.outletId === outlet._id
+    );
 
-    // Group by menuProductId — always include all POS-active products as baseline
+    // Group by menuProductId - include all sources
     const productIds = new Set<string>();
-    for (const plan of outletPlans) {
+    for (const plan of outletK3Plans) {
+      productIds.add(plan.menuProductId as string);
+    }
+    for (const plan of outletEditablePlans) {
       productIds.add(plan.menuProductId as string);
     }
     // Always show all active POS products so managers can plan even without prior data
@@ -614,15 +629,36 @@ async function assembleK3martChannel(
 
       const cells: Record<string, PlanCell> = {};
       for (const date of dates) {
-        const plan = outletPlans.find(
+        const isPast = date < todayStr;
+
+        // K3Mart Cockpit baseline plan for this cell
+        const k3Plan = outletK3Plans.find(
           (p: Doc<"k3martDispatchPlans">) =>
             p.date === date && (p.menuProductId as string) === mpId
         );
-        cells[date] = {
-          plannedQty: plan?.plannedQty ?? 0,
-          source: plan ? "k3mart" : "none",
-          isReadOnly: true, // Always read-only for K3Mart
-        };
+
+        // Editable dispatch plan override
+        const editablePlan = outletEditablePlans.find(
+          (p: Doc<"dispatchPlans">) =>
+            p.date === date && (p.menuProductId as string) === mpId
+        );
+
+        if (isPast) {
+          // Past: read-only, prefer editable plan if saved, else k3mart baseline
+          cells[date] = {
+            plannedQty: editablePlan?.plannedQty ?? k3Plan?.plannedQty ?? 0,
+            source: editablePlan ? "manual" : k3Plan ? "k3mart" : "none",
+            isReadOnly: true,
+          };
+        } else {
+          // Future: editable via dispatchPlans, use k3mart baseline as fallback
+          const plannedQty = editablePlan?.plannedQty ?? k3Plan?.plannedQty ?? 0;
+          cells[date] = {
+            plannedQty,
+            source: editablePlan?.source ?? (k3Plan ? "k3mart" : "none"),
+            isReadOnly: false,
+          };
+        }
       }
 
       products.push({
