@@ -348,6 +348,118 @@ export const notifyMenuUpdate = action({
   },
 });
 
+// ─── Menu Management ─────────────────────────────────────────────────────────
+
+/**
+ * Batch update menu item availability on GrabFood.
+ * Two-step process: 1) PUT batch menu update, 2) POST menu notification.
+ * The notification step is CRITICAL — changes are not live without it.
+ */
+export const batchUpdateAvailability = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+    items: v.array(
+      v.object({
+        id: v.string(),
+        availableStatus: v.union(v.literal("AVAILABLE"), v.literal("UNAVAILABLE")),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    const accessToken = await resolveToken(ctx);
+    if (!accessToken) {
+      return { success: false, error: "GrabFood token unavailable. Check credentials." };
+    }
+
+    // Step 1: Build menuEntities and send batch update
+    const menuEntities = args.items.map((item) => ({
+      id: item.id,
+      availableStatus: item.availableStatus,
+      ...(item.availableStatus === "UNAVAILABLE" ? { maxStock: 0 } : {}),
+    }));
+
+    const batchResult = await grabRequest(
+      accessToken,
+      "PUT",
+      GRABFOOD_CONFIG.endpoints.menuBatch,
+      {
+        merchantID: args.merchantID,
+        field: "AVAILABILITY",
+        menuEntities,
+      }
+    );
+
+    if (!batchResult.ok) {
+      const err = batchResult.data as GrabApiError;
+      return {
+        success: false,
+        error: `Batch update failed (HTTP ${batchResult.status}): ${err.message ?? err.reason ?? "Unknown error"}`,
+      };
+    }
+
+    // Step 2: MUST call notifyMenuUpdate — changes are not live without this
+    const notifyResult = await grabRequest(
+      accessToken,
+      "POST",
+      GRABFOOD_CONFIG.endpoints.menuNotify,
+      { merchantID: args.merchantID }
+    );
+
+    if (!notifyResult.ok) {
+      console.log("GrabFood: batch update succeeded but menu notification failed:", notifyResult.data);
+    }
+
+    return {
+      success: true,
+      itemsUpdated: args.items.length,
+      notifyResponse: notifyResult.data,
+    };
+  },
+});
+
+/**
+ * Get the current menu for a merchant from GrabFood.
+ * Returns categories, items with availability, prices, and grabItemIDs.
+ * Used by the frontend Menu tab to display and toggle item availability.
+ */
+export const getMenuItems = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    const accessToken = await resolveToken(ctx);
+    if (!accessToken) {
+      return { success: false, error: "GrabFood token unavailable. Check credentials." };
+    }
+
+    const { ok, status, data } = await grabRequest(
+      accessToken,
+      "GET",
+      `${GRABFOOD_CONFIG.endpoints.menuUpdate}?merchantID=${args.merchantID}`
+    );
+
+    if (!ok) {
+      const err = data as GrabApiError;
+      return {
+        success: false,
+        error: `HTTP ${status}: ${err.message ?? err.reason ?? "Unknown error"}`,
+      };
+    }
+
+    return { success: true, menu: data };
+  },
+});
+
 // ─── Order Sync ──────────────────────────────────────────────────────────────
 
 /**
