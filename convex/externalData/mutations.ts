@@ -527,7 +527,7 @@ export const updateProductMappingFields = mutation({
     isAvailable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const user = await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["admin"]);
     const mapping = await ctx.db.get(args.mappingId);
     if (!mapping) throw new Error("Mapping not found");
 

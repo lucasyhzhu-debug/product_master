@@ -21,6 +21,12 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  Copy,
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  X,
+  Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,6 +74,7 @@ import {
   useGrabFoodActions,
   useGrabFoodOutlets,
 } from "@/hooks/convex/useGrabFood";
+import { useQuery } from "convex/react";
 import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -127,7 +134,9 @@ export function GrabFoodManager() {
         ? "menu"
         : tabParam === "settings"
           ? "settings"
-          : "orders";
+          : tabParam === "webhooks"
+            ? "webhooks"
+            : "orders";
 
   const handleTabChange = (value: string) => {
     setSearchParams(value === "orders" ? {} : { tab: value }, { replace: true });
@@ -196,6 +205,10 @@ export function GrabFoodManager() {
             <Settings className="h-4 w-4 mr-1" />
             Settings
           </TabsTrigger>
+          <TabsTrigger value="webhooks">
+            <Webhook className="h-4 w-4 mr-1" />
+            Webhooks
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-4">
@@ -218,7 +231,11 @@ export function GrabFoodManager() {
         </TabsContent>
 
         <TabsContent value="settings" className="mt-4">
-          <SettingsTab outlets={outlets ?? []} />
+          <SettingsTab outlets={outlets ?? []} isAdmin={isAdmin} />
+        </TabsContent>
+
+        <TabsContent value="webhooks" className="mt-4">
+          <WebhooksTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -946,15 +963,44 @@ interface SettingsTabProps {
     isActive: boolean;
     source: string;
   }>;
+  isAdmin: boolean;
 }
 
-function SettingsTab({ outlets }: SettingsTabProps) {
+function SettingsTab({ outlets, isAdmin }: SettingsTabProps) {
   const [credDialogOpen, setCredDialogOpen] = useState(false);
   const [outletDialogOpen, setOutletDialogOpen] = useState(false);
   const [editingOutlet, setEditingOutlet] = useState<{
     name: string;
     merchantId: string;
   } | null>(null);
+
+  // Product mappings for GrabFood price/availability
+  const mappings = useQuery(api.externalData.queries.getProductMappings, {
+    source: "grabfood",
+  });
+  const updateMappingFields = useProtectedMutation(
+    api.externalData.mutations.updateProductMappingFields
+  );
+
+  const handlePriceUpdate = async (mappingId: Id<"externalProductMappings">, value: string) => {
+    const price = parseInt(value, 10);
+    if (isNaN(price) || price < 0) return;
+    try {
+      await updateMappingFields({ mappingId, grabfoodPrice: price });
+      toast.success("Price updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update price");
+    }
+  };
+
+  const handleAvailabilityToggle = async (mappingId: Id<"externalProductMappings">, isAvailable: boolean) => {
+    try {
+      await updateMappingFields({ mappingId, isAvailable });
+      toast.success(isAvailable ? "Item enabled" : "Item disabled");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update availability");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1047,6 +1093,85 @@ function SettingsTab({ outlets }: SettingsTabProps) {
         </CardContent>
       </Card>
 
+      {/* Product Mapping — GrabFood Price & Availability */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Product Mapping</CardTitle>
+          <CardDescription>
+            Set GrabFood-specific prices and availability per product. Items marked unavailable
+            will be excluded from the GET /menu response.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {mappings === undefined ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : mappings.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No product mappings found. Sync menu data or add mappings to configure pricing.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>External Code</TableHead>
+                  <TableHead className="w-[160px]">GrabFood Price (IDR)</TableHead>
+                  <TableHead className="w-[100px]">Available</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mappings.map((mapping) => (
+                  <TableRow key={mapping._id}>
+                    <TableCell className="font-medium text-sm">
+                      {mapping.externalProductName}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm text-muted-foreground">
+                      {mapping.externalProductCode}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        placeholder="Use default"
+                        defaultValue={mapping.grabfoodPrice ?? ""}
+                        onBlur={(e) => {
+                          if (e.target.value && isAdmin) {
+                            handlePriceUpdate(mapping._id as Id<"externalProductMappings">, e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && isAdmin) {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
+                        disabled={!isAdmin}
+                        className="w-[140px] h-8"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={mapping.isAvailable !== false}
+                        onCheckedChange={(checked) => {
+                          if (isAdmin) {
+                            handleAvailabilityToggle(mapping._id as Id<"externalProductMappings">, checked);
+                          }
+                        }}
+                        disabled={!isAdmin}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       <GrabFoodCredentialsDialog
         open={credDialogOpen}
         onOpenChange={setCredDialogOpen}
@@ -1056,6 +1181,190 @@ function SettingsTab({ outlets }: SettingsTabProps) {
         onOpenChange={setOutletDialogOpen}
         editingOutlet={editingOutlet}
       />
+    </div>
+  );
+}
+
+// ============================================
+// WEBHOOKS TAB
+// ============================================
+
+const WEBHOOK_ENDPOINTS = [
+  { method: "GET", path: "/api/grabfood/menu", label: "Get menu endpoint" },
+  { method: "POST", path: "/api/grabfood/order", label: "Submit order endpoint" },
+  { method: "POST", path: "/api/grabfood/order/state", label: "Push order state endpoint" },
+  { method: "POST", path: "/api/grabfood/menu-sync", label: "Menu Sync Webhook" },
+  { method: "POST", path: "/api/grabfood/integration-status", label: "Integration status" },
+  { method: "POST", path: "/api/grabfood/menu/push", label: "Push Grab menu endpoint" },
+] as const;
+
+function WebhooksTab() {
+  // Sync error banner
+  const webhookError = useQuery(api.externalData.queries.getLatestWebhookError, {
+    source: "grabfood",
+  });
+  const [errorDismissed, setErrorDismissed] = useState(false);
+
+  // HMAC Secret
+  const [hmacSecret, setHmacSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [savingSecret, setSavingSecret] = useState(false);
+  const saveHmacSecret = useProtectedMutation(
+    api.platformCredentials.mutations.saveHmacSecret
+  );
+
+  const handleSaveSecret = async () => {
+    if (!hmacSecret.trim()) {
+      toast.error("HMAC secret cannot be empty");
+      return;
+    }
+    setSavingSecret(true);
+    try {
+      await saveHmacSecret({
+        platformId: "grabfood",
+        hmacSecret: hmacSecret.trim(),
+      });
+      toast.success("HMAC secret saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save secret");
+    } finally {
+      setSavingSecret(false);
+    }
+  };
+
+  // Webhook URLs
+  const CONVEX_SITE_URL =
+    import.meta.env.VITE_CONVEX_URL?.replace(".cloud", ".site") ?? "";
+
+  const handleCopy = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Copied!");
+    } catch {
+      // Fallback for non-HTTPS: select text for manual copy
+      toast.error("Copy failed -- use HTTPS or copy manually");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Sync Error Banner */}
+      {webhookError && !errorDismissed && (
+        <div className="flex items-start gap-3 p-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Menu sync reported errors
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
+              {webhookError.errorMessage}
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+              {formatRelativeTime(webhookError.timestamp)}
+            </p>
+          </div>
+          <button
+            onClick={() => setErrorDismissed(true)}
+            className="text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* HMAC Secret */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Webhook HMAC Secret</CardTitle>
+          <CardDescription>
+            From GrabFood Developer Portal &rarr; App Configuration &rarr; Webhook Authentication
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-md">
+              <Input
+                type={showSecret ? "text" : "password"}
+                placeholder="Enter HMAC secret"
+                value={hmacSecret}
+                onChange={(e) => setHmacSecret(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecret(!showSecret)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showSecret ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            <Button
+              onClick={handleSaveSecret}
+              disabled={savingSecret || !hmacSecret.trim()}
+            >
+              {savingSecret ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : null}
+              Save
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook URLs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Webhook Endpoints</CardTitle>
+          <CardDescription>
+            Copy these URLs into GrabFood Developer Portal &rarr; App Configuration
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!CONVEX_SITE_URL ? (
+            <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Configure VITE_CONVEX_URL to display webhook URLs
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {WEBHOOK_ENDPOINTS.map((ep) => {
+                const fullUrl = `${CONVEX_SITE_URL}${ep.path}`;
+                return (
+                  <div
+                    key={ep.path}
+                    className="flex items-center gap-3 px-3 py-2 rounded-md border bg-muted/30"
+                  >
+                    <Badge
+                      variant={ep.method === "GET" ? "default" : "secondary"}
+                      className="font-mono text-xs w-14 justify-center shrink-0"
+                    >
+                      {ep.method}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{ep.label}</p>
+                      <p className="text-xs font-mono text-muted-foreground truncate">
+                        {fullUrl}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(fullUrl)}
+                      className="shrink-0"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
