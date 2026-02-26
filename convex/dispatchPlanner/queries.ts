@@ -722,17 +722,16 @@ async function assembleConsignmentChannel(
       (p: Doc<"dispatchPlans">) => (p.outletId as unknown as string) === (outlet._id as string)
     );
 
-    // Get product IDs from outlet's product mappings + existing plans + all POS-active products
+    // For consignment outlets, only show explicitly mapped products (+ any with existing plans)
     const productIds = new Set<string>();
     for (const mapping of outlet.productMappings) {
       productIds.add(mapping.menuProductId as string);
     }
     for (const plan of outletPlans) {
-      productIds.add(plan.menuProductId as string);
-    }
-    // Always show all active POS products as baseline even if no mappings/plans exist
-    for (const mpId of menuProductMap.keys()) {
-      productIds.add(mpId as string);
+      // Only include plan products that are still in the active menu
+      if (menuProductMap.has(plan.menuProductId as string)) {
+        productIds.add(plan.menuProductId as string);
+      }
     }
 
     const products: ProductRow[] = [];

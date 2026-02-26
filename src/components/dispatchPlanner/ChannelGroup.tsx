@@ -80,7 +80,7 @@ export const ChannelGroup = React.memo(function ChannelGroup({
   todayStr,
   dailyTotals,
   onSaveCell,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: ChannelGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
