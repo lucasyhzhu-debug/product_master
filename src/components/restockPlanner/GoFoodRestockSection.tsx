@@ -65,10 +65,10 @@ function OutletRestockTable({
   );
 
   return (
-    <div className="overflow-x-auto">
+    <div>
       <table className="w-full text-sm">
-        <thead>
-          <tr className="text-[11px] text-muted-foreground uppercase tracking-wider border-b">
+        <thead className="sticky top-[97px] z-10 bg-card shadow-[0_1px_0_0_var(--color-border)]">
+          <tr className="text-[11px] text-muted-foreground uppercase tracking-wider">
             <th className="py-2 px-4 text-left font-medium">Product</th>
             <th className="py-2 px-3 text-right font-medium">Current Stock</th>
             <th className="py-2 px-3 text-right font-medium">Restock Tomorrow</th>
@@ -178,9 +178,9 @@ export function GoFoodRestockSection() {
             </div>
           ) : (
             outlets!.map((outlet) => (
-              <div key={outlet._id} className="rounded-lg border bg-card overflow-hidden">
-                {/* Outlet header */}
-                <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30">
+              <div key={outlet._id} className="rounded-lg border bg-card">
+                {/* Outlet header — sticky below fixed app header */}
+                <div className="sticky top-14 z-20 flex items-center justify-between px-4 py-2.5 border-b bg-muted/80 backdrop-blur-sm rounded-t-lg">
                   <h3 className="text-sm font-semibold">{outlet.name}</h3>
                   <span className="text-xs text-muted-foreground">Read-only</span>
                 </div>

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { addDays, startOfDay, format, isToday, isTomorrow } from 'date-fns';
 import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,8 +14,6 @@ function getDayLabel(date: Date): string {
 }
 
 export function DueDatePills({ value, onChange }: DueDatePillsProps) {
-  const [showManual, setShowManual] = useState(false);
-
   const today = startOfDay(new Date());
   const pills = Array.from({ length: 7 }, (_, i) => {
     const date = addDays(today, i);
@@ -61,8 +58,9 @@ export function DueDatePills({ value, onChange }: DueDatePillsProps) {
         </p>
       )}
 
-      {/* Manual date picker fallback */}
-      {showManual ? (
+      {/* Date picker - always visible for custom date selection */}
+      <div className="flex items-center gap-2">
+        <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
         <input
           type="date"
           className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -75,17 +73,7 @@ export function DueDatePills({ value, onChange }: DueDatePillsProps) {
           }}
           min={format(today, 'yyyy-MM-dd')}
         />
-      ) : (
-        <Button
-          variant="link"
-          size="sm"
-          className="h-auto p-0 text-xs"
-          onClick={() => setShowManual(true)}
-        >
-          <CalendarDays className="h-3 w-3 mr-1" />
-          Pick a date
-        </Button>
-      )}
+      </div>
     </div>
   );
 }

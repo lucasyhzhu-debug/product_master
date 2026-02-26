@@ -386,9 +386,9 @@ function OutletBlock({
   const isK3Mart = channel === "k3mart";
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      {/* Outlet header bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30">
+    <div className="rounded-lg border bg-card">
+      {/* Outlet header bar — sticky below fixed app header (56px) */}
+      <div className="sticky top-14 z-20 flex items-center justify-between px-4 py-2.5 border-b bg-muted/80 backdrop-blur-sm rounded-t-lg">
         <div className="flex items-center gap-3 min-w-0">
           <h3 className="text-sm font-semibold truncate">{outletName}</h3>
           {isK3Mart && (criticalCount ?? 0) > 0 && (
@@ -422,9 +422,9 @@ function OutletBlock({
           No product data available
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-[97px] z-10 bg-card shadow-[0_1px_0_0_var(--color-border)]">
               <tr className="text-[11px] text-muted-foreground uppercase tracking-wider">
                 <th className="py-2 px-4 text-left font-medium">Product</th>
                 {isK3Mart && (

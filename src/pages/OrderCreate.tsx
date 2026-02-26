@@ -490,6 +490,26 @@ export function OrderCreate() {
           await updateDeliveryFeeMutation({ orderId: draftOrderId, deliveryFee });
         }
 
+        // For free orders (total = 0, e.g. 100% voucher), auto-confirm since no payment needed
+        if (total === 0) {
+          // Draft -> AwaitingPayment -> PaymentReceived (auto-confirm)
+          if (existingOrder?.status !== 'AwaitingPayment') {
+            await updateOrderStatus.mutate({
+              orderId: draftOrderId,
+              status: 'AwaitingPayment',
+              userId: user?.userId as Id<"users"> | undefined,
+            });
+          }
+          await updateOrderStatus.mutate({
+            orderId: draftOrderId,
+            status: 'PaymentReceived',
+            userId: user?.userId as Id<"users"> | undefined,
+          });
+          toast.success('Free order confirmed automatically');
+          navigate(`/orders?open=${draftOrderId}`);
+          return;
+        }
+
         // Move Draft -> AwaitingPayment (skip if already AwaitingPayment)
         if (existingOrder?.status !== 'AwaitingPayment') {
           await updateOrderStatus.mutate({
@@ -528,14 +548,28 @@ export function OrderCreate() {
       });
       const orderIdTyped = orderId as unknown as Id<"orders">;
 
-      // Move to AwaitingPayment
-      await updateOrderStatus.mutate({
-        orderId: orderIdTyped,
-        status: 'AwaitingPayment',
-        userId: user?.userId as Id<"users"> | undefined,
-      });
-
-      toast.success('Order submitted');
+      // For free orders (total = 0), auto-confirm since no payment needed
+      if (total === 0) {
+        await updateOrderStatus.mutate({
+          orderId: orderIdTyped,
+          status: 'AwaitingPayment',
+          userId: user?.userId as Id<"users"> | undefined,
+        });
+        await updateOrderStatus.mutate({
+          orderId: orderIdTyped,
+          status: 'PaymentReceived',
+          userId: user?.userId as Id<"users"> | undefined,
+        });
+        toast.success('Free order confirmed automatically');
+      } else {
+        // Move to AwaitingPayment
+        await updateOrderStatus.mutate({
+          orderId: orderIdTyped,
+          status: 'AwaitingPayment',
+          userId: user?.userId as Id<"users"> | undefined,
+        });
+        toast.success('Order submitted');
+      }
       // Navigate with open param to auto-open slide-over for the new order
       navigate(`/orders?open=${orderIdTyped}`);
     } catch (error) {
@@ -917,7 +951,7 @@ export function OrderCreate() {
           <Button
             className="flex-1 h-12 text-base font-semibold"
             onClick={handleSubmit}
-            disabled={isSubmitting || !hasItems || !customerSet || total <= 0}
+            disabled={isSubmitting || !hasItems || !customerSet || total < 0}
             size="lg"
           >
             {isSubmitting ? (

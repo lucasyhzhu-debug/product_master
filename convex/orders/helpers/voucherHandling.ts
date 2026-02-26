@@ -250,7 +250,8 @@ export async function clearVoucherFromOrder(
 
 /**
  * Validate final price meets business rules.
- * Throws error if final price is <= 0 (hard block).
+ * Throws error if final price is < 0 (hard block).
+ * Allows finalPrice === 0 for free voucher orders (e.g. 100% discount gift boxes).
  */
 export function validateFinalPrice(
   subtotal: number,
@@ -258,14 +259,14 @@ export function validateFinalPrice(
 ): { finalPrice: number; isLowPrice: boolean } {
   const finalPrice = subtotal - discount;
 
-  if (finalPrice <= 0) {
+  if (finalPrice < 0) {
     throw new Error(
-      "Discount cannot exceed order total. Final price must be greater than 0."
+      "Discount cannot exceed order total. Final price must be 0 or greater."
     );
   }
 
-  // Check if below warning threshold (Rp 20,000)
-  const isLowPrice = finalPrice < 20000;
+  // Check if below warning threshold (Rp 20,000) but not free (free orders skip payment)
+  const isLowPrice = finalPrice > 0 && finalPrice < 20000;
 
   return { finalPrice, isLowPrice };
 }
