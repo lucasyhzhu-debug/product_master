@@ -91,6 +91,7 @@ const mainNavItems: NavItem[] = [
 const depotItems: NavItem[] = [
   { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
   { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
+  { path: '/grabfood', label: 'GrabFood', icon: UtensilsCrossed, permission: 'canAccessSalesAnalytics' },
 ];
 
 // Configurations dropdown - Manager + Admin

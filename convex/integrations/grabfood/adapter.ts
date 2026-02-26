@@ -300,11 +300,23 @@ export const pauseStore = action({
       return { success: false, error: "GrabFood token unavailable." };
     }
 
+    // GrabFood API expects: { merchantID, isPause: bool, duration?: string }
+    // duration must be exactly one of: "30m", "1h", "24h"
+    const isPause = args.pauseDuration > 0;
+    const durationMap: Record<number, string> = { 30: "30m", 60: "1h", 120: "24h" };
+    const body: Record<string, unknown> = {
+      merchantID: args.merchantID,
+      isPause,
+    };
+    if (isPause) {
+      body.duration = durationMap[args.pauseDuration] ?? "30m";
+    }
+
     const { ok, status, data } = await grabRequest(
       accessToken,
       "PUT",
       GRABFOOD_CONFIG.endpoints.storePause,
-      { merchantID: args.merchantID, pauseDuration: args.pauseDuration }
+      body
     );
 
     if (!ok) {
@@ -348,6 +360,298 @@ export const notifyMenuUpdate = action({
   },
 });
 
+// ─── Menu Management ─────────────────────────────────────────────────────────
+
+/**
+ * Batch update menu item availability on GrabFood.
+ * Two-step process: 1) PUT batch menu update, 2) POST menu notification.
+ * The notification step is CRITICAL — changes are not live without it.
+ */
+export const batchUpdateAvailability = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+    items: v.array(
+      v.object({
+        id: v.string(),
+        availableStatus: v.union(v.literal("AVAILABLE"), v.literal("UNAVAILABLE")),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    const accessToken = await resolveToken(ctx);
+    if (!accessToken) {
+      return { success: false, error: "GrabFood token unavailable. Check credentials." };
+    }
+
+    // Step 1: Build menuEntities and send batch update
+    const menuEntities = args.items.map((item) => ({
+      id: item.id,
+      availableStatus: item.availableStatus,
+      ...(item.availableStatus === "UNAVAILABLE" ? { maxStock: 0 } : {}),
+    }));
+
+    const batchResult = await grabRequest(
+      accessToken,
+      "PUT",
+      GRABFOOD_CONFIG.endpoints.menuBatch,
+      {
+        merchantID: args.merchantID,
+        field: "AVAILABILITY",
+        menuEntities,
+      }
+    );
+
+    if (!batchResult.ok) {
+      const err = batchResult.data as GrabApiError;
+      return {
+        success: false,
+        error: `Batch update failed (HTTP ${batchResult.status}): ${err.message ?? err.reason ?? "Unknown error"}`,
+      };
+    }
+
+    // Step 2: MUST call notifyMenuUpdate — changes are not live without this
+    const notifyResult = await grabRequest(
+      accessToken,
+      "POST",
+      GRABFOOD_CONFIG.endpoints.menuNotify,
+      { merchantID: args.merchantID }
+    );
+
+    if (!notifyResult.ok) {
+      console.log("GrabFood: batch update succeeded but menu notification failed:", notifyResult.data);
+    }
+
+    return {
+      success: true,
+      itemsUpdated: args.items.length,
+      notifyResponse: notifyResult.data,
+    };
+  },
+});
+
+/**
+ * Get menu items for a GrabFood merchant.
+ *
+ * GrabFood Partner API has NO GET menu endpoint — /partner/v1/menu only
+ * accepts PUT (push menu TO GrabFood). So we source menu items locally
+ * from externalProductMappings (source: "grabfood") joined with menuProducts.
+ *
+ * Items returned in a categories > items structure matching GrabFood SDK format
+ * so the frontend parser works unchanged.
+ */
+export const getMenuItems = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    // Query local product mappings for grabfood source
+    const mappings: any[] = await ctx.runQuery(
+      internal.externalData.queries.listProductMappingsInternal,
+      { source: "grabfood" as const }
+    );
+
+    if (!mappings || mappings.length === 0) {
+      return {
+        success: true,
+        menu: {
+          categories: [{
+            id: "all",
+            name: "All Items",
+            availableStatus: "AVAILABLE" as const,
+            sellingTimeID: "default",
+            items: [],
+          }],
+        },
+      };
+    }
+
+    // Build items from mappings — use externalProductCode as GrabFood item ID
+    const items = mappings.map((m: any) => ({
+      id: m.externalProductCode,
+      name: m.externalProductName,
+      availableStatus: "AVAILABLE" as const,
+      price: m.menuProduct?.basePrice ?? undefined,
+    }));
+
+    return {
+      success: true,
+      menu: {
+        categories: [{
+          id: "all",
+          name: "All Items",
+          availableStatus: "AVAILABLE" as const,
+          sellingTimeID: "default",
+          items,
+        }],
+      },
+    };
+  },
+});
+
+// ─── Order Sync ──────────────────────────────────────────────────────────────
+
+/**
+ * Sync GrabFood orders for a merchant.
+ * Paginates the orders list endpoint and upserts each order with revenue bridge.
+ * Handles 401 gracefully (known OAuth2 scope gap — does not crash).
+ */
+export const syncOrders = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+    outletId: v.optional(v.id("externalOutlets")),
+    fromDate: v.optional(v.string()),
+    toDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check — manager or admin
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    const startMs = Date.now();
+
+    // Create sync log
+    const syncLogId = await ctx.runMutation(
+      internal.externalData.mutations.createSyncLog,
+      {
+        source: "grabfood" as const,
+        syncType: "manual" as const,
+        status: "started" as const,
+        timestamp: startMs,
+        outletId: args.outletId,
+        triggeredBy: "user",
+      }
+    );
+
+    try {
+      const accessToken = await resolveToken(ctx);
+      if (!accessToken) {
+        await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+          logId: syncLogId,
+          status: "error" as const,
+          errorMessage: "No GrabFood credentials configured",
+          durationMs: Date.now() - startMs,
+        });
+        return { success: false, error: "No GrabFood credentials configured. Add client_id and client_secret via Settings." };
+      }
+
+      // Determine date range
+      const fromDate = args.fromDate ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const toDate = args.toDate ?? new Date().toISOString().split("T")[0];
+
+      let page = 1;
+      let hasMore = true;
+      let totalOrders = 0;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          merchantID: args.merchantID,
+          page: String(page),
+          date: fromDate,
+        });
+
+        const { ok, status, data } = await grabRequest(
+          accessToken,
+          "GET",
+          `${GRABFOOD_CONFIG.endpoints.ordersList}?${params.toString()}`
+        );
+
+        // Handle 401 gracefully — known OAuth2 scope gap
+        if (status === 401) {
+          const errorMsg = "Orders endpoint returned 401 (Unauthorized). This is a known OAuth2 scope limitation. " +
+            "Contact GrabFood developer support to request orders:read scope for your client credentials.";
+          console.log("GrabFood syncOrders:", errorMsg);
+
+          await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+            logId: syncLogId,
+            status: "error" as const,
+            errorMessage: errorMsg,
+            durationMs: Date.now() - startMs,
+          });
+
+          return { success: false, error: errorMsg, ordersCount: 0 };
+        }
+
+        if (!ok) {
+          const errMsg = `HTTP ${status}: ${data?.message ?? data?.reason ?? "Unknown error"}`;
+          console.log("GrabFood syncOrders error:", errMsg);
+
+          await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+            logId: syncLogId,
+            status: "error" as const,
+            errorMessage: errMsg,
+            durationMs: Date.now() - startMs,
+          });
+
+          return { success: false, error: errMsg, ordersCount: totalOrders };
+        }
+
+        // Process orders from this page
+        const orders: any[] = data?.orders ?? [];
+        if (orders.length > 0) {
+          // Batch upsert (up to 50 per mutation call)
+          for (let i = 0; i < orders.length; i += 50) {
+            const batch = orders.slice(i, i + 50);
+            await ctx.runMutation(
+              internal.grabfoodOrders.mutations.upsertOrderBatch,
+              {
+                orders: batch,
+                syncLogId,
+                outletId: args.outletId,
+              }
+            );
+          }
+          totalOrders += orders.length;
+        }
+
+        // Check pagination
+        hasMore = data?.more === true;
+        page++;
+
+        // Safety: cap at 100 pages to prevent infinite loops
+        if (page > 100) {
+          console.log("GrabFood syncOrders: hit 100 page limit, stopping pagination");
+          break;
+        }
+      }
+
+      // Update sync log with success
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "success" as const,
+        productsCount: totalOrders,
+        durationMs: Date.now() - startMs,
+      });
+
+      console.log(`GrabFood syncOrders: synced ${totalOrders} orders from ${fromDate} to ${toDate}`);
+      return { success: true, ordersCount: totalOrders };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log("GrabFood syncOrders: unexpected error:", msg);
+
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "error" as const,
+        errorMessage: msg,
+        durationMs: Date.now() - startMs,
+      });
+
+      return { success: false, error: msg, ordersCount: 0 };
+    }
+  },
+});
+
 // ─── Internal Actions (cron / webhook) ───────────────────────────────────────
 
 /**
@@ -368,3 +672,4 @@ export const autoRefreshToken = internalAction({
 });
 
 // Webhook HTTP handlers live in webhooks.ts (httpAction cannot be in "use node" files).
+

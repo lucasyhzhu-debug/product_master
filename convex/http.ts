@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import { handleOrderWebhook, handleMenuSyncWebhook } from "./integrations/grabfood/webhooks";
 
 const http = httpRouter();
 
@@ -51,6 +52,22 @@ http.route({
       },
     });
   }),
+});
+
+// ─── GrabFood Webhooks ───────────────────────────────────────────────────────
+// Scaffolded routes — webhook URL not yet registered with GrabFood.
+// Ready for activation when GrabFood developer portal is configured.
+
+http.route({
+  path: "/api/grabfood/order",
+  method: "POST",
+  handler: handleOrderWebhook,
+});
+
+http.route({
+  path: "/api/grabfood/menu-sync",
+  method: "POST",
+  handler: handleMenuSyncWebhook,
 });
 
 export default http;

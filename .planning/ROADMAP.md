@@ -345,12 +345,21 @@ Plans:
   3. Manager can see current store status (OPEN/CLOSED/PAUSED) for each outlet and one-click pause for 30/60/120 minutes or unpause from within the system
   4. Manager can toggle a menu item from AVAILABLE to UNAVAILABLE (or back); system calls `notifyMenuUpdate` automatically — change goes live in GrabFood app
   5. Webhook endpoint receives GrabFood order pushes, returns HTTP 200 immediately, and processes the order asynchronously without duplicates
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate)
+- [x] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate) — PASS 2026-02-26
 - [ ] 27-02-PLAN.md — Backend: syncOrders action, grabfoodOrders mutations/queries, revenue bridge, menu batch update, webhook HMAC, HTTP routes
 - [ ] 27-03-PLAN.md — Frontend: GrabFoodManager.tsx page (Orders/Store Status/Menu tabs), useGrabFood hook, App.tsx route
+
+### Phase 27.1: GrabFood Menu Simulator (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 27
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 27.1 to break down)
 
 ### Phase 28: BigSeller Integration
 
@@ -377,7 +386,11 @@ Plans:
   3. BigSeller orders bridge to `externalRevenue` with `source: "bigseller"` — Shopee and Tokopedia revenue visible in Sales Analytics after sync
   4. Admin can map BigSeller SKU codes to internal menu products via an explicit mapping UI; unmapped SKUs are flagged in a reconciliation view rather than silently dropped
   5. System handles BigSeller JWT expiry gracefully — shows "Re-login required" warning rather than crashing; admin can paste new token in settings without redeploying
-**Plans:** TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 28-01-PLAN.md — Schema extension (shopee/tiktok sources, bigsellerSyncState table) + scheduler-chain sync action + order storage + revenue bridge
+- [ ] 28-02-PLAN.md — Frontend: BigSellerSyncPanel progress UI, orders table, SKU mapping wiring in Settings tab
 
 ### Phase 29: Consignment Settlements
 
@@ -445,7 +458,7 @@ Plans:
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
-| 27. GrabFood POS Integration | v1.4 | 0/3 | Planned | - |
-| 28. BigSeller Integration | v1.4 | 0/TBD | Not started | - |
+| 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
+| 28. BigSeller Integration | v1.4 | 0/2 | Planned | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |

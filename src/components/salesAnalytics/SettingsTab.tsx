@@ -16,6 +16,7 @@ import {
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
 import { BigSellerTokenDialog } from "./BigSellerTokenDialog";
+import { GrabFoodCredentialsDialog } from "./GrabFoodCredentialsDialog";
 import { IntegrationHealthCard } from "./IntegrationHealthCard";
 import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -29,6 +30,7 @@ export function SettingsTab() {
   const [credDialogOpen, setCredDialogOpen] = useState(false);
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
   const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
+  const [grabfoodDialogOpen, setGrabfoodDialogOpen] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -153,7 +155,10 @@ export function SettingsTab() {
       case "pos_login":
         setCredDialogOpen(true);
         break;
-      // client_credentials and session_auth have no dialog
+      case "client_credentials":
+        setGrabfoodDialogOpen(true);
+        break;
+      // session_auth has no dialog
     }
   };
 
@@ -243,6 +248,10 @@ export function SettingsTab() {
             onClose={() => setBigsellerDialogOpen(false)}
             authToken={user.token}
             reconnectSteps={bigsellerHealth?.reconnectSteps ?? []}
+          />
+          <GrabFoodCredentialsDialog
+            open={grabfoodDialogOpen}
+            onOpenChange={setGrabfoodDialogOpen}
           />
         </>
       )}
