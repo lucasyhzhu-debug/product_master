@@ -570,9 +570,10 @@ function StoreStatusTab({ merchantID, outletName }: StoreStatusTabProps) {
     }
   };
 
-  // Derive status from store data
+  // Derive status from store data — use closeReason from API to detect paused state
   const isOpen = storeData?.isOpen === true;
-  const isPaused = pauseUntil !== null && pauseUntil > Date.now();
+  const apiPaused = storeData?.closeReason === "mex_paused" || storeData?.closeReason === "ops_paused";
+  const isPaused = apiPaused || (pauseUntil !== null && pauseUntil > Date.now());
   const statusLabel = isPaused ? "PAUSED" : isOpen ? "OPEN" : "CLOSED";
   const statusVariant = isPaused
     ? "outline"

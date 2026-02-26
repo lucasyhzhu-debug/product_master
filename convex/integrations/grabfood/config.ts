@@ -14,7 +14,7 @@ export const GRABFOOD_CONFIG = {
 
   auth: {
     tokenUrl: "https://api.grab.com/grabid/v1/oauth2/token",
-    scope: "food.partner_api",
+    scope: "grabfood.partner_api",
     grantType: "client_credentials",
   },
 
@@ -43,7 +43,7 @@ export const GRABFOOD_CONFIG = {
   tokenRefreshBufferMs: 5 * 60 * 1000,
 } as const;
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types (aligned with GrabFood OpenAPI v1.1.3 SDK models) ────────────────
 
 export interface GrabOauthResponse {
   access_token: string;
@@ -51,14 +51,25 @@ export interface GrabOauthResponse {
   expires_in: number;
 }
 
+// ─── Order Types ─────────────────────────────────────────────────────────────
+
 export interface GrabOrderItem {
   id: string;
   grabItemID: string;
   quantity: number;
+  /** Price in minor unit (IDR = whole rupiah, no decimals) */
   price: number;
   tax?: number;
   specifications?: string;
+  outOfStockInstruction?: GrabOutOfStockInstruction;
   modifiers?: GrabOrderItemModifier[];
+}
+
+export interface GrabOutOfStockInstruction {
+  title: string;
+  instructionType: "CONTACT" | "SPECIFIC_ITEM" | "CANCEL_ITEM" | "REFUND";
+  replacementItemID?: string;
+  replacementGrabItemID?: string;
 }
 
 export interface GrabOrderItemModifier {
@@ -76,7 +87,38 @@ export interface GrabOrderPrice {
   merchantFundPromo?: number;
   basketPromo?: number;
   deliveryFee?: number;
+  smallOrderFee?: number;
   eaterPayment?: number;
+}
+
+export interface GrabOrderCampaign {
+  id: string;
+  name: string;
+  campaignNameForMex?: string;
+  level?: string;
+  type?: string;
+  usageCount?: number;
+  mexFundedRatio?: number;
+  deductedAmount?: number;
+  deductedPart?: string;
+  appliedItemIDs?: string[];
+}
+
+export interface GrabOrderPromo {
+  code: string;
+  description?: string;
+  name?: string;
+  promoAmount?: number;
+  mexFundedRatio?: number;
+  mexFundedAmount?: number;
+  targetedPrice?: number;
+  promoAmountInMin?: number;
+}
+
+export interface GrabCurrency {
+  code: string;
+  symbol: string;
+  exponent: number;
 }
 
 export interface GrabIncomingOrder {
@@ -84,13 +126,18 @@ export interface GrabIncomingOrder {
   shortOrderNumber: string;
   merchantID: string;
   partnerMerchantID?: string;
-  paymentType: string;
+  paymentType: "CASH" | "CASHLESS";
   cutlery: boolean;
   orderTime: string;
+  submitTime?: string;
+  completeTime?: string;
   scheduledTime?: string;
   orderState?: string;
-  currency: { code: string; symbol: string; exponent: number };
+  currency: GrabCurrency;
+  featureFlags?: { orderAcceptedType?: string; orderType?: string; isMexEditOrder?: boolean };
   items: GrabOrderItem[];
+  campaigns?: GrabOrderCampaign[];
+  promos?: GrabOrderPromo[];
   price: GrabOrderPrice;
   dineIn?: { tableID?: string; eaterCount?: number };
   receiver?: {
@@ -103,7 +150,80 @@ export interface GrabIncomingOrder {
       postcode?: string;
     };
   };
+  orderReadyEstimation?: { readyTime?: string };
+  membershipID?: string;
 }
+
+export interface GrabListOrdersResponse {
+  orders: GrabIncomingOrder[];
+  more: boolean;
+}
+
+// ─── Store Types ─────────────────────────────────────────────────────────────
+
+export type GrabCloseReason =
+  | "mex_paused" | "ops_paused" | "out_of_special_opening_hours"
+  | "out_of_opening_hours" | "inactive" | "ops_paused_without_comm"
+  | "restricted" | "suspended" | "";
+
+export interface GrabStoreStatusResponse {
+  closeReason: GrabCloseReason;
+  isInSpecialOpeningHourRange: boolean;
+  isOpen: boolean;
+}
+
+// ─── Menu Types ──────────────────────────────────────────────────────────────
+
+export interface GrabMenuItem {
+  id: string;
+  name: string;
+  nameTranslation?: Record<string, string>;
+  availableStatus: "AVAILABLE" | "UNAVAILABLE";
+  description?: string;
+  price: number;
+  photos?: string[];
+  taxable?: boolean;
+  maxStock?: number;
+  sequence?: number;
+  modifierGroups?: GrabModifierGroup[];
+}
+
+export interface GrabModifierGroup {
+  id: string;
+  name: string;
+  availableStatus: "AVAILABLE" | "UNAVAILABLE";
+  selectionRangeMin?: number;
+  selectionRangeMax: number;
+  modifiers?: GrabMenuModifier[];
+}
+
+export interface GrabMenuModifier {
+  id: string;
+  name: string;
+  availableStatus: "AVAILABLE" | "UNAVAILABLE";
+  price?: number;
+}
+
+export interface GrabMenuCategory {
+  id: string;
+  name: string;
+  availableStatus: "AVAILABLE" | "UNAVAILABLE";
+  sellingTimeID: string;
+  items: GrabMenuItem[];
+}
+
+export interface GrabBatchMenuUpdateRequest {
+  merchantID: string;
+  field: "PRICE" | "AVAILABILITY" | "STOCK" | "MODIFIER";
+  menuEntities: Array<{
+    id: string;
+    availableStatus?: "AVAILABLE" | "UNAVAILABLE";
+    maxStock?: number;
+    price?: number;
+  }>;
+}
+
+// ─── Error Types ─────────────────────────────────────────────────────────────
 
 export interface GrabApiError {
   message?: string;
