@@ -660,7 +660,7 @@ function StoreStatusTab({ merchantID, outletName }: StoreStatusTabProps) {
                 {isOpen && !isPaused && (
                   <>
                     <span className="text-sm self-center mr-1">Pause for:</span>
-                    {[30, 60, 120].map((mins) => (
+                    {([{ mins: 30, label: "30 min" }, { mins: 60, label: "1 hour" }, { mins: 120, label: "24 hours" }] as const).map(({ mins, label }) => (
                       <Button
                         key={mins}
                         variant="outline"
@@ -671,7 +671,7 @@ function StoreStatusTab({ merchantID, outletName }: StoreStatusTabProps) {
                         {pausing ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
-                          `${mins} min`
+                          label
                         )}
                       </Button>
                     ))}

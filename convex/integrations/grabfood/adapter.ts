@@ -301,14 +301,15 @@ export const pauseStore = action({
     }
 
     // GrabFood API expects: { merchantID, isPause: bool, duration?: string }
-    // isPause=true + duration to pause; isPause=false to unpause
+    // duration must be exactly one of: "30m", "1h", "24h"
     const isPause = args.pauseDuration > 0;
+    const durationMap: Record<number, string> = { 30: "30m", 60: "1h", 120: "24h" };
     const body: Record<string, unknown> = {
       merchantID: args.merchantID,
       isPause,
     };
     if (isPause) {
-      body.duration = String(args.pauseDuration);
+      body.duration = durationMap[args.pauseDuration] ?? "30m";
     }
 
     const { ok, status, data } = await grabRequest(
