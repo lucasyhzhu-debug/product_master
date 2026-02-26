@@ -177,6 +177,39 @@ export const saveDirectTokenPublic = mutation({
 });
 
 /**
+ * Save or update HMAC secret for a platform (admin-only).
+ * Used to store the GrabFood webhook HMAC signing secret.
+ */
+export const saveHmacSecret = mutation({
+  args: {
+    token: v.string(),
+    platformId: v.string(),
+    hmacSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const existing = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        hmacSecret: args.hmacSecret,
+        updatedBy: user.name,
+        updatedAt: Date.now(),
+      });
+      return existing._id;
+    }
+    return await ctx.db.insert("platformCredentials", {
+      platformId: args.platformId,
+      hmacSecret: args.hmacSecret,
+      updatedBy: user.name,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Internal: Seed default credentials for a platform.
  * Used by K3Mart auto-seed when no credentials exist.
  */

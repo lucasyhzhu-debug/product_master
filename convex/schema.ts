@@ -24,6 +24,17 @@ export const externalSource = v.union(
   v.literal("consignment"),
 );
 
+/**
+ * Shared syncType validator for externalSyncLogs.
+ * Must stay in sync with SyncLogEntry type in platformCredentials/queries.ts.
+ */
+export const syncType = v.union(
+  v.literal("manual"),
+  v.literal("cron"),
+  v.literal("token_refresh"),
+  v.literal("webhook"),
+);
+
 export default defineSchema({
   // ============================================
   // BASE TABLES - Simple entities
@@ -1093,7 +1104,7 @@ export default defineSchema({
     source: externalSource,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual"), v.literal("cron"), v.literal("token_refresh")),
+    syncType: syncType,
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),
@@ -1114,6 +1125,8 @@ export default defineSchema({
     menuProductId: v.optional(v.id("menuProducts")),
     isAutoMapped: v.boolean(),
     createdAt: v.number(),
+    grabfoodPrice: v.optional(v.number()),
+    isAvailable: v.optional(v.boolean()),
   })
     .index("by_source_code", ["source", "externalProductCode"])
     .index("by_menu_product", ["menuProductId"]),
@@ -1166,6 +1179,7 @@ export default defineSchema({
     lastRefreshAt: v.optional(v.number()),
     lastRefreshStatus: v.optional(v.union(v.literal("success"), v.literal("error"))),
     lastRefreshError: v.optional(v.string()),
+    hmacSecret: v.optional(v.string()),
     updatedBy: v.string(),
     updatedAt: v.number(),
   })

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireRole } from "../lib/auth";
-import { externalSource } from "../schema";
+import { externalSource, syncType } from "../schema";
 
 // Source validator reused across functions (uses shared externalSource from schema for consistency)
 const sourceValidator = externalSource;
@@ -107,7 +107,7 @@ export const createSyncLog = internalMutation({
     source: sourceValidator,
     outletId: v.optional(v.id("externalOutlets")),
     snapshotBatchId: v.optional(v.string()),
-    syncType: v.union(v.literal("manual"), v.literal("cron"), v.literal("token_refresh")),
+    syncType: syncType,
     status: v.union(
       v.literal("started"), v.literal("success"), v.literal("error")
     ),

@@ -148,6 +148,21 @@ export const validateAdminToken = internalQuery({
   },
 });
 
+/**
+ * Internal: Get HMAC secret for a platform.
+ * Used by webhook handlers to validate incoming signatures.
+ */
+export const getHmacSecret = internalQuery({
+  args: { platformId: v.string() },
+  handler: async (ctx, args) => {
+    const cred = await ctx.db
+      .query("platformCredentials")
+      .withIndex("by_platform", (q) => q.eq("platformId", args.platformId))
+      .first();
+    return cred?.hmacSecret ?? null;
+  },
+});
+
 // ============================================
 // REGISTRY-DRIVEN HEALTH STATUS
 // Phase 26: Single query for all platform health.
@@ -160,7 +175,7 @@ export const validateAdminToken = internalQuery({
 export type SyncLogEntry = {
   timestamp: number;
   status: "started" | "success" | "error";
-  syncType: "manual" | "cron" | "token_refresh";
+  syncType: "manual" | "cron" | "token_refresh" | "webhook";
   productsCount?: number;
   durationMs?: number;
   errorMessage?: string;
