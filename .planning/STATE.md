@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 26 of 30 (Platform Auth & Schema Foundation)
-Plan: 5 of 5 complete
-Status: MERGED — Phase 26 complete, UAT verified, merged to main
-Last activity: 2026-02-25 - Phase 26 merged to main (5 plans + Quick Task 29 + UAT fixes)
+Phase: 27 of 30 (GrabFood POS Integration)
+Plan: 1 of 3 complete
+Status: In progress — 27-01 gate complete (PASS), proceeding to 27-02 backend
+Last activity: 2026-02-26 - Phase 27 Plan 01 complete (API discovery gate passed)
 
-Progress (v1.4): [████████████░░░░░░░░] 60% — Phase 26 merged, ready for Phase 27
+Progress (v1.4): [████████████░░░░░░░░] 63% — Phase 27 plan 1/3 done
 
 ## Performance Metrics
 
@@ -28,30 +28,29 @@ All v1.0–v1.3 decisions archived in PROJECT.md Key Decisions table.
 
 Key decisions affecting v1.4 phases:
 - [v1.4 arch]: No cron jobs — all data syncs are manual-trigger only (button press)
-- [v1.4 arch]: GoBiz uses password grant endpoint for one-click refresh — no browser paste
-- [v1.4 arch]: BigSeller paste-once JWT, 30-day expiry with < 5 day warning
-- [v1.4 arch]: GrabFood resolveToken() on-demand, already scaffolded in adapter.ts
 - [v1.4 arch]: Consignment is manual settlement entry form — no Excel upload, no SheetJS
 - [v1.4 arch]: No bigsellerDailyStats table — derive aggregates from per-order data
-- [v1.4 arch]: Extend existing credential health panel in Sales Analytics Settings
-- [Phase 26]: Schema must deploy before Phases 27-30 — grabfoodOrders, bigsellerOrders, consignmentOutlets, consignmentSettlements; source union in ALL 4 tables
-- [Phase 26-platform-auth-schema]: externalSource validator exported from schema.ts for shared use across integrations
-- [Phase 26-platform-auth-schema]: getHealthStatusAll query requires manager/admin auth matching getCredentialStatusForManagers pattern
-- [Phase 26-platform-auth-schema]: bigseller token_expiry thresholds: green >7d, yellow 3-7d, red <3d per CONTEXT.md
-- [Phase 26-02]: saveDirectToken converted to internalMutation; saveDirectTokenPublic wrapper for frontend callers
-- [Phase 26-02]: saveDirectToken uses updatedBy: 'system' for internal callers with no user context
-- [Phase 26-02]: GoBiz loginWithCredentials wraps Bearer prefix around raw access_token from password grant
-- [Phase 26-02]: BigSeller muc_token stored as currentToken (not refreshToken) — it is the primary access credential
-- [Phase 26-02]: externalData/queries.ts uses shared externalSource validator from schema.ts (not local 3-literal union)
-- [Phase 26-03]: IntegrationHealthCard accepts single PlatformHealthStatus prop — all behavior from authStrategy/category fields
-- [Phase 26-03]: Convex API path for queries file is api.platformCredentials.queries.getHealthStatusAll (not api.platformCredentials.getHealthStatusAll)
-- [Phase 26-03]: api.d.ts must be manually updated when new Convex modules are added without running npx convex dev
-- [Phase 26-03]: BigSellerTokenDialog auto-previews token on paste when input has 3 dot-separated JWT parts
-- [Phase 26-04]: GoBiz loginWithCredentials body is flat — email/password at top-level, no nested data key
-- [Phase 26-04]: GoBiz error handler reads response body and surfaces error_description for admin visibility
-- [Phase 26-04]: BigSeller uid resolved via find() across [uid, user_id, sub, id] JWT claim keys
-- [Phase 26-05]: syncHistory initialized as [] before branch logic — always_green and token_expiry platforms get empty array automatically
-- [Phase 26-05]: SettingsTab passes full health object to IntegrationHealthCard — syncHistory flows through without SettingsTab changes
+
+Phase 27-01 decisions (API discovery gate):
+- [Phase 27-01]: Gate PASS — token resolves, store status 200, menu batch reachable (400 = expected with empty payload)
+- [Phase 27-01]: Single-credential model — one client_id/client_secret, all outlets via merchantID parameter
+- [Phase 27-01]: Orders endpoint 401 = OAuth2 scope issue (not credential failure) — needs orders:read scope grant from GrabFood support
+- [Phase 27-01]: No /merchants listing endpoint in GrabFood Partner API v1.1.3 — merchantIDs from Merchant Portal or live order webhooks
+- [Phase 27-01]: IDR price handling — store as integer (no /100 division); currency.exponent=0 expected for IDR
+
+Phase 26 established patterns (reference for Phases 27-30):
+- [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
+- [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
+- [Phase 26]: IntegrationHealthCard accepts PlatformHealthStatus prop — extend syncHistory/health for new platforms
+- [Phase 26]: Convex API path includes module file: api.platformCredentials.queries.X (not api.platformCredentials.X)
+- [Phase 26]: api.d.ts must be manually updated when new Convex modules are added without running npx convex dev
+- [Phase 26]: createSyncLog accepts syncType "token_refresh" — use for all token refresh paths
+- [Phase 26]: GoBiz 2-step GoID auth: POST /goid/login/request (JSON) then POST /goid/token (JSON flat body)
+- [Phase 26]: New files MUST be git-added — untracked files cause production deploy failures (grabfood/config.ts incident)
+
+### Roadmap Evolution
+
+- Phase 27.1 inserted after Phase 27: GrabFood Menu Simulator (URGENT)
 
 ### Pending Todos
 
@@ -59,7 +58,9 @@ Key decisions affecting v1.4 phases:
 
 ### Blockers/Concerns
 
-- [Phase 27]: Confirm whether Crystal/Goldfinch/Tamtem GrabFood outlets share one credential or need separate client_id/client_secret per outlet — must resolve before Phase 27 Wave 1 backend
+- [Phase 27 - RESOLVED]: Single-credential model confirmed — one client_id/client_secret for all outlets, differentiated by merchantID parameter
+- [Phase 27 - OPEN]: Orders endpoint returns 401 (OAuth2 scope gap) — contact GrabFood developer support to request orders:read scope grant; Phase 27-02 must handle 401 gracefully
+- [Phase 27 - OPEN]: Crystal and Tamtem GrabFood merchantIDs still needed — only GFSBPOS-254-353 confirmed; admin must obtain remaining from GrabFood Merchant Portal
 - [Phase 27]: GrabFood grabItemID values per outlet needed before menu toggle can be activated — obtain from GrabFood portal or via API product listing
 - [Phase 28]: BigSeller API is reverse-engineered (MEDIUM confidence) — verify taskStatus values, code:-1 behavior, and pageList pagination against live Frollie account before finalizing adapter
 - [Phase 28]: BigSeller COGS = 0 for all current Frollie orders — profit margin analytics are meaningless until COGS configured in BigSeller; surface caveat prominently in UI
@@ -72,7 +73,7 @@ Key decisions affecting v1.4 phases:
 
 ## Session Continuity
 
-Last session: 2026-02-25
-Stopped at: Phase 26 merged to main. CHANGELOG, SCHEMA.md, API_REFERENCE.md updated.
+Last session: 2026-02-26
+Stopped at: Completed 27-01 API discovery gate. Plan 1/3 done. Ready for 27-02 backend.
 Resume file: None
-Resume notes: Phase 26 fully complete. Start Phase 27 (GrabFood POS Integration) next.
+Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Next: 27-02-PLAN.md (syncOrders action, grabfoodOrders mutations/queries, revenue bridge, webhook HMAC, HTTP routes). Orders 401 scope gap is a known blocker — implement gracefully and document.

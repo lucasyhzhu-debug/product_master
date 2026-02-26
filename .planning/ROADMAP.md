@@ -348,9 +348,18 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate)
+- [x] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate) — PASS 2026-02-26
 - [ ] 27-02-PLAN.md — Backend: syncOrders action, grabfoodOrders mutations/queries, revenue bridge, menu batch update, webhook HMAC, HTTP routes
 - [ ] 27-03-PLAN.md — Frontend: GrabFoodManager.tsx page (Orders/Store Status/Menu tabs), useGrabFood hook, App.tsx route
+
+### Phase 27.1: GrabFood Menu Simulator (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 27
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 27.1 to break down)
 
 ### Phase 28: BigSeller Integration
 
@@ -449,7 +458,7 @@ Plans:
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
-| 27. GrabFood POS Integration | v1.4 | 0/3 | Planned | - |
+| 27. GrabFood POS Integration | v1.4 | 1/3 | In Progress | - |
 | 28. BigSeller Integration | v1.4 | 0/2 | Planned | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
