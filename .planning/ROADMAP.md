@@ -345,7 +345,7 @@ Plans:
   3. Manager can see current store status (OPEN/CLOSED/PAUSED) for each outlet and one-click pause for 30/60/120 minutes or unpause from within the system
   4. Manager can toggle a menu item from AVAILABLE to UNAVAILABLE (or back); system calls `notifyMenuUpdate` automatically — change goes live in GrabFood app
   5. Webhook endpoint receives GrabFood order pushes, returns HTTP 200 immediately, and processes the order asynchronously without duplicates
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [x] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate) — PASS 2026-02-26
@@ -458,7 +458,7 @@ Plans:
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
-| 27. GrabFood POS Integration | v1.4 | 1/3 | In Progress | - |
+| 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
 | 28. BigSeller Integration | v1.4 | 0/2 | Planned | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |

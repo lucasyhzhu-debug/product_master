@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 27 of 30 (GrabFood POS Integration)
-Plan: 1 of 3 complete
-Status: In progress — 27-01 gate complete (PASS), proceeding to 27-02 backend
-Last activity: 2026-02-26 - Phase 27 Plan 01 complete (API discovery gate passed)
+Plan: 2 of 3 complete
+Status: In progress — 27-02 backend complete, proceeding to 27-03 frontend
+Last activity: 2026-02-26 - Phase 27 Plan 02 complete (backend actions + mutations + webhooks)
 
-Progress (v1.4): [████████████░░░░░░░░] 63% — Phase 27 plan 1/3 done
+Progress (v1.4): [██████████████░░░░░░] 70% — Phase 27 plan 2/3 done
 
 ## Performance Metrics
 
@@ -37,6 +37,13 @@ Phase 27-01 decisions (API discovery gate):
 - [Phase 27-01]: Orders endpoint 401 = OAuth2 scope issue (not credential failure) — needs orders:read scope grant from GrabFood support
 - [Phase 27-01]: No /merchants listing endpoint in GrabFood Partner API v1.1.3 — merchantIDs from Merchant Portal or live order webhooks
 - [Phase 27-01]: IDR price handling — store as integer (no /100 division); currency.exponent=0 expected for IDR
+
+Phase 27-02 decisions (backend implementation):
+- [Phase 27-02]: Revenue bridge creates externalRevenue per grabfoodOrders insert (source: grabfood, dedup on orderID)
+- [Phase 27-02]: IDR prices stored as-is (integer, no /100 division) — confirmed by exponent=0
+- [Phase 27-02]: Webhook HMAC uses Web Crypto API (not Node crypto) — httpAction is non-Node runtime
+- [Phase 27-02]: syncOrders 401 returns descriptive error (OAuth2 scope gap) without crashing
+- [Phase 27-02]: Two-step menu update: PUT batch/menu then POST menu notification
 
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
@@ -74,6 +81,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 27-01 API discovery gate. Plan 1/3 done. Ready for 27-02 backend.
+Stopped at: Completed 27-02 backend. Plan 2/3 done. Ready for 27-03 frontend.
 Resume file: None
-Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Next: 27-02-PLAN.md (syncOrders action, grabfoodOrders mutations/queries, revenue bridge, webhook HMAC, HTTP routes). Orders 401 scope gap is a known blocker — implement gracefully and document.
+Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Next: 27-03-PLAN.md (frontend GrabFoodManager page — Orders tab, Menu tab, store status). All backend actions and queries ready.
