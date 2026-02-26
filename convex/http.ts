@@ -1,7 +1,14 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
-import { handleOrderWebhook, handleMenuSyncWebhook } from "./integrations/grabfood/webhooks";
+import {
+  handleGetMenuWebhook,
+  handleOrderWebhook,
+  handleOrderStateWebhook,
+  handleMenuSyncWebhook,
+  handleIntegrationStatusWebhook,
+  handleMenuPushWebhook,
+} from "./integrations/grabfood/webhooks";
 
 const http = httpRouter();
 
@@ -55,8 +62,14 @@ http.route({
 });
 
 // ─── GrabFood Webhooks ───────────────────────────────────────────────────────
-// Scaffolded routes — webhook URL not yet registered with GrabFood.
-// Ready for activation when GrabFood developer portal is configured.
+// 6 webhook routes for GrabFood Partner API integration.
+// HMAC validation reads secret from platformCredentials table.
+
+http.route({
+  path: "/api/grabfood/menu",
+  method: "GET",
+  handler: handleGetMenuWebhook,
+});
 
 http.route({
   path: "/api/grabfood/order",
@@ -65,9 +78,27 @@ http.route({
 });
 
 http.route({
+  path: "/api/grabfood/order/state",
+  method: "POST",
+  handler: handleOrderStateWebhook,
+});
+
+http.route({
   path: "/api/grabfood/menu-sync",
   method: "POST",
   handler: handleMenuSyncWebhook,
+});
+
+http.route({
+  path: "/api/grabfood/integration-status",
+  method: "POST",
+  handler: handleIntegrationStatusWebhook,
+});
+
+http.route({
+  path: "/api/grabfood/menu/push",
+  method: "POST",
+  handler: handleMenuPushWebhook,
 });
 
 export default http;

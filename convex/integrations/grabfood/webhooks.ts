@@ -1,4 +1,5 @@
 import { httpAction } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 
 // ─── HMAC Validation Helper ──────────────────────────────────────────────────
@@ -8,27 +9,28 @@ import { internal } from "../../_generated/api";
  * Uses the Web Crypto API (available in Convex httpAction runtime).
  *
  * GrabFood sends the signature in the `X-Grab-Signature` header.
- * HMAC secret comes from `GRAB_HMAC_SECRET` env var.
+ * HMAC secret comes from platformCredentials table.
  *
- * Returns true if valid, false if invalid. If no HMAC secret is configured,
- * returns true (skip validation with warning log).
+ * Returns { valid: true } if signature matches.
+ * If no HMAC secret is configured, returns { valid: true, reason: "no_secret" } (skip validation).
+ * If no signature header, returns { valid: true, reason: "no_signature" } (GrabFood may not send it).
  */
-async function validateHmacSignature(
+export async function validateHmacSignature(
   body: string,
   signatureHeader: string | null,
   hmacSecret: string | undefined
 ): Promise<{ valid: boolean; reason?: string }> {
   if (!hmacSecret) {
-    console.log("GrabFood webhook: HMAC secret not configured (GRAB_HMAC_SECRET env var). Skipping validation.");
+    console.log("GrabFood webhook: HMAC secret not configured. Skipping validation.");
     return { valid: true, reason: "no_secret" };
   }
 
   if (!signatureHeader) {
-    return { valid: false, reason: "missing_signature_header" };
+    console.log("GrabFood webhook: No X-Grab-Signature header. Skipping validation.");
+    return { valid: true, reason: "no_signature" };
   }
 
   try {
-    // Web Crypto API HMAC-SHA256
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
@@ -38,14 +40,12 @@ async function validateHmacSignature(
       ["sign"]
     );
     const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-
-    // Convert to hex string
     const hashArray = Array.from(new Uint8Array(signature));
     const computedHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 
     // Constant-time comparison (best effort in JS)
     if (computedHex.length !== signatureHeader.length) {
-      return { valid: false, reason: "length_mismatch" };
+      return { valid: false, reason: "mismatch" };
     }
     let mismatch = 0;
     for (let i = 0; i < computedHex.length; i++) {
@@ -54,111 +54,270 @@ async function validateHmacSignature(
 
     return mismatch === 0
       ? { valid: true }
-      : { valid: false, reason: "signature_mismatch" };
+      : { valid: false, reason: "mismatch" };
   } catch (err) {
     console.log("GrabFood webhook: HMAC validation error:", err);
     return { valid: false, reason: "crypto_error" };
   }
 }
 
-// ─── Webhook Handlers ────────────────────────────────────────────────────────
+// ─── Shared Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Resolve HMAC secret from platformCredentials table.
+ */
+async function resolveHmacSecret(ctx: ActionCtx): Promise<string | undefined> {
+  const secret = await ctx.runQuery(
+    internal.platformCredentials.queries.getHmacSecret,
+    { platformId: "grabfood" }
+  );
+  return secret ?? undefined;
+}
+
+/**
+ * Shared webhook handler pattern for POST endpoints.
+ * Handles HMAC validation, JSON parsing, sync logging, and error handling.
+ * Eliminates duplication across 5 POST handlers.
+ */
+async function handleWebhookCommon(
+  ctx: ActionCtx,
+  request: Request,
+  eventType: string,
+  processPayload: (ctx: ActionCtx, payload: any) => Promise<{ status?: "error"; errorMessage?: string } | void>
+): Promise<Response> {
+  const body = await request.text();
+  const sig = request.headers.get("X-Grab-Signature");
+  const secret = await resolveHmacSecret(ctx);
+  const hmac = await validateHmacSignature(body, sig, secret);
+
+  if (!hmac.valid && hmac.reason !== "no_secret") {
+    try {
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "grabfood",
+        syncType: "webhook",
+        status: "error",
+        timestamp: Date.now(),
+        triggeredBy: `grabfood-webhook-${eventType}`,
+        errorMessage: `HMAC failed: ${hmac.reason}`,
+      });
+    } catch (err) { console.log("Failed to write sync log:", err); }
+    return new Response("OK", { status: 200 });
+  }
+
+  let payload: any = {};
+  try { payload = JSON.parse(body); } catch { /* invalid JSON - log as empty */ }
+
+  let result: { status?: "error"; errorMessage?: string } | void = undefined;
+  try {
+    result = await processPayload(ctx, payload);
+  } catch (err) {
+    console.log(`Error processing ${eventType} webhook:`, err);
+  }
+
+  try {
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "grabfood",
+      syncType: "webhook",
+      status: result?.status === "error" ? "error" : "success",
+      timestamp: Date.now(),
+      triggeredBy: `grabfood-webhook-${eventType}`,
+      ...(result?.errorMessage ? { errorMessage: result.errorMessage } : {}),
+    });
+  } catch (err) { console.log("Failed to write sync log:", err); }
+
+  return new Response("OK", { status: 200 });
+}
+
+// ─── All-day service hours for all 7 days ───────────────────────────────────
+
+const ALL_DAY_SERVICE_HOURS = Object.fromEntries(
+  ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].map((day) => [
+    day,
+    {
+      openPeriodType: "OpenPeriod",
+      periods: [{ startTime: "00:00", endTime: "23:59" }],
+    },
+  ])
+);
+
+// ─── Handler 1: GET /api/grabfood/menu ──────────────────────────────────────
+
+/**
+ * Return GrabFood Section-based menu JSON built from externalProductMappings.
+ * This is a GET endpoint — HMAC validates on empty string body.
+ */
+export const handleGetMenuWebhook = httpAction(async (ctx, request) => {
+  const sig = request.headers.get("X-Grab-Signature");
+  const secret = await resolveHmacSecret(ctx);
+  const hmac = await validateHmacSignature("", sig, secret);
+
+  if (!hmac.valid && hmac.reason !== "no_secret") {
+    try {
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "grabfood",
+        syncType: "webhook",
+        status: "error",
+        timestamp: Date.now(),
+        triggeredBy: "grabfood-webhook-get-menu",
+        errorMessage: `HMAC failed: ${hmac.reason}`,
+      });
+    } catch (err) { console.log("Failed to write sync log:", err); }
+    return new Response("OK", { status: 200 });
+  }
+
+  // Extract merchantID from query params
+  const url = new URL(request.url);
+  const merchantID = url.searchParams.get("merchantID") ?? "";
+
+  // Fetch product mappings for grabfood
+  const mappings = await ctx.runQuery(
+    internal.externalData.queries.listProductMappingsInternal,
+    { source: "grabfood" }
+  );
+
+  // Filter available items (default true if isAvailable undefined)
+  const availableItems = mappings.filter(
+    (m: any) => m.isAvailable !== false
+  );
+
+  // Build menu items
+  const items = availableItems.map((m: any, index: number) => ({
+    id: m.externalProductCode,
+    name: m.externalProductName,
+    sequence: index + 1,
+    availableStatus: "AVAILABLE",
+    price: m.grabfoodPrice ?? m.menuProduct?.defaultPrice ?? 0,
+    description: "",
+    photos: [],
+    modifierGroups: [],
+  }));
+
+  // Build Section-based menu JSON
+  const menuResponse = {
+    merchantID,
+    partnerMerchantID: "",
+    currency: {
+      code: "IDR",
+      symbol: "Rp",
+      exponent: 0,
+    },
+    sellingTimes: [
+      {
+        startTime: "00:00",
+        endTime: "23:59",
+        id: "all-day",
+        name: "All Day",
+      },
+    ],
+    sections: [
+      {
+        id: "SECTION-FROLLIE",
+        name: "Frollie Menu",
+        sequence: 1,
+        serviceHours: ALL_DAY_SERVICE_HOURS,
+        categories: [
+          {
+            id: "CATEGORY-SNACKS",
+            name: "Snacks",
+            sequence: 1,
+            availableStatus: "AVAILABLE",
+            items,
+          },
+        ],
+      },
+    ],
+  };
+
+  // Log success
+  try {
+    await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+      source: "grabfood",
+      syncType: "webhook",
+      status: "success",
+      timestamp: Date.now(),
+      triggeredBy: "grabfood-webhook-get-menu",
+      productsCount: items.length,
+    });
+  } catch (err) { console.log("Failed to write sync log:", err); }
+
+  return new Response(JSON.stringify(menuResponse), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+});
+
+// ─── Handler 2: POST /api/grabfood/order ────────────────────────────────────
 
 /**
  * Receive incoming GrabFood orders via webhook.
- *
- * GrabFood POSTs the full Order object here when a customer places an order.
- * We must return HTTP 200 immediately, then process asynchronously.
- *
- * Register this URL in the GrabFood developer portal:
- *   https://<your-deployment>.convex.site/api/grabfood/order
- *
- * HMAC validation: validates X-Grab-Signature header against GRAB_HMAC_SECRET env var.
- * If secret not configured, processes anyway (logs warning).
- * If validation fails, returns 200 (GrabFood spec) but skips processing.
+ * Log-only: does NOT write to grabfoodOrders (per user decision).
  */
 export const handleOrderWebhook = httpAction(async (ctx, request) => {
-  const body = await request.text();
-
-  // HMAC validation
-  const signatureHeader = request.headers.get("X-Grab-Signature");
-  // NOTE: process.env is not available in httpAction (non-Node runtime).
-  // HMAC secret must come from a different source (e.g., stored in DB or Convex env).
-  // For now, we attempt to read from Convex environment variable.
-  let hmacSecret: string | undefined;
-  try {
-    // Convex httpAction has access to environment variables via process.env only in "use node" files.
-    // In non-node httpAction, we skip HMAC validation and rely on the route being non-guessable.
-    // TODO: Move HMAC secret to platformCredentials table or Convex env vars when Node runtime is available.
-    hmacSecret = undefined;
-  } catch {
-    hmacSecret = undefined;
-  }
-
-  const hmacResult = await validateHmacSignature(body, signatureHeader, hmacSecret);
-  if (!hmacResult.valid && hmacResult.reason !== "no_secret") {
-    console.log(`GrabFood webhook: HMAC validation failed (${hmacResult.reason}). Skipping order processing.`);
-    // Return 200 per GrabFood spec even on validation failure
-    return new Response("OK", { status: 200 });
-  }
-
-  let order: any;
-  try {
-    order = JSON.parse(body);
-  } catch {
-    console.log("GrabFood webhook: invalid JSON body");
-    return new Response("OK", { status: 200 });
-  }
-
-  const orderID: string = order?.orderID ?? "unknown";
-  const shortNum: string = order?.shortOrderNumber ?? "?";
-  const merchantID: string = order?.merchantID ?? "unknown";
-
-  console.log(`GrabFood webhook: new order ${shortNum} (${orderID}) for merchant ${merchantID}`);
-
-  // Schedule async upsert — webhook-received orders have no syncLogId
-  try {
-    await ctx.scheduler.runAfter(0, internal.grabfoodOrders.mutations.upsertOrder, {
-      order,
-      syncLogId: undefined,
-      outletId: undefined,
-    });
-  } catch (err) {
-    console.log("GrabFood webhook: failed to schedule upsert:", err);
-  }
-
-  return new Response("OK", { status: 200 });
+  return handleWebhookCommon(ctx, request, "order", async (_ctx, payload) => {
+    const orderID = payload?.orderID ?? "unknown";
+    const shortNum = payload?.shortOrderNumber ?? "?";
+    const merchantID = payload?.merchantID ?? "unknown";
+    console.log(`GrabFood webhook: new order ${shortNum} (${orderID}) for merchant ${merchantID}`);
+  });
 });
+
+// ─── Handler 3: POST /api/grabfood/order/state ──────────────────────────────
+
+/**
+ * Receive order state change notifications.
+ */
+export const handleOrderStateWebhook = httpAction(async (ctx, request) => {
+  return handleWebhookCommon(ctx, request, "order-state", async (_ctx, payload) => {
+    const orderID = payload?.orderID ?? "unknown";
+    const state = payload?.state ?? "unknown";
+    const driverETA = payload?.driverETA;
+    const driver = payload?.driver;
+    console.log(`GrabFood order state: ${state} for order ${orderID}${driverETA ? `, ETA: ${driverETA}` : ""}${driver?.name ? `, driver: ${driver.name}` : ""}`);
+  });
+});
+
+// ─── Handler 4: POST /api/grabfood/menu-sync ────────────────────────────────
 
 /**
  * Receive menu sync result webhooks from GrabFood.
- * GrabFood POSTs here after a menu sync job completes.
- *
- * HMAC validation applied same as order webhook.
+ * Logs FAILED/PARTIAL_FAILURE as error in syncLog.
  */
-export const handleMenuSyncWebhook = httpAction(async (_ctx, request) => {
-  const body = await request.text();
+export const handleMenuSyncWebhook = httpAction(async (ctx, request) => {
+  return handleWebhookCommon(ctx, request, "menu-sync", async (_ctx, payload) => {
+    const { requestID, merchantID, jobID, status, errors } = payload ?? {};
+    console.log(`GrabFood menu sync: ${status} for merchant ${merchantID} (job: ${jobID}, requestID: ${requestID})`);
 
-  // HMAC validation (same approach as order webhook)
-  const signatureHeader = request.headers.get("X-Grab-Signature");
-  const hmacResult = await validateHmacSignature(body, signatureHeader, undefined);
-  if (!hmacResult.valid && hmacResult.reason !== "no_secret") {
-    console.log(`GrabFood menu webhook: HMAC validation failed (${hmacResult.reason}). Skipping.`);
-    return new Response("OK", { status: 200 });
-  }
+    if (status === "FAILED" || status === "PARTIAL_FAILURE") {
+      const errMsg = errors
+        ? JSON.stringify(errors).substring(0, 500)
+        : `Menu sync ${status}`;
+      return { status: "error", errorMessage: errMsg };
+    }
+  });
+});
 
-  let payload: any;
-  try {
-    payload = JSON.parse(body);
-  } catch {
-    return new Response("OK", { status: 200 });
-  }
+// ─── Handler 5: POST /api/grabfood/integration-status ───────────────────────
 
-  const { requestID, merchantID, jobID, status, errors } = payload;
-  console.log(`GrabFood menu sync: ${status} for merchant ${merchantID} (job: ${jobID}, requestID: ${requestID})`);
+/**
+ * Receive integration status change notifications.
+ */
+export const handleIntegrationStatusWebhook = httpAction(async (ctx, request) => {
+  return handleWebhookCommon(ctx, request, "integration-status", async (_ctx, payload) => {
+    const merchantID = payload?.merchantID ?? "unknown";
+    const integrationStatus = payload?.integrationStatus ?? "unknown";
+    console.log(`GrabFood integration status: ${integrationStatus} for merchant ${merchantID}`);
+  });
+});
 
-  if (status === "FAILED" || status === "PARTIAL_FAILURE") {
-    console.log("GrabFood menu sync errors:", errors);
-  }
+// ─── Handler 6: POST /api/grabfood/menu/push ────────────────────────────────
 
-  return new Response("OK", { status: 200 });
+/**
+ * Receive menu push notifications from GrabFood.
+ * We are menu source of truth, so just log and acknowledge.
+ */
+export const handleMenuPushWebhook = httpAction(async (ctx, request) => {
+  return handleWebhookCommon(ctx, request, "menu-push", async (_ctx, payload) => {
+    const preview = JSON.stringify(payload).substring(0, 200);
+    console.log(`GrabFood menu push received: ${preview}`);
+  });
 });
