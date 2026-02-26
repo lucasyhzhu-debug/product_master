@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 27.1 of 30 (GrabFood Webhooks & Partner Configuration)
-Plan: 1 of 2 complete
-Status: In progress — 27.1-01 webhooks complete, proceeding to 27.1-02 partner config
-Last activity: 2026-02-26 - Phase 27.1 Plan 01 complete (6 webhook endpoints + HMAC + tests)
+Plan: 2 of 2 complete
+Status: Complete — all plans finished (webhooks + partner config UI)
+Last activity: 2026-02-26 - Phase 27.1 Plan 02 complete (Webhooks tab + Settings enhancements)
 
-Progress (v1.4): [██████████████░░░░░░] 70% — Phase 27.1 plan 1/2 done
+Progress (v1.4): [████████████████░░░░] 80% — Phase 27.1 complete (2/2 plans)
 
 ## Performance Metrics
 
@@ -51,6 +51,12 @@ Phase 27.1-01 decisions (webhooks):
 - [Phase 27.1-01]: Order webhook is log-only (no grabfoodOrders writes) per user decision
 - [Phase 27.1-01]: Missing signature header returns valid=true (GrabFood may not always send it)
 
+Phase 27.1-02 decisions (partner config UI):
+- [Phase 27.1-02]: CONVEX_SITE_URL derived from VITE_CONVEX_URL by replacing .cloud with .site
+- [Phase 27.1-02]: Clipboard copy wrapped in try/catch for non-HTTPS fallback
+- [Phase 27.1-02]: Product availability defaults to true when isAvailable is undefined
+- [Phase 27.1-02]: GrabFood price uses onBlur commit pattern for inline editing
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -88,6 +94,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 27.1-01 webhooks. Plan 1/2 done. Ready for 27.1-02 partner config UI.
+Stopped at: Completed 27.1-02-PLAN.md. Phase 27.1 fully complete (2/2 plans).
 Resume file: None
-Resume notes: Branch: gsd/phase-27.1-grabfood-webhooks-partner-configuration. Next: 27.1-02-PLAN.md (partner configuration UI). All 6 webhook endpoints registered and tested.
+Resume notes: Branch: gsd/phase-27.1-grabfood-webhooks-partner-configuration. Phase 27.1 complete. Next: merge to main, then Phase 27.2 (GrabFood Menu Simulator).

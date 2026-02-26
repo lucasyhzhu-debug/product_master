@@ -39,8 +39,8 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 - [x] **WH-01**: All 6 GrabFood inbound webhook endpoints (GET menu, submit order, order state, menu sync, integration status, menu push) return HTTP 200 and log events to externalSyncLogs with syncType "webhook"
 - [x] **WH-02**: HMAC-SHA256 validation reads shared secret from platformCredentials table (not env vars); HMAC failures logged as syncLog entries with status "error"
 - [x] **WH-03**: GET /menu endpoint dynamically builds GrabFood Section-based menu JSON from externalProductMappings where source="grabfood", with per-mapping price override and availability toggle
-- [ ] **WH-04**: Admin can enter HMAC secret in Webhooks tab and view/copy all 6 webhook URLs for GrabFood Developer Portal configuration
-- [ ] **WH-05**: Admin can set GrabFood-specific price and toggle availability per product mapping in Settings tab
+- [x] **WH-04**: Admin can enter HMAC secret in Webhooks tab and view/copy all 6 webhook URLs for GrabFood Developer Portal configuration
+- [x] **WH-05**: Admin can set GrabFood-specific price and toggle availability per product mapping in Settings tab
 
 ### Sales Analytics
 
@@ -122,8 +122,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WH-01 | Phase 27.1 | Complete |
 | WH-02 | Phase 27.1 | Complete |
 | WH-03 | Phase 27.1 | Complete |
-| WH-04 | Phase 27.1 | Pending |
-| WH-05 | Phase 27.1 | Pending |
+| WH-04 | Phase 27.1 | Complete |
+| WH-05 | Phase 27.1 | Complete |
 | BS-01 | Phase 28 | Pending |
 | BS-02 | Phase 28 | Pending |
 | BS-03 | Phase 28 | Pending |
