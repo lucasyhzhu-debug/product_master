@@ -14,7 +14,7 @@ export const GRABFOOD_CONFIG = {
 
   auth: {
     tokenUrl: "https://api.grab.com/grabid/v1/oauth2/token",
-    scope: "grabfood.partner_api",
+    scope: "food.partner_api",
     grantType: "client_credentials",
   },
 
