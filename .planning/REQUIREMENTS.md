@@ -17,9 +17,9 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
 ### GrabFood POS Integration
 
-- [ ] **GF-06**: Admin can manually trigger GrabFood order history sync (button pull, not cron) that fetches paginated orders via GET /partner/v1/orders per outlet, stores in grabfoodOrders table, and bridges to externalRevenue for analytics
-- [ ] **GF-07**: Manager can view GrabFood store status (OPEN/CLOSED/PAUSED) per outlet, and one-click pause (30/60/120 min) or unpause any outlet from internal system
-- [ ] **GF-08**: Manager can toggle GrabFood menu item availability (AVAILABLE/UNAVAILABLE) via batch API; requires initial grabItemID mapping setup per outlet
+- [x] **GF-06**: Admin can manually trigger GrabFood order history sync (button pull, not cron) that fetches paginated orders via GET /partner/v1/orders per outlet, stores in grabfoodOrders table, and bridges to externalRevenue for analytics
+- [x] **GF-07**: Manager can view GrabFood store status (OPEN/CLOSED/PAUSED) per outlet, and one-click pause (30/60/120 min) or unpause any outlet from internal system
+- [x] **GF-08**: Manager can toggle GrabFood menu item availability (AVAILABLE/UNAVAILABLE) via batch API; requires initial grabItemID mapping setup per outlet
 
 ### BigSeller Integration
 
@@ -33,6 +33,14 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 - [ ] **CON-02**: Admin can enter consignment settlement records: select outlet, enter period (date range), enter total revenue; system auto-calculates rev sharing and payment to Frollie based on outlet's configured percentage
 - [ ] **CON-03**: Admin can mark settlement as paid with payment date; system tracks payment status per settlement period
 - [ ] **CON-04**: Consignment page shows running totals per outlet and settlement history with status
+
+### GrabFood Webhooks & Partner Configuration
+
+- [ ] **WH-01**: All 6 GrabFood inbound webhook endpoints (GET menu, submit order, order state, menu sync, integration status, menu push) return HTTP 200 and log events to externalSyncLogs with syncType "webhook"
+- [ ] **WH-02**: HMAC-SHA256 validation reads shared secret from platformCredentials table (not env vars); HMAC failures logged as syncLog entries with status "error"
+- [ ] **WH-03**: GET /menu endpoint dynamically builds GrabFood Section-based menu JSON from externalProductMappings where source="grabfood", with per-mapping price override and availability toggle
+- [ ] **WH-04**: Admin can enter HMAC secret in Webhooks tab and view/copy all 6 webhook URLs for GrabFood Developer Portal configuration
+- [ ] **WH-05**: Admin can set GrabFood-specific price and toggle availability per product mapping in Settings tab
 
 ### Sales Analytics
 
@@ -108,9 +116,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-02 | Phase 26 | Complete |
 | AUTH-03 | Phase 26 | Complete |
 | AUTH-04 | Phase 26 | Complete |
-| GF-06 | Phase 27 | Pending |
-| GF-07 | Phase 27 | Pending |
-| GF-08 | Phase 27 | Pending |
+| GF-06 | Phase 27 | Complete |
+| GF-07 | Phase 27 | Complete |
+| GF-08 | Phase 27 | Complete |
+| WH-01 | Phase 27.1 | Pending |
+| WH-02 | Phase 27.1 | Pending |
+| WH-03 | Phase 27.1 | Pending |
+| WH-04 | Phase 27.1 | Pending |
+| WH-05 | Phase 27.1 | Pending |
 | BS-01 | Phase 28 | Pending |
 | BS-02 | Phase 28 | Pending |
 | BS-03 | Phase 28 | Pending |
@@ -123,8 +136,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ANLY-03 | Phase 30 | Pending |
 
 **Coverage:**
-- v1.4 requirements: 17 total
-- Mapped to phases: 17/17
+- v1.4 requirements: 22 total
+- Mapped to phases: 22/22
 - Unmapped: 0
 
 ---
