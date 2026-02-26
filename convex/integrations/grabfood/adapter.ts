@@ -348,6 +348,160 @@ export const notifyMenuUpdate = action({
   },
 });
 
+// ─── Order Sync ──────────────────────────────────────────────────────────────
+
+/**
+ * Sync GrabFood orders for a merchant.
+ * Paginates the orders list endpoint and upserts each order with revenue bridge.
+ * Handles 401 gracefully (known OAuth2 scope gap — does not crash).
+ */
+export const syncOrders = action({
+  args: {
+    token: v.string(),
+    merchantID: v.string(),
+    outletId: v.optional(v.id("externalOutlets")),
+    fromDate: v.optional(v.string()),
+    toDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Auth check — manager or admin
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
+      token: args.token,
+    });
+
+    const startMs = Date.now();
+
+    // Create sync log
+    const syncLogId = await ctx.runMutation(
+      internal.externalData.mutations.createSyncLog,
+      {
+        source: "grabfood" as const,
+        syncType: "manual" as const,
+        status: "started" as const,
+        timestamp: startMs,
+        outletId: args.outletId,
+        triggeredBy: "user",
+      }
+    );
+
+    try {
+      const accessToken = await resolveToken(ctx);
+      if (!accessToken) {
+        await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+          logId: syncLogId,
+          status: "error" as const,
+          errorMessage: "No GrabFood credentials configured",
+          durationMs: Date.now() - startMs,
+        });
+        return { success: false, error: "No GrabFood credentials configured. Add client_id and client_secret via Settings." };
+      }
+
+      // Determine date range
+      const fromDate = args.fromDate ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const toDate = args.toDate ?? new Date().toISOString().split("T")[0];
+
+      let page = 1;
+      let hasMore = true;
+      let totalOrders = 0;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          merchantID: args.merchantID,
+          page: String(page),
+          date: fromDate,
+        });
+
+        const { ok, status, data } = await grabRequest(
+          accessToken,
+          "GET",
+          `${GRABFOOD_CONFIG.endpoints.ordersList}?${params.toString()}`
+        );
+
+        // Handle 401 gracefully — known OAuth2 scope gap
+        if (status === 401) {
+          const errorMsg = "Orders endpoint returned 401 (Unauthorized). This is a known OAuth2 scope limitation. " +
+            "Contact GrabFood developer support to request orders:read scope for your client credentials.";
+          console.log("GrabFood syncOrders:", errorMsg);
+
+          await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+            logId: syncLogId,
+            status: "error" as const,
+            errorMessage: errorMsg,
+            durationMs: Date.now() - startMs,
+          });
+
+          return { success: false, error: errorMsg, ordersCount: 0 };
+        }
+
+        if (!ok) {
+          const errMsg = `HTTP ${status}: ${data?.message ?? data?.reason ?? "Unknown error"}`;
+          console.log("GrabFood syncOrders error:", errMsg);
+
+          await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+            logId: syncLogId,
+            status: "error" as const,
+            errorMessage: errMsg,
+            durationMs: Date.now() - startMs,
+          });
+
+          return { success: false, error: errMsg, ordersCount: totalOrders };
+        }
+
+        // Process orders from this page
+        const orders: any[] = data?.orders ?? [];
+        if (orders.length > 0) {
+          // Batch upsert (up to 50 per mutation call)
+          for (let i = 0; i < orders.length; i += 50) {
+            const batch = orders.slice(i, i + 50);
+            await ctx.runMutation(
+              internal.grabfoodOrders.mutations.upsertOrderBatch,
+              {
+                orders: batch,
+                syncLogId,
+                outletId: args.outletId,
+              }
+            );
+          }
+          totalOrders += orders.length;
+        }
+
+        // Check pagination
+        hasMore = data?.more === true;
+        page++;
+
+        // Safety: cap at 100 pages to prevent infinite loops
+        if (page > 100) {
+          console.log("GrabFood syncOrders: hit 100 page limit, stopping pagination");
+          break;
+        }
+      }
+
+      // Update sync log with success
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "success" as const,
+        productsCount: totalOrders,
+        durationMs: Date.now() - startMs,
+      });
+
+      console.log(`GrabFood syncOrders: synced ${totalOrders} orders from ${fromDate} to ${toDate}`);
+      return { success: true, ordersCount: totalOrders };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log("GrabFood syncOrders: unexpected error:", msg);
+
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: syncLogId,
+        status: "error" as const,
+        errorMessage: msg,
+        durationMs: Date.now() - startMs,
+      });
+
+      return { success: false, error: msg, ordersCount: 0 };
+    }
+  },
+});
+
 // ─── Internal Actions (cron / webhook) ───────────────────────────────────────
 
 /**
