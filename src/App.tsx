@@ -74,6 +74,9 @@ const SalesAnalytics = lazyWithPreload(() =>
 const K3MartCockpit = lazyWithPreload(() =>
   import('./pages/K3MartCockpit').then(m => ({ default: m.K3MartCockpit }))
 );
+const GrabFoodManager = lazyWithPreload(() =>
+  import('./pages/GrabFoodManager').then(m => ({ default: m.GrabFoodManager }))
+);
 
 function App() {
   return (
@@ -285,6 +288,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessDashboard">
                         <GoFoodDepotManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* GrabFood Manager - Manager and Admin */}
+                  <Route
+                    path="grabfood"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
+                        <GrabFoodManager />
                       </ProtectedRoute>
                     }
                   />
