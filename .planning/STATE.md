@@ -57,7 +57,8 @@ Phase 26 established patterns (reference for Phases 27-30):
 
 ### Roadmap Evolution
 
-- Phase 27.1 inserted after Phase 27: GrabFood Menu Simulator (URGENT)
+- Phase 27.1 inserted after Phase 27: GrabFood Webhooks & Partner Configuration (URGENT)
+- Phase 27.2 inserted after Phase 27.1: GrabFood Menu Simulator (URGENT, depends on 27.1)
 
 ### Pending Todos
 
