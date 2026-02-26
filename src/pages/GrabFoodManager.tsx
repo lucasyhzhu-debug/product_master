@@ -734,9 +734,10 @@ function MenuTab({ merchantID, isAdmin }: MenuTabProps) {
     try {
       const result = await actions.getMenuItems(merchantID);
       if (result.success && result.menu) {
-        // Parse menu response -- GrabFood returns categories > items
+        // Parse menu response — categories > items structure
         const items: MenuItem[] = [];
-        const menu = result.menu;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const menu = result.menu as any;
 
         if (menu.categories && Array.isArray(menu.categories)) {
           for (const cat of menu.categories) {
@@ -753,38 +754,12 @@ function MenuTab({ merchantID, isAdmin }: MenuTabProps) {
           }
         }
 
-        // Fallback: flat items array
-        if (items.length === 0 && Array.isArray(menu.items)) {
-          for (const item of menu.items) {
-            items.push({
-              id: item.id ?? item.itemID ?? "",
-              name: item.name ?? "Unknown",
-              price: item.price ?? item.sellingPrice ?? undefined,
-              availableStatus: item.availableStatus ?? "AVAILABLE",
-            });
-          }
-        }
-
-        // Fallback: single sections/menuEntities format
-        if (items.length === 0 && Array.isArray(menu.sections)) {
-          for (const section of menu.sections) {
-            if (section.items && Array.isArray(section.items)) {
-              for (const item of section.items) {
-                items.push({
-                  id: item.id ?? "",
-                  name: item.name ?? "Unknown",
-                  price: item.price ?? undefined,
-                  availableStatus: item.availableStatus ?? "AVAILABLE",
-                });
-              }
-            }
-          }
-        }
-
         setMenuItems(items);
         setPendingChanges(new Map());
       } else {
-        toast.error(result.error ?? "Failed to fetch menu");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const error = (result as any).error ?? "Failed to fetch menu";
+        toast.error(error);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to fetch menu");

@@ -300,11 +300,22 @@ export const pauseStore = action({
       return { success: false, error: "GrabFood token unavailable." };
     }
 
+    // GrabFood API expects: { merchantID, isPause: bool, duration?: string }
+    // isPause=true + duration to pause; isPause=false to unpause
+    const isPause = args.pauseDuration > 0;
+    const body: Record<string, unknown> = {
+      merchantID: args.merchantID,
+      isPause,
+    };
+    if (isPause) {
+      body.duration = String(args.pauseDuration);
+    }
+
     const { ok, status, data } = await grabRequest(
       accessToken,
       "PUT",
       GRABFOOD_CONFIG.endpoints.storePause,
-      { merchantID: args.merchantID, pauseDuration: args.pauseDuration }
+      body
     );
 
     if (!ok) {
@@ -423,9 +434,14 @@ export const batchUpdateAvailability = action({
 });
 
 /**
- * Get the current menu for a merchant from GrabFood.
- * Returns categories, items with availability, prices, and grabItemIDs.
- * Used by the frontend Menu tab to display and toggle item availability.
+ * Get menu items for a GrabFood merchant.
+ *
+ * GrabFood Partner API has NO GET menu endpoint — /partner/v1/menu only
+ * accepts PUT (push menu TO GrabFood). So we source menu items locally
+ * from externalProductMappings (source: "grabfood") joined with menuProducts.
+ *
+ * Items returned in a categories > items structure matching GrabFood SDK format
+ * so the frontend parser works unchanged.
  */
 export const getMenuItems = action({
   args: {
@@ -437,26 +453,47 @@ export const getMenuItems = action({
       token: args.token,
     });
 
-    const accessToken = await resolveToken(ctx);
-    if (!accessToken) {
-      return { success: false, error: "GrabFood token unavailable. Check credentials." };
-    }
-
-    const { ok, status, data } = await grabRequest(
-      accessToken,
-      "GET",
-      `${GRABFOOD_CONFIG.endpoints.menuUpdate}?merchantID=${args.merchantID}`
+    // Query local product mappings for grabfood source
+    const mappings: any[] = await ctx.runQuery(
+      internal.externalData.queries.listProductMappingsInternal,
+      { source: "grabfood" as const }
     );
 
-    if (!ok) {
-      const err = data as GrabApiError;
+    if (!mappings || mappings.length === 0) {
       return {
-        success: false,
-        error: `HTTP ${status}: ${err.message ?? err.reason ?? "Unknown error"}`,
+        success: true,
+        menu: {
+          categories: [{
+            id: "all",
+            name: "All Items",
+            availableStatus: "AVAILABLE" as const,
+            sellingTimeID: "default",
+            items: [],
+          }],
+        },
       };
     }
 
-    return { success: true, menu: data };
+    // Build items from mappings — use externalProductCode as GrabFood item ID
+    const items = mappings.map((m: any) => ({
+      id: m.externalProductCode,
+      name: m.externalProductName,
+      availableStatus: "AVAILABLE" as const,
+      price: m.menuProduct?.basePrice ?? undefined,
+    }));
+
+    return {
+      success: true,
+      menu: {
+        categories: [{
+          id: "all",
+          name: "All Items",
+          availableStatus: "AVAILABLE" as const,
+          sellingTimeID: "default",
+          items,
+        }],
+      },
+    };
   },
 });
 

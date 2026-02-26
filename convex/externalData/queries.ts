@@ -283,6 +283,30 @@ export const getProductMappings = query({
   },
 });
 
+/** Internal version for use from actions (e.g., GrabFood adapter). */
+export const listProductMappingsInternal = internalQuery({
+  args: {
+    source: sourceValidator,
+  },
+  handler: async (ctx, args) => {
+    const mappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", args.source))
+      .collect();
+
+    // Join with menuProducts to get names/prices
+    const results = [];
+    for (const m of mappings) {
+      let menuProduct = null;
+      if (m.menuProductId) {
+        menuProduct = await ctx.db.get(m.menuProductId);
+      }
+      results.push({ ...m, menuProduct });
+    }
+    return results;
+  },
+});
+
 export const getDashboardSummary = query({
   args: {},
   handler: async (ctx) => {
