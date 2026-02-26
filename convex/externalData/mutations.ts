@@ -519,6 +519,28 @@ export const saveRevenueItems = internalMutation({
   },
 });
 
+export const updateProductMappingFields = mutation({
+  args: {
+    token: v.string(),
+    mappingId: v.id("externalProductMappings"),
+    grabfoodPrice: v.optional(v.number()),
+    isAvailable: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+    const mapping = await ctx.db.get(args.mappingId);
+    if (!mapping) throw new Error("Mapping not found");
+
+    const updates: Record<string, any> = {};
+    if (args.grabfoodPrice !== undefined) updates.grabfoodPrice = args.grabfoodPrice;
+    if (args.isAvailable !== undefined) updates.isAvailable = args.isAvailable;
+
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(args.mappingId, updates);
+    }
+  },
+});
+
 export const autoMatchMenuProduct = internalMutation({
   args: {
     productName: v.string(),

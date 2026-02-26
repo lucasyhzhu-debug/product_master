@@ -283,6 +283,38 @@ export const getProductMappings = query({
   },
 });
 
+/**
+ * Get the most recent webhook sync error within the last 24 hours.
+ * Used by the Webhooks tab to display a sync error banner.
+ */
+export const getLatestWebhookError = query({
+  args: { source: v.string() },
+  handler: async (ctx, args) => {
+    // Get the last 20 sync logs for this source, check for recent webhook errors
+    const logs = await ctx.db
+      .query("externalSyncLogs")
+      .withIndex("by_source", (q) => q.eq("source", args.source as any))
+      .order("desc")
+      .take(20);
+
+    // Find the most recent webhook error within last 24 hours
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const webhookError = logs.find(
+      (log) =>
+        log.syncType === "webhook" &&
+        log.status === "error" &&
+        log.timestamp > oneDayAgo
+    );
+
+    if (!webhookError) return null;
+
+    return {
+      timestamp: webhookError.timestamp,
+      errorMessage: webhookError.errorMessage ?? "Unknown webhook error",
+    };
+  },
+});
+
 /** Internal version for use from actions (e.g., GrabFood adapter). */
 export const listProductMappingsInternal = internalQuery({
   args: {
