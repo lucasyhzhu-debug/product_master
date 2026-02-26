@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 27 of 30 (GrabFood POS Integration)
-Plan: 2 of 3 complete
-Status: In progress — 27-02 backend complete, proceeding to 27-03 frontend
-Last activity: 2026-02-26 - Phase 27 Plan 02 complete (backend actions + mutations + webhooks)
+Phase: 27.1 of 30 (GrabFood Webhooks & Partner Configuration)
+Plan: 1 of 2 complete
+Status: In progress — 27.1-01 webhooks complete, proceeding to 27.1-02 partner config
+Last activity: 2026-02-26 - Phase 27.1 Plan 01 complete (6 webhook endpoints + HMAC + tests)
 
-Progress (v1.4): [██████████████░░░░░░] 70% — Phase 27 plan 2/3 done
+Progress (v1.4): [██████████████░░░░░░] 70% — Phase 27.1 plan 1/2 done
 
 ## Performance Metrics
 
@@ -44,6 +44,12 @@ Phase 27-02 decisions (backend implementation):
 - [Phase 27-02]: Webhook HMAC uses Web Crypto API (not Node crypto) — httpAction is non-Node runtime
 - [Phase 27-02]: syncOrders 401 returns descriptive error (OAuth2 scope gap) without crashing
 - [Phase 27-02]: Two-step menu update: PUT batch/menu then POST menu notification
+
+Phase 27.1-01 decisions (webhooks):
+- [Phase 27.1-01]: Shared syncType validator in schema.ts prevents schema/mutation/type drift
+- [Phase 27.1-01]: HMAC secret sourced from platformCredentials table (not env vars) for httpAction compatibility
+- [Phase 27.1-01]: Order webhook is log-only (no grabfoodOrders writes) per user decision
+- [Phase 27.1-01]: Missing signature header returns valid=true (GrabFood may not always send it)
 
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
@@ -82,6 +88,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 27-02 backend. Plan 2/3 done. Ready for 27-03 frontend.
+Stopped at: Completed 27.1-01 webhooks. Plan 1/2 done. Ready for 27.1-02 partner config UI.
 Resume file: None
-Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Next: 27-03-PLAN.md (frontend GrabFoodManager page — Orders tab, Menu tab, store status). All backend actions and queries ready.
+Resume notes: Branch: gsd/phase-27.1-grabfood-webhooks-partner-configuration. Next: 27.1-02-PLAN.md (partner configuration UI). All 6 webhook endpoints registered and tested.

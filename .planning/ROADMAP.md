@@ -357,7 +357,7 @@ Plans:
 **Goal:** Implement all 6 GrabFood inbound webhook endpoints (GET menu, submit order, order state, menu sync, integration status, menu push) with DB-stored HMAC secret, so the GrabFood App Simulator test cases work end-to-end. Frontend gets Webhooks tab with HMAC secret field + copyable webhook URLs, and Settings tab gains per-mapping GrabFood price and availability controls.
 **Depends on:** Phase 27
 **Requirements:** WH-01, WH-02, WH-03, WH-04, WH-05
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 27.1-01-PLAN.md — Schema changes + all 6 backend webhook handlers + HMAC secret management + HTTP route registration
