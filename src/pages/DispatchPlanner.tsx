@@ -8,7 +8,7 @@
  * Desktop-only. Requires canAccessDashboard permission.
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Settings, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -33,7 +33,6 @@ import { MaterialsCheckPanel } from "@/components/dispatchPlanner/MaterialsCheck
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   useDispatchPlannerWeekly,
-  useDispatchPlannerSettings,
   useDispatchChannelConfig,
   useDispatchSeedDefaults,
   useDispatchSavePlanCell,
@@ -126,10 +125,25 @@ export function DispatchPlanner() {
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Measure WeekNav height for sticky stacking
+  const weekNavRef = useRef<HTMLDivElement>(null);
+  const [weekNavHeight, setWeekNavHeight] = useState(56);
+
+  useEffect(() => {
+    const el = weekNavRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWeekNavHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Data hooks
   const { data: weeklyData, isLoading: loadingWeekly } =
     useDispatchPlannerWeekly(startDate);
-  const { data: settingsData } = useDispatchPlannerSettings();
   const { data: channelConfig } = useDispatchChannelConfig();
   const seedDefaults = useDispatchSeedDefaults();
   const savePlanCell = useDispatchSavePlanCell();
@@ -175,15 +189,6 @@ export function DispatchPlanner() {
     [savePlanCell]
   );
 
-  // Derive capacity from settings
-  const capacity = settingsData?.dailyCapacity ?? 200;
-
-  // Format subtitle
-  const subtitle = useMemo(() => {
-    const totalChannels = weeklyData?.channels?.length ?? 0;
-    return `${totalChannels} channel${totalChannels !== 1 ? "s" : ""} active | Capacity: ${capacity}/day`;
-  }, [weeklyData, capacity]);
-
   // Loading state
   if (loadingWeekly) {
     return (
@@ -205,7 +210,6 @@ export function DispatchPlanner() {
       {/* Page Header with actions */}
       <PageHeader
         title="Planner"
-        description={subtitle}
         action={
           <Button
             variant="outline"
@@ -219,25 +223,28 @@ export function DispatchPlanner() {
         }
       />
 
-      {/* Week Navigation */}
-      <WeekNav
-        startDate={startDate}
-        onNavigate={handleNavigate}
-        isCurrentWeek={isCurrentWeek}
-      />
-
-      {/* Main Grid */}
-      {weeklyData ? (
-        <PlannerGrid
-          data={weeklyData}
-          onSaveCell={handleSaveCell}
-          renderColumnAction={(date) => <SaveTargetButton date={date} />}
+      {/* Week Navigation + Main Grid (single card for sticky stacking) */}
+      <div className="rounded-lg border bg-card shadow-sm">
+        <WeekNav
+          ref={weekNavRef}
+          startDate={startDate}
+          onNavigate={handleNavigate}
+          isCurrentWeek={isCurrentWeek}
         />
-      ) : (
-        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
-          No data available for this week.
-        </div>
-      )}
+
+        {weeklyData ? (
+          <PlannerGrid
+            data={weeklyData}
+            onSaveCell={handleSaveCell}
+            renderColumnAction={(date) => <SaveTargetButton date={date} />}
+            stickyTopOffset={56 + weekNavHeight}
+          />
+        ) : (
+          <div className="p-8 text-center text-muted-foreground">
+            No data available for this week.
+          </div>
+        )}
+      </div>
 
       {/* Materials Check Panel */}
       <MaterialsCheckPanel startDate={startDate} />

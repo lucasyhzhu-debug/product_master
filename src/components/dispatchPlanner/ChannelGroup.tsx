@@ -64,6 +64,8 @@ interface ChannelGroupProps {
   dailyTotals: Record<string, number>;
   onSaveCell: SaveCellFn;
   defaultExpanded?: boolean;
+  /** Pixel offset from viewport top where channel header should stick */
+  stickyTop?: number;
 }
 
 // ============================================
@@ -81,6 +83,7 @@ export const ChannelGroup = React.memo(function ChannelGroup({
   dailyTotals,
   onSaveCell,
   defaultExpanded = false,
+  stickyTop,
 }: ChannelGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -101,11 +104,11 @@ export const ChannelGroup = React.memo(function ChannelGroup({
 
   return (
     <div className="border-b last:border-b-0">
-      {/* Channel header row */}
+      {/* Channel header row — sticky below grid header */}
       <button
         onClick={toggleExpand}
-        className="w-full flex items-center hover:bg-muted/30 transition-colors"
-        style={{ borderLeft: `4px solid ${color}` }}
+        className="w-full flex items-center hover:bg-muted/30 transition-colors sticky z-10 bg-card shadow-[0_1px_0_0_var(--color-border)]"
+        style={{ borderLeft: `4px solid ${color}`, top: stickyTop != null ? `${stickyTop}px` : undefined }}
       >
         {/* Label column */}
         <div className="w-[200px] min-w-[200px] flex items-center gap-2 px-3 py-2">

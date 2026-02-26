@@ -7,7 +7,7 @@
  * Uses yesterday-anchored view so today is always the second column.
  */
 
-import React from "react";
+import React, { forwardRef } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getYesterday } from "@/pages/DispatchPlanner";
@@ -55,18 +55,18 @@ function shiftDate(dateStr: string, days: number): string {
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 }
 
-export const WeekNav = React.memo(function WeekNav({
+export const WeekNav = React.memo(forwardRef<HTMLDivElement, WeekNavProps>(function WeekNav({
   startDate,
   onNavigate,
   isCurrentWeek,
-}: WeekNavProps) {
+}, ref) {
   const handlePrev = () => onNavigate(shiftDate(startDate, -7));
   const handleNext = () => onNavigate(shiftDate(startDate, 7));
   // "Back to Today" restores yesterday-anchored view (today = second column)
   const handleToday = () => onNavigate(getYesterday());
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
+    <div ref={ref} className="flex items-center justify-between px-4 py-3 border-b bg-card sticky top-14 z-30 rounded-t-lg">
       {/* Left: Prev button */}
       <Button variant="outline" size="icon" onClick={handlePrev}>
         <ChevronLeft className="h-5 w-5" />
@@ -96,4 +96,4 @@ export const WeekNav = React.memo(function WeekNav({
       </Button>
     </div>
   );
-});
+}));

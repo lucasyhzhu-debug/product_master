@@ -7,7 +7,7 @@
  * Layout: HTML table-like structure (same approach as K3Mart WeeklyPlannerGrid).
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CapacityBar, CHANNEL_COLORS } from "./CapacityBar";
 import { ChannelGroup } from "./ChannelGroup";
@@ -86,6 +86,8 @@ interface PlannerGridProps {
   simulationResults?: SimulationResult[];
   /** Optional per-column action rendered at the top of each date column (above channel rows) */
   renderColumnAction?: (date: string) => React.ReactNode;
+  /** Pixel offset from viewport top where the grid header should stick (app header + weeknav) */
+  stickyTopOffset?: number;
 }
 
 // ============================================
@@ -121,6 +123,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   onSaveCell,
   simulationResults,
   renderColumnAction,
+  stickyTopOffset = 56,
 }: PlannerGridProps) {
   const { dates, todayStr, dailyCapacity, channels, dailyTotals, dailyBallTotals } = data;
 
@@ -178,6 +181,25 @@ export const PlannerGrid = React.memo(function PlannerGrid({
     return result;
   }, [channels, dates, dailyTotals]);
 
+  // Measure header height so channel headers can stick right below it
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(120);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setHeaderHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Channel headers stick at: stickyTopOffset + grid header height
+  const channelStickyTop = stickyTopOffset + headerHeight;
+
   // Empty state
   if (channels.length === 0) {
     return (
@@ -188,13 +210,14 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   }
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <div className="min-w-[700px]">
-          {/* ==========================================
-              TABLE HEADER (sticky on scroll)
-              ========================================== */}
-          <div className="sticky top-0 z-20 bg-card">
+    <div>
+      <div className="min-w-[700px]">
+        {/* ==========================================
+            TABLE HEADER (sticky on scroll)
+            IMPORTANT: No overflow-hidden or overflow-x-auto on ancestors —
+            either will create a scroll container and break sticky.
+            ========================================== */}
+        <div ref={headerRef} className="sticky z-20 bg-card border-b" style={{ top: `${stickyTopOffset}px` }}>
             {/* Row 1: Day column headers */}
             <div className="flex border-b bg-muted/30">
               <div className="w-[200px] min-w-[200px] px-3 py-2">
@@ -282,8 +305,11 @@ export const PlannerGrid = React.memo(function PlannerGrid({
           </div>
 
           {/* ==========================================
-              TABLE BODY: Channel groups
+              TABLE BODY: Channel groups + footer
+              relative z-0 creates a stacking context below
+              the z-20 header so rows scroll BEHIND it.
               ========================================== */}
+          <div className="relative z-0">
           {channels.map((channel) => (
             <ChannelGroup
               key={channel.channelKey}
@@ -296,6 +322,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
               todayStr={todayStr}
               dailyTotals={channelDailyTotals[channel.channelKey] ?? {}}
               onSaveCell={onSaveCell}
+              stickyTop={channelStickyTop}
             />
           ))}
 
@@ -350,7 +377,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
               </div>
             </div>
           )}
-        </div>
+          </div>
       </div>
     </div>
   );

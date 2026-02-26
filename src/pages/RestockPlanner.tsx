@@ -424,26 +424,26 @@ function OutletBlock({
       ) : (
         <div>
           <table className="w-full text-sm">
-            <thead className="sticky top-[97px] z-10 bg-card shadow-[0_1px_0_0_var(--color-border)]">
+            <thead>
               <tr className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                <th className="py-2 px-4 text-left font-medium">Product</th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-4 text-left font-medium shadow-[0_1px_0_0_var(--color-border)]">Product</th>
                 {isK3Mart && (
-                  <th className="py-2 px-3 text-right font-medium">Stock</th>
+                  <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">Stock</th>
                 )}
                 {!isK3Mart && onUpdateStock && (
-                  <th className="py-2 px-3 text-right font-medium">Stock</th>
+                  <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">Stock</th>
                 )}
-                <th className="py-2 px-3 text-right font-medium">Avg/day</th>
-                <th className="py-2 px-3 text-right font-medium">Weekday</th>
-                <th className="py-2 px-3 text-right font-medium">Weekend</th>
-                <th className="py-2 px-3 text-center font-medium">Trend</th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">Avg/day</th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">Weekday</th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">Weekend</th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-center font-medium shadow-[0_1px_0_0_var(--color-border)]">Trend</th>
                 {isK3Mart && (
-                  <th className="py-2 px-3 text-center font-medium">Status</th>
+                  <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-center font-medium shadow-[0_1px_0_0_var(--color-border)]">Status</th>
                 )}
-                <th className="py-2 px-3 text-right font-medium">
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 text-right font-medium shadow-[0_1px_0_0_var(--color-border)]">
                   Prep Tomorrow
                 </th>
-                <th className="py-2 px-3 w-16"></th>
+                <th className="sticky top-[97px] z-10 bg-card py-2 px-3 w-16 shadow-[0_1px_0_0_var(--color-border)]"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
