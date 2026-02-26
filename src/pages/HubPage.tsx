@@ -17,6 +17,7 @@ import {
   Ticket,
   UserCog,
   ChevronRight,
+  Utensils,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,12 +77,13 @@ const HUB_AREAS: AreaCard[] = [
   },
   {
     title: "Sales & Distribution",
-    description: "Revenue analytics, GoFood depots, and K3Mart cockpit.",
+    description: "Revenue analytics, GoFood depots, GrabFood, and K3Mart cockpit.",
     icon: TrendingUp,
     color: "text-violet-500",
     primaryPath: "/gofood-depot",
     links: [
       { label: "GoFood Depot", path: "/gofood-depot" },
+      { label: "GrabFood", path: "/grabfood" },
       { label: "Sales Analytics", path: "/sales" },
       { label: "K3Mart Cockpit", path: "/k3mart-cockpit" },
     ],
@@ -132,6 +134,7 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Ingredients: Salad,
   "GoFood Depot": Truck,
   "Sales Analytics": TrendingUp,
+  "GrabFood": Utensils,
   "K3Mart Cockpit": Store,
   "Production Components": Circle,
   Customers: Users,
