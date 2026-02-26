@@ -192,93 +192,94 @@ export const PlannerGrid = React.memo(function PlannerGrid({
       <div className="overflow-x-auto">
         <div className="min-w-[700px]">
           {/* ==========================================
-              TABLE HEADER
+              TABLE HEADER (sticky on scroll)
               ========================================== */}
+          <div className="sticky top-0 z-20 bg-card">
+            {/* Row 1: Day column headers */}
+            <div className="flex border-b bg-muted/30">
+              <div className="w-[200px] min-w-[200px] px-3 py-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Channel / Product
+                </span>
+              </div>
+              <div className="flex flex-1">
+                {dates.map((date) => {
+                  const { dayName, dateLabel } = formatDayHeader(date);
+                  const isToday = date === todayStr;
+                  const weekend = isWeekend(date);
+                  const simResult = simStatusMap?.[date];
 
-          {/* Row 1: Day column headers */}
-          <div className="flex border-b bg-muted/30">
-            <div className="w-[200px] min-w-[200px] px-3 py-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Channel / Product
-              </span>
-            </div>
-            <div className="flex flex-1">
-              {dates.map((date) => {
-                const { dayName, dateLabel } = formatDayHeader(date);
-                const isToday = date === todayStr;
-                const weekend = isWeekend(date);
-                const simResult = simStatusMap?.[date];
-
-                return (
-                  <div
-                    key={date}
-                    className={cn(
-                      "flex-1 text-center py-2 border-l border-border",
-                      isToday && "bg-primary/10 border-l-2 border-l-primary",
-                      weekend && !isToday && "bg-amber-50/30 dark:bg-amber-900/10",
-                      simResult?.status === "out" && "border-l-2 border-l-red-500",
-                      simResult?.status === "low" && "border-l-2 border-l-yellow-500",
-                      simResult?.status === "ok" && simulationResults && "border-l-2 border-l-green-500"
-                    )}
-                  >
-                    <div className="text-xs font-medium text-foreground">
-                      {dayName}
+                  return (
+                    <div
+                      key={date}
+                      className={cn(
+                        "flex-1 text-center py-2 border-l border-border",
+                        isToday && "bg-primary/10 border-l-2 border-l-primary",
+                        weekend && !isToday && "bg-amber-50/30 dark:bg-amber-900/10",
+                        simResult?.status === "out" && "border-l-2 border-l-red-500",
+                        simResult?.status === "low" && "border-l-2 border-l-yellow-500",
+                        simResult?.status === "ok" && simulationResults && "border-l-2 border-l-green-500"
+                      )}
+                    >
+                      <div className="text-xs font-medium text-foreground">
+                        {dayName}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {dateLabel}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {dateLabel}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Row 2: Capacity bars */}
-          <div className="flex border-b">
-            <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
-              <span className="text-[10px] text-muted-foreground">
-                Capacity
-              </span>
-            </div>
-            <div className="flex flex-1">
-              {dates.map((date) => (
-                <div
-                  key={date}
-                  className={cn(
-                    "flex-1 py-1 border-l border-border",
-                    date === todayStr && "bg-primary/5"
-                  )}
-                >
-                  <CapacityBar
-                    segments={capacitySegments[date] ?? []}
-                    capacity={dailyCapacity}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Row 3: Per-column action buttons (e.g. Save to Kitchen) */}
-          {renderColumnAction && (
+            {/* Row 2: Capacity bars */}
             <div className="flex border-b">
               <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
-                <span className="text-[10px] text-muted-foreground">Kitchen</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Capacity
+                </span>
               </div>
               <div className="flex flex-1">
                 {dates.map((date) => (
                   <div
                     key={date}
                     className={cn(
-                      "flex-1 py-1 border-l border-border flex items-center justify-center",
+                      "flex-1 py-1 border-l border-border",
                       date === todayStr && "bg-primary/5"
                     )}
                   >
-                    {renderColumnAction(date)}
+                    <CapacityBar
+                      segments={capacitySegments[date] ?? []}
+                      capacity={dailyCapacity}
+                    />
                   </div>
                 ))}
               </div>
             </div>
-          )}
+
+            {/* Row 3: Per-column action buttons (e.g. Save to Kitchen) */}
+            {renderColumnAction && (
+              <div className="flex border-b">
+                <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
+                  <span className="text-[10px] text-muted-foreground">Kitchen</span>
+                </div>
+                <div className="flex flex-1">
+                  {dates.map((date) => (
+                    <div
+                      key={date}
+                      className={cn(
+                        "flex-1 py-1 border-l border-border flex items-center justify-center",
+                        date === todayStr && "bg-primary/5"
+                      )}
+                    >
+                      {renderColumnAction(date)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* ==========================================
               TABLE BODY: Channel groups
