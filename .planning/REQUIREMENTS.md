@@ -23,8 +23,8 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
 ### BigSeller Integration
 
-- [ ] **BS-01**: Admin can manually trigger BigSeller sync (button, not cron); system calls sync/task/create.json, scheduler-chain polls every 60s until taskStatus="complete", then pulls per-order data via pageList with full pagination
-- [ ] **BS-02**: Per-order data stored in bigsellerOrders table with SKU breakdown (skuVoList), platform (shopee/tokopedia), shop-level breakdown, and all fee fields; bridges to externalRevenue for analytics
+- [x] **BS-01**: Admin can manually trigger BigSeller sync (button, not cron); system calls sync/task/create.json, scheduler-chain polls every 60s until taskStatus="complete", then pulls per-order data via pageList with full pagination
+- [x] **BS-02**: Per-order data stored in bigsellerOrders table with SKU breakdown (skuVoList), platform (shopee/tokopedia), shop-level breakdown, and all fee fields; bridges to externalRevenue for analytics
 - [ ] **BS-03**: Admin can map BigSeller SKU codes (e.g., FRO-DubChe-Reg1) to internal menuProducts for unified per-product reporting across channels
 
 ### Consignment Settlements
@@ -124,8 +124,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WH-03 | Phase 27.1 | Complete |
 | WH-04 | Phase 27.1 | Complete |
 | WH-05 | Phase 27.1 | Complete |
-| BS-01 | Phase 28 | Pending |
-| BS-02 | Phase 28 | Pending |
+| BS-01 | Phase 28 | Complete |
+| BS-02 | Phase 28 | Complete |
 | BS-03 | Phase 28 | Pending |
 | CON-01 | Phase 29 | Pending |
 | CON-02 | Phase 29 | Pending |

@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 27.1 of 30 (GrabFood Webhooks & Partner Configuration)
-Plan: 2 of 2 complete
-Status: Complete — all plans finished (webhooks + partner config UI)
-Last activity: 2026-02-26 - Phase 27.1 Plan 02 complete (Webhooks tab + Settings enhancements)
+Phase: 28 of 30 (BigSeller Integration)
+Plan: 1 of 2 complete
+Status: In Progress — Plan 01 (sync backend) complete, Plan 02 (frontend) pending
+Last activity: 2026-02-27 - Phase 28 Plan 01 complete (BigSeller sync backend)
 
-Progress (v1.4): [████████████████░░░░] 80% — Phase 27.1 complete (2/2 plans)
+Progress (v1.4): [████████████████░░░░] 85% — Phase 28 plan 1/2 complete
 
 ## Performance Metrics
 
@@ -57,6 +57,13 @@ Phase 27.1-02 decisions (partner config UI):
 - [Phase 27.1-02]: Product availability defaults to true when isAvailable is undefined
 - [Phase 27.1-02]: GrabFood price uses onBlur commit pattern for inline editing
 
+Phase 28-01 decisions (sync backend):
+- [Phase 28-01]: externalSource extended with shopee/tiktok (revenue source labels only, NOT added to registry -- prevents phantom health cards)
+- [Phase 28-01]: bigsellerSyncState uses 'stage' field (not 'phase') to avoid confusion with GSD phase numbers
+- [Phase 28-01]: HTML auth failure detection at every API call point (triggerSync, pollSyncTask, fetchOrders)
+- [Phase 28-01]: Scheduler-chain pattern: ctx.scheduler.runAfter(60s) for polling, auto-retry once on timeout
+- [Phase 28-01]: Revenue bridge uses actual platform source (shopee/tiktok), NOT "bigseller" aggregator name
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -93,7 +100,7 @@ Phase 26 established patterns (reference for Phases 27-30):
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Completed 27.1-02-PLAN.md. Phase 27.1 fully complete (2/2 plans).
+Last session: 2026-02-27
+Stopped at: Completed 28-01-PLAN.md (BigSeller sync backend). Plan 02 (frontend) pending.
 Resume file: None
-Resume notes: Branch: gsd/phase-27.1-grabfood-webhooks-partner-configuration. Phase 27.1 complete. Next: merge to main, then Phase 27.2 (GrabFood Menu Simulator).
+Resume notes: Branch: gsd/phase-28-bigseller-integration. Phase 28 Plan 01 complete (4 tasks, 5 commits). Next: execute Plan 02 (BigSeller frontend sync UI).

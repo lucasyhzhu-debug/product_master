@@ -398,7 +398,7 @@ Plans:
   3. BigSeller orders bridge to `externalRevenue` with `source: "bigseller"` — Shopee and Tokopedia revenue visible in Sales Analytics after sync
   4. Admin can map BigSeller SKU codes to internal menu products via an explicit mapping UI; unmapped SKUs are flagged in a reconciliation view rather than silently dropped
   5. System handles BigSeller JWT expiry gracefully — shows "Re-login required" warning rather than crashing; admin can paste new token in settings without redeploying
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 28-01-PLAN.md — Schema extension (shopee/tiktok sources, bigsellerSyncState table) + scheduler-chain sync action + order storage + revenue bridge
@@ -471,6 +471,6 @@ Plans:
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
-| 28. BigSeller Integration | v1.4 | 0/2 | Planned | - |
+| 28. BigSeller Integration | 1/2 | In Progress|  | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
