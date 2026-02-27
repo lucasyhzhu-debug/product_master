@@ -471,6 +471,6 @@ Plans:
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
-| 28. BigSeller Integration | 2/2 | Complete   | 2026-02-27 | - |
+| 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
