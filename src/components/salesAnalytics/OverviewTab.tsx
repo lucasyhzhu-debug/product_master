@@ -149,7 +149,7 @@ function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
   }
 }
 
-function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" }) {
+function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok" }) {
   if (platform === "k3mart") {
     return (
       <Badge variant="outline" className="border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400">
@@ -366,7 +366,7 @@ type RevenueRecord = {
   _id: string;
   periodStart: number;
   transactionDate?: number;
-  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment";
+  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok";
   productName?: string;
   quantitySold?: number;
   revenueGross?: number;
