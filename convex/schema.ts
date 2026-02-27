@@ -22,6 +22,8 @@ export const externalSource = v.union(
   v.literal("grabfood"),
   v.literal("bigseller"),
   v.literal("consignment"),
+  v.literal("shopee"),
+  v.literal("tiktok"),
 );
 
 /**
@@ -1504,6 +1506,36 @@ export default defineSchema({
     .index("by_sync_log", ["syncLogId"])
     .index("by_state", ["orderState"])
     .index("by_linked_revenue", ["linkedRevenueId"]),
+
+  // Phase 28: BigSeller sync state — singleton document tracking current sync progress.
+  // Field named `stage` (not `phase`) to avoid confusion with GSD phase numbers.
+  bigsellerSyncState: defineTable({
+    stage: v.union(
+      v.literal("idle"),
+      v.literal("triggering"),
+      v.literal("polling"),
+      v.literal("fetching"),
+      v.literal("storing"),
+      v.literal("complete"),
+      v.literal("failed"),
+      v.literal("retrying"),
+    ),
+    pollAttempt: v.number(),
+    maxPolls: v.number(),
+    attempt: v.number(),
+    startDate: v.string(),
+    endDate: v.string(),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    errorMessage: v.optional(v.string()),
+    summary: v.optional(v.object({
+      totalOrders: v.number(),
+      newOrders: v.number(),
+      updatedOrders: v.number(),
+      totalRevenue: v.number(),
+      unmappedSkus: v.number(),
+    })),
+  }),
 
   consignmentOutlets: defineTable({
     name: v.string(),
