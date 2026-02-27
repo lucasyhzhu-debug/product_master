@@ -2,22 +2,27 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   useExternalOutlets,
   useDiscoverK3MartOutlets,
   useSyncK3MartSales,
   useSyncGoBiz,
   useSyncInternalOrders,
+  useBigSellerUnmappedSkus,
 } from "@/hooks/convex";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
 import { GoBizTokenDialog } from "./GoBizTokenDialog";
 import { BigSellerTokenDialog } from "./BigSellerTokenDialog";
 import { GrabFoodCredentialsDialog } from "./GrabFoodCredentialsDialog";
 import { IntegrationHealthCard } from "./IntegrationHealthCard";
+import { BigSellerSyncPanel } from "./BigSellerSyncPanel";
+import { BigSellerOrdersTable } from "./BigSellerOrdersTable";
 import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -31,6 +36,7 @@ export function SettingsTab() {
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
   const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
   const [grabfoodDialogOpen, setGrabfoodDialogOpen] = useState(false);
+  const [bigsellerExpanded, setBigsellerExpanded] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -162,10 +168,15 @@ export function SettingsTab() {
     }
   };
 
+  // BigSeller-specific state
+  const { data: unmappedSkus } = useBigSellerUnmappedSkus();
+  const unmappedSkuCount = unmappedSkus?.length ?? 0;
+
   // Find BigSeller reconnect steps from health data (passed to BigSellerTokenDialog)
   const bigsellerHealth = (healthData as PlatformHealthStatus[] | undefined)?.find(
     (h) => h.platformId === "bigseller"
   );
+  const bigsellerTokenExpired = bigsellerHealth?.status === "red" || bigsellerHealth?.status === "disconnected";
 
   return (
     <div className="space-y-6">
@@ -182,12 +193,58 @@ export function SettingsTab() {
           ) : (
             <div className="space-y-2 rounded-lg border overflow-hidden">
               {(healthData as PlatformHealthStatus[]).map((health) => (
-                <IntegrationHealthCard
-                  key={health.platformId}
-                  health={health}
-                  onAction={() => handleAction(health.platformId, health.authStrategy)}
-                  isAdmin={isAdmin}
-                />
+                <div key={health.platformId}>
+                  <div className="flex items-center">
+                    <div className="flex-1">
+                      <IntegrationHealthCard
+                        health={health}
+                        onAction={() => handleAction(health.platformId, health.authStrategy)}
+                        isAdmin={isAdmin}
+                      />
+                    </div>
+                    {/* BigSeller: unmapped SKU badge + expand toggle */}
+                    {health.platformId === "bigseller" && (
+                      <div className="flex items-center gap-1.5 pr-2">
+                        {unmappedSkuCount > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 dark:text-amber-400"
+                          >
+                            {unmappedSkuCount} unmapped
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setBigsellerExpanded(!bigsellerExpanded)}
+                          aria-label={bigsellerExpanded ? "Collapse BigSeller" : "Expand BigSeller"}
+                        >
+                          {bigsellerExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {/* BigSeller expanded section */}
+                  {health.platformId === "bigseller" && bigsellerExpanded && (
+                    <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
+                      <BigSellerSyncPanel
+                        tokenExpired={bigsellerTokenExpired}
+                        onOpenTokenDialog={() => setBigsellerDialogOpen(true)}
+                      />
+                      <div className="border-t pt-3">
+                        <h4 className="text-xs font-medium text-muted-foreground mb-2">
+                          Synced Orders
+                        </h4>
+                        <BigSellerOrdersTable />
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
