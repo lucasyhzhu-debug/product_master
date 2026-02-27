@@ -65,6 +65,12 @@
   --color-gofood-accent: #1B6B52;
   --color-gofood-badge: #15803D;
 
+  /* GrabFood - Green */
+  --color-grabfood: #00B14F;
+  --color-grabfood-light: #E6F9EF;
+  --color-grabfood-medium: #B3EACD;
+  --color-grabfood-accent: #009140;
+
   /* K3 Mart / Consignment - Amber */
   --color-k3mart: #B45309;
   --color-k3mart-light: #FEF3C7;

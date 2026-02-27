@@ -77,6 +77,9 @@ const K3MartCockpit = lazyWithPreload(() =>
 const GrabFoodManager = lazyWithPreload(() =>
   import('./pages/GrabFoodManager').then(m => ({ default: m.GrabFoodManager }))
 );
+const GrabFoodMenuSimulator = lazyWithPreload(() =>
+  import('./pages/GrabFoodMenuSimulator').then(m => ({ default: m.GrabFoodMenuSimulator }))
+);
 
 function App() {
   return (
@@ -298,6 +301,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
                         <GrabFoodManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* GrabFood Menu Simulator - Admin */}
+                  <Route
+                    path="grabfood-menu"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessDashboard">
+                        <GrabFoodMenuSimulator />
                       </ProtectedRoute>
                     }
                   />
