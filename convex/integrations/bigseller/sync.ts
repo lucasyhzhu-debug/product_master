@@ -10,7 +10,7 @@
  */
 
 import { v } from "convex/values";
-import { action, internalAction, internalMutation } from "../../_generated/server";
+import { action, internalAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import {
@@ -47,60 +47,8 @@ async function resolveBigSellerToken(ctx: ActionCtx): Promise<string | null> {
   return cred?.currentToken ?? null;
 }
 
-// ─── Sync State Management (singleton upsert) ───────────────────────────────
-
-export const updateSyncStage = internalMutation({
-  args: {
-    stage: v.union(
-      v.literal("idle"),
-      v.literal("triggering"),
-      v.literal("polling"),
-      v.literal("fetching"),
-      v.literal("storing"),
-      v.literal("complete"),
-      v.literal("failed"),
-      v.literal("retrying"),
-    ),
-    pollAttempt: v.number(),
-    maxPolls: v.number(),
-    attempt: v.number(),
-    startDate: v.string(),
-    endDate: v.string(),
-    errorMessage: v.optional(v.string()),
-    completedAt: v.optional(v.number()),
-    summary: v.optional(v.object({
-      totalOrders: v.number(),
-      newOrders: v.number(),
-      updatedOrders: v.number(),
-      totalRevenue: v.number(),
-      unmappedSkus: v.number(),
-    })),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db.query("bigsellerSyncState").first();
-    const data = {
-      stage: args.stage,
-      pollAttempt: args.pollAttempt,
-      maxPolls: args.maxPolls,
-      attempt: args.attempt,
-      startDate: args.startDate,
-      endDate: args.endDate,
-      startedAt: existing?.startedAt ?? Date.now(),
-      errorMessage: args.errorMessage,
-      completedAt: args.completedAt,
-      summary: args.summary,
-    };
-
-    if (existing) {
-      await ctx.db.patch(existing._id, data);
-    } else {
-      await ctx.db.insert("bigsellerSyncState", {
-        ...data,
-        startedAt: Date.now(),
-      });
-    }
-  },
-});
+// ─── Sync State Management ───────────────────────────────────────────────────
+// updateSyncStage lives in ./mutations.ts (Convex requires mutations in default runtime, not Node.js)
 
 // ─── Auth Failure Handler ────────────────────────────────────────────────────
 
@@ -111,7 +59,7 @@ async function handleAuthFailure(
   attempt: number,
   syncLogId: Id<"externalSyncLogs">,
 ): Promise<void> {
-  await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+  await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
     stage: "failed",
     pollAttempt: 0,
     maxPolls: BIGSELLER_MAX_POLLS,
@@ -204,7 +152,7 @@ export const startSync = action({
     }
 
     // Set sync stage to triggering
-    await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+    await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
       stage: "triggering",
       pollAttempt: 0,
       maxPolls: BIGSELLER_MAX_POLLS,
@@ -249,7 +197,7 @@ export const triggerSync = internalAction({
   handler: async (ctx, args) => {
     const mucToken = await resolveBigSellerToken(ctx);
     if (!mucToken) {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -282,7 +230,7 @@ export const triggerSync = internalAction({
       );
       responseText = await response.text();
     } catch (err) {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -310,7 +258,7 @@ export const triggerSync = internalAction({
     try {
       parsed = JSON.parse(responseText);
     } catch {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -327,7 +275,7 @@ export const triggerSync = internalAction({
       // Join existing sync -- this is expected behavior, not an error
       console.log("BigSeller sync task already in progress -- joining existing sync");
     } else if (parsed.code !== 0) {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -341,7 +289,7 @@ export const triggerSync = internalAction({
     }
 
     // Success or join existing -- move to polling
-    await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+    await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
       stage: "polling",
       pollAttempt: 0,
       maxPolls: BIGSELLER_MAX_POLLS,
@@ -380,7 +328,7 @@ export const pollSyncTask = internalAction({
   handler: async (ctx, args) => {
     const mucToken = await resolveBigSellerToken(ctx);
     if (!mucToken) {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: args.pollAttempt,
         maxPolls: args.maxPolls,
@@ -445,7 +393,7 @@ export const pollSyncTask = internalAction({
 
     if (taskStatus === "complete") {
       // Sync complete -- move to fetching orders
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "fetching",
         pollAttempt: args.pollAttempt,
         maxPolls: args.maxPolls,
@@ -468,7 +416,7 @@ export const pollSyncTask = internalAction({
       // BigSeller sync failed
       if (args.attempt === 1) {
         // Auto-retry once
-        await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+        await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
           stage: "retrying",
           pollAttempt: 0,
           maxPolls: args.maxPolls,
@@ -485,7 +433,7 @@ export const pollSyncTask = internalAction({
         return;
       }
 
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: args.pollAttempt,
         maxPolls: args.maxPolls,
@@ -507,7 +455,7 @@ export const pollSyncTask = internalAction({
     if (args.pollAttempt >= args.maxPolls) {
       if (args.attempt === 1) {
         // Auto-retry once per locked decision
-        await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+        await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
           stage: "retrying",
           pollAttempt: 0,
           maxPolls: args.maxPolls,
@@ -525,7 +473,7 @@ export const pollSyncTask = internalAction({
       }
 
       // Second attempt also timed out
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: args.pollAttempt,
         maxPolls: args.maxPolls,
@@ -544,7 +492,7 @@ export const pollSyncTask = internalAction({
     }
 
     // Continue polling
-    await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+    await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
       stage: "polling",
       pollAttempt: args.pollAttempt,
       maxPolls: args.maxPolls,
@@ -574,7 +522,7 @@ export const fetchOrders = internalAction({
     const startTime = Date.now();
     const mucToken = await resolveBigSellerToken(ctx);
     if (!mucToken) {
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "failed",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -597,7 +545,7 @@ export const fetchOrders = internalAction({
     const allPlatforms = new Set<string>();
 
     // Update stage to fetching
-    await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+    await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
       stage: "fetching",
       pollAttempt: 0,
       maxPolls: BIGSELLER_MAX_POLLS,
@@ -674,7 +622,7 @@ export const fetchOrders = internalAction({
       if (rows.length === 0) break;
 
       // Update stage to storing
-      await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "storing",
         pollAttempt: 0,
         maxPolls: BIGSELLER_MAX_POLLS,
@@ -789,7 +737,7 @@ export const fetchOrders = internalAction({
     const totalOrders = totalInserted + totalUpdated;
 
     // Update sync stage to complete with summary
-    await ctx.runMutation(internal.integrations.bigseller.sync.updateSyncStage, {
+    await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
       stage: "complete",
       pollAttempt: 0,
       maxPolls: BIGSELLER_MAX_POLLS,
