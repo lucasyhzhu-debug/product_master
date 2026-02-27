@@ -14,6 +14,34 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.1] - 2026-02-27 - GrabFood Webhooks & Partner Configuration (Phase 27.1)
+
+GrabFood can now send order notifications and menu requests directly to Frollie. Admin can configure webhook authentication and control which products appear on GrabFood with custom pricing — all from the GrabFood page.
+
+### Added
+- 6 GrabFood webhook endpoints: menu (GET), order, order state, menu sync, integration status, menu push
+- HMAC signature validation sourced from database (not environment variables)
+- Shared `handleWebhookCommon` helper — consistent logging and error handling across all POST webhooks
+- Shared `syncType` validator exported from schema — prevents drift between schema, mutations, and TypeScript types
+- "Webhooks" tab in GrabFood page with HMAC secret management and 6 copyable webhook URLs
+- Per-product GrabFood price override and availability toggle in Settings tab
+- Sync error banner in Webhooks tab — shows recent menu sync errors (last 24h)
+- `getHmacSecret` internal query and `saveHmacSecret` admin mutation in platformCredentials
+- `updateProductMappingFields` mutation for per-mapping price and availability
+- `getLatestWebhookError` query for sync error monitoring
+- 5 unit tests for HMAC validation (valid sig, invalid sig, missing secret, missing header, empty body)
+- `hmacSecret` field on `platformCredentials` table
+- `grabfoodPrice` and `isAvailable` fields on `externalProductMappings` table
+
+### Changed
+- `externalSyncLogs.syncType` now includes `"webhook"` (via shared validator)
+- `SyncLogEntry` type updated with `"webhook"` sync type
+- GET /menu endpoint builds GrabFood Section-based menu JSON from `externalProductMappings`
+- Order webhook is observe-only (logs to syncLogs, no writes to grabfoodOrders)
+- Clipboard copy wrapped in try/catch for non-HTTPS fallback
+
+---
+
 ## [v1.4.0] - 2026-02-25 - Platform Auth & Schema Foundation (Phase 26)
 
 Admin can now manage all 6 platform integrations from one Settings panel — refresh GoBiz tokens with one click, paste and preview BigSeller JWT expiry, and see sync history logs for every token refresh and data sync at a glance.
