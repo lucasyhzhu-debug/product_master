@@ -103,6 +103,8 @@ export default defineSchema({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isFixed: v.optional(v.boolean()),
+    /** Storage ID for product photo (written back from GrabFood Menu Simulator uploads) */
+    photoStorageId: v.optional(v.id("_storage")),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
@@ -1574,4 +1576,31 @@ export default defineSchema({
     .index("by_period", ["periodStart"])
     .index("by_outlet_period", ["outletId", "periodStart"])
     .index("by_status", ["status"]),
+
+  // ============================================
+  // GRABFOOD MENU SIMULATOR
+  // Stores GrabFood-specific overrides per menu product for the Menu Simulator UI.
+  // Enables price/availability editing and push-to-GrabFood without modifying core menuProducts.
+  // ============================================
+
+  grabfoodMenuItems: defineTable({
+    menuProductId: v.id("menuProducts"),
+    grabfoodItemId: v.optional(v.string()),    // GrabFood's item ID (from externalProductCode)
+    grabfoodName: v.string(),                  // Override name for GrabFood display
+    grabfoodDescription: v.optional(v.string()),
+    grabfoodPrice: v.number(),                 // IDR integer (no decimals, exponent=0)
+    isAvailable: v.boolean(),                  // Manual availability toggle
+    photoStorageId: v.optional(v.id("_storage")),
+    photoUrl: v.optional(v.string()),          // External URL (from GrabFood pull)
+    sequence: v.number(),                      // Display order in the menu
+    // Push state tracking — enables persistent diff across page reloads
+    lastPushedPrice: v.optional(v.number()),          // Price at last push
+    lastPushedAvailability: v.optional(v.boolean()),  // Availability at last push
+    lastPushedAt: v.optional(v.number()),             // Timestamp of last push
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_menu_product", ["menuProductId"])
+    .index("by_sequence", ["sequence"])
+    .index("by_grabfood_item_id", ["grabfoodItemId"]),
 });
