@@ -66,6 +66,37 @@ export const upsertOrders = internalMutation({
 });
 
 /**
+ * Link externalRevenue IDs back to bigsellerOrders after saveRevenue.
+ * Called by fetchOrders to establish the cross-reference needed for retroactive mapping.
+ */
+export const linkRevenueToOrders = internalMutation({
+  args: {
+    links: v.array(
+      v.object({
+        platformOrderId: v.string(),
+        revenueId: v.id("externalRevenue"),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let linked = 0;
+    for (const link of args.links) {
+      const order = await ctx.db
+        .query("bigsellerOrders")
+        .withIndex("by_platform_order", (q) =>
+          q.eq("platformOrderId", link.platformOrderId)
+        )
+        .unique();
+      if (order) {
+        await ctx.db.patch(order._id, { linkedRevenueId: link.revenueId });
+        linked++;
+      }
+    }
+    return { linked };
+  },
+});
+
+/**
  * Apply retroactive mapping: when a SKU is mapped to a menu product,
  * update all existing orders containing that SKU to link their revenue records.
  *

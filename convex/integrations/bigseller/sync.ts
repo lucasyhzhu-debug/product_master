@@ -694,7 +694,7 @@ export const fetchOrders = internalAction({
 
       // Bridge to externalRevenue
       const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId));
-      await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+      const revenueIds: string[] = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
         records: revenueRecords.map((r) => ({
           source: r.source as "shopee" | "tiktok",
           externalTransactionId: r.externalTransactionId,
@@ -710,6 +710,41 @@ export const fetchOrders = internalAction({
           syncLogId: r.syncLogId,
         })),
       });
+
+      // Link revenue IDs back to bigsellerOrders for retroactive mapping
+      // saveRevenue skips duplicates, so revenueIds only contains newly inserted records.
+      // Build links by matching: revenueRecords[i] -> rows[i].platformOrderId, but only
+      // for records that were actually inserted (not deduped).
+      if (revenueIds.length > 0) {
+        // revenueIds correspond to the non-deduped subset. Match by extracting platformOrderId
+        // from externalTransactionId ("bigseller:{platformOrderId}").
+        // Since saveRevenue filters out existing records and returns only new IDs in order,
+        // we need to look up which orders these belong to via the transaction ID prefix.
+        const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
+        for (const revId of revenueIds) {
+          // Look up the revenue record to get its externalTransactionId
+          const revDoc = await ctx.runQuery(
+            internal.integrations.bigseller.queries.getRevenueById,
+            { revenueId: revId as Id<"externalRevenue"> }
+          );
+          if (revDoc?.externalTransactionId) {
+            // Extract platformOrderId from "bigseller:{platformOrderId}"
+            const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
+            if (orderId) {
+              links.push({
+                platformOrderId: orderId,
+                revenueId: revId as Id<"externalRevenue">,
+              });
+            }
+          }
+        }
+        if (links.length > 0) {
+          await ctx.runMutation(
+            internal.bigsellerOrders.mutations.linkRevenueToOrders,
+            { links }
+          );
+        }
+      }
 
       // Collect SKU codes and platforms for product mapping
       for (const row of rows) {

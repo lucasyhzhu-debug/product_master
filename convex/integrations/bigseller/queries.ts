@@ -70,6 +70,19 @@ export const checkProductMapping = internalQuery({
   },
 });
 
+/**
+ * Get an externalRevenue document by ID.
+ * Used by fetchOrders to extract externalTransactionId for revenue-to-order linking.
+ */
+export const getRevenueById = internalQuery({
+  args: {
+    revenueId: v.id("externalRevenue"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.revenueId);
+  },
+});
+
 // ─── Public Queries (auth-protected, for frontend) ───────────────────────────
 
 /**
