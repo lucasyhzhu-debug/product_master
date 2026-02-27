@@ -341,6 +341,15 @@ export {
   useGoFoodTransferStock,
 } from "./useGoFoodDepot";
 
+// BigSeller Integration (Phase 28)
+export {
+  useBigSellerSyncState,
+  useBigSellerOrders,
+  useBigSellerUnmappedSkus,
+  useBigSellerOrderStats,
+  useStartBigSellerSync,
+} from "./useBigSeller";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
