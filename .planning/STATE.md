@@ -7,12 +7,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 28 of 30 (BigSeller Integration)
-Plan: 2 of 2 complete
-Status: Complete — Phase 28 BigSeller Integration fully done (backend + frontend)
-Last activity: 2026-02-27 - Phase 28 Plan 02 complete (BigSeller frontend sync UI)
+Phase: 27.2 of 30 (GrabFood Menu Simulator)
+Plan: 1 of 2 complete
+Status: In Progress — Phase 27.2 Plan 01 backend infrastructure complete
+Last activity: 2026-02-27 - Phase 27.2 Plan 01 complete (grabfoodMenuItems schema, CRUD, push action, webhook update)
 
-Progress (v1.4): [██████████████████░░] 90% — Phase 28 complete, 2 phases remaining
+Progress (v1.4): [██████████████████░░] 92% — Phase 27.2 Plan 01 complete, Plan 02 remaining
 
 ## Performance Metrics
 
@@ -70,6 +70,12 @@ Phase 28-02 decisions (frontend sync UI):
 - [Phase 28-02]: CSS variable tokens with fallbacks for status colors in orders table (--color-status-error, --color-status-success)
 - [Phase 28-02]: Union type narrowing via 'in' operator for getSyncState return type
 
+Phase 27.2-01 decisions (menu simulator backend):
+- [Phase 27.2-01]: Kept batchUpdateAvailability as deprecated wrapper calling pushMenuChanges for backwards compatibility
+- [Phase 27.2-01]: updatePushState is internalMutation called by pushMenuChanges action to track last-pushed state
+- [Phase 27.2-01]: Webhook returns ALL items including unavailable with correct availableStatus (GrabFood needs this to re-show items)
+- [Phase 27.2-01]: grabfoodMenuItems as override layer over menuProducts (core data unchanged, GrabFood-specific overrides in new table)
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -107,6 +113,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 28-02-PLAN.md (BigSeller frontend sync UI). Phase 28 fully complete.
+Stopped at: Completed 27.2-01-PLAN.md (GrabFood Menu Simulator backend). Plan 02 (frontend) next.
 Resume file: None
-Resume notes: Branch: gsd/phase-28-bigseller-integration. Phase 28 complete (Plans 01+02, 7 tasks, 8 commits). Next: merge to main, then Phase 29.
+Resume notes: Branch: gsd/phase-27.2-grabfood-menu-simulator. Plan 01 complete (2 tasks, 2 commits). Next: Plan 02 (frontend simulator UI).
