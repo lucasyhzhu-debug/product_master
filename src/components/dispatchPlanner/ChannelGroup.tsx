@@ -6,15 +6,24 @@
  * - Outlet sub-header: indented, outlet name
  * - Product rows: most indented, product name + 7 day cells
  * - Direct orders: shows faded cell at production-start day, solid at dueDate
- * - Smooth expand/collapse animation with Framer Motion
+ * - Smooth expand/collapse animation via CSS max-height transition
+ *
+ * Sticky headers work within a scroll container (overflow-y: auto on the card).
+ * Each channel group wrapper has position:relative + a reverse-order z-index so
+ * earlier groups' sticky headers always paint above later groups' content rows.
+ *
+ * NOTE: We intentionally do NOT use Framer Motion overflow-hidden or transform-based
+ * animations on this component. Those create new stacking contexts that break sticky
+ * z-index layering between channel groups. CSS max-height transition is used instead.
  */
 
 import React, { useState, useMemo, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PlannerCell } from "./PlannerCell";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+// Framer Motion is intentionally NOT imported here — see module comment above.
 
 // ============================================
 // Types
@@ -53,6 +62,9 @@ export type SaveCellFn = (
   qty: number
 ) => void;
 
+/** Height of a single channel header row in pixels (used for stacking offset) */
+export const CHANNEL_HEADER_HEIGHT = 36;
+
 interface ChannelGroupProps {
   channelKey: string;
   displayName: string;
@@ -64,8 +76,12 @@ interface ChannelGroupProps {
   dailyTotals: Record<string, number>;
   onSaveCell: SaveCellFn;
   defaultExpanded?: boolean;
-  /** Pixel offset from viewport top where channel header should stick */
+  /** Pixel offset from scroll container top where the FIRST channel header should stick */
   stickyTop?: number;
+  /** Zero-based index of this channel in the list (for incremental sticky stacking) */
+  channelIndex?: number;
+  /** Total number of channels (used to compute reverse-order z-index for correct layering) */
+  totalChannels?: number;
 }
 
 // ============================================
@@ -84,6 +100,8 @@ export const ChannelGroup = React.memo(function ChannelGroup({
   onSaveCell,
   defaultExpanded = false,
   stickyTop,
+  channelIndex = 0,
+  totalChannels = 1,
 }: ChannelGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -100,15 +118,44 @@ export const ChannelGroup = React.memo(function ChannelGroup({
     return totals;
   }, [dates, dailyTotals]);
 
+  // Incremental sticky top: each channel header stacks below the previous ones.
+  // Channel 0 sticks at stickyTop, channel 1 at stickyTop + 36, etc.
+  const computedStickyTop = stickyTop != null
+    ? stickyTop + channelIndex * CHANNEL_HEADER_HEIGHT
+    : undefined;
+
+  // Reverse-order z-index on the wrapper: the first channel group in DOM order
+  // gets the highest z so its sticky header always paints above later groups' content.
+  // Base z-index is 20; we add (totalChannels - channelIndex) so index 0 is highest.
+  // z-index 20+N keeps all channel groups below the grid header (z-30) and WeekNav (z-40).
+  const wrapperZIndex = 20 + (totalChannels - channelIndex);
+
   if (outlets.length === 0) return null;
 
   return (
-    <div className="border-b last:border-b-0">
-      {/* Channel header row — sticky below grid header */}
+    // position:relative + explicit z-index ensures this group forms its own
+    // stacking context at the right level. Reverse order means group 0 always
+    // sits above group 1, group 1 above group 2, etc. — so earlier groups'
+    // sticky headers are never covered by later groups' content rows.
+    <div
+      className="border-b last:border-b-0"
+      style={{ position: "relative", zIndex: wrapperZIndex }}
+    >
+      {/* Channel header — sticky within scroll container.
+          z-[25] is effectively overridden by the wrapper's z-index context,
+          but we still set it for clarity. The wrapper z-index is what matters
+          for cross-group layering. Within the group, the header's sticky
+          position ensures it stacks above its own content rows. */}
       <button
         onClick={toggleExpand}
-        className="w-full flex items-center hover:bg-muted/30 transition-colors sticky z-10 bg-card shadow-[0_1px_0_0_var(--color-border)]"
-        style={{ borderLeft: `4px solid ${color}`, top: stickyTop != null ? `${stickyTop}px` : undefined }}
+        className="w-full flex items-center hover:bg-muted/30 transition-colors sticky bg-card shadow-[0_1px_0_0_var(--color-border)]"
+        style={{
+          borderLeft: `4px solid ${color}`,
+          top: computedStickyTop != null ? `${computedStickyTop}px` : undefined,
+          // Use the local z-index that beats any non-positioned sibling within this group.
+          // The wrapper's stacking context handles cross-group ordering.
+          zIndex: wrapperZIndex + 5,
+        }}
       >
         {/* Label column */}
         <div className="w-[200px] min-w-[200px] flex items-center gap-2 px-3 py-2">
@@ -144,31 +191,34 @@ export const ChannelGroup = React.memo(function ChannelGroup({
         </div>
       </button>
 
-      {/* Expanded content: outlet rows and product rows */}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden"
-            style={{ borderLeft: `4px solid ${color}20` }}
-          >
-            {outlets.map((outlet) => (
-              <OutletSection
-                key={outlet.id}
-                outlet={outlet}
-                channelKey={channelKey}
-                isEditable={isEditable}
-                dates={dates}
-                todayStr={todayStr}
-                onSaveCell={onSaveCell}
-              />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Expanded content: outlet rows and product rows.
+          CSS max-height transition instead of Framer Motion — avoids the
+          transform/will-change stacking context that Framer Motion creates
+          during animation, which would break sticky z-index layering. */}
+      <div
+        style={{
+          borderLeft: `4px solid ${color}20`,
+          overflow: "hidden",
+          maxHeight: isExpanded ? "10000px" : "0px",
+          // No transition on expand (instant open), very fast collapse.
+          // A long transition on max-height causes a delay before content
+          // appears because CSS animates from 0 to 10000px even if content
+          // is only 200px. We use a quick collapse only.
+          transition: isExpanded ? "max-height 0ms" : "max-height 200ms ease-in-out",
+        }}
+      >
+        {outlets.map((outlet) => (
+          <OutletSection
+            key={outlet.id}
+            outlet={outlet}
+            channelKey={channelKey}
+            isEditable={isEditable}
+            dates={dates}
+            todayStr={todayStr}
+            onSaveCell={onSaveCell}
+          />
+        ))}
+      </div>
     </div>
   );
 });

@@ -4,7 +4,9 @@
  * Composes CapacityBar per day column, ChannelGroup per channel,
  * daily column totals, and optional simulation result indicators.
  *
- * Layout: HTML table-like structure (same approach as K3Mart WeeklyPlannerGrid).
+ * All sticky positioning is relative to the parent scroll container
+ * (overflow-y: auto on the card in DispatchPlanner). WeekNav sticks at top-0,
+ * this grid header sticks at top-{weekNavHeight}, and channel headers stack below.
  */
 
 import React, { useMemo, useRef, useState, useEffect } from "react";
@@ -86,8 +88,8 @@ interface PlannerGridProps {
   simulationResults?: SimulationResult[];
   /** Optional per-column action rendered at the top of each date column (above channel rows) */
   renderColumnAction?: (date: string) => React.ReactNode;
-  /** Pixel offset from viewport top where the grid header should stick (app header + weeknav) */
-  stickyTopOffset?: number;
+  /** Height of WeekNav in pixels — grid header sticks below it */
+  weekNavHeight?: number;
 }
 
 // ============================================
@@ -123,7 +125,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   onSaveCell,
   simulationResults,
   renderColumnAction,
-  stickyTopOffset = 56,
+  weekNavHeight = 56,
 }: PlannerGridProps) {
   const { dates, todayStr, dailyCapacity, channels, dailyTotals, dailyBallTotals } = data;
 
@@ -181,7 +183,7 @@ export const PlannerGrid = React.memo(function PlannerGrid({
     return result;
   }, [channels, dates, dailyTotals]);
 
-  // Measure header height so channel headers can stick right below it
+  // Measure grid header height so channel headers can stack right below it
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(120);
 
@@ -197,187 +199,194 @@ export const PlannerGrid = React.memo(function PlannerGrid({
     return () => observer.disconnect();
   }, []);
 
-  // Channel headers stick at: stickyTopOffset + grid header height
-  const channelStickyTop = stickyTopOffset + headerHeight;
+  // Channel headers stick at: weekNavHeight + grid header height
+  const channelStickyTop = weekNavHeight + headerHeight;
 
   // Empty state
   if (channels.length === 0) {
     return (
-      <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+      <div className="p-8 text-center text-muted-foreground">
         No channels configured. Open Settings to configure dispatch channels.
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="min-w-[700px]">
-        {/* ==========================================
-            TABLE HEADER (sticky on scroll)
-            IMPORTANT: No overflow-hidden or overflow-x-auto on ancestors —
-            either will create a scroll container and break sticky.
-            ========================================== */}
-        <div ref={headerRef} className="sticky z-20 bg-card border-b" style={{ top: `${stickyTopOffset}px` }}>
-            {/* Row 1: Day column headers */}
-            <div className="flex border-b bg-muted/30">
-              <div className="w-[200px] min-w-[200px] px-3 py-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Channel / Product
-                </span>
-              </div>
-              <div className="flex flex-1">
-                {dates.map((date) => {
-                  const { dayName, dateLabel } = formatDayHeader(date);
-                  const isToday = date === todayStr;
-                  const weekend = isWeekend(date);
-                  const simResult = simStatusMap?.[date];
-
-                  return (
-                    <div
-                      key={date}
-                      className={cn(
-                        "flex-1 text-center py-2 border-l border-border",
-                        isToday && "bg-primary/10 border-l-2 border-l-primary",
-                        weekend && !isToday && "bg-amber-50/30 dark:bg-amber-900/10",
-                        simResult?.status === "out" && "border-l-2 border-l-red-500",
-                        simResult?.status === "low" && "border-l-2 border-l-yellow-500",
-                        simResult?.status === "ok" && simulationResults && "border-l-2 border-l-green-500"
-                      )}
-                    >
-                      <div className="text-xs font-medium text-foreground">
-                        {dayName}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {dateLabel}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Row 2: Capacity bars */}
-            <div className="flex border-b">
-              <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
-                <span className="text-[10px] text-muted-foreground">
-                  Capacity
-                </span>
-              </div>
-              <div className="flex flex-1">
-                {dates.map((date) => (
-                  <div
-                    key={date}
-                    className={cn(
-                      "flex-1 py-1 border-l border-border",
-                      date === todayStr && "bg-primary/5"
-                    )}
-                  >
-                    <CapacityBar
-                      segments={capacitySegments[date] ?? []}
-                      capacity={dailyCapacity}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Row 3: Per-column action buttons (e.g. Save to Kitchen) */}
-            {renderColumnAction && (
-              <div className="flex border-b">
-                <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
-                  <span className="text-[10px] text-muted-foreground">Kitchen</span>
-                </div>
-                <div className="flex flex-1">
-                  {dates.map((date) => (
-                    <div
-                      key={date}
-                      className={cn(
-                        "flex-1 py-1 border-l border-border flex items-center justify-center",
-                        date === todayStr && "bg-primary/5"
-                      )}
-                    >
-                      {renderColumnAction(date)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+    <div className="min-w-[700px]">
+      {/* ==========================================
+          GRID HEADER (sticky below WeekNav)
+          Sticks at top: weekNavHeight within the scroll container.
+          z-30 beats channel group wrappers (z-21..23) and content rows.
+          ========================================== */}
+      <div
+        ref={headerRef}
+        className="sticky z-30 bg-card border-b shadow-sm"
+        style={{ top: `${weekNavHeight}px` }}
+      >
+        {/* Row 1: Day column headers */}
+        <div className="flex border-b bg-muted/30">
+          <div className="w-[200px] min-w-[200px] px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Channel / Product
+            </span>
           </div>
+          <div className="flex flex-1">
+            {dates.map((date) => {
+              const { dayName, dateLabel } = formatDayHeader(date);
+              const isToday = date === todayStr;
+              const weekend = isWeekend(date);
+              const simResult = simStatusMap?.[date];
 
-          {/* ==========================================
-              TABLE BODY: Channel groups + footer
-              relative z-0 creates a stacking context below
-              the z-20 header so rows scroll BEHIND it.
-              ========================================== */}
-          <div className="relative z-0">
-          {channels.map((channel) => (
-            <ChannelGroup
-              key={channel.channelKey}
-              channelKey={channel.channelKey}
-              displayName={channel.displayName}
-              color={channel.color}
-              isEditable={channel.isEditable}
-              outlets={channel.outlets}
-              dates={dates}
-              todayStr={todayStr}
-              dailyTotals={channelDailyTotals[channel.channelKey] ?? {}}
-              onSaveCell={onSaveCell}
-              stickyTop={channelStickyTop}
-            />
-          ))}
+              return (
+                <div
+                  key={date}
+                  className={cn(
+                    "flex-1 text-center py-2 border-l border-border",
+                    isToday && "bg-primary/10 border-l-2 border-l-primary",
+                    weekend && !isToday && "bg-amber-50/30 dark:bg-amber-900/10",
+                    simResult?.status === "out" && "border-l-2 border-l-red-500",
+                    simResult?.status === "low" && "border-l-2 border-l-yellow-500",
+                    simResult?.status === "ok" && simulationResults && "border-l-2 border-l-green-500"
+                  )}
+                >
+                  <div className="text-xs font-medium text-foreground">
+                    {dayName}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {dateLabel}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-          {/* ==========================================
-              TABLE FOOTER: Grand totals
-              ========================================== */}
-          <div className="flex border-t-2 border-border bg-muted/20">
+        {/* Row 2: Capacity bars */}
+        <div className="flex border-b">
+          <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
+            <span className="text-[10px] text-muted-foreground">
+              Capacity
+            </span>
+          </div>
+          <div className="flex flex-1">
+            {dates.map((date) => (
+              <div
+                key={date}
+                className={cn(
+                  "flex-1 py-1 border-l border-border",
+                  date === todayStr && "bg-primary/5"
+                )}
+              >
+                <CapacityBar
+                  segments={capacitySegments[date] ?? []}
+                  capacity={dailyCapacity}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Row 3: Per-column action buttons (e.g. Save to Kitchen) */}
+        {renderColumnAction && (
+          <div className="flex border-b">
+            <div className="w-[200px] min-w-[200px] px-3 py-1 flex items-center">
+              <span className="text-[10px] text-muted-foreground">Kitchen</span>
+            </div>
+            <div className="flex flex-1">
+              {dates.map((date) => (
+                <div
+                  key={date}
+                  className={cn(
+                    "flex-1 py-1 border-l border-border flex items-center justify-center",
+                    date === todayStr && "bg-primary/5"
+                  )}
+                >
+                  {renderColumnAction(date)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ==========================================
+          TABLE BODY: Channel groups + footer
+          No stacking context on the wrapper — all sticky headers
+          share the scroll container's stacking context.
+          Each ChannelGroup gets a reverse-order z-index so that
+          earlier groups' sticky headers always paint above later
+          groups' content rows.
+          ========================================== */}
+      <div>
+        {channels.map((channel, index) => (
+          <ChannelGroup
+            key={channel.channelKey}
+            channelKey={channel.channelKey}
+            displayName={channel.displayName}
+            color={channel.color}
+            isEditable={channel.isEditable}
+            outlets={channel.outlets}
+            dates={dates}
+            todayStr={todayStr}
+            dailyTotals={channelDailyTotals[channel.channelKey] ?? {}}
+            onSaveCell={onSaveCell}
+            stickyTop={channelStickyTop}
+            channelIndex={index}
+            totalChannels={channels.length}
+          />
+        ))}
+
+        {/* ==========================================
+            TABLE FOOTER: Grand totals
+            ========================================== */}
+        <div className="flex border-t-2 border-border bg-muted/20">
+          <div className="w-[200px] min-w-[200px] px-3 py-2">
+            <span className="text-sm font-bold text-foreground">Total Products</span>
+          </div>
+          <div className="flex flex-1">
+            {dates.map((date) => {
+              const total = grandTotals[date] ?? 0;
+              const overCapacity = total > dailyCapacity;
+              return (
+                <div
+                  key={date}
+                  className={cn(
+                    "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-bold border-l border-border",
+                    date === todayStr && "bg-primary/5",
+                    overCapacity && "text-red-600"
+                  )}
+                >
+                  {total > 0 ? total : "--"}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Balls footer row: BOM-expanded ball count per day */}
+        {dailyBallTotals && Object.keys(dailyBallTotals).length > 0 && (
+          <div className="flex border-t border-border bg-blue-50 dark:bg-blue-950/30">
             <div className="w-[200px] min-w-[200px] px-3 py-2">
-              <span className="text-sm font-bold text-foreground">Total Products</span>
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Total Units (balls)</span>
             </div>
             <div className="flex flex-1">
               {dates.map((date) => {
-                const total = grandTotals[date] ?? 0;
-                const overCapacity = total > dailyCapacity;
+                const balls = dailyBallTotals[date] ?? 0;
                 return (
                   <div
                     key={date}
                     className={cn(
-                      "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-bold border-l border-border",
-                      date === todayStr && "bg-primary/5",
-                      overCapacity && "text-red-600"
+                      "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-semibold border-l border-border text-blue-700 dark:text-blue-300",
+                      date === todayStr && "bg-primary/5"
                     )}
                   >
-                    {total > 0 ? total : "--"}
+                    {balls > 0 ? balls.toLocaleString() : "--"}
                   </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Balls footer row: BOM-expanded ball count per day */}
-          {dailyBallTotals && Object.keys(dailyBallTotals).length > 0 && (
-            <div className="flex border-t border-border bg-blue-50 dark:bg-blue-950/30">
-              <div className="w-[200px] min-w-[200px] px-3 py-2">
-                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Total Units (balls)</span>
-              </div>
-              <div className="flex flex-1">
-                {dates.map((date) => {
-                  const balls = dailyBallTotals[date] ?? 0;
-                  return (
-                    <div
-                      key={date}
-                      className={cn(
-                        "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-semibold border-l border-border text-blue-700 dark:text-blue-300",
-                        date === todayStr && "bg-primary/5"
-                      )}
-                    >
-                      {balls > 0 ? balls.toLocaleString() : "--"}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          </div>
+        )}
       </div>
     </div>
   );

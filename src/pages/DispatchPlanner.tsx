@@ -5,6 +5,11 @@
  * collapsible channel groups, editable cells with auto-save, segmented capacity bars,
  * week navigation, channel settings dialog, and inventory simulation.
  *
+ * The grid card is a scroll container (overflow-y: auto) with isolation: isolate.
+ * All sticky headers (WeekNav, grid header, channel headers) position relative to
+ * this scroll container — not the viewport. This guarantees correct z-index layering
+ * because everything shares one stacking context.
+ *
  * Desktop-only. Requires canAccessDashboard permission.
  */
 
@@ -125,7 +130,7 @@ export function DispatchPlanner() {
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Measure WeekNav height for sticky stacking
+  // Measure WeekNav height for sticky stacking within the scroll container
   const weekNavRef = useRef<HTMLDivElement>(null);
   const [weekNavHeight, setWeekNavHeight] = useState(56);
 
@@ -223,8 +228,15 @@ export function DispatchPlanner() {
         }
       />
 
-      {/* Week Navigation + Main Grid (single card for sticky stacking) */}
-      <div className="rounded-lg border bg-card shadow-sm">
+      {/* Grid card — THIS IS THE SCROLL CONTAINER.
+          overflow-y-auto creates the scroll region.
+          isolation-isolate guarantees a fresh stacking context.
+          All sticky positioning (WeekNav, grid header, channel headers)
+          resolves relative to this container, not the viewport. */}
+      <div
+        className="rounded-lg border bg-card shadow-sm overflow-y-auto isolate"
+        style={{ maxHeight: "calc(100vh - 8rem)" }}
+      >
         <WeekNav
           ref={weekNavRef}
           startDate={startDate}
@@ -237,7 +249,7 @@ export function DispatchPlanner() {
             data={weeklyData}
             onSaveCell={handleSaveCell}
             renderColumnAction={(date) => <SaveTargetButton date={date} />}
-            stickyTopOffset={56 + weekNavHeight}
+            weekNavHeight={weekNavHeight}
           />
         ) : (
           <div className="p-8 text-center text-muted-foreground">

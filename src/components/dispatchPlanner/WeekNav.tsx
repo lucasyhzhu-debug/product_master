@@ -5,6 +5,9 @@
  * when navigated away from the current week. Follows the K3Mart WeekNavigator pattern.
  *
  * Uses yesterday-anchored view so today is always the second column.
+ *
+ * Sticky inside the card scroll container — sticks at top-0 relative to the
+ * scroll container (not the viewport).
  */
 
 import React, { forwardRef } from "react";
@@ -66,7 +69,7 @@ export const WeekNav = React.memo(forwardRef<HTMLDivElement, WeekNavProps>(funct
   const handleToday = () => onNavigate(getYesterday());
 
   return (
-    <div ref={ref} className="flex items-center justify-between px-4 py-3 border-b bg-card sticky top-14 z-30 rounded-t-lg">
+    <div ref={ref} className="flex items-center justify-between px-4 py-3 border-b bg-card sticky top-0 z-40 rounded-t-lg">
       {/* Left: Prev button */}
       <Button variant="outline" size="icon" onClick={handlePrev}>
         <ChevronLeft className="h-5 w-5" />
