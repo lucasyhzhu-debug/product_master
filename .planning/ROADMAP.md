@@ -81,7 +81,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
 - [x] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed (completed 2026-02-25)
 - [ ] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call
-- [ ] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI
+- [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
 - [ ] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet
 - [ ] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter
 
@@ -398,7 +398,7 @@ Plans:
   3. BigSeller orders bridge to `externalRevenue` with `source: "bigseller"` — Shopee and Tokopedia revenue visible in Sales Analytics after sync
   4. Admin can map BigSeller SKU codes to internal menu products via an explicit mapping UI; unmapped SKUs are flagged in a reconciliation view rather than silently dropped
   5. System handles BigSeller JWT expiry gracefully — shows "Re-login required" warning rather than crashing; admin can paste new token in settings without redeploying
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 28-01-PLAN.md — Schema extension (shopee/tiktok sources, bigsellerSyncState table) + scheduler-chain sync action + order storage + revenue bridge
@@ -471,6 +471,6 @@ Plans:
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
-| 28. BigSeller Integration | 1/2 | In Progress|  | - |
+| 28. BigSeller Integration | 2/2 | Complete   | 2026-02-27 | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
