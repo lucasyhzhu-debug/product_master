@@ -16,7 +16,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useBigSellerSyncState,
   useBigSellerOrderStats,
-  useBigSellerUnmappedSkus,
   useStartBigSellerSync,
 } from "@/hooks/convex";
 
@@ -71,7 +70,6 @@ export function BigSellerSyncPanel({
   const { user } = useAuth();
   const { data: syncState } = useBigSellerSyncState();
   const { data: orderStats } = useBigSellerOrderStats();
-  const { data: unmappedSkus } = useBigSellerUnmappedSkus();
   const startSync = useStartBigSellerSync();
 
   // Date range for manual sync
@@ -89,6 +87,10 @@ export function BigSellerSyncPanel({
   const prevStageRef = useRef<SyncStage | undefined>(undefined);
 
   const stage = (syncState?.stage as SyncStage) ?? "idle";
+  // Safe access for fields that only exist on the DB document (not the default idle state)
+  const errorMessage = syncState && "errorMessage" in syncState ? (syncState as any).errorMessage as string | undefined : undefined;
+  const summary = syncState && "summary" in syncState ? (syncState as any).summary as { totalOrders: number; newOrders: number; updatedOrders: number; totalRevenue: number; unmappedSkus: number } | undefined : undefined;
+
   const isActive =
     stage === "triggering" ||
     stage === "polling" ||
@@ -113,13 +115,12 @@ export function BigSellerSyncPanel({
       }
       setIsSyncing(false);
     } else if (stage === "failed" && prevStage !== "failed") {
-      const errorMsg = syncState?.errorMessage || "Unknown error";
-      toast.error("BigSeller sync failed: " + errorMsg);
+      toast.error("BigSeller sync failed: " + (errorMessage || "Unknown error"));
       userTriggeredRef.current = false;
       clickEventRef.current = null;
       setIsSyncing(false);
     }
-  }, [stage, syncState?.errorMessage]);
+  }, [stage, errorMessage]);
 
   const handleSync = async (e: React.MouseEvent) => {
     if (!user?.token) return;
@@ -162,8 +163,6 @@ export function BigSellerSyncPanel({
   };
 
   const currentStepIndex = getStepIndex(stage);
-  const summary = syncState?.summary;
-  const unmappedCount = unmappedSkus?.length ?? 0;
 
   return (
     <div className="space-y-3">
@@ -258,14 +257,14 @@ export function BigSellerSyncPanel({
                 stage === "failed" && step.key === "complete";
 
               // Build label
-              let label = step.label;
+              let displayLabel: string = step.label;
               if (
                 step.key === "polling" &&
                 (stage === "polling" || stage === "retrying")
               ) {
                 const attempt = syncState?.pollAttempt ?? 0;
                 const max = syncState?.maxPolls ?? 8;
-                label =
+                displayLabel =
                   stage === "retrying"
                     ? `Retrying (attempt ${syncState?.attempt ?? 2}/2)...`
                     : `Syncing data (attempt ${attempt}/${max})...`;
@@ -324,7 +323,7 @@ export function BigSellerSyncPanel({
                           : "text-muted-foreground/50"
                     }
                   >
-                    {label}
+                    {displayLabel}
                   </span>
                 </div>
               );
@@ -332,9 +331,9 @@ export function BigSellerSyncPanel({
           </div>
 
           {/* Error message and retry button */}
-          {stage === "failed" && syncState?.errorMessage && (
+          {stage === "failed" && errorMessage && (
             <div className="mt-2 text-xs text-[var(--color-status-error,#ef4444)] bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded px-2 py-1.5">
-              {syncState.errorMessage}
+              {errorMessage}
               <Button
                 variant="outline"
                 size="sm"

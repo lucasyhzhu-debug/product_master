@@ -454,7 +454,32 @@ export const updateProductMapping = mutation({
       });
     }
 
-    return { updatedItems: items.length };
+    // BigSeller retroactive mapping: update externalRevenue via bigsellerOrders.linkedRevenueId
+    let bigsellerUpdated = 0;
+    if (
+      (mapping.source === "shopee" || mapping.source === "tiktok") &&
+      args.menuProductId
+    ) {
+      const bsOrders = await ctx.db
+        .query("bigsellerOrders")
+        .withIndex("by_platform", (q) => q.eq("platform", mapping.source))
+        .collect();
+
+      for (const order of bsOrders) {
+        const hasSku = order.skuVoList?.some(
+          (item: { sku: string }) => item.sku === mapping.externalProductCode
+        );
+        if (!hasSku) continue;
+        if (order.linkedRevenueId) {
+          await ctx.db.patch(order.linkedRevenueId, {
+            linkedMenuProductId: args.menuProductId,
+          });
+          bigsellerUpdated++;
+        }
+      }
+    }
+
+    return { updatedItems: items.length, bigsellerUpdated };
   },
 });
 

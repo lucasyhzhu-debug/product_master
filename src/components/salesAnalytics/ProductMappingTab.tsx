@@ -35,34 +35,41 @@ export function ProductMappingTab() {
     return map;
   }, [menuProducts]);
 
+  // Sort helper: unmapped first, then alphabetical
+  const sortMappings = (
+    mappings: NonNullable<typeof allMappings>
+  ) =>
+    [...mappings].sort((a, b) => {
+      if (!a.menuProductId && b.menuProductId) return -1;
+      if (a.menuProductId && !b.menuProductId) return 1;
+      return a.externalProductName.localeCompare(b.externalProductName);
+    });
+
   // Split mappings by platform
   const gobizMappings = useMemo(
-    () =>
-      (allMappings ?? [])
-        .filter((m) => m.source === "gobiz")
-        .sort((a, b) => {
-          // Unmapped first
-          if (!a.menuProductId && b.menuProductId) return -1;
-          if (a.menuProductId && !b.menuProductId) return 1;
-          return a.externalProductName.localeCompare(b.externalProductName);
-        }),
+    () => sortMappings((allMappings ?? []).filter((m) => m.source === "gobiz")),
     [allMappings]
   );
 
   const k3martMappings = useMemo(
-    () =>
-      (allMappings ?? [])
-        .filter((m) => m.source === "k3mart")
-        .sort((a, b) => {
-          if (!a.menuProductId && b.menuProductId) return -1;
-          if (a.menuProductId && !b.menuProductId) return 1;
-          return a.externalProductName.localeCompare(b.externalProductName);
-        }),
+    () => sortMappings((allMappings ?? []).filter((m) => m.source === "k3mart")),
+    [allMappings]
+  );
+
+  const shopeeMappings = useMemo(
+    () => sortMappings((allMappings ?? []).filter((m) => m.source === "shopee")),
+    [allMappings]
+  );
+
+  const tiktokMappings = useMemo(
+    () => sortMappings((allMappings ?? []).filter((m) => m.source === "tiktok")),
     [allMappings]
   );
 
   const gobizUnmapped = gobizMappings.filter((m) => !m.menuProductId).length;
   const k3martUnmapped = k3martMappings.filter((m) => !m.menuProductId).length;
+  const shopeeUnmapped = shopeeMappings.filter((m) => !m.menuProductId).length;
+  const tiktokUnmapped = tiktokMappings.filter((m) => !m.menuProductId).length;
 
   if (loadingMappings || !rawMenuProducts) {
     return (
@@ -88,6 +95,12 @@ export function ProductMappingTab() {
           </TabsTrigger>
           <TabsTrigger value="k3mart">
             K3 Mart{k3martUnmapped > 0 ? ` (${k3martUnmapped} unmapped)` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="shopee">
+            Shopee{shopeeUnmapped > 0 ? ` (${shopeeUnmapped} unmapped)` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="tiktok">
+            TikTok{tiktokUnmapped > 0 ? ` (${tiktokUnmapped} unmapped)` : ""}
           </TabsTrigger>
         </TabsList>
 
@@ -122,6 +135,52 @@ export function ProductMappingTab() {
           ) : (
             <div className="space-y-2">
               {k3martMappings.map((mapping) => (
+                <ProductMappingCard
+                  key={mapping._id}
+                  mapping={mapping}
+                  menuProducts={menuProducts}
+                  linkedMenuProduct={
+                    mapping.menuProductId
+                      ? menuProductMap.get(mapping.menuProductId)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="shopee" className="mt-4">
+          {shopeeMappings.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No Shopee product mappings yet. Sync BigSeller data to discover Shopee SKUs.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {shopeeMappings.map((mapping) => (
+                <ProductMappingCard
+                  key={mapping._id}
+                  mapping={mapping}
+                  menuProducts={menuProducts}
+                  linkedMenuProduct={
+                    mapping.menuProductId
+                      ? menuProductMap.get(mapping.menuProductId)
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tiktok" className="mt-4">
+          {tiktokMappings.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No TikTok product mappings yet. Sync BigSeller data to discover TikTok SKUs.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {tiktokMappings.map((mapping) => (
                 <ProductMappingCard
                   key={mapping._id}
                   mapping={mapping}

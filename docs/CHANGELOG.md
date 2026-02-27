@@ -14,6 +14,35 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.2] - 2026-02-27 - BigSeller Integration (Phase 28)
+
+Admin can manually trigger BigSeller sync to pull Shopee/TikTok order data with SKU breakdowns and revenue bridge. Synced orders are browsable in a filterable table with transparent fee breakdown. Unmapped SKUs can be mapped to menu products via inline dropdown.
+
+### Added
+- BigSeller scheduler-chain sync: manual trigger -> poll every 60s (8 retries, auto-retry once) -> fetch paginated orders -> store with dedup
+- Per-order data stored in `bigsellerOrders` table with full fee breakdown (commission, shipping, other fees, raw negative values)
+- Revenue bridged to `externalRevenue` with actual platform source (shopee/tiktok), NOT "bigseller"
+- `bigsellerSyncState` table tracks sync lifecycle with reactive stage field (idle/triggering/polling/fetching/storing/complete/failed/retrying)
+- Sync progress shown step-by-step in BigSeller Settings row expansion (checkmarks per stage)
+- Browsable orders table with platform badge, SKU list, and transparent fee breakdown
+- SKU mapping via inline dropdown in Product Mapping tab -- Shopee and TikTok sub-tabs added
+- Retroactive mapping applies to all historical orders when a SKU is mapped
+- JWT expiry warning inline in Settings; sync button disabled when token expired
+- COGS caveat banner when BigSeller costFee data is zero ("Profit = Revenue")
+
+### Schema Changes
+- `externalSource` union extended with `"shopee"` and `"tiktok"` literals
+- `bigsellerSyncState` table added (singleton, stage-tracked)
+- `bigsellerOrders` table added with full fee and SKU breakdown
+
+### Files Modified
+- `convex/schema.ts`, `convex/integrations/bigseller/` (sync.ts, helpers.ts, helpers.test.ts, queries.ts, config.ts)
+- `convex/bigsellerOrders/` (mutations.ts, mutations.test.ts, queries.ts)
+- `src/components/salesAnalytics/` (BigSellerSyncPanel.tsx, BigSellerOrdersTable.tsx, SettingsTab.tsx, ProductMappingTab.tsx)
+- `src/hooks/convex/useBigSeller.ts`
+
+---
+
 ## [v1.4.1] - 2026-02-27 - GrabFood Webhooks & Partner Configuration (Phase 27.1)
 
 GrabFood can now send order notifications and menu requests directly to Frollie. Admin can configure webhook authentication and control which products appear on GrabFood with custom pricing — all from the GrabFood page.
