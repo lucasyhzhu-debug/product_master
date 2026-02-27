@@ -26,5 +26,24 @@ export const BIGSELLER_POLL_INTERVAL_MS = 60000;
  */
 export const BIGSELLER_FROLLIE_SHOP_IDS = [5090946, 5092855];
 
+/**
+ * Shop ID to platform mapping for platform-specific API calls.
+ * The common pageList.json returns 0 for Shopee fees -- must use platform-specific
+ * endpoints (shopee/pageList.json, tiktok/pageList.json) to get real fee data.
+ */
+export const BIGSELLER_SHOP_PLATFORM_MAP: Record<number, "shopee" | "tiktok"> = {
+  5090946: "shopee",
+  5092855: "tiktok",
+};
+
+/**
+ * Platform-specific API path segments for pageList endpoints.
+ * Used to construct: {BIGSELLER_API_BASE}/{segment}/pageList.json
+ */
+export const BIGSELLER_PLATFORM_ENDPOINTS: Record<string, string> = {
+  shopee: "shopee/pageList.json",
+  tiktok: "tiktok/pageList.json",
+};
+
 /** Page size for BigSeller pageList API requests */
 export const BIGSELLER_PAGE_SIZE = 50;

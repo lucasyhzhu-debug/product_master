@@ -9,6 +9,7 @@ import type { Id } from "../../_generated/dataModel";
 import {
   BIGSELLER_FROLLIE_SHOP_IDS,
   BIGSELLER_PAGE_SIZE,
+  BIGSELLER_PLATFORM_ENDPOINTS,
 } from "./config";
 
 // ─── Request Builders ────────────────────────────────────────────────────────
@@ -35,18 +36,22 @@ export function buildBigSellerHeaders(mucToken: string): Record<string, string> 
  * Build the full request body for POST pageList.json.
  * ALL fields are required -- omitting any causes silent code:-1 failures.
  * See docs/BIGSELLER_PROFIT_API.md "Shared Request Schema (Profit)".
+ *
+ * @param platformTemplate - "common" returns 0 for Shopee/TikTok fees.
+ *   Use "shopee" or "tiktok" for platform-specific fee breakdown.
  */
 export function buildPageListBody(
   startDate: string,
   endDate: string,
   pageNo: number,
   shopIds: number[] = BIGSELLER_FROLLIE_SHOP_IDS,
+  platformTemplate: "common" | "shopee" | "tiktok" = "common",
 ): Record<string, unknown> {
   return {
     pageNo,
     pageSize: BIGSELLER_PAGE_SIZE,
     searchType: "order",
-    platformTemplate: "common",
+    platformTemplate,
     startTime: startDate,
     endTime: endDate,
     timeType: "orderCreatedTime",
@@ -70,6 +75,15 @@ export function buildPageListBody(
     evalationOrder: "",
     categoryList: "",
   };
+}
+
+/**
+ * Get the API endpoint path for a platform-specific pageList call.
+ * Returns the path segment after BIGSELLER_API_BASE.
+ * Falls back to common endpoint if platform is not recognized.
+ */
+export function getPageListEndpoint(platform: string): string {
+  return BIGSELLER_PLATFORM_ENDPOINTS[platform] || "pageList.json";
 }
 
 /**
@@ -102,6 +116,8 @@ export function detectHtmlResponse(responseText: string): boolean {
 
 /**
  * Raw BigSeller order row shape from pageList.json response.
+ * Includes optional platform-specific fee fields returned by
+ * shopee/pageList.json and tiktok/pageList.json endpoints.
  */
 export interface BigSellerOrderRow {
   shopId: number;
@@ -126,6 +142,100 @@ export interface BigSellerOrderRow {
     returnNum: number;
     isAddition: number;
   }>;
+  // Shopee-specific fields (from shopee/pageList.json)
+  sellerTransactionFee?: number;
+  orderAmsCommissionFee?: number;
+  campaignFee?: number;
+  finalShippingFee?: number;
+  sellerOrderProcessingFee?: number;
+  shippingSellerProtectionFeeAmount?: number;
+  serviceFee?: number;
+  // TikTok-specific fields (from tiktok/pageList.json)
+  platformCommissionAmount?: number;
+  transactionFeeAmount?: number;
+  referralFeeAmount?: number;
+  affiliateCommissionAmount?: number;
+  affiliatePartnerCommissionAmount?: number;
+  sfpServiceFeeAmount?: number;
+  shippingCostAmount?: number;
+  actualShippingFeeAmount?: number;
+  codServiceFeeAmount?: number;
+}
+
+/**
+ * Normalize platform-specific fee fields into the common commissionFee,
+ * sellerShippingFee, and otherFee fields.
+ *
+ * The common pageList.json endpoint returns 0 for these fields on Shopee orders.
+ * Platform-specific endpoints (shopee/pageList.json, tiktok/pageList.json) return
+ * the real values in platform-specific fields that need to be aggregated.
+ *
+ * Mutates the order row in place for efficiency.
+ */
+export function normalizePlatformFees(order: BigSellerOrderRow): BigSellerOrderRow {
+  const platform = order.platform?.toLowerCase() || "";
+
+  if (platform === "shopee") {
+    // Shopee commission = sellerTransactionFee + orderAmsCommissionFee + campaignFee
+    // These are typically negative values (deductions from seller)
+    const transactionFee = order.sellerTransactionFee || 0;
+    const amsCommission = order.orderAmsCommissionFee || 0;
+    const campaignFee = order.campaignFee || 0;
+    const processingFee = order.sellerOrderProcessingFee || 0;
+    const aggregatedCommission = transactionFee + amsCommission + campaignFee + processingFee;
+
+    // Shopee shipping = finalShippingFee (net cost to seller after rebates)
+    const shippingFee = order.finalShippingFee || 0;
+    const shippingProtection = order.shippingSellerProtectionFeeAmount || 0;
+    const aggregatedShipping = shippingFee + shippingProtection;
+
+    // Shopee other = serviceFee + any remaining uncategorized fees
+    const serviceFee = order.serviceFee || 0;
+    const aggregatedOther = serviceFee;
+
+    // Only override if common fields are 0 (don't double-count if API already populated them)
+    if (order.commissionFee === 0 && aggregatedCommission !== 0) {
+      order.commissionFee = aggregatedCommission;
+    }
+    if (order.sellerShippingFee === 0 && aggregatedShipping !== 0) {
+      order.sellerShippingFee = aggregatedShipping;
+    }
+    if (order.otherFee === 0 && aggregatedOther !== 0) {
+      order.otherFee = aggregatedOther;
+    }
+  } else if (platform === "tiktok") {
+    // TikTok commission = platformCommissionAmount + transactionFeeAmount + referralFeeAmount
+    //                     + affiliateCommissionAmount + affiliatePartnerCommissionAmount
+    const platformCommission = order.platformCommissionAmount || 0;
+    const transactionFee = order.transactionFeeAmount || 0;
+    const referralFee = order.referralFeeAmount || 0;
+    const affiliateCommission = order.affiliateCommissionAmount || 0;
+    const affiliatePartner = order.affiliatePartnerCommissionAmount || 0;
+    const aggregatedCommission = platformCommission + transactionFee + referralFee
+      + affiliateCommission + affiliatePartner;
+
+    // TikTok shipping = shippingCostAmount + actualShippingFeeAmount
+    const shippingCost = order.shippingCostAmount || 0;
+    const actualShipping = order.actualShippingFeeAmount || 0;
+    const aggregatedShipping = shippingCost + actualShipping;
+
+    // TikTok other = sfpServiceFeeAmount + codServiceFeeAmount
+    const sfpService = order.sfpServiceFeeAmount || 0;
+    const codService = order.codServiceFeeAmount || 0;
+    const aggregatedOther = sfpService + codService;
+
+    if (order.commissionFee === 0 && aggregatedCommission !== 0) {
+      order.commissionFee = aggregatedCommission;
+    }
+    if (order.sellerShippingFee === 0 && aggregatedShipping !== 0) {
+      order.sellerShippingFee = aggregatedShipping;
+    }
+    if (order.otherFee === 0 && aggregatedOther !== 0) {
+      order.otherFee = aggregatedOther;
+    }
+  }
+
+  return order;
 }
 
 /**

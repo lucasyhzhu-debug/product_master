@@ -20,14 +20,17 @@ import {
   BIGSELLER_PLATFORM_ID,
   BIGSELLER_FROLLIE_SHOP_IDS,
   BIGSELLER_MAX_SYNC_DAYS,
+  BIGSELLER_SHOP_PLATFORM_MAP,
 } from "./config";
 import {
   buildBigSellerHeaders,
   buildPageListBody,
   buildSyncTaskCreateBody,
   detectHtmlResponse,
+  getPageListEndpoint,
   mapOrderToRevenue,
   mapOrderToStorage,
+  normalizePlatformFees,
   type BigSellerOrderRow,
 } from "./helpers";
 
@@ -536,8 +539,6 @@ export const fetchOrders = internalAction({
     }
 
     const headers = buildBigSellerHeaders(mucToken);
-    let pageNo = 1;
-    let totalPage = 1;
     let totalInserted = 0;
     let totalUpdated = 0;
     let totalRevenue = 0;
@@ -554,157 +555,175 @@ export const fetchOrders = internalAction({
       endDate: args.endDate,
     });
 
-    while (pageNo <= totalPage) {
-      const body = buildPageListBody(
-        args.startDate,
-        args.endDate,
-        pageNo,
-        BIGSELLER_FROLLIE_SHOP_IDS
-      );
+    // Group shop IDs by platform for platform-specific API calls.
+    // The common pageList.json returns 0 for Shopee commission/shipping/other fees.
+    // Platform-specific endpoints return the real fee breakdown.
+    const platformShops = new Map<string, number[]>();
+    for (const shopId of BIGSELLER_FROLLIE_SHOP_IDS) {
+      const platform = BIGSELLER_SHOP_PLATFORM_MAP[shopId] || "common";
+      const existing = platformShops.get(platform) || [];
+      existing.push(shopId);
+      platformShops.set(platform, existing);
+    }
 
-      let responseText: string;
-      try {
-        const response = await fetch(
-          `${BIGSELLER_API_BASE}/pageList.json`,
-          {
-            method: "POST",
-            headers,
-            body: JSON.stringify(body),
-          }
+    // Fetch orders per platform using platform-specific endpoints
+    for (const [platform, shopIds] of platformShops) {
+      const endpoint = getPageListEndpoint(platform);
+      const platformTemplate = (platform === "shopee" || platform === "tiktok")
+        ? platform
+        : "common" as const;
+
+      let pageNo = 1;
+      let totalPage = 1;
+
+      while (pageNo <= totalPage) {
+        const body = buildPageListBody(
+          args.startDate,
+          args.endDate,
+          pageNo,
+          shopIds,
+          platformTemplate,
         );
-        responseText = await response.text();
-      } catch (err) {
-        console.error(`BigSeller pageList fetch error (page ${pageNo}):`, err);
-        // Partial failure: continue with next page if possible
-        pageNo++;
-        continue;
-      }
 
-      // HTML detection = auth failure -- abort entire fetch
-      if (detectHtmlResponse(responseText)) {
-        await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
-        return;
-      }
+        let responseText: string;
+        try {
+          const response = await fetch(
+            `${BIGSELLER_API_BASE}/${endpoint}`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify(body),
+            }
+          );
+          responseText = await response.text();
+        } catch (err) {
+          console.error(`BigSeller ${platform} pageList fetch error (page ${pageNo}):`, err);
+          pageNo++;
+          continue;
+        }
 
-      let parsed: {
-        code: number;
-        data?: {
-          itemPageVo?: {
-            totalPage?: number;
-            totalSize?: number;
-            rows?: BigSellerOrderRow[];
+        // HTML detection = auth failure -- abort entire fetch
+        if (detectHtmlResponse(responseText)) {
+          await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
+          return;
+        }
+
+        let parsed: {
+          code: number;
+          data?: {
+            itemPageVo?: {
+              totalPage?: number;
+              totalSize?: number;
+              rows?: BigSellerOrderRow[];
+            };
           };
         };
-      };
-      try {
-        parsed = JSON.parse(responseText);
-      } catch {
-        console.error(`BigSeller pageList invalid JSON (page ${pageNo})`);
-        pageNo++;
-        continue;
-      }
+        try {
+          parsed = JSON.parse(responseText);
+        } catch {
+          console.error(`BigSeller ${platform} pageList invalid JSON (page ${pageNo})`);
+          pageNo++;
+          continue;
+        }
 
-      if (parsed.code !== 0) {
-        console.error(`BigSeller pageList error (page ${pageNo}): code=${parsed.code}`);
-        pageNo++;
-        continue;
-      }
+        if (parsed.code !== 0) {
+          console.error(`BigSeller ${platform} pageList error (page ${pageNo}): code=${parsed.code}`);
+          pageNo++;
+          continue;
+        }
 
-      const pageData = parsed.data?.itemPageVo;
-      if (!pageData) {
-        console.warn("BigSeller pageList returned no itemPageVo -- empty sync");
-        break;
-      }
+        const pageData = parsed.data?.itemPageVo;
+        if (!pageData) {
+          console.warn(`BigSeller ${platform} pageList returned no itemPageVo -- empty sync`);
+          break;
+        }
 
-      totalPage = pageData.totalPage ?? 0;
-      const rows = pageData.rows ?? [];
+        totalPage = pageData.totalPage ?? 0;
+        const rows = pageData.rows ?? [];
 
-      if (rows.length === 0) break;
+        if (rows.length === 0) break;
 
-      // Update stage to storing
-      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
-        stage: "storing",
-        pollAttempt: 0,
-        maxPolls: BIGSELLER_MAX_POLLS,
-        attempt: args.attempt,
-        startDate: args.startDate,
-        endDate: args.endDate,
-      });
+        // Normalize platform-specific fee fields into common fields
+        for (const row of rows) {
+          normalizePlatformFees(row);
+        }
 
-      // Batch upsert orders
-      const storageRows = rows.map((row) => mapOrderToStorage(row, args.syncLogId));
-      const upsertResult: { inserted: number; updated: number } = await ctx.runMutation(
-        internal.bigsellerOrders.mutations.upsertOrders,
-        { orders: storageRows }
-      );
-      totalInserted += upsertResult.inserted;
-      totalUpdated += upsertResult.updated;
+        // Update stage to storing
+        await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
+          stage: "storing",
+          pollAttempt: 0,
+          maxPolls: BIGSELLER_MAX_POLLS,
+          attempt: args.attempt,
+          startDate: args.startDate,
+          endDate: args.endDate,
+        });
 
-      // Bridge to externalRevenue
-      const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId));
-      const revenueIds: string[] = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
-        records: revenueRecords.map((r) => ({
-          source: r.source as "shopee" | "tiktok",
-          externalTransactionId: r.externalTransactionId,
-          revenueGross: r.revenueGross,
-          revenueNet: r.revenueNet,
-          commission: r.commission,
-          periodStart: r.periodStart,
-          periodEnd: r.periodEnd,
-          transactionDate: r.transactionDate,
-          dataOrigin: r.dataOrigin,
-          confidence: r.confidence,
-          transactionType: r.transactionType,
-          syncLogId: r.syncLogId,
-        })),
-      });
+        // Batch upsert orders
+        const storageRows = rows.map((row) => mapOrderToStorage(row, args.syncLogId));
+        const upsertResult: { inserted: number; updated: number } = await ctx.runMutation(
+          internal.bigsellerOrders.mutations.upsertOrders,
+          { orders: storageRows }
+        );
+        totalInserted += upsertResult.inserted;
+        totalUpdated += upsertResult.updated;
 
-      // Link revenue IDs back to bigsellerOrders for retroactive mapping
-      // saveRevenue skips duplicates, so revenueIds only contains newly inserted records.
-      // Build links by matching: revenueRecords[i] -> rows[i].platformOrderId, but only
-      // for records that were actually inserted (not deduped).
-      if (revenueIds.length > 0) {
-        // revenueIds correspond to the non-deduped subset. Match by extracting platformOrderId
-        // from externalTransactionId ("bigseller:{platformOrderId}").
-        // Since saveRevenue filters out existing records and returns only new IDs in order,
-        // we need to look up which orders these belong to via the transaction ID prefix.
-        const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
-        for (const revId of revenueIds) {
-          // Look up the revenue record to get its externalTransactionId
-          const revDoc = await ctx.runQuery(
-            internal.integrations.bigseller.queries.getRevenueById,
-            { revenueId: revId as Id<"externalRevenue"> }
-          );
-          if (revDoc?.externalTransactionId) {
-            // Extract platformOrderId from "bigseller:{platformOrderId}"
-            const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
-            if (orderId) {
-              links.push({
-                platformOrderId: orderId,
-                revenueId: revId as Id<"externalRevenue">,
-              });
+        // Bridge to externalRevenue
+        const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId));
+        const revenueIds: string[] = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+          records: revenueRecords.map((r) => ({
+            source: r.source as "shopee" | "tiktok",
+            externalTransactionId: r.externalTransactionId,
+            revenueGross: r.revenueGross,
+            revenueNet: r.revenueNet,
+            commission: r.commission,
+            periodStart: r.periodStart,
+            periodEnd: r.periodEnd,
+            transactionDate: r.transactionDate,
+            dataOrigin: r.dataOrigin,
+            confidence: r.confidence,
+            transactionType: r.transactionType,
+            syncLogId: r.syncLogId,
+          })),
+        });
+
+        // Link revenue IDs back to bigsellerOrders for retroactive mapping
+        if (revenueIds.length > 0) {
+          const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
+          for (const revId of revenueIds) {
+            const revDoc = await ctx.runQuery(
+              internal.integrations.bigseller.queries.getRevenueById,
+              { revenueId: revId as Id<"externalRevenue"> }
+            );
+            if (revDoc?.externalTransactionId) {
+              const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
+              if (orderId) {
+                links.push({
+                  platformOrderId: orderId,
+                  revenueId: revId as Id<"externalRevenue">,
+                });
+              }
             }
           }
+          if (links.length > 0) {
+            await ctx.runMutation(
+              internal.bigsellerOrders.mutations.linkRevenueToOrders,
+              { links }
+            );
+          }
         }
-        if (links.length > 0) {
-          await ctx.runMutation(
-            internal.bigsellerOrders.mutations.linkRevenueToOrders,
-            { links }
-          );
-        }
-      }
 
-      // Collect SKU codes and platforms for product mapping
-      for (const row of rows) {
-        totalRevenue += row.platformIncome || 0;
-        const platform = row.platform?.toLowerCase() || "shopee";
-        allPlatforms.add(platform);
-        for (const sku of row.skuVoList || []) {
-          if (sku.sku) allSkuCodes.add(`${platform}::${sku.sku}`);
+        // Collect SKU codes and platforms for product mapping
+        for (const row of rows) {
+          totalRevenue += row.platformIncome || 0;
+          const rowPlatform = row.platform?.toLowerCase() || "shopee";
+          allPlatforms.add(rowPlatform);
+          for (const sku of row.skuVoList || []) {
+            if (sku.sku) allSkuCodes.add(`${rowPlatform}::${sku.sku}`);
+          }
         }
-      }
 
-      pageNo++;
+        pageNo++;
+      }
     }
 
     // Register product mappings for all unique SKUs per platform
