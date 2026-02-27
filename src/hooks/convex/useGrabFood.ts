@@ -62,7 +62,7 @@ export function useGrabFoodActions() {
   const syncOrdersAction = useAction(api.integrations.grabfood.adapter.syncOrders);
   const getStoreStatusAction = useAction(api.integrations.grabfood.adapter.getStoreStatus);
   const pauseStoreAction = useAction(api.integrations.grabfood.adapter.pauseStore);
-  const batchUpdateAction = useAction(api.integrations.grabfood.adapter.batchUpdateAvailability);
+  const pushMenuChangesAction = useAction(api.integrations.grabfood.adapter.pushMenuChanges);
   const getMenuItemsAction = useAction(api.integrations.grabfood.adapter.getMenuItems);
 
   return {
@@ -82,10 +82,17 @@ export function useGrabFoodActions() {
     unpauseStore: (merchantID: string) =>
       pauseStoreAction({ token, merchantID, pauseDuration: 0 }),
 
+    pushMenuChanges: (
+      merchantID: string,
+      priceUpdates: Array<{ id: string; price: number }>,
+      availabilityUpdates: Array<{ id: string; availableStatus: "AVAILABLE" | "UNAVAILABLE" }>
+    ) => pushMenuChangesAction({ token, merchantID, priceUpdates, availabilityUpdates }),
+
+    /** @deprecated Use pushMenuChanges with empty priceUpdates instead */
     batchUpdateAvailability: (
       merchantID: string,
       items: Array<{ id: string; availableStatus: "AVAILABLE" | "UNAVAILABLE" }>
-    ) => batchUpdateAction({ token, merchantID, items }),
+    ) => pushMenuChangesAction({ token, merchantID, priceUpdates: [], availabilityUpdates: items }),
 
     getMenuItems: (merchantID: string) =>
       getMenuItemsAction({ token, merchantID }),

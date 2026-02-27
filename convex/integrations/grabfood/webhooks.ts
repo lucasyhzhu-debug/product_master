@@ -169,28 +169,57 @@ export const handleGetMenuWebhook = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const merchantID = url.searchParams.get("merchantID") ?? "";
 
-  // Fetch product mappings for grabfood
-  const mappings = await ctx.runQuery(
-    internal.externalData.queries.listProductMappingsInternal,
-    { source: "grabfood" }
+  // Prefer grabfoodMenuItems (Menu Simulator data) when populated
+  const grabfoodMenuItems: any[] = await ctx.runQuery(
+    internal.grabfoodMenu.queries.listMenuItemsInternal
   );
 
-  // Filter available items (default true if isAvailable undefined)
-  const availableItems = mappings.filter(
-    (m: any) => m.isAvailable !== false
-  );
+  let items: Array<{
+    id: string;
+    name: string;
+    sequence: number;
+    availableStatus: string;
+    price: number;
+    description: string;
+    photos: string[];
+    modifierGroups: never[];
+  }>;
 
-  // Build menu items
-  const items = availableItems.map((m: any, index: number) => ({
-    id: m.externalProductCode,
-    name: m.externalProductName,
-    sequence: index + 1,
-    availableStatus: "AVAILABLE",
-    price: m.grabfoodPrice ?? m.menuProduct?.defaultPrice ?? 0,
-    description: "",
-    photos: [],
-    modifierGroups: [],
-  }));
+  if (grabfoodMenuItems.length > 0) {
+    // Build from grabfoodMenuItems — include ALL items with correct availableStatus
+    items = grabfoodMenuItems.map((item: any) => ({
+      id: item.grabfoodItemId ?? item._id,
+      name: item.grabfoodName,
+      sequence: item.sequence,
+      availableStatus: item.isAvailable ? "AVAILABLE" : "UNAVAILABLE",
+      price: item.grabfoodPrice,
+      description: item.grabfoodDescription ?? "",
+      photos: item.resolvedPhotoUrl ? [item.resolvedPhotoUrl] : [],
+      modifierGroups: [],
+    }));
+  } else {
+    // Fallback: read from externalProductMappings (legacy path)
+    const mappings = await ctx.runQuery(
+      internal.externalData.queries.listProductMappingsInternal,
+      { source: "grabfood" }
+    );
+
+    // Filter available items (default true if isAvailable undefined)
+    const availableItems = mappings.filter(
+      (m: any) => m.isAvailable !== false
+    );
+
+    items = availableItems.map((m: any, index: number) => ({
+      id: m.externalProductCode,
+      name: m.externalProductName,
+      sequence: index + 1,
+      availableStatus: "AVAILABLE",
+      price: m.grabfoodPrice ?? m.menuProduct?.defaultPrice ?? 0,
+      description: "",
+      photos: [],
+      modifierGroups: [],
+    }));
+  }
 
   // Build Section-based menu JSON
   const menuResponse = {

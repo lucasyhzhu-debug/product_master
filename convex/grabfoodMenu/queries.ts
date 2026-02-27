@@ -1,5 +1,4 @@
 import { query, internalQuery } from "../_generated/server";
-import { requireRole } from "../lib/auth";
 
 // ============================================
 // GrabFood Menu Simulator - Queries

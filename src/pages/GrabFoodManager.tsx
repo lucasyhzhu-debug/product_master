@@ -818,7 +818,7 @@ function MenuTab({ merchantID, isAdmin }: MenuTabProps) {
       }));
       const result = await actions.batchUpdateAvailability(merchantID, items);
       if (result.success) {
-        toast.success(`Published ${result.itemsUpdated} menu changes`);
+        toast.success(`Published ${items.length} menu changes`);
         setPendingChanges(new Map());
         // Refresh menu to get updated state
         await fetchMenu();

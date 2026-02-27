@@ -363,15 +363,51 @@ export const notifyMenuUpdate = action({
 // ─── Menu Management ─────────────────────────────────────────────────────────
 
 /**
- * Batch update menu item availability on GrabFood.
- * Two-step process: 1) PUT batch menu update, 2) POST menu notification.
- * The notification step is CRITICAL — changes are not live without it.
+ * Send a batch menu update to GrabFood for a specific field type.
+ * Private helper — called by pushMenuChanges.
  */
-export const batchUpdateAvailability = action({
+async function batchMenuUpdate(
+  token: string,
+  merchantID: string,
+  field: "PRICE" | "AVAILABILITY",
+  menuEntities: Array<Record<string, unknown>>
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return grabRequest(token, "PUT", GRABFOOD_CONFIG.endpoints.menuBatch, {
+    merchantID,
+    field,
+    menuEntities,
+  });
+}
+
+/**
+ * Notify GrabFood that the menu has changed.
+ * CRITICAL: changes are NOT live without calling this after batch updates.
+ */
+async function notifyMenu(
+  token: string,
+  merchantID: string
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return grabRequest(token, "POST", GRABFOOD_CONFIG.endpoints.menuNotify, {
+    merchantID,
+  });
+}
+
+/**
+ * Push menu price and availability changes to GrabFood.
+ * Three-step process:
+ *   1) Batch update prices (if any)
+ *   2) Batch update availability (if any)
+ *   3) ALWAYS notify menu (changes not live without it)
+ * Then update push state tracking on grabfoodMenuItems.
+ */
+export const pushMenuChanges = action({
   args: {
     token: v.string(),
     merchantID: v.string(),
-    items: v.array(
+    priceUpdates: v.array(
+      v.object({ id: v.string(), price: v.number() })
+    ),
+    availabilityUpdates: v.array(
       v.object({
         id: v.string(),
         availableStatus: v.union(v.literal("AVAILABLE"), v.literal("UNAVAILABLE")),
@@ -379,6 +415,7 @@ export const batchUpdateAvailability = action({
     ),
   },
   handler: async (ctx, args) => {
+    // Auth check
     await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, {
       token: args.token,
     });
@@ -388,49 +425,159 @@ export const batchUpdateAvailability = action({
       return { success: false, error: "GrabFood token unavailable. Check credentials." };
     }
 
-    // Step 1: Build menuEntities and send batch update
-    const menuEntities = args.items.map((item) => ({
-      id: item.id,
-      availableStatus: item.availableStatus,
-      ...(item.availableStatus === "UNAVAILABLE" ? { maxStock: 0 } : {}),
-    }));
+    try {
+      // Step 1: Push price updates
+      if (args.priceUpdates.length > 0) {
+        const priceEntities = args.priceUpdates.map((item) => ({
+          id: item.id,
+          price: item.price,
+        }));
 
-    const batchResult = await grabRequest(
-      accessToken,
-      "PUT",
-      GRABFOOD_CONFIG.endpoints.menuBatch,
-      {
-        merchantID: args.merchantID,
-        field: "AVAILABILITY",
-        menuEntities,
+        const priceResult = await batchMenuUpdate(
+          accessToken,
+          args.merchantID,
+          "PRICE",
+          priceEntities
+        );
+
+        if (!priceResult.ok) {
+          const err = priceResult.data as GrabApiError;
+          const errorMsg = `Price batch update failed (HTTP ${priceResult.status}): ${err.message ?? err.reason ?? "Unknown error"}`;
+
+          await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+            source: "grabfood" as const,
+            syncType: "manual" as const,
+            status: "error" as const,
+            timestamp: Date.now(),
+            triggeredBy: "push-menu",
+            errorMessage: errorMsg,
+          });
+
+          return { success: false, error: errorMsg };
+        }
       }
-    );
 
-    if (!batchResult.ok) {
-      const err = batchResult.data as GrabApiError;
+      // Step 2: Push availability updates
+      if (args.availabilityUpdates.length > 0) {
+        const availEntities = args.availabilityUpdates.map((item) => ({
+          id: item.id,
+          availableStatus: item.availableStatus,
+          ...(item.availableStatus === "UNAVAILABLE" ? { maxStock: 0 } : {}),
+        }));
+
+        const availResult = await batchMenuUpdate(
+          accessToken,
+          args.merchantID,
+          "AVAILABILITY",
+          availEntities
+        );
+
+        if (!availResult.ok) {
+          const err = availResult.data as GrabApiError;
+          const errorMsg = `Availability batch update failed (HTTP ${availResult.status}): ${err.message ?? err.reason ?? "Unknown error"}`;
+
+          await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+            source: "grabfood" as const,
+            syncType: "manual" as const,
+            status: "error" as const,
+            timestamp: Date.now(),
+            triggeredBy: "push-menu",
+            errorMessage: errorMsg,
+          });
+
+          return { success: false, error: errorMsg };
+        }
+      }
+
+      // Step 3: ALWAYS notify menu — changes not live without it
+      const notifyResult = await notifyMenu(accessToken, args.merchantID);
+      if (!notifyResult.ok) {
+        console.log("GrabFood: push succeeded but menu notification failed:", notifyResult.data);
+      }
+
+      // Step 4: Update push state on grabfoodMenuItems
+      // Build push state updates from the items we just pushed
+      const pushStateUpdates: Array<{
+        menuItemId: any;
+        lastPushedPrice?: number;
+        lastPushedAvailability?: boolean;
+      }> = [];
+
+      // Get all menu items to find IDs by grabfoodItemId
+      const menuItems: any[] = await ctx.runQuery(
+        internal.grabfoodMenu.queries.listMenuItemsInternal
+      );
+      const itemByGrabId = new Map<string, any>();
+      for (const mi of menuItems) {
+        if (mi.grabfoodItemId) {
+          itemByGrabId.set(mi.grabfoodItemId, mi);
+        }
+      }
+
+      for (const pu of args.priceUpdates) {
+        const mi = itemByGrabId.get(pu.id);
+        if (mi) {
+          pushStateUpdates.push({
+            menuItemId: mi._id,
+            lastPushedPrice: pu.price,
+          });
+        }
+      }
+
+      for (const au of args.availabilityUpdates) {
+        const mi = itemByGrabId.get(au.id);
+        if (mi) {
+          // Check if already in pushStateUpdates from price
+          const existing = pushStateUpdates.find(
+            (u) => u.menuItemId === mi._id
+          );
+          if (existing) {
+            existing.lastPushedAvailability = au.availableStatus === "AVAILABLE";
+          } else {
+            pushStateUpdates.push({
+              menuItemId: mi._id,
+              lastPushedAvailability: au.availableStatus === "AVAILABLE",
+            });
+          }
+        }
+      }
+
+      if (pushStateUpdates.length > 0) {
+        await ctx.runMutation(
+          internal.grabfoodMenu.mutations.updatePushState,
+          { updates: pushStateUpdates }
+        );
+      }
+
+      // Step 5: Log success
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "grabfood" as const,
+        syncType: "manual" as const,
+        status: "success" as const,
+        timestamp: Date.now(),
+        triggeredBy: "push-menu",
+      });
+
       return {
-        success: false,
-        error: `Batch update failed (HTTP ${batchResult.status}): ${err.message ?? err.reason ?? "Unknown error"}`,
+        success: true,
+        priceUpdatesCount: args.priceUpdates.length,
+        availabilityUpdatesCount: args.availabilityUpdates.length,
       };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log("GrabFood pushMenuChanges error:", msg);
+
+      await ctx.runMutation(internal.externalData.mutations.createSyncLog, {
+        source: "grabfood" as const,
+        syncType: "manual" as const,
+        status: "error" as const,
+        timestamp: Date.now(),
+        triggeredBy: "push-menu",
+        errorMessage: msg,
+      });
+
+      return { success: false, error: msg };
     }
-
-    // Step 2: MUST call notifyMenuUpdate — changes are not live without this
-    const notifyResult = await grabRequest(
-      accessToken,
-      "POST",
-      GRABFOOD_CONFIG.endpoints.menuNotify,
-      { merchantID: args.merchantID }
-    );
-
-    if (!notifyResult.ok) {
-      console.log("GrabFood: batch update succeeded but menu notification failed:", notifyResult.data);
-    }
-
-    return {
-      success: true,
-      itemsUpdated: args.items.length,
-      notifyResponse: notifyResult.data,
-    };
   },
 });
 
