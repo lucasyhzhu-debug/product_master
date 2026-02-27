@@ -1,0 +1,587 @@
+{
+  "merchantID": "",
+  "partnerMerchantID": "",
+  "currency": {
+    "code": "SGD",
+    "symbol": "S$",
+    "exponent": 2
+  },
+  "sections": [
+    {
+      "id": "SECTION-01",
+      "name": "Breakfast",
+      "sequence": 1,
+      "serviceHours": {
+        "mon": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "tue": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "wed": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "thu": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "fri": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "sat": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        },
+        "sun": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "07:00",
+              "endTime": "10:00"
+            }
+          ]
+        }
+      },
+      "categories": [
+        {
+          "id": "CATEGORY-01",
+          "name": "Savoury Pancakes",
+          "sequence": 1,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-01",
+              "name": "Gourmet Flapjacks",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 220,
+              "campaignInfo": null,
+              "description": "Blueberries stuffed pancakes, served with scrambled eggs, baked beans, and hash brown, savoury, and sweet toppings of all day, add on of toppings available.",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/pancake-2.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-01",
+                  "name": "Topping Additions",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-01",
+                      "name": "Sunny Egg",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-02",
+                      "name": "Sausage & Chipolata",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 200
+                    },
+                    {
+                      "id": "MODIFIER-03",
+                      "name": "Turkey Bacon",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    }
+                  ]
+                }
+              ],
+              "nameTranslation": {
+                "zh": "美食烙饼"
+              }
+            },
+            {
+              "id": "ITEM-02",
+              "name": "Mini Pancakes",
+              "sequence": 2,
+              "availableStatus": "AVAILABLE",
+              "price": 230,
+              "campaignInfo": null,
+              "description": "Grilled chicken with creamy tomato sauce spaghetti.",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/pancake-1.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-02",
+                  "name": "Topping Additions",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 2,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-04",
+                      "name": "Honey",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    },
+                    {
+                      "id": "MODIFIER-05",
+                      "name": "Chocolate Sauce",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "nameTranslation": {
+            "id": "Pancake Gurih"
+          }
+        },
+        {
+          "id": "CATEGORY-02",
+          "name": "Crispy Puffs",
+          "sequence": 2,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-03",
+              "name": "2 Pieces Crispy Puffs Set",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 220,
+              "campaignInfo": null,
+              "description": "",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/crispy-puff.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-03",
+                  "name": "Flavour of Crispy Puff 1",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-06",
+                      "name": "Chicken Curry Puff",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-07",
+                      "name": "Sardine Puff",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 200
+                    },
+                    {
+                      "id": "MODIFIER-08",
+                      "name": "Yam Puff",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    }
+                  ]
+                },
+                {
+                  "id": "MODIFIERGROUP-04",
+                  "name": "Flavour of Crispy Puff 2",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-09",
+                      "name": "Chicken Curry Puff",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-10",
+                      "name": "Sardine Puff",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 200
+                    },
+                    {
+                      "id": "MODIFIER-11",
+                      "name": "Yam Puff",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "CATEGORY-03",
+          "name": "Desserts",
+          "sequence": 3,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-04",
+              "name": "Panna Cotta DePizza",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 500,
+              "campaignInfo": null,
+              "description": "Homemade eggless custard served with wild berry mix & mango sauce",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/panna-cotta.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-04",
+                  "name": "Toppings",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-12",
+                      "name": "Caramel Sauce",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-13",
+                      "name": "More Mango Sauce",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SECTION-02",
+      "name": "Regular Menu",
+      "sequence": 2,
+      "serviceHours": {
+        "mon": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "tue": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "wed": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "thu": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "fri": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "sat": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        },
+        "sun": {
+          "openPeriodType": "OpenPeriod",
+          "periods": [
+            {
+              "startTime": "12:00",
+              "endTime": "16:00"
+            }
+          ]
+        }
+      },
+      "categories": [
+        {
+          "id": "CATEGORY-04",
+          "name": "Drinks",
+          "sequence": 1,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-05",
+              "name": "Speciality Drinks",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 1000,
+              "campaignInfo": null,
+              "description": "Choose from our Speciality Drinks",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/milk-shake.png"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-05",
+                  "name": "Choice of Drinks",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-14",
+                      "name": "Chocolate Milkshake",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    },
+                    {
+                      "id": "MODIFIER-15",
+                      "name": "Strawberry Milkshake",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    },
+                    {
+                      "id": "MODIFIER-16",
+                      "name": "Vanilla Milkshake",
+                      "sequence": 3,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "CATEGORY-05",
+          "name": "Pasta",
+          "sequence": 2,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-06",
+              "name": "Grilled Chicken Cream Pasta",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 10000,
+              "campaignInfo": null,
+              "description": "Grilled chicken with creamy tomato sauce spaghetti.",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/pasta.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-06",
+                  "name": "Spiciness Level",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-17",
+                      "name": "Low",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    },
+                    {
+                      "id": "MODIFIER-18",
+                      "name": "Medium",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    },
+                    {
+                      "id": "MODIFIER-19",
+                      "name": "Hot",
+                      "sequence": 3,
+                      "availableStatus": "AVAILABLE",
+                      "price": 0
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "CATEGORY-06",
+          "name": "Pizza",
+          "sequence": 3,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-07",
+              "name": "Mala Madness",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 10000,
+              "campaignInfo": null,
+              "description": "Spicy. Spice up your day. Mala spice base, spam and bacon, topped with peanuts.",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/pizza.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-07",
+                  "name": "Add on toppings",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-20",
+                      "name": "Vegetables",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-21",
+                      "name": "Crab Meat",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    },
+                    {
+                      "id": "MODIFIER-22",
+                      "name": "Pepperoni",
+                      "sequence": 3,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "CATEGORY-07",
+          "name": "Desserts",
+          "sequence": 4,
+          "availableStatus": "AVAILABLE",
+          "items": [
+            {
+              "id": "ITEM-08",
+              "name": "Panna Cotta DePizza",
+              "sequence": 1,
+              "availableStatus": "AVAILABLE",
+              "price": 10000,
+              "campaignInfo": null,
+              "description": "Homemade eggless custard served with wild berry mix & mango sauce",
+              "photos": [
+                "https://developer.grab.com/assets/default-menu/panna-cotta.jpeg"
+              ],
+              "modifierGroups": [
+                {
+                  "id": "MODIFIERGROUP-08",
+                  "name": "Toppings",
+                  "sequence": 1,
+                  "availableStatus": "AVAILABLE",
+                  "selectionRangeMin": 1,
+                  "selectionRangeMax": 1,
+                  "modifiers": [
+                    {
+                      "id": "MODIFIER-23",
+                      "name": "Caramel Sauce",
+                      "sequence": 1,
+                      "availableStatus": "AVAILABLE",
+                      "price": 100
+                    },
+                    {
+                      "id": "MODIFIER-24",
+                      "name": "More Mango Sauce",
+                      "sequence": 2,
+                      "availableStatus": "AVAILABLE",
+                      "price": 300
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
