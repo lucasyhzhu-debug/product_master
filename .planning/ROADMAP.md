@@ -365,12 +365,13 @@ Plans:
 
 ### Phase 27.2: GrabFood Menu Simulator (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Admin can view, edit, and push the GrabFood menu from a standalone simulator page with GrabFood-app-like visual fidelity, inline editing (name, price, description, availability), photo upload with write-back to internal products, add-from-menu-products flow, and push-to-GrabFood with confirmation dialog showing change diff.
 **Depends on:** Phase 27.1
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [x] TBD (run /gsd:plan-phase 27.1 to break down) (completed 2026-02-26)
+- [ ] 27.2-01-PLAN.md — Schema (grabfoodMenuItems table + menuProducts photoStorageId) + backend CRUD mutations/queries + push action + webhook update
+- [ ] 27.2-02-PLAN.md — Frontend: GrabFoodMenuSimulator page with card grid, inline editing, add item dialog, photo upload, push confirmation, route wiring
 
 ### Phase 28: BigSeller Integration
 
