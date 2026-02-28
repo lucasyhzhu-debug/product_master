@@ -21,8 +21,9 @@ export function computeSettlementMath(
   totalRevenue: number,
   revSharePercent: number
 ): SettlementMath {
-  // TODO: implement
-  throw new Error("Not implemented");
+  const revShareAmount = totalRevenue * revSharePercent / 100;
+  const frolliePayment = totalRevenue - revShareAmount;
+  return { revShareAmount, frolliePayment };
 }
 
 /**
@@ -35,8 +36,7 @@ export function computeSettlementMath(
 export function shouldAutoArchive(
   type: "cafe" | "retail" | "event"
 ): boolean {
-  // TODO: implement
-  throw new Error("Not implemented");
+  return type === "event";
 }
 
 /**
@@ -48,8 +48,9 @@ export function shouldAutoArchive(
 export function assertSettlementEditable(
   status: "pending" | "paid"
 ): void {
-  // TODO: implement
-  throw new Error("Not implemented");
+  if (status === "paid") {
+    throw new Error("Cannot modify paid settlement");
+  }
 }
 
 /**
@@ -62,8 +63,12 @@ export function validateSettlementInput(input: {
   periodStart: number;
   periodEnd: number;
 }): void {
-  // TODO: implement
-  throw new Error("Not implemented");
+  if (input.totalRevenue < 0) {
+    throw new Error("Revenue cannot be negative");
+  }
+  if (input.periodStart > input.periodEnd) {
+    throw new Error("Period start must be before period end");
+  }
 }
 
 /**
@@ -89,6 +94,15 @@ export function buildRevenueRecord(params: {
   confidence: "manual";
   transactionType: "sales";
 } {
-  // TODO: implement
-  throw new Error("Not implemented");
+  return {
+    source: "consignment" as const,
+    outletId: params.outletId,
+    revenueGross: params.totalRevenue,
+    revenueNet: params.frolliePayment,
+    periodStart: params.periodStart,
+    periodEnd: params.periodEnd,
+    dataOrigin: "manual_entry" as const,
+    confidence: "manual" as const,
+    transactionType: "sales" as const,
+  };
 }
