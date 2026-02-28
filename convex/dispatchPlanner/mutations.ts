@@ -43,14 +43,17 @@ export const seedDefaults = mutation({
     });
 
     // Seed default consignment outlets (Legato Tamtem, Legato Goldfinch)
-    const consignmentOutlets = [
+    const consignmentOutletSeeds = [
       { name: "Legato Tamtem" },
       { name: "Legato Goldfinch" },
     ];
 
-    for (const outlet of consignmentOutlets) {
-      await ctx.db.insert("dispatchConsignmentOutlets", {
+    for (const outlet of consignmentOutletSeeds) {
+      await ctx.db.insert("consignmentOutlets", {
         name: outlet.name,
+        type: "cafe" as const,
+        revSharePercent: 10,
+        isActive: true,
         channelKey: "consignment" as const,
         isEnabled: true,
         productMappings: [],
@@ -61,7 +64,7 @@ export const seedDefaults = mutation({
       });
     }
 
-    return { status: "seeded", channels: channels.length, consignmentOutlets: consignmentOutlets.length };
+    return { status: "seeded", channels: channels.length, consignmentOutlets: consignmentOutletSeeds.length };
   },
 });
 
@@ -79,7 +82,7 @@ export const savePlanCell = mutation({
     token: v.string(),
     date: v.string(),
     channel: v.string(),
-    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets"))),
+    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("consignmentOutlets"))),
     orderId: v.optional(v.id("orders")),
     menuProductId: v.id("menuProducts"),
     plannedQty: v.number(),
@@ -274,8 +277,11 @@ export const addConsignmentOutlet = mutation({
     const user = await requireRole(ctx, args.token, ["admin"]);
     const now = Date.now();
 
-    const id = await ctx.db.insert("dispatchConsignmentOutlets", {
+    const id = await ctx.db.insert("consignmentOutlets", {
       name: args.name,
+      type: "cafe" as const,
+      revSharePercent: 0,
+      isActive: true,
       channelKey: "consignment" as const,
       isEnabled: true,
       productMappings: args.productMappings,
@@ -295,7 +301,7 @@ export const addConsignmentOutlet = mutation({
 export const updateConsignmentOutlet = mutation({
   args: {
     token: v.string(),
-    outletId: v.id("dispatchConsignmentOutlets"),
+    outletId: v.id("consignmentOutlets"),
     name: v.optional(v.string()),
     productMappings: v.optional(
       v.array(
@@ -336,7 +342,7 @@ export const updateConsignmentOutlet = mutation({
 export const removeConsignmentOutlet = mutation({
   args: {
     token: v.string(),
-    outletId: v.id("dispatchConsignmentOutlets"),
+    outletId: v.id("consignmentOutlets"),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);

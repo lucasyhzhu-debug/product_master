@@ -1244,7 +1244,7 @@ export default defineSchema({
   dispatchPlans: defineTable({
     date: v.string(), // YYYY-MM-DD
     channel: v.string(), // "direct" | "gofood" | "k3mart" | "consignment"
-    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("dispatchConsignmentOutlets"))), // For GoFood/K3Mart/Consignment outlets
+    outletId: v.optional(v.union(v.id("externalOutlets"), v.id("consignmentOutlets"))), // For GoFood/K3Mart/Consignment outlets
     orderId: v.optional(v.id("orders")), // For Direct Sales (links to specific order)
     menuProductId: v.id("menuProducts"),
     plannedQty: v.number(),
@@ -1271,23 +1271,6 @@ export default defineSchema({
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
-
-  dispatchConsignmentOutlets: defineTable({
-    name: v.string(), // "Legato Tamtem", "Legato Goldfinch"
-    channelKey: v.literal("consignment"),
-    isEnabled: v.boolean(),
-    productMappings: v.array(v.object({
-      menuProductId: v.id("menuProducts"),
-      externalName: v.string(),
-      externalPrice: v.number(),
-    })),
-    createdBy: v.string(),
-    createdAt: v.number(),
-    updatedBy: v.string(),
-    updatedAt: v.number(),
-    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
-  })
-    .index("by_enabled", ["isEnabled"]),
 
   dispatchPlannerSettings: defineTable({
     dailyCapacity: v.number(), // Default 200 balls
@@ -1542,19 +1525,28 @@ export default defineSchema({
   consignmentOutlets: defineTable({
     name: v.string(),
     revSharePercent: v.number(),
-    mode: v.union(v.literal("automated"), v.literal("manual")),
+    type: v.union(v.literal("cafe"), v.literal("retail"), v.literal("event")),
     isActive: v.boolean(),
     externalOutletId: v.optional(v.id("externalOutlets")),
     address: v.optional(v.string()),
     contactName: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // Dispatch planner fields (merged from dispatchConsignmentOutlets)
+    channelKey: v.optional(v.literal("consignment")),
+    isEnabled: v.optional(v.boolean()),
+    productMappings: v.optional(v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      externalName: v.string(),
+      externalPrice: v.number(),
+    }))),
+    commissionRate: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedBy: v.optional(v.string()),
     updatedAt: v.optional(v.number()),
   })
     .index("by_active", ["isActive"])
-    .index("by_mode", ["mode"]),
+    .index("by_type", ["type"]),
 
   consignmentSettlements: defineTable({
     outletId: v.id("consignmentOutlets"),
@@ -1566,6 +1558,7 @@ export default defineSchema({
     frolliePayment: v.number(),
     status: v.union(v.literal("pending"), v.literal("paid")),
     paidAt: v.optional(v.number()),
+    linkedRevenueId: v.optional(v.id("externalRevenue")),
     notes: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
@@ -1575,7 +1568,8 @@ export default defineSchema({
     .index("by_outlet", ["outletId"])
     .index("by_period", ["periodStart"])
     .index("by_outlet_period", ["outletId", "periodStart"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_outlet_status", ["outletId", "status"]),
 
   // ============================================
   // GRABFOOD MENU SIMULATOR
