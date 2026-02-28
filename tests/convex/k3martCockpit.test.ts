@@ -649,7 +649,8 @@ describe("K3 Mart Cockpit - getWeeklyDispatchPlans", () => {
       weekNumber: "2026-W07",
     });
 
-    expect(result.plans.length).toBeGreaterThanOrEqual(2);
+    // plans is now a Record<string, {...}> keyed by outletId_date_menuProductId
+    expect(Object.keys(result.plans).length).toBeGreaterThanOrEqual(2);
   });
 
   test("returns empty when no plans for week", async () => {
@@ -659,7 +660,8 @@ describe("K3 Mart Cockpit - getWeeklyDispatchPlans", () => {
       weekNumber: "2026-W99",
     });
 
-    expect(result.plans).toEqual([]);
+    // plans is a Record, empty object when no plans exist
+    expect(Object.keys(result.plans).length).toBe(0);
   });
 });
 
