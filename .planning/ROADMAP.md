@@ -367,7 +367,7 @@ Plans:
 
 **Goal:** Admin can view, edit, and push the GrabFood menu from a standalone simulator page with GrabFood-app-like visual fidelity, inline editing (name, price, description, availability), photo upload with write-back to internal products, add-from-menu-products flow, and push-to-GrabFood with confirmation dialog showing change diff.
 **Depends on:** Phase 27.1
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 27.2-01-PLAN.md — Schema (grabfoodMenuItems table + menuProducts photoStorageId) + backend CRUD mutations/queries + push action + webhook update

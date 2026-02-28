@@ -8,11 +8,11 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 ## Current Position
 
 Phase: 27.2 of 30 (GrabFood Menu Simulator)
-Plan: 1 of 2 complete
-Status: In Progress — Phase 27.2 Plan 01 backend infrastructure complete
-Last activity: 2026-02-27 - Phase 27.2 Plan 01 complete (grabfoodMenuItems schema, CRUD, push action, webhook update)
+Plan: 2 of 2 complete
+Status: Complete — Phase 27.2 fully complete (backend + frontend)
+Last activity: 2026-02-28 - Phase 27.2 Plan 02 complete (GrabFood Menu Simulator frontend with card grid, inline editing, push flow)
 
-Progress (v1.4): [██████████████████░░] 92% — Phase 27.2 Plan 01 complete, Plan 02 remaining
+Progress (v1.4): [███████████████████░] 95% — Phase 27.2 complete, Phases 29-30 remaining
 
 ## Performance Metrics
 
@@ -76,6 +76,12 @@ Phase 27.2-01 decisions (menu simulator backend):
 - [Phase 27.2-01]: Webhook returns ALL items including unavailable with correct availableStatus (GrabFood needs this to re-show items)
 - [Phase 27.2-01]: grabfoodMenuItems as override layer over menuProducts (core data unchanged, GrabFood-specific overrides in new table)
 
+Phase 27.2-02 decisions (menu simulator frontend):
+- [Phase 27.2-02]: GrabFood green color added as CSS variable --color-grabfood in index.css for theme consistency
+- [Phase 27.2-02]: Diff tracking uses persisted lastPushed* fields (survives page reloads) rather than ephemeral React state
+- [Phase 27.2-02]: Photo upload uses Convex generateUploadUrl + fetch POST pattern with client-side 5MB validation
+- [Phase 27.2-02]: Merchant ID hardcoded as 6-C7XYAECCTNKXJ6 in PushConfirmDialog per user decision
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -112,7 +118,7 @@ Phase 26 established patterns (reference for Phases 27-30):
 
 ## Session Continuity
 
-Last session: 2026-02-27
-Stopped at: Completed 27.2-01-PLAN.md (GrabFood Menu Simulator backend). Plan 02 (frontend) next.
+Last session: 2026-02-28
+Stopped at: Completed 27.2-02-PLAN.md (GrabFood Menu Simulator frontend). Phase 27.2 fully complete.
 Resume file: None
-Resume notes: Branch: gsd/phase-27.2-grabfood-menu-simulator. Plan 01 complete (2 tasks, 2 commits). Next: Plan 02 (frontend simulator UI).
+Resume notes: Branch: gsd/phase-27.2-grabfood-menu-simulator. Phase 27.2 complete (2 plans, 4 tasks). Ready for merge to main.
