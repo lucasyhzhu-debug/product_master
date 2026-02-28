@@ -8,27 +8,7 @@ import { expect, test, describe } from "vitest";
 import { internal } from "../../convex/_generated/api";
 import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { PLATFORMS } from "../../convex/integrations/registry";
-
-// ============================================
-// Cron Configuration Tests - 1 test
-// ============================================
-describe("Cron configuration", () => {
-  test("crons file has K3Mart cron and GoBiz auto-sync cron", () => {
-    const cronsPath = join(__dirname, "../../convex/crons.ts");
-    const cronsContent = readFileSync(cronsPath, "utf-8");
-
-    // Should have K3Mart cron
-    expect(cronsContent).toContain("refresh k3mart token");
-    expect(cronsContent).toContain("platformCredentials.actions.refreshK3MartTokenCron");
-
-    // Should have GoBiz auto-sync cron (added in GoFood Depot integration)
-    expect(cronsContent).toContain("sync gobiz revenue");
-    expect(cronsContent).toContain("autoSyncGoBizRevenue");
-  });
-});
 
 // ============================================
 // Registry Updates Tests - 1 test

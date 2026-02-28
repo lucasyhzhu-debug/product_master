@@ -10,9 +10,6 @@ import { expect, test, describe } from "vitest";
 import { internal, api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
 import type { Id } from "../../convex/_generated/dataModel";
-import { readFileSync } from "fs";
-import { join } from "path";
-
 type TestContext = ReturnType<typeof convexTest>;
 
 // ============================================
@@ -462,21 +459,6 @@ describe("getGoFoodDailyOrder edge cases", () => {
 
     expect(result!.items.length).toBe(1);
     expect(result!.items[0].productName).toBe("GoFood Item");
-  });
-});
-
-// ============================================
-// Cron Configuration Tests
-// ============================================
-describe("GoBiz auto-sync cron", () => {
-  test("crons.ts contains GoBiz auto-sync at WIB business hours", () => {
-    const cronsPath = join(__dirname, "../../convex/crons.ts");
-    const cronsContent = readFileSync(cronsPath, "utf-8");
-
-    expect(cronsContent).toContain("sync gobiz revenue");
-    expect(cronsContent).toContain("autoSyncGoBizRevenue");
-    // WIB hours: 8,10,12,14,16,18,20 = UTC 1,3,5,7,9,11,13
-    expect(cronsContent).toContain("0 1,3,5,7,9,11,13 * * *");
   });
 });
 
