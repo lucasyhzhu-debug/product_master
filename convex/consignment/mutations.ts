@@ -38,6 +38,11 @@ export const createOutlet = mutation({
     const user = await requireRole(ctx, args.token, ["admin", "manager"]);
     const now = Date.now();
 
+    // Validate rev share percentage
+    if (args.revSharePercent < 0 || args.revSharePercent > 100) {
+      throw new Error("Rev share percent must be between 0 and 100");
+    }
+
     // Create consignmentOutlets record first
     const outletId = await ctx.db.insert("consignmentOutlets", {
       name: args.name,
@@ -109,7 +114,12 @@ export const updateOutlet = mutation({
       updatedAt: now,
     };
     if (args.name !== undefined) patch.name = args.name;
-    if (args.revSharePercent !== undefined) patch.revSharePercent = args.revSharePercent;
+    if (args.revSharePercent !== undefined) {
+      if (args.revSharePercent < 0 || args.revSharePercent > 100) {
+        throw new Error("Rev share percent must be between 0 and 100");
+      }
+      patch.revSharePercent = args.revSharePercent;
+    }
     if (args.type !== undefined) patch.type = args.type;
     if (args.address !== undefined) patch.address = args.address;
     if (args.contactName !== undefined) patch.contactName = args.contactName;
@@ -238,16 +248,13 @@ export const updateSettlement = mutation({
       updatedAt: now,
     };
 
-    // If totalRevenue changed, recompute rev share
+    // If totalRevenue changed, recompute rev share using the settlement's frozen rate
+    // (not the outlet's current rate, which may have changed since settlement creation)
     let newFrolliePayment = settlement.frolliePayment;
     if (args.totalRevenue !== undefined) {
-      const outlet = await ctx.db.get(settlement.outletId);
-      if (!outlet) {
-        throw new Error("Consignment outlet not found");
-      }
       const { revShareAmount, frolliePayment } = computeSettlementMath(
         args.totalRevenue,
-        outlet.revSharePercent
+        settlement.revSharePercent
       );
       patch.totalRevenue = args.totalRevenue;
       patch.revShareAmount = revShareAmount;

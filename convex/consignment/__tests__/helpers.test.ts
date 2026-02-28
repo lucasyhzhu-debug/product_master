@@ -11,7 +11,6 @@ import {
   shouldAutoArchive,
   assertSettlementEditable,
   validateSettlementInput,
-  buildRevenueRecord,
 } from "../helpers";
 
 // ============================================
@@ -130,44 +129,3 @@ describe("validateSettlementInput", () => {
   });
 });
 
-// ============================================
-// Revenue Bridge Builder Tests (buildRevenueRecord)
-// ============================================
-
-describe("buildRevenueRecord", () => {
-  it("builds record with correct source, dataOrigin, and confidence", () => {
-    const record = buildRevenueRecord({
-      totalRevenue: 5_000_000,
-      frolliePayment: 4_500_000,
-      periodStart: 1000,
-      periodEnd: 2000,
-      outletId: "outlet-123",
-    });
-    expect(record.source).toBe("consignment");
-    expect(record.dataOrigin).toBe("manual_entry");
-    expect(record.confidence).toBe("manual");
-    expect(record.transactionType).toBe("sales");
-  });
-
-  it("sets revenueGross = totalRevenue and revenueNet = frolliePayment", () => {
-    const record = buildRevenueRecord({
-      totalRevenue: 1_000_000,
-      frolliePayment: 850_000,
-      periodStart: 1000,
-      periodEnd: 2000,
-    });
-    expect(record.revenueGross).toBe(1_000_000);
-    expect(record.revenueNet).toBe(850_000);
-  });
-
-  it("includes outletId from parameter", () => {
-    const record = buildRevenueRecord({
-      totalRevenue: 500_000,
-      frolliePayment: 450_000,
-      periodStart: 1000,
-      periodEnd: 2000,
-      outletId: "ext-outlet-456",
-    });
-    expect(record.outletId).toBe("ext-outlet-456");
-  });
-});

@@ -71,38 +71,3 @@ export function validateSettlementInput(input: {
   }
 }
 
-/**
- * Build an externalRevenue record for the revenue bridge.
- * Links consignment settlements to the unified analytics pipeline.
- * @param params - Revenue record parameters
- * @returns Object suitable for inserting into externalRevenue table
- */
-export function buildRevenueRecord(params: {
-  totalRevenue: number;
-  frolliePayment: number;
-  periodStart: number;
-  periodEnd: number;
-  outletId?: string;
-}): {
-  source: "consignment";
-  outletId: string | undefined;
-  revenueGross: number;
-  revenueNet: number;
-  periodStart: number;
-  periodEnd: number;
-  dataOrigin: "manual_entry";
-  confidence: "manual";
-  transactionType: "sales";
-} {
-  return {
-    source: "consignment" as const,
-    outletId: params.outletId,
-    revenueGross: params.totalRevenue,
-    revenueNet: params.frolliePayment,
-    periodStart: params.periodStart,
-    periodEnd: params.periodEnd,
-    dataOrigin: "manual_entry" as const,
-    confidence: "manual" as const,
-    transactionType: "sales" as const,
-  };
-}
