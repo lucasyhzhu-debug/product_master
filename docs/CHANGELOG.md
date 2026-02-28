@@ -14,6 +14,29 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.5] - 2026-02-28 - GrabFood POS Integration Complete (Phase 27)
+
+GrabFood is now fully integrated. Admins can sync order history, managers can pause/unpause stores and control menu item availability — all from a single GrabFood Manager page.
+
+### Completed
+- Phase 27 GrabFood POS Integration (3/3 plans, 5/5 success criteria verified)
+- GrabFood Manager page at `/grabfood` with 5 tabs: Orders, Store Status, Menu, Settings, Webhooks
+- Order sync with auto-resume from last sync timestamp and custom date range
+- Store status display with OPEN/PAUSED/CLOSED badges and pause controls (30/60/120 min)
+- Menu availability toggles with batch "Publish Changes" button
+- Webhook endpoints for order push and menu sync with HMAC-SHA256 validation
+- `useGrabFood.ts` hook with barrel exports for all GrabFood queries and actions
+
+### Known Limitations
+- Orders endpoint returns 401 until GrabFood grants `orders:read` OAuth2 scope (code handles gracefully)
+- Order webhook is log-only by design (writes deferred until order schema validated against real data)
+
+### Files Modified
+- `src/hooks/convex/index.ts` (barrel exports for GrabFood hooks)
+- `.planning/` (phase completion docs)
+
+---
+
 ## [v1.4.4] - 2026-02-28 - BigSeller Platform-Specific Fee Fix
 
 Synced BigSeller orders now show real commission, shipping, and other fees instead of Rp 0. Previously all fees showed as zero because the sync used BigSeller's common endpoint which doesn't return platform-specific fee breakdowns.
