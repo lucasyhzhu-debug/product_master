@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Sales & Channel Integration
-status: unknown
-last_updated: "2026-02-28T14:25:35.023Z"
+status: in-progress
+last_updated: "2026-02-28T15:58:37.664Z"
 progress:
-  total_phases: 18
-  completed_phases: 14
-  total_plans: 67
-  completed_plans: 66
+  total_phases: 19
+  completed_phases: 15
+  total_plans: 68
+  completed_plans: 67
 ---
 
 # Project State
@@ -20,18 +20,22 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 29 of 30 (Consignment Settlements)
-Plan: 1 of 3 complete
-Status: In Progress — Phase 29 Plan 01 complete (backend module, schema migration)
-Last activity: 2026-02-28 - Phase 29 Plan 01 complete (schema migration, consignment backend, dispatch planner migration)
+Phase: 29.1 of 30 (Test Suite Repair — INSERTED)
+Plan: 1 of 1 complete
+Status: Phase 29.1 Complete — test suite repaired (0 failures, 633 passing)
+Last activity: 2026-02-28 - Phase 29.1 Plan 01 complete (test suite repair, E2E exclusion, assertion fixes)
 
-Progress (v1.4): [███████████████████░] 96% — Phase 29 Plan 01 complete, Plans 02-03 + Phase 30 remaining
+Progress (v1.4): [███████████████████░] 97% — Phase 29 + 29.1 complete, Phase 30 remaining
 
 ## Performance Metrics
 
 **Velocity (v1.0):** 36 plans, avg 6.3 min, ~3.8 hours total
 **Velocity (v1.1):** 27 plans, avg 7.3 min, ~3.3 hours total
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 29.1 | 01 | 13 min | 6 | 8 |
 
 ## Accumulated Context
 
@@ -112,10 +116,16 @@ Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: GoBiz 2-step GoID auth: POST /goid/login/request (JSON) then POST /goid/token (JSON flat body)
 - [Phase 26]: New files MUST be git-added — untracked files cause production deploy failures (grabfood/config.ts incident)
 
+Phase 29.1-01 decisions (test suite repair):
+- [Phase 29.1]: Deleted 3 test files (recipes, tags, products) — modules removed in Phase 22, tests unfixable
+- [Phase 29.1]: 100% discount now valid business case — voucher tests updated to positive assertions
+- [Phase 29.1]: getWeeklyDispatchPlans returns Record not Array — test assertions updated
+
 ### Roadmap Evolution
 
 - Phase 27.1 inserted after Phase 27: GrabFood Webhooks & Partner Configuration (URGENT)
 - Phase 27.2 inserted after Phase 27.1: GrabFood Menu Simulator (URGENT, depends on 27.1)
+- Phase 29.1 inserted after Phase 29: Test Suite Repair (56 failures from Phase 22 module removals)
 
 ### Pending Todos
 
@@ -139,6 +149,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 29-01-PLAN.md (consignment backend module)
-Resume file: .planning/phases/29-consignment-settlements/29-01-SUMMARY.md
-Resume notes: Phase 29 Plan 01 complete. Backend module ready (mutations, queries, helpers, tests). Next: Plan 02 (consignment UI in Sales Analytics) or Plan 03 (docs update).
+Stopped at: Completed 29.1-01-PLAN.md (test suite repair)
+Resume file: .planning/phases/29.1-test-suite-repair/29.1-01-SUMMARY.md
+Resume notes: Phase 29.1 complete (1/1 plan). Test suite green (633 tests, 0 failures). All Phases 26-29.1 complete. Next: Phase 30 (Unified Sales Analytics).
