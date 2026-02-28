@@ -119,6 +119,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 27-03-PLAN.md (GrabFood Manager frontend verification). Phase 27 fully complete.
-Resume file: None
-Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Phase 27 complete (3 plans). Ready for verification.
+Stopped at: Phase 29 context gathered (consignment settlements discussion complete)
+Resume file: .planning/phases/29-consignment-settlements/29-CONTEXT.md
+Resume notes: Phase 29 context captured. Key decisions: consignment as single channel with outlets, merge dispatch/settlement tables, tab in Sales Analytics, timeline cards, event auto-archive. Ready for /gsd:plan-phase 29.
