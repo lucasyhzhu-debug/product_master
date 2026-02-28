@@ -29,10 +29,10 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
 ### Consignment Settlements
 
-- [ ] **CON-01**: Admin can manage consignment outlets (CRUD) with configurable rev sharing percentage per outlet (e.g., Goldfinch 10%, Tamtem 10%)
-- [ ] **CON-02**: Admin can enter consignment settlement records: select outlet, enter period (date range), enter total revenue; system auto-calculates rev sharing and payment to Frollie based on outlet's configured percentage
-- [ ] **CON-03**: Admin can mark settlement as paid with payment date; system tracks payment status per settlement period
-- [ ] **CON-04**: Consignment page shows running totals per outlet and settlement history with status
+- [x] **CON-01**: Admin can manage consignment outlets (CRUD) with configurable rev sharing percentage per outlet (e.g., Goldfinch 10%, Tamtem 10%)
+- [x] **CON-02**: Admin can enter consignment settlement records: select outlet, enter period (date range), enter total revenue; system auto-calculates rev sharing and payment to Frollie based on outlet's configured percentage
+- [x] **CON-03**: Admin can mark settlement as paid with payment date; system tracks payment status per settlement period
+- [x] **CON-04**: Consignment page shows running totals per outlet and settlement history with status
 
 ### GrabFood Webhooks & Partner Configuration
 
@@ -127,10 +127,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BS-01 | Phase 28 | Complete |
 | BS-02 | Phase 28 | Complete |
 | BS-03 | Phase 28 | Complete |
-| CON-01 | Phase 29 | Pending |
-| CON-02 | Phase 29 | Pending |
-| CON-03 | Phase 29 | Pending |
-| CON-04 | Phase 29 | Pending |
+| CON-01 | Phase 29 | Complete |
+| CON-02 | Phase 29 | Complete |
+| CON-03 | Phase 29 | Complete |
+| CON-04 | Phase 29 | Complete |
 | ANLY-01 | Phase 30 | Pending |
 | ANLY-02 | Phase 30 | Pending |
 | ANLY-03 | Phase 30 | Pending |

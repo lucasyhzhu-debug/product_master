@@ -82,7 +82,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 - [x] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed (completed 2026-02-25)
 - [x] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call (completed 2026-02-28)
 - [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
-- [ ] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet
+- [x] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet (completed 2026-02-28)
 - [ ] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter
 
 ## Phase Details
@@ -427,7 +427,7 @@ Plans:
   3. Admin can mark a settlement as paid with a payment date; status visibly changes from "Pending" to "Paid" in the settlement history
   4. Consignment page shows per-outlet running totals — total revenue, total rev share paid out, outstanding balance — alongside full settlement history with status
   5. Each settlement creates an `externalRevenue` record with `source: "consignment"` — consignment revenue is available for unified analytics aggregation
-**Plans:** TBD
+**Plans:** 2/2 plans complete
 
 ### Phase 30: Unified Sales Analytics
 
@@ -472,5 +472,5 @@ Plans:
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | 3/3 | Complete    | 2026-02-28 | - |
 | 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
-| 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
+| 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |

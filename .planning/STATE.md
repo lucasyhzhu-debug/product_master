@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.4
+milestone_name: Sales & Channel Integration
+status: unknown
+last_updated: "2026-02-28T14:25:35.023Z"
+progress:
+  total_phases: 18
+  completed_phases: 14
+  total_plans: 67
+  completed_plans: 66
+---
+
 # Project State
 
 ## Project Reference
@@ -7,12 +20,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 27 of 30 (GrabFood POS Integration)
-Plan: 3 of 3 complete
-Status: Complete — Phase 27 fully complete (API discovery, backend, frontend)
-Last activity: 2026-02-28 - Phase 27 Plan 03 complete (GrabFood Manager frontend verification — all features confirmed from sub-phases 27.1/27.2)
+Phase: 29 of 30 (Consignment Settlements)
+Plan: 1 of 3 complete
+Status: In Progress — Phase 29 Plan 01 complete (backend module, schema migration)
+Last activity: 2026-02-28 - Phase 29 Plan 01 complete (schema migration, consignment backend, dispatch planner migration)
 
-Progress (v1.4): [███████████████████░] 95% — Phase 27 complete, Phases 29-30 remaining
+Progress (v1.4): [███████████████████░] 96% — Phase 29 Plan 01 complete, Plans 02-03 + Phase 30 remaining
 
 ## Performance Metrics
 
@@ -82,6 +95,13 @@ Phase 27.2-02 decisions (menu simulator frontend):
 - [Phase 27.2-02]: Photo upload uses Convex generateUploadUrl + fetch POST pattern with client-side 5MB validation
 - [Phase 27.2-02]: Merchant ID hardcoded as 6-C7XYAECCTNKXJ6 in PushConfirmDialog per user decision
 
+Phase 29-01 decisions (consignment backend):
+- [Phase 29-01]: Merged dispatchConsignmentOutlets into consignmentOutlets with optional dispatch planner fields
+- [Phase 29-01]: Event auto-archive: only event-type outlets auto-deactivate on markAsPaid (immediate, not end-of-day)
+- [Phase 29-01]: Revenue bridge: one externalRevenue per settlement, synced on update, deleted on delete
+- [Phase 29-01]: All consignment mutations require admin or manager role
+- [Phase 29-01]: Settlement math in pure helpers for testability (computeSettlementMath, shouldAutoArchive, etc.)
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -119,6 +139,6 @@ Phase 26 established patterns (reference for Phases 27-30):
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Completed 27-03-PLAN.md (GrabFood Manager frontend verification). Phase 27 fully complete.
-Resume file: None
-Resume notes: Branch: gsd/phase-27-grabfood-pos-integration. Phase 27 complete (3 plans). Ready for verification.
+Stopped at: Completed 29-01-PLAN.md (consignment backend module)
+Resume file: .planning/phases/29-consignment-settlements/29-01-SUMMARY.md
+Resume notes: Phase 29 Plan 01 complete. Backend module ready (mutations, queries, helpers, tests). Next: Plan 02 (consignment UI in Sales Analytics) or Plan 03 (docs update).

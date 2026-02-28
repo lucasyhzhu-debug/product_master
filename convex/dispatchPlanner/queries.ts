@@ -52,7 +52,8 @@ export const getPlannerSettings = query({
 });
 
 /**
- * Query dispatchConsignmentOutlets with optional enabledOnly filter.
+ * Query consignmentOutlets with optional enabledOnly filter.
+ * Uses by_active index on the unified consignmentOutlets table.
  */
 export const getConsignmentOutlets = query({
   args: {
@@ -61,11 +62,11 @@ export const getConsignmentOutlets = query({
   handler: async (ctx, args) => {
     if (args.enabledOnly) {
       return await ctx.db
-        .query("dispatchConsignmentOutlets")
-        .withIndex("by_enabled", (q) => q.eq("isEnabled", true))
+        .query("consignmentOutlets")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
         .collect();
     }
-    return await ctx.db.query("dispatchConsignmentOutlets").collect();
+    return await ctx.db.query("consignmentOutlets").collect();
   },
 });
 
@@ -691,7 +692,7 @@ async function assembleK3martChannel(
 }
 
 /**
- * Consignment channel: editable. Uses dispatchConsignmentOutlets + dispatchPlans.
+ * Consignment channel: editable. Uses consignmentOutlets + dispatchPlans.
  */
 async function assembleConsignmentChannel(
   ctx: { db: any },
@@ -703,10 +704,10 @@ async function assembleConsignmentChannel(
   allDispatchPlans: Doc<"dispatchPlans">[],
   dailyProductQty: Record<string, Record<string, number>>,
 ) {
-  // Fetch enabled consignment outlets
+  // Fetch active consignment outlets (unified table)
   const consignmentOutlets = await ctx.db
-    .query("dispatchConsignmentOutlets")
-    .withIndex("by_enabled", (q: any) => q.eq("isEnabled", true))
+    .query("consignmentOutlets")
+    .withIndex("by_active", (q: any) => q.eq("isActive", true))
     .collect();
 
   // Filter dispatch plans for consignment channel
@@ -724,7 +725,7 @@ async function assembleConsignmentChannel(
 
     // For consignment outlets, only show explicitly mapped products (+ any with existing plans)
     const productIds = new Set<string>();
-    for (const mapping of outlet.productMappings) {
+    for (const mapping of (outlet.productMappings ?? [])) {
       productIds.add(mapping.menuProductId as string);
     }
     for (const plan of outletPlans) {

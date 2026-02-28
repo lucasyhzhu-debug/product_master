@@ -376,10 +376,11 @@ function ConsignmentOutletManager({
   onRemove,
 }: {
   outlets: Array<{
-    _id: Id<"dispatchConsignmentOutlets">;
+    _id: Id<"consignmentOutlets">;
     name: string;
-    isEnabled: boolean;
-    productMappings: ProductMapping[];
+    isEnabled?: boolean;
+    isActive?: boolean;
+    productMappings?: ProductMapping[];
   }>;
   menuProducts: Array<{ _id: string; name: string; defaultPrice: number }>;
   onAdd: (args: {
@@ -387,17 +388,17 @@ function ConsignmentOutletManager({
     productMappings: ProductMapping[];
   }) => Promise<unknown>;
   onUpdate: (args: {
-    outletId: Id<"dispatchConsignmentOutlets">;
+    outletId: Id<"consignmentOutlets">;
     name?: string;
     productMappings?: ProductMapping[];
     isEnabled?: boolean;
   }) => Promise<unknown>;
-  onRemove: (args: { outletId: Id<"dispatchConsignmentOutlets"> }) => Promise<unknown>;
+  onRemove: (args: { outletId: Id<"consignmentOutlets"> }) => Promise<unknown>;
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
-    id: Id<"dispatchConsignmentOutlets">;
+    id: Id<"consignmentOutlets">;
     name: string;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -437,7 +438,7 @@ function ConsignmentOutletManager({
               />
               <Store className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{outlet.name}</span>
-              {!outlet.isEnabled && (
+              {!(outlet.isEnabled ?? outlet.isActive ?? true) && (
                 <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   Disabled
                 </span>
@@ -445,7 +446,7 @@ function ConsignmentOutletManager({
             </div>
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Switch
-                checked={outlet.isEnabled}
+                checked={outlet.isEnabled ?? outlet.isActive ?? true}
                 onCheckedChange={async (checked) => {
                   try {
                     await onUpdate({ outletId: outlet._id, isEnabled: checked });
@@ -475,7 +476,7 @@ function ConsignmentOutletManager({
               <OutletEditForm
                 initialData={{
                   name: outlet.name,
-                  productMappings: outlet.productMappings,
+                  productMappings: outlet.productMappings ?? [],
                 }}
                 menuProducts={menuProducts}
                 onSave={async (data) => {
