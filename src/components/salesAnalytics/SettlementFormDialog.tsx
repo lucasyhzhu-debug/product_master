@@ -95,6 +95,10 @@ export function SettlementFormDialog({
       return;
     }
 
+    if (!totalRevenue.trim()) {
+      toast.error("Total revenue is required");
+      return;
+    }
     if (revenueNum < 0) {
       toast.error("Revenue cannot be negative");
       return;

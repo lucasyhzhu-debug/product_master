@@ -15,7 +15,7 @@ export function computeSettlementPreview(
   totalRevenue: number,
   revSharePercent: number
 ): { revShareAmount: number; frolliePayment: number } {
-  const revShareAmount = totalRevenue * revSharePercent / 100;
+  const revShareAmount = Math.round(totalRevenue * revSharePercent / 100);
   const frolliePayment = totalRevenue - revShareAmount;
   return { revShareAmount, frolliePayment };
 }

@@ -39,6 +39,10 @@ export function SettlementTimeline({
     );
   }
 
+  // Find target settlements for dialogs (lifted out of .map())
+  const targetPaid = settlements.find((s) => s._id === confirmPaidId);
+  const targetDelete = settlements.find((s) => s._id === confirmDeleteId);
+
   return (
     <div className="relative pl-6">
       {/* Vertical timeline line */}
@@ -133,37 +137,41 @@ export function SettlementTimeline({
                   </div>
                 )}
               </div>
-
-              {/* Mark as Paid confirmation */}
-              <ConfirmDialog
-                open={confirmPaidId === s._id}
-                onOpenChange={(v) => !v && setConfirmPaidId(null)}
-                title="Mark as Paid"
-                description={`Mark this ${formatCurrency(s.frolliePayment)} settlement as paid? This action cannot be undone.`}
-                confirmLabel="Mark as Paid"
-                onConfirm={() => {
-                  onMarkPaid(s);
-                  setConfirmPaidId(null);
-                }}
-              />
-
-              {/* Delete confirmation */}
-              <ConfirmDialog
-                open={confirmDeleteId === s._id}
-                onOpenChange={(v) => !v && setConfirmDeleteId(null)}
-                title="Delete Settlement"
-                description={`Delete this ${formatCurrency(s.totalRevenue)} settlement? This will also remove the linked revenue record.`}
-                confirmLabel="Delete"
-                variant="destructive"
-                onConfirm={() => {
-                  onDelete(s);
-                  setConfirmDeleteId(null);
-                }}
-              />
             </div>
           );
         })}
       </div>
+
+      {/* Mark as Paid confirmation — single instance outside map */}
+      {targetPaid && (
+        <ConfirmDialog
+          open={!!confirmPaidId}
+          onOpenChange={(v) => !v && setConfirmPaidId(null)}
+          title="Mark as Paid"
+          description={`Mark this ${formatCurrency(targetPaid.frolliePayment)} settlement as paid? This action cannot be undone.`}
+          confirmLabel="Mark as Paid"
+          onConfirm={() => {
+            onMarkPaid(targetPaid);
+            setConfirmPaidId(null);
+          }}
+        />
+      )}
+
+      {/* Delete confirmation — single instance outside map */}
+      {targetDelete && (
+        <ConfirmDialog
+          open={!!confirmDeleteId}
+          onOpenChange={(v) => !v && setConfirmDeleteId(null)}
+          title="Delete Settlement"
+          description={`Delete this ${formatCurrency(targetDelete.totalRevenue)} settlement? This will also remove the linked revenue record.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => {
+            onDelete(targetDelete);
+            setConfirmDeleteId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

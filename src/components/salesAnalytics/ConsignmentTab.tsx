@@ -113,7 +113,7 @@ export function ConsignmentTab() {
           {outlets.map((outlet) => (
             <OutletCard
               key={outlet._id}
-              outlet={outlet as any}
+              outlet={outlet}
               onEdit={handleEditOutlet}
             />
           ))}

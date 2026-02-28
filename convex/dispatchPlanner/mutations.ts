@@ -49,7 +49,7 @@ export const seedDefaults = mutation({
     ];
 
     for (const outlet of consignmentOutletSeeds) {
-      await ctx.db.insert("consignmentOutlets", {
+      const outletId = await ctx.db.insert("consignmentOutlets", {
         name: outlet.name,
         type: "cafe" as const,
         revSharePercent: 10,
@@ -62,6 +62,16 @@ export const seedDefaults = mutation({
         updatedBy: "system",
         updatedAt: now,
       });
+      // Create linked externalOutlets record for revenue bridge consistency
+      const externalOutletId = await ctx.db.insert("externalOutlets", {
+        source: "consignment" as const,
+        externalId: `consignment-${outletId}`,
+        name: outlet.name,
+        isActive: true,
+        createdBy: "system",
+        createdAt: now,
+      });
+      await ctx.db.patch(outletId, { externalOutletId });
     }
 
     return { status: "seeded", channels: channels.length, consignmentOutlets: consignmentOutletSeeds.length };
@@ -290,6 +300,17 @@ export const addConsignmentOutlet = mutation({
       updatedBy: user.name,
       updatedAt: now,
     });
+
+    // Create linked externalOutlets record for revenue bridge consistency
+    const externalOutletId = await ctx.db.insert("externalOutlets", {
+      source: "consignment" as const,
+      externalId: `consignment-${id}`,
+      name: args.name,
+      isActive: true,
+      createdBy: user.name,
+      createdAt: now,
+    });
+    await ctx.db.patch(id, { externalOutletId });
 
     return { status: "created", id };
   },

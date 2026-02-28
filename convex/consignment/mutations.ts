@@ -14,7 +14,6 @@ import {
   shouldAutoArchive,
   assertSettlementEditable,
   validateSettlementInput,
-  buildRevenueRecord,
 } from "./helpers";
 
 // ============================================
@@ -120,12 +119,15 @@ export const updateOutlet = mutation({
 
     await ctx.db.patch(args.outletId, patch);
 
-    // Sync name/address to linked externalOutlets record
-    if ((args.name !== undefined || args.address !== undefined) && outlet.externalOutletId) {
+    // Sync name/address/isActive to linked externalOutlets record
+    if (outlet.externalOutletId) {
       const extPatch: Record<string, unknown> = {};
       if (args.name !== undefined) extPatch.name = args.name;
       if (args.address !== undefined) extPatch.address = args.address;
-      await ctx.db.patch(outlet.externalOutletId, extPatch);
+      if (args.isActive !== undefined) extPatch.isActive = args.isActive;
+      if (Object.keys(extPatch).length > 0) {
+        await ctx.db.patch(outlet.externalOutletId, extPatch);
+      }
     }
 
     return { status: "updated" as const };
@@ -172,15 +174,18 @@ export const createSettlement = mutation({
       outlet.revSharePercent
     );
 
-    // Build and create externalRevenue record (revenue bridge)
-    const revenueData = buildRevenueRecord({
-      totalRevenue: args.totalRevenue,
-      frolliePayment,
+    // Create externalRevenue record (revenue bridge) — inline to preserve Convex types
+    const revenueId = await ctx.db.insert("externalRevenue", {
+      source: "consignment" as const,
+      outletId: outlet.externalOutletId,
+      revenueGross: args.totalRevenue,
+      revenueNet: frolliePayment,
       periodStart: args.periodStart,
       periodEnd: args.periodEnd,
-      outletId: outlet.externalOutletId as unknown as string | undefined,
+      dataOrigin: "manual_entry" as const,
+      confidence: "manual" as const,
+      transactionType: "sales" as const,
     });
-    const revenueId = await ctx.db.insert("externalRevenue", revenueData as any);
 
     // Create settlement record
     const settlementId = await ctx.db.insert("consignmentSettlements", {
@@ -254,6 +259,13 @@ export const updateSettlement = mutation({
     if (args.periodEnd !== undefined) patch.periodEnd = args.periodEnd;
     if (args.notes !== undefined) patch.notes = args.notes;
 
+    // Validate effective period dates (merged args + existing values)
+    const effectiveStart = (args.periodStart ?? settlement.periodStart) as number;
+    const effectiveEnd = (args.periodEnd ?? settlement.periodEnd) as number;
+    if (effectiveStart > effectiveEnd) {
+      throw new Error("Period start must be before period end");
+    }
+
     await ctx.db.patch(args.settlementId, patch);
 
     // Sync to linked externalRevenue record
@@ -312,6 +324,10 @@ export const markAsPaid = mutation({
         updatedBy: user.name,
         updatedAt: now,
       });
+      // Sync isActive to linked externalOutlets record
+      if (outlet.externalOutletId) {
+        await ctx.db.patch(outlet.externalOutletId, { isActive: false });
+      }
     }
 
     return { status: "paid" as const, autoArchived };

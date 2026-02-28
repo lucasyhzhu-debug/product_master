@@ -16,10 +16,19 @@ import { SettlementTimeline } from "./SettlementTimeline";
 import { SettlementFormDialog } from "./SettlementFormDialog";
 import { toast } from "sonner";
 import { actionToast } from "@/lib/actionToast";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { OutletData } from "./OutletFormDialog";
 import type { SettlementData } from "./SettlementFormDialog";
 
-interface OutletWithTotals extends OutletData {
+export interface OutletWithTotals {
+  _id: Id<"consignmentOutlets">;
+  name: string;
+  revSharePercent: number;
+  type: "cafe" | "retail" | "event";
+  isActive: boolean;
+  address?: string;
+  contactName?: string;
+  notes?: string;
   totals: {
     totalRevenue: number;
     totalRevShare: number;
@@ -28,6 +37,7 @@ interface OutletWithTotals extends OutletData {
     paidTotal: number;
     settlementCount: number;
   };
+  [key: string]: unknown; // Allow extra Convex doc fields
 }
 
 interface OutletCardProps {

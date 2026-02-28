@@ -21,7 +21,7 @@ export function computeSettlementMath(
   totalRevenue: number,
   revSharePercent: number
 ): SettlementMath {
-  const revShareAmount = totalRevenue * revSharePercent / 100;
+  const revShareAmount = Math.round(totalRevenue * revSharePercent / 100);
   const frolliePayment = totalRevenue - revShareAmount;
   return { revShareAmount, frolliePayment };
 }
