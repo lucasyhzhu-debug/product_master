@@ -427,7 +427,7 @@ Plans:
   3. Admin can mark a settlement as paid with a payment date; status visibly changes from "Pending" to "Paid" in the settlement history
   4. Consignment page shows per-outlet running totals — total revenue, total rev share paid out, outstanding balance — alongside full settlement history with status
   5. Each settlement creates an `externalRevenue` record with `source: "consignment"` — consignment revenue is available for unified analytics aggregation
-**Plans:** TBD
+**Plans:** 1/2 plans executed
 
 ### Phase 30: Unified Sales Analytics
 
@@ -472,5 +472,5 @@ Plans:
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
 | 27. GrabFood POS Integration | 3/3 | Complete    | 2026-02-28 | - |
 | 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
-| 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
+| 29. Consignment Settlements | 1/2 | In Progress|  | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
