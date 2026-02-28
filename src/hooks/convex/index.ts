@@ -350,6 +350,14 @@ export {
   useStartBigSellerSync,
 } from "./useBigSeller";
 
+// GrabFood Integration (Phase 27)
+export {
+  useGrabFoodOrders,
+  useGrabFoodOrderStats,
+  useGrabFoodActions,
+  useGrabFoodOutlets,
+} from "./useGrabFood";
+
 // GrabFood Menu Simulator
 export {
   useGrabFoodMenu,
