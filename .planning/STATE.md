@@ -2,6 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Sales & Channel Integration
+status: unknown
+last_updated: "2026-02-28T16:04:11.882Z"
+progress:
+  total_phases: 19
+  completed_phases: 15
+  total_plans: 68
+  completed_plans: 67
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.4
+milestone_name: Sales & Channel Integration
 status: in-progress
 last_updated: "2026-02-28T15:58:37.664Z"
 progress:
