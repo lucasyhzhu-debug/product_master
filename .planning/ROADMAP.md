@@ -80,7 +80,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 **Milestone Goal:** Unify sales data across all channels — GrabFood POS, BigSeller (Shopee + Tokopedia), and Consignment outlets — with one-click platform auth, manual-trigger syncs, and a revamped multi-channel Sales Analytics view.
 
 - [x] **Phase 26: Platform Auth & Schema Foundation** — One-click GoBiz token refresh, BigSeller paste-once JWT management, GrabFood on-demand token resolve, unified credential health panel, and all new schema tables + source union extensions deployed (completed 2026-02-25)
-- [ ] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call
+- [x] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call (completed 2026-02-28)
 - [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
 - [ ] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet
 - [ ] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter
@@ -345,7 +345,7 @@ Plans:
   3. Manager can see current store status (OPEN/CLOSED/PAUSED) for each outlet and one-click pause for 30/60/120 minutes or unpause from within the system
   4. Manager can toggle a menu item from AVAILABLE to UNAVAILABLE (or back); system calls `notifyMenuUpdate` automatically — change goes live in GrabFood app
   5. Webhook endpoint receives GrabFood order pushes, returns HTTP 200 immediately, and processes the order asynchronously without duplicates
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 27-01-PLAN.md — API discovery: validate GrabFood credentials, test all endpoints, map fields, document merchantIDs (gate) — PASS 2026-02-26
@@ -470,7 +470,7 @@ Plans:
 | 24. Simulation Fix + Restock-Kitchen | v1.3 | 7/7 | Complete | 2026-02-23 |
 | 25. Codebase Cleanup | v1.3 | 6/6 | Complete | 2026-02-24 |
 | 26. Platform Auth & Schema Foundation | 5/5 | Complete    | 2026-02-25 | - |
-| 27. GrabFood POS Integration | 2/3 | In Progress|  | - |
+| 27. GrabFood POS Integration | 3/3 | Complete    | 2026-02-28 | - |
 | 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
 | 29. Consignment Settlements | v1.4 | 0/TBD | Not started | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
