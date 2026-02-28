@@ -14,6 +14,35 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.3] - 2026-02-28 - GrabFood Menu Simulator (Phase 27.2)
+
+Admin can now preview and manage the GrabFood menu from a dedicated simulator page that mirrors how items appear on the GrabFood app. Edit names, prices, and photos inline, toggle availability, and push changes to GrabFood with a single click.
+
+### Added
+- GrabFood Menu Simulator page at `/grabfood-menu` with GrabFood-app-like card grid
+- Inline editing for item name, price, and description (click to edit, blur to save)
+- Per-item availability toggle with visual gray-out overlay for unavailable items
+- Photo upload per menu item (5MB limit, Convex file storage, writes back to internal menuProducts)
+- "Add Item" dialog to select from internal menu products with search and auto-fill
+- "Populate from Mappings" button to seed the simulator from existing GrabFood product mappings
+- "Push to GrabFood" with confirmation dialog showing price changes, availability changes, and new items
+- Persistent diff tracking via `lastPushedPrice`/`lastPushedAvailability`/`lastPushedAt` fields (survives page reloads)
+- Sync status badge showing latest menu sync result with relative time
+- `pushMenuChanges` action replacing `batchUpdateAvailability` — batch price + availability updates with menu notification
+- Updated GET /menu webhook to serve from `grabfoodMenuItems` with fallback to legacy `externalProductMappings`
+
+### Schema Changes
+- `grabfoodMenuItems` table added with 3 indexes (`by_menu_product`, `by_sequence`, `by_grabfood_item_id`)
+- `photoStorageId` field added to `menuProducts` table
+
+### Files Modified
+- `convex/schema.ts`, `convex/grabfoodMenu/` (queries.ts, mutations.ts)
+- `convex/integrations/grabfood/adapter.ts`, `convex/integrations/grabfood/webhooks.ts`
+- `src/pages/GrabFoodMenuSimulator.tsx`, `src/components/grabfoodMenu/` (6 components)
+- `src/hooks/convex/useGrabFoodMenu.ts`, `src/App.tsx`, `src/index.css`
+
+---
+
 ## [v1.4.2] - 2026-02-27 - BigSeller Integration (Phase 28)
 
 Admin can manually trigger BigSeller sync to pull Shopee/TikTok order data with SKU breakdowns and revenue bridge. Synced orders are browsable in a filterable table with transparent fee breakdown. Unmapped SKUs can be mapped to menu products via inline dropdown.
