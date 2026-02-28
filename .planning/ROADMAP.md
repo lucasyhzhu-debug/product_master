@@ -473,4 +473,5 @@ Plans:
 | 27. GrabFood POS Integration | 3/3 | Complete    | 2026-02-28 | - |
 | 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
 | 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
+| 29.1. Test Suite Repair | 1/1 | Complete    | 2026-02-28 | - |
 | 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |

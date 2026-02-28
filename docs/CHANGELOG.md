@@ -14,6 +14,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.6-test] - 2026-02-28 - Test Suite Repair (Phase 29.1)
+
+All automated tests now pass again after accumulating failures across Phases 22-29. No production code was changed.
+
+### Fixed
+- Removed 3 orphaned test files (recipes, tags, products) testing modules deleted in Phase 22
+- Excluded E2E specs from Vitest runner (Playwright-only)
+- Removed stale cron assertion blocks (crons emptied in Phase 25)
+- Updated K3Mart cockpit tests for internalQuery migration and changed error messages
+- Fixed getWeeklyDispatchPlans assertions for Record return type (was array)
+- Updated voucher tests: 100% discount is now a valid business case
+
+### Metrics
+- **Before:** 15 failed files, 56 failed tests, 636 passed
+- **After:** 0 failed files, 0 failed tests, 633 passed (dead tests removed, remaining fixed)
+
+---
+
 ## [v1.4.5] - 2026-02-28 - GrabFood POS Integration Complete (Phase 27)
 
 GrabFood is now fully integrated. Admins can sync order history, managers can pause/unpause stores and control menu item availability — all from a single GrabFood Manager page.

@@ -13,7 +13,7 @@ export default defineConfig({
       'convex/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: ['node_modules', 'dist', 'convex/_generated'],
+    exclude: ['node_modules', 'dist', 'convex/_generated', 'tests/e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

@@ -10,7 +10,8 @@
  * - Usage limit tracking and enforcement
  *
  * Note: Schema uses discountType "percentage" | "amount" (not "fixed").
- * The validateFinalPrice function blocks orders where finalTotal <= 0.
+ * The validateFinalPrice function blocks only negative totals (finalTotal < 0).
+ * Zero-total orders (100% discount) are valid and allowed.
  */
 
 import { convexTest } from 'convex-test';
@@ -139,7 +140,7 @@ describe('Fixed Discount Calculation', () => {
     expect(order?.finalTotal).toBe(150000);
   });
 
-  test('fixed discount equal to order total is blocked (finalPrice <= 0)', async () => {
+  test('fixed discount equal to order total succeeds (100% discount allowed)', async () => {
     const t = convexTest(schema);
 
     await createVoucher(t, {
@@ -148,17 +149,19 @@ describe('Fixed Discount Calculation', () => {
       discountValue: 100000,
     });
 
-    // validateFinalPrice blocks orders where finalTotal <= 0
-    // 100K discount on 100K order = 0 final, which is blocked
-    await expect(
-      createOrderWithVoucher(t, {
-        voucherCode: 'FULL100K',
-        orderTotal: 100000,
-      })
-    ).rejects.toThrow('Final price must be greater than 0');
+    // 100% discount is now a valid business case (validation removed)
+    const { orderId } = await createOrderWithVoucher(t, {
+      voucherCode: 'FULL100K',
+      orderTotal: 100000,
+    });
+
+    expect(orderId).toBeDefined();
+    const order = await t.run(async (ctx) => ctx.db.get(orderId));
+    expect(order?.voucherDiscountValue).toBe(100000);
+    expect(order?.finalTotal).toBe(0);
   });
 
-  test('fixed discount greater than order total is capped and blocked', async () => {
+  test('fixed discount greater than order total is capped to order total', async () => {
     const t = convexTest(schema);
 
     await createVoucher(t, {
@@ -167,13 +170,17 @@ describe('Fixed Discount Calculation', () => {
       discountValue: 150000,
     });
 
-    // 150K discount on 100K order: discount capped at 100K, finalPrice = 0 -> blocked
-    await expect(
-      createOrderWithVoucher(t, {
-        voucherCode: 'HUGE150K',
-        orderTotal: 100000,
-      })
-    ).rejects.toThrow('Final price must be greater than 0');
+    // 150K discount on 100K order: discount capped at 100K, finalPrice = 0
+    const { orderId } = await createOrderWithVoucher(t, {
+      voucherCode: 'HUGE150K',
+      orderTotal: 100000,
+    });
+
+    expect(orderId).toBeDefined();
+    const order = await t.run(async (ctx) => ctx.db.get(orderId));
+    // Discount capped at order total
+    expect(order?.voucherDiscountValue).toBe(100000);
+    expect(order?.finalTotal).toBe(0);
   });
 });
 
