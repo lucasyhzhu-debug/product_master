@@ -226,7 +226,7 @@ describe("K3 Mart Cockpit - confirmDayPlan", () => {
         token,
         date: "2026-02-17",
       })
-    ).rejects.toThrow("No draft plans found");
+    ).rejects.toThrow("No plans found for this date");
   });
 
   test("ignores already confirmed plans", async () => {
@@ -601,7 +601,7 @@ describe("K3 Mart Cockpit - getOutletStockSummary", () => {
       quantity: 10,
     });
 
-    const result = await t.query(api.k3martCockpit.queries.getOutletStockSummary, {
+    const result = await t.query(internal.k3martCockpit.queries.getOutletStockSummaryInternal, {
       date: "2026-02-17",
     });
 
@@ -613,7 +613,7 @@ describe("K3 Mart Cockpit - getOutletStockSummary", () => {
   test("returns empty array when no K3 Mart outlets", async () => {
     const t = convexTest(schema);
 
-    const result = await t.query(api.k3martCockpit.queries.getOutletStockSummary, {
+    const result = await t.query(internal.k3martCockpit.queries.getOutletStockSummaryInternal, {
       date: "2026-02-17",
     });
 
