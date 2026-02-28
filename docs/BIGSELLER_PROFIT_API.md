@@ -1343,7 +1343,7 @@ Full field reference:
 | `grossProfitMargin` | `(saleAmount - costFee) / orderAmount` -- includes shipping in denominator |
 | `buyerShippingFee` | Shipping paid by the buyer |
 | `sellerShippingFee` | **Negative value** = platform clawed back shipping subsidy from seller. Usually 0 for standard Shopee, negative for some orders. |
-| `commissionFee` | **Negative value** = platform commission deducted. TikTok deducts this; standard Shopee shows 0. |
+| `commissionFee` | **Negative value** = platform commission deducted. **Important:** The common `pageList.json` returns 0 for Shopee and TikTok — use platform-specific endpoints (`shopee/pageList.json`, `tiktok/pageList.json`) to get real values. See fee normalization below. |
 | `otherFee` | **Negative value** = misc platform deductions (TikTok service charges, etc.) |
 | `orderProfitCycleComparisonMap` | Period-over-period comparison vs the same-length prior period. `growthRatio = "--"` when no prior data exists. |
 
@@ -1421,11 +1421,40 @@ For a Convex integration:
 1. Store the last sync endTime in a config table
 2. On manual trigger: create sync for (lastEndTime+1) -> today
 3. Poll sync/task/detail/new/get.json every 60s via scheduled action
-4. On complete: call pageList (loop all pages) + listStatsData
-5. Upsert into Convex externalRevenue by platformOrderId (idempotent)
-6. Store listStatsData as daily aggregates (separate table or computed)
-7. Record actual platform source per order ("shopee" or "tiktok", NOT "bigseller")
+4. On complete: call PLATFORM-SPECIFIC pageList per shop (see below) + listStatsData
+5. Normalize platform-specific fee fields into common fields before storage
+6. Upsert into Convex externalRevenue by platformOrderId (idempotent)
+7. Store listStatsData as daily aggregates (separate table or computed)
+8. Record actual platform source per order ("shopee" or "tiktok", NOT "bigseller")
 ```
+
+### Platform-Specific Fee Endpoints (CRITICAL)
+
+**The common `pageList.json` returns 0 for commission, shipping, and other fees on Shopee and TikTok orders.** You MUST use platform-specific endpoints to get real fee data:
+
+| Platform | Endpoint | `platformTemplate` |
+|----------|----------|-------------------|
+| Shopee | `shopee/pageList.json` | `"shopee"` |
+| TikTok | `tiktok/pageList.json` | `"tiktok"` |
+| Other | `pageList.json` | `"common"` |
+
+**Fee Normalization:** Platform-specific endpoints return fees in platform-specific fields that must be aggregated into the common `commissionFee`, `sellerShippingFee`, and `otherFee` fields:
+
+**Shopee fee mapping:**
+| Common Field | Shopee-Specific Fields |
+|-------------|----------------------|
+| `commissionFee` | `sellerTransactionFee` + `orderAmsCommissionFee` + `campaignFee` + `sellerOrderProcessingFee` |
+| `sellerShippingFee` | `finalShippingFee` + `shippingSellerProtectionFeeAmount` |
+| `otherFee` | `serviceFee` |
+
+**TikTok fee mapping:**
+| Common Field | TikTok-Specific Fields |
+|-------------|----------------------|
+| `commissionFee` | `platformCommissionAmount` + `transactionFeeAmount` + `referralFeeAmount` + `affiliateCommissionAmount` + `affiliatePartnerCommissionAmount` + `dynamicCommissionAmount` |
+| `sellerShippingFee` | `shippingCostAmount` + `actualShippingFeeAmount` |
+| `otherFee` | `sfpServiceFeeAmount` + `codServiceFeeAmount` + `feeTaxAmount` + `extraCostsFee` |
+
+**Implementation:** See `convex/integrations/bigseller/helpers.ts` → `normalizePlatformFees()`
 
 ### Field Mapping to Frollie Concepts
 
@@ -1440,8 +1469,9 @@ For a Convex integration:
 | `profit` | Net profit per order |
 | `profitMargin` | Net margin % |
 | `buyerShippingFee` | Shipping collected |
-| `sellerShippingFee` | Shipping subsidy cost (negative = cost) |
-| `commissionFee` | Platform commission (negative = cost) |
+| `sellerShippingFee` | Shipping subsidy cost (negative = cost). **Normalized from platform-specific fields.** |
+| `commissionFee` | Platform commission (negative = cost). **Normalized from platform-specific fields.** |
+| `otherFee` | Misc platform deductions (negative = cost). **Normalized from platform-specific fields.** |
 | `sku` in `skuVoList` | Maps to `menuProducts` by SKU code |
 | `skuNum` | Units sold |
 | `orderState` | Order status for filtering |

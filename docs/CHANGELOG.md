@@ -14,6 +14,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4.4] - 2026-02-28 - BigSeller Platform-Specific Fee Fix
+
+Synced BigSeller orders now show real commission, shipping, and other fees instead of Rp 0. Previously all fees showed as zero because the sync used BigSeller's common endpoint which doesn't return platform-specific fee breakdowns.
+
+### Fixed
+- BigSeller sync now calls platform-specific endpoints (`shopee/pageList.json`, `tiktok/pageList.json`) instead of the common `pageList.json` which returns 0 for all fee fields
+- Added `normalizePlatformFees()` to aggregate Shopee-specific fields (`sellerTransactionFee`, `orderAmsCommissionFee`, `campaignFee`, etc.) and TikTok-specific fields (`platformCommissionAmount`, `transactionFeeAmount`, `referralFeeAmount`, etc.) into standard `commissionFee`/`sellerShippingFee`/`otherFee`
+- Added shop-to-platform mapping (`BIGSELLER_SHOP_PLATFORM_MAP`) so each shop uses its correct platform endpoint
+
+### Files Modified
+- `convex/integrations/bigseller/config.ts` (shop-platform map, platform endpoints)
+- `convex/integrations/bigseller/helpers.ts` (fee normalization, platform-specific field interfaces)
+- `convex/integrations/bigseller/sync.ts` (per-platform fetch loop)
+- `docs/BIGSELLER_PROFIT_API.md` (fee mapping documentation)
+- `docs/API_REFERENCE.md` (sync action documentation)
+
+### Migration
+- Re-sync BigSeller to update existing orders with real fee data (upsert patches in place)
+
+---
+
 ## [v1.4.3] - 2026-02-28 - GrabFood Menu Simulator (Phase 27.2)
 
 Admin can now preview and manage the GrabFood menu from a dedicated simulator page that mirrors how items appear on the GrabFood app. Edit names, prices, and photos inline, toggle availability, and push changes to GrabFood with a single click.

@@ -1382,6 +1382,23 @@ Reads `GOBIZ_EMAIL` and `GOBIZ_PASSWORD` from Convex environment variables. POST
 
 ---
 
+#### `integrations.bigseller.sync.startSync` (Phase 28)
+Start a BigSeller sync. Triggers the scheduler-chain: `startSync` → `triggerSync` → `pollSyncTask` (60s intervals) → `fetchOrders`. Admin-only.
+
+Uses **platform-specific endpoints** (`shopee/pageList.json`, `tiktok/pageList.json`) instead of the common endpoint to capture real fee data. Normalizes platform-specific fee fields (e.g., Shopee's `sellerTransactionFee`, TikTok's `platformCommissionAmount`) into standard `commissionFee`/`sellerShippingFee`/`otherFee` fields via `normalizePlatformFees()`.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin auth token |
+| startDate | string? | Start date (YYYY-MM-DD). Defaults to last successful sync date |
+| endDate | string? | End date (YYYY-MM-DD). Defaults to today |
+
+**Returns:** `{ success: true }` or `{ success: false, error: string }`
+
+**Shop-to-platform mapping:** Configured in `convex/integrations/bigseller/config.ts` → `BIGSELLER_SHOP_PLATFORM_MAP`. Each shop ID maps to a platform (`"shopee"` or `"tiktok"`) which determines which API endpoint and fee normalization logic to use.
+
+---
+
 #### `integrations.bigseller.adapter.previewBigSellerToken` (Phase 26, AUTH-02)
 Decode a pasted BigSeller `muc_token` JWT and return expiry info for preview. Admin-only. Does NOT save the token.
 
