@@ -364,6 +364,19 @@ export {
   useMenuProductsList,
 } from "./useGrabFoodMenu";
 
+// Consignment Settlements (Phase 29)
+export {
+  useConsignmentOutlets,
+  useConsignmentSettlements,
+  useConsignmentGlobalSummary,
+  useCreateConsignmentOutlet,
+  useUpdateConsignmentOutlet,
+  useCreateConsignmentSettlement,
+  useUpdateConsignmentSettlement,
+  useMarkConsignmentPaid,
+  useDeleteConsignmentSettlement,
+} from "./useConsignment";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
