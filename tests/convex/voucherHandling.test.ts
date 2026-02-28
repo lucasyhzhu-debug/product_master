@@ -10,7 +10,8 @@
  * - Usage limit tracking and enforcement
  *
  * Note: Schema uses discountType "percentage" | "amount" (not "fixed").
- * The validateFinalPrice function blocks orders where finalTotal <= 0.
+ * The validateFinalPrice function blocks only negative totals (finalTotal < 0).
+ * Zero-total orders (100% discount) are valid and allowed.
  */
 
 import { convexTest } from 'convex-test';
