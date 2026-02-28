@@ -172,7 +172,7 @@ describe("buildJournalSearchBody", () => {
     expect(lteClauses[0].value).toBe("2026-02-08T16:59:59.999Z");
   });
 
-  it("should include merchant ID filter", () => {
+  it("should include merchant ID filter with 'in' operator for multi-merchant support", () => {
     const body = buildJournalSearchBody(
       "2026-02-07T17:00:00.000Z", "2026-02-08T16:59:59.999Z",
       ["G293156297"], 0, 20
@@ -184,8 +184,8 @@ describe("buildJournalSearchBody", () => {
     );
 
     expect(merchantClause).toBeDefined();
-    expect(merchantClause.op).toBe("equal");
-    expect(merchantClause.value).toBe("G293156297");
+    expect(merchantClause.op).toBe("in"); // multi-merchant support uses "in" operator
+    expect(merchantClause.value).toContain("G293156297"); // value is an array
   });
 
   it("should exclude GoSave/GoDeals transactions", () => {
@@ -363,10 +363,23 @@ describe("aggregateJournalMetrics", () => {
     expect(result.gross).toBeCloseTo(550000, 0);
   });
 
-  it("should exclude non-settlement transactions", () => {
+  it("should include capture status transactions (same as settlement)", () => {
+    const hits = [
+      makeHit(11000000, "F-001", "settlement"),
+      makeHit(5000000, "F-002", "capture"), // also included (Midtrans/GoPay completed)
+    ];
+
+    const result = aggregateJournalMetrics(hits);
+
+    expect(result.transactionCount).toBe(2);
+    expect(result.gross).toBeCloseTo(160000, 0); // (11M + 5M) / 100
+  });
+
+  it("should exclude refund and partial_refund transactions", () => {
     const hits = [
       makeHit(11000000, "F-001", "settlement"),
       makeHit(5000000, "F-002", "refund"), // excluded
+      makeHit(3000000, "F-003", "partial_refund"), // excluded
     ];
 
     const result = aggregateJournalMetrics(hits);

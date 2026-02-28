@@ -321,7 +321,10 @@ export function aggregateJournalMetrics(hits: any[]): {
 
   for (const hit of hits) {
     const metrics = extractJournalMetrics(hit);
-    if (metrics && metrics.status === "settlement") {
+    // Accept both "settlement" (historical) and "capture" (Midtrans/GoPay completed
+    // transactions - same economic meaning, different status label depending on GoBiz
+    // API version). Exclude "refund"/"partial_refund" as they reduce revenue.
+    if (metrics && (metrics.status === "settlement" || metrics.status === "capture")) {
       transactions.push(metrics);
       gross += metrics.gross;
       net += metrics.net;
