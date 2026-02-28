@@ -32,6 +32,8 @@ import type * as feedback_queries from "../feedback/queries.js";
 import type * as gofoodDepot_helpers from "../gofoodDepot/helpers.js";
 import type * as gofoodDepot_mutations from "../gofoodDepot/mutations.js";
 import type * as gofoodDepot_queries from "../gofoodDepot/queries.js";
+import type * as grabfoodMenu_mutations from "../grabfoodMenu/mutations.js";
+import type * as grabfoodMenu_queries from "../grabfoodMenu/queries.js";
 import type * as grabfoodOrders_mutations from "../grabfoodOrders/mutations.js";
 import type * as grabfoodOrders_queries from "../grabfoodOrders/queries.js";
 import type * as http from "../http.js";
@@ -181,6 +183,8 @@ declare const fullApi: ApiFromModules<{
   "gofoodDepot/helpers": typeof gofoodDepot_helpers;
   "gofoodDepot/mutations": typeof gofoodDepot_mutations;
   "gofoodDepot/queries": typeof gofoodDepot_queries;
+  "grabfoodMenu/mutations": typeof grabfoodMenu_mutations;
+  "grabfoodMenu/queries": typeof grabfoodMenu_queries;
   "grabfoodOrders/mutations": typeof grabfoodOrders_mutations;
   "grabfoodOrders/queries": typeof grabfoodOrders_queries;
   http: typeof http;

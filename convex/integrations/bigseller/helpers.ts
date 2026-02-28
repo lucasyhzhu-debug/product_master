@@ -156,10 +156,13 @@ export interface BigSellerOrderRow {
   referralFeeAmount?: number;
   affiliateCommissionAmount?: number;
   affiliatePartnerCommissionAmount?: number;
+  dynamicCommissionAmount?: number;
   sfpServiceFeeAmount?: number;
   shippingCostAmount?: number;
   actualShippingFeeAmount?: number;
   codServiceFeeAmount?: number;
+  feeTaxAmount?: number;
+  extraCostsFee?: number;
 }
 
 /**
@@ -205,24 +208,27 @@ export function normalizePlatformFees(order: BigSellerOrderRow): BigSellerOrderR
     }
   } else if (platform === "tiktok") {
     // TikTok commission = platformCommissionAmount + transactionFeeAmount + referralFeeAmount
-    //                     + affiliateCommissionAmount + affiliatePartnerCommissionAmount
+    //                     + affiliateCommissionAmount + affiliatePartnerCommissionAmount + dynamicCommissionAmount
     const platformCommission = order.platformCommissionAmount || 0;
     const transactionFee = order.transactionFeeAmount || 0;
     const referralFee = order.referralFeeAmount || 0;
     const affiliateCommission = order.affiliateCommissionAmount || 0;
     const affiliatePartner = order.affiliatePartnerCommissionAmount || 0;
+    const dynamicCommission = order.dynamicCommissionAmount || 0;
     const aggregatedCommission = platformCommission + transactionFee + referralFee
-      + affiliateCommission + affiliatePartner;
+      + affiliateCommission + affiliatePartner + dynamicCommission;
 
     // TikTok shipping = shippingCostAmount + actualShippingFeeAmount
     const shippingCost = order.shippingCostAmount || 0;
     const actualShipping = order.actualShippingFeeAmount || 0;
     const aggregatedShipping = shippingCost + actualShipping;
 
-    // TikTok other = sfpServiceFeeAmount + codServiceFeeAmount
+    // TikTok other = sfpServiceFeeAmount + codServiceFeeAmount + feeTaxAmount + extraCostsFee
     const sfpService = order.sfpServiceFeeAmount || 0;
     const codService = order.codServiceFeeAmount || 0;
-    const aggregatedOther = sfpService + codService;
+    const feeTax = order.feeTaxAmount || 0;
+    const extraCosts = order.extraCostsFee || 0;
+    const aggregatedOther = sfpService + codService + feeTax + extraCosts;
 
     if (order.commissionFee === 0 && aggregatedCommission !== 0) {
       order.commissionFee = aggregatedCommission;
