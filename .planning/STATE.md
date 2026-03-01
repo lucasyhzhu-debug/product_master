@@ -2,26 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Sales & Channel Integration
-status: unknown
-last_updated: "2026-03-01T04:24:50.092Z"
-progress:
-  total_phases: 19
-  completed_phases: 16
-  total_plans: 68
-  completed_plans: 69
----
-
----
-gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Sales & Channel Integration
 status: in-progress
-last_updated: "2026-03-01T04:13:46Z"
+last_updated: "2026-03-01T09:40:28Z"
 progress:
-  total_phases: 19
-  completed_phases: 15
-  total_plans: 70
-  completed_plans: 70
+  total_phases: 20
+  completed_phases: 17
+  total_plans: 71
+  completed_plans: 71
 ---
 
 # Project State
@@ -33,10 +20,10 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 30 of 30 (Unified Sales Analytics)
-Plan: 2 of 2 complete
-Status: Phase 30 COMPLETE — unified multi-channel Sales Analytics (backend + frontend)
-Last activity: 2026-03-01 - Phase 30 Plan 02 complete (frontend analytics UI with 7-channel chart, LifetimeHero, dynamic ChannelSummary, COGS caveat)
+Phase: 31 of 31 (Tech Debt Cleanup)
+Plan: 1 of 1 complete
+Status: Phase 31 COMPLETE — ExternalSource type guard, GrabFood pause fix, dead code removal
+Last activity: 2026-03-01 - Phase 31 Plan 01 complete (type guard + as-any removal + pause duration fix + dead createTag removal)
 
 Progress (v1.4): [████████████████████] 100% — All phases complete
 
@@ -51,6 +38,7 @@ Progress (v1.4): [████████████████████] 
 | 29.1 | 01 | 13 min | 6 | 8 |
 | 30 | 01 | 7 min | 3 | 2 |
 | 30 | 02 | 5 min | 3 | 4 |
+| 31 | 01 | 5 min | 3 | 8 |
 
 ## Accumulated Context
 
@@ -121,6 +109,12 @@ Phase 29-01 decisions (consignment backend):
 - [Phase 29-01]: All consignment mutations require admin or manager role
 - [Phase 29-01]: Settlement math in pure helpers for testability (computeSettlementMath, shouldAutoArchive, etc.)
 
+Phase 31-01 decisions (tech debt cleanup):
+- [Phase 31-01]: ExternalSource type guard in convex/lib/externalSource.ts — isExternalSource() narrows string to ExternalSource before Convex withIndex calls
+- [Phase 31-01]: Local const extraction required after isExternalSource guard — tsc -b does not narrow args.source through callback closures
+- [Phase 31-01]: GrabFood PAUSE_DURATION_MAP uses 1440 key (actual 24h in minutes), not misleading 120 (2h)
+- [Phase 31-01]: SKU index evaluation: no schema change needed — existing by_source_code composite index sufficient at current volume
+
 Phase 26 established patterns (reference for Phases 27-30):
 - [Phase 26]: externalSource validator exported from schema.ts — use for all new external tables/queries
 - [Phase 26]: saveDirectToken is internalMutation — actions call via internal.platformCredentials.mutations.saveDirectToken
@@ -177,6 +171,6 @@ Phase 30-02 decisions (frontend analytics UI):
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 30-02-PLAN.md (frontend analytics UI)
-Resume file: .planning/phases/30-unified-sales-analytics/30-02-SUMMARY.md
-Resume notes: Phase 30 COMPLETE (2/2 plans). v1.4 milestone at 100%. Next: merge to main, CHANGELOG update, v1.4 milestone completion.
+Stopped at: Completed 31-01-PLAN.md (tech debt cleanup)
+Resume file: .planning/phases/31-tech-debt-cleanup/31-01-SUMMARY.md
+Resume notes: Phase 31 COMPLETE (1/1 plans). Tech debt items resolved. Next: merge to main, CHANGELOG update, v1.4 milestone completion.

@@ -84,7 +84,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 - [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
 - [x] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet (completed 2026-02-28)
 - [x] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter (completed 2026-03-01)
-- [ ] **Phase 31: Tech Debt Cleanup** — Fix BigSeller `as any` type casts, evaluate SKU index, fix GrabFood pause duration map confusion, remove dead test helper (gap closure from audit)
+- [x] **Phase 31: Tech Debt Cleanup** — Fix BigSeller `as any` type casts, evaluate SKU index, fix GrabFood pause duration map confusion, remove dead test helper (gap closure from audit) (completed 2026-03-01)
 
 ## Phase Details
 
@@ -498,4 +498,4 @@ Plans:
 | 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
 | 29.1. Test Suite Repair | 1/1 | Complete    | 2026-02-28 | - |
 | 30. Unified Sales Analytics | 2/2 | Complete    | 2026-03-01 | - |
-| 31. Tech Debt Cleanup | 0/1 | Pending     | - | - |
+| 31. Tech Debt Cleanup | 1/1 | Complete   | 2026-03-01 | - |
