@@ -674,7 +674,6 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
 
 function LifetimeHero() {
   const { data, isLoading, error } = useLifetimeTotals();
-  const [isExpanded, setIsExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -699,76 +698,20 @@ function LifetimeHero() {
   return (
     <Card>
       <CardContent className="py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold tabular-nums">
-                {data.totalBalls.toLocaleString()}
-              </span>
-              <span className="text-sm text-muted-foreground">balls sold</span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {formatCurrency(data.lifetimeRevenue)} lifetime revenue
-              <span className="mx-2">&middot;</span>
-              {data.lifetimeTransactions.toLocaleString()} transactions
-            </p>
-          </div>
-          {data.products.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="gap-1"
-            >
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              {isExpanded ? "Hide" : "Products"}
-            </Button>
-          )}
+        <div className="flex items-baseline gap-3">
+          <span className="text-3xl font-bold tabular-nums">
+            {data.totalBalls.toLocaleString()}
+          </span>
+          <span className="text-sm text-muted-foreground">balls sold (est.)</span>
         </div>
-
-        {isExpanded && data.products.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-2 font-medium">Product</th>
-                  <th className="text-right py-2 px-2 font-medium">Balls</th>
-                  <th className="text-right py-2 px-2 font-medium">Revenue</th>
-                  {data.sourceColumns.map((col) => (
-                    <th key={col.source} className="text-right py-2 px-2 font-medium text-xs">
-                      {col.displayName}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.products.map((product, i) => (
-                  <tr key={product.menuProductId ?? `unmapped-${i}`} className="border-b border-muted">
-                    <td className="py-2 px-2">
-                      {product.productName}
-                      {!product.menuProductId && (
-                        <Badge variant="outline" className="ml-1 text-xs">Unmapped</Badge>
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums font-medium">
-                      {product.totalBalls.toLocaleString()}
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">
-                      {formatCurrency(product.totalRevenue)}
-                    </td>
-                    {data.sourceColumns.map((col) => (
-                      <td key={col.source} className="py-2 px-2 text-right tabular-nums text-muted-foreground">
-                        {(product.bySource[col.source] ?? 0) > 0
-                          ? (product.bySource[col.source]).toLocaleString()
-                          : "\u2014"}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <p className="text-sm text-muted-foreground mt-1">
+          {formatCurrency(data.lifetimeRevenue)} lifetime revenue
+          <span className="mx-2">&middot;</span>
+          {data.lifetimeTransactions.toLocaleString()} transactions
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          Estimated at {formatCurrency(data.avgRevenuePerBall)}/ball based on mapped product mix
+        </p>
       </CardContent>
     </Card>
   );

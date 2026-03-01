@@ -144,19 +144,11 @@ export function useDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
 }
 
 /** Return shape of getLifetimeTotalsInternal / fetchLifetimeTotals. */
-type LifetimeProduct = {
-  menuProductId: string | undefined;
-  productName: string;
-  totalBalls: number;
-  totalRevenue: number;
-  bySource: Record<string, number>;
-};
 export type LifetimeTotals = {
   totalBalls: number;
   lifetimeRevenue: number;
   lifetimeTransactions: number;
-  products: LifetimeProduct[];
-  sourceColumns: Array<{ source: string; displayName: string }>;
+  avgRevenuePerBall: number;
 };
 
 /**

@@ -91,6 +91,7 @@ export async function createExternalRevenue(
     commission?: number;
     adBurn?: number;
     promoBurn?: number;
+    transactionCount?: number;
     periodStart?: number;
     periodEnd?: number;
   } = {}
@@ -107,6 +108,7 @@ export async function createExternalRevenue(
       commission: overrides.commission,
       adBurn: overrides.adBurn,
       promoBurn: overrides.promoBurn,
+      transactionCount: overrides.transactionCount,
     });
   });
 }
