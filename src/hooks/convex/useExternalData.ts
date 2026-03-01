@@ -147,12 +147,12 @@ export function useDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
 type LifetimeProduct = {
   menuProductId: string | undefined;
   productName: string;
-  totalUnits: number;
+  totalBalls: number;
   totalRevenue: number;
   bySource: Record<string, number>;
 };
 export type LifetimeTotals = {
-  totalUnits: number;
+  totalBalls: number;
   lifetimeRevenue: number;
   lifetimeTransactions: number;
   products: LifetimeProduct[];

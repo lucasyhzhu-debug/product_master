@@ -1752,21 +1752,62 @@ export const getRevenueByOutletInternal = internalQuery({
 // NOTE: Full table scan — acceptable at current scale (~1K records).
 // When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
 
+/**
+ * Best-effort heuristic: estimate ball count from product name for unmapped items.
+ * Used when an externalRevenueItem has no linkedMenuProductId (historical/unmapped).
+ * Looks for multiplier keywords in the product name (case-insensitive).
+ * Falls back to 1 ball if no pattern matches.
+ *
+ * This is a heuristic — the authoritative source is always BOM (menuProductComponents).
+ * Mapping the product via linkedMenuProductId is always preferred.
+ */
+export function estimateBallsFromName(productName: string): number {
+  const lower = productName.toLowerCase();
+  // Check for explicit multipliers first (highest to lowest)
+  if (lower.includes("6 pack") || lower.includes("6pack")) return 6;
+  if (lower.includes("triple") || lower.includes("3 pack") || lower.includes("3pack")) return 3;
+  if (lower.includes("double") || lower.includes("2 pack") || lower.includes("2pack")) return 2;
+  // Single/default variants
+  if (lower.includes("single")) return 1;
+  // Default: 1 ball per unit (Original, Jumbo, etc.)
+  return 1;
+}
+
 export const getLifetimeTotalsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
     // Parallel table scans — these are independent reads
-    const [items, revenues] = await Promise.all([
+    const [items, revenues, bomComponents, componentTypes] = await Promise.all([
       ctx.db.query("externalRevenueItems").collect(),
       ctx.db.query("externalRevenue").collect(),
+      ctx.db.query("menuProductComponents").collect(),
+      ctx.db.query("componentTypes").collect(),
     ]);
+
+    // Build set of production component type IDs (BIG_BALL, MID_BALL, etc.)
+    const productionComponentIds = new Set(
+      componentTypes
+        .filter((ct) => ct.category === "production")
+        .map((ct) => ct._id as string)
+    );
+
+    // Build menuProductId -> total ball count map from BOM
+    // A product with 1 BIG_BALL + 2 MID_BALL = 3 balls total
+    const menuProductBallCount = new Map<string, number>();
+    for (const comp of bomComponents) {
+      if (productionComponentIds.has(comp.componentTypeId as string)) {
+        const existing = menuProductBallCount.get(comp.menuProductId as string) ?? 0;
+        menuProductBallCount.set(comp.menuProductId as string, existing + comp.quantity);
+      }
+    }
 
     // Aggregate by product key (linkedMenuProductId or unmapped productName)
     // Also collect all sources during the same pass
+    // totalBalls = item.quantity * ballsPerProduct (from BOM)
     const productMap = new Map<string, {
       menuProductId: string | undefined;
       productName: string;
-      totalUnits: number;
+      totalBalls: number;
       totalRevenue: number;
       bySource: Record<string, number>;
     }>();
@@ -1775,18 +1816,24 @@ export const getLifetimeTotalsInternal = internalQuery({
     for (const item of items) {
       allSources.add(item.source);
       const key = item.linkedMenuProductId ?? `unmapped:${item.productName}`;
+      // Look up BOM ball count; fall back to name-based estimation for unmapped products
+      const ballsPerProduct = item.linkedMenuProductId
+        ? (menuProductBallCount.get(item.linkedMenuProductId as string) ?? 1)
+        : estimateBallsFromName(item.productName);
+      const ballCount = item.quantity * ballsPerProduct;
+
       const existing = productMap.get(key);
       if (existing) {
-        existing.totalUnits += item.quantity;
+        existing.totalBalls += ballCount;
         existing.totalRevenue += item.totalPrice;
-        existing.bySource[item.source] = (existing.bySource[item.source] ?? 0) + item.quantity;
+        existing.bySource[item.source] = (existing.bySource[item.source] ?? 0) + ballCount;
       } else {
         productMap.set(key, {
           menuProductId: item.linkedMenuProductId ?? undefined,
           productName: item.productName,
-          totalUnits: item.quantity,
+          totalBalls: ballCount,
           totalRevenue: item.totalPrice,
-          bySource: { [item.source]: item.quantity },
+          bySource: { [item.source]: ballCount },
         });
       }
     }
@@ -1799,11 +1846,11 @@ export const getLifetimeTotalsInternal = internalQuery({
       lifetimeTransactions += rev.transactionCount ?? 1;
     }
 
-    // Sort products by total units descending
+    // Sort products by total balls descending
     const products = Array.from(productMap.values())
-      .sort((a, b) => b.totalUnits - a.totalUnits);
+      .sort((a, b) => b.totalBalls - a.totalBalls);
 
-    const totalUnits = products.reduce((sum, p) => sum + p.totalUnits, 0);
+    const totalBalls = products.reduce((sum, p) => sum + p.totalBalls, 0);
 
     const sourceColumns = [...allSources].map((src) => ({
       source: src,
@@ -1811,7 +1858,7 @@ export const getLifetimeTotalsInternal = internalQuery({
     }));
 
     return {
-      totalUnits,
+      totalBalls,
       lifetimeRevenue,
       lifetimeTransactions,
       products,
