@@ -250,8 +250,12 @@ export {
   // Chart / analytics hooks
   useRevenueTimeSeries,
   useRevenueByOutlet,
+  // Lifetime totals
+  useLifetimeTotals,
   // Types
   type PeriodPreset,
+  type ChannelBreakdown,
+  type LifetimeTotals,
 } from "./useExternalData";
 
 // Kitchen Production (Kitchen V3 Redesign)

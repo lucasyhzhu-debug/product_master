@@ -9,7 +9,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 /** Return shape of getDashboardSummaryByPeriodInternal / fetchDashboardSummaryByPeriod. */
-type ChannelBreakdown = { gross: number; net: number; transactions: number };
+export type ChannelBreakdown = { source: string; displayName: string; gross: number; net: number; transactions: number };
 type PeriodSummary = {
   totalGross: number;
   totalNet: number;
@@ -21,7 +21,7 @@ type PeriodSummary = {
   totalDeliveryFees: number;
   platformGross: number;
   internalGross: number;
-  channels: { k3mart: ChannelBreakdown; gobiz: ChannelBreakdown; internal: ChannelBreakdown };
+  channels: ChannelBreakdown[];
 };
 type PlatformStatus = {
   outletCount: number;
@@ -137,6 +137,49 @@ export function useDashboardSalesSummaryByPeriod(preset: PeriodPreset) {
       setIsLoading(false);
     }
   }, [fetchAction, preset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { data, isLoading, refresh: load };
+}
+
+/** Return shape of getLifetimeTotalsInternal / fetchLifetimeTotals. */
+type LifetimeProduct = {
+  menuProductId: string | undefined;
+  productName: string;
+  totalUnits: number;
+  totalRevenue: number;
+  bySource: Record<string, number>;
+};
+export type LifetimeTotals = {
+  totalUnits: number;
+  lifetimeRevenue: number;
+  lifetimeTransactions: number;
+  products: LifetimeProduct[];
+  sourceColumns: Array<{ source: string; displayName: string }>;
+};
+
+/**
+ * Get lifetime totals (all-time units sold, revenue, per-product breakdown).
+ * Uses on-demand action fetch -- loads once on mount, never re-fetches on period changes.
+ * The hero card always shows all-time data, independent of the period selector.
+ */
+export function useLifetimeTotals() {
+  const [data, setData] = useState<LifetimeTotals | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchAction = useAction(api.externalData.actions.fetchLifetimeTotals);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await fetchAction({});
+      setData(result as LifetimeTotals);
+    } catch (error) {
+      console.error("Failed to fetch lifetime totals:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchAction]);
 
   useEffect(() => { load(); }, [load]);
 
