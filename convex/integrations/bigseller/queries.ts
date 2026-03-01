@@ -58,11 +58,12 @@ export const checkProductMapping = internalQuery({
   },
   handler: async (ctx, args) => {
     if (!isExternalSource(args.source)) return null;
+    const source = args.source;
     const mapping = await ctx.db
       .query("externalProductMappings")
       .withIndex("by_source_code", (q) =>
         q
-          .eq("source", args.source)
+          .eq("source", source)
           .eq("externalProductCode", args.externalProductCode)
       )
       .unique();

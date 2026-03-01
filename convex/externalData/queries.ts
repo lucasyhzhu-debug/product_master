@@ -327,10 +327,11 @@ export const getLatestWebhookError = query({
   args: { source: v.string() },
   handler: async (ctx, args) => {
     if (!isExternalSource(args.source)) return null;
+    const source = args.source;
     // Get the last 20 sync logs for this source, check for recent webhook errors
     const logs = await ctx.db
       .query("externalSyncLogs")
-      .withIndex("by_source", (q) => q.eq("source", args.source))
+      .withIndex("by_source", (q) => q.eq("source", source))
       .order("desc")
       .take(20);
 

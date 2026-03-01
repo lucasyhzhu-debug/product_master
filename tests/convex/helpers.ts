@@ -53,18 +53,6 @@ export async function createCustomer(
 }
 
 /**
- * Creates a tag.
- */
-export async function createTag(
-  t: TestContext,
-  name: string
-): Promise<Id<'tags'>> {
-  return await t.run(async (ctx) => {
-    return await ctx.db.insert('tags', { name });
-  });
-}
-
-/**
  * Creates a menu product for testing.
  */
 export async function createMenuProduct(
