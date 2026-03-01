@@ -1,4 +1,29 @@
 # Milestones
+## v1.4 Sales & Channel Integration (Shipped: 2026-03-01)
+
+**Phases completed:** 9 phases (26-31 including 27.1, 27.2, 29.1), 20 plans
+**Timeline:** 5 days (2026-02-25 to 2026-03-01)
+**Commits:** 211 | **Files changed:** 242 | **Lines:** +43,799 / -4,990
+**Codebase:** ~124,946 lines TypeScript (59 Convex tables)
+**Requirements:** 22/22 satisfied | **Audit:** PASSED (tech debt addressed by Phase 31)
+
+**Key accomplishments:**
+1. Multi-platform auth: one-click GoBiz password grant refresh, BigSeller paste-once JWT with 30-day auto-refresh and expiry countdown, GrabFood on-demand OAuth2 token resolve — all in unified credential health panel
+2. GrabFood POS integration: order history sync, store pause/unpause per outlet, menu availability toggle, 6 HMAC-validated webhook endpoints, standalone menu simulator with push-to-GrabFood and photo upload
+3. BigSeller marketplace integration: scheduler-chain sync (Shopee + Tokopedia), per-order data with full fee breakdown and SKU lists, admin SKU-to-menuProduct mapping with retroactive reconciliation
+4. Consignment settlements: outlet CRUD with configurable rev share %, settlement entry with auto-calculated payments, payment tracking with status badges, per-outlet running totals, event outlet auto-archive
+5. Unified Sales Analytics: 8-channel stacked bar chart with dynamic discovery, per-consignment-outlet segments, lifetime units sold with per-product breakdown, multi-select channel filter (legend-as-filter pattern)
+6. Quality: test suite repaired (56→0 failures), ExternalSource type guard replacing `as any` casts, contract test for schema/array sync, dead code removed, pause duration map corrected
+
+**Delivered:** Unified all sales channels (GrabFood, Shopee, Tokopedia, Consignment, GoFood, K3Mart, Direct) into one real-time analytics view with per-channel API integrations, one-click platform auth, and manual-trigger syncs. Revenue flows from all 8 sources through `externalRevenue` bridge to unified Sales Analytics.
+
+**External blockers (documented, not code defects):**
+- GrabFood `orders:read` OAuth2 scope not yet granted — sync infrastructure works, returns descriptive 401
+- Crystal and Tamtem GrabFood merchantIDs pending — only GFSBPOS-254-353 confirmed
+- BigSeller COGS = 0 for all Frollie orders — profit analytics meaningless until configured in BigSeller
+
+---
+
 
 ## v1.0 Concerns Cleanup & Refactor (Shipped: 2026-02-15)
 

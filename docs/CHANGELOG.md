@@ -14,6 +14,36 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [v1.4] - 2026-03-01 - Milestone v1.4: Sales & Channel Integration
+
+All sales channels now flow into one unified view. GrabFood, BigSeller (Shopee + Tokopedia), and Consignment outlets are integrated with one-click platform auth and manual-trigger syncs. The Sales Analytics page shows all 8 channels in a single interactive chart.
+
+### Highlights
+- **Multi-platform auth:** One-click GoBiz refresh, BigSeller paste-once JWT, GrabFood auto-resolve
+- **GrabFood POS:** Order sync, store pause/unpause, menu toggle, 6 webhook endpoints, menu simulator
+- **BigSeller:** Scheduler-chain sync for Shopee + Tokopedia orders with SKU mapping
+- **Consignment:** Outlet management with rev share %, settlement tracking, payment status
+- **Unified Analytics:** 8-channel stacked bar chart, lifetime units sold, multi-select filter
+- **Quality:** Test suite repaired (56→0 failures), ExternalSource type guard, tech debt cleanup
+
+### Phases
+- Phase 26: Platform Auth & Schema Foundation (5 plans)
+- Phase 27: GrabFood POS Integration (3 plans)
+- Phase 27.1: GrabFood Webhooks & Partner Config (2 plans, inserted)
+- Phase 27.2: GrabFood Menu Simulator (2 plans, inserted)
+- Phase 28: BigSeller Integration (2 plans)
+- Phase 29: Consignment Settlements (2 plans)
+- Phase 29.1: Test Suite Repair (1 plan, inserted)
+- Phase 30: Unified Sales Analytics (2 plans)
+- Phase 31: Tech Debt Cleanup (1 plan, gap closure)
+
+### Stats
+- 9 phases, 20 plans, 211 commits, 242 files changed, +43,799/-4,990 lines
+- Requirements: 22/22 satisfied
+- Timeline: 2026-02-25 to 2026-03-01 (5 days)
+
+---
+
 ## [v1.4.6-test] - 2026-02-28 - Test Suite Repair (Phase 29.1)
 
 All automated tests now pass again after accumulating failures across Phases 22-29. No production code was changed.

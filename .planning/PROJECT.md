@@ -2,21 +2,16 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning (GoFood × 3 outlets + K3Mart + Direct), finished goods inventory with order drawdown, GoFood depot management with per-outlet product mappings and stock alerts, kitchen production targets driven by dispatch plans, production ingredient tracking with auto-calculated COGS, and multi-platform API integration (GoBiz/GoFood). Codebase fully cleaned: bundle split, dark mode complete, hook naming unified.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning, finished goods inventory with order drawdown, GoFood depot management, kitchen production targets, production ingredient tracking with auto-calculated COGS, and unified multi-channel sales analytics across 8 sources (GoFood, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment outlets). Integrates with GoBiz, GrabFood Partner API, and BigSeller for real-time platform data.
 
 ## Core Value
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.4 Sales & Channel Integration
+## Current State
 
-**Goal:** Unify sales data across all channels (GrabFood, Shopee, Tokopedia, Consignment, Direct) with API integrations, manual upload, and a revamped analytics view.
-
-**Target features:**
-- GrabFood POS API: OAuth2 one-click auth, pull order history, inventory read/write, product toggles, outlet pause/unpause
-- BigSeller integration: Shopee + Tokopedia order data (SKUs, volumes, revenue) + shop inventory, mapped to menuProducts
-- Consignment sales upload: Manual Excel upload for consignment POS data (deferred CON-01–05)
-- Sales Analytics revamp: Unified multi-channel sales tracking with all channel data in one view
+**Latest milestone:** v1.4 Sales & Channel Integration (shipped 2026-03-01)
+**Next milestone:** Not yet planned — run `/gsd:new-milestone` to start v1.5
 
 ## Requirements
 
@@ -75,10 +70,17 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ Bundle splitting: React.lazy routes, main bundle 76kB (was 1,474kB), ChunkErrorBoundary for deploy-drift — v1.3
 - ✓ Codebase modernisation: dark mode across all pages, useConvex prefix removed, protectedMutation expanded to orders/ — v1.3
 - ✓ Convex query optimisation: heavy analytical queries on-demand, N+1 eliminated, delivery fee reporting separated — v1.3
+- ✓ Platform auth: one-click GoBiz password grant, BigSeller paste-once JWT with 30-day auto-refresh, GrabFood on-demand OAuth2 token resolve — v1.4 (AUTH-01–04)
+- ✓ GrabFood POS: order sync, store pause/unpause, menu toggle, 6 HMAC webhook endpoints, menu simulator with push-to-GrabFood — v1.4 (GF-06–08, WH-01–05)
+- ✓ BigSeller marketplace: scheduler-chain sync (Shopee + Tokopedia), per-order data with fee breakdown, SKU-to-menuProduct mapping — v1.4 (BS-01–03)
+- ✓ Consignment settlements: outlet CRUD with rev share %, settlement entry with auto-math, payment tracking, revenue bridge — v1.4 (CON-01–04)
+- ✓ Unified Sales Analytics: 8-channel stacked bar chart with dynamic discovery, lifetime units sold, multi-select filter — v1.4 (ANLY-01–03)
+- ✓ Test suite repair: 56→0 failures, orphaned tests/helpers removed — v1.4 (Phase 29.1)
+- ✓ Tech debt cleanup: ExternalSource type guard, pause duration fix, dead code removal — v1.4 (Phase 31)
 
 ### Active
 
-(Defined in REQUIREMENTS.md — see v1.4 requirements)
+(No active requirements — run `/gsd:new-milestone` to define v1.5 requirements)
 
 ### Out of Scope
 
@@ -88,7 +90,7 @@ Production reliability — the system is the single source of truth for recipes,
 | Moving to HTTP-only cookies or Convex Auth | Token-in-args pattern acceptable for internal tool |
 | Error monitoring integration (Sentry/LogRocket) | Separate initiative |
 | Archival strategy for old orders | Separate initiative after backup automation is in place |
-| GoBiz programmatic login (password grant) | API blocks non-browser clients; manual paste + refresh cron sufficient |
+| ~~GoBiz programmatic login (password grant)~~ | ~~API blocks non-browser clients~~ — **Completed in v1.4**: discovered working password grant endpoint |
 | Full GoFood POS integration (accept orders) | Requires GoFood Facilitator Model partnership; massive scope |
 | GoBiz official OAuth2 migration | GoBiz stopped issuing new client credentials (Phase 16.1 dropped) |
 | Mobile app (React Native) | Responsive web design covers kitchen mobile use |
@@ -98,8 +100,8 @@ Production reliability — the system is the single source of truth for recipes,
 | Automated settlement reconciliation | Metric flagging sufficient at this scale; CON-04 simplified |
 | Full double-entry accounting for consignment | Production system, not accounting; export summaries to spreadsheets |
 | Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
-| Consignment sales upload (CON-01–05) | Now in scope for v1.4 |
-| Sales Analytics consignment segments (ANLY-01–03) | Now in scope for v1.4 |
+| ~~Consignment sales upload (CON-01–05)~~ | **Completed in v1.4** as manual settlement entry form (simpler than Excel upload) |
+| ~~Sales Analytics consignment segments (ANLY-01–03)~~ | **Completed in v1.4** — per-outlet segments in unified chart |
 | E2E Playwright tests (E2E-01–04) | Deferred to v1.5; API integrations are v1.4 priority |
 | Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
 | Customer CRM / Sales pipeline | Deferred |
@@ -108,22 +110,25 @@ Production reliability — the system is the single source of truth for recipes,
 
 ## Context
 
-Shipped v1.3 with ~106,940 lines TypeScript across 59 Convex tables (3 tables removed in legacy cleanup).
+Shipped v1.4 with ~124,946 lines TypeScript across 59 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
-Deployed via Vercel with GitHub Actions CI.
+Deployed via Vercel with GitHub Actions CI. 5 milestones shipped (v1.0–v1.4), 31 phases, 152 plans.
 
-**Current state after v1.3:**
-- GoFood Depot Manager: per-outlet product mappings, per-depot stock with low-stock alerts, daily restock suggestions
+**Current state after v1.4:**
+- Multi-platform integration: GoBiz (GoFood × 3 outlets), GrabFood Partner API (store control + webhooks + menu simulator), BigSeller (Shopee + Tokopedia sync), Consignment settlements
+- Sales Analytics: 8-channel unified view with dynamic discovery, lifetime totals, multi-select filter
 - Kitchen: targets from dispatch plan, EoS recording to Finished Goods, waste logging, shift history
-- Codebase: 11 legacy tables removed, 4 editor pages deleted, bundle split (main 76kB vs 1,474kB before), dark mode complete across all pages, hook naming unified (no useConvex prefix), protectedMutation expanded to orders/
-- Schema: 59 tables
-- UI: 26 pages, route-level code splitting with React.lazy, ChunkErrorBoundary for deploy-drift
+- Codebase: bundle split (main 76kB), dark mode complete, hook naming unified, protectedMutation expanded, ExternalSource type guard pattern
+- Schema: 59 tables, 643 unit tests passing
+- UI: 26+ pages, route-level code splitting with React.lazy
 
 **Known technical debt:**
-- E2E Playwright tests not yet written — v1.4 target
+- E2E Playwright tests not yet written (deferred from v1.3/v1.4)
 - Generic query factory not applied to all query files (only simple entities)
-- Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run (mitigation: run seed before Tamtem GoFood sales begin)
-- Ingredient simulation uses name string matching — fragile if names diverge between componentType records
+- Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run
+- GrabFood orders:read OAuth2 scope not yet granted (infrastructure works, 401 handled gracefully)
+- BigSeller COGS = 0 for all Frollie orders (profit analytics meaningless until configured in BigSeller)
+- SUMMARY frontmatter `requirements_completed` empty across all v1.4 plans (metadata gap only)
 
 ## Constraints
 
@@ -168,6 +173,15 @@ Deployed via Vercel with GitHub Actions CI.
 | Defer consignment (CON-01–05) to v1.4+ | GoFood + kitchen integration was higher priority; consignment revenue tracking needs separate planning | — Accepted — consignment outlets use manual records for now |
 | Remove 11 legacy schema tables in Phase 22 | Legacy editors unused post v1.1; tables held orphan data with no UI | ✓ Good — schema 62→59 tables, no data loss (tables were empty or UI-dead) |
 | protectedMutation expanded to orders/ in Phase 25 | Consistency across all mutation patterns; orders/ was last holdout | ✓ Good — uniform auth pattern, type safety improved |
+| No cron jobs for data sync (v1.4) | All syncs manual-trigger only — simpler, predictable, no background cost | ✓ Good — button press workflow natural for admin |
+| GoBiz password grant auto-login (v1.4) | Discovered working password grant endpoint despite earlier assumption it was blocked | ✓ Good — one-click refresh, no browser paste needed |
+| BigSeller "paste once, forget" JWT (v1.4) | CAPTCHA blocks auto-login; JWT lasts 30 days, auto-refreshes on use | ✓ Good — acceptable UX for monthly token refresh |
+| Consignment manual form, not Excel (v1.4) | Simple settlement entry replaces complex CON-01–05 Excel upload | ✓ Good — much simpler, rev share % per outlet sufficient |
+| externalRevenue bridge pattern (v1.4) | All 8 sources write to single externalRevenue table for unified analytics | ✓ Good — single aggregation path, dynamic channel discovery |
+| Scheduler-chain for BigSeller polling (v1.4) | No while-loops in Convex actions; ctx.scheduler.runAfter(60s) for retry | ✓ Good — Convex-idiomatic, auto-cleanup on failure |
+| ExternalSource type guard pattern (v1.4) | Runtime `isExternalSource()` narrows string→union for Convex index queries | ✓ Good — replaces `as any` casts, contract test catches drift |
+| Dynamic channel discovery in analytics (v1.4) | Charts discover channels from data instead of hardcoded list | ✓ Good — new sources auto-appear, no frontend changes needed |
+| Single color source of truth: platformColors.ts (v1.4) | All chart/card/badge colors derive from `getPlatformPalette(source)` | ✓ Good — eliminated 3-way color map duplication |
 
 ---
-*Last updated: 2026-02-25 after v1.4 milestone start*
+*Last updated: 2026-03-01 after v1.4 milestone completion*
