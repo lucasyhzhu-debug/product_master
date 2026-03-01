@@ -8,10 +8,18 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current State
+## Current Milestone: v1.5 Financial Statements
 
-**Latest milestone:** v1.4 Sales & Channel Integration (shipped 2026-03-01)
-**Next milestone:** Not yet planned — run `/gsd:new-milestone` to start v1.5
+**Goal:** Provide a unified weekly income statement (Revenue -> COGS -> Gross Profit) with per-channel breakdown, BOM-resolved COGS, and data quality visibility.
+
+**Target features:**
+- Standalone `/financials` page with weekly P&L table
+- Per-channel revenue breakdown (7 channels) with confidence indicators
+- Full BOM COGS resolution (production + packaging) via in-memory map preloading
+- Previous week comparison with delta percentages
+- Flat-format CSV export for external analysis
+- Inline data quality / gap analysis panel (unmapped products, missing channels, zero-cost components)
+- Consignment settlements folded into unified P&L view
 
 ## Requirements
 
@@ -80,7 +88,13 @@ Production reliability — the system is the single source of truth for recipes,
 
 ### Active
 
-(No active requirements — run `/gsd:new-milestone` to define v1.5 requirements)
+- [ ] Weekly income statement page (`/financials`) with P&L from Revenue -> Gross Profit
+- [ ] Per-channel revenue aggregation from `externalRevenue` + `consignmentSettlements`
+- [ ] Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` helper
+- [ ] Previous week comparison with delta amounts and percentages
+- [ ] Data quality / gap analysis panel (unmapped products, missing channels, zero-cost components)
+- [ ] Flat-format CSV export for external financial analysis
+- [ ] Confidence classification on every financial figure (exact/calculated/inferred/missing)
 
 ### Out of Scope
 
@@ -102,11 +116,15 @@ Production reliability — the system is the single source of truth for recipes,
 | Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
 | ~~Consignment sales upload (CON-01–05)~~ | **Completed in v1.4** as manual settlement entry form (simpler than Excel upload) |
 | ~~Sales Analytics consignment segments (ANLY-01–03)~~ | **Completed in v1.4** — per-outlet segments in unified chart |
-| E2E Playwright tests (E2E-01–04) | Deferred to v1.5; API integrations are v1.4 priority |
+| E2E Playwright tests (E2E-01–04) | Deferred to v1.6; income statement is v1.5 priority |
 | Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
 | Customer CRM / Sales pipeline | Deferred |
 | Notifications bell (NTF-01) | Deferred |
 | Visual feedback overlay | Removed — element identification too imprecise |
+| Bank transaction import for OpEx | Deferred to v1.6; income statement (revenue → gross profit) is v1.5 scope |
+| Monthly/quarterly P&L views | Start with weekly; period switching is additive |
+| Budget vs. actual comparison | Requires budget input system; after OpEx tracking |
+| Print-friendly P&L view | Nice-to-have; export to CSV covers external sharing |
 
 ## Context
 
@@ -184,4 +202,4 @@ Deployed via Vercel with GitHub Actions CI. 5 milestones shipped (v1.0–v1.4), 
 | Single color source of truth: platformColors.ts (v1.4) | All chart/card/badge colors derive from `getPlatformPalette(source)` | ✓ Good — eliminated 3-way color map duplication |
 
 ---
-*Last updated: 2026-03-01 after v1.4 milestone completion*
+*Last updated: 2026-03-02 after v1.5 milestone start*

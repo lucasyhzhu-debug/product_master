@@ -1,29 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Sales & Channel Integration
-status: complete
-last_updated: "2026-03-01T10:30:00Z"
+milestone: v1.5
+milestone_name: Financial Statements
+status: active
+last_updated: "2026-03-02T00:00:00Z"
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 20
-  completed_plans: 20
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-03-01)
+See: .planning/PROJECT.md (updated 2026-03-02)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Planning next milestone (v1.5)
+**Current focus:** v1.5 Financial Statements — Income Statement (Revenue → Gross Profit)
 
 ## Current Position
 
-Milestone: v1.4 Sales & Channel Integration — COMPLETE (shipped 2026-03-01)
-Next: Run `/gsd:new-milestone` to start v1.5
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-02 — Milestone v1.5 started
 
-Progress: [████████████████████] 100% — 5 milestones shipped (v1.0–v1.4), 31 phases, 152 plans
+Progress: ░░░░░░░░░░░░░░░░░░░░ 0% — Milestone initialized
 
 ## Performance Metrics
 
@@ -53,6 +55,6 @@ All v1.0–v1.4 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-01
-Stopped at: v1.4 milestone completion
-Resume notes: Milestone v1.4 shipped and tagged. Next: `/gsd:new-milestone` for v1.5.
+Last session: 2026-03-02
+Stopped at: v1.5 milestone initialization
+Resume notes: Milestone v1.5 started. Design doc at `docs/plans/2026-03-01-income-statement-design.md`. Defining requirements, then roadmap.
