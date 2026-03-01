@@ -1740,3 +1740,77 @@ export const getRevenueByOutletInternal = internalQuery({
     return result;
   },
 });
+
+// ─── LIFETIME TOTALS (all-time aggregation for hero card) ───
+// NOTE: Full table scan — acceptable at current scale (~1K records).
+// When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
+
+export const getLifetimeTotalsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Scan all revenue items for per-product per-source aggregation
+    const items = await ctx.db.query("externalRevenueItems").collect();
+
+    // Aggregate by product key (linkedMenuProductId or unmapped productName)
+    const productMap = new Map<string, {
+      menuProductId: string | undefined;
+      productName: string;
+      totalUnits: number;
+      totalRevenue: number;
+      bySource: Record<string, number>;
+    }>();
+
+    for (const item of items) {
+      const key = item.linkedMenuProductId ?? `unmapped:${item.productName}`;
+      const existing = productMap.get(key);
+      if (existing) {
+        existing.totalUnits += item.quantity;
+        existing.totalRevenue += item.totalPrice;
+        existing.bySource[item.source] = (existing.bySource[item.source] ?? 0) + item.quantity;
+      } else {
+        productMap.set(key, {
+          menuProductId: item.linkedMenuProductId ?? undefined,
+          productName: item.productName,
+          totalUnits: item.quantity,
+          totalRevenue: item.totalPrice,
+          bySource: { [item.source]: item.quantity },
+        });
+      }
+    }
+
+    // Also aggregate from externalRevenue for lifetime totals
+    const revenues = await ctx.db.query("externalRevenue").collect();
+    let lifetimeRevenue = 0;
+    let lifetimeTransactions = 0;
+    for (const rev of revenues) {
+      lifetimeRevenue += rev.revenueGross ?? 0;
+      lifetimeTransactions += rev.transactionCount ?? 1;
+    }
+
+    // Sort products by total units descending
+    const products = Array.from(productMap.values())
+      .sort((a, b) => b.totalUnits - a.totalUnits);
+
+    const totalUnits = products.reduce((sum, p) => sum + p.totalUnits, 0);
+
+    // Build bySource display names for the product breakdown table headers
+    const allSources = new Set<string>();
+    for (const p of products) {
+      for (const src of Object.keys(p.bySource)) {
+        allSources.add(src);
+      }
+    }
+    const sourceColumns = [...allSources].map((src) => ({
+      source: src,
+      displayName: sourceToPlatform(src),
+    }));
+
+    return {
+      totalUnits,
+      lifetimeRevenue,
+      lifetimeTransactions,
+      products,
+      sourceColumns,
+    };
+  },
+});
