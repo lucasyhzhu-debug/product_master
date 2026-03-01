@@ -19,6 +19,7 @@ import {
   ExternalLink,
   TagIcon,
   Truck,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { SalesChart } from "./SalesChart";
@@ -33,11 +34,12 @@ import {
   useSyncGoBiz,
   useSyncInternalOrders,
   useRevenueByOutlet,
+  useLifetimeTotals,
+  useBigSellerOrderStats,
   type PeriodPreset,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-type PlatformFilter = "all" | "k3mart" | "gobiz" | "internal";
 type ConfidenceLevel = "exact" | "inferred" | "manual";
 type MatchConfidence = "exact" | "price_only" | "name_only" | "none";
 
@@ -417,12 +419,6 @@ function StoreGroupHeader({
 
 // ─── Channel Summary (driver tree) ───
 
-type ChannelMetrics = {
-  gross: number;
-  net: number;
-  transactions: number;
-};
-
 type PeriodData = {
   totalGross: number;
   totalNet: number;
@@ -432,45 +428,44 @@ type PeriodData = {
   totalDeliveryFees?: number;
   platformGross?: number;
   internalGross?: number;
-  channels?: {
-    k3mart: ChannelMetrics;
-    gobiz: ChannelMetrics;
-    internal: ChannelMetrics;
-  };
+  channels?: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }>;
   periodLabel?: string;
   comparisonLabel?: string;
+};
+
+const CHANNEL_COLORS: Record<string, { border: string; dot: string }> = {
+  gobiz: { border: "border-t-teal-500", dot: "bg-teal-500" },
+  k3mart: { border: "border-t-blue-500", dot: "bg-blue-500" },
+  internal: { border: "border-t-amber-500", dot: "bg-amber-500" },
+  grabfood: { border: "border-t-green-500", dot: "bg-green-500" },
+  shopee: { border: "border-t-orange-500", dot: "bg-orange-500" },
+  tiktok: { border: "border-t-violet-500", dot: "bg-violet-500" },
+  consignment: { border: "border-t-purple-500", dot: "bg-purple-500" },
+  bigseller: { border: "border-t-gray-500", dot: "bg-gray-500" },
 };
 
 function ChannelSummary({
   currentPeriod,
   previousPeriod,
-  totalActiveOutlets,
-  totalOutlets,
-  outletsByChannel,
 }: {
   currentPeriod: PeriodData;
   previousPeriod: PeriodData;
-  totalActiveOutlets: number;
-  totalOutlets: number;
-  outletsByChannel: { k3mart: number; gobiz: number; internal: number };
 }) {
-  const channels = currentPeriod.channels;
-  const prevChannels = previousPeriod.channels;
+  const channels = currentPeriod.channels ?? [];
+  const prevChannels = previousPeriod.channels ?? [];
 
-  // Build the 4 segments: All, K3 Mart, GoBiz, Internal
+  // Build segments: "All Channels" first, then dynamic channels from backend
   const segments: {
     key: string;
     label: string;
-    outlets: number;
     colorClass: string;
     dotClass: string;
-    current: ChannelMetrics;
-    previous: ChannelMetrics;
+    current: { gross: number; net: number; transactions: number };
+    previous: { gross: number; net: number; transactions: number };
   }[] = [
     {
       key: "all",
       label: "All Channels",
-      outlets: totalActiveOutlets,
       colorClass: "border-t-foreground",
       dotClass: "bg-foreground",
       current: {
@@ -484,47 +479,26 @@ function ChannelSummary({
         transactions: previousPeriod.totalTransactions,
       },
     },
-    {
-      key: "k3mart",
-      label: "K3 Mart",
-      outlets: outletsByChannel.k3mart,
-      colorClass: "border-t-purple-500",
-      dotClass: "bg-purple-500",
-      current: channels?.k3mart ?? { gross: 0, net: 0, transactions: 0 },
-      previous: prevChannels?.k3mart ?? { gross: 0, net: 0, transactions: 0 },
-    },
-    {
-      key: "gobiz",
-      label: "GoBiz",
-      outlets: outletsByChannel.gobiz,
-      colorClass: "border-t-red-500",
-      dotClass: "bg-red-500",
-      current: channels?.gobiz ?? { gross: 0, net: 0, transactions: 0 },
-      previous: prevChannels?.gobiz ?? { gross: 0, net: 0, transactions: 0 },
-    },
-    {
-      key: "internal",
-      label: "Local / Direct",
-      outlets: outletsByChannel.internal,
-      colorClass: "border-t-blue-500",
-      dotClass: "bg-blue-500",
-      current: channels?.internal ?? { gross: 0, net: 0, transactions: 0 },
-      previous: prevChannels?.internal ?? { gross: 0, net: 0, transactions: 0 },
-    },
+    ...channels.map((ch) => ({
+      key: ch.source,
+      label: ch.displayName,
+      colorClass: CHANNEL_COLORS[ch.source]?.border ?? "border-t-gray-500",
+      dotClass: CHANNEL_COLORS[ch.source]?.dot ?? "bg-gray-500",
+      current: { gross: ch.gross, net: ch.net, transactions: ch.transactions },
+      previous: (() => {
+        const prev = prevChannels.find((p) => p.source === ch.source);
+        return prev ? { gross: prev.gross, net: prev.net, transactions: prev.transactions } : { gross: 0, net: 0, transactions: 0 };
+      })(),
+    })),
   ];
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium">Channel Breakdown</CardTitle>
-          <span className="text-xs text-muted-foreground">
-            {totalActiveOutlets} active outlet{totalActiveOutlets !== 1 ? "s" : ""} / {totalOutlets} total
-          </span>
-        </div>
+        <CardTitle className="text-sm font-medium">Channel Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {segments.map((seg) => {
             const aov = seg.current.transactions > 0
               ? seg.current.gross / seg.current.transactions
@@ -549,9 +523,6 @@ function ChannelSummary({
                   <span className={cn("h-2 w-2 rounded-full", seg.dotClass)} />
                   <span className="text-xs font-semibold tracking-wide uppercase text-muted-foreground">
                     {seg.label}
-                    {seg.outlets > 1 && (
-                      <span className="font-normal ml-0.5">({seg.outlets})</span>
-                    )}
                   </span>
                   {seg.key !== "all" && shareOfGross > 0 && (
                     <span className="ml-auto text-[10px] text-muted-foreground">
@@ -645,9 +616,14 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
   }
 
   const platformColors: Record<string, { border: string; dot: string; bg: string }> = {
-    gobiz: { border: "border-l-red-500", dot: "bg-red-500", bg: "hover:bg-red-50 dark:hover:bg-red-950/20" },
-    k3mart: { border: "border-l-purple-500", dot: "bg-purple-500", bg: "hover:bg-purple-50 dark:hover:bg-purple-950/20" },
-    internal: { border: "border-l-blue-500", dot: "bg-blue-500", bg: "hover:bg-blue-50 dark:hover:bg-blue-950/20" },
+    gobiz: { border: "border-l-teal-500", dot: "bg-teal-500", bg: "hover:bg-teal-50 dark:hover:bg-teal-950/20" },
+    k3mart: { border: "border-l-blue-500", dot: "bg-blue-500", bg: "hover:bg-blue-50 dark:hover:bg-blue-950/20" },
+    internal: { border: "border-l-amber-500", dot: "bg-amber-500", bg: "hover:bg-amber-50 dark:hover:bg-amber-950/20" },
+    grabfood: { border: "border-l-green-500", dot: "bg-green-500", bg: "hover:bg-green-50 dark:hover:bg-green-950/20" },
+    shopee: { border: "border-l-orange-500", dot: "bg-orange-500", bg: "hover:bg-orange-50 dark:hover:bg-orange-950/20" },
+    tiktok: { border: "border-l-violet-500", dot: "bg-violet-500", bg: "hover:bg-violet-50 dark:hover:bg-violet-950/20" },
+    consignment: { border: "border-l-purple-500", dot: "bg-purple-500", bg: "hover:bg-purple-50 dark:hover:bg-purple-950/20" },
+    bigseller: { border: "border-l-gray-500", dot: "bg-gray-500", bg: "hover:bg-gray-50 dark:hover:bg-gray-950/20" },
   };
 
   return (
@@ -728,18 +704,110 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
   );
 }
 
+// ─── Lifetime Hero ───
+
+function LifetimeHero() {
+  const { data, isLoading } = useLifetimeTotals();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (isLoading || !data) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <Skeleton className="h-16 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-baseline gap-3">
+              <span className="text-3xl font-bold tabular-nums">
+                {data.totalUnits.toLocaleString()}
+              </span>
+              <span className="text-sm text-muted-foreground">units sold</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {formatCurrency(data.lifetimeRevenue)} lifetime revenue
+              <span className="mx-2">&middot;</span>
+              {data.lifetimeTransactions.toLocaleString()} transactions
+            </p>
+          </div>
+          {data.products.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="gap-1"
+            >
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {isExpanded ? "Hide" : "Products"}
+            </Button>
+          )}
+        </div>
+
+        {isExpanded && data.products.length > 0 && (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 px-2 font-medium">Product</th>
+                  <th className="text-right py-2 px-2 font-medium">Units</th>
+                  <th className="text-right py-2 px-2 font-medium">Revenue</th>
+                  {data.sourceColumns.map((col) => (
+                    <th key={col.source} className="text-right py-2 px-2 font-medium text-xs">
+                      {col.displayName}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.products.map((product, i) => (
+                  <tr key={product.menuProductId ?? `unmapped-${i}`} className="border-b border-muted">
+                    <td className="py-2 px-2">
+                      {product.productName}
+                      {!product.menuProductId && (
+                        <Badge variant="outline" className="ml-1 text-xs">Unmapped</Badge>
+                      )}
+                    </td>
+                    <td className="py-2 px-2 text-right tabular-nums font-medium">
+                      {product.totalUnits.toLocaleString()}
+                    </td>
+                    <td className="py-2 px-2 text-right tabular-nums">
+                      {formatCurrency(product.totalRevenue)}
+                    </td>
+                    {data.sourceColumns.map((col) => (
+                      <td key={col.source} className="py-2 px-2 text-right tabular-nums text-muted-foreground">
+                        {(product.bySource[col.source] ?? 0) > 0
+                          ? (product.bySource[col.source]).toLocaleString()
+                          : "\u2014"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Revenue Table ───
 
 function RevenueTable({
   records,
   dateFrom,
   dateTo,
-  platformFilter,
 }: {
   records: RevenueRecord[];
   dateFrom: string;
   dateTo: string;
-  platformFilter: PlatformFilter;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [collapsedStores, setCollapsedStores] = useState<Set<string>>(new Set());
@@ -766,8 +834,8 @@ function RevenueTable({
     );
   }
 
-  // K3 Mart store grouping
-  const useStoreGrouping = platformFilter === "k3mart";
+  // K3 Mart store grouping: only when all visible records are k3mart
+  const useStoreGrouping = filtered.length > 0 && filtered.every(r => r.source === "k3mart");
 
   const storeGroups = useStoreGrouping
     ? (() => {
@@ -919,11 +987,11 @@ function RevenueTable({
 
 export function OverviewTab() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
+  const { data: bigSellerStats } = useBigSellerOrderStats();
 
   // Period preset from URL, then localStorage, then default
   const savedPeriod = localStorage.getItem(PERIOD_STORAGE_KEY) as PeriodPreset | null;
@@ -966,7 +1034,7 @@ export function OverviewTab() {
 
   const { data: revenueRecords, isLoading: loadingRevenue } =
     useExternalRevenue(
-      platformFilter === "all" ? undefined : platformFilter,
+      undefined,
       revenuePeriodBounds.periodStart,
       revenuePeriodBounds.periodEnd
     );
@@ -1043,14 +1111,12 @@ export function OverviewTab() {
 
   // Stats from dashboard summary
   const { currentPeriod, previousPeriod } = summary;
-  const totalActiveOutlets =
-    summary.platforms.k3mart.activeOutlets + summary.platforms.gobiz.activeOutlets;
-  const totalOutlets =
-    summary.platforms.k3mart.outletCount + summary.platforms.gobiz.outletCount;
-
 
   return (
     <div className="space-y-6">
+      {/* Lifetime Hero -- always shows all-time data, unaffected by period selector */}
+      <LifetimeHero />
+
       {/* Period Filter Bar + Refresh Button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
@@ -1203,13 +1269,6 @@ export function OverviewTab() {
       <ChannelSummary
         currentPeriod={currentPeriod}
         previousPeriod={previousPeriod}
-        totalActiveOutlets={totalActiveOutlets}
-        totalOutlets={totalOutlets}
-        outletsByChannel={{
-          k3mart: summary.platforms.k3mart.activeOutlets,
-          gobiz: summary.platforms.gobiz.activeOutlets,
-          internal: 0,
-        }}
       />
 
       {/* Revenue Chart */}
@@ -1218,51 +1277,21 @@ export function OverviewTab() {
       {/* Platform -> Outlet Hierarchy */}
       <PlatformHierarchy preset={selectedPeriod} />
 
+      {/* BigSeller COGS Caveat */}
+      {bigSellerStats?.allCostFeeZero && bigSellerStats.totalOrders > 0 && (
+        <div className="flex items-center gap-2 text-xs text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 rounded-md px-3 py-2.5">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            BigSeller profit margins not available &mdash; COGS not configured in BigSeller.
+            Shopee and Tokopedia revenue shown as gross only.
+          </span>
+        </div>
+      )}
+
       {/* Revenue Table */}
       <Card>
         <CardHeader className="space-y-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>Sales Details</CardTitle>
-            <div className="flex gap-2">
-              <Badge
-                variant={platformFilter === "all" ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => setPlatformFilter("all")}
-              >
-                All
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "cursor-pointer border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400",
-                  platformFilter === "k3mart" && "bg-purple-500 text-white dark:bg-purple-600"
-                )}
-                onClick={() => setPlatformFilter("k3mart")}
-              >
-                K3 Mart
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "cursor-pointer border-red-500 dark:border-red-600 text-red-700 dark:text-red-400",
-                  platformFilter === "gobiz" && "bg-red-500 text-white dark:bg-red-600"
-                )}
-                onClick={() => setPlatformFilter("gobiz")}
-              >
-                GoBiz
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "cursor-pointer border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400",
-                  platformFilter === "internal" && "bg-blue-500 text-white dark:bg-blue-600"
-                )}
-                onClick={() => setPlatformFilter("internal")}
-              >
-                Local
-              </Badge>
-            </div>
-          </div>
+          <CardTitle>Sales Details</CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">From</span>
             <Input
@@ -1316,7 +1345,6 @@ export function OverviewTab() {
               records={revenueRecords}
               dateFrom={dateFrom}
               dateTo={dateTo}
-              platformFilter={platformFilter}
             />
           )}
         </CardContent>

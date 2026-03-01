@@ -44,9 +44,9 @@ Requirements for milestone v1.4. Each maps to roadmap phases (26+).
 
 ### Sales Analytics
 
-- [ ] **ANLY-01**: Each consignment outlet (Goldfinch, Tamtem) appears as its own segment in Sales Analytics stacked bar charts; segments only shown when revenue data exists for that outlet
-- [ ] **ANLY-02**: Sales Analytics displays a lifetime units sold headline counter with per-product breakdown table across all channels
-- [ ] **ANLY-03**: Unified multi-channel Sales Analytics view with all channels (GoFood × 3, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment outlets) in one stacked bar chart with multi-select channel filter
+- [x] **ANLY-01**: Each consignment outlet (Goldfinch, Tamtem) appears as its own segment in Sales Analytics stacked bar charts; segments only shown when revenue data exists for that outlet
+- [x] **ANLY-02**: Sales Analytics displays a lifetime units sold headline counter with per-product breakdown table across all channels
+- [x] **ANLY-03**: Unified multi-channel Sales Analytics view with all channels (GoFood × 3, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment outlets) in one stacked bar chart with multi-select channel filter
 
 ## Future Requirements
 
@@ -131,9 +131,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CON-02 | Phase 29 | Complete |
 | CON-03 | Phase 29 | Complete |
 | CON-04 | Phase 29 | Complete |
-| ANLY-01 | Phase 30 | Pending |
-| ANLY-02 | Phase 30 | Pending |
-| ANLY-03 | Phase 30 | Pending |
+| ANLY-01 | Phase 30 | Complete |
+| ANLY-02 | Phase 30 | Complete |
+| ANLY-03 | Phase 30 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 22 total

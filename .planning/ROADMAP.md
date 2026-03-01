@@ -83,7 +83,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 - [x] **Phase 27: GrabFood POS Integration** — Manual-trigger order history pull, store status display with one-click pause/unpause per outlet, and menu item availability toggle with `notifyMenuUpdate` call (completed 2026-02-28)
 - [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
 - [x] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet (completed 2026-02-28)
-- [ ] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter
+- [x] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter (completed 2026-03-01)
 
 ## Phase Details
 
@@ -451,7 +451,11 @@ Plans:
   3. Lifetime units sold headline displays a total counter across all channels; expanding the view shows a per-product breakdown table with units sold per channel
   4. GrabFood and BigSeller data flows into the existing Sales Analytics aggregation layer via `externalRevenue` — no separate analytics path; existing GoFood/K3Mart/Direct data unaffected
   5. No new reactive `useQuery` subscriptions on `externalRevenue` — all new analytics queries use the on-demand action pattern; no bandwidth regression from v1.3 optimization work
-**Plans:** TBD
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 30-01-PLAN.md -- Backend analytics refactor: sourceToPlatform 8 mappings, dynamic channel discovery, lifetime totals query
+- [ ] 30-02-PLAN.md -- Frontend analytics UI: OverviewTab dynamic channels, SalesChart platform colors, lifetime totals card
 
 ## Progress
 
@@ -474,4 +478,4 @@ Plans:
 | 28. BigSeller Integration | 2/2 | Complete    | 2026-02-27 | - |
 | 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
 | 29.1. Test Suite Repair | 1/1 | Complete    | 2026-02-28 | - |
-| 30. Unified Sales Analytics | v1.4 | 0/TBD | Not started | - |
+| 30. Unified Sales Analytics | 2/2 | Complete    | 2026-03-01 | - |

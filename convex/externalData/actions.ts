@@ -59,3 +59,13 @@ export const fetchRevenueByOutlet = action({
     );
   },
 });
+
+export const fetchLifetimeTotals = action({
+  args: {},
+  handler: async (ctx): Promise<unknown> => {
+    return await ctx.runQuery(
+      internal.externalData.queries.getLifetimeTotalsInternal,
+      {}
+    );
+  },
+});

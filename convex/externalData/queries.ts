@@ -498,11 +498,15 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
     // Internal sync stores revenueGross = finalTotal (post-discount),
     // but we need gross = totalAmount (pre-discount) and discounts separated.
     async function aggregate(records: typeof currentRevenue) {
-      const k3martRecords = records.filter((r) => r.source === "k3mart");
-      const gobizRecords = records.filter((r) => r.source === "gobiz");
-      const internalRecords = records.filter((r) => r.source === "internal");
+      // Group records by source
+      const bySource = new Map<string, typeof records>();
+      for (const record of records) {
+        const existing = bySource.get(record.source) ?? [];
+        existing.push(record);
+        bySource.set(record.source, existing);
+      }
 
-      // Per-channel platform aggregation
+      // Per-channel platform aggregation (for non-internal sources)
       function aggregatePlatformChannel(channelRecords: typeof records) {
         const gross = channelRecords.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
         const commission = channelRecords.reduce((sum, r) => sum + (r.commission ?? 0), 0);
@@ -513,25 +517,14 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         return { gross, net, txns, commission, adBurn, promoBurn };
       }
 
-      const k3mart = aggregatePlatformChannel(k3martRecords);
-      const gobiz = aggregatePlatformChannel(gobizRecords);
-
-      // Platform totals
-      const platformGross = k3mart.gross + gobiz.gross;
-      const platformCommission = k3mart.commission + gobiz.commission;
-      const platformAdBurn = k3mart.adBurn + gobiz.adBurn;
-      const platformPromoBurn = k3mart.promoBurn + gobiz.promoBurn;
-      const platformNet = k3mart.net + gobiz.net;
-      const platformTxns = k3mart.txns + gobiz.txns;
-
-      // Internal: look up real orders for pre-discount totals
+      // Internal orders: special handling — look up real orders for pre-discount totals
+      const internalRecords = bySource.get("internal") ?? [];
       let internalGross = 0;
       let internalNet = 0;
       let totalDiscounts = 0;
       let totalDeliveryFees = 0;
       const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
 
-      // Batch-lookup orders by order number
       const orderNumbers = internalRecords
         .map((r) => r.externalTransactionId)
         .filter((n): n is string => !!n);
@@ -560,23 +553,59 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         }
       }
 
+      // Build dynamic channels array
+      const channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }> = [];
+
+      // Aggregate all non-internal sources
+      let totalCommission = 0;
+      let totalAdBurn = 0;
+      let totalPromoBurn = 0;
+      let platformGross = 0;
+
+      for (const [source, sourceRecords] of bySource) {
+        if (source === "internal") continue; // handled separately above
+        const agg = aggregatePlatformChannel(sourceRecords);
+        totalCommission += agg.commission;
+        totalAdBurn += agg.adBurn;
+        totalPromoBurn += agg.promoBurn;
+        platformGross += agg.gross;
+        if (agg.gross > 0 || agg.txns > 0) {
+          channels.push({
+            source,
+            displayName: sourceToPlatform(source),
+            gross: agg.gross,
+            net: agg.net,
+            transactions: agg.txns,
+          });
+        }
+      }
+
+      // Add internal channel if it has data
+      if (internalGross > 0 || internalTxns > 0) {
+        channels.push({
+          source: "internal",
+          displayName: sourceToPlatform("internal"),
+          gross: internalGross,
+          net: internalNet,
+          transactions: internalTxns,
+        });
+      }
+
+      // Sort channels by gross revenue descending (biggest first)
+      channels.sort((a, b) => b.gross - a.gross);
+
       return {
         totalGross: platformGross + internalGross,
-        totalNet: platformNet + internalNet,
-        totalTransactions: platformTxns + internalTxns,
-        totalCommission: platformCommission,
-        totalAdBurn: platformAdBurn,
-        totalPromoBurn: platformPromoBurn,
+        totalNet: channels.reduce((sum, ch) => sum + ch.net, 0),
+        totalTransactions: channels.reduce((sum, ch) => sum + ch.transactions, 0),
+        totalCommission,
+        totalAdBurn,
+        totalPromoBurn,
         totalDiscounts,
         totalDeliveryFees,
         platformGross,
         internalGross,
-        // Per-channel breakdowns
-        channels: {
-          k3mart: { gross: k3mart.gross, net: k3mart.net, transactions: k3mart.txns },
-          gobiz: { gross: gobiz.gross, net: gobiz.net, transactions: gobiz.txns },
-          internal: { gross: internalGross, net: internalNet, transactions: internalTxns },
-        },
+        channels,
       };
     }
 
@@ -1455,11 +1484,16 @@ function utcToWibHourStr(utcMs: number): string {
 }
 
 /** Map source to platform display name */
-function sourceToPlatform(source: string): string {
+export function sourceToPlatform(source: string): string {
   switch (source) {
     case "gobiz": return "GoFood";
     case "k3mart": return "K3 Mart";
     case "internal": return "Direct";
+    case "grabfood": return "GrabFood";
+    case "shopee": return "Shopee";
+    case "tiktok": return "Tokopedia";
+    case "consignment": return "Consignment";
+    case "bigseller": return "BigSeller";
     default: return source;
   }
 }
@@ -1535,8 +1569,8 @@ export const getRevenueTimeSeries = query({
       }
     }
 
-    // Group by bucket and platform
-    const platforms = ["gobiz", "k3mart", "internal"] as const;
+    // Discover all unique sources from fetched records
+    const discoveredSources = [...new Set(records.map((r) => r.source))];
     const buckets = new Map<string, Record<string, number>>();
 
     for (const record of records) {
@@ -1545,7 +1579,9 @@ export const getRevenueTimeSeries = query({
       const platform = record.source;
 
       if (!buckets.has(key)) {
-        buckets.set(key, { gobiz: 0, k3mart: 0, internal: 0 });
+        const init: Record<string, number> = {};
+        for (const src of discoveredSources) init[src] = 0;
+        buckets.set(key, init);
       }
       const bucket = buckets.get(key)!;
 
@@ -1579,11 +1615,15 @@ export const getRevenueTimeSeries = query({
     // Sort buckets chronologically
     const sortedKeys = Array.from(buckets.keys()).sort();
     const labels = sortedKeys.map(formatLabel);
-    const series = platforms.map((p) => ({
-      platform: sourceToPlatform(p),
-      platformKey: p,
-      data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
-    }));
+
+    // Build series only for sources with non-zero totals (hide empty channels)
+    const series = discoveredSources
+      .map((p) => ({
+        platform: sourceToPlatform(p),
+        platformKey: p,
+        data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
+      }))
+      .filter((s) => s.data.some((v) => v !== 0));
 
     return { labels, series };
   },
@@ -1694,10 +1734,83 @@ export const getRevenueByOutletInternal = internalQuery({
       });
     }
 
-    // Sort: gobiz first, then k3mart, then internal
-    const order = ["gobiz", "k3mart", "internal"];
-    result.sort((a, b) => order.indexOf(a.platform) - order.indexOf(b.platform));
+    // Sort by gross revenue descending (biggest platforms first)
+    result.sort((a, b) => b.totals.gross - a.totals.gross);
 
     return result;
+  },
+});
+
+// ─── LIFETIME TOTALS (all-time aggregation for hero card) ───
+// NOTE: Full table scan — acceptable at current scale (~1K records).
+// When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
+
+export const getLifetimeTotalsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Scan all revenue items for per-product per-source aggregation
+    const items = await ctx.db.query("externalRevenueItems").collect();
+
+    // Aggregate by product key (linkedMenuProductId or unmapped productName)
+    const productMap = new Map<string, {
+      menuProductId: string | undefined;
+      productName: string;
+      totalUnits: number;
+      totalRevenue: number;
+      bySource: Record<string, number>;
+    }>();
+
+    for (const item of items) {
+      const key = item.linkedMenuProductId ?? `unmapped:${item.productName}`;
+      const existing = productMap.get(key);
+      if (existing) {
+        existing.totalUnits += item.quantity;
+        existing.totalRevenue += item.totalPrice;
+        existing.bySource[item.source] = (existing.bySource[item.source] ?? 0) + item.quantity;
+      } else {
+        productMap.set(key, {
+          menuProductId: item.linkedMenuProductId ?? undefined,
+          productName: item.productName,
+          totalUnits: item.quantity,
+          totalRevenue: item.totalPrice,
+          bySource: { [item.source]: item.quantity },
+        });
+      }
+    }
+
+    // Also aggregate from externalRevenue for lifetime totals
+    const revenues = await ctx.db.query("externalRevenue").collect();
+    let lifetimeRevenue = 0;
+    let lifetimeTransactions = 0;
+    for (const rev of revenues) {
+      lifetimeRevenue += rev.revenueGross ?? 0;
+      lifetimeTransactions += rev.transactionCount ?? 1;
+    }
+
+    // Sort products by total units descending
+    const products = Array.from(productMap.values())
+      .sort((a, b) => b.totalUnits - a.totalUnits);
+
+    const totalUnits = products.reduce((sum, p) => sum + p.totalUnits, 0);
+
+    // Build bySource display names for the product breakdown table headers
+    const allSources = new Set<string>();
+    for (const p of products) {
+      for (const src of Object.keys(p.bySource)) {
+        allSources.add(src);
+      }
+    }
+    const sourceColumns = [...allSources].map((src) => ({
+      source: src,
+      displayName: sourceToPlatform(src),
+    }));
+
+    return {
+      totalUnits,
+      lifetimeRevenue,
+      lifetimeTransactions,
+      products,
+      sourceColumns,
+    };
   },
 });

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Sales & Channel Integration
 status: unknown
-last_updated: "2026-02-28T16:04:11.882Z"
+last_updated: "2026-03-01T04:24:50.092Z"
 progress:
   total_phases: 19
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 68
-  completed_plans: 67
+  completed_plans: 69
 ---
 
 ---
@@ -16,12 +16,12 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Sales & Channel Integration
 status: in-progress
-last_updated: "2026-02-28T15:58:37.664Z"
+last_updated: "2026-03-01T04:13:46Z"
 progress:
   total_phases: 19
   completed_phases: 15
-  total_plans: 68
-  completed_plans: 67
+  total_plans: 70
+  completed_plans: 70
 ---
 
 # Project State
@@ -33,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-02-25)
 
 ## Current Position
 
-Phase: 29.1 of 30 (Test Suite Repair — INSERTED)
-Plan: 1 of 1 complete
-Status: Phase 29.1 Complete — test suite repaired (0 failures, 633 passing)
-Last activity: 2026-02-28 - Phase 29.1 Plan 01 complete (test suite repair, E2E exclusion, assertion fixes)
+Phase: 30 of 30 (Unified Sales Analytics)
+Plan: 2 of 2 complete
+Status: Phase 30 COMPLETE — unified multi-channel Sales Analytics (backend + frontend)
+Last activity: 2026-03-01 - Phase 30 Plan 02 complete (frontend analytics UI with 7-channel chart, LifetimeHero, dynamic ChannelSummary, COGS caveat)
 
-Progress (v1.4): [███████████████████░] 97% — Phase 29 + 29.1 complete, Phase 30 remaining
+Progress (v1.4): [████████████████████] 100% — All phases complete
 
 ## Performance Metrics
 
@@ -49,6 +49,8 @@ Progress (v1.4): [███████████████████░] 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 29.1 | 01 | 13 min | 6 | 8 |
+| 30 | 01 | 7 min | 3 | 2 |
+| 30 | 02 | 5 min | 3 | 4 |
 
 ## Accumulated Context
 
@@ -134,6 +136,19 @@ Phase 29.1-01 decisions (test suite repair):
 - [Phase 29.1]: 100% discount now valid business case — voucher tests updated to positive assertions
 - [Phase 29.1]: getWeeklyDispatchPlans returns Record not Array — test assertions updated
 
+Phase 30-01 decisions (backend analytics refactor):
+- [Phase 30-01]: channels return type changed from fixed {k3mart,gobiz,internal} object to dynamic Array<{source,displayName,gross,net,transactions}> — breaking frontend change handled in Plan 02
+- [Phase 30-01]: getSyncHealthStatus intentionally kept with 3-platform hardcoded list (sync health, not analytics)
+- [Phase 30-01]: getLifetimeTotalsInternal uses full table scan — acceptable at ~1K records, pre-aggregation deferred to ANLY-04
+- [Phase 30-01]: tiktok maps to Tokopedia (correct for Indonesian e-commerce via BigSeller API)
+
+Phase 30-02 decisions (frontend analytics UI):
+- [Phase 30-02]: ChannelBreakdown exported with source+displayName fields for dynamic channel rendering
+- [Phase 30-02]: Revenue Table filter badges removed entirely — chart legend IS the filter per CONTEXT.md
+- [Phase 30-02]: Store grouping derived from data (all records k3mart) instead of platformFilter state
+- [Phase 30-02]: Color consistency enforced: GoFood=teal, K3 Mart=blue, Direct=amber across all three color maps
+- [Phase 30-02]: SalesAnalytics.tsx page description was already updated (no change needed)
+
 ### Roadmap Evolution
 
 - Phase 27.1 inserted after Phase 27: GrabFood Webhooks & Partner Configuration (URGENT)
@@ -161,7 +176,7 @@ Phase 29.1-01 decisions (test suite repair):
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 29.1-01-PLAN.md (test suite repair)
-Resume file: .planning/phases/29.1-test-suite-repair/29.1-01-SUMMARY.md
-Resume notes: Phase 29.1 complete (1/1 plan). Test suite green (633 tests, 0 failures). All Phases 26-29.1 complete. Next: Phase 30 (Unified Sales Analytics).
+Last session: 2026-03-01
+Stopped at: Completed 30-02-PLAN.md (frontend analytics UI)
+Resume file: .planning/phases/30-unified-sales-analytics/30-02-SUMMARY.md
+Resume notes: Phase 30 COMPLETE (2/2 plans). v1.4 milestone at 100%. Next: merge to main, CHANGELOG update, v1.4 milestone completion.
