@@ -1460,6 +1460,11 @@ function sourceToPlatform(source: string): string {
     case "gobiz": return "GoFood";
     case "k3mart": return "K3 Mart";
     case "internal": return "Direct";
+    case "grabfood": return "GrabFood";
+    case "shopee": return "Shopee";
+    case "tiktok": return "Tokopedia";
+    case "consignment": return "Consignment";
+    case "bigseller": return "BigSeller";
     default: return source;
   }
 }
@@ -1535,8 +1540,8 @@ export const getRevenueTimeSeries = query({
       }
     }
 
-    // Group by bucket and platform
-    const platforms = ["gobiz", "k3mart", "internal"] as const;
+    // Discover all unique sources from fetched records
+    const discoveredSources = [...new Set(records.map((r) => r.source))];
     const buckets = new Map<string, Record<string, number>>();
 
     for (const record of records) {
@@ -1545,7 +1550,9 @@ export const getRevenueTimeSeries = query({
       const platform = record.source;
 
       if (!buckets.has(key)) {
-        buckets.set(key, { gobiz: 0, k3mart: 0, internal: 0 });
+        const init: Record<string, number> = {};
+        for (const src of discoveredSources) init[src] = 0;
+        buckets.set(key, init);
       }
       const bucket = buckets.get(key)!;
 
@@ -1579,11 +1586,15 @@ export const getRevenueTimeSeries = query({
     // Sort buckets chronologically
     const sortedKeys = Array.from(buckets.keys()).sort();
     const labels = sortedKeys.map(formatLabel);
-    const series = platforms.map((p) => ({
-      platform: sourceToPlatform(p),
-      platformKey: p,
-      data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
-    }));
+
+    // Build series only for sources with non-zero totals (hide empty channels)
+    const series = discoveredSources
+      .map((p) => ({
+        platform: sourceToPlatform(p),
+        platformKey: p,
+        data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
+      }))
+      .filter((s) => s.data.some((v) => v !== 0));
 
     return { labels, series };
   },
