@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireRole } from "../lib/auth";
+import { isExternalSource } from "../lib/externalSource";
 
 /**
  * List BigSeller orders with optional filtering.
@@ -100,14 +101,14 @@ export const getUnmappedSkus = query({
       [];
     for (const [key, value] of skuMap) {
       const [platform, skuCode] = key.split("::");
-      if (!skuCode) continue;
+      if (!skuCode || !isExternalSource(platform)) continue;
 
       // Check for mapping with either platform as source
       const mapping = await ctx.db
         .query("externalProductMappings")
         .withIndex("by_source_code", (q) =>
           q
-            .eq("source", platform as any)
+            .eq("source", platform)
             .eq("externalProductCode", skuCode)
         )
         .unique();

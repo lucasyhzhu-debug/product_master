@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../../_generated/server";
 import { requireRole } from "../../lib/auth";
+import { isExternalSource } from "../../lib/externalSource";
 import { BIGSELLER_MAX_POLLS } from "./config";
 
 // ─── Internal Queries (used by sync action) ──────────────────────────────────
@@ -56,11 +57,12 @@ export const checkProductMapping = internalQuery({
     externalProductCode: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!isExternalSource(args.source)) return null;
     const mapping = await ctx.db
       .query("externalProductMappings")
       .withIndex("by_source_code", (q) =>
         q
-          .eq("source", args.source as any)
+          .eq("source", args.source)
           .eq("externalProductCode", args.externalProductCode)
       )
       .unique();
