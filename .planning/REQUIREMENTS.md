@@ -67,26 +67,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IS-01 | TBD | Pending |
-| IS-02 | TBD | Pending |
-| IS-03 | TBD | Pending |
-| IS-04 | TBD | Pending |
-| IS-05 | TBD | Pending |
-| IS-06 | TBD | Pending |
-| IS-07 | TBD | Pending |
-| IS-08 | TBD | Pending |
-| IS-09 | TBD | Pending |
-| IS-10 | TBD | Pending |
-| IS-11 | TBD | Pending |
-| IS-12 | TBD | Pending |
-| IS-13 | TBD | Pending |
-| IS-14 | TBD | Pending |
+| IS-01 | Phase 32 | Pending |
+| IS-02 | Phase 32 | Pending |
+| IS-03 | Phase 32 | Pending |
+| IS-04 | Phase 32 | Pending |
+| IS-05 | Phase 32 | Pending |
+| IS-06 | Phase 32 | Pending |
+| IS-07 | Phase 33 | Pending |
+| IS-08 | Phase 33 | Pending |
+| IS-09 | Phase 33 | Pending |
+| IS-10 | Phase 33 | Pending |
+| IS-11 | Phase 33 | Pending |
+| IS-12 | Phase 33 | Pending |
+| IS-13 | Phase 34 | Pending |
+| IS-14 | Phase 34 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after initial definition*
+*Last updated: 2026-03-02 after roadmap creation*

@@ -7,6 +7,7 @@
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
 - ✅ **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-25 (shipped 2026-02-24)
 - ✅ **v1.4 Sales & Channel Integration** — Phases 26-31 (shipped 2026-03-01)
+- 🚧 **v1.5 Financial Statements** — Phases 32-34 (in progress)
 
 ## Phases
 
@@ -69,7 +70,7 @@ Full details: `.planning/milestones/v1.2-ROADMAP.md`
 - [x] Phase 24: Ingredient Simulation Fix + Restock-Kitchen Integration (7/7 plans) — completed 2026-02-23
 - [x] Phase 25: Codebase Cleanup (6/6 plans) — completed 2026-02-24
 
-**Known gaps (deferred to v1.4+):** CON-01–05 (consignment upload), ANLY-01–03 (Sales Analytics consignment)
+**Known gaps (deferred to v1.4+):** CON-01-05 (consignment upload), ANLY-01-03 (Sales Analytics consignment)
 
 Full details: `.planning/milestones/v1.3-ROADMAP.md`
 
@@ -94,6 +95,54 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 </details>
 
+### v1.5 Financial Statements (In Progress)
+
+**Milestone Goal:** Provide a unified weekly income statement (Revenue -> COGS -> Gross Profit) with per-channel breakdown, BOM-resolved COGS, and data quality visibility.
+
+**Design doc:** `docs/plans/2026-03-01-income-statement-design.md`
+
+- [ ] **Phase 32: Income Statement Backend** - COGS resolver, revenue aggregation, confidence classification, and gap analysis query
+- [ ] **Phase 33: Income Statement Frontend** - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, and CSV export
+- [ ] **Phase 34: Income Statement Testing** - Backend tests for BOM COGS accuracy and multi-channel revenue edge cases
+
+## Phase Details
+
+### Phase 32: Income Statement Backend
+**Goal**: System can compute a complete weekly income statement from existing data -- revenue per channel, deductions, full BOM COGS, gross profit, with confidence classification and data quality gap identification
+**Depends on**: Nothing (first phase of v1.5; builds on existing externalRevenue + BOM infrastructure from v1.4)
+**Requirements**: IS-01, IS-02, IS-03, IS-04, IS-05, IS-06
+**Success Criteria** (what must be TRUE):
+  1. Calling `getWeeklyIncomeStatement({ weekStart })` returns per-channel gross revenue aggregated from `externalRevenue` and `consignmentSettlements` for the target week
+  2. Revenue deductions (customer discounts, platform commissions, ad/promo burn, consignment rev share) are computed and subtracted to produce net revenue per channel
+  3. Full BOM COGS (production balls + packaging) is resolved via `buildProductCOGSMap` for every revenue item with a `linkedMenuProductId`, and unmapped items get COGS = 0
+  4. Every financial figure carries a confidence level (exact/calculated/inferred/missing) in the query response
+  5. The query response includes a gap analysis section listing unmapped product names, zero-cost component types, and missing channel warnings
+**Plans**: TBD
+
+### Phase 33: Income Statement Frontend
+**Goal**: Users can view, navigate, and export a weekly income statement with full channel breakdown and data quality transparency
+**Depends on**: Phase 32
+**Requirements**: IS-07, IS-08, IS-09, IS-10, IS-11, IS-12
+**Success Criteria** (what must be TRUE):
+  1. User can navigate to `/financials` and see a P&L table showing Revenue -> Deductions -> Net Revenue -> COGS -> Gross Profit with per-channel breakdown
+  2. User can navigate between weeks using prev/next controls, with WIB timezone Monday-start boundaries
+  3. User sees previous week comparison with delta amounts and percentages on every line item
+  4. User sees visual confidence indicators (solid for exact, calc icon for calculated, ~ for inferred, dash + warning for missing) on financial figures
+  5. User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance (e.g., "map in Sales Analytics > Mappings")
+  6. User can click Export CSV and download a flat-format file with period, section, channel, line item, amount, confidence, prev week amount, and delta percentage
+**Plans**: TBD
+
+### Phase 34: Income Statement Testing
+**Goal**: Backend computations are verified correct with known-value test cases covering COGS accuracy and revenue aggregation edge cases
+**Depends on**: Phase 33
+**Requirements**: IS-13, IS-14
+**Success Criteria** (what must be TRUE):
+  1. Test suite includes known-value assertions for `buildProductCOGSMap` verifying production COGS, packaging COGS, and total per product match expected amounts
+  2. Test suite includes multi-channel revenue aggregation test with at least 3 channels verifying gross, commissions, and net revenue
+  3. Test suite covers edge cases: empty week (zero values, no crash), zero-revenue margin (N/A not NaN), negative net revenue, and unmapped product COGS = missing
+  4. `npm run test` passes with all new tests and `npm run build` succeeds
+**Plans**: TBD
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -103,5 +152,6 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 | v1.2 Unified Planning & Revenue | 17-18 | 20 | Complete | 2026-02-21 |
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
+| v1.5 Financial Statements | 32-34 | TBD | In progress | - |
 
-**Total: 31 phases, 152 plans shipped across 5 milestones**
+**Total: 31 phases, 152 plans shipped across 5 milestones + 3 phases planned for v1.5**

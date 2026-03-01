@@ -5,7 +5,7 @@ milestone_name: Financial Statements
 status: active
 last_updated: "2026-03-02T00:00:00Z"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,16 +16,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-02)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.5 Financial Statements — Income Statement (Revenue → Gross Profit)
+**Current focus:** v1.5 Financial Statements -- Phase 32: Income Statement Backend
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-02 — Milestone v1.5 started
+Phase: 32 of 34 (Income Statement Backend)
+Plan: -- (phase not yet planned)
+Status: Ready to plan
+Last activity: 2026-03-02 -- Roadmap created for v1.5 (3 phases, 14 requirements)
 
-Progress: ░░░░░░░░░░░░░░░░░░░░ 0% — Milestone initialized
+Progress: ░░░░░░░░░░░░░░░░░░░░ 0% -- Roadmap ready, awaiting phase planning
 
 ## Performance Metrics
 
@@ -38,14 +38,21 @@ Progress: ░░░░░░░░░░░░░░░░░░░░ 0% — Mi
 
 ### Decisions
 
-All v1.0–v1.4 decisions archived in PROJECT.md Key Decisions table.
+All v1.0-v1.4 decisions archived in PROJECT.md Key Decisions table.
+
+v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-design.md`:
+- Real-time query aggregation (no snapshot tables)
+- Consignment folded into unified P&L as another channel
+- Full COGS (production + packaging) via BOM resolution
+- Confidence indicators as first-class data quality signal
+- Unmapped items = honest zero COGS with "missing" flag
 
 ### Open Blockers (carried forward)
 
-- GrabFood `orders:read` OAuth2 scope not yet granted — infrastructure works, 401 handled gracefully
-- Crystal and Tamtem GrabFood merchantIDs pending — only GFSBPOS-254-353 confirmed
+- GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
+- Crystal and Tamtem GrabFood merchantIDs pending -- only GFSBPOS-254-353 confirmed
 - GrabFood grabItemID values per outlet needed for menu toggle activation
-- BigSeller COGS = 0 for all Frollie orders — profit analytics meaningless until configured
+- BigSeller COGS = 0 for all Frollie orders -- profit analytics meaningless until configured
 
 ### Quick Tasks Completed
 
@@ -56,5 +63,5 @@ All v1.0–v1.4 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: v1.5 milestone initialization
-Resume notes: Milestone v1.5 started. Design doc at `docs/plans/2026-03-01-income-statement-design.md`. Defining requirements, then roadmap.
+Stopped at: Roadmap created for v1.5 Financial Statements (3 phases: 32-34)
+Resume notes: Next step is `/gsd:plan-phase 32`. Design doc has full implementation waves ready.
