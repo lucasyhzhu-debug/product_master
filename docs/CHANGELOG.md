@@ -14,6 +14,18 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-03-01 - Fix: Sales Analytics counts balls, not product units
+
+Previously, the "units sold" metric counted each product as 1 regardless of how many balls it contained. Now it correctly counts actual Big Ball and Mid Ball components — a hamper with 3 balls shows as 3 balls sold, not 1 unit.
+
+- **Backend:** `getLifetimeTotalsInternal` now resolves BOM via `menuProductComponents` + `componentTypes` to count production balls per product
+- **Estimation:** Unmapped historical products use `estimateBallsFromName()` — infers from name patterns (Triple=3, Double=2, 6 Pack=6, default=1)
+- **UI:** Label changed from "units sold" to "balls sold"
+- **Tests:** 25 new tests covering BOM resolution, name estimation, aggregation, and edge cases (671 total passing)
+- **Docs:** Added pitfall #13 and business rule #13 to CLAUDE.md to prevent this class of mistake
+
+---
+
 ## [v1.4] - 2026-03-01 - Milestone v1.4: Sales & Channel Integration
 
 All sales channels now flow into one unified view. GrabFood, BigSeller (Shopee + Tokopedia), and Consignment outlets are integrated with one-click platform auth and manual-trigger syncs. The Sales Analytics page shows all 8 channels in a single interactive chart.

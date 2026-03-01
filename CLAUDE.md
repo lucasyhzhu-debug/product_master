@@ -334,6 +334,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 10. **Unified BOM (source of truth for product composition)**: `componentTypes` table unifies production units (balls) and packaging items (boxes, stickers) into a single Bill of Materials system. Two categories: `production`, `packaging`. **All ball type/count information MUST be derived from BOM** (`menuProductComponents` + `componentTypes`), NOT from the deprecated `menuProducts.productionType`/`productionUnits` or `orderItems.productionType`/`productionUnits` fields. BOM codes: `BIG_BALL` = 80g/Jumbo, `MID_BALL` = 45g/Original.
 11. **Inventory FIFO**: Packaging inventory uses FIFO batch tracking. Stock is reserved on order confirmation and consumed on fulfillment.
 12. **Production counts source of truth**: All production count data (boxed, stickered, packed, shippedToGoldfinch) is derived from `productionLog` aggregation. The `productionCounts` table is archived (read-only). Resets are tracked via `productionResets` timestamps.
+13. **"Units sold" = balls, not products**: Any metric labelled "units sold" or "production volume" MUST count BOM-resolved balls (Big Ball + Mid Ball), not product-level order quantity. A product containing 3 balls counts as 3, not 1. This is critical for hampers and multi-ball products. See `estimateBallsFromName()` in `convex/externalData/queries.ts` for unmapped product fallback.
 
 ---
 
@@ -351,6 +352,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 10. **Auth token in mutations** -- Protected mutations require `token: v.string()` arg. Extract token before passing to db operations.
 11. **NEVER use productionType/productionUnits** -- These deprecated fields on `menuProducts` and `orderItems` cause confusion (e.g., `productionType="original"` maps to BIG_BALL/80g, not what you'd expect). Always derive ball composition from BOM: `menuProductComponents` joined with `componentTypes` (filter `category="production"`, read `code` for `BIG_BALL`/`MID_BALL`).
 12. **Branch from main before starting a new phase** -- When creating a phase branch, ALWAYS `git switch main && git pull` first. Never branch from another phase's feature branch. If the previous phase hasn't been merged to main yet, merge it first or wait. Branching from another feature branch interleaves commits and creates messy git history.
+13. **Count balls, not product units** -- When counting "units sold" or production volume, ALWAYS resolve BOM to count actual Big Ball + Mid Ball components, NOT product-level quantity. A hamper with 3 balls = 3, not 1. Use `menuProductComponents` + `componentTypes` (category="production") to get ball count per product. For unmapped products (no `linkedMenuProductId`), use `estimateBallsFromName()` from `convex/externalData/queries.ts` which infers from product name patterns (Triple=3, Double=2, 6 Pack=6, default=1). This applies to Sales Analytics, dashboards, and any future "units sold" metric.
 
 ---
 
