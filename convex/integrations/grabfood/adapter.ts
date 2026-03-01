@@ -303,13 +303,19 @@ export const pauseStore = action({
     // GrabFood API expects: { merchantID, isPause: bool, duration?: string }
     // duration must be exactly one of: "30m", "1h", "24h"
     const isPause = args.pauseDuration > 0;
-    const durationMap: Record<number, string> = { 30: "30m", 60: "1h", 120: "24h" };
+    /**
+     * GrabFood API pause durations.
+     * Only 3 values supported: "30m", "1h", "24h".
+     * Keys = minutes sent from frontend buttons.
+     * Note: 1440 = 24 * 60 (actual minutes in 24 hours).
+     */
+    const PAUSE_DURATION_MAP: Record<number, string> = { 30: "30m", 60: "1h", 1440: "24h" };
     const body: Record<string, unknown> = {
       merchantID: args.merchantID,
       isPause,
     };
     if (isPause) {
-      body.duration = durationMap[args.pauseDuration] ?? "30m";
+      body.duration = PAUSE_DURATION_MAP[args.pauseDuration] ?? "30m";
     }
 
     const { ok, status, data } = await grabRequest(
@@ -324,7 +330,8 @@ export const pauseStore = action({
       return { success: false, error: `HTTP ${status}: ${err.message ?? err.reason}` };
     }
 
-    const action = args.pauseDuration === 0 ? "unpaused" : `paused for ${args.pauseDuration} min`;
+    const pauseLabel = PAUSE_DURATION_MAP[args.pauseDuration] ?? `${args.pauseDuration}m`;
+    const action = args.pauseDuration === 0 ? "unpaused" : `paused for ${pauseLabel}`;
     return { success: true, message: `Store ${action}` };
   },
 });

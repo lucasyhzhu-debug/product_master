@@ -6,6 +6,7 @@ import { calculatePeriodRange } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
+import { isExternalSource } from "../lib/externalSource";
 
 const sourceValidator = externalSource;
 
@@ -325,10 +326,12 @@ export const getProductMappings = query({
 export const getLatestWebhookError = query({
   args: { source: v.string() },
   handler: async (ctx, args) => {
+    if (!isExternalSource(args.source)) return null;
+    const source = args.source;
     // Get the last 20 sync logs for this source, check for recent webhook errors
     const logs = await ctx.db
       .query("externalSyncLogs")
-      .withIndex("by_source", (q) => q.eq("source", args.source as any))
+      .withIndex("by_source", (q) => q.eq("source", source))
       .order("desc")
       .take(20);
 

@@ -677,7 +677,7 @@ function StoreStatusTab({ merchantID, outletName }: StoreStatusTabProps) {
                 {isOpen && !isPaused && (
                   <>
                     <span className="text-sm self-center mr-1">Pause for:</span>
-                    {([{ mins: 30, label: "30 min" }, { mins: 60, label: "1 hour" }, { mins: 120, label: "24 hours" }] as const).map(({ mins, label }) => (
+                    {([{ mins: 30, label: "30 min" }, { mins: 60, label: "1 hour" }, { mins: 1440, label: "24 hours" }] as const).map(({ mins, label }) => (
                       <Button
                         key={mins}
                         variant="outline"
