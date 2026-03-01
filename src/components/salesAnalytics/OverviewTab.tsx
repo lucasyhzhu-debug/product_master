@@ -22,6 +22,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { getPlatformPalette } from "@/lib/platformColors";
 import { SalesChart } from "./SalesChart";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -151,45 +152,23 @@ function MatchStatusBadge({ status }: { status?: MatchConfidence | null }) {
   }
 }
 
-function PlatformBadge({ platform }: { platform: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok" }) {
-  if (platform === "k3mart") {
-    return (
-      <Badge variant="outline" className="border-purple-500 dark:border-purple-600 text-purple-700 dark:text-purple-400">
-        K3 Mart
-      </Badge>
-    );
-  }
-  if (platform === "internal") {
-    return (
-      <Badge variant="outline" className="border-blue-500 dark:border-blue-600 text-blue-700 dark:text-blue-400">
-        Local
-      </Badge>
-    );
-  }
-  if (platform === "grabfood") {
-    return (
-      <Badge variant="outline" className="border-green-500 dark:border-green-600 text-green-700 dark:text-green-400">
-        GrabFood
-      </Badge>
-    );
-  }
-  if (platform === "bigseller") {
-    return (
-      <Badge variant="outline" className="border-orange-500 dark:border-orange-600 text-orange-700 dark:text-orange-400">
-        BigSeller
-      </Badge>
-    );
-  }
-  if (platform === "consignment") {
-    return (
-      <Badge variant="outline" className="border-teal-500 dark:border-teal-600 text-teal-700 dark:text-teal-400">
-        Consignment
-      </Badge>
-    );
-  }
+const SOURCE_DISPLAY_NAMES: Record<string, string> = {
+  gobiz: "GoFood",
+  k3mart: "K3 Mart",
+  internal: "Local",
+  grabfood: "GrabFood",
+  shopee: "Shopee",
+  tiktok: "Tokopedia",
+  consignment: "Consignment",
+  bigseller: "BigSeller",
+};
+
+function PlatformBadge({ platform }: { platform: string }) {
+  const palette = getPlatformPalette(platform);
+  const displayName = SOURCE_DISPLAY_NAMES[platform] ?? platform;
   return (
-    <Badge variant="outline" className="border-red-500 dark:border-red-600 text-red-700 dark:text-red-400">
-      GoBiz
+    <Badge variant="outline" className={cn(palette.badgeBorder, palette.badgeText)}>
+      {displayName}
     </Badge>
   );
 }
@@ -433,16 +412,6 @@ type PeriodData = {
   comparisonLabel?: string;
 };
 
-const CHANNEL_COLORS: Record<string, { border: string; dot: string }> = {
-  gobiz: { border: "border-t-teal-500", dot: "bg-teal-500" },
-  k3mart: { border: "border-t-blue-500", dot: "bg-blue-500" },
-  internal: { border: "border-t-amber-500", dot: "bg-amber-500" },
-  grabfood: { border: "border-t-green-500", dot: "bg-green-500" },
-  shopee: { border: "border-t-orange-500", dot: "bg-orange-500" },
-  tiktok: { border: "border-t-violet-500", dot: "bg-violet-500" },
-  consignment: { border: "border-t-purple-500", dot: "bg-purple-500" },
-  bigseller: { border: "border-t-gray-500", dot: "bg-gray-500" },
-};
 
 function ChannelSummary({
   currentPeriod,
@@ -453,6 +422,12 @@ function ChannelSummary({
 }) {
   const channels = currentPeriod.channels ?? [];
   const prevChannels = previousPeriod.channels ?? [];
+
+  const prevChannelMap = new Map(prevChannels.map((p) => [p.source, p]));
+  function findPrevChannel(source: string) {
+    const prev = prevChannelMap.get(source);
+    return prev ? { gross: prev.gross, net: prev.net, transactions: prev.transactions } : { gross: 0, net: 0, transactions: 0 };
+  }
 
   // Build segments: "All Channels" first, then dynamic channels from backend
   const segments: {
@@ -479,17 +454,17 @@ function ChannelSummary({
         transactions: previousPeriod.totalTransactions,
       },
     },
-    ...channels.map((ch) => ({
-      key: ch.source,
-      label: ch.displayName,
-      colorClass: CHANNEL_COLORS[ch.source]?.border ?? "border-t-gray-500",
-      dotClass: CHANNEL_COLORS[ch.source]?.dot ?? "bg-gray-500",
-      current: { gross: ch.gross, net: ch.net, transactions: ch.transactions },
-      previous: (() => {
-        const prev = prevChannels.find((p) => p.source === ch.source);
-        return prev ? { gross: prev.gross, net: prev.net, transactions: prev.transactions } : { gross: 0, net: 0, transactions: 0 };
-      })(),
-    })),
+    ...channels.map((ch) => {
+      const palette = getPlatformPalette(ch.source);
+      return {
+        key: ch.source,
+        label: ch.displayName,
+        colorClass: palette.borderTop,
+        dotClass: palette.dot,
+        current: { gross: ch.gross, net: ch.net, transactions: ch.transactions },
+        previous: findPrevChannel(ch.source),
+      };
+    }),
   ];
 
   return (
@@ -615,16 +590,6 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
     return null;
   }
 
-  const platformColors: Record<string, { border: string; dot: string; bg: string }> = {
-    gobiz: { border: "border-l-teal-500", dot: "bg-teal-500", bg: "hover:bg-teal-50 dark:hover:bg-teal-950/20" },
-    k3mart: { border: "border-l-blue-500", dot: "bg-blue-500", bg: "hover:bg-blue-50 dark:hover:bg-blue-950/20" },
-    internal: { border: "border-l-amber-500", dot: "bg-amber-500", bg: "hover:bg-amber-50 dark:hover:bg-amber-950/20" },
-    grabfood: { border: "border-l-green-500", dot: "bg-green-500", bg: "hover:bg-green-50 dark:hover:bg-green-950/20" },
-    shopee: { border: "border-l-orange-500", dot: "bg-orange-500", bg: "hover:bg-orange-50 dark:hover:bg-orange-950/20" },
-    tiktok: { border: "border-l-violet-500", dot: "bg-violet-500", bg: "hover:bg-violet-50 dark:hover:bg-violet-950/20" },
-    consignment: { border: "border-l-purple-500", dot: "bg-purple-500", bg: "hover:bg-purple-50 dark:hover:bg-purple-950/20" },
-    bigseller: { border: "border-l-gray-500", dot: "bg-gray-500", bg: "hover:bg-gray-50 dark:hover:bg-gray-950/20" },
-  };
 
   return (
     <Card>
@@ -633,7 +598,8 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
       </CardHeader>
       <CardContent className="pt-0 space-y-1">
         {data.map((platform) => {
-          const colors = platformColors[platform.platform] ?? platformColors.internal;
+          const palette = getPlatformPalette(platform.platform);
+          const colors = { border: palette.borderLeft, dot: palette.dot, bg: palette.hoverBg };
           const isExpanded = expandedPlatform === platform.platform;
           const hasOutlets = platform.outlets.length > 1 || (platform.outlets.length === 1 && platform.outlets[0].outletId !== null);
 
@@ -707,14 +673,24 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
 // ─── Lifetime Hero ───
 
 function LifetimeHero() {
-  const { data, isLoading } = useLifetimeTotals();
+  const { data, isLoading, error } = useLifetimeTotals();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="py-6">
           <Skeleton className="h-16 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <p className="text-sm text-muted-foreground">Failed to load lifetime totals.</p>
         </CardContent>
       </Card>
     );

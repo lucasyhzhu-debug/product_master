@@ -167,15 +167,18 @@ export type LifetimeTotals = {
 export function useLifetimeTotals() {
   const [data, setData] = useState<LifetimeTotals | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const fetchAction = useAction(api.externalData.actions.fetchLifetimeTotals);
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const result = await fetchAction({});
       setData(result as LifetimeTotals);
-    } catch (error) {
-      console.error("Failed to fetch lifetime totals:", error);
+    } catch (err) {
+      console.error("Failed to fetch lifetime totals:", err);
+      setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
       setIsLoading(false);
     }
@@ -183,7 +186,7 @@ export function useLifetimeTotals() {
 
   useEffect(() => { load(); }, [load]);
 
-  return { data, isLoading, refresh: load };
+  return { data, isLoading, error, refresh: load };
 }
 
 /**

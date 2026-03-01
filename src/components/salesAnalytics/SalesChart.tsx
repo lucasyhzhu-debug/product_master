@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { getPlatformPalette } from "@/lib/platformColors";
 import {
   useRevenueTimeSeries,
   type PeriodPreset,
@@ -24,17 +25,6 @@ import {
 type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 type Metric = "gross" | "net" | "volume";
 type ChartMode = "stacked" | "grouped";
-
-const PLATFORM_COLORS: Record<string, string> = {
-  GoFood: "#14b8a6",      // teal-500
-  "K3 Mart": "#3b82f6",   // blue-500
-  Direct: "#f59e0b",      // amber-500
-  GrabFood: "#22c55e",    // green-500
-  Shopee: "#f97316",      // orange-500
-  Tokopedia: "#8b5cf6",   // violet-500
-  Consignment: "#a855f7", // purple-500
-  BigSeller: "#6b7280",   // gray-500 (fallback)
-};
 
 /** Auto-select granularity based on preset range */
 function defaultGranularity(preset: PeriodPreset): Granularity {
@@ -143,6 +133,16 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
   const platforms = useMemo(() => {
     if (!data) return [];
     return data.series.map((s) => s.platform);
+  }, [data]);
+
+  // Map display names to hex colors via the unified palette
+  const platformColorMap = useMemo(() => {
+    if (!data) return {} as Record<string, string>;
+    const map: Record<string, string> = {};
+    for (const s of data.series) {
+      map[s.platform] = getPlatformPalette(s.platformKey).hex;
+    }
+    return map;
   }, [data]);
 
   const useAreaChart = granularity === "monthly";
@@ -272,8 +272,8 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                     dataKey={platform}
                     stackId="1"
                     hide={hiddenPlatforms.has(platform)}
-                    fill={PLATFORM_COLORS[platform] ?? "#888"}
-                    stroke={PLATFORM_COLORS[platform] ?? "#888"}
+                    fill={platformColorMap[platform] ?? "#888"}
+                    stroke={platformColorMap[platform] ?? "#888"}
                     fillOpacity={0.6}
                   />
                 ))}
@@ -301,7 +301,7 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                     dataKey={platform}
                     hide={hiddenPlatforms.has(platform)}
                     {...(chartMode === "stacked" ? { stackId: "stack" } : {})}
-                    fill={PLATFORM_COLORS[platform] ?? "#888"}
+                    fill={platformColorMap[platform] ?? "#888"}
                     radius={chartMode === "grouped" ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                   />
                 ))}

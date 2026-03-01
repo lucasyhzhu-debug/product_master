@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
+import type { QueryCtx } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { calculatePeriodRange } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
@@ -7,6 +8,40 @@ import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
 
 const sourceValidator = externalSource;
+
+/**
+ * Batch-lookup real order data for internal revenue records.
+ * Internal orders sync revenueGross = finalTotal (post-discount), but we need
+ * the real totalAmount (pre-discount) for accurate gross/net/discount reporting.
+ * Uses Promise.all for concurrent index lookups instead of sequential awaits.
+ */
+async function fetchInternalOrderDataMap(
+  ctx: QueryCtx,
+  records: Doc<"externalRevenue">[]
+): Promise<Map<string, { totalAmount: number; finalTotal: number; deliveryFee: number }>> {
+  const orderNumbers = records
+    .filter((r) => r.source === "internal" && r.externalTransactionId)
+    .map((r) => r.externalTransactionId!);
+  const map = new Map<string, { totalAmount: number; finalTotal: number; deliveryFee: number }>();
+  if (orderNumbers.length === 0) return map;
+  const lookups = await Promise.all(
+    orderNumbers.map((orderNumber) =>
+      ctx.db.query("orders")
+        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+        .first()
+    )
+  );
+  for (const order of lookups) {
+    if (order) {
+      map.set(order.orderNumber, {
+        totalAmount: order.totalAmount,
+        finalTotal: order.finalTotal ?? order.totalAmount,
+        deliveryFee: order.deliveryFee ?? 0,
+      });
+    }
+  }
+  return map;
+}
 
 // ─── INTERNAL QUERIES (called by platform adapter actions) ───
 
@@ -506,14 +541,17 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         bySource.set(record.source, existing);
       }
 
-      // Per-channel platform aggregation (for non-internal sources)
+      // Per-channel platform aggregation (for non-internal sources) — single pass
       function aggregatePlatformChannel(channelRecords: typeof records) {
-        const gross = channelRecords.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
-        const commission = channelRecords.reduce((sum, r) => sum + (r.commission ?? 0), 0);
-        const adBurn = channelRecords.reduce((sum, r) => sum + (r.adBurn ?? 0), 0);
-        const promoBurn = channelRecords.reduce((sum, r) => sum + (r.promoBurn ?? 0), 0);
+        let gross = 0, commission = 0, adBurn = 0, promoBurn = 0, txns = 0;
+        for (const r of channelRecords) {
+          gross      += r.revenueGross    ?? 0;
+          commission += r.commission      ?? 0;
+          adBurn     += r.adBurn          ?? 0;
+          promoBurn  += r.promoBurn       ?? 0;
+          txns       += r.transactionCount ?? 0;
+        }
         const net = gross - commission - adBurn - promoBurn;
-        const txns = channelRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
         return { gross, net, txns, commission, adBurn, promoBurn };
       }
 
@@ -525,42 +563,32 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
       let totalDeliveryFees = 0;
       const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
 
-      const orderNumbers = internalRecords
-        .map((r) => r.externalTransactionId)
-        .filter((n): n is string => !!n);
-
-      if (orderNumbers.length > 0) {
-        for (const orderNumber of orderNumbers) {
-          const order = await ctx.db
-            .query("orders")
-            .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-            .first();
-          if (order) {
-            const deliveryFee = order.deliveryFee ?? 0;
-            const netProduct = (order.finalTotal ?? order.totalAmount) - deliveryFee;
-            internalGross += order.totalAmount;
-            internalNet += netProduct;
-            totalDiscounts += order.totalAmount - netProduct;
-            totalDeliveryFees += deliveryFee;
-          } else {
-            // Fallback to revenue record data if order deleted
-            const rev = internalRecords.find((r) => r.externalTransactionId === orderNumber);
-            if (rev) {
-              internalGross += rev.revenueGross ?? 0;
-              internalNet += rev.revenueGross ?? 0;
-            }
-          }
+      const orderDataMap = await fetchInternalOrderDataMap(ctx, internalRecords);
+      for (const rec of internalRecords) {
+        const orderNumber = rec.externalTransactionId;
+        if (!orderNumber) continue;
+        const od = orderDataMap.get(orderNumber);
+        if (od) {
+          const netProduct = od.finalTotal - od.deliveryFee;
+          internalGross += od.totalAmount;
+          internalNet += netProduct;
+          totalDiscounts += od.totalAmount - netProduct;
+          totalDeliveryFees += od.deliveryFee;
+        } else {
+          // Fallback to revenue record data if order deleted
+          internalGross += rec.revenueGross ?? 0;
+          internalNet += rec.revenueGross ?? 0;
         }
       }
 
-      // Build dynamic channels array
+      // Build dynamic channels array, accumulating totals in a single pass
       const channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }> = [];
-
-      // Aggregate all non-internal sources
       let totalCommission = 0;
       let totalAdBurn = 0;
       let totalPromoBurn = 0;
       let platformGross = 0;
+      let totalNet = internalNet;
+      let totalTransactions = internalTxns;
 
       for (const [source, sourceRecords] of bySource) {
         if (source === "internal") continue; // handled separately above
@@ -569,6 +597,8 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         totalAdBurn += agg.adBurn;
         totalPromoBurn += agg.promoBurn;
         platformGross += agg.gross;
+        totalNet += agg.net;
+        totalTransactions += agg.txns;
         if (agg.gross > 0 || agg.txns > 0) {
           channels.push({
             source,
@@ -596,8 +626,8 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
 
       return {
         totalGross: platformGross + internalGross,
-        totalNet: channels.reduce((sum, ch) => sum + ch.net, 0),
-        totalTransactions: channels.reduce((sum, ch) => sum + ch.transactions, 0),
+        totalNet,
+        totalTransactions,
         totalCommission,
         totalAdBurn,
         totalPromoBurn,
@@ -621,6 +651,12 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         .map((r) => r.outletId!)
     );
 
+    // Run both period aggregations in parallel
+    const [currentAgg, previousAgg] = await Promise.all([
+      aggregate(currentRevenue),
+      aggregate(previousRevenue),
+    ]);
+
     return {
       platforms: {
         k3mart: {
@@ -640,13 +676,13 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         },
       },
       currentPeriod: {
-        ...(await aggregate(currentRevenue)),
+        ...currentAgg,
         periodLabel: range.periodLabel,
         comparisonLabel: range.comparisonLabel,
         periodStart: range.currentStart,
         periodEnd: range.currentEnd,
       },
-      previousPeriod: await aggregate(previousRevenue),
+      previousPeriod: previousAgg,
     };
   },
 });
@@ -1515,24 +1551,7 @@ export const getRevenueTimeSeries = query({
       .collect();
 
     // For internal orders, look up real order data for accurate gross/net
-    const internalOrderNumbers = records
-      .filter((r) => r.source === "internal" && r.externalTransactionId)
-      .map((r) => r.externalTransactionId!);
-    const orderDataMap = new Map<string, { totalAmount: number; finalTotal: number }>();
-    if (internalOrderNumbers.length > 0) {
-      for (const orderNumber of internalOrderNumbers) {
-        const order = await ctx.db
-          .query("orders")
-          .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-          .first();
-        if (order) {
-          orderDataMap.set(orderNumber, {
-            totalAmount: order.totalAmount,
-            finalTotal: order.finalTotal ?? order.totalAmount,
-          });
-        }
-      }
-    }
+    const orderDataMap = await fetchInternalOrderDataMap(ctx, records);
 
     // Bucket key function
     function bucketKey(utcMs: number): string {
@@ -1643,30 +1662,15 @@ export const getRevenueByOutletInternal = internalQuery({
       .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
       .collect();
 
-    // Fetch outlet names
-    const outletIds = new Set(records.filter((r) => r.outletId).map((r) => r.outletId!));
+    // Fetch outlet names and internal order data in parallel
+    const outletIds = [...new Set(records.filter((r) => r.outletId).map((r) => r.outletId!))];
+    const [outletLookups, orderDataMap] = await Promise.all([
+      Promise.all(outletIds.map((id) => ctx.db.get(id))),
+      fetchInternalOrderDataMap(ctx, records),
+    ]);
     const outletNameMap = new Map<string, string>();
-    for (const outletId of outletIds) {
-      const outlet = await ctx.db.get(outletId);
-      if (outlet) outletNameMap.set(outletId, outlet.name);
-    }
-
-    // For internal orders, get real order data
-    const internalOrderNumbers = records
-      .filter((r) => r.source === "internal" && r.externalTransactionId)
-      .map((r) => r.externalTransactionId!);
-    const orderDataMap = new Map<string, { totalAmount: number; finalTotal: number }>();
-    for (const orderNumber of internalOrderNumbers) {
-      const order = await ctx.db
-        .query("orders")
-        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-        .first();
-      if (order) {
-        orderDataMap.set(orderNumber, {
-          totalAmount: order.totalAmount,
-          finalTotal: order.finalTotal ?? order.totalAmount,
-        });
-      }
+    for (const outlet of outletLookups) {
+      if (outlet) outletNameMap.set(outlet._id, outlet.name);
     }
 
     // Group by source -> outletId
@@ -1748,10 +1752,14 @@ export const getRevenueByOutletInternal = internalQuery({
 export const getLifetimeTotalsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Scan all revenue items for per-product per-source aggregation
-    const items = await ctx.db.query("externalRevenueItems").collect();
+    // Parallel table scans — these are independent reads
+    const [items, revenues] = await Promise.all([
+      ctx.db.query("externalRevenueItems").collect(),
+      ctx.db.query("externalRevenue").collect(),
+    ]);
 
     // Aggregate by product key (linkedMenuProductId or unmapped productName)
+    // Also collect all sources during the same pass
     const productMap = new Map<string, {
       menuProductId: string | undefined;
       productName: string;
@@ -1759,8 +1767,10 @@ export const getLifetimeTotalsInternal = internalQuery({
       totalRevenue: number;
       bySource: Record<string, number>;
     }>();
+    const allSources = new Set<string>();
 
     for (const item of items) {
+      allSources.add(item.source);
       const key = item.linkedMenuProductId ?? `unmapped:${item.productName}`;
       const existing = productMap.get(key);
       if (existing) {
@@ -1778,8 +1788,7 @@ export const getLifetimeTotalsInternal = internalQuery({
       }
     }
 
-    // Also aggregate from externalRevenue for lifetime totals
-    const revenues = await ctx.db.query("externalRevenue").collect();
+    // Aggregate lifetime totals from externalRevenue
     let lifetimeRevenue = 0;
     let lifetimeTransactions = 0;
     for (const rev of revenues) {
@@ -1793,13 +1802,6 @@ export const getLifetimeTotalsInternal = internalQuery({
 
     const totalUnits = products.reduce((sum, p) => sum + p.totalUnits, 0);
 
-    // Build bySource display names for the product breakdown table headers
-    const allSources = new Set<string>();
-    for (const p of products) {
-      for (const src of Object.keys(p.bySource)) {
-        allSources.add(src);
-      }
-    }
     const sourceColumns = [...allSources].map((src) => ({
       source: src,
       displayName: sourceToPlatform(src),
