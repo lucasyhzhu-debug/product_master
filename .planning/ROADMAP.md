@@ -498,4 +498,4 @@ Plans:
 | 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
 | 29.1. Test Suite Repair | 1/1 | Complete    | 2026-02-28 | - |
 | 30. Unified Sales Analytics | 2/2 | Complete    | 2026-03-01 | - |
-| 31. Tech Debt Cleanup | 1/1 | Complete   | 2026-03-01 | - |
+| 31. Tech Debt Cleanup | 1/1 | Complete    | 2026-03-01 | - |
