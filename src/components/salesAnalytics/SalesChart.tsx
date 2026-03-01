@@ -25,10 +25,15 @@ type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 type Metric = "gross" | "net" | "volume";
 type ChartMode = "stacked" | "grouped";
 
-const PLATFORM_COLORS = {
-  GoFood: "#14b8a6", // teal-500
-  "K3 Mart": "#3b82f6", // blue-500
-  Direct: "#f59e0b", // amber-500
+const PLATFORM_COLORS: Record<string, string> = {
+  GoFood: "#14b8a6",      // teal-500
+  "K3 Mart": "#3b82f6",   // blue-500
+  Direct: "#f59e0b",      // amber-500
+  GrabFood: "#22c55e",    // green-500
+  Shopee: "#f97316",      // orange-500
+  Tokopedia: "#8b5cf6",   // violet-500
+  Consignment: "#a855f7", // purple-500
+  BigSeller: "#6b7280",   // gray-500 (fallback)
 };
 
 /** Auto-select granularity based on preset range */
@@ -267,8 +272,8 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                     dataKey={platform}
                     stackId="1"
                     hide={hiddenPlatforms.has(platform)}
-                    fill={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
-                    stroke={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
+                    fill={PLATFORM_COLORS[platform] ?? "#888"}
+                    stroke={PLATFORM_COLORS[platform] ?? "#888"}
                     fillOpacity={0.6}
                   />
                 ))}
@@ -296,7 +301,7 @@ export function SalesChart({ preset, defaultExpanded = false }: SalesChartProps)
                     dataKey={platform}
                     hide={hiddenPlatforms.has(platform)}
                     {...(chartMode === "stacked" ? { stackId: "stack" } : {})}
-                    fill={PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ?? "#888"}
+                    fill={PLATFORM_COLORS[platform] ?? "#888"}
                     radius={chartMode === "grouped" ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                   />
                 ))}
