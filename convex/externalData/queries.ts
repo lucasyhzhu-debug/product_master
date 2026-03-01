@@ -1753,25 +1753,11 @@ export const getRevenueByOutletInternal = internalQuery({
 // When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
 
 /**
- * Best-effort heuristic: estimate ball count from product name for unmapped items.
- * Used when an externalRevenueItem has no linkedMenuProductId (historical/unmapped).
- * Looks for multiplier keywords in the product name (case-insensitive).
- * Falls back to 1 ball if no pattern matches.
- *
- * This is a heuristic — the authoritative source is always BOM (menuProductComponents).
- * Mapping the product via linkedMenuProductId is always preferred.
+ * Fallback average revenue per ball in IDR, used only when zero BOM-linked
+ * products exist (cold start / no product mappings yet).
+ * Once any products are mapped, the dynamic weighted average takes over.
  */
-export function estimateBallsFromName(productName: string): number {
-  const lower = productName.toLowerCase();
-  // Check for explicit multipliers first (highest to lowest)
-  if (lower.includes("6 pack") || lower.includes("6pack")) return 6;
-  if (lower.includes("triple") || lower.includes("3 pack") || lower.includes("3pack")) return 3;
-  if (lower.includes("double") || lower.includes("2 pack") || lower.includes("2pack")) return 2;
-  // Single/default variants
-  if (lower.includes("single")) return 1;
-  // Default: 1 ball per unit (Original, Jumbo, etc.)
-  return 1;
-}
+const FALLBACK_REVENUE_PER_BALL = 35_000;
 
 export const getLifetimeTotalsInternal = internalQuery({
   args: {},
@@ -1801,41 +1787,20 @@ export const getLifetimeTotalsInternal = internalQuery({
       }
     }
 
-    // Aggregate by product key (linkedMenuProductId or unmapped productName)
-    // Also collect all sources during the same pass
-    // totalBalls = item.quantity * ballsPerProduct (from BOM)
-    const productMap = new Map<string, {
-      menuProductId: string | undefined;
-      productName: string;
-      totalBalls: number;
-      totalRevenue: number;
-      bySource: Record<string, number>;
-    }>();
-    const allSources = new Set<string>();
+    // Calculate dynamic avgRevenuePerBall from BOM-linked items.
+    // "Known" items have a linkedMenuProductId with production BOM components.
+    // Their weighted average revenue/ball is used to estimate total balls from
+    // all revenue (including unmapped items).
+    let knownRevenue = 0;
+    let knownBalls = 0;
 
     for (const item of items) {
-      allSources.add(item.source);
-      const key = item.linkedMenuProductId ?? `unmapped:${item.productName}`;
-      // Look up BOM ball count; fall back to name-based estimation for unmapped products
-      const ballsPerProduct = item.linkedMenuProductId
-        ? (menuProductBallCount.get(item.linkedMenuProductId as string) ?? 1)
-        : estimateBallsFromName(item.productName);
-      const ballCount = item.quantity * ballsPerProduct;
-
-      const existing = productMap.get(key);
-      if (existing) {
-        existing.totalBalls += ballCount;
-        existing.totalRevenue += item.totalPrice;
-        existing.bySource[item.source] = (existing.bySource[item.source] ?? 0) + ballCount;
-      } else {
-        productMap.set(key, {
-          menuProductId: item.linkedMenuProductId ?? undefined,
-          productName: item.productName,
-          totalBalls: ballCount,
-          totalRevenue: item.totalPrice,
-          bySource: { [item.source]: ballCount },
-        });
-      }
+      if (!item.linkedMenuProductId) continue;
+      const ballsPerProduct = menuProductBallCount.get(item.linkedMenuProductId as string);
+      if (!ballsPerProduct || ballsPerProduct <= 0) continue;
+      // This item has a valid BOM mapping with production components
+      knownRevenue += item.totalPrice;
+      knownBalls += item.quantity * ballsPerProduct;
     }
 
     // Aggregate lifetime totals from externalRevenue
@@ -1846,23 +1811,22 @@ export const getLifetimeTotalsInternal = internalQuery({
       lifetimeTransactions += rev.transactionCount ?? 1;
     }
 
-    // Sort products by total balls descending
-    const products = Array.from(productMap.values())
-      .sort((a, b) => b.totalBalls - a.totalBalls);
+    // Dynamic weighted average: revenue / balls from known products.
+    // Falls back to FALLBACK_REVENUE_PER_BALL when no known products exist.
+    const avgRevenuePerBall = knownBalls > 0
+      ? knownRevenue / knownBalls
+      : FALLBACK_REVENUE_PER_BALL;
 
-    const totalBalls = products.reduce((sum, p) => sum + p.totalBalls, 0);
-
-    const sourceColumns = [...allSources].map((src) => ({
-      source: src,
-      displayName: sourceToPlatform(src),
-    }));
+    // Estimate total balls sold from lifetime gross revenue
+    const totalBalls = lifetimeRevenue > 0
+      ? Math.round(lifetimeRevenue / avgRevenuePerBall)
+      : 0;
 
     return {
       totalBalls,
       lifetimeRevenue,
       lifetimeTransactions,
-      products,
-      sourceColumns,
+      avgRevenuePerBall,
     };
   },
 });
