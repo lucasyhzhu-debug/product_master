@@ -155,100 +155,43 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
     expect(true).toBe(true);
   });
 
-  test("US-8: Platform filter badges work and are intuitive", async ({
+  test("US-8: Chart legend acts as channel filter", async ({
     page,
   }) => {
-    // Cofounder wants to see "just K3 Mart" or "just Internal" revenue
+    // Phase 30: Platform filter badges were removed — chart legend IS the filter now
     await navigateTo(page, "/sales");
     await waitForDataLoad(page);
 
-    // Find filter badges
-    const filterBadges = ["All", "K3 Mart", "GoBiz", "Internal"];
+    // Verify chart legend items exist (dynamic from backend data)
+    const chartSection = page.locator('[class*="recharts"]').first();
+    const chartVisible = await chartSection.isVisible().catch(() => false);
+    console.log(`Chart section visible: ${chartVisible}`);
 
-    console.log("--- PLATFORM FILTER ANALYSIS ---");
+    // Verify "Sales Details" table shows all channels (no filter badges)
+    const salesDetails = page.locator("text=Sales Details").first();
+    const detailsVisible = await salesDetails.isVisible().catch(() => false);
+    console.log(`Sales Details visible: ${detailsVisible}`);
 
-    for (const filter of filterBadges) {
-      const badge = page
-        .locator(`text="${filter}"`)
-        .first();
-      const visible = await badge.isVisible().catch(() => false);
-      console.log(`Filter "${filter}": ${visible ? "visible" : "MISSING"}`);
-    }
-
-    // USABILITY: Click each filter and verify the table updates
-    // Test K3 Mart filter
-    const k3Filter = page
-      .locator('div:has(> text="Revenue Details") >> text="K3 Mart"')
-      .first();
-    if (await k3Filter.isVisible().catch(() => false)) {
-      await k3Filter.click();
-      await page.waitForTimeout(1000);
-      await screenshot(page, "14-filter-k3mart");
-
-      // Check active state — badge should look different
-      console.log("Clicked K3 Mart filter");
-    }
-
-    // Test Internal filter
-    const internalFilter = page
-      .locator('div:has(> text="Revenue Details") >> text="Internal"')
-      .first();
-    if (await internalFilter.isVisible().catch(() => false)) {
-      await internalFilter.click();
-      await page.waitForTimeout(1000);
-      await screenshot(page, "15-filter-internal");
-      console.log("Clicked Internal filter");
-    }
-
-    // Reset to All
-    const allFilter = page
-      .locator('div:has(> text="Revenue Details") >> text="All"')
-      .first();
-    if (await allFilter.isVisible().catch(() => false)) {
-      await allFilter.click();
-      await page.waitForTimeout(500);
-      console.log("Reset to All filter");
-    }
-
-    // USABILITY CHECK: Are the filter badges visually distinct enough?
-    // A busy cofounder should immediately see which filter is active
-    const badges = page.locator('.cursor-pointer:has-text("K3 Mart")').first();
-    if (await badges.isVisible().catch(() => false)) {
-      const bgColor = await badges.evaluate((el) =>
-        window.getComputedStyle(el).backgroundColor
-      );
-      console.log(`K3 Mart badge bg when not selected: ${bgColor}`);
-    }
-
-    await screenshot(page, "16-filters-overview");
+    await screenshot(page, "14-chart-legend-filter");
     expect(true).toBe(true);
   });
 
-  test("US-9: Page description is accurate (mentions Internal Orders)", async ({
+  test("US-9: Page description reflects all channels", async ({
     page,
   }) => {
-    // Check if page header still says "K3 Mart and GoBiz" or has been updated
+    // Phase 30: Description updated to "Track revenue across all channels"
     await navigateTo(page, "/sales");
 
-    const description = page.locator(
-      "text=Track revenue from K3 Mart and GoBiz"
-    );
-    const hasOldDescription = await description.isVisible().catch(() => false);
+    const description = page.locator("text=Track revenue across all channels");
+    const hasUpdatedDescription = await description
+      .isVisible()
+      .catch(() => false);
 
     console.log("--- PAGE DESCRIPTION CHECK ---");
-    if (hasOldDescription) {
-      console.log(
-        "ISSUE: Page description still says 'K3 Mart and GoBiz' — doesn't mention Internal Orders. " +
-          "Cofounder might think internal sales aren't tracked here."
-      );
-      console.log(
-        'FIX NEEDED: Update description to "Track revenue across K3 Mart, GoBiz, and Internal Orders"'
-      );
-    } else {
-      console.log("Page description appears updated or different");
-    }
+    console.log(
+      `Updated description visible: ${hasUpdatedDescription}`
+    );
 
-    // Also check if title mentions all platforms
     const title = page.locator("text=Sales Analytics").first();
     const titleVisible = await title.isVisible().catch(() => false);
     console.log(`Page title "Sales Analytics" visible: ${titleVisible}`);

@@ -441,6 +441,7 @@ const CHANNEL_COLORS: Record<string, { border: string; dot: string }> = {
   shopee: { border: "border-t-orange-500", dot: "bg-orange-500" },
   tiktok: { border: "border-t-violet-500", dot: "bg-violet-500" },
   consignment: { border: "border-t-purple-500", dot: "bg-purple-500" },
+  bigseller: { border: "border-t-gray-500", dot: "bg-gray-500" },
 };
 
 function ChannelSummary({
@@ -622,6 +623,7 @@ function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
     shopee: { border: "border-l-orange-500", dot: "bg-orange-500", bg: "hover:bg-orange-50 dark:hover:bg-orange-950/20" },
     tiktok: { border: "border-l-violet-500", dot: "bg-violet-500", bg: "hover:bg-violet-50 dark:hover:bg-violet-950/20" },
     consignment: { border: "border-l-purple-500", dot: "bg-purple-500", bg: "hover:bg-purple-50 dark:hover:bg-purple-950/20" },
+    bigseller: { border: "border-l-gray-500", dot: "bg-gray-500", bg: "hover:bg-gray-50 dark:hover:bg-gray-950/20" },
   };
 
   return (
@@ -1277,7 +1279,7 @@ export function OverviewTab() {
 
       {/* BigSeller COGS Caveat */}
       {bigSellerStats?.allCostFeeZero && bigSellerStats.totalOrders > 0 && (
-        <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 rounded-md px-3 py-2.5">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span>
             BigSeller profit margins not available &mdash; COGS not configured in BigSeller.

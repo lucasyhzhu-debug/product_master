@@ -1484,7 +1484,7 @@ function utcToWibHourStr(utcMs: number): string {
 }
 
 /** Map source to platform display name */
-function sourceToPlatform(source: string): string {
+export function sourceToPlatform(source: string): string {
   switch (source) {
     case "gobiz": return "GoFood";
     case "k3mart": return "K3 Mart";
