@@ -703,9 +703,9 @@ function LifetimeHero() {
           <div>
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-bold tabular-nums">
-                {data.totalUnits.toLocaleString()}
+                {data.totalBalls.toLocaleString()}
               </span>
-              <span className="text-sm text-muted-foreground">units sold</span>
+              <span className="text-sm text-muted-foreground">balls sold</span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               {formatCurrency(data.lifetimeRevenue)} lifetime revenue
@@ -732,7 +732,7 @@ function LifetimeHero() {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-2 font-medium">Product</th>
-                  <th className="text-right py-2 px-2 font-medium">Units</th>
+                  <th className="text-right py-2 px-2 font-medium">Balls</th>
                   <th className="text-right py-2 px-2 font-medium">Revenue</th>
                   {data.sourceColumns.map((col) => (
                     <th key={col.source} className="text-right py-2 px-2 font-medium text-xs">
@@ -751,7 +751,7 @@ function LifetimeHero() {
                       )}
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums font-medium">
-                      {product.totalUnits.toLocaleString()}
+                      {product.totalBalls.toLocaleString()}
                     </td>
                     <td className="py-2 px-2 text-right tabular-nums">
                       {formatCurrency(product.totalRevenue)}
