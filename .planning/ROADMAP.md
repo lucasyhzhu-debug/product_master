@@ -84,6 +84,7 @@ Full details: `.planning/milestones/v1.3-ROADMAP.md`
 - [x] **Phase 28: BigSeller Integration** — Manual-trigger sync with scheduler-chain poll, per-order data storage with SKU breakdown, and admin SKU-to-menuProduct mapping UI (completed 2026-02-27)
 - [x] **Phase 29: Consignment Settlements** — Outlet CRUD with configurable rev share %, settlement entry form with auto-calculated payment amounts, payment status tracking, and running totals per outlet (completed 2026-02-28)
 - [x] **Phase 30: Unified Sales Analytics** — All channels in one stacked bar chart, per-consignment-outlet segments, lifetime units sold headline counter with per-product breakdown, and multi-select channel filter (completed 2026-03-01)
+- [ ] **Phase 31: Tech Debt Cleanup** — Fix BigSeller `as any` type casts, evaluate SKU index, fix GrabFood pause duration map confusion, remove dead test helper (gap closure from audit)
 
 ## Phase Details
 
@@ -457,6 +458,24 @@ Plans:
 - [x] 30-01-PLAN.md -- Backend analytics refactor: sourceToPlatform 8 mappings, dynamic channel discovery, lifetime totals query
 - [ ] 30-02-PLAN.md -- Frontend analytics UI: OverviewTab dynamic channels, SalesChart platform colors, lifetime totals card
 
+### Phase 31: Tech Debt Cleanup
+
+**Goal:** Address accumulated tech debt from v1.4 audit — fix BigSeller type safety violations, evaluate SKU index needs, correct GrabFood pause duration map confusion, and remove dead test code.
+**Depends on:** Phase 30 (all feature work complete)
+**Gap Closure:** Closes tech debt items from v1.4-MILESTONE-AUDIT.md
+**Implementation Notes:**
+- BigSeller `as any` fix: the `source` field extracted from `platform::skuCode` split is typed as `string`, but `withIndex("by_source_code")` requires `externalSource` union type. Add runtime type guard to narrow `string` → `externalSource` before index query. Affects 2 production files: `bigsellerOrders/queries.ts:110`, `integrations/bigseller/queries.ts:63`
+- SKU index: evaluate whether `externalProductCode` on `bigsellerOrders` or `externalProductMappings` needs an explicit index. Current `by_source_code` composite index covers the lookup pattern — may only need documentation, not schema change
+- GrabFood pause: `durationMap[120] = "24h"` — the key `120` implies 120 minutes but maps to 24 hours. Either use string keys (`"24h"`) or rename to make intent clear
+- Dead `createTag`: exported from `tests/convex/helpers.ts:58` but never imported by any test. Remove function
+**Success Criteria** (what must be TRUE):
+  1. No `as any` casts in BigSeller production code (`bigsellerOrders/queries.ts`, `integrations/bigseller/queries.ts`)
+  2. GrabFood pause duration mapping is clear and self-documenting
+  3. No dead exports in test helpers
+  4. `npm run type-check` passes
+  5. `npm run build` succeeds
+  6. All existing tests pass
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -479,3 +498,4 @@ Plans:
 | 29. Consignment Settlements | 2/2 | Complete    | 2026-02-28 | - |
 | 29.1. Test Suite Repair | 1/1 | Complete    | 2026-02-28 | - |
 | 30. Unified Sales Analytics | 2/2 | Complete    | 2026-03-01 | - |
+| 31. Tech Debt Cleanup | 0/1 | Pending     | - | - |
