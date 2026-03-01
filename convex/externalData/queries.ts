@@ -498,11 +498,15 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
     // Internal sync stores revenueGross = finalTotal (post-discount),
     // but we need gross = totalAmount (pre-discount) and discounts separated.
     async function aggregate(records: typeof currentRevenue) {
-      const k3martRecords = records.filter((r) => r.source === "k3mart");
-      const gobizRecords = records.filter((r) => r.source === "gobiz");
-      const internalRecords = records.filter((r) => r.source === "internal");
+      // Group records by source
+      const bySource = new Map<string, typeof records>();
+      for (const record of records) {
+        const existing = bySource.get(record.source) ?? [];
+        existing.push(record);
+        bySource.set(record.source, existing);
+      }
 
-      // Per-channel platform aggregation
+      // Per-channel platform aggregation (for non-internal sources)
       function aggregatePlatformChannel(channelRecords: typeof records) {
         const gross = channelRecords.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
         const commission = channelRecords.reduce((sum, r) => sum + (r.commission ?? 0), 0);
@@ -513,25 +517,14 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         return { gross, net, txns, commission, adBurn, promoBurn };
       }
 
-      const k3mart = aggregatePlatformChannel(k3martRecords);
-      const gobiz = aggregatePlatformChannel(gobizRecords);
-
-      // Platform totals
-      const platformGross = k3mart.gross + gobiz.gross;
-      const platformCommission = k3mart.commission + gobiz.commission;
-      const platformAdBurn = k3mart.adBurn + gobiz.adBurn;
-      const platformPromoBurn = k3mart.promoBurn + gobiz.promoBurn;
-      const platformNet = k3mart.net + gobiz.net;
-      const platformTxns = k3mart.txns + gobiz.txns;
-
-      // Internal: look up real orders for pre-discount totals
+      // Internal orders: special handling — look up real orders for pre-discount totals
+      const internalRecords = bySource.get("internal") ?? [];
       let internalGross = 0;
       let internalNet = 0;
       let totalDiscounts = 0;
       let totalDeliveryFees = 0;
       const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
 
-      // Batch-lookup orders by order number
       const orderNumbers = internalRecords
         .map((r) => r.externalTransactionId)
         .filter((n): n is string => !!n);
@@ -560,23 +553,59 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         }
       }
 
+      // Build dynamic channels array
+      const channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }> = [];
+
+      // Aggregate all non-internal sources
+      let totalCommission = 0;
+      let totalAdBurn = 0;
+      let totalPromoBurn = 0;
+      let platformGross = 0;
+
+      for (const [source, sourceRecords] of bySource) {
+        if (source === "internal") continue; // handled separately above
+        const agg = aggregatePlatformChannel(sourceRecords);
+        totalCommission += agg.commission;
+        totalAdBurn += agg.adBurn;
+        totalPromoBurn += agg.promoBurn;
+        platformGross += agg.gross;
+        if (agg.gross > 0 || agg.txns > 0) {
+          channels.push({
+            source,
+            displayName: sourceToPlatform(source),
+            gross: agg.gross,
+            net: agg.net,
+            transactions: agg.txns,
+          });
+        }
+      }
+
+      // Add internal channel if it has data
+      if (internalGross > 0 || internalTxns > 0) {
+        channels.push({
+          source: "internal",
+          displayName: sourceToPlatform("internal"),
+          gross: internalGross,
+          net: internalNet,
+          transactions: internalTxns,
+        });
+      }
+
+      // Sort channels by gross revenue descending (biggest first)
+      channels.sort((a, b) => b.gross - a.gross);
+
       return {
         totalGross: platformGross + internalGross,
-        totalNet: platformNet + internalNet,
-        totalTransactions: platformTxns + internalTxns,
-        totalCommission: platformCommission,
-        totalAdBurn: platformAdBurn,
-        totalPromoBurn: platformPromoBurn,
+        totalNet: channels.reduce((sum, ch) => sum + ch.net, 0),
+        totalTransactions: channels.reduce((sum, ch) => sum + ch.transactions, 0),
+        totalCommission,
+        totalAdBurn,
+        totalPromoBurn,
         totalDiscounts,
         totalDeliveryFees,
         platformGross,
         internalGross,
-        // Per-channel breakdowns
-        channels: {
-          k3mart: { gross: k3mart.gross, net: k3mart.net, transactions: k3mart.txns },
-          gobiz: { gross: gobiz.gross, net: gobiz.net, transactions: gobiz.txns },
-          internal: { gross: internalGross, net: internalNet, transactions: internalTxns },
-        },
+        channels,
       };
     }
 
@@ -1705,9 +1734,8 @@ export const getRevenueByOutletInternal = internalQuery({
       });
     }
 
-    // Sort: gobiz first, then k3mart, then internal
-    const order = ["gobiz", "k3mart", "internal"];
-    result.sort((a, b) => order.indexOf(a.platform) - order.indexOf(b.platform));
+    // Sort by gross revenue descending (biggest platforms first)
+    result.sort((a, b) => b.totals.gross - a.totals.gross);
 
     return result;
   },
