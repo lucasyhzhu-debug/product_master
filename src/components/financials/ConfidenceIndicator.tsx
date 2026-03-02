@@ -50,7 +50,7 @@ export function ConfidenceIndicator({ level }: { level: Confidence }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <AlertTriangle className="h-3 w-3 inline ml-1 text-amber-500 cursor-help" />
+        <AlertTriangle className="h-3 w-3 inline ml-1 text-[var(--color-status-warning)] cursor-help" />
       </TooltipTrigger>
       <TooltipContent>
         <p>Missing: data source unavailable or product unmapped</p>

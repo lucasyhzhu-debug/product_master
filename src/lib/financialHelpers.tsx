@@ -83,7 +83,7 @@ export function formatWithConfidence(
     return (
       <span className="inline-flex items-center gap-1 text-muted-foreground">
         --
-        <AlertTriangle className="h-3 w-3 text-amber-500" />
+        <AlertTriangle className="h-3 w-3 text-[var(--color-status-warning)]" />
       </span>
     );
   }

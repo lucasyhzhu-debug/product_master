@@ -53,8 +53,8 @@ function getCoverageTint(mapped: number, total: number): string {
 function getCoverageIcon(mapped: number, total: number) {
   if (total === 0) return <CheckCircle className="h-4 w-4 text-muted-foreground" />;
   const pct = (mapped / total) * 100;
-  if (pct >= 80) return <CheckCircle className="h-4 w-4 text-green-500" />;
-  return <AlertCircle className="h-4 w-4 text-amber-500" />;
+  if (pct >= 80) return <CheckCircle className="h-4 w-4 text-[var(--color-status-success)]" />;
+  return <AlertCircle className="h-4 w-4 text-[var(--color-status-warning)]" />;
 }
 
 export function DataQualityPanel({
@@ -86,12 +86,12 @@ export function DataQualityPanel({
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               {hasIssues ? (
                 <>
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertTriangle className="h-4 w-4 text-[var(--color-status-warning)]" />
                   {issueCount} issue{issueCount !== 1 ? "s" : ""} found
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-[var(--color-status-success)]" />
                   All clear -- data quality looks good
                 </>
               )}
@@ -130,7 +130,7 @@ export function DataQualityPanel({
             {gapAnalysis.unmappedProducts.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-[var(--color-status-warning)] shrink-0" />
                   {gapAnalysis.unmappedProducts.length} unmapped product
                   {gapAnalysis.unmappedProducts.length !== 1 ? "s" : ""} --
                   revenue counted, COGS = 0
@@ -167,7 +167,7 @@ export function DataQualityPanel({
             {gapAnalysis.zeroCostComponents.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-[var(--color-status-warning)] shrink-0" />
                   {gapAnalysis.zeroCostComponents.length} component
                   {gapAnalysis.zeroCostComponents.length !== 1 ? "s" : ""} with
                   zero cost -- COGS will be underestimated
@@ -220,7 +220,7 @@ export function DataQualityPanel({
             {/* Seller shipping fees gap warning */}
             {hasMarketplaceShippingGap && (
               <div className="flex items-start gap-2 text-sm">
-                <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                <Info className="h-4 w-4 text-[var(--color-status-info)] shrink-0 mt-0.5" />
                 <span className="text-muted-foreground">
                   Seller shipping fees (Shopee/TikTok) are not yet deducted --
                   Net Revenue for marketplace channels may be overstated
