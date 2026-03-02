@@ -1,8 +1,19 @@
 ---
 phase: 33-income-statement-frontend
-verified: 2026-03-02T16:00:00Z
+verified: 2026-03-02T18:30:00Z
 status: passed
 score: 6/6 must-haves verified
+re_verification:
+  previous_status: passed
+  previous_score: 6/6
+  gaps_closed: []
+  gaps_remaining: []
+  regressions: []
+  corrections:
+    - "Previous verification documented pre-refactor state (951-line monolith). Updated to reflect post-Plan-33-04 refactored state (438 lines + extracted components)."
+    - "Added 3 missing artifacts from Plan 33-04: financialHelpers.tsx, PLRow.tsx, ChannelRow.tsx"
+    - "Corrected all line number references to match actual codebase"
+    - "Fixed ConfidenceIndicator wiring: not directly imported by FinancialStatement.tsx, used via PLRow and ChannelRow"
 must_haves:
   truths:
     - "User can navigate to /financials and see a P&L table showing Revenue -> Deductions -> Net Revenue -> COGS -> Gross Profit with per-channel breakdown"
@@ -15,11 +26,17 @@ must_haves:
     - path: "src/hooks/convex/useFinancials.ts"
       provides: "Hook wrapping getWeeklyIncomeStatement query with week navigation state"
     - path: "src/pages/FinancialStatement.tsx"
-      provides: "Income Statement page with P&L table, confidence indicators, data quality panel, CSV export"
+      provides: "Income Statement page composing PLRow, ChannelRow, DataQualityPanel, and CSV export"
     - path: "src/components/financials/ConfidenceIndicator.tsx"
       provides: "Inline confidence indicator component with tooltip explanations"
     - path: "src/components/financials/DataQualityPanel.tsx"
       provides: "Data quality panel with gap analysis, coverage stats, and actionable links"
+    - path: "src/components/financials/PLRow.tsx"
+      provides: "P&L table row with confidence, delta, and comparison columns"
+    - path: "src/components/financials/ChannelRow.tsx"
+      provides: "Expandable channel row with gross margin sub-row and COGS breakdown"
+    - path: "src/lib/financialHelpers.tsx"
+      provides: "Shared constants (WIB_OFFSET_MS, WEEK_MS), computeDelta, formatWeekRange, formatNegative, formatWithConfidence, DeltaIndicator, SectionHeaderRow, PLTableSkeleton, ErrorCard"
     - path: "src/lib/csvExport.ts"
       provides: "CSV generation function with flat-format output and browser download helper"
     - path: "src/App.tsx"
@@ -36,36 +53,60 @@ must_haves:
       via: "useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement)"
     - from: "src/pages/FinancialStatement.tsx"
       to: "src/hooks/convex/useFinancials.ts"
-      via: "useFinancials() hook call"
+      via: "useFinancials() hook call at line 30"
     - from: "src/pages/FinancialStatement.tsx"
-      to: "src/components/financials/ConfidenceIndicator.tsx"
-      via: "import and render in PLRow and ChannelRow"
+      to: "src/components/financials/PLRow.tsx"
+      via: "import at line 14, rendered for every P&L row"
+    - from: "src/pages/FinancialStatement.tsx"
+      to: "src/components/financials/ChannelRow.tsx"
+      via: "import at line 15, rendered per channel in revenue section"
     - from: "src/pages/FinancialStatement.tsx"
       to: "src/components/financials/DataQualityPanel.tsx"
-      via: "import and render below P&L table"
+      via: "import at line 13, rendered at line 431"
     - from: "src/pages/FinancialStatement.tsx"
       to: "src/lib/csvExport.ts"
-      via: "generateIncomeStatementCSV + downloadCSV on Export button click"
+      via: "import at line 16, onClick handler at line 106-112"
+    - from: "src/pages/FinancialStatement.tsx"
+      to: "src/lib/financialHelpers.tsx"
+      via: "import at lines 17-25 (WIB_OFFSET_MS, WEEK_MS, computeDelta, formatWeekRange, SectionHeaderRow, PLTableSkeleton, ErrorCard)"
+    - from: "src/components/financials/PLRow.tsx"
+      to: "src/components/financials/ConfidenceIndicator.tsx"
+      via: "import at line 8, rendered in amount cell"
+    - from: "src/components/financials/PLRow.tsx"
+      to: "src/lib/financialHelpers.tsx"
+      via: "import at lines 13-14 (formatWithConfidence, formatNegative, DeltaIndicator)"
+    - from: "src/components/financials/ChannelRow.tsx"
+      to: "src/components/financials/ConfidenceIndicator.tsx"
+      via: "import at line 16, rendered on channel gross amount"
+    - from: "src/components/financials/ChannelRow.tsx"
+      to: "src/lib/financialHelpers.tsx"
+      via: "import at line 19 (DeltaIndicator)"
+    - from: "src/components/financials/ChannelRow.tsx"
+      to: "src/lib/platformColors.ts"
+      via: "import at line 9 (getPlatformPalette for colored dots)"
+    - from: "src/lib/csvExport.ts"
+      to: "src/lib/financialHelpers.tsx"
+      via: "import at line 78 (computeDelta)"
     - from: "src/App.tsx"
       to: "src/pages/FinancialStatement.tsx"
-      via: "lazy route at /financials"
+      via: "lazyWithPreload at line 74, route at line 274 with canAccessDashboard"
     - from: "src/components/layout/Header.tsx"
       to: "/financials"
-      via: "mainNavItems entry with FileText icon"
+      via: "mainNavItems entry at line 85 with FileText icon"
     - from: "src/components/financials/DataQualityPanel.tsx"
       to: "/sales?tab=mappings"
-      via: "Link component for unmapped products"
+      via: "Link component at line 156 for unmapped products"
     - from: "src/components/financials/DataQualityPanel.tsx"
       to: "/components/production"
-      via: "Link component for zero-cost components"
+      via: "Link component at line 188 for zero-cost components"
 ---
 
 # Phase 33: Income Statement Frontend Verification Report
 
 **Phase Goal:** Users can view, navigate, and export a weekly income statement with full channel breakdown and data quality transparency
-**Verified:** 2026-03-02T16:00:00Z
+**Verified:** 2026-03-02T18:30:00Z
 **Status:** PASSED
-**Re-verification:** No -- initial verification
+**Re-verification:** Yes -- accuracy corrections after Plan 33-04 refactoring
 
 ## Goal Achievement
 
@@ -73,56 +114,70 @@ must_haves:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | User can navigate to `/financials` and see a P&L table showing Revenue -> Deductions -> Net Revenue -> COGS -> Gross Profit with per-channel breakdown | VERIFIED | Route registered at `src/App.tsx:274` with `canAccessDashboard` guard. `FinancialStatement.tsx` (951 lines) renders full P&L table with Revenue, Deductions, COGS, Gross Profit sections. Channel breakdown via `ChannelRow` component with colored dots from `getPlatformPalette`. Nav entry at `Header.tsx:85`. |
-| 2 | User can navigate between weeks using prev/next controls, with WIB timezone Monday-start boundaries | VERIFIED | `useFinancials.ts` implements WIB week calculation (UTC+7, Monday start) with `goToPreviousWeek`, `goToNextWeek`, `goToCurrentWeek`. Week label shows "Week of {start} - {end}, {year}". Next button disabled when `isCurrentWeek` (uses `>=` comparison). "Today" button appears when navigated away. |
-| 3 | User sees previous week comparison with delta amounts and percentages on every line item | VERIFIED | `PLRow` component renders 4 columns: Line Item, This Week, Prev Week, Delta. `DeltaIndicator` component renders green/red arrows with percentage. `invertColor` applied to deduction and COGS rows. Gross margin delta in percentage points (pp). Period-agnostic column headers derived from query data. |
-| 4 | User sees visual confidence indicators (solid for exact, calc icon for calculated, ~ for inferred, dash + warning for missing) on financial figures | VERIFIED | `ConfidenceIndicator.tsx` (60 lines): exact returns null (no indicator), calculated shows Calculator icon, inferred shows `~`, missing shows AlertTriangle. `formatWithConfidence` in `FinancialStatement.tsx` handles missing as `-- warning` and inferred as `~ prefix`. All with hover tooltips explaining symbols. |
-| 5 | User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance | VERIFIED | `DataQualityPanel.tsx` (235 lines): unmapped products link to `/sales?tab=mappings`, zero-cost components link to `/components/production`, missing channels listed with reason. Coverage stat with green/amber/red tint. Seller shipping gap warning for Shopee/TikTok. Auto-expands when issues exist. Both target routes confirmed in `App.tsx`. |
-| 6 | User can click Export CSV and download a flat-format file with period, section, channel, line item, amount, confidence, prev week amount, and delta percentage | VERIFIED | `csvExport.ts` (406 lines): `generateIncomeStatementCSV` outputs 8 columns (period, section, channel, line_item, amount_idr, confidence, prev_week_idr, delta_pct). All deduction rows always included. Per-channel breakdown included. Footer has data quality notes. `downloadCSV` uses Blob download. Export button in PageHeader, disabled while loading. Filename: `frollie-income-statement-YYYY-MM-DD.csv`. |
+| 1 | User can navigate to `/financials` and see a P&L table showing Revenue -> Deductions -> Net Revenue -> COGS -> Gross Profit with per-channel breakdown | VERIFIED | Route at `App.tsx:274` with `canAccessDashboard` guard. `FinancialStatement.tsx` (438 lines) composes P&L table with Revenue, Deductions, COGS, Gross Profit sections via `PLRow` and `ChannelRow` components. Channel breakdown via `ChannelRow` with colored dots from `getPlatformPalette`. Nav entry at `Header.tsx:85`. |
+| 2 | User can navigate between weeks using prev/next controls, with WIB timezone Monday-start boundaries | VERIFIED | `useFinancials.ts` (76 lines) implements WIB week calculation (UTC+7, Monday start) with `goToPreviousWeek`, `goToNextWeek`, `goToCurrentWeek`. Week label format "Week of {start} - {end}, {year}". Next button disabled when `isCurrentWeek` (uses `>=` comparison at line 64). "Today" button conditionally rendered at line 137-146. |
+| 3 | User sees previous week comparison with delta amounts and percentages on every line item | VERIFIED | `PLRow.tsx` (128 lines) renders 4 columns: Line Item, Current Amount, Previous Amount, Delta. `DeltaIndicator` (from `financialHelpers.tsx:105`) renders green/red arrows with percentage using CSS variable tokens. `invertColor` applied to deduction and COGS rows. Gross margin delta in percentage points (pp) at `FinancialStatement.tsx:403-417`. Period-agnostic column headers via `formatWeekRange`. |
+| 4 | User sees visual confidence indicators (solid for exact, calc icon for calculated, ~ for inferred, dash + warning for missing) on financial figures | VERIFIED | `ConfidenceIndicator.tsx` (60 lines): exact returns null, calculated shows Calculator icon, inferred shows `~`, missing shows AlertTriangle. `formatWithConfidence` in `financialHelpers.tsx:75-101` handles missing as `-- warning` and inferred as `~ prefix`. All with hover tooltips via `TooltipContent`. |
+| 5 | User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance | VERIFIED | `DataQualityPanel.tsx` (235 lines): unmapped products link to `/sales?tab=mappings` (line 156), zero-cost components link to `/components/production` (line 188), missing channels listed with reason. Coverage stat with CSS variable token tints (`--color-status-success-bg`, `--color-status-warning-bg`, `--color-status-error-bg`). Seller shipping gap warning for Shopee/TikTok. Auto-expands when `hasIssues` (line 79). |
+| 6 | User can click Export CSV and download a flat-format file with period, section, channel, line item, amount, confidence, prev week amount, and delta percentage | VERIFIED | `csvExport.ts` (409 lines): `generateIncomeStatementCSV` outputs 8 columns (period, section, channel, line_item, amount_idr, confidence, prev_week_idr, delta_pct). All 4 deduction rows always included. Per-channel deduction breakdown included. Footer has data quality notes. `downloadCSV` uses Blob download. Export button in PageHeader at `FinancialStatement.tsx:103-117`, disabled while loading. Filename: `frollie-income-statement-YYYY-MM-DD.csv`. |
 
 **Score:** 6/6 truths verified
 
 ### Required Artifacts
 
-| Artifact | Expected | Status | Details |
-|----------|----------|--------|---------|
-| `src/hooks/convex/useFinancials.ts` | Hook with week navigation + query | VERIFIED | 80 lines, WIB week calc, useQuery to backend, prev/next/current navigation |
-| `src/pages/FinancialStatement.tsx` | P&L page with all features | VERIFIED | 951 lines, PLRow, ChannelRow, SectionHeaderRow, DeltaIndicator, formatWithConfidence, loading/error states, mobile toggle |
-| `src/components/financials/ConfidenceIndicator.tsx` | Confidence symbols | VERIFIED | 60 lines, 4 levels with tooltips, exported type |
-| `src/components/financials/DataQualityPanel.tsx` | Gap analysis panel | VERIFIED | 235 lines, unmapped/zero-cost/missing channels, coverage stat, shipping gap warning, actionable links |
-| `src/lib/csvExport.ts` | CSV generation + download | VERIFIED | 406 lines, flat-format, 8 columns, footer notes, proper escaping, IncomeStatementData interface |
-| `src/App.tsx` | Route at /financials | VERIFIED | Lazy import at line 74, route at line 274 with canAccessDashboard |
-| `src/components/layout/Header.tsx` | Nav entry "Financials" | VERIFIED | FileText icon, canAccessDashboard permission, between Sales and Orders |
-| `src/hooks/convex/index.ts` | Barrel export | VERIFIED | Line 385: `export { useFinancials } from "./useFinancials"` |
-| `src/components/ui/collapsible.tsx` | Shadcn wrapper | VERIFIED | 9 lines, wraps @radix-ui/react-collapsible |
-| `docs/CHANGELOG.md` | Phase 33 entry | VERIFIED | Full entry documenting all features under v1.5 section |
+| Artifact | Expected | Status | Lines | Details |
+|----------|----------|--------|-------|---------|
+| `src/hooks/convex/useFinancials.ts` | Hook with week navigation + query | VERIFIED | 76 | WIB week calc via imported constants, useQuery to backend, prev/next/current navigation |
+| `src/pages/FinancialStatement.tsx` | P&L page composing extracted components | VERIFIED | 438 | Composes PLRow, ChannelRow, SectionHeaderRow, DataQualityPanel. CSV export button. Loading/error states. Mobile comparison toggle. |
+| `src/components/financials/ConfidenceIndicator.tsx` | Confidence symbols | VERIFIED | 60 | 4 levels (exact/calculated/inferred/missing) with tooltips, exported Confidence type |
+| `src/components/financials/DataQualityPanel.tsx` | Gap analysis panel | VERIFIED | 235 | Unmapped products, zero-cost components, missing channels, coverage stat, shipping gap warning, actionable links |
+| `src/components/financials/PLRow.tsx` | P&L row component | VERIFIED | 128 | PLRowProps interface, confidence indicator integration, delta indicator, tooltip support |
+| `src/components/financials/ChannelRow.tsx` | Expandable channel row | VERIFIED | 223 | Per-channel gross with colored dot, expandable gross margin sub-row, COGS breakdown, consignment accrual tooltip |
+| `src/lib/financialHelpers.tsx` | Shared constants and helpers | VERIFIED | 237 | WIB_OFFSET_MS, WEEK_MS, computeDelta, formatWeekRange, formatNegative, formatWithConfidence, DeltaIndicator, SectionHeaderRow, PLTableSkeleton, ErrorCard |
+| `src/lib/csvExport.ts` | CSV generation + download | VERIFIED | 409 | Flat-format, 8 columns, per-channel deduction breakdown, footer notes, proper escaping, IncomeStatementData interface |
+| `src/App.tsx` | Route at /financials | VERIFIED | - | lazyWithPreload at line 74, route at line 274 with canAccessDashboard permission |
+| `src/components/layout/Header.tsx` | Nav entry "Financials" | VERIFIED | - | FileText icon, canAccessDashboard permission at line 85 |
+| `src/hooks/convex/index.ts` | Barrel export | VERIFIED | - | Line 385: `export { useFinancials } from "./useFinancials"` |
+| `src/components/ui/collapsible.tsx` | Shadcn wrapper | VERIFIED | 9 | Wraps @radix-ui/react-collapsible |
+
+**Total implementation:** 1,815 lines across 9 feature files (excluding App.tsx, Header.tsx, index.ts modifications)
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| useFinancials.ts | convex/reports/incomeStatement.ts | useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement) | WIRED | Line 33: query call with weekStart param |
-| FinancialStatement.tsx | useFinancials.ts | useFinancials() | WIRED | Import line 16, call at line 542 |
-| FinancialStatement.tsx | ConfidenceIndicator.tsx | import + render | WIRED | Import line 26, used at lines 222, 401 |
-| FinancialStatement.tsx | DataQualityPanel.tsx | import + render | WIRED | Import line 29, rendered at line 944 |
-| FinancialStatement.tsx | csvExport.ts | generateIncomeStatementCSV + downloadCSV | WIRED | Import line 30, onClick at lines 621-624 |
-| App.tsx | FinancialStatement.tsx | lazy route at /financials | WIRED | Lazy import line 74-75, route at line 274 |
-| Header.tsx | /financials | mainNavItems entry | WIRED | Line 85: FileText icon, canAccessDashboard |
-| DataQualityPanel.tsx | /sales?tab=mappings | Link component | WIRED | Line 157, route verified in App.tsx |
-| DataQualityPanel.tsx | /components/production | Link component | WIRED | Line 189, route verified in App.tsx |
+| useFinancials.ts | convex/reports/incomeStatement.ts | useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement) | WIRED | Line 28-31: query call with weekStart param. Backend export confirmed at incomeStatement.ts:476. |
+| FinancialStatement.tsx | useFinancials.ts | useFinancials() | WIRED | Import line 10, destructured call at line 30-39 |
+| FinancialStatement.tsx | PLRow.tsx | import + render | WIRED | Import line 14, rendered at lines 213, 245, 255, 265, 279, 294, 306, 328, 338, 352, 364 |
+| FinancialStatement.tsx | ChannelRow.tsx | import + render | WIRED | Import line 15, rendered in .map() at lines 223-231 |
+| FinancialStatement.tsx | DataQualityPanel.tsx | import + render | WIRED | Import line 13, rendered at lines 431-434 |
+| FinancialStatement.tsx | csvExport.ts | generateIncomeStatementCSV + downloadCSV | WIRED | Import line 16, onClick handler at lines 106-112 |
+| FinancialStatement.tsx | financialHelpers.tsx | import constants + components | WIRED | Import lines 17-25 (WIB_OFFSET_MS, WEEK_MS, computeDelta, formatWeekRange, SectionHeaderRow, PLTableSkeleton, ErrorCard) |
+| PLRow.tsx | ConfidenceIndicator.tsx | import + render | WIRED | Import line 8-10, rendered at line 103 |
+| PLRow.tsx | financialHelpers.tsx | import helpers | WIRED | Import lines 12-15 (formatWithConfidence, formatNegative, DeltaIndicator) |
+| ChannelRow.tsx | ConfidenceIndicator.tsx | import + render | WIRED | Import lines 16-18, rendered at line 129 |
+| ChannelRow.tsx | financialHelpers.tsx | import DeltaIndicator | WIRED | Import line 19, rendered at line 148 |
+| ChannelRow.tsx | platformColors.ts | getPlatformPalette | WIRED | Import line 9, called at line 46 |
+| csvExport.ts | financialHelpers.tsx | computeDelta | WIRED | Import line 78, used in formatDeltaPct at line 90 |
+| App.tsx | FinancialStatement.tsx | lazy route | WIRED | lazyWithPreload line 74-75, ProtectedRoute at line 274-280 |
+| Header.tsx | /financials | mainNavItems entry | WIRED | Line 85: FileText icon, canAccessDashboard permission |
+| DataQualityPanel.tsx | /sales?tab=mappings | Link component | WIRED | Line 156-162, target route verified in App.tsx |
+| DataQualityPanel.tsx | /components/production | Link component | WIRED | Line 188-194, target route verified in App.tsx |
+
+All 17 key links verified as WIRED. No orphaned or partial links.
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
-|-------------|-----------|-------------|--------|----------|
-| IS-07 | 33-01 | User can view a weekly income statement at `/financials` showing Revenue -> COGS -> Gross Profit with per-channel breakdown | SATISFIED | Route, page, P&L table with all sections, channel drill-down |
-| IS-08 | 33-01 | User can navigate between weeks (prev/next) with WIB timezone boundaries (Monday start) | SATISFIED | useFinancials hook with WIB week calc, prev/next/current buttons, week label |
-| IS-09 | 33-02 | User sees previous week comparison with delta amounts and percentages for every line item | SATISFIED | PLRow renders 4 columns, DeltaIndicator with invertColor, period-agnostic headers |
-| IS-10 | 33-02 | User sees confidence indicators on financial figures (exact = solid, calculated = calc icon, inferred = ~, missing = dash + warning) | SATISFIED | ConfidenceIndicator component, formatWithConfidence helper, hover tooltips |
-| IS-11 | 33-02 | User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance | SATISFIED | DataQualityPanel with 4 issue categories, coverage stat, actionable links |
-| IS-12 | 33-03 | User can export the current week's income statement as flat-format CSV with line items, amounts, confidence flags, and deltas | SATISFIED | csvExport.ts with 8 columns, footer notes, Export CSV button in PageHeader |
+| Requirement | Source Plans | Description | Status | Evidence |
+|-------------|-------------|-------------|--------|----------|
+| IS-07 | 33-01, 33-04 | User can view a weekly income statement at `/financials` showing Revenue -> COGS -> Gross Profit with per-channel breakdown | SATISFIED | Route, page, P&L table with Revenue/Deductions/Net Revenue/COGS/Gross Profit sections, per-channel ChannelRow drill-down |
+| IS-08 | 33-01, 33-04 | User can navigate between weeks (prev/next) with WIB timezone boundaries (Monday start) | SATISFIED | useFinancials hook with WIB week calc (imported WIB_OFFSET_MS/WEEK_MS), prev/next/current buttons, week label |
+| IS-09 | 33-02, 33-04 | User sees previous week comparison with delta amounts and percentages for every line item | SATISFIED | PLRow renders 4 columns, DeltaIndicator with invertColor for costs, period-agnostic headers via formatWeekRange |
+| IS-10 | 33-02, 33-04 | User sees confidence indicators on financial figures (exact = solid, calculated = calc icon, inferred = ~, missing = dash + warning) | SATISFIED | ConfidenceIndicator component (60 lines), formatWithConfidence helper, hover tooltips |
+| IS-11 | 33-02, 33-04 | User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance | SATISFIED | DataQualityPanel with 4 issue categories, coverage stat with CSS token tints, actionable links to /sales and /components |
+| IS-12 | 33-03, 33-04 | User can export the current week's income statement as flat-format CSV with line items, amounts, confidence flags, and deltas | SATISFIED | csvExport.ts with 8 columns, per-channel deduction breakdown, footer notes, Export CSV button disabled while loading |
 
-No orphaned requirements. All 6 requirements (IS-07 through IS-12) mapped to Phase 33 in REQUIREMENTS.md are accounted for in plans.
+No orphaned requirements. All 6 requirements (IS-07 through IS-12) mapped to Phase 33 in REQUIREMENTS.md are accounted for in plans and satisfied in code.
 
 ### Anti-Patterns Found
 
@@ -130,7 +185,7 @@ No orphaned requirements. All 6 requirements (IS-07 through IS-12) mapped to Pha
 |------|------|---------|----------|--------|
 | (none) | - | - | - | No anti-patterns detected |
 
-Zero TODOs, FIXMEs, placeholders, or stub implementations found across all 9 artifacts. All `return null` occurrences are intentional (data guards, exact-confidence indicator).
+Zero TODOs, FIXMEs, placeholders, or stub implementations found across all 12 artifacts. All `return null` occurrences are intentional (exact-confidence indicator in ConfidenceIndicator.tsx:19). No `dark:` raw overrides in any income statement file -- all delta/coverage colors use CSS variable tokens (`--color-status-success`, `--color-status-error`, etc.). ChevronUp removed from FinancialStatement.tsx per Plan 33-04. SectionHeaderRow uses ChevronRight (collapsed) / ChevronDown (expanded) matching ChannelRow convention. `computeDelta` defined once in financialHelpers.tsx, imported by both csvExport.ts and FinancialStatement.tsx. WIB_OFFSET_MS/WEEK_MS defined once in financialHelpers.tsx, imported by useFinancials.ts and FinancialStatement.tsx.
 
 ### Human Verification Required
 
@@ -161,7 +216,7 @@ Zero TODOs, FIXMEs, placeholders, or stub implementations found across all 9 art
 ### 5. CSV Export Content Validation
 
 **Test:** Click "Export CSV" on a week with data. Open the downloaded file in a spreadsheet.
-**Expected:** 8 columns (period, section, channel, line_item, amount_idr, confidence, prev_week_idr, delta_pct). All deduction rows present. Footer has data quality notes. Filename matches `frollie-income-statement-YYYY-MM-DD.csv`.
+**Expected:** 8 columns (period, section, channel, line_item, amount_idr, confidence, prev_week_idr, delta_pct). All deduction rows present. Per-channel deduction breakdown included. Footer has data quality notes. Filename matches `frollie-income-statement-YYYY-MM-DD.csv`.
 **Why human:** Browser download trigger and CSV file content inspection need manual verification.
 
 ### 6. Mobile Responsive Behavior
@@ -172,11 +227,13 @@ Zero TODOs, FIXMEs, placeholders, or stub implementations found across all 9 art
 
 ### Gaps Summary
 
-No gaps found. All 6 success criteria verified through code inspection. All 9 artifacts exist, are substantive (1,741 total lines), and are correctly wired. All 9 key links confirmed. All 6 requirements (IS-07 through IS-12) satisfied. All 7 commits verified in git history. CHANGELOG updated. No anti-patterns detected.
+No gaps found. All 6 success criteria verified through direct codebase inspection. All 12 artifacts exist, are substantive (1,815 total lines across feature files), and are correctly wired through 17 verified key links. All 6 requirements (IS-07 through IS-12) satisfied. CHANGELOG updated with Phase 33 entry. No anti-patterns detected.
+
+**Re-verification corrections:** The previous verification was conducted before Plan 33-04 (component extraction refactor) completed. It documented a 951-line monolithic `FinancialStatement.tsx`, but the actual codebase now has a well-decomposed architecture: 438-line page component + 128-line PLRow + 223-line ChannelRow + 237-line financialHelpers. All truths remain verified; the refactoring improved maintainability without breaking any functionality.
 
 The phase goal -- "Users can view, navigate, and export a weekly income statement with full channel breakdown and data quality transparency" -- is fully achieved at the code level.
 
 ---
 
-_Verified: 2026-03-02T16:00:00Z_
+_Verified: 2026-03-02T18:30:00Z_
 _Verifier: Claude (gsd-verifier)_
