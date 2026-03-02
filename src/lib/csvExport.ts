@@ -386,11 +386,14 @@ export function generateIncomeStatementCSV(
       row
         .map((cell) => {
           const str = String(cell ?? "");
+          // Sanitize formula injection: prefix dangerous characters with single quote
+          // to prevent Excel/Sheets from interpreting cells as formulas
+          const sanitized = /^[=+\-@\t\r]/.test(str) ? "'" + str : str;
           // Escape cells containing commas, quotes, or newlines
-          if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-            return '"' + str.replace(/"/g, '""') + '"';
+          if (sanitized.includes(",") || sanitized.includes('"') || sanitized.includes("\n")) {
+            return '"' + sanitized.replace(/"/g, '""') + '"';
           }
-          return str;
+          return sanitized;
         })
         .join(",")
     )
