@@ -202,7 +202,7 @@ export function ChannelRow({
           {/* COGS breakdown sub-row */}
           <tr className="bg-muted/10">
             <td
-              colSpan={showComparison ? 4 : 2}
+              colSpan={4}
               className="py-1 pl-16 text-xs text-muted-foreground"
             >
               COGS:{" "}

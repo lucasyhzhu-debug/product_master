@@ -204,7 +204,6 @@ export function FinancialStatement() {
                 label="Revenue"
                 isExpanded={revenueExpanded}
                 onToggle={() => setRevenueExpanded(!revenueExpanded)}
-                showComparison={showComparison}
               />
 
               {revenueExpanded && (
@@ -237,7 +236,6 @@ export function FinancialStatement() {
                 label="Deductions"
                 isExpanded={deductionsExpanded}
                 onToggle={() => setDeductionsExpanded(!deductionsExpanded)}
-                showComparison={showComparison}
               />
 
               {deductionsExpanded && deductionDeltas && (
@@ -319,7 +317,6 @@ export function FinancialStatement() {
                 label="Cost of Goods Sold"
                 isExpanded={cogsExpanded}
                 onToggle={() => setCogsExpanded(!cogsExpanded)}
-                showComparison={showComparison}
                 labelTooltip="Internal order COGS uses order-time snapshot; external channel COGS uses current BOM costs"
               />
 

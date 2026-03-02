@@ -158,19 +158,17 @@ export function SectionHeaderRow({
   label,
   isExpanded,
   onToggle,
-  showComparison,
   labelTooltip,
 }: {
   label: string;
   isExpanded: boolean;
   onToggle: () => void;
-  showComparison: boolean;
   labelTooltip?: string;
 }) {
   return (
     <tr className="border-t bg-muted/50">
       <td
-        colSpan={showComparison ? 4 : 2}
+        colSpan={4}
         className="py-2 pl-2 text-xs font-bold uppercase tracking-wider text-muted-foreground cursor-pointer select-none"
         onClick={onToggle}
       >
