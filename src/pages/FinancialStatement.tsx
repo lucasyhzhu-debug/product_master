@@ -6,6 +6,7 @@ import {
   ArrowDownRight,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useFinancials } from "@/hooks/convex/useFinancials";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -105,10 +106,14 @@ export function FinancialStatement() {
             size="sm"
             onClick={() => {
               if (!data) return;
-              const csv = generateIncomeStatementCSV(data, weekLabel);
-              const wibDate = new Date(weekStart + WIB_OFFSET_MS);
-              const dateStr = wibDate.toISOString().slice(0, 10);
-              downloadCSV(csv, `frollie-income-statement-${dateStr}.csv`);
+              try {
+                const csv = generateIncomeStatementCSV(data, weekLabel);
+                const wibDate = new Date(weekStart + WIB_OFFSET_MS);
+                const dateStr = wibDate.toISOString().slice(0, 10);
+                downloadCSV(csv, `frollie-income-statement-${dateStr}.csv`);
+              } catch {
+                toast.error("Failed to export CSV");
+              }
             }}
             disabled={isLoading || !data}
           >
