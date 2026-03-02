@@ -16,6 +16,7 @@ type TestContext = TestConvex<typeof schema>;
 
 // Monday 2026-01-05 00:00 WIB = Sunday 2026-01-04 17:00 UTC
 const TEST_WEEK_START = Date.UTC(2026, 0, 4, 17, 0, 0);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ============================================
 // Helpers: seed test data directly
@@ -40,7 +41,7 @@ async function seedExternalRevenue(
     return await ctx.db.insert("externalRevenue", {
       source: overrides.source ?? "gobiz",
       periodStart: overrides.periodStart ?? TEST_WEEK_START,
-      periodEnd: overrides.periodEnd ?? (TEST_WEEK_START + 86400000),
+      periodEnd: overrides.periodEnd ?? ((overrides.periodStart ?? TEST_WEEK_START) + DAY_MS),
       dataOrigin: "api_revenue",
       confidence: "exact",
       revenueGross: overrides.revenueGross ?? 100000,
@@ -173,6 +174,13 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.grossProfit).toBe(0);
     expect(result.current.grossMarginPercent).toBeNull();
     expect(result.current.channels).toHaveLength(0);
+
+    // missingChannels: grabfood is known-missing (OAuth pending)
+    expect(result.current.gapAnalysis.missingChannels).toHaveLength(1);
+    expect(result.current.gapAnalysis.missingChannels[0].source).toBe("grabfood");
+
+    // Delta percent is null when previous week is also zero (not NaN or 0)
+    expect(result.deltas.grossRevenue.percent).toBeNull();
   });
 
   test("unmapped product has COGS = 0 and appears in gap analysis", async () => {
@@ -276,8 +284,9 @@ describe("getWeeklyIncomeStatement", () => {
     expect(product.cogsTotal).toBe(20931);
     expect(product.confidence).toBe("calculated");
 
-    // Verify gross profit
+    // Verify gross profit and margin
     expect(result.current.grossProfit).toBe(35000 - 20931); // 14069
+    expect(result.current.grossMarginPercent).toBeCloseTo(40.2, 1); // 14069/35000 * 100
   });
 
   test("zero net revenue has margin = null, not NaN", async () => {
@@ -290,7 +299,6 @@ describe("getWeeklyIncomeStatement", () => {
     );
 
     expect(result.current.grossMarginPercent).toBeNull();
-    expect(result.current.grossMarginPercent).not.toBeNaN();
   });
 
   test("negative net revenue is valid (no crash)", async () => {
@@ -323,6 +331,10 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.grossMarginPercent).not.toBeNaN();
     // grossProfit = netRevenue - COGS = -5000 - 0 = -5000
     expect(result.current.grossProfit).toBe(-5000);
+
+    // Unmapped product should appear in gap analysis (no linkedMenuProductId)
+    expect(result.current.gapAnalysis.unmappedProducts).toHaveLength(1);
+    expect(result.current.gapAnalysis.unmappedProducts[0].name).toBe("Low Margin Product");
   });
 
   test("zero-cost component appears in gap analysis", async () => {
@@ -433,7 +445,7 @@ describe("getWeeklyIncomeStatement", () => {
       await ctx.db.insert("consignmentSettlements", {
         outletId,
         periodStart: TEST_WEEK_START,
-        periodEnd: TEST_WEEK_START + 86400000,
+        periodEnd: TEST_WEEK_START + DAY_MS,
         totalRevenue: 50000,
         revSharePercent: 20,
         revShareAmount: 10000,
@@ -527,7 +539,7 @@ describe("getWeeklyIncomeStatement", () => {
     expect(internalChannel!.gross).toBe(100000);
 
     // Discount = totalAmount - (finalTotal - deliveryFee) = 100000 - (85000 - 15000) = 30000
-    // This includes voucher deductions
+    // Note: in production, this formula captures all price reductions including vouchers
     expect(internalChannel!.discount).toBe(30000);
 
     // Net = gross - discount = 100000 - 30000 = 70000
@@ -694,7 +706,7 @@ describe("getWeeklyIncomeStatement", () => {
       await ctx.db.insert("consignmentSettlements", {
         outletId,
         periodStart: TEST_WEEK_START,
-        periodEnd: TEST_WEEK_START + 86400000,
+        periodEnd: TEST_WEEK_START + DAY_MS,
         totalRevenue: 50000,
         revSharePercent: 20,
         revShareAmount: 10000,
@@ -731,10 +743,12 @@ describe("getWeeklyIncomeStatement", () => {
     });
 
     // Discount = totalAmount - (finalTotal - deliveryFee) = 80000 - (75000 - 10000) = 15000
+    // Internal gross comes from orders.totalAmount (80000), NOT externalRevenue.revenueGross.
+    // Sentinel value 88888 proves the query reads from the correct source.
     const internalRevenueId = await seedExternalRevenue(t, {
       source: "internal",
       periodStart: TEST_WEEK_START,
-      revenueGross: 80000,
+      revenueGross: 88888, // SENTINEL: if bug reads from externalRevenue instead of orders, totalGross would be wrong
       externalTransactionId: "0105-002",
     });
     await seedRevenueItem(t, internalRevenueId, {
@@ -814,8 +828,12 @@ describe("getWeeklyIncomeStatement", () => {
 
     // ── Gap analysis happy path ──
     expect(result.current.gapAnalysis.unmappedProducts).toHaveLength(0);
-    expect(result.current.gapAnalysis.totalMappedProducts).toBe(3);  // 1 revenue item row per channel * 3 channels
+    expect(result.current.gapAnalysis.totalMappedProducts).toBe(3);  // counts distinct revenue item rows, not unit quantities
     expect(result.current.gapAnalysis.totalProducts).toBe(3);
     expect(result.current.gapAnalysis.zeroCostComponents).toHaveLength(0);
+
+    // missingChannels: grabfood is known-missing (no data seeded, OAuth pending)
+    expect(result.current.gapAnalysis.missingChannels).toHaveLength(1);
+    expect(result.current.gapAnalysis.missingChannels[0].source).toBe("grabfood");
   });
 });
