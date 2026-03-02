@@ -45,9 +45,9 @@ interface DataQualityPanelProps {
 function getCoverageTint(mapped: number, total: number): string {
   if (total === 0) return "bg-muted/30";
   const pct = (mapped / total) * 100;
-  if (pct >= 80) return "bg-green-50 dark:bg-green-950/30";
-  if (pct >= 50) return "bg-amber-50 dark:bg-amber-950/30";
-  return "bg-red-50 dark:bg-red-950/30";
+  if (pct >= 80) return "bg-[var(--color-status-success-bg)]";
+  if (pct >= 50) return "bg-[var(--color-status-warning-bg)]";
+  return "bg-[var(--color-status-error-bg)]";
 }
 
 function getCoverageIcon(mapped: number, total: number) {

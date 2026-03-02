@@ -75,6 +75,8 @@ export interface IncomeStatementData {
   };
 }
 
+import { computeDelta as computeDeltaObj } from "@/lib/financialHelpers";
+
 // ── Helpers ──
 
 /** Format delta percentage from a pre-computed delta object. */
@@ -83,10 +85,11 @@ function fmtDelta(d: { percent: number | null } | null): string {
   return d.percent.toFixed(1);
 }
 
-/** Compute delta percentage inline for rows without pre-computed deltas. */
-function computeDelta(current: number, previous: number): string {
-  if (previous === 0) return "";
-  return (((current - previous) / previous) * 100).toFixed(1);
+/** Format delta percentage for CSV output using shared computation. */
+function formatDeltaPct(current: number, previous: number): string {
+  const delta = computeDeltaObj(current, previous);
+  if (delta.percent === null) return "";
+  return delta.percent.toFixed(1);
 }
 
 // ── Main export function ──
@@ -158,7 +161,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalDiscounts),
     "exact",
     String(-data.previous.totalDiscounts),
-    computeDelta(data.current.totalDiscounts, data.previous.totalDiscounts),
+    formatDeltaPct(data.current.totalDiscounts, data.previous.totalDiscounts),
   ]);
 
   // Platform Commissions (aggregate)
@@ -170,7 +173,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalCommission),
     "exact",
     String(-data.previous.totalCommission),
-    computeDelta(data.current.totalCommission, data.previous.totalCommission),
+    formatDeltaPct(data.current.totalCommission, data.previous.totalCommission),
   ]);
 
   // Ad Spend & Promos (aggregate)
@@ -186,7 +189,7 @@ export function generateIncomeStatementCSV(
     String(-currentAdPromo),
     "exact",
     String(-previousAdPromo),
-    computeDelta(currentAdPromo, previousAdPromo),
+    formatDeltaPct(currentAdPromo, previousAdPromo),
   ]);
 
   // Consignment Rev Share (aggregate)
@@ -198,7 +201,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalRevShare),
     "exact",
     String(-data.previous.totalRevShare),
-    computeDelta(data.current.totalRevShare, data.previous.totalRevShare),
+    formatDeltaPct(data.current.totalRevShare, data.previous.totalRevShare),
   ]);
 
   // Per-channel deduction breakdown (richer data for financial analysts)
@@ -213,7 +216,7 @@ export function generateIncomeStatementCSV(
         String(-ch.discount),
         "exact",
         String(-(prevCh?.discount ?? 0)),
-        computeDelta(ch.discount, prevCh?.discount ?? 0),
+        formatDeltaPct(ch.discount, prevCh?.discount ?? 0),
       ]);
     }
     if (ch.commission > 0 || (prevCh?.commission ?? 0) > 0) {
@@ -225,7 +228,7 @@ export function generateIncomeStatementCSV(
         String(-ch.commission),
         "exact",
         String(-(prevCh?.commission ?? 0)),
-        computeDelta(ch.commission, prevCh?.commission ?? 0),
+        formatDeltaPct(ch.commission, prevCh?.commission ?? 0),
       ]);
     }
     const chAdPromo = ch.adBurn + ch.promoBurn;
@@ -239,7 +242,7 @@ export function generateIncomeStatementCSV(
         String(-chAdPromo),
         "exact",
         String(-prevChAdPromo),
-        computeDelta(chAdPromo, prevChAdPromo),
+        formatDeltaPct(chAdPromo, prevChAdPromo),
       ]);
     }
     if (ch.revShare > 0 || (prevCh?.revShare ?? 0) > 0) {
@@ -251,7 +254,7 @@ export function generateIncomeStatementCSV(
         String(-ch.revShare),
         "exact",
         String(-(prevCh?.revShare ?? 0)),
-        computeDelta(ch.revShare, prevCh?.revShare ?? 0),
+        formatDeltaPct(ch.revShare, prevCh?.revShare ?? 0),
       ]);
     }
   }
@@ -278,7 +281,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalProductionCogs),
     "calculated",
     String(-data.previous.totalProductionCogs),
-    computeDelta(
+    formatDeltaPct(
       data.current.totalProductionCogs,
       data.previous.totalProductionCogs
     ),
@@ -292,7 +295,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalPackagingCogs),
     "calculated",
     String(-data.previous.totalPackagingCogs),
-    computeDelta(
+    formatDeltaPct(
       data.current.totalPackagingCogs,
       data.previous.totalPackagingCogs
     ),

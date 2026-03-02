@@ -22,10 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ConfidenceIndicator,
-  type Confidence,
-} from "@/components/financials/ConfidenceIndicator";
+import { type Confidence } from "@/components/financials/ConfidenceIndicator";
 
 // ── Shared constants ──
 // NOTE: These MUST stay in sync with convex/lib/periodRange.ts (canonical backend).

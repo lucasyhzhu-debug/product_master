@@ -1,13 +1,9 @@
 import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-
-// WIB offset = UTC+7 = 7 * 60 * 60 * 1000
-// NOTE: This WIB week calculation MUST stay in sync with convex/lib/periodRange.ts
-// which is the canonical backend implementation. The backend normalizes weekStart
-// via calculateWeekRange(), but frontend drift would cause UI/data mismatches.
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// NOTE: WIB_OFFSET_MS and WEEK_MS imported from financialHelpers.tsx.
+// Canonical backend implementation: convex/lib/periodRange.ts
+import { WIB_OFFSET_MS, WEEK_MS } from "@/lib/financialHelpers";
 
 /** Get the Monday 00:00 WIB epoch ms for the week containing `now`. */
 function getCurrentWeekStart(): number {
