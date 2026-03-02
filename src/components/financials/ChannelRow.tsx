@@ -16,7 +16,7 @@ import {
   ConfidenceIndicator,
   type Confidence,
 } from "@/components/financials/ConfidenceIndicator";
-import { DeltaIndicator } from "@/lib/financialHelpers";
+import { computeDelta, DeltaIndicator } from "@/lib/financialHelpers";
 
 export interface ChannelRowProps {
   channel: {
@@ -48,15 +48,7 @@ export function ChannelRow({
     totalGross > 0 ? (channel.gross / totalGross) * 100 : null;
 
   const prevGross = previousChannel?.gross ?? 0;
-  const delta =
-    prevGross === 0 && channel.gross === 0
-      ? { amount: 0, percent: 0 }
-      : prevGross === 0
-        ? { amount: channel.gross, percent: null }
-        : {
-            amount: channel.gross - prevGross,
-            percent: ((channel.gross - prevGross) / prevGross) * 100,
-          };
+  const delta = computeDelta(channel.gross, prevGross);
 
   // Channel gross margin (current)
   const channelGrossProfit = channel.netRevenue - channel.cogs.total;
