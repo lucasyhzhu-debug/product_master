@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T04:25:25Z"
+last_updated: "2026-03-02T04:31:00Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -21,11 +21,11 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 ## Current Position
 
 Phase: 32 of 34 (Income Statement Backend)
-Plan: 32.2 of 3 (Income Statement Query)
-Status: Active -- Plan 32-01 complete, advancing to 32-02
-Last activity: 2026-03-02 -- Plan 32-01 completed (2 tasks, 2 min)
+Plan: 32.3 of 3 (Unit Tests)
+Status: Active -- Plan 32-02 complete, advancing to 32-03
+Last activity: 2026-03-02 -- Plan 32-02 completed (1 task, 3 min)
 
-Progress: ███░░░░░░░░░░░░░░░░░ 33% -- 1 of 3 plans complete
+Progress: █████████████░░░░░░░ 67% -- 2 of 3 plans complete
 
 ## Performance Metrics
 
@@ -50,6 +50,9 @@ v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-desi
 Phase 32 decisions:
 - buildProductCOGSMap uses string keys for Map (Convex IDs as strings)
 - calculateWeekRange currentEnd is exclusive (next Monday 00:00 WIB) for index range queries
+- aggregateWeek is a pure function (no ctx, no async) -- all I/O happens in handler
+- Channel confidence = lowest confidence among its line items
+- Internal discount = totalAmount - (finalTotal - deliveryFee), delivery fees excluded from P&L
 
 ### Open Blockers (carried forward)
 
@@ -67,5 +70,5 @@ Phase 32 decisions:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 32-01-PLAN.md
-Resume notes: Plan 32-01 complete. Next: execute Plan 32-02 (Income Statement Query).
+Stopped at: Completed 32-02-PLAN.md
+Resume notes: Plan 32-02 complete. Next: execute Plan 32-03 (Unit Tests).
