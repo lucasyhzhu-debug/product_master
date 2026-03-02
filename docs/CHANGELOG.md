@@ -14,6 +14,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] - v1.5 Financial Statements
+
+### Added
+- **Income Statement Backend (Phase 32)**: Weekly income statement query (`reports.incomeStatement.getWeeklyIncomeStatement`) that computes Revenue -> COGS -> Gross Profit with per-channel breakdown
+  - Revenue aggregation from `externalRevenue` (6 channels) + `consignmentSettlements`
+  - Revenue deductions: customer discounts, platform commissions, GoFood ad/promo burn, consignment rev share
+  - Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` helper
+  - Confidence classification on every figure (exact/calculated/inferred/missing)
+  - Data quality gap analysis: unmapped products, zero-cost components, missing channels
+  - Previous week comparison with delta amounts and percentages
+  - New helper: `buildProductCOGSMap` in `convex/lib/costCalculator.ts`
+  - New helper: `calculateWeekRange` in `convex/lib/periodRange.ts`
+  - Exported `fetchInternalOrderDataMap` from `convex/externalData/queries.ts`
+  - Backend tests for BOM COGS accuracy and income statement query edge cases (18 new tests, 680 total)
+
+---
+
 ## 2026-03-02 - Hotfix: Force Complete shows "Server Error" instead of real message
 
 Force Complete (and other order status mutations) showed an opaque "Server Error" instead of the actual error message. Now you'll see clear messages like "Order is already Complete" or "Order not found" when something goes wrong.
