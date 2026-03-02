@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T08:17:54Z"
+last_updated: "2026-03-02T08:26:00Z"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -20,12 +20,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 33 of 34 (Income Statement Frontend)
-Plan: 33.3 of 3
-Status: Active -- Plan 33-02 complete, advancing to Plan 33-03
-Last activity: 2026-03-02 -- Plan 33-02 completed (2 tasks, 4 min)
+Phase: 33 of 34 (Income Statement Frontend) -- COMPLETE
+Plan: 33.3 of 3 (all complete)
+Status: Phase 33 complete -- all 3 plans delivered, ready for Phase 34
+Last activity: 2026-03-02 -- Plan 33-03 completed (2 tasks, 5 min)
 
-Progress: █████████████░░░░░░░ 67% -- 2 of 3 plans complete (Phase 33)
+Progress: ████████████████████ 100% -- 3 of 3 plans complete (Phase 33)
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Progress: █████████████░░░░░░░ 67% -- 2 
 |-------|------|----------|-------|-------|
 | 33 | 33-01 | 4min | 3 | 5 |
 | 33 | 33-02 | 4min | 2 | 5 |
+| 33 | 33-03 | 5min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -76,6 +77,13 @@ Phase 33 decisions (Plan 33-02):
 - DataQualityPanel uses controlled Collapsible, default open tied to issueCount > 0
 - formatWithConfidence helper handles all 4 confidence levels
 
+Phase 33 decisions (Plan 33-03):
+- CSV generation extracted to standalone src/lib/csvExport.ts (~300 lines) for maintainability
+- All deduction rows always included in CSV (even zero) per accounting convention
+- Per-channel deduction breakdown rows after aggregate "All" rows
+- Delta percentages computed inline for deduction and COGS rows
+- IncomeStatementData interface duplicated client-side (no Convex server imports)
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -92,5 +100,5 @@ Phase 33 decisions (Plan 33-02):
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 33-02-PLAN.md
-Resume notes: Plan 33-02 complete (2/2 tasks). Confidence indicators, data quality panel, and channel gross margin sub-row added. Next: Plan 33-03 (CSV export).
+Stopped at: Completed 33-03-PLAN.md (Phase 33 complete)
+Resume notes: Phase 33 complete (3/3 plans, 7 tasks). Income Statement Frontend fully delivered: P&L page, week navigation, confidence indicators, data quality panel, CSV export. All 6 requirements (IS-07 through IS-12) addressed. Next: merge to main, then Phase 34.

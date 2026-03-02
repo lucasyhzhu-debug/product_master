@@ -26,7 +26,7 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 ### Export
 
-- [ ] **IS-12**: User can export the current week's income statement as flat-format CSV with line items, amounts, confidence flags, and deltas
+- [x] **IS-12**: User can export the current week's income statement as flat-format CSV with line items, amounts, confidence flags, and deltas
 
 ### Testing
 
@@ -78,7 +78,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IS-09 | Phase 33 (Plan 33-02) | Complete |
 | IS-10 | Phase 33 (Plan 33-02) | Complete |
 | IS-11 | Phase 33 (Plan 33-02) | Complete |
-| IS-12 | Phase 33 | Pending |
+| IS-12 | Phase 33 | Complete |
 | IS-13 | Phase 32 (Plan 32-03) | Complete |
 | IS-14 | Phase 32 (Plan 32-03) | Complete |
 
