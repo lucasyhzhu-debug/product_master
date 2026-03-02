@@ -102,7 +102,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 **Design doc:** `docs/plans/2026-03-01-income-statement-design.md`
 
 - [x] **Phase 32: Income Statement Backend** (3/3 plans) - COGS resolver, revenue aggregation, confidence classification, gap analysis query, backend tests (680 passing), documentation
-- [ ] **Phase 33: Income Statement Frontend** - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, and CSV export
+- [ ] **Phase 33: Income Statement Frontend** (0/3 plans) - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, and CSV export
 - [ ] **Phase 34: Income Statement Testing** - Backend tests for BOM COGS accuracy and multi-channel revenue edge cases
 
 ## Phase Details
@@ -130,7 +130,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   4. User sees visual confidence indicators (solid for exact, calc icon for calculated, ~ for inferred, dash + warning for missing) on financial figures
   5. User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance (e.g., "map in Sales Analytics > Mappings")
   6. User can click Export CSV and download a flat-format file with period, section, channel, line item, amount, confidence, prev week amount, and delta percentage
-**Plans**: TBD
+**Plans**: 33-01 (Income Statement Page, Hook & Route), 33-02 (Confidence Indicators, Comparison Deltas & Data Quality Panel), 33-03 (CSV Export & Verification)
 
 ### Phase 34: Income Statement Testing
 **Goal**: Backend computations are verified correct with known-value test cases covering COGS accuracy and revenue aggregation edge cases
