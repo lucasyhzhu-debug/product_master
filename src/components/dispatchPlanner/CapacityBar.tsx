@@ -100,7 +100,7 @@ export const CapacityBar = React.memo(function CapacityBar({
       {showTooltip && activeSegments.length > 0 && (
         <div className="absolute z-[100] bottom-full left-1/2 -translate-x-1/2 mb-2 bg-popover text-popover-foreground border rounded-md shadow-md px-3 py-2 text-xs whitespace-nowrap">
           <div className="font-semibold mb-1">
-            {total} / {capacity} units
+            {total} / {capacity} balls
             {isOverCapacity && (
               <span className="text-red-500 ml-1">
                 (+{total - capacity} over)

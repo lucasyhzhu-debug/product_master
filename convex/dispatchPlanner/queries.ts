@@ -121,6 +121,8 @@ interface UnifiedWeeklyPlan {
   dailyTotals: Record<string, Record<string, number>>;
   /** BOM-expanded ball count per date (sum of bigBalls + midBalls across all channels) */
   dailyBallTotals: Record<string, number>;
+  /** BOM-expanded ball count per date per channel (for capacity bars and channel subtotals) */
+  dailyBallTotalsByChannel: Record<string, Record<string, number>>;
 }
 
 /**
@@ -171,11 +173,12 @@ export const getUnifiedWeeklyPlan = query({
 
     // Initialize daily totals
     const dailyTotals: Record<string, Record<string, number>> = {};
-    // Per-product per-date quantities (used to compute dailyBallTotals via BOM expansion)
-    const dailyProductQty: Record<string, Record<string, number>> = {};
+    // Per-channel per-product per-date quantities (used to compute dailyBallTotals via BOM expansion)
+    // Structure: dailyChannelProductQty[date][channel][mpId] = qty
+    const dailyChannelProductQty: Record<string, Record<string, Record<string, number>>> = {};
     for (const date of dates) {
       dailyTotals[date] = {};
-      dailyProductQty[date] = {};
+      dailyChannelProductQty[date] = {};
     }
 
     const channels: ChannelSection[] = [];
@@ -193,27 +196,28 @@ export const getUnifiedWeeklyPlan = query({
 
       if (channelKey === "direct") {
         await assembleDirectChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyChannelProductQty
         );
       } else if (channelKey === "gofood") {
         await assembleGofoodChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyChannelProductQty
         );
       } else if (channelKey === "k3mart") {
         await assembleK3martChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyChannelProductQty
         );
       } else if (channelKey === "consignment") {
         await assembleConsignmentChannel(
-          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyProductQty
+          ctx, section, dates, todayStr, dailyTotals, menuProductMap, allDispatchPlans, dailyChannelProductQty
         );
       }
 
       channels.push(section);
     }
 
-    // Compute dailyBallTotals: BOM-expand dailyProductQty for each date
-    // Load BOM data once for the ball total computation
+    // Compute dailyBallTotals and dailyBallTotalsByChannel:
+    // BOM-expand dailyChannelProductQty for each date and channel.
+    // Load BOM data once for the ball total computation.
     const allBomEntriesForBalls = await ctx.db.query("menuProductComponents").collect();
     const componentTypesForBalls = await ctx.db
       .query("componentTypes")
@@ -230,19 +234,33 @@ export const getUnifiedWeeklyPlan = query({
       bomByProductForBalls.get(mpId)!.push(entry);
     }
 
-    const dailyBallTotals: Record<string, number> = {};
-    for (const date of dates) {
+    // Helper: resolve product qty to ball count via BOM
+    function resolveBalls(mpId: string, qty: number): number {
       let balls = 0;
-      const productQtyForDate = dailyProductQty[date] ?? {};
-      for (const [mpId, qty] of Object.entries(productQtyForDate)) {
-        const bom = bomByProductForBalls.get(mpId) ?? [];
-        for (const entry of bom) {
-          const ct = componentTypeMapForBalls.get(entry.componentTypeId as string);
-          if (!ct || ct.category !== "production") continue;
-          balls += qty * entry.quantity;
-        }
+      const bom = bomByProductForBalls.get(mpId) ?? [];
+      for (const entry of bom) {
+        const ct = componentTypeMapForBalls.get(entry.componentTypeId as string);
+        if (!ct || ct.category !== "production") continue;
+        balls += qty * entry.quantity;
       }
-      dailyBallTotals[date] = balls;
+      return balls;
+    }
+
+    const dailyBallTotals: Record<string, number> = {};
+    const dailyBallTotalsByChannel: Record<string, Record<string, number>> = {};
+    for (const date of dates) {
+      let dateBalls = 0;
+      dailyBallTotalsByChannel[date] = {};
+      const channelProductQty = dailyChannelProductQty[date] ?? {};
+      for (const [channel, productQtyMap] of Object.entries(channelProductQty)) {
+        let channelBalls = 0;
+        for (const [mpId, qty] of Object.entries(productQtyMap)) {
+          channelBalls += resolveBalls(mpId, qty);
+        }
+        dailyBallTotalsByChannel[date][channel] = channelBalls;
+        dateBalls += channelBalls;
+      }
+      dailyBallTotals[date] = dateBalls;
     }
 
     return {
@@ -252,6 +270,7 @@ export const getUnifiedWeeklyPlan = query({
       channels,
       dailyTotals,
       dailyBallTotals,
+      dailyBallTotalsByChannel,
     };
   },
 });
@@ -272,7 +291,7 @@ async function assembleDirectChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
-  dailyProductQty: Record<string, Record<string, number>>,
+  dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
   const dateSet = new Set(dates);
   const firstDate = dates[0];
@@ -352,12 +371,13 @@ async function assembleDirectChannel(
       });
     }
 
-    // Update daily totals and ball counts
+    // Update daily totals and per-channel product qty for BOM expansion
     for (const [date, dateMap] of aggregatedQty) {
       for (const [mpId, { qty }] of dateMap) {
         dailyTotals[date]["direct"] = (dailyTotals[date]["direct"] ?? 0) + qty;
-        if (!dailyProductQty[date]) dailyProductQty[date] = {};
-        dailyProductQty[date][mpId] = (dailyProductQty[date][mpId] ?? 0) + qty;
+        if (!dailyChannelProductQty[date]) dailyChannelProductQty[date] = {};
+        if (!dailyChannelProductQty[date]["direct"]) dailyChannelProductQty[date]["direct"] = {};
+        dailyChannelProductQty[date]["direct"][mpId] = (dailyChannelProductQty[date]["direct"][mpId] ?? 0) + qty;
       }
     }
 
@@ -394,10 +414,11 @@ async function assembleDirectChannel(
       if ((plan?.plannedQty ?? 0) > 0) {
         dailyTotals[date]["direct"] =
           (dailyTotals[date]["direct"] ?? 0) + (plan?.plannedQty ?? 0);
-        // Track per-product qty for ball total computation
-        if (!dailyProductQty[date]) dailyProductQty[date] = {};
-        dailyProductQty[date][mpId] =
-          (dailyProductQty[date][mpId] ?? 0) + (plan?.plannedQty ?? 0);
+        // Track per-channel per-product qty for ball total computation
+        if (!dailyChannelProductQty[date]) dailyChannelProductQty[date] = {};
+        if (!dailyChannelProductQty[date]["direct"]) dailyChannelProductQty[date]["direct"] = {};
+        dailyChannelProductQty[date]["direct"][mpId] =
+          (dailyChannelProductQty[date]["direct"][mpId] ?? 0) + (plan?.plannedQty ?? 0);
       }
     }
 
@@ -430,7 +451,7 @@ async function assembleGofoodChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
-  dailyProductQty: Record<string, Record<string, number>>,
+  dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
   // Fetch active GoFood outlets
   const gofoodOutlets = await ctx.db
@@ -547,10 +568,11 @@ async function assembleGofoodChannel(
         if (qty > 0) {
           dailyTotals[date]["gofood"] =
             (dailyTotals[date]["gofood"] ?? 0) + qty;
-          // Track per-product qty for ball total computation
-          if (!dailyProductQty[date]) dailyProductQty[date] = {};
-          dailyProductQty[date][mpId] =
-            (dailyProductQty[date][mpId] ?? 0) + qty;
+          // Track per-channel per-product qty for ball total computation
+          if (!dailyChannelProductQty[date]) dailyChannelProductQty[date] = {};
+          if (!dailyChannelProductQty[date]["gofood"]) dailyChannelProductQty[date]["gofood"] = {};
+          dailyChannelProductQty[date]["gofood"][mpId] =
+            (dailyChannelProductQty[date]["gofood"][mpId] ?? 0) + qty;
         }
       }
     }
@@ -578,7 +600,7 @@ async function assembleK3martChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
-  dailyProductQty: Record<string, Record<string, number>>,
+  dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
   // Fetch active K3Mart outlets
   const k3martOutlets = await ctx.db
@@ -674,10 +696,11 @@ async function assembleK3martChannel(
         if (qty > 0) {
           dailyTotals[date]["k3mart"] =
             (dailyTotals[date]["k3mart"] ?? 0) + qty;
-          // Track per-product qty for ball total computation
-          if (!dailyProductQty[date]) dailyProductQty[date] = {};
-          dailyProductQty[date][mpId] =
-            (dailyProductQty[date][mpId] ?? 0) + qty;
+          // Track per-channel per-product qty for ball total computation
+          if (!dailyChannelProductQty[date]) dailyChannelProductQty[date] = {};
+          if (!dailyChannelProductQty[date]["k3mart"]) dailyChannelProductQty[date]["k3mart"] = {};
+          dailyChannelProductQty[date]["k3mart"][mpId] =
+            (dailyChannelProductQty[date]["k3mart"][mpId] ?? 0) + qty;
         }
       }
     }
@@ -702,7 +725,7 @@ async function assembleConsignmentChannel(
   dailyTotals: Record<string, Record<string, number>>,
   menuProductMap: Map<string, Doc<"menuProducts">>,
   allDispatchPlans: Doc<"dispatchPlans">[],
-  dailyProductQty: Record<string, Record<string, number>>,
+  dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
   // Fetch active consignment outlets (unified table)
   const consignmentOutlets = await ctx.db
@@ -767,10 +790,11 @@ async function assembleConsignmentChannel(
         if (qty > 0) {
           dailyTotals[date]["consignment"] =
             (dailyTotals[date]["consignment"] ?? 0) + qty;
-          // Track per-product qty for ball total computation
-          if (!dailyProductQty[date]) dailyProductQty[date] = {};
-          dailyProductQty[date][mpId] =
-            (dailyProductQty[date][mpId] ?? 0) + qty;
+          // Track per-channel per-product qty for ball total computation
+          if (!dailyChannelProductQty[date]) dailyChannelProductQty[date] = {};
+          if (!dailyChannelProductQty[date]["consignment"]) dailyChannelProductQty[date]["consignment"] = {};
+          dailyChannelProductQty[date]["consignment"][mpId] =
+            (dailyChannelProductQty[date]["consignment"][mpId] ?? 0) + qty;
         }
       }
     }

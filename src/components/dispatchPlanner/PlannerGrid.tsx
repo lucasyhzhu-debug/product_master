@@ -62,6 +62,8 @@ export interface UnifiedWeeklyPlanData {
   dailyTotals: Record<string, Record<string, number>>;
   /** BOM-expanded ball count per date (from backend) */
   dailyBallTotals?: Record<string, number>;
+  /** BOM-expanded ball count per date per channel (for capacity bars and channel subtotals) */
+  dailyBallTotalsByChannel?: Record<string, Record<string, number>>;
 }
 
 export interface SimulationResult {
@@ -127,16 +129,18 @@ export const PlannerGrid = React.memo(function PlannerGrid({
   renderColumnAction,
   weekNavHeight = 56,
 }: PlannerGridProps) {
-  const { dates, todayStr, dailyCapacity, channels, dailyTotals, dailyBallTotals } = data;
+  const { dates, todayStr, dailyCapacity, channels, dailyTotals, dailyBallTotals, dailyBallTotalsByChannel } = data;
 
-  // Build capacity bar segments per day
+  // Build capacity bar segments per day using BOM-expanded ball counts
   const capacitySegments = useMemo(() => {
     const result: Record<string, Array<{ channelKey: string; quantity: number; color: string }>> = {};
     for (const date of dates) {
+      // Use BOM-expanded ball counts per channel when available, fall back to raw product counts
+      const dayBallsByChannel = dailyBallTotalsByChannel?.[date] ?? {};
       const dayTotals = dailyTotals[date] ?? {};
       const segments: Array<{ channelKey: string; quantity: number; color: string }> = [];
       for (const channel of channels) {
-        const qty = dayTotals[channel.channelKey] ?? 0;
+        const qty = dayBallsByChannel[channel.channelKey] ?? dayTotals[channel.channelKey] ?? 0;
         if (qty > 0) {
           segments.push({
             channelKey: channel.channelKey,
@@ -148,17 +152,22 @@ export const PlannerGrid = React.memo(function PlannerGrid({
       result[date] = segments;
     }
     return result;
-  }, [dates, dailyTotals, channels]);
+  }, [dates, dailyTotals, dailyBallTotalsByChannel, channels]);
 
-  // Compute grand total per day (across all channels)
+  // Compute grand total per day (across all channels) using BOM-expanded ball counts
   const grandTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const date of dates) {
-      const dayTotals = dailyTotals[date] ?? {};
-      totals[date] = Object.values(dayTotals).reduce((sum, v) => sum + v, 0);
+      // Use BOM-expanded ball totals when available, fall back to raw product totals
+      if (dailyBallTotals?.[date] != null) {
+        totals[date] = dailyBallTotals[date];
+      } else {
+        const dayTotals = dailyTotals[date] ?? {};
+        totals[date] = Object.values(dayTotals).reduce((sum, v) => sum + v, 0);
+      }
     }
     return totals;
-  }, [dates, dailyTotals]);
+  }, [dates, dailyTotals, dailyBallTotals]);
 
   // Build simulation status map
   const simStatusMap = useMemo(() => {
@@ -170,18 +179,20 @@ export const PlannerGrid = React.memo(function PlannerGrid({
     return map;
   }, [simulationResults]);
 
-  // Compute per-channel daily totals for ChannelGroup subtotals
+  // Compute per-channel daily totals for ChannelGroup subtotals using BOM-expanded ball counts
   const channelDailyTotals = useMemo(() => {
     const result: Record<string, Record<string, number>> = {};
     for (const channel of channels) {
       result[channel.channelKey] = {};
       for (const date of dates) {
+        // Use BOM-expanded ball counts per channel when available, fall back to raw product counts
         result[channel.channelKey][date] =
+          dailyBallTotalsByChannel?.[date]?.[channel.channelKey] ??
           dailyTotals[date]?.[channel.channelKey] ?? 0;
       }
     }
     return result;
-  }, [channels, dates, dailyTotals]);
+  }, [channels, dates, dailyTotals, dailyBallTotalsByChannel]);
 
   // Measure grid header height so channel headers can stack right below it
   const headerRef = useRef<HTMLDivElement>(null);
@@ -337,11 +348,11 @@ export const PlannerGrid = React.memo(function PlannerGrid({
         ))}
 
         {/* ==========================================
-            TABLE FOOTER: Grand totals
+            TABLE FOOTER: Grand totals (BOM-expanded ball counts)
             ========================================== */}
         <div className="flex border-t-2 border-border bg-muted/20">
           <div className="w-[200px] min-w-[200px] px-3 py-2">
-            <span className="text-sm font-bold text-foreground">Total Products</span>
+            <span className="text-sm font-bold text-foreground">Total Balls</span>
           </div>
           <div className="flex flex-1">
             {dates.map((date) => {
@@ -356,37 +367,12 @@ export const PlannerGrid = React.memo(function PlannerGrid({
                     overCapacity && "text-red-600"
                   )}
                 >
-                  {total > 0 ? total : "--"}
+                  {total > 0 ? total.toLocaleString() : "--"}
                 </div>
               );
             })}
           </div>
         </div>
-
-        {/* Balls footer row: BOM-expanded ball count per day */}
-        {dailyBallTotals && Object.keys(dailyBallTotals).length > 0 && (
-          <div className="flex border-t border-border bg-blue-50 dark:bg-blue-950/30">
-            <div className="w-[200px] min-w-[200px] px-3 py-2">
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Total Units (balls)</span>
-            </div>
-            <div className="flex flex-1">
-              {dates.map((date) => {
-                const balls = dailyBallTotals[date] ?? 0;
-                return (
-                  <div
-                    key={date}
-                    className={cn(
-                      "flex-1 h-9 flex items-center justify-center text-sm tabular-nums font-semibold border-l border-border text-blue-700 dark:text-blue-300",
-                      date === todayStr && "bg-primary/5"
-                    )}
-                  >
-                    {balls > 0 ? balls.toLocaleString() : "--"}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
