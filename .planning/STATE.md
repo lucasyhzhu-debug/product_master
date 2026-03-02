@@ -2,6 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
+status: unknown
+last_updated: "2026-03-02T08:31:52.775Z"
+progress:
+  total_phases: 12
+  completed_phases: 10
+  total_plans: 55
+  completed_plans: 56
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.5
+milestone_name: Financial Statements
 status: active
 last_updated: "2026-03-02T08:26:00Z"
 progress:
