@@ -141,7 +141,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   2. Test suite includes multi-channel revenue aggregation test with at least 3 channels verifying gross, commissions, and net revenue
   3. Test suite covers edge cases: empty week (zero values, no crash), zero-revenue margin (N/A not NaN), negative net revenue, and unmapped product COGS = missing
   4. `npm run test` passes with all new tests and `npm run build` succeeds
-**Plans**: TBD
+**Plans**: 34-01 (Multi-channel Test & Verification)
 
 ## Progress
 
