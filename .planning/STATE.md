@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T04:31:00Z"
+last_updated: "2026-03-02T04:40:43Z"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -20,12 +20,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 32 of 34 (Income Statement Backend)
-Plan: 32.3 of 3 (Unit Tests)
-Status: Active -- Plan 32-02 complete, advancing to 32-03
-Last activity: 2026-03-02 -- Plan 32-02 completed (1 task, 3 min)
+Phase: 33 of 34 (Income Statement Frontend)
+Plan: 33.1 of 3 (next phase)
+Status: Active -- Phase 32 complete, advancing to Phase 33
+Last activity: 2026-03-02 -- Plan 32-03 completed (5 tasks, 7 min)
 
-Progress: █████████████░░░░░░░ 67% -- 2 of 3 plans complete
+Progress: ████████████████████ 100% -- 3 of 3 plans complete (Phase 32)
 
 ## Performance Metrics
 
@@ -53,6 +53,9 @@ Phase 32 decisions:
 - aggregateWeek is a pure function (no ctx, no async) -- all I/O happens in handler
 - Channel confidence = lowest confidence among its line items
 - Internal discount = totalAmount - (finalTotal - deliveryFee), delivery fees excluded from P&L
+- Pure helpers tested without convex-test for faster execution
+- Integration tests seed data directly via ctx.db.insert (not mutation API) for isolation
+- 18 new tests (10 unit + 8 integration), 680 total suite passing
 
 ### Open Blockers (carried forward)
 
@@ -70,5 +73,5 @@ Phase 32 decisions:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 32-02-PLAN.md
-Resume notes: Plan 32-02 complete. Next: execute Plan 32-03 (Unit Tests).
+Stopped at: Completed 32-03-PLAN.md (Phase 32 complete)
+Resume notes: Phase 32 complete (3/3 plans). All 6 requirements (IS-01 through IS-06) addressed. Next: Phase 33 (Income Statement Frontend).

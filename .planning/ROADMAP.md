@@ -101,7 +101,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 **Design doc:** `docs/plans/2026-03-01-income-statement-design.md`
 
-- [ ] **Phase 32: Income Statement Backend** (2/3 plans) - COGS resolver, revenue aggregation, confidence classification, and gap analysis query
+- [x] **Phase 32: Income Statement Backend** (3/3 plans) - COGS resolver, revenue aggregation, confidence classification, gap analysis query, backend tests (680 passing), documentation
 - [ ] **Phase 33: Income Statement Frontend** - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, and CSV export
 - [ ] **Phase 34: Income Statement Testing** - Backend tests for BOM COGS accuracy and multi-channel revenue edge cases
 

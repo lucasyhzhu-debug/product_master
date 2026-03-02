@@ -30,8 +30,8 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 ### Testing
 
-- [ ] **IS-13**: Backend tests verify BOM COGS accuracy with known-value assertions (production + packaging split)
-- [ ] **IS-14**: Backend tests verify multi-channel revenue aggregation, discount correction, and edge cases (empty week, zero revenue margin, negative net)
+- [x] **IS-13**: Backend tests verify BOM COGS accuracy with known-value assertions (production + packaging split)
+- [x] **IS-14**: Backend tests verify multi-channel revenue aggregation, discount correction, and edge cases (empty week, zero revenue margin, negative net)
 
 ## v2 Requirements
 
@@ -79,8 +79,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IS-10 | Phase 33 | Pending |
 | IS-11 | Phase 33 | Pending |
 | IS-12 | Phase 33 | Pending |
-| IS-13 | Phase 34 | Pending |
-| IS-14 | Phase 34 | Pending |
+| IS-13 | Phase 32 (Plan 32-03) | Complete |
+| IS-14 | Phase 32 (Plan 32-03) | Complete |
 
 **Coverage:**
 - v1.5 requirements: 14 total
@@ -89,4 +89,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after Plan 32-02 completion (IS-01 through IS-06 complete)*
+*Last updated: 2026-03-02 after Plan 32-03 completion (IS-01 through IS-06, IS-13, IS-14 complete)*
