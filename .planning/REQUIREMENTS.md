@@ -11,7 +11,7 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 - [ ] **IS-01**: System computes weekly gross revenue aggregated per channel from `externalRevenue` + `consignmentSettlements`
 - [ ] **IS-02**: System computes revenue deductions (customer discounts, platform commissions, ad/promo burn, consignment rev share) per channel
-- [ ] **IS-03**: System resolves full BOM COGS (production + packaging) via in-memory map preloading from `menuProductComponents` + `componentTypes`
+- [x] **IS-03**: System resolves full BOM COGS (production + packaging) via in-memory map preloading from `menuProductComponents` + `componentTypes`
 - [ ] **IS-04**: System computes net revenue, total COGS, gross profit, and gross margin percentage
 - [ ] **IS-05**: System classifies every financial figure with confidence level (exact/calculated/inferred/missing)
 - [ ] **IS-06**: System identifies data quality gaps inline (unmapped products, zero-cost components, missing channels) in the same query
@@ -69,7 +69,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | IS-01 | Phase 32 | Pending |
 | IS-02 | Phase 32 | Pending |
-| IS-03 | Phase 32 | Pending |
+| IS-03 | Phase 32 | Complete |
 | IS-04 | Phase 32 | Pending |
 | IS-05 | Phase 32 | Pending |
 | IS-06 | Phase 32 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T00:00:00Z"
+last_updated: "2026-03-02T04:25:25Z"
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,11 +21,11 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 ## Current Position
 
 Phase: 32 of 34 (Income Statement Backend)
-Plan: -- (phase not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-02 -- Roadmap created for v1.5 (3 phases, 14 requirements)
+Plan: 32.2 of 3 (Income Statement Query)
+Status: Active -- Plan 32-01 complete, advancing to 32-02
+Last activity: 2026-03-02 -- Plan 32-01 completed (2 tasks, 2 min)
 
-Progress: ░░░░░░░░░░░░░░░░░░░░ 0% -- Roadmap ready, awaiting phase planning
+Progress: ███░░░░░░░░░░░░░░░░░ 33% -- 1 of 3 plans complete
 
 ## Performance Metrics
 
@@ -47,6 +47,10 @@ v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-desi
 - Confidence indicators as first-class data quality signal
 - Unmapped items = honest zero COGS with "missing" flag
 
+Phase 32 decisions:
+- buildProductCOGSMap uses string keys for Map (Convex IDs as strings)
+- calculateWeekRange currentEnd is exclusive (next Monday 00:00 WIB) for index range queries
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -63,5 +67,5 @@ v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-desi
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Roadmap created for v1.5 Financial Statements (3 phases: 32-34)
-Resume notes: Next step is `/gsd:plan-phase 32`. Design doc has full implementation waves ready.
+Stopped at: Completed 32-01-PLAN.md
+Resume notes: Plan 32-01 complete. Next: execute Plan 32-02 (Income Statement Query).

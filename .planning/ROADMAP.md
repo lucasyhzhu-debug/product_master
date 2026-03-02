@@ -117,7 +117,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   3. Full BOM COGS (production balls + packaging) is resolved via `buildProductCOGSMap` for every revenue item with a `linkedMenuProductId`, and unmapped items get COGS = 0
   4. Every financial figure carries a confidence level (exact/calculated/inferred/missing) in the query response
   5. The query response includes a gap analysis section listing unmapped product names, zero-cost component types, and missing channel warnings
-**Plans**: TBD
+**Plans**: 32.1 (BOM COGS Resolver & Week Range Helper), 32.2 (Weekly Income Statement Query), 32.3 (Verification & Documentation)
 
 ### Phase 33: Income Statement Frontend
 **Goal**: Users can view, navigate, and export a weekly income statement with full channel breakdown and data quality transparency
