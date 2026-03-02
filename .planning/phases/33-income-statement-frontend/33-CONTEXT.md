@@ -39,8 +39,8 @@ Users can view, navigate, and export a weekly income statement with full channel
 - Positioned below the P&L table as a collapsible card
 - Auto-expands when issues exist; collapsed only when all data is clean
 - Each issue includes a clickable link to the relevant fix page:
-  - Unmapped products -> `/analytics?tab=mappings` (Sales Analytics > Mappings)
-  - Zero-cost components -> `/component-types` (Component Types Manager)
+  - Unmapped products -> `/sales?tab=mappings` (Sales Analytics > Mappings)
+  - Zero-cost components -> `/components/production` (Component Types Manager)
   - Missing channels -> descriptive text (external blocker, no fix page)
   - Seller shipping fees gap: "Seller shipping fees (Shopee/TikTok) are not yet deducted -- Net Revenue for marketplace channels may be overstated"
 - Includes positive coverage stat: e.g., "42/45 products have BOM-linked COGS" with green tint

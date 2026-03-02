@@ -25,6 +25,7 @@ import {
   ConfidenceIndicator,
   type Confidence,
 } from "@/components/financials/ConfidenceIndicator";
+import { DataQualityPanel } from "@/components/financials/DataQualityPanel";
 
 // ── WIB helpers for column headers ──
 
@@ -915,6 +916,14 @@ export function FinancialStatement() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Data quality panel */}
+      {data && (
+        <DataQualityPanel
+          gapAnalysis={data.current.gapAnalysis}
+          channels={data.current.channels}
+        />
       )}
     </div>
   );
