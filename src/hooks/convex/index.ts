@@ -381,6 +381,9 @@ export {
   useDeleteConsignmentSettlement,
 } from "./useConsignment";
 
+// Income Statement (Phase 33)
+export { useFinancials } from "./useFinancials";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks

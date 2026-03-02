@@ -71,6 +71,9 @@ const GoFoodDepotManager = lazyWithPreload(() =>
 const SalesAnalytics = lazyWithPreload(() =>
   import('./pages/SalesAnalytics').then(m => ({ default: m.SalesAnalytics }))
 );
+const FinancialStatement = lazyWithPreload(() =>
+  import('./pages/FinancialStatement').then(m => ({ default: m.FinancialStatement }))
+);
 const K3MartCockpit = lazyWithPreload(() =>
   import('./pages/K3MartCockpit').then(m => ({ default: m.K3MartCockpit }))
 );
@@ -262,6 +265,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
                         <SalesAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Income Statement - Manager and Admin */}
+                  <Route
+                    path="financials"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessDashboard">
+                        <FinancialStatement />
                       </ProtectedRoute>
                     }
                   />

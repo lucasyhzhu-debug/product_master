@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: unknown
-last_updated: "2026-03-02T04:47:26.187Z"
+last_updated: "2026-03-02T10:56:14.382Z"
 progress:
-  total_phases: 11
-  completed_phases: 9
-  total_plans: 52
-  completed_plans: 53
+  total_phases: 13
+  completed_phases: 10
+  total_plans: 58
+  completed_plans: 58
 ---
 
 ---
@@ -16,12 +16,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T04:40:43Z"
+last_updated: "2026-03-02T10:48:32Z"
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 2
+  total_plans: 11
+  completed_plans: 8
 ---
 
 # Project State
@@ -29,16 +29,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-02)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.5 Financial Statements -- Phase 32: Income Statement Backend
+**Current focus:** v1.5 Financial Statements -- Phase 33: Income Statement Frontend
 
 ## Current Position
 
-Phase: 33 of 34 (Income Statement Frontend)
-Plan: 33.1 of 3 (next phase)
-Status: Active -- Phase 32 complete, advancing to Phase 33
-Last activity: 2026-03-02 -- Plan 32-03 completed (5 tasks, 7 min)
+Phase: 33 of 34 (Income Statement Frontend) -- COMPLETE
+Plan: 33.5 of 5 (all complete)
+Status: Phase 33 complete -- all 5 plans delivered (incl. PR review fixes), ready for Phase 34
+Last activity: 2026-03-02 -- Plan 33-05 completed (9 tasks, 5 min)
 
-Progress: ████████████████████ 100% -- 3 of 3 plans complete (Phase 32)
+Progress: ████████████████████ 100% -- 5 of 5 plans complete (Phase 33)
 
 ## Performance Metrics
 
@@ -46,6 +46,14 @@ Progress: ████████████████████ 100% -- 3
 **Velocity (v1.1):** 27 plans, avg 7.3 min, ~3.3 hours total
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 33 | 33-01 | 4min | 3 | 5 |
+| 33 | 33-02 | 4min | 2 | 5 |
+| 33 | 33-03 | 5min | 2 | 3 |
+| 33 | 33-04 | 7min | 2 | 7 |
+| 33 | 33-05 | 5min | 9 | 7 |
 
 ## Accumulated Context
 
@@ -70,6 +78,39 @@ Phase 32 decisions:
 - Integration tests seed data directly via ctx.db.insert (not mutation API) for isolation
 - 18 new tests (10 unit + 8 integration), 680 total suite passing
 
+Phase 33 decisions (Plan 33-01):
+- Revenue section expanded by default, Deductions and COGS collapsed
+- Period-agnostic column headers derived from query response (not hardcoded)
+- Channel rows expandable to show gross margin % and COGS breakdown inline
+- Mobile: CSS-first hidden comparison columns with JS toggle override
+- Gross margin delta displayed as percentage points (pp) not relative percent
+
+Phase 33 decisions (Plan 33-02):
+- Channel gross margin sub-row as separate table row with prev week + delta columns
+- COGS breakdown stays as inline text sub-row for density management
+- Seller shipping gap warning non-dismissable when marketplace channels have revenue
+- DataQualityPanel uses controlled Collapsible, default open tied to issueCount > 0
+- formatWithConfidence helper handles all 4 confidence levels
+
+Phase 33 decisions (Plan 33-03):
+- CSV generation extracted to standalone src/lib/csvExport.ts (~300 lines) for maintainability
+- All deduction rows always included in CSV (even zero) per accounting convention
+- Per-channel deduction breakdown rows after aggregate "All" rows
+- Delta percentages computed inline for deduction and COGS rows
+- IncomeStatementData interface duplicated client-side (no Convex server imports)
+
+Phase 33 decisions (Plan 33-04):
+- financialHelpers uses .tsx extension (not .ts) because it contains JSX component definitions
+- CSS variable tokens (--color-status-success/error/warning) replace raw dark: overrides for dark mode
+- computeDelta shared as single function; CSV wrapper (formatDeltaPct) handles string formatting
+- WIB_OFFSET_MS and WEEK_MS defined once in financialHelpers, imported by useFinancials and FinancialStatement
+
+Phase 33 decisions (Plan 33-05):
+- colSpan always 4 on SectionHeaderRow/COGS sub-row -- HTML allows colSpan > visible columns
+- DeltaIndicator unit prop: "pp" at 1 decimal precision for percentage points, "%" at 0 for regular
+- CSV formula injection sanitization with single-quote prefix (Excel/Sheets text-force convention)
+- DataQualityPanel useEffect sync on issueCount to handle week navigation
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -86,5 +127,5 @@ Phase 32 decisions:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 32-03-PLAN.md (Phase 32 complete)
-Resume notes: Phase 32 complete (3/3 plans). All 6 requirements (IS-01 through IS-06) addressed. Next: Phase 33 (Income Statement Frontend).
+Stopped at: Completed 33-05-PLAN.md (Phase 33 fully complete with all PR review fixes)
+Resume notes: Phase 33 complete (5/5 plans, 18 tasks total). Income Statement Frontend fully delivered: P&L page, week navigation, confidence indicators, data quality panel, CSV export, component extraction, plus PR review fixes (colSpan, CSV injection, dark mode tokens, delta dedup, dead props, error handling, panel sync, DeltaIndicator reuse). All 6 requirements (IS-07 through IS-12) addressed. Next: merge to main, then Phase 34.

@@ -27,6 +27,7 @@ import {
   Truck,
   MapPin,
   Leaf,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -81,6 +82,7 @@ const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 const mainNavItems: NavItem[] = [
   { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard', preload: _prefetchHome },
   { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  { path: '/financials', label: 'Financials', icon: FileText, permission: 'canAccessDashboard' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
