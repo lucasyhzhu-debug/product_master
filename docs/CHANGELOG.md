@@ -39,6 +39,11 @@ After merging any code change, add a new entry with:
   - CSV export with flat-format output (period, section, channel, line item, amount, confidence, comparison)
   - Mobile responsive: comparison columns hidden by default with toggle
   - Route: `/financials` with `canAccessDashboard` permission (Manager, Admin)
+- **Income Statement Testing (Phase 34)**: Multi-channel revenue aggregation integration test
+  - Multi-channel test combining gobiz + consignment + internal in a single test case with known-value assertions
+  - Sentinel value (99999) on consignment externalRevenue.revenueGross proves no double-counting from settlement path
+  - All 4 Phase 34 success criteria verified and mapped to 22 specific tests (12 integration + 10 unit)
+  - Tests: 684 passing, 0 failures
 
 ---
 

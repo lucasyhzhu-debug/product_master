@@ -7,7 +7,7 @@
 - ✅ **v1.2 Unified Planning & Revenue** — Phases 17-18 (shipped 2026-02-21)
 - ✅ **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-25 (shipped 2026-02-24)
 - ✅ **v1.4 Sales & Channel Integration** — Phases 26-31 (shipped 2026-03-01)
-- 🚧 **v1.5 Financial Statements** — Phases 32-34 (in progress)
+- ✅ **v1.5 Financial Statements** — Phases 32-34 (shipped 2026-03-02)
 
 ## Phases
 
@@ -95,7 +95,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 </details>
 
-### v1.5 Financial Statements (In Progress)
+### v1.5 Financial Statements (SHIPPED 2026-03-02)
 
 **Milestone Goal:** Provide a unified weekly income statement (Revenue -> COGS -> Gross Profit) with per-channel breakdown, BOM-resolved COGS, and data quality visibility.
 
@@ -103,7 +103,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 - [x] **Phase 32: Income Statement Backend** (3/3 plans) - COGS resolver, revenue aggregation, confidence classification, gap analysis query, backend tests (680 passing), documentation
 - [x] **Phase 33: Income Statement Frontend** (4/4 plans) - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, CSV export, and review fixes (completed 2026-03-02)
-- [ ] **Phase 34: Income Statement Testing** - Backend tests for BOM COGS accuracy and multi-channel revenue edge cases
+- [x] **Phase 34: Income Statement Testing** (1/1 plan) - Multi-channel test, criteria audit, documentation (completed 2026-03-02)
 
 ## Phase Details
 
@@ -141,7 +141,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   2. Test suite includes multi-channel revenue aggregation test with at least 3 channels verifying gross, commissions, and net revenue
   3. Test suite covers edge cases: empty week (zero values, no crash), zero-revenue margin (N/A not NaN), negative net revenue, and unmapped product COGS = missing
   4. `npm run test` passes with all new tests and `npm run build` succeeds
-**Plans**: 34-01 (Multi-channel Test & Verification)
+**Plans**: 34-01 (Multi-channel Test & Verification) - COMPLETE
 
 ## Progress
 
@@ -152,6 +152,6 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 | v1.2 Unified Planning & Revenue | 17-18 | 20 | Complete | 2026-02-21 |
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
-| v1.5 Financial Statements | 32-34 | TBD | In progress | - |
+| v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-02 |
 
-**Total: 31 phases, 152 plans shipped across 5 milestones + 3 phases planned for v1.5**
+**Total: 34 phases, 161 plans shipped across 6 milestones**
