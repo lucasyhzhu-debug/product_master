@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T08:10:18Z"
+last_updated: "2026-03-02T08:17:54Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 9
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -21,11 +21,11 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 ## Current Position
 
 Phase: 33 of 34 (Income Statement Frontend)
-Plan: 33.2 of 3
-Status: Active -- Plan 33-01 complete, advancing to Plan 33-02
-Last activity: 2026-03-02 -- Plan 33-01 completed (3 tasks, 4 min)
+Plan: 33.3 of 3
+Status: Active -- Plan 33-02 complete, advancing to Plan 33-03
+Last activity: 2026-03-02 -- Plan 33-02 completed (2 tasks, 4 min)
 
-Progress: ████░░░░░░░░░░░░░░░░ 33% -- 1 of 3 plans complete (Phase 33)
+Progress: █████████████░░░░░░░ 67% -- 2 of 3 plans complete (Phase 33)
 
 ## Performance Metrics
 
@@ -37,6 +37,7 @@ Progress: ████░░░░░░░░░░░░░░░░ 33% -- 1 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 33 | 33-01 | 4min | 3 | 5 |
+| 33 | 33-02 | 4min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -68,6 +69,13 @@ Phase 33 decisions (Plan 33-01):
 - Mobile: CSS-first hidden comparison columns with JS toggle override
 - Gross margin delta displayed as percentage points (pp) not relative percent
 
+Phase 33 decisions (Plan 33-02):
+- Channel gross margin sub-row as separate table row with prev week + delta columns
+- COGS breakdown stays as inline text sub-row for density management
+- Seller shipping gap warning non-dismissable when marketplace channels have revenue
+- DataQualityPanel uses controlled Collapsible, default open tied to issueCount > 0
+- formatWithConfidence helper handles all 4 confidence levels
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -84,5 +92,5 @@ Phase 33 decisions (Plan 33-01):
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 33-01-PLAN.md
-Resume notes: Plan 33-01 complete (3/3 tasks). Page at /financials with P&L table, week navigation, channel drill-down. Next: Plan 33-02 (confidence indicators + data quality panel).
+Stopped at: Completed 33-02-PLAN.md
+Resume notes: Plan 33-02 complete (2/2 tasks). Confidence indicators, data quality panel, and channel gross margin sub-row added. Next: Plan 33-03 (CSV export).

@@ -20,9 +20,9 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 - [x] **IS-07**: User can view a weekly income statement at `/financials` showing Revenue -> COGS -> Gross Profit with per-channel breakdown
 - [x] **IS-08**: User can navigate between weeks (prev/next) with WIB timezone boundaries (Monday start)
-- [ ] **IS-09**: User sees previous week comparison with delta amounts and percentages for every line item
-- [ ] **IS-10**: User sees confidence indicators on financial figures (exact = solid, calculated = calc icon, inferred = ~, missing = dash + warning)
-- [ ] **IS-11**: User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance
+- [x] **IS-09**: User sees previous week comparison with delta amounts and percentages for every line item
+- [x] **IS-10**: User sees confidence indicators on financial figures (exact = solid, calculated = calc icon, inferred = ~, missing = dash + warning)
+- [x] **IS-11**: User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance
 
 ### Export
 
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IS-06 | Phase 32 | Complete |
 | IS-07 | Phase 33 | Complete |
 | IS-08 | Phase 33 | Complete |
-| IS-09 | Phase 33 | Pending |
-| IS-10 | Phase 33 | Pending |
-| IS-11 | Phase 33 | Pending |
+| IS-09 | Phase 33 (Plan 33-02) | Complete |
+| IS-10 | Phase 33 (Plan 33-02) | Complete |
+| IS-11 | Phase 33 (Plan 33-02) | Complete |
 | IS-12 | Phase 33 | Pending |
 | IS-13 | Phase 32 (Plan 32-03) | Complete |
 | IS-14 | Phase 32 (Plan 32-03) | Complete |
@@ -89,4 +89,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after Plan 32-03 completion (IS-01 through IS-06, IS-13, IS-14 complete)*
+*Last updated: 2026-03-02 after Plan 33-02 completion (IS-09, IS-10, IS-11 complete)*
