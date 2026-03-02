@@ -28,6 +28,17 @@ After merging any code change, add a new entry with:
   - New helper: `calculateWeekRange` in `convex/lib/periodRange.ts`
   - Exported `fetchInternalOrderDataMap` from `convex/externalData/queries.ts`
   - Backend tests for BOM COGS accuracy and income statement query edge cases (18 new tests, 680 total)
+- **Income Statement Frontend (Phase 33)**: Standalone `/financials` page for weekly P&L visualization
+  - P&L table with Revenue -> Deductions -> COGS -> Gross Profit structure
+  - Per-channel breakdown with colored dots from platform color system
+  - Week navigation (prev/next) with WIB timezone Monday-start boundaries
+  - Previous week comparison with delta amounts and percentages
+  - Confidence indicators: calc icon (calculated), ~ (inferred), -- with warning (missing)
+  - Data quality panel: unmapped products, zero-cost components, missing channels, shipping fee gap warning
+  - Coverage stat showing BOM-linked product mapping percentage
+  - CSV export with flat-format output (period, section, channel, line item, amount, confidence, comparison)
+  - Mobile responsive: comparison columns hidden by default with toggle
+  - Route: `/financials` with `canAccessDashboard` permission (Manager, Admin)
 
 ---
 

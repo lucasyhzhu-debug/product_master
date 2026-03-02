@@ -559,9 +559,10 @@ export function FinancialStatement() {
   }, [data]);
 
   // Build a lookup map for previous week channels by source
+  type ChannelEntry = NonNullable<typeof data>["previous"]["channels"][0];
   const previousChannelMap = useMemo(() => {
-    if (!data) return new Map<string, typeof data.previous.channels[0]>();
-    const map = new Map<string, typeof data.previous.channels[0]>();
+    if (!data) return new Map<string, ChannelEntry>();
+    const map = new Map<string, ChannelEntry>();
     for (const ch of data.previous.channels) {
       map.set(ch.source, ch);
     }
