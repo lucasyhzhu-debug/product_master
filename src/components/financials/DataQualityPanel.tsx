@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -77,6 +77,11 @@ export function DataQualityPanel({
 
   // Default open when issues exist, closed when clean
   const [isOpen, setIsOpen] = useState(hasIssues);
+
+  // Re-sync open state when navigating to a different week
+  useEffect(() => {
+    setIsOpen(issueCount > 0);
+  }, [issueCount]);
 
   return (
     <Card className="mt-6">
