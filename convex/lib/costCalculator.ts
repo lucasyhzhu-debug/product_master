@@ -133,3 +133,68 @@ export function calculateMenuProductCOGS(
     total,
   };
 }
+
+/**
+ * Build a per-product COGS map from BOM components and component types.
+ * Preloads all BOM data into in-memory maps for O(1) lookups.
+ *
+ * Follows the getLifetimeTotalsInternal pattern: parallel table scans,
+ * then single-pass aggregation into a lookup map.
+ *
+ * @param bomComponents - All rows from menuProductComponents table
+ * @param componentTypes - All rows from componentTypes table
+ * @returns Map from menuProductId string to { production, packaging, total } in IDR
+ */
+export function buildProductCOGSMap(
+  bomComponents: Array<{
+    menuProductId: string;
+    componentTypeId: string;
+    quantity: number;
+  }>,
+  componentTypes: Array<{
+    _id: string;
+    unitCostIdr: number;
+    category: string;
+  }>
+): Map<string, { production: number; packaging: number; total: number }> {
+  // Step 1: Build component type lookup map
+  const componentTypeMap = new Map<
+    string,
+    { unitCostIdr: number; category: string }
+  >();
+  for (const ct of componentTypes) {
+    componentTypeMap.set(ct._id, {
+      unitCostIdr: ct.unitCostIdr,
+      category: ct.category,
+    });
+  }
+
+  // Step 2: Single-pass aggregation over BOM components
+  const result = new Map<
+    string,
+    { production: number; packaging: number; total: number }
+  >();
+
+  for (const comp of bomComponents) {
+    const ct = componentTypeMap.get(comp.componentTypeId);
+    if (!ct) continue; // Defensive: skip unknown component types
+
+    const lineCost = ct.unitCostIdr * comp.quantity;
+
+    let entry = result.get(comp.menuProductId);
+    if (!entry) {
+      entry = { production: 0, packaging: 0, total: 0 };
+      result.set(comp.menuProductId, entry);
+    }
+
+    if (ct.category === "production") {
+      entry.production += lineCost;
+    } else {
+      // All non-production categories are packaging
+      entry.packaging += lineCost;
+    }
+    entry.total = entry.production + entry.packaging;
+  }
+
+  return result;
+}
