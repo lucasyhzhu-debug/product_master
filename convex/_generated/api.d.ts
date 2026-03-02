@@ -82,6 +82,7 @@ import type * as kitchenShiftRecords_queries from "../kitchenShiftRecords/querie
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_costCalculator from "../lib/costCalculator.js";
 import type * as lib_costInvalidation from "../lib/costInvalidation.js";
+import type * as lib_externalSource from "../lib/externalSource.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hierarchyTraversal from "../lib/hierarchyTraversal.js";
 import type * as lib_jwt from "../lib/jwt.js";
@@ -98,6 +99,7 @@ import type * as migrations_bomBackfill from "../migrations/bomBackfill.js";
 import type * as migrations_bomRefactorV2 from "../migrations/bomRefactorV2.js";
 import type * as migrations_bomVerification from "../migrations/bomVerification.js";
 import type * as migrations_categorySimplification from "../migrations/categorySimplification.js";
+import type * as migrations_fixDispatchPlanOutlets from "../migrations/fixDispatchPlanOutlets.js";
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
@@ -236,6 +238,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/costCalculator": typeof lib_costCalculator;
   "lib/costInvalidation": typeof lib_costInvalidation;
+  "lib/externalSource": typeof lib_externalSource;
   "lib/functions": typeof lib_functions;
   "lib/hierarchyTraversal": typeof lib_hierarchyTraversal;
   "lib/jwt": typeof lib_jwt;
@@ -252,6 +255,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/bomRefactorV2": typeof migrations_bomRefactorV2;
   "migrations/bomVerification": typeof migrations_bomVerification;
   "migrations/categorySimplification": typeof migrations_categorySimplification;
+  "migrations/fixDispatchPlanOutlets": typeof migrations_fixDispatchPlanOutlets;
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
