@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   Minus,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getPlatformPalette } from "@/lib/platformColors";
@@ -15,6 +16,15 @@ import { useFinancials } from "@/hooks/convex/useFinancials";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ConfidenceIndicator,
+  type Confidence,
+} from "@/components/financials/ConfidenceIndicator";
 
 // ── WIB helpers for column headers ──
 
@@ -41,6 +51,35 @@ function formatWeekRange(weekStartUtc: number): string {
 function formatNegative(amount: number): string {
   if (amount === 0) return formatCurrency(0);
   return `(${formatCurrency(Math.abs(amount))})`;
+}
+
+/** Format amount with confidence awareness. Missing COGS shows "--" with warning icon. */
+function formatWithConfidence(
+  amount: number,
+  confidence: Confidence | undefined,
+  isNegative: boolean
+): React.ReactNode {
+  const formatAmount = isNegative ? formatNegative : formatCurrency;
+
+  if (confidence === "missing") {
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
+        --
+        <AlertTriangle className="h-3 w-3 text-amber-500" />
+      </span>
+    );
+  }
+
+  if (confidence === "inferred") {
+    return (
+      <span>
+        <span className="text-muted-foreground">~ </span>
+        {formatAmount(amount)}
+      </span>
+    );
+  }
+
+  return formatAmount(amount);
 }
 
 // ── Delta indicator ──
@@ -108,9 +147,10 @@ interface PLRowProps {
   isBold?: boolean;
   channelDot?: string;
   percentOfTotal?: number | null;
-  confidence?: "exact" | "calculated" | "inferred" | "missing";
+  confidence?: Confidence;
   showComparison: boolean;
   isTopBorder?: boolean;
+  labelTooltip?: string;
 }
 
 function PLRow({
@@ -124,14 +164,43 @@ function PLRow({
   isBold = false,
   channelDot,
   percentOfTotal,
+  confidence,
   showComparison,
   isTopBorder = false,
+  labelTooltip,
 }: PLRowProps) {
   const formatAmount = isNegative ? formatNegative : formatCurrency;
   const paddingClass =
     indent === 0 ? "pl-2" : indent === 1 ? "pl-6" : "pl-10";
   const fontClass = isBold ? "font-semibold" : "font-normal";
   const bgClass = indent === 0 ? "bg-muted/30" : "";
+
+  const labelContent = (
+    <span className="inline-flex items-center gap-2">
+      {channelDot && (
+        <span className={cn("inline-block w-2.5 h-2.5 rounded-full shrink-0", channelDot)} />
+      )}
+      {labelTooltip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-help border-b border-dashed border-muted-foreground/40">
+              {label}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-[260px]">{labelTooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        label
+      )}
+      {percentOfTotal != null && (
+        <span className="text-xs text-muted-foreground">
+          {percentOfTotal.toFixed(1)}%
+        </span>
+      )}
+    </span>
+  );
 
   return (
     <tr
@@ -141,20 +210,15 @@ function PLRow({
       )}
     >
       <td className={cn("py-2 text-sm", paddingClass, fontClass)}>
-        <span className="inline-flex items-center gap-2">
-          {channelDot && (
-            <span className={cn("inline-block w-2.5 h-2.5 rounded-full shrink-0", channelDot)} />
-          )}
-          {label}
-          {percentOfTotal != null && (
-            <span className="text-xs text-muted-foreground">
-              {percentOfTotal.toFixed(1)}%
-            </span>
-          )}
-        </span>
+        {labelContent}
       </td>
       <td className={cn("py-2 text-sm text-right tabular-nums", fontClass)}>
-        {formatAmount(currentAmount)}
+        <span className="inline-flex items-center justify-end">
+          {formatWithConfidence(currentAmount, confidence, isNegative)}
+          {confidence && confidence !== "missing" && (
+            <ConfidenceIndicator level={confidence} />
+          )}
+        </span>
       </td>
       <td
         className={cn(
@@ -186,11 +250,13 @@ function SectionHeaderRow({
   isExpanded,
   onToggle,
   showComparison,
+  labelTooltip,
 }: {
   label: string;
   isExpanded: boolean;
   onToggle: () => void;
   showComparison: boolean;
+  labelTooltip?: string;
 }) {
   return (
     <tr className="border-t bg-muted/50">
@@ -205,7 +271,20 @@ function SectionHeaderRow({
           ) : (
             <ChevronUp className="h-3.5 w-3.5" />
           )}
-          {label}
+          {labelTooltip ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help border-b border-dashed border-muted-foreground/40">
+                  {label}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-[300px]">{labelTooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            label
+          )}
         </span>
       </td>
     </tr>
@@ -214,18 +293,14 @@ function SectionHeaderRow({
 
 // ── Channel row (expandable to show gross margin) ──
 
-function ChannelRow({
-  channel,
-  totalGross,
-  previousChannel,
-  showComparison,
-}: {
+interface ChannelRowProps {
   channel: {
     source: string;
     displayName: string;
     gross: number;
     cogs: { production: number; packaging: number; total: number };
     netRevenue: number;
+    confidence: Confidence;
   };
   totalGross: number;
   previousChannel?: {
@@ -234,7 +309,14 @@ function ChannelRow({
     netRevenue: number;
   };
   showComparison: boolean;
-}) {
+}
+
+function ChannelRow({
+  channel,
+  totalGross,
+  previousChannel,
+  showComparison,
+}: ChannelRowProps) {
   const [expanded, setExpanded] = useState(false);
   const palette = getPlatformPalette(channel.source);
   const percentOfTotal =
@@ -251,12 +333,27 @@ function ChannelRow({
             percent: ((channel.gross - prevGross) / prevGross) * 100,
           };
 
-  // Channel gross margin
+  // Channel gross margin (current)
   const channelGrossProfit = channel.netRevenue - channel.cogs.total;
   const channelGrossMargin =
     channel.netRevenue !== 0
       ? (channelGrossProfit / channel.netRevenue) * 100
       : null;
+
+  // Channel gross margin (previous)
+  const prevNetRevenue = previousChannel?.netRevenue ?? 0;
+  const prevCogs = previousChannel?.cogs?.total ?? 0;
+  const prevGrossProfit = prevNetRevenue - prevCogs;
+  const prevGrossMargin =
+    prevNetRevenue !== 0 ? (prevGrossProfit / prevNetRevenue) * 100 : null;
+
+  // Gross margin delta in percentage points
+  const grossMarginDeltaPp =
+    channelGrossMargin != null && prevGrossMargin != null
+      ? channelGrossMargin - prevGrossMargin
+      : null;
+
+  const isConsignment = channel.source === "consignment";
 
   return (
     <>
@@ -272,7 +369,22 @@ function ChannelRow({
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
             )}
             <span className={cn("inline-block w-2.5 h-2.5 rounded-full shrink-0", palette.dot)} />
-            {channel.displayName}
+            {isConsignment ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help border-b border-dashed border-muted-foreground/40">
+                    {channel.displayName}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[260px]">
+                    Accrual basis -- revenue recognized by settlement period, not payment receipt date
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              channel.displayName
+            )}
             {percentOfTotal != null && (
               <span className="text-xs text-muted-foreground">
                 {percentOfTotal.toFixed(1)}%
@@ -281,7 +393,10 @@ function ChannelRow({
           </span>
         </td>
         <td className="py-1.5 text-sm text-right tabular-nums">
-          {formatCurrency(channel.gross)}
+          <span className="inline-flex items-center justify-end">
+            {formatCurrency(channel.gross)}
+            <ConfidenceIndicator level={channel.confidence} />
+          </span>
         </td>
         <td
           className={cn(
@@ -303,25 +418,71 @@ function ChannelRow({
         </td>
       </tr>
       {expanded && (
-        <tr className="bg-muted/10">
-          <td colSpan={showComparison ? 4 : 2} className="py-1 pl-16 text-xs text-muted-foreground">
-            Gross Margin:{" "}
-            <span className="font-medium text-foreground">
+        <>
+          {/* Gross margin sub-row with previous week comparison */}
+          <tr className="bg-muted/10">
+            <td className="py-1 pl-16 text-xs text-muted-foreground">
+              Gross Margin
+            </td>
+            <td className="py-1 text-xs text-right tabular-nums font-medium">
               {channelGrossMargin != null
                 ? `${channelGrossMargin.toFixed(1)}%`
                 : "N/A"}
-            </span>
-            {" | COGS: "}
-            <span className="font-medium text-foreground">
-              {formatCurrency(channel.cogs.total)}
-            </span>
-            {" (Production: "}
-            {formatCurrency(channel.cogs.production)}
-            {", Packaging: "}
-            {formatCurrency(channel.cogs.packaging)}
-            {")"}
-          </td>
-        </tr>
+            </td>
+            <td
+              className={cn(
+                "py-1 text-xs text-right tabular-nums",
+                "md:table-cell",
+                !showComparison && "hidden"
+              )}
+            >
+              {prevGrossMargin != null
+                ? `${prevGrossMargin.toFixed(1)}%`
+                : "N/A"}
+            </td>
+            <td
+              className={cn(
+                "py-1 text-xs text-right",
+                "md:table-cell",
+                !showComparison && "hidden"
+              )}
+            >
+              {grossMarginDeltaPp != null ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center text-xs",
+                    grossMarginDeltaPp >= 0
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-red-600 dark:text-red-400"
+                  )}
+                >
+                  {grossMarginDeltaPp >= 0 ? (
+                    <ArrowUpRight className="h-3 w-3 mr-0.5" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3 mr-0.5" />
+                  )}
+                  {Math.abs(grossMarginDeltaPp).toFixed(1)}pp
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">-</span>
+              )}
+            </td>
+          </tr>
+          {/* COGS breakdown sub-row */}
+          <tr className="bg-muted/10">
+            <td colSpan={showComparison ? 4 : 2} className="py-1 pl-16 text-xs text-muted-foreground">
+              COGS:{" "}
+              <span className="font-medium text-foreground">
+                {formatCurrency(channel.cogs.total)}
+              </span>
+              {" (Production: "}
+              {formatCurrency(channel.cogs.production)}
+              {", Packaging: "}
+              {formatCurrency(channel.cogs.packaging)}
+              {")"}
+            </td>
+          </tr>
+        </>
       )}
     </>
   );
@@ -491,7 +652,7 @@ export function FinancialStatement() {
       {/* Loading state */}
       {isLoading && <PLTableSkeleton />}
 
-      {/* Error fallback — Convex queries rarely fail, but defensive */}
+      {/* Error fallback -- Convex queries rarely fail, but defensive */}
       {!isLoading && !data && (
         <ErrorCard onRetry={goToCurrentWeek} />
       )}
@@ -529,7 +690,7 @@ export function FinancialStatement() {
               </tr>
             </thead>
             <tbody>
-              {/* ── REVENUE SECTION ── */}
+              {/* -- REVENUE SECTION -- */}
               <SectionHeaderRow
                 label="Revenue"
                 isExpanded={revenueExpanded}
@@ -562,7 +723,7 @@ export function FinancialStatement() {
                 </>
               )}
 
-              {/* ── DEDUCTIONS SECTION ── */}
+              {/* -- DEDUCTIONS SECTION -- */}
               <SectionHeaderRow
                 label="Deductions"
                 isExpanded={deductionsExpanded}
@@ -615,6 +776,7 @@ export function FinancialStatement() {
                     invertColor
                     indent={1}
                     showComparison={showComparison}
+                    labelTooltip="Accrual basis -- revenue recognized by settlement period, not payment receipt date"
                   />
                 </>
               )}
@@ -631,7 +793,7 @@ export function FinancialStatement() {
                 showComparison={showComparison}
               />
 
-              {/* ── NET REVENUE ── */}
+              {/* -- NET REVENUE -- */}
               <PLRow
                 label="NET REVENUE"
                 currentAmount={data.current.netRevenue}
@@ -643,12 +805,13 @@ export function FinancialStatement() {
                 isTopBorder
               />
 
-              {/* ── COGS SECTION ── */}
+              {/* -- COGS SECTION -- */}
               <SectionHeaderRow
                 label="Cost of Goods Sold"
                 isExpanded={cogsExpanded}
                 onToggle={() => setCogsExpanded(!cogsExpanded)}
                 showComparison={showComparison}
+                labelTooltip="Internal order COGS uses order-time snapshot; external channel COGS uses current BOM costs"
               />
 
               {cogsExpanded && cogsDeltas && (
@@ -688,7 +851,7 @@ export function FinancialStatement() {
                 showComparison={showComparison}
               />
 
-              {/* ── GROSS PROFIT ── */}
+              {/* -- GROSS PROFIT -- */}
               <PLRow
                 label="GROSS PROFIT"
                 currentAmount={data.current.grossProfit}
