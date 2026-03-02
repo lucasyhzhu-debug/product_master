@@ -608,4 +608,214 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.totalProductionCogs).toBe(60000); // 4 * 3 * 5000
     expect(result.current.totalPackagingCogs).toBe(8000); // 4 * 2000
   });
+
+  test("multi-channel revenue aggregation: gobiz + consignment + internal", async () => {
+    const t = convexTest(schema);
+
+    // ── 1. Seed 3 BOM-linked menu products (one per channel) ──
+
+    // Product A ("Gobiz Product"): 1x BIG_BALL (10000) + 1x SMALL_BOX (2000) = 12000 COGS/unit
+    const { menuProductId: productAId } = await seedMenuProductWithBOM(t, {
+      code: "GOBIZ-001",
+      name: "Gobiz Product",
+      bomConfig: [
+        { code: "BIG_BALL", name: "Big Ball", category: "production", unitCostIdr: 10000, quantity: 1 },
+        { code: "SMALL_BOX", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+      ],
+    });
+
+    // Product B ("Consignment Product"): 1x MID_BALL (5000) + 1x SMALL_BOX (2000) + 1x STICKER (500) = 7500 COGS/unit
+    const { menuProductId: productBId } = await seedMenuProductWithBOM(t, {
+      code: "CONSIGN-002",
+      name: "Consignment Product",
+      bomConfig: [
+        { code: "MID_BALL", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 1 },
+        { code: "SMALL_BOX_B", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+        { code: "STICKER_B", name: "Sticker", category: "packaging", unitCostIdr: 500, quantity: 1 },
+      ],
+    });
+
+    // Product C ("Internal Product"): 2x MID_BALL (5000) + 1x LARGE_BOX (3000) = 13000 COGS/unit
+    const { menuProductId: productCId } = await seedMenuProductWithBOM(t, {
+      code: "INTERNAL-003",
+      name: "Internal Product",
+      bomConfig: [
+        { code: "MID_BALL_C", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 2 },
+        { code: "LARGE_BOX_C", name: "Large Box", category: "packaging", unitCostIdr: 3000, quantity: 1 },
+      ],
+    });
+
+    // ── 2. Seed gobiz channel: gross 100000, commission 10000, 2 units of Product A ──
+    const gobizRevenueId = await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 100000,
+      commission: 10000,
+    });
+    await seedRevenueItem(t, gobizRevenueId, {
+      source: "gobiz",
+      productName: "Gobiz Product",
+      unitPrice: 50000,
+      quantity: 2,
+      totalPrice: 100000,
+      linkedMenuProductId: productAId,
+    });
+
+    // ── 3. Seed consignment channel: gross 50000, revShare 10000 (20%) ──
+    // externalRevenue.revenueGross = 99999 (sentinel) -- proves gross comes from settlement, not revenue record
+    const consignRevenueId = await seedExternalRevenue(t, {
+      source: "consignment",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 99999, // SENTINEL: if double-counting bug exists, totalGross would include 99999 instead of 50000
+    });
+    await seedRevenueItem(t, consignRevenueId, {
+      source: "consignment",
+      productName: "Consignment Product",
+      unitPrice: 25000,
+      quantity: 2,
+      totalPrice: 50000,
+      linkedMenuProductId: productBId,
+    });
+
+    // Create consignment outlet
+    const outletId = await t.run(async (ctx) => {
+      return await ctx.db.insert("consignmentOutlets", {
+        name: "Test Outlet",
+        type: "retail",
+        revSharePercent: 20,
+        isActive: true,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+    });
+
+    // Create consignment settlement
+    await t.run(async (ctx) => {
+      await ctx.db.insert("consignmentSettlements", {
+        outletId,
+        periodStart: TEST_WEEK_START,
+        periodEnd: TEST_WEEK_START + 86400000,
+        totalRevenue: 50000,
+        revSharePercent: 20,
+        revShareAmount: 10000,
+        frolliePayment: 40000,
+        status: "pending",
+        linkedRevenueId: consignRevenueId,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+    });
+
+    // ── 4. Seed internal channel: gross 80000, discount 15000 ──
+    const customerId = await t.run(async (ctx) => {
+      return await ctx.db.insert("customers", { name: "Test Customer", createdBy: "test" });
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("orders", {
+        orderNumber: "0105-002",
+        customerId,
+        customerName: "Test Customer",
+        status: "Complete",
+        paymentStatus: "Paid",
+        orderDate: Date.now(),
+        totalAmount: 80000,
+        totalCost: 0,
+        totalMargin: 0,
+        finalTotal: 75000,
+        deliveryFee: 10000,
+        deliveryType: "Delivery",
+        itemCount: 1,
+        createdBy: "test",
+      });
+    });
+
+    // Discount = totalAmount - (finalTotal - deliveryFee) = 80000 - (75000 - 10000) = 15000
+    const internalRevenueId = await seedExternalRevenue(t, {
+      source: "internal",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 80000,
+      externalTransactionId: "0105-002",
+    });
+    await seedRevenueItem(t, internalRevenueId, {
+      source: "internal",
+      productName: "Internal Product",
+      unitPrice: 40000,
+      quantity: 2,
+      totalPrice: 80000,
+      linkedMenuProductId: productCId,
+    });
+
+    // ── 5. Call query and assert ──
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // ── Structural assertion: exactly 3 channels ──
+    expect(result.current.channels).toHaveLength(3);
+
+    // ── Channel ordering: sorted by gross descending ──
+    expect(result.current.channels[0].source).toBe("gobiz");     // 100000
+    expect(result.current.channels[1].source).toBe("internal");   // 80000
+    expect(result.current.channels[2].source).toBe("consignment"); // 50000
+
+    // ── Per-channel assertions: gobiz ──
+    const gobiz = result.current.channels[0];
+    expect(gobiz.gross).toBe(100000);
+    expect(gobiz.commission).toBe(10000);
+    expect(gobiz.netRevenue).toBe(90000);
+    expect(gobiz.cogs.production).toBe(20000);   // 2 * 10000
+    expect(gobiz.cogs.packaging).toBe(4000);     // 2 * 2000
+    expect(gobiz.cogs.total).toBe(24000);
+
+    // ── Per-channel assertions: consignment ──
+    const consignment = result.current.channels[2];
+    expect(consignment.gross).toBe(50000);
+    expect(consignment.revShare).toBe(10000);
+    expect(consignment.netRevenue).toBe(40000);
+    expect(consignment.cogs.production).toBe(10000);  // 2 * 5000
+    expect(consignment.cogs.packaging).toBe(5000);    // 2 * (2000 + 500)
+    expect(consignment.cogs.total).toBe(15000);
+
+    // ── Per-channel assertions: internal ──
+    const internal = result.current.channels[1];
+    expect(internal.gross).toBe(80000);
+    expect(internal.discount).toBe(15000);
+    expect(internal.netRevenue).toBe(65000);
+    expect(internal.cogs.production).toBe(20000);  // 2 * 2 * 5000
+    expect(internal.cogs.packaging).toBe(6000);    // 2 * 3000
+    expect(internal.cogs.total).toBe(26000);
+
+    // ── Cross-channel total assertions ──
+    expect(result.current.totalGross).toBe(230000);            // 100000 + 50000 + 80000
+    expect(result.current.totalCommission).toBe(10000);
+    expect(result.current.totalRevShare).toBe(10000);
+    expect(result.current.totalDiscounts).toBe(15000);
+    expect(result.current.totalDeductions).toBe(35000);        // 10000 + 10000 + 15000
+    expect(result.current.netRevenue).toBe(195000);            // 230000 - 35000
+    expect(result.current.totalProductionCogs).toBe(50000);    // 20000 + 10000 + 20000
+    expect(result.current.totalPackagingCogs).toBe(15000);     // 4000 + 5000 + 6000
+    expect(result.current.totalCogs).toBe(65000);              // 50000 + 15000
+    expect(result.current.grossProfit).toBe(130000);           // 195000 - 65000
+    expect(result.current.grossMarginPercent).toBeCloseTo(66.67, 2); // 130000/195000 * 100
+    expect(result.current.totalAdBurn).toBe(0);
+    expect(result.current.totalPromoBurn).toBe(0);
+
+    // ── Channel-level confidence: all exact (exact revenue sources, all products BOM-linked) ──
+    expect(gobiz.confidence).toBe("exact");
+    expect(consignment.confidence).toBe("exact");
+    expect(internal.confidence).toBe("exact");
+
+    // ── Product-level confidence: all calculated (BOM-linked) ──
+    expect(gobiz.products.every((p) => p.confidence === "calculated")).toBe(true);
+    expect(consignment.products.every((p) => p.confidence === "calculated")).toBe(true);
+    expect(internal.products.every((p) => p.confidence === "calculated")).toBe(true);
+
+    // ── Gap analysis happy path ──
+    expect(result.current.gapAnalysis.unmappedProducts).toHaveLength(0);
+    expect(result.current.gapAnalysis.totalMappedProducts).toBe(3);  // 1 revenue item row per channel * 3 channels
+    expect(result.current.gapAnalysis.totalProducts).toBe(3);
+    expect(result.current.gapAnalysis.zeroCostComponents).toHaveLength(0);
+  });
 });
