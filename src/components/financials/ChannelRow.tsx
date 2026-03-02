@@ -2,8 +2,6 @@ import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getPlatformPalette } from "@/lib/platformColors";
@@ -170,25 +168,14 @@ export function ChannelRow({
                 !showComparison && "hidden"
               )}
             >
-              {grossMarginDeltaPp != null ? (
-                <span
-                  className={cn(
-                    "inline-flex items-center text-xs",
-                    grossMarginDeltaPp >= 0
-                      ? "text-[var(--color-status-success)]"
-                      : "text-[var(--color-status-error)]"
-                  )}
-                >
-                  {grossMarginDeltaPp >= 0 ? (
-                    <ArrowUpRight className="h-3 w-3 mr-0.5" />
-                  ) : (
-                    <ArrowDownRight className="h-3 w-3 mr-0.5" />
-                  )}
-                  {Math.abs(grossMarginDeltaPp).toFixed(1)}pp
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">-</span>
-              )}
+              <DeltaIndicator
+                delta={
+                  grossMarginDeltaPp != null
+                    ? { amount: grossMarginDeltaPp, percent: grossMarginDeltaPp }
+                    : null
+                }
+                unit="pp"
+              />
             </td>
           </tr>
           {/* COGS breakdown sub-row */}

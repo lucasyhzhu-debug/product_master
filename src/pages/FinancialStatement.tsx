@@ -2,8 +2,6 @@ import { useState, useMemo } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  ArrowUpRight,
-  ArrowDownRight,
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +18,7 @@ import {
   WEEK_MS,
   computeDelta,
   formatWeekRange,
+  DeltaIndicator,
   SectionHeaderRow,
   PLTableSkeleton,
   ErrorCard,
@@ -402,25 +401,14 @@ export function FinancialStatement() {
                     !showComparison && "hidden"
                   )}
                 >
-                  {data.deltas.grossMarginPp != null ? (
-                    <span
-                      className={cn(
-                        "inline-flex items-center text-xs",
-                        data.deltas.grossMarginPp >= 0
-                          ? "text-[var(--color-status-success)]"
-                          : "text-[var(--color-status-error)]"
-                      )}
-                    >
-                      {data.deltas.grossMarginPp >= 0 ? (
-                        <ArrowUpRight className="h-3 w-3 mr-0.5" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3 mr-0.5" />
-                      )}
-                      {Math.abs(data.deltas.grossMarginPp).toFixed(1)}pp
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
+                  <DeltaIndicator
+                    delta={
+                      data.deltas.grossMarginPp != null
+                        ? { amount: data.deltas.grossMarginPp, percent: data.deltas.grossMarginPp }
+                        : null
+                    }
+                    unit="pp"
+                  />
                 </td>
               </tr>
             </tbody>

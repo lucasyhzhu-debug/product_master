@@ -105,9 +105,11 @@ export function formatWithConfidence(
 export function DeltaIndicator({
   delta,
   invertColor,
+  unit = "%",
 }: {
   delta: { amount: number; percent: number | null } | null;
   invertColor?: boolean;
+  unit?: string; // defaults to "%", use "pp" for percentage points
 }) {
   if (!delta) return <span className="text-muted-foreground">-</span>;
 
@@ -117,7 +119,7 @@ export function DeltaIndicator({
     return (
       <span className="inline-flex items-center text-xs text-muted-foreground">
         <Minus className="h-3 w-3 mr-0.5" />
-        0%
+        0{unit}
       </span>
     );
   }
@@ -132,6 +134,7 @@ export function DeltaIndicator({
 
   const isPositive = percent >= 0;
   const isGood = invertColor ? !isPositive : isPositive;
+  const precision = unit === "pp" ? 1 : 0;
 
   return (
     <span
@@ -147,7 +150,7 @@ export function DeltaIndicator({
       ) : (
         <ArrowDownRight className="h-3 w-3 mr-0.5" />
       )}
-      {Math.abs(percent).toFixed(0)}%
+      {Math.abs(percent).toFixed(precision)}{unit}
     </span>
   );
 }
