@@ -106,10 +106,92 @@ function getChannelRevenueConfidence(source: string): Confidence {
       return "exact";
     case "k3mart":
       return "inferred";
+    // Unknown sources default to "inferred" (not "exact") so the frontend
+    // never displays an unwarranted confidence badge for a new source.
     default:
-      return "exact";
+      return "inferred";
   }
 }
+
+// ─── Confidence comparison ───
+// Placed above aggregateWeek so readers encounter it before first use.
+
+const CONFIDENCE_RANK: Record<Confidence, number> = {
+  exact: 0,
+  calculated: 1,
+  inferred: 2,
+  missing: 3,
+};
+
+/** Returns the worse (lowest-quality) confidence of two values. */
+function worstConfidence(a: Confidence, b: Confidence): Confidence {
+  return CONFIDENCE_RANK[a] >= CONFIDENCE_RANK[b] ? a : b;
+}
+
+// ─── Shared COGS resolution helper ───
+// Extracted to avoid duplication between platform channel (4b) and consignment (4c) loops.
+
+function resolveItemsCOGS(
+  items: Doc<"externalRevenueItems">[],
+  cogsMap: Map<string, { production: number; packaging: number; total: number }>,
+  channelCogs: { production: number; packaging: number; total: number },
+  channelProducts: ProductDetail[],
+  unmappedProductsMap: Map<string, { count: number; revenue: number }>,
+  counters: { totalProducts: number; totalMappedProducts: number }
+): void {
+  for (const item of items) {
+    counters.totalProducts++;
+    const productCogs = item.linkedMenuProductId
+      ? cogsMap.get(item.linkedMenuProductId as string) ?? null
+      : null;
+
+    const itemCogs = productCogs
+      ? {
+          production: productCogs.production * item.quantity,
+          packaging: productCogs.packaging * item.quantity,
+          total: productCogs.total * item.quantity,
+        }
+      : { production: 0, packaging: 0, total: 0 };
+
+    const itemConfidence: Confidence = productCogs ? "calculated" : "missing";
+
+    if (productCogs) {
+      counters.totalMappedProducts++;
+    } else {
+      const key = item.productName;
+      const existing = unmappedProductsMap.get(key);
+      if (existing) {
+        existing.count += item.quantity;
+        existing.revenue += item.totalPrice;
+      } else {
+        unmappedProductsMap.set(key, {
+          count: item.quantity,
+          revenue: item.totalPrice,
+        });
+      }
+    }
+
+    channelCogs.production += itemCogs.production;
+    channelCogs.packaging += itemCogs.packaging;
+    channelCogs.total += itemCogs.total;
+
+    channelProducts.push({
+      name: item.productName,
+      quantity: item.quantity,
+      revenue: item.totalPrice,
+      cogsPerUnit: productCogs ? productCogs.total : null,
+      cogsTotal: itemCogs.total,
+      confidence: itemConfidence,
+    });
+  }
+}
+
+// ─── Known missing channels ───
+// Extracted as constant so stale reasons are easy to find and update.
+
+const KNOWN_MISSING_CHANNELS = [
+  { source: "grabfood", reason: "GrabFood OAuth scope pending" },
+] as const;
 
 // ─── Pure aggregation function (no ctx, no async) ───
 
@@ -141,12 +223,13 @@ function aggregateWeek(
     string,
     { count: number; revenue: number }
   >();
-  let totalMappedProducts = 0;
-  let totalProducts = 0;
+  const counters = { totalMappedProducts: 0, totalProducts: 0 };
 
   // Process each source channel from revenue records
   for (const [source, records] of revenueBySource.entries()) {
-    // Skip consignment source in externalRevenue — handled separately below
+    // Skip consignment source in externalRevenue — handled separately in 4c below.
+    // This prevents double-counting: consignment revenue is captured via
+    // consignmentSettlements (with revShare deduction), not externalRevenue.
     if (source === "consignment") continue;
 
     let channelGross = 0;
@@ -159,7 +242,11 @@ function aggregateWeek(
     const channelProducts: ProductDetail[] = [];
 
     if (source === "internal") {
-      // Internal channel: use order data for accurate gross/discount
+      // Internal channel: use order data for accurate gross/discount.
+      // NOTE: COGS for internal orders uses current BOM costs (same as all channels),
+      // not the historical orderItems.unitCost snapshot. This is a deliberate simplification:
+      // BOM-based resolution is uniform across all channels, and ingredient costs change
+      // infrequently enough that current BOM is acceptable for weekly P&L.
       for (const rec of records) {
         channelTransactions += rec.transactionCount ?? 1;
 
@@ -171,7 +258,10 @@ function aggregateWeek(
           // Gross = totalAmount (pre-discount product value)
           channelGross += orderData.totalAmount;
           // Discount = totalAmount - (finalTotal - deliveryFee)
-          // deliveryFee is pass-through, not part of discount calculation base
+          // deliveryFee is pass-through, not part of discount calculation base.
+          // NOTE: This discount figure includes voucher deductions (vouchers reduce
+          // finalTotal). The frontend should label this as "Discounts & Vouchers"
+          // rather than just "Discounts" for accuracy.
           channelDiscount +=
             orderData.totalAmount -
             (orderData.finalTotal - orderData.deliveryFee);
@@ -204,54 +294,14 @@ function aggregateWeek(
     // ── 4b: Per-channel COGS resolution ──
     for (const rev of records) {
       const items = itemsMap.get(rev._id as string) ?? [];
-      for (const item of items) {
-        totalProducts++;
-        const productCogs = item.linkedMenuProductId
-          ? cogsMap.get(item.linkedMenuProductId as string) ?? null
-          : null;
-
-        const itemCogs = productCogs
-          ? {
-              production: productCogs.production * item.quantity,
-              packaging: productCogs.packaging * item.quantity,
-              total: productCogs.total * item.quantity,
-            }
-          : { production: 0, packaging: 0, total: 0 };
-
-        const itemConfidence: Confidence = productCogs
-          ? "calculated"
-          : "missing";
-
-        if (productCogs) {
-          totalMappedProducts++;
-        } else {
-          // Track unmapped product for gap analysis
-          const key = item.productName;
-          const existing = unmappedProductsMap.get(key);
-          if (existing) {
-            existing.count += item.quantity;
-            existing.revenue += item.totalPrice;
-          } else {
-            unmappedProductsMap.set(key, {
-              count: item.quantity,
-              revenue: item.totalPrice,
-            });
-          }
-        }
-
-        channelCogs.production += itemCogs.production;
-        channelCogs.packaging += itemCogs.packaging;
-        channelCogs.total += itemCogs.total;
-
-        channelProducts.push({
-          name: item.productName,
-          quantity: item.quantity,
-          revenue: item.totalPrice,
-          cogsPerUnit: productCogs ? productCogs.total : null,
-          cogsTotal: itemCogs.total,
-          confidence: itemConfidence,
-        });
-      }
+      resolveItemsCOGS(
+        items,
+        cogsMap,
+        channelCogs,
+        channelProducts,
+        unmappedProductsMap,
+        counters
+      );
     }
 
     // Channel confidence = revenue confidence (downgrade if any product has missing COGS)
@@ -260,7 +310,7 @@ function aggregateWeek(
       (p) => p.confidence === "missing"
     );
     const channelConfidence: Confidence = hasAnyCogsMissing
-      ? lowestConfidence(revenueConfidence, "missing")
+      ? worstConfidence(revenueConfidence, "missing")
       : revenueConfidence;
 
     channels.push({
@@ -297,49 +347,14 @@ function aggregateWeek(
       if (settlement.linkedRevenueId) {
         const items =
           itemsMap.get(settlement.linkedRevenueId as string) ?? [];
-        for (const item of items) {
-          totalProducts++;
-          const productCogs = item.linkedMenuProductId
-            ? cogsMap.get(item.linkedMenuProductId as string) ?? null
-            : null;
-
-          const itemCogs = productCogs
-            ? {
-                production: productCogs.production * item.quantity,
-                packaging: productCogs.packaging * item.quantity,
-                total: productCogs.total * item.quantity,
-              }
-            : { production: 0, packaging: 0, total: 0 };
-
-          if (productCogs) {
-            totalMappedProducts++;
-          } else {
-            const key = item.productName;
-            const existing = unmappedProductsMap.get(key);
-            if (existing) {
-              existing.count += item.quantity;
-              existing.revenue += item.totalPrice;
-            } else {
-              unmappedProductsMap.set(key, {
-                count: item.quantity,
-                revenue: item.totalPrice,
-              });
-            }
-          }
-
-          consignCogs.production += itemCogs.production;
-          consignCogs.packaging += itemCogs.packaging;
-          consignCogs.total += itemCogs.total;
-
-          consignProducts.push({
-            name: item.productName,
-            quantity: item.quantity,
-            revenue: item.totalPrice,
-            cogsPerUnit: productCogs ? productCogs.total : null,
-            cogsTotal: itemCogs.total,
-            confidence: productCogs ? "calculated" : "missing",
-          });
-        }
+        resolveItemsCOGS(
+          items,
+          cogsMap,
+          consignCogs,
+          consignProducts,
+          unmappedProductsMap,
+          counters
+        );
       }
     }
 
@@ -378,24 +393,17 @@ function aggregateWeek(
     })
   );
 
-  // Zero-cost components: componentTypes where unitCostIdr === 0
+  // Zero-cost components: active componentTypes where unitCostIdr === 0.
+  // Filter out inactive components to avoid false gap alerts for discontinued items.
   const zeroCostComponents = allComponentTypes
-    .filter((ct) => ct.unitCostIdr === 0)
+    .filter((ct) => ct.isActive && ct.unitCostIdr === 0)
     .map((ct) => ({ name: ct.name, code: ct.code }));
 
   // Missing channels: known sources with no revenue in the period
   const activeSources = new Set(channels.map((ch) => ch.source));
   const missingChannels: GapAnalysis["missingChannels"] = [];
 
-  // Known channels that should typically have data
-  const knownChannels: Array<{
-    source: string;
-    reason: string;
-  }> = [
-    { source: "grabfood", reason: "OAuth scope pending" },
-  ];
-
-  for (const known of knownChannels) {
+  for (const known of KNOWN_MISSING_CHANNELS) {
     if (!activeSources.has(known.source)) {
       missingChannels.push({
         source: known.source,
@@ -409,8 +417,8 @@ function aggregateWeek(
     unmappedProducts,
     zeroCostComponents,
     missingChannels,
-    totalMappedProducts,
-    totalProducts,
+    totalMappedProducts: counters.totalMappedProducts,
+    totalProducts: counters.totalProducts,
   };
 
   // ── 4e: Compute totals ──
@@ -463,19 +471,6 @@ function aggregateWeek(
   };
 }
 
-// ─── Confidence comparison ───
-
-const CONFIDENCE_RANK: Record<Confidence, number> = {
-  exact: 0,
-  calculated: 1,
-  inferred: 2,
-  missing: 3,
-};
-
-function lowestConfidence(a: Confidence, b: Confidence): Confidence {
-  return CONFIDENCE_RANK[a] >= CONFIDENCE_RANK[b] ? a : b;
-}
-
 // ─── Main Query ───
 
 export const getWeeklyIncomeStatement = query({
@@ -496,37 +491,41 @@ export const getWeeklyIncomeStatement = query({
       bomComponents,
       allComponentTypes,
     ] = await Promise.all([
-      // externalRevenue for current week (by_period index)
+      // externalRevenue for current week — both bounds applied at index level
       ctx.db
         .query("externalRevenue")
         .withIndex("by_period", (q) =>
-          q.gte("periodStart", range.currentStart)
+          q
+            .gte("periodStart", range.currentStart)
+            .lt("periodStart", range.currentEnd)
         )
-        .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
         .collect(),
-      // externalRevenue for previous week (by_period index)
+      // externalRevenue for previous week
       ctx.db
         .query("externalRevenue")
         .withIndex("by_period", (q) =>
-          q.gte("periodStart", range.previousStart)
+          q
+            .gte("periodStart", range.previousStart)
+            .lt("periodStart", range.previousEnd)
         )
-        .filter((q) => q.lt(q.field("periodStart"), range.previousEnd))
         .collect(),
-      // consignmentSettlements for current week (by_period index)
+      // consignmentSettlements for current week
       ctx.db
         .query("consignmentSettlements")
         .withIndex("by_period", (q) =>
-          q.gte("periodStart", range.currentStart)
+          q
+            .gte("periodStart", range.currentStart)
+            .lt("periodStart", range.currentEnd)
         )
-        .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
         .collect(),
-      // consignmentSettlements for previous week (by_period index)
+      // consignmentSettlements for previous week
       ctx.db
         .query("consignmentSettlements")
         .withIndex("by_period", (q) =>
-          q.gte("periodStart", range.previousStart)
+          q
+            .gte("periodStart", range.previousStart)
+            .lt("periodStart", range.previousEnd)
         )
-        .filter((q) => q.lt(q.field("periodStart"), range.previousEnd))
         .collect(),
       // BOM preload (follows getLifetimeTotalsInternal pattern)
       ctx.db.query("menuProductComponents").collect(),
@@ -534,20 +533,30 @@ export const getWeeklyIncomeStatement = query({
     ]);
 
     // Phase 2: Fetch revenue items for both periods (needs revenue IDs from Phase 1)
-    const allRevenueIds = [
-      ...currentRevenue.map((r) => r._id),
-      ...previousRevenue.map((r) => r._id),
-    ];
+    // Dedup IDs: consignment linkedRevenueIds may duplicate revenue record IDs.
+    // Using a Set prevents issuing redundant parallel DB queries.
+    const seenIds = new Set<string>();
+    const uniqueRevenueIds: typeof currentRevenue[0]["_id"][] = [];
 
-    // Also include linkedRevenueIds from consignment settlements
+    for (const r of [...currentRevenue, ...previousRevenue]) {
+      const key = r._id as string;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniqueRevenueIds.push(r._id);
+      }
+    }
     for (const s of [...currentConsignments, ...previousConsignments]) {
       if (s.linkedRevenueId) {
-        allRevenueIds.push(s.linkedRevenueId);
+        const key = s.linkedRevenueId as string;
+        if (!seenIds.has(key)) {
+          seenIds.add(key);
+          uniqueRevenueIds.push(s.linkedRevenueId);
+        }
       }
     }
 
     const allRevenueItems = await Promise.all(
-      allRevenueIds.map((id) =>
+      uniqueRevenueIds.map((id) =>
         ctx.db
           .query("externalRevenueItems")
           .withIndex("by_revenue", (q) => q.eq("revenueId", id))
@@ -555,14 +564,17 @@ export const getWeeklyIncomeStatement = query({
       )
     );
 
-    // Build revenueId -> items map
+    // Build revenueId -> items map.
+    // This shared map is used for both current and previous week aggregation.
+    // This is safe because aggregateWeek only looks up items for the revenue records
+    // it receives (iterating its own revenue list), so each week accesses its own subset.
     const revenueItemsMap = new Map<
       string,
       Doc<"externalRevenueItems">[]
     >();
-    for (let i = 0; i < allRevenueIds.length; i++) {
+    for (let i = 0; i < uniqueRevenueIds.length; i++) {
       revenueItemsMap.set(
-        allRevenueIds[i] as string,
+        uniqueRevenueIds[i] as string,
         allRevenueItems[i]
       );
     }
@@ -574,20 +586,22 @@ export const getWeeklyIncomeStatement = query({
     ]);
 
     // Step 3: Build COGS map
+    // Filter inactive componentTypes to exclude discontinued items from cost calculations.
+    const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
     const cogsMap = buildProductCOGSMap(
       bomComponents.map((c) => ({
         menuProductId: c.menuProductId as string,
         componentTypeId: c.componentTypeId as string,
         quantity: c.quantity,
       })),
-      allComponentTypes.map((ct) => ({
+      activeComponentTypes.map((ct) => ({
         _id: ct._id as string,
         unitCostIdr: ct.unitCostIdr,
         category: ct.category,
       }))
     );
 
-    // Step 5: Aggregate both weeks (pure — no await needed)
+    // Step 4: Aggregate both weeks (pure — no await needed)
     const currentWeek = aggregateWeek(
       currentRevenue,
       currentConsignments,
@@ -605,7 +619,7 @@ export const getWeeklyIncomeStatement = query({
       allComponentTypes
     );
 
-    // Step 6: Compute deltas
+    // Step 5: Compute deltas
     const deltas = {
       grossRevenue: computeDelta(
         currentWeek.totalGross,
@@ -630,14 +644,13 @@ export const getWeeklyIncomeStatement = query({
           : null,
     };
 
-    // Step 7: Return structured response
+    // Step 6: Return structured response
     return {
       weekStart: args.weekStart,
       weekEnd: range.currentEnd,
       current: currentWeek,
       previous: previousWeek,
       deltas,
-      gapAnalysis: currentWeek.gapAnalysis,
     };
   },
 });
