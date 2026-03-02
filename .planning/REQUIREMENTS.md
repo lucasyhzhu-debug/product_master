@@ -18,8 +18,8 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 ### Income Statement Frontend
 
-- [ ] **IS-07**: User can view a weekly income statement at `/financials` showing Revenue -> COGS -> Gross Profit with per-channel breakdown
-- [ ] **IS-08**: User can navigate between weeks (prev/next) with WIB timezone boundaries (Monday start)
+- [x] **IS-07**: User can view a weekly income statement at `/financials` showing Revenue -> COGS -> Gross Profit with per-channel breakdown
+- [x] **IS-08**: User can navigate between weeks (prev/next) with WIB timezone boundaries (Monday start)
 - [ ] **IS-09**: User sees previous week comparison with delta amounts and percentages for every line item
 - [ ] **IS-10**: User sees confidence indicators on financial figures (exact = solid, calculated = calc icon, inferred = ~, missing = dash + warning)
 - [ ] **IS-11**: User sees a data quality panel listing unmapped products, missing channels, and zero-cost components with actionable guidance
@@ -73,8 +73,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IS-04 | Phase 32 | Complete |
 | IS-05 | Phase 32 | Complete |
 | IS-06 | Phase 32 | Complete |
-| IS-07 | Phase 33 | Pending |
-| IS-08 | Phase 33 | Pending |
+| IS-07 | Phase 33 | Complete |
+| IS-08 | Phase 33 | Complete |
 | IS-09 | Phase 33 | Pending |
 | IS-10 | Phase 33 | Pending |
 | IS-11 | Phase 33 | Pending |

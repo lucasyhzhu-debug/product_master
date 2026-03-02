@@ -2,26 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
-status: unknown
-last_updated: "2026-03-02T04:47:26.187Z"
-progress:
-  total_phases: 11
-  completed_phases: 9
-  total_plans: 52
-  completed_plans: 53
----
-
----
-gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T04:40:43Z"
+last_updated: "2026-03-02T08:10:18Z"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 9
+  completed_plans: 4
 ---
 
 # Project State
@@ -29,16 +16,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-02)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.5 Financial Statements -- Phase 32: Income Statement Backend
+**Current focus:** v1.5 Financial Statements -- Phase 33: Income Statement Frontend
 
 ## Current Position
 
 Phase: 33 of 34 (Income Statement Frontend)
-Plan: 33.1 of 3 (next phase)
-Status: Active -- Phase 32 complete, advancing to Phase 33
-Last activity: 2026-03-02 -- Plan 32-03 completed (5 tasks, 7 min)
+Plan: 33.2 of 3
+Status: Active -- Plan 33-01 complete, advancing to Plan 33-02
+Last activity: 2026-03-02 -- Plan 33-01 completed (3 tasks, 4 min)
 
-Progress: ████████████████████ 100% -- 3 of 3 plans complete (Phase 32)
+Progress: ████░░░░░░░░░░░░░░░░ 33% -- 1 of 3 plans complete (Phase 33)
 
 ## Performance Metrics
 
@@ -46,6 +33,10 @@ Progress: ████████████████████ 100% -- 3
 **Velocity (v1.1):** 27 plans, avg 7.3 min, ~3.3 hours total
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 33 | 33-01 | 4min | 3 | 5 |
 
 ## Accumulated Context
 
@@ -70,6 +61,13 @@ Phase 32 decisions:
 - Integration tests seed data directly via ctx.db.insert (not mutation API) for isolation
 - 18 new tests (10 unit + 8 integration), 680 total suite passing
 
+Phase 33 decisions (Plan 33-01):
+- Revenue section expanded by default, Deductions and COGS collapsed
+- Period-agnostic column headers derived from query response (not hardcoded)
+- Channel rows expandable to show gross margin % and COGS breakdown inline
+- Mobile: CSS-first hidden comparison columns with JS toggle override
+- Gross margin delta displayed as percentage points (pp) not relative percent
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -86,5 +84,5 @@ Phase 32 decisions:
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 32-03-PLAN.md (Phase 32 complete)
-Resume notes: Phase 32 complete (3/3 plans). All 6 requirements (IS-01 through IS-06) addressed. Next: Phase 33 (Income Statement Frontend).
+Stopped at: Completed 33-01-PLAN.md
+Resume notes: Plan 33-01 complete (3/3 tasks). Page at /financials with P&L table, week navigation, channel drill-down. Next: Plan 33-02 (confidence indicators + data quality panel).
