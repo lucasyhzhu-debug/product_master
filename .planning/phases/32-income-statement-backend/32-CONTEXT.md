@@ -109,7 +109,7 @@ Compute a complete weekly income statement from existing data: revenue per chann
 
 ### Integration Points
 - `convex/reports/` directory: Contains `dailySales.ts`. New `incomeStatement.ts` goes here.
-- `consignmentSettlements` table: Has `by_outlet` index, NO `by_period` index. Small table (~50 records), full scan + filter is acceptable.
+- `consignmentSettlements` table: Has `by_outlet`, `by_period`, `by_outlet_period`, and `by_status` indexes. Small table (~50 records). Use `by_period` index for week-range queries.
 - `menuProductComponents` + `componentTypes`: BOM tables (< 200 rows each). Preloaded once per query.
 - `externalRevenueItems`: Line-item detail for per-item BOM resolution on ALL channels (internal + external).
 
