@@ -9,6 +9,7 @@ import {
   Minus,
   AlertCircle,
   AlertTriangle,
+  Download,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getPlatformPalette } from "@/lib/platformColors";
@@ -26,6 +27,7 @@ import {
   type Confidence,
 } from "@/components/financials/ConfidenceIndicator";
 import { DataQualityPanel } from "@/components/financials/DataQualityPanel";
+import { generateIncomeStatementCSV, downloadCSV } from "@/lib/csvExport";
 
 // ── WIB helpers for column headers ──
 
@@ -531,6 +533,7 @@ export function FinancialStatement() {
   const {
     data,
     isLoading,
+    weekStart,
     weekLabel,
     isCurrentWeek,
     goToPreviousWeek,
@@ -608,6 +611,23 @@ export function FinancialStatement() {
       <PageHeader
         title="Income Statement"
         description="Weekly profit and loss statement"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!data) return;
+              const csv = generateIncomeStatementCSV(data, weekLabel);
+              const wibDate = new Date(weekStart + WIB_OFFSET_MS);
+              const dateStr = wibDate.toISOString().slice(0, 10);
+              downloadCSV(csv, `frollie-income-statement-${dateStr}.csv`);
+            }}
+            disabled={isLoading || !data}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        }
       />
 
       {/* Week navigation */}
