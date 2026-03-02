@@ -17,6 +17,7 @@ type TestContext = TestConvex<typeof schema>;
 // Monday 2026-01-05 00:00 WIB = Sunday 2026-01-04 17:00 UTC
 const TEST_WEEK_START = Date.UTC(2026, 0, 4, 17, 0, 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 
 // ============================================
 // Helpers: seed test data directly
@@ -121,37 +122,39 @@ async function seedMenuProductWithBOM(
     { code: "STICKER", name: "Sticker", category: "packaging" as const, unitCostIdr: 200, quantity: 1 },
   ];
 
-  const componentTypeIds: Id<"componentTypes">[] = [];
+  // Insert all component types in parallel, then link to menu product in parallel
+  const componentTypeIds = await Promise.all(
+    bomConfig.map((config, i) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("componentTypes", {
+          code: config.code,
+          name: config.name,
+          category: config.category,
+          unitCostIdr: config.unitCostIdr,
+          unit: "pcs",
+          trackInventory: config.category === "packaging",
+          consumptionStage: config.category === "packaging" ? "boxing" : undefined,
+          isActive: true,
+          sortOrder: i,
+          createdBy: "test",
+          createdAt: Date.now(),
+        })
+      )
+    )
+  );
 
-  for (let i = 0; i < bomConfig.length; i++) {
-    const config = bomConfig[i];
-
-    const componentTypeId = await t.run(async (ctx) => {
-      return await ctx.db.insert("componentTypes", {
-        code: config.code,
-        name: config.name,
-        category: config.category,
-        unitCostIdr: config.unitCostIdr,
-        unit: "pcs",
-        trackInventory: config.category === "packaging",
-        consumptionStage: config.category === "packaging" ? "boxing" : undefined,
-        isActive: true,
-        sortOrder: i,
-        createdBy: "test",
-        createdAt: Date.now(),
-      });
-    });
-    componentTypeIds.push(componentTypeId);
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert("menuProductComponents", {
-        menuProductId,
-        componentTypeId,
-        quantity: config.quantity,
-        sortOrder: i,
-      });
-    });
-  }
+  await Promise.all(
+    bomConfig.map((config, i) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("menuProductComponents", {
+          menuProductId,
+          componentTypeId: componentTypeIds[i],
+          quantity: config.quantity,
+          sortOrder: i,
+        })
+      )
+    )
+  );
 
   return { menuProductId, componentTypeIds };
 }
@@ -368,7 +371,6 @@ describe("getWeeklyIncomeStatement", () => {
 
   test("delta comparison between current and previous week", async () => {
     const t = convexTest(schema);
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
     // Previous week revenue
     await seedExternalRevenue(t, {
@@ -624,38 +626,38 @@ describe("getWeeklyIncomeStatement", () => {
   test("multi-channel revenue aggregation: gobiz + consignment + internal", async () => {
     const t = convexTest(schema);
 
-    // ── 1. Seed 3 BOM-linked menu products (one per channel) ──
-
-    // Product A ("Gobiz Product"): 1x BIG_BALL (10000) + 1x SMALL_BOX (2000) = 12000 COGS/unit
-    const { menuProductId: productAId } = await seedMenuProductWithBOM(t, {
-      code: "GOBIZ-001",
-      name: "Gobiz Product",
-      bomConfig: [
-        { code: "BIG_BALL", name: "Big Ball", category: "production", unitCostIdr: 10000, quantity: 1 },
-        { code: "SMALL_BOX", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
-      ],
-    });
-
-    // Product B ("Consignment Product"): 1x MID_BALL (5000) + 1x SMALL_BOX (2000) + 1x STICKER (500) = 7500 COGS/unit
-    const { menuProductId: productBId } = await seedMenuProductWithBOM(t, {
-      code: "CONSIGN-002",
-      name: "Consignment Product",
-      bomConfig: [
-        { code: "MID_BALL", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 1 },
-        { code: "SMALL_BOX_B", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
-        { code: "STICKER_B", name: "Sticker", category: "packaging", unitCostIdr: 500, quantity: 1 },
-      ],
-    });
-
-    // Product C ("Internal Product"): 2x MID_BALL (5000) + 1x LARGE_BOX (3000) = 13000 COGS/unit
-    const { menuProductId: productCId } = await seedMenuProductWithBOM(t, {
-      code: "INTERNAL-003",
-      name: "Internal Product",
-      bomConfig: [
-        { code: "MID_BALL_C", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 2 },
-        { code: "LARGE_BOX_C", name: "Large Box", category: "packaging", unitCostIdr: 3000, quantity: 1 },
-      ],
-    });
+    // ── 1. Seed 3 BOM-linked menu products in parallel (one per channel) ──
+    const [
+      { menuProductId: productAId },  // Product A: 1x BIG_BALL (10000) + 1x SMALL_BOX (2000) = 12000 COGS/unit
+      { menuProductId: productBId },  // Product B: 1x MID_BALL (5000) + 1x SMALL_BOX (2000) + 1x STICKER (500) = 7500 COGS/unit
+      { menuProductId: productCId },  // Product C: 2x MID_BALL (5000) + 1x LARGE_BOX (3000) = 13000 COGS/unit
+    ] = await Promise.all([
+      seedMenuProductWithBOM(t, {
+        code: "GOBIZ-001",
+        name: "Gobiz Product",
+        bomConfig: [
+          { code: "BIG_BALL", name: "Big Ball", category: "production", unitCostIdr: 10000, quantity: 1 },
+          { code: "SMALL_BOX", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+        ],
+      }),
+      seedMenuProductWithBOM(t, {
+        code: "CONSIGN-002",
+        name: "Consignment Product",
+        bomConfig: [
+          { code: "MID_BALL", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 1 },
+          { code: "SMALL_BOX_B", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+          { code: "STICKER_B", name: "Sticker", category: "packaging", unitCostIdr: 500, quantity: 1 },
+        ],
+      }),
+      seedMenuProductWithBOM(t, {
+        code: "INTERNAL-003",
+        name: "Internal Product",
+        bomConfig: [
+          { code: "MID_BALL_C", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 2 },
+          { code: "LARGE_BOX_C", name: "Large Box", category: "packaging", unitCostIdr: 3000, quantity: 1 },
+        ],
+      }),
+    ]);
 
     // ── 2. Seed gobiz channel: gross 100000, commission 10000, 2 units of Product A ──
     const gobizRevenueId = await seedExternalRevenue(t, {
