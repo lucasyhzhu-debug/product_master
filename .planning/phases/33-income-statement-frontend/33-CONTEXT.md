@@ -19,6 +19,10 @@ Users can view, navigate, and export a weekly income statement with full channel
 - Claude's discretion on whether Deductions and COGS sections are also collapsible (decide based on row count)
 - Colored dots from `platformColors.ts` next to each channel name for visual identity (consistent with Sales Analytics)
 - Parentheses for negative values (deductions shown as `(Rp 320.000)`) -- accounting convention, matches design doc
+- Each channel gross revenue row shows percentage of total gross revenue (e.g., "Rp 3.1M -- 25%") for revenue concentration visibility
+- When a channel row is expanded, show channel-level gross margin % as a sub-row beneath that channel's COGS (PE/IB operators need per-channel profitability)
+- Delta % on deduction rows and COGS rows should use `invertColor` (increase in costs is negative signal)
+- P&L row rendering should be period-agnostic -- same component renders regardless of period length (do not hardcode "This Week" / "Prev Week" labels; use the period range from the query response)
 
 ### Confidence Indicators
 - Inline symbols next to numbers, NOT badge components:
@@ -38,8 +42,11 @@ Users can view, navigate, and export a weekly income statement with full channel
   - Unmapped products -> `/analytics?tab=mappings` (Sales Analytics > Mappings)
   - Zero-cost components -> `/component-types` (Component Types Manager)
   - Missing channels -> descriptive text (external blocker, no fix page)
+  - Seller shipping fees gap: "Seller shipping fees (Shopee/TikTok) are not yet deducted -- Net Revenue for marketplace channels may be overstated"
 - Includes positive coverage stat: e.g., "42/45 products have BOM-linked COGS" with green tint
 - Summary line when collapsed: "3 issues found" (or "All clear" with green check)
+- Include COGS timing footnote: "Internal order COGS uses order-time snapshot; external channel COGS uses current BOM costs" (tooltip on COGS section header)
+- Consignment channel footnote: "Accrual basis -- revenue recognized by settlement period, not payment receipt date" (tooltip on Consignment row)
 
 ### Mobile Responsiveness
 - Hide comparison columns (Prev Week, Delta) by default on mobile
@@ -58,8 +65,8 @@ Users can view, navigate, and export a weekly income statement with full channel
 ### CSV Export
 - Flat-format CSV (one row per line item) as specified in design doc
 - Columns: period, section, channel, line_item, amount_idr, confidence, prev_week_idr, delta_pct
-- Footer rows with data quality notes (unmapped count, missing channels)
-- Filename: `income-statement-YYYY-MM-DD.csv` (week start date)
+- Footer rows with data quality notes (unmapped count, missing channels, COGS timing disclaimer)
+- Filename: `frollie-income-statement-YYYY-MM-DD.csv` (include entity name for multi-business comparison scenarios)
 
 ### Claude's Discretion
 - Which P&L sections beyond Gross Revenue are collapsible (based on row count analysis)
@@ -69,6 +76,8 @@ Users can view, navigate, and export a weekly income statement with full channel
 - Whether to extract CSV generation into `src/lib/csvExport.ts` or keep inline in hook
 - Exact tooltip content wording for confidence symbols
 - Animation for expand/collapse transitions (Framer Motion or CSS)
+- Whether deductions show as both absolute amount and % of relevant channel gross (e.g., "Platform Commissions: (Rp 890K) -- 7.1% of gross") -- adds financial context but increases density
+- Exact placement of accounting footnotes (COGS timing, consignment accrual basis) -- tooltips vs. small-print below table
 
 </decisions>
 
