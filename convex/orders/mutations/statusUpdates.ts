@@ -8,7 +8,7 @@
  * - Cancelled: Release all reservations
  */
 import { mutation } from "../../_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import { statusValidator, channelValidator } from "../validators";
 import { protectedMutation } from "../../lib/functions";
@@ -102,7 +102,7 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
-      throw new Error("Order not found");
+      throw new ConvexError("Order not found");
     }
 
     const oldStatus = order.status;
@@ -234,7 +234,7 @@ export const updatePayment = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
-      throw new Error("Order not found");
+      throw new ConvexError("Order not found");
     }
 
     await ctx.db.patch(args.orderId, {
@@ -259,7 +259,7 @@ export const updateShipping = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) {
-      throw new Error("Order not found");
+      throw new ConvexError("Order not found");
     }
 
     // PRD-7: Track shipping agency usage changes for "Top 4" button selectors
@@ -304,7 +304,7 @@ export const updateDetails = mutation({
 
     const order = await ctx.db.get(orderId);
     if (!order) {
-      throw new Error("Order not found");
+      throw new ConvexError("Order not found");
     }
 
     const patchData: OrderDetailsUpdate = {};
@@ -363,11 +363,11 @@ export const moveForward = mutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new ConvexError("Order not found");
 
     const nextStatus = FORWARD_TRANSITIONS[order.status];
     if (!nextStatus) {
-      throw new Error(`Cannot move forward from ${order.status}`);
+      throw new ConvexError(`Cannot move forward from ${order.status}`);
     }
 
     // Resolve userId from token
@@ -529,10 +529,10 @@ export const moveBackward = mutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new ConvexError("Order not found");
 
     if (!isValidBackwardTransition(order.status, args.targetStatus)) {
-      throw new Error(
+      throw new ConvexError(
         `Invalid backward transition: ${order.status} -> ${args.targetStatus}`
       );
     }
@@ -627,9 +627,9 @@ export const expediteOrder = mutation({
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new ConvexError("Order not found");
     if (order.status !== "PaymentReceived") {
-      throw new Error("Can only expedite PaymentReceived orders");
+      throw new ConvexError("Can only expedite PaymentReceived orders");
     }
 
     // Resolve userId from token
@@ -699,10 +699,10 @@ export const forceComplete = protectedMutation({
     const user = ctx.user;
 
     const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
+    if (!order) throw new ConvexError("Order not found");
 
     if (isTerminalStatus(order.status)) {
-      throw new Error(`Order is already ${order.status}`);
+      throw new ConvexError(`Order is already ${order.status}`);
     }
 
     const oldStatus = order.status;

@@ -14,6 +14,16 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-03-02 - Hotfix: Force Complete shows "Server Error" instead of real message
+
+Force Complete (and other order status mutations) showed an opaque "Server Error" instead of the actual error message. Now you'll see clear messages like "Order is already Complete" or "Order not found" when something goes wrong.
+
+- **Root cause:** `statusUpdates.ts` used `throw new Error(...)` (hidden from client) instead of `throw new ConvexError(...)` (user-facing)
+- **Fix:** Replaced 9 occurrences of `Error` with `ConvexError` across all order status mutations: `updateStatus`, `updatePayment`, `updateShipping`, `updateDetails`, `moveForward`, `moveBackward`, `expediteOrder`, `forceComplete`
+- **Files:** `convex/orders/mutations/statusUpdates.ts`
+
+---
+
 ## 2026-03-01 - Fix: Sales Analytics counts balls, not product units
 
 Previously, the "units sold" metric counted each product as 1 regardless of how many balls it contained. Now it correctly counts actual Big Ball and Mid Ball components — a hamper with 3 balls shows as 3 balls sold, not 1 unit.
