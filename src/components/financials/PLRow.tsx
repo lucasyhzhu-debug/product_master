@@ -24,8 +24,6 @@ export interface PLRowProps {
   invertColor?: boolean;
   indent?: number; // 0 = section header, 1 = line item, 2 = sub-item
   isBold?: boolean;
-  channelDot?: string;
-  percentOfTotal?: number | null;
   confidence?: Confidence;
   showComparison: boolean;
   isTopBorder?: boolean;
@@ -41,8 +39,6 @@ export function PLRow({
   invertColor = false,
   indent = 1,
   isBold = false,
-  channelDot,
-  percentOfTotal,
   confidence,
   showComparison,
   isTopBorder = false,
@@ -56,14 +52,6 @@ export function PLRow({
 
   const labelContent = (
     <span className="inline-flex items-center gap-2">
-      {channelDot && (
-        <span
-          className={cn(
-            "inline-block w-2.5 h-2.5 rounded-full shrink-0",
-            channelDot
-          )}
-        />
-      )}
       {labelTooltip ? (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -77,11 +65,6 @@ export function PLRow({
         </Tooltip>
       ) : (
         label
-      )}
-      {percentOfTotal != null && (
-        <span className="text-xs text-muted-foreground">
-          {percentOfTotal.toFixed(1)}%
-        </span>
       )}
     </span>
   );
