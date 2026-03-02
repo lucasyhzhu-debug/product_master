@@ -9,12 +9,12 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 ### Income Statement Backend
 
-- [ ] **IS-01**: System computes weekly gross revenue aggregated per channel from `externalRevenue` + `consignmentSettlements`
-- [ ] **IS-02**: System computes revenue deductions (customer discounts, platform commissions, ad/promo burn, consignment rev share) per channel
-- [ ] **IS-03**: System resolves full BOM COGS (production + packaging) via in-memory map preloading from `menuProductComponents` + `componentTypes`
-- [ ] **IS-04**: System computes net revenue, total COGS, gross profit, and gross margin percentage
-- [ ] **IS-05**: System classifies every financial figure with confidence level (exact/calculated/inferred/missing)
-- [ ] **IS-06**: System identifies data quality gaps inline (unmapped products, zero-cost components, missing channels) in the same query
+- [x] **IS-01**: System computes weekly gross revenue aggregated per channel from `externalRevenue` + `consignmentSettlements`
+- [x] **IS-02**: System computes revenue deductions (customer discounts, platform commissions, ad/promo burn, consignment rev share) per channel
+- [x] **IS-03**: System resolves full BOM COGS (production + packaging) via in-memory map preloading from `menuProductComponents` + `componentTypes`
+- [x] **IS-04**: System computes net revenue, total COGS, gross profit, and gross margin percentage
+- [x] **IS-05**: System classifies every financial figure with confidence level (exact/calculated/inferred/missing)
+- [x] **IS-06**: System identifies data quality gaps inline (unmapped products, zero-cost components, missing channels) in the same query
 
 ### Income Statement Frontend
 
@@ -30,8 +30,8 @@ Requirements for v1.5 Financial Statements milestone. Each maps to roadmap phase
 
 ### Testing
 
-- [ ] **IS-13**: Backend tests verify BOM COGS accuracy with known-value assertions (production + packaging split)
-- [ ] **IS-14**: Backend tests verify multi-channel revenue aggregation, discount correction, and edge cases (empty week, zero revenue margin, negative net)
+- [x] **IS-13**: Backend tests verify BOM COGS accuracy with known-value assertions (production + packaging split)
+- [x] **IS-14**: Backend tests verify multi-channel revenue aggregation, discount correction, and edge cases (empty week, zero revenue margin, negative net)
 
 ## v2 Requirements
 
@@ -67,20 +67,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IS-01 | Phase 32 | Pending |
-| IS-02 | Phase 32 | Pending |
-| IS-03 | Phase 32 | Pending |
-| IS-04 | Phase 32 | Pending |
-| IS-05 | Phase 32 | Pending |
-| IS-06 | Phase 32 | Pending |
+| IS-01 | Phase 32 | Complete |
+| IS-02 | Phase 32 | Complete |
+| IS-03 | Phase 32 | Complete |
+| IS-04 | Phase 32 | Complete |
+| IS-05 | Phase 32 | Complete |
+| IS-06 | Phase 32 | Complete |
 | IS-07 | Phase 33 | Pending |
 | IS-08 | Phase 33 | Pending |
 | IS-09 | Phase 33 | Pending |
 | IS-10 | Phase 33 | Pending |
 | IS-11 | Phase 33 | Pending |
 | IS-12 | Phase 33 | Pending |
-| IS-13 | Phase 34 | Pending |
-| IS-14 | Phase 34 | Pending |
+| IS-13 | Phase 32 (Plan 32-03) | Complete |
+| IS-14 | Phase 32 (Plan 32-03) | Complete |
 
 **Coverage:**
 - v1.5 requirements: 14 total
@@ -89,4 +89,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-02*
-*Last updated: 2026-03-02 after roadmap creation*
+*Last updated: 2026-03-02 after Plan 32-03 completion (IS-01 through IS-06, IS-13, IS-14 complete)*

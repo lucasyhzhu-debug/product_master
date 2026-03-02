@@ -2,13 +2,26 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
+status: unknown
+last_updated: "2026-03-02T04:47:26.187Z"
+progress:
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 52
+  completed_plans: 53
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.5
+milestone_name: Financial Statements
 status: active
-last_updated: "2026-03-02T00:00:00Z"
+last_updated: "2026-03-02T04:40:43Z"
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -20,12 +33,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 32 of 34 (Income Statement Backend)
-Plan: -- (phase not yet planned)
-Status: Ready to plan
-Last activity: 2026-03-02 -- Roadmap created for v1.5 (3 phases, 14 requirements)
+Phase: 33 of 34 (Income Statement Frontend)
+Plan: 33.1 of 3 (next phase)
+Status: Active -- Phase 32 complete, advancing to Phase 33
+Last activity: 2026-03-02 -- Plan 32-03 completed (5 tasks, 7 min)
 
-Progress: ░░░░░░░░░░░░░░░░░░░░ 0% -- Roadmap ready, awaiting phase planning
+Progress: ████████████████████ 100% -- 3 of 3 plans complete (Phase 32)
 
 ## Performance Metrics
 
@@ -47,6 +60,16 @@ v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-desi
 - Confidence indicators as first-class data quality signal
 - Unmapped items = honest zero COGS with "missing" flag
 
+Phase 32 decisions:
+- buildProductCOGSMap uses string keys for Map (Convex IDs as strings)
+- calculateWeekRange currentEnd is exclusive (next Monday 00:00 WIB) for index range queries
+- aggregateWeek is a pure function (no ctx, no async) -- all I/O happens in handler
+- Channel confidence = lowest confidence among its line items
+- Internal discount = totalAmount - (finalTotal - deliveryFee), delivery fees excluded from P&L
+- Pure helpers tested without convex-test for faster execution
+- Integration tests seed data directly via ctx.db.insert (not mutation API) for isolation
+- 18 new tests (10 unit + 8 integration), 680 total suite passing
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -63,5 +86,5 @@ v1.5 design decisions documented in `docs/plans/2026-03-01-income-statement-desi
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Roadmap created for v1.5 Financial Statements (3 phases: 32-34)
-Resume notes: Next step is `/gsd:plan-phase 32`. Design doc has full implementation waves ready.
+Stopped at: Completed 32-03-PLAN.md (Phase 32 complete)
+Resume notes: Phase 32 complete (3/3 plans). All 6 requirements (IS-01 through IS-06) addressed. Next: Phase 33 (Income Statement Frontend).

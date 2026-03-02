@@ -101,7 +101,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
 
 **Design doc:** `docs/plans/2026-03-01-income-statement-design.md`
 
-- [ ] **Phase 32: Income Statement Backend** - COGS resolver, revenue aggregation, confidence classification, and gap analysis query
+- [x] **Phase 32: Income Statement Backend** (3/3 plans) - COGS resolver, revenue aggregation, confidence classification, gap analysis query, backend tests (680 passing), documentation
 - [ ] **Phase 33: Income Statement Frontend** - P&L page with week navigation, comparison deltas, confidence indicators, data quality panel, and CSV export
 - [ ] **Phase 34: Income Statement Testing** - Backend tests for BOM COGS accuracy and multi-channel revenue edge cases
 
@@ -117,7 +117,7 @@ Full details: `.planning/milestones/v1.4-ROADMAP.md`
   3. Full BOM COGS (production balls + packaging) is resolved via `buildProductCOGSMap` for every revenue item with a `linkedMenuProductId`, and unmapped items get COGS = 0
   4. Every financial figure carries a confidence level (exact/calculated/inferred/missing) in the query response
   5. The query response includes a gap analysis section listing unmapped product names, zero-cost component types, and missing channel warnings
-**Plans**: TBD
+**Plans**: 32.1 (BOM COGS Resolver & Week Range Helper), 32.2 (Weekly Income Statement Query), 32.3 (Verification & Documentation)
 
 ### Phase 33: Income Statement Frontend
 **Goal**: Users can view, navigate, and export a weekly income statement with full channel breakdown and data quality transparency

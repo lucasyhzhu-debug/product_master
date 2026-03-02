@@ -1539,6 +1539,79 @@ invalidateProductionComponentCosts(ctx, componentTypeId)  // Walk upward via pro
 
 ---
 
+### Reports: Income Statement
+
+#### `reports.incomeStatement.getWeeklyIncomeStatement`
+**Type:** Query (real-time, reactive)
+**Auth:** None (read-only analytics query)
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `weekStart` | `number` | Epoch ms for Monday 00:00 WIB of the target week |
+
+**Returns:** Income statement object with the following structure:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `weekStart` | `number` | Input weekStart value |
+| `weekEnd` | `number` | Epoch ms for next Monday 00:00 WIB (exclusive) |
+| `current` | `WeekData` | Current week P&L breakdown |
+| `previous` | `WeekData` | Previous week P&L breakdown (for comparison) |
+| `deltas` | `Deltas` | Delta amounts and percentages between current and previous |
+| `gapAnalysis` | `GapAnalysis` | Data quality issues for current week |
+
+**WeekData structure:**
+- `totalGross` — Gross revenue across all channels
+- `totalDiscounts` / `totalCommission` / `totalAdBurn` / `totalPromoBurn` / `totalRevShare` — Deduction subtotals
+- `totalDeductions` — Sum of all deductions
+- `netRevenue` — After deductions (discounts, commissions, ad/promo, rev share)
+- `totalProductionCogs` / `totalPackagingCogs` — COGS subtotals by category
+- `totalCogs` — Production COGS + Packaging COGS (BOM-resolved)
+- `grossProfit` — Net revenue minus COGS
+- `grossMarginPercent` — Gross profit / net revenue * 100, or `null` if net revenue = 0
+- `channels[]` — Per-channel breakdown with `{ source, displayName, gross, netRevenue, discount, commission, adBurn, promoBurn, revShare, transactions, cogs: { production, packaging, total }, products[], confidence }`
+
+**Deltas structure:**
+- `grossRevenue` / `netRevenue` / `totalCogs` / `grossProfit` — Each has `{ amount, percent }` where percent is null if previous = 0
+- `grossMarginPp` — Percentage point change in gross margin, or null
+
+**GapAnalysis structure:**
+- `unmappedProducts[]` — Products with no `linkedMenuProductId` (COGS = 0): `{ name, count, revenue }`
+- `zeroCostComponents[]` — BOM component types with `unitCostIdr = 0`: `{ name, code }`
+- `missingChannels[]` — Known channels with no revenue data: `{ source, displayName, reason }`
+- `totalMappedProducts` / `totalProducts` — Mapping coverage stats
+
+**Example usage:**
+```typescript
+const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement, {
+  weekStart: 1740182400000, // Monday 2026-02-24 00:00 WIB in UTC epoch ms
+});
+```
+
+**Notes:**
+- Consignment settlements included where `periodStart` falls within the week (no proration)
+- Delivery fees excluded from P&L (pass-through to shipping)
+- Unmapped products show revenue but COGS = 0 with `confidence: "missing"`
+- Returns data from `transactionType: "return"` reduce gross revenue naturally
+- Internal channel uses order-level `totalAmount`/`finalTotal`/`deliveryFee` for accurate discount calculation
+
+---
+
+### Library Utilities
+
+#### `buildProductCOGSMap` (convex/lib/costCalculator.ts)
+Pure function. Builds per-product COGS map from BOM data.
+**Args:** `bomComponents[]` (menuProductId, componentTypeId, quantity), `componentTypes[]` (_id, unitCostIdr, category)
+**Returns:** `Map<string, { production, packaging, total }>` — IDR per unit
+
+#### `calculateWeekRange` (convex/lib/periodRange.ts)
+Pure function. Computes current + previous week boundaries.
+**Args:** `weekStartMs: number` (epoch ms for Monday 00:00 WIB)
+**Returns:** `{ currentStart, currentEnd, previousStart, previousEnd }` — All UTC epoch ms. `currentEnd` is exclusive (next Monday).
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

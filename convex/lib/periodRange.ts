@@ -131,3 +131,31 @@ export function calculatePeriodRange(preset: PeriodPreset, now?: number): Period
     }
   }
 }
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Calculate week range boundaries from a weekStart timestamp.
+ * weekStart should be a Monday 00:00 WIB epoch ms.
+ *
+ * Returns both the current week range and the previous week range
+ * for comparison calculations.
+ *
+ * @param weekStartMs - Epoch ms for Monday 00:00 WIB of the target week
+ * @returns { currentStart, currentEnd, previousStart, previousEnd }
+ *          All values are UTC epoch ms.
+ *          currentEnd is EXCLUSIVE (next Monday 00:00 WIB).
+ */
+export function calculateWeekRange(weekStartMs: number): {
+  currentStart: number;
+  currentEnd: number;
+  previousStart: number;
+  previousEnd: number;
+} {
+  return {
+    currentStart: weekStartMs,
+    currentEnd: weekStartMs + WEEK_MS, // Exclusive end: next Monday 00:00 WIB
+    previousStart: weekStartMs - WEEK_MS,
+    previousEnd: weekStartMs,
+  };
+}

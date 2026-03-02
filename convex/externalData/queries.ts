@@ -16,7 +16,7 @@ const sourceValidator = externalSource;
  * the real totalAmount (pre-discount) for accurate gross/net/discount reporting.
  * Uses Promise.all for concurrent index lookups instead of sequential awaits.
  */
-async function fetchInternalOrderDataMap(
+export async function fetchInternalOrderDataMap(
   ctx: QueryCtx,
   records: Doc<"externalRevenue">[]
 ): Promise<Map<string, { totalAmount: number; finalTotal: number; deliveryFee: number }>> {
