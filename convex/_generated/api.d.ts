@@ -146,6 +146,7 @@ import type * as productionTargets_queries from "../productionTargets/queries.js
 import type * as productionUnitTypes_mutations from "../productionUnitTypes/mutations.js";
 import type * as productionUnitTypes_queries from "../productionUnitTypes/queries.js";
 import type * as reports_dailySales from "../reports/dailySales.js";
+import type * as reports_incomeStatement from "../reports/incomeStatement.js";
 import type * as restock_mutations from "../restock/mutations.js";
 import type * as restock_queries from "../restock/queries.js";
 import type * as shipping_mutations from "../shipping/mutations.js";
@@ -302,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   "productionUnitTypes/mutations": typeof productionUnitTypes_mutations;
   "productionUnitTypes/queries": typeof productionUnitTypes_queries;
   "reports/dailySales": typeof reports_dailySales;
+  "reports/incomeStatement": typeof reports_incomeStatement;
   "restock/mutations": typeof restock_mutations;
   "restock/queries": typeof restock_queries;
   "shipping/mutations": typeof shipping_mutations;
