@@ -3,6 +3,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { type AuthSession, type UserRole, ROLE_PERMISSIONS } from "../lib/types";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { SessionId } from "convex-helpers/server/sessions";
+import { sessionSetterRef } from "../lib/sessionBridge";
 
 const AUTH_STORAGE_KEY = "malo_auth_session";
 
@@ -54,9 +56,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (parsed.expiresAt > Date.now()) {
           setSession(parsed);
           localStorage.setItem(SESSION_ID_KEY, parsed.token);
+          // Sync SessionProvider state in case it initialized before the auth token
+          // was available (e.g., after a same-tab logout/login cycle).
+          sessionSetterRef.current(parsed.token as SessionId);
         } else {
           localStorage.removeItem(AUTH_STORAGE_KEY);
           localStorage.removeItem(SESSION_ID_KEY);
+          sessionSetterRef.current(undefined);
         }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -73,6 +79,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Session is invalid on server, clear local state
       localStorage.removeItem(AUTH_STORAGE_KEY);
       localStorage.removeItem(SESSION_ID_KEY);
+      sessionSetterRef.current(undefined);
       setSession(null);
     }
   }, [validationResult, session]);
@@ -93,6 +100,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
         localStorage.setItem(SESSION_ID_KEY, authSession.token);
+        // Sync SessionProvider's React state so useSessionMutation sends
+        // the correct auth token (not the random UUID it generated before login).
+        sessionSetterRef.current(authSession.token as SessionId);
         setSession(authSession);
 
         return { success: true };
@@ -122,6 +132,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(SESSION_ID_KEY);
+    // Clear SessionProvider's React state so useSessionMutation stops sending
+    // the old auth token after logout.
+    sessionSetterRef.current(undefined);
     setSession(null);
   }, [session, logoutMutation]);
 

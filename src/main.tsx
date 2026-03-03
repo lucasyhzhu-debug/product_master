@@ -5,6 +5,7 @@ import { SessionProvider } from 'convex-helpers/react/sessions'
 import type { SessionId } from 'convex-helpers/server/sessions'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { sessionSetterRef } from './lib/sessionBridge'
 import './index.css'
 import App from './App.tsx'
 
@@ -22,7 +23,8 @@ const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
  * Uses localStorage (not sessionStorage) so the session ID persists
  * across tabs and browser restarts. The "malo_session_id" key is shared
  * with AuthContext -- when login writes the auth token there,
- * SessionProvider picks it up on next mount/render.
+ * AuthContext also calls sessionSetterRef.current() to update the
+ * SessionProvider's React state in the same render cycle.
  */
 function useLocalStorage(
   key: string,
@@ -52,6 +54,14 @@ function useLocalStorage(
     },
     [key],
   );
+
+  // Expose the setter so AuthContext can update SessionProvider state after login.
+  // We use a module-level ref (not useRef) because this hook is called by
+  // SessionProvider and we need AuthContext (a sibling) to access it.
+  // Must be assigned during render (not useEffect) because children effects
+  // run before parent effects — AuthContext's mount effect needs this set.
+  // eslint-disable-next-line react-hooks/immutability
+  sessionSetterRef.current = setValue;
 
   return [value, setValue] as const;
 }
