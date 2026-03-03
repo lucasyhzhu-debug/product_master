@@ -24,7 +24,7 @@
  */
 import type { SessionId } from "convex-helpers/server/sessions";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const sessionSetterRef = {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   current: (_: SessionId | undefined) => {},
 };

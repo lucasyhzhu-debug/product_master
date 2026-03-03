@@ -66,6 +66,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch {
         localStorage.removeItem(AUTH_STORAGE_KEY);
+        localStorage.removeItem(SESSION_ID_KEY);
+        sessionSetterRef.current(undefined);
       }
     }
     setIsLoading(false);
