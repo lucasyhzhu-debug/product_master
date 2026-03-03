@@ -3,25 +3,25 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
 status: unknown
-last_updated: "2026-03-02T10:56:14.382Z"
+last_updated: "2026-03-02T15:07:55.978Z"
 progress:
   total_phases: 13
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 58
-  completed_plans: 58
+  completed_plans: 59
 ---
 
 ---
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Financial Statements
-status: active
-last_updated: "2026-03-02T10:48:32Z"
+status: complete
+last_updated: "2026-03-02T15:02:33Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 8
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -29,16 +29,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-02)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.5 Financial Statements -- Phase 33: Income Statement Frontend
+**Current focus:** v1.5 Financial Statements -- COMPLETE (all 3 phases shipped)
 
 ## Current Position
 
-Phase: 33 of 34 (Income Statement Frontend) -- COMPLETE
-Plan: 33.5 of 5 (all complete)
-Status: Phase 33 complete -- all 5 plans delivered (incl. PR review fixes), ready for Phase 34
-Last activity: 2026-03-02 -- Plan 33-05 completed (9 tasks, 5 min)
+Phase: 34 of 34 (Income Statement Testing) -- COMPLETE
+Plan: 34.1 of 1 (all complete)
+Status: v1.5 milestone complete -- all 3 phases (32, 33, 34) delivered, 9 plans total, 684 tests passing
+Last activity: 2026-03-02 -- Plan 34-01 completed (2 tasks, 4 min)
 
-Progress: ████████████████████ 100% -- 5 of 5 plans complete (Phase 33)
+Progress: ████████████████████ 100% -- 1 of 1 plans complete (Phase 34)
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: ████████████████████ 100% -- 5
 | 33 | 33-03 | 5min | 2 | 3 |
 | 33 | 33-04 | 7min | 2 | 7 |
 | 33 | 33-05 | 5min | 9 | 7 |
+| 34 | 34-01 | 4min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -111,6 +112,11 @@ Phase 33 decisions (Plan 33-05):
 - CSV formula injection sanitization with single-quote prefix (Excel/Sheets text-force convention)
 - DataQualityPanel useEffect sync on issueCount to handle week navigation
 
+Phase 34 decisions:
+- totalMappedProducts/totalProducts count revenue item rows (not unit quantities) -- resolveItemsCOGS increments once per item, not per quantity
+- Sentinel value (99999) on consignment externalRevenue.revenueGross proves query reads gross from consignmentSettlements, not externalRevenue
+- 22 total income statement tests (12 integration + 10 unit) cover all 4 Phase 34 success criteria
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -127,5 +133,5 @@ Phase 33 decisions (Plan 33-05):
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 33-05-PLAN.md (Phase 33 fully complete with all PR review fixes)
-Resume notes: Phase 33 complete (5/5 plans, 18 tasks total). Income Statement Frontend fully delivered: P&L page, week navigation, confidence indicators, data quality panel, CSV export, component extraction, plus PR review fixes (colSpan, CSV injection, dark mode tokens, delta dedup, dead props, error handling, panel sync, DeltaIndicator reuse). All 6 requirements (IS-07 through IS-12) addressed. Next: merge to main, then Phase 34.
+Stopped at: Completed 34-01-PLAN.md (Phase 34 complete, v1.5 milestone shipped)
+Resume notes: v1.5 Financial Statements milestone complete. All 3 phases delivered (32: backend, 33: frontend, 34: testing). 9 plans total, 684 tests passing, npm run build succeeds. All 14 requirements (IS-01 through IS-14) addressed. Next: merge gsd/phase-34-income-statement-testing branch to main.

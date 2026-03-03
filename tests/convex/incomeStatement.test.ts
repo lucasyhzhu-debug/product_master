@@ -16,6 +16,8 @@ type TestContext = TestConvex<typeof schema>;
 
 // Monday 2026-01-05 00:00 WIB = Sunday 2026-01-04 17:00 UTC
 const TEST_WEEK_START = Date.UTC(2026, 0, 4, 17, 0, 0);
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 
 // ============================================
 // Helpers: seed test data directly
@@ -40,7 +42,7 @@ async function seedExternalRevenue(
     return await ctx.db.insert("externalRevenue", {
       source: overrides.source ?? "gobiz",
       periodStart: overrides.periodStart ?? TEST_WEEK_START,
-      periodEnd: overrides.periodEnd ?? (TEST_WEEK_START + 86400000),
+      periodEnd: overrides.periodEnd ?? ((overrides.periodStart ?? TEST_WEEK_START) + DAY_MS),
       dataOrigin: "api_revenue",
       confidence: "exact",
       revenueGross: overrides.revenueGross ?? 100000,
@@ -120,37 +122,39 @@ async function seedMenuProductWithBOM(
     { code: "STICKER", name: "Sticker", category: "packaging" as const, unitCostIdr: 200, quantity: 1 },
   ];
 
-  const componentTypeIds: Id<"componentTypes">[] = [];
+  // Insert all component types in parallel, then link to menu product in parallel
+  const componentTypeIds = await Promise.all(
+    bomConfig.map((config, i) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("componentTypes", {
+          code: config.code,
+          name: config.name,
+          category: config.category,
+          unitCostIdr: config.unitCostIdr,
+          unit: "pcs",
+          trackInventory: config.category === "packaging",
+          consumptionStage: config.category === "packaging" ? "boxing" : undefined,
+          isActive: true,
+          sortOrder: i,
+          createdBy: "test",
+          createdAt: Date.now(),
+        })
+      )
+    )
+  );
 
-  for (let i = 0; i < bomConfig.length; i++) {
-    const config = bomConfig[i];
-
-    const componentTypeId = await t.run(async (ctx) => {
-      return await ctx.db.insert("componentTypes", {
-        code: config.code,
-        name: config.name,
-        category: config.category,
-        unitCostIdr: config.unitCostIdr,
-        unit: "pcs",
-        trackInventory: config.category === "packaging",
-        consumptionStage: config.category === "packaging" ? "boxing" : undefined,
-        isActive: true,
-        sortOrder: i,
-        createdBy: "test",
-        createdAt: Date.now(),
-      });
-    });
-    componentTypeIds.push(componentTypeId);
-
-    await t.run(async (ctx) => {
-      await ctx.db.insert("menuProductComponents", {
-        menuProductId,
-        componentTypeId,
-        quantity: config.quantity,
-        sortOrder: i,
-      });
-    });
-  }
+  await Promise.all(
+    bomConfig.map((config, i) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("menuProductComponents", {
+          menuProductId,
+          componentTypeId: componentTypeIds[i],
+          quantity: config.quantity,
+          sortOrder: i,
+        })
+      )
+    )
+  );
 
   return { menuProductId, componentTypeIds };
 }
@@ -173,6 +177,13 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.grossProfit).toBe(0);
     expect(result.current.grossMarginPercent).toBeNull();
     expect(result.current.channels).toHaveLength(0);
+
+    // missingChannels: grabfood is known-missing (OAuth pending)
+    expect(result.current.gapAnalysis.missingChannels).toHaveLength(1);
+    expect(result.current.gapAnalysis.missingChannels[0].source).toBe("grabfood");
+
+    // Delta percent is null when previous week is also zero (not NaN or 0)
+    expect(result.deltas.grossRevenue.percent).toBeNull();
   });
 
   test("unmapped product has COGS = 0 and appears in gap analysis", async () => {
@@ -276,8 +287,9 @@ describe("getWeeklyIncomeStatement", () => {
     expect(product.cogsTotal).toBe(20931);
     expect(product.confidence).toBe("calculated");
 
-    // Verify gross profit
+    // Verify gross profit and margin
     expect(result.current.grossProfit).toBe(35000 - 20931); // 14069
+    expect(result.current.grossMarginPercent).toBeCloseTo(40.2, 1); // 14069/35000 * 100
   });
 
   test("zero net revenue has margin = null, not NaN", async () => {
@@ -290,7 +302,6 @@ describe("getWeeklyIncomeStatement", () => {
     );
 
     expect(result.current.grossMarginPercent).toBeNull();
-    expect(result.current.grossMarginPercent).not.toBeNaN();
   });
 
   test("negative net revenue is valid (no crash)", async () => {
@@ -323,6 +334,10 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.grossMarginPercent).not.toBeNaN();
     // grossProfit = netRevenue - COGS = -5000 - 0 = -5000
     expect(result.current.grossProfit).toBe(-5000);
+
+    // Unmapped product should appear in gap analysis (no linkedMenuProductId)
+    expect(result.current.gapAnalysis.unmappedProducts).toHaveLength(1);
+    expect(result.current.gapAnalysis.unmappedProducts[0].name).toBe("Low Margin Product");
   });
 
   test("zero-cost component appears in gap analysis", async () => {
@@ -356,7 +371,6 @@ describe("getWeeklyIncomeStatement", () => {
 
   test("delta comparison between current and previous week", async () => {
     const t = convexTest(schema);
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
     // Previous week revenue
     await seedExternalRevenue(t, {
@@ -433,7 +447,7 @@ describe("getWeeklyIncomeStatement", () => {
       await ctx.db.insert("consignmentSettlements", {
         outletId,
         periodStart: TEST_WEEK_START,
-        periodEnd: TEST_WEEK_START + 86400000,
+        periodEnd: TEST_WEEK_START + DAY_MS,
         totalRevenue: 50000,
         revSharePercent: 20,
         revShareAmount: 10000,
@@ -527,7 +541,7 @@ describe("getWeeklyIncomeStatement", () => {
     expect(internalChannel!.gross).toBe(100000);
 
     // Discount = totalAmount - (finalTotal - deliveryFee) = 100000 - (85000 - 15000) = 30000
-    // This includes voucher deductions
+    // Note: in production, this formula captures all price reductions including vouchers
     expect(internalChannel!.discount).toBe(30000);
 
     // Net = gross - discount = 100000 - 30000 = 70000
@@ -607,5 +621,221 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.totalCogs).toBe(68000);
     expect(result.current.totalProductionCogs).toBe(60000); // 4 * 3 * 5000
     expect(result.current.totalPackagingCogs).toBe(8000); // 4 * 2000
+  });
+
+  test("multi-channel revenue aggregation: gobiz + consignment + internal", async () => {
+    const t = convexTest(schema);
+
+    // ── 1. Seed 3 BOM-linked menu products in parallel (one per channel) ──
+    const [
+      { menuProductId: productAId },  // Product A: 1x BIG_BALL (10000) + 1x SMALL_BOX (2000) = 12000 COGS/unit
+      { menuProductId: productBId },  // Product B: 1x MID_BALL (5000) + 1x SMALL_BOX (2000) + 1x STICKER (500) = 7500 COGS/unit
+      { menuProductId: productCId },  // Product C: 2x MID_BALL (5000) + 1x LARGE_BOX (3000) = 13000 COGS/unit
+    ] = await Promise.all([
+      seedMenuProductWithBOM(t, {
+        code: "GOBIZ-001",
+        name: "Gobiz Product",
+        bomConfig: [
+          { code: "BIG_BALL", name: "Big Ball", category: "production", unitCostIdr: 10000, quantity: 1 },
+          { code: "SMALL_BOX", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+        ],
+      }),
+      seedMenuProductWithBOM(t, {
+        code: "CONSIGN-002",
+        name: "Consignment Product",
+        bomConfig: [
+          { code: "MID_BALL", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 1 },
+          { code: "SMALL_BOX_B", name: "Small Box", category: "packaging", unitCostIdr: 2000, quantity: 1 },
+          { code: "STICKER_B", name: "Sticker", category: "packaging", unitCostIdr: 500, quantity: 1 },
+        ],
+      }),
+      seedMenuProductWithBOM(t, {
+        code: "INTERNAL-003",
+        name: "Internal Product",
+        bomConfig: [
+          { code: "MID_BALL_C", name: "Mid Ball", category: "production", unitCostIdr: 5000, quantity: 2 },
+          { code: "LARGE_BOX_C", name: "Large Box", category: "packaging", unitCostIdr: 3000, quantity: 1 },
+        ],
+      }),
+    ]);
+
+    // ── 2. Seed gobiz channel: gross 100000, commission 10000, 2 units of Product A ──
+    const gobizRevenueId = await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 100000,
+      commission: 10000,
+    });
+    await seedRevenueItem(t, gobizRevenueId, {
+      source: "gobiz",
+      productName: "Gobiz Product",
+      unitPrice: 50000,
+      quantity: 2,
+      totalPrice: 100000,
+      linkedMenuProductId: productAId,
+    });
+
+    // ── 3. Seed consignment channel: gross 50000, revShare 10000 (20%) ──
+    // externalRevenue.revenueGross = 99999 (sentinel) -- proves gross comes from settlement, not revenue record
+    const consignRevenueId = await seedExternalRevenue(t, {
+      source: "consignment",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 99999, // SENTINEL: if double-counting bug exists, totalGross would include 99999 instead of 50000
+    });
+    await seedRevenueItem(t, consignRevenueId, {
+      source: "consignment",
+      productName: "Consignment Product",
+      unitPrice: 25000,
+      quantity: 2,
+      totalPrice: 50000,
+      linkedMenuProductId: productBId,
+    });
+
+    // Create consignment outlet
+    const outletId = await t.run(async (ctx) => {
+      return await ctx.db.insert("consignmentOutlets", {
+        name: "Test Outlet",
+        type: "retail",
+        revSharePercent: 20,
+        isActive: true,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+    });
+
+    // Create consignment settlement
+    await t.run(async (ctx) => {
+      await ctx.db.insert("consignmentSettlements", {
+        outletId,
+        periodStart: TEST_WEEK_START,
+        periodEnd: TEST_WEEK_START + DAY_MS,
+        totalRevenue: 50000,
+        revSharePercent: 20,
+        revShareAmount: 10000,
+        frolliePayment: 40000,
+        status: "pending",
+        linkedRevenueId: consignRevenueId,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+    });
+
+    // ── 4. Seed internal channel: gross 80000, discount 15000 ──
+    const customerId = await t.run(async (ctx) => {
+      return await ctx.db.insert("customers", { name: "Test Customer", createdBy: "test" });
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("orders", {
+        orderNumber: "0105-002",
+        customerId,
+        customerName: "Test Customer",
+        status: "Complete",
+        paymentStatus: "Paid",
+        orderDate: Date.now(),
+        totalAmount: 80000,
+        totalCost: 0,
+        totalMargin: 0,
+        finalTotal: 75000,
+        deliveryFee: 10000,
+        deliveryType: "Delivery",
+        itemCount: 1,
+        createdBy: "test",
+      });
+    });
+
+    // Discount = totalAmount - (finalTotal - deliveryFee) = 80000 - (75000 - 10000) = 15000
+    // Internal gross comes from orders.totalAmount (80000), NOT externalRevenue.revenueGross.
+    // Sentinel value 88888 proves the query reads from the correct source.
+    const internalRevenueId = await seedExternalRevenue(t, {
+      source: "internal",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 88888, // SENTINEL: if bug reads from externalRevenue instead of orders, totalGross would be wrong
+      externalTransactionId: "0105-002",
+    });
+    await seedRevenueItem(t, internalRevenueId, {
+      source: "internal",
+      productName: "Internal Product",
+      unitPrice: 40000,
+      quantity: 2,
+      totalPrice: 80000,
+      linkedMenuProductId: productCId,
+    });
+
+    // ── 5. Call query and assert ──
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // ── Structural assertion: exactly 3 channels ──
+    expect(result.current.channels).toHaveLength(3);
+
+    // ── Channel ordering: sorted by gross descending ──
+    expect(result.current.channels[0].source).toBe("gobiz");     // 100000
+    expect(result.current.channels[1].source).toBe("internal");   // 80000
+    expect(result.current.channels[2].source).toBe("consignment"); // 50000
+
+    // ── Per-channel assertions: gobiz ──
+    const gobiz = result.current.channels[0];
+    expect(gobiz.gross).toBe(100000);
+    expect(gobiz.commission).toBe(10000);
+    expect(gobiz.netRevenue).toBe(90000);
+    expect(gobiz.cogs.production).toBe(20000);   // 2 * 10000
+    expect(gobiz.cogs.packaging).toBe(4000);     // 2 * 2000
+    expect(gobiz.cogs.total).toBe(24000);
+
+    // ── Per-channel assertions: consignment ──
+    const consignment = result.current.channels[2];
+    expect(consignment.gross).toBe(50000);
+    expect(consignment.revShare).toBe(10000);
+    expect(consignment.netRevenue).toBe(40000);
+    expect(consignment.cogs.production).toBe(10000);  // 2 * 5000
+    expect(consignment.cogs.packaging).toBe(5000);    // 2 * (2000 + 500)
+    expect(consignment.cogs.total).toBe(15000);
+
+    // ── Per-channel assertions: internal ──
+    const internal = result.current.channels[1];
+    expect(internal.gross).toBe(80000);
+    expect(internal.discount).toBe(15000);
+    expect(internal.netRevenue).toBe(65000);
+    expect(internal.cogs.production).toBe(20000);  // 2 * 2 * 5000
+    expect(internal.cogs.packaging).toBe(6000);    // 2 * 3000
+    expect(internal.cogs.total).toBe(26000);
+
+    // ── Cross-channel total assertions ──
+    expect(result.current.totalGross).toBe(230000);            // 100000 + 50000 + 80000
+    expect(result.current.totalCommission).toBe(10000);
+    expect(result.current.totalRevShare).toBe(10000);
+    expect(result.current.totalDiscounts).toBe(15000);
+    expect(result.current.totalDeductions).toBe(35000);        // 10000 + 10000 + 15000
+    expect(result.current.netRevenue).toBe(195000);            // 230000 - 35000
+    expect(result.current.totalProductionCogs).toBe(50000);    // 20000 + 10000 + 20000
+    expect(result.current.totalPackagingCogs).toBe(15000);     // 4000 + 5000 + 6000
+    expect(result.current.totalCogs).toBe(65000);              // 50000 + 15000
+    expect(result.current.grossProfit).toBe(130000);           // 195000 - 65000
+    expect(result.current.grossMarginPercent).toBeCloseTo(66.67, 2); // 130000/195000 * 100
+    expect(result.current.totalAdBurn).toBe(0);
+    expect(result.current.totalPromoBurn).toBe(0);
+
+    // ── Channel-level confidence: all exact (exact revenue sources, all products BOM-linked) ──
+    expect(gobiz.confidence).toBe("exact");
+    expect(consignment.confidence).toBe("exact");
+    expect(internal.confidence).toBe("exact");
+
+    // ── Product-level confidence: all calculated (BOM-linked) ──
+    expect(gobiz.products.every((p) => p.confidence === "calculated")).toBe(true);
+    expect(consignment.products.every((p) => p.confidence === "calculated")).toBe(true);
+    expect(internal.products.every((p) => p.confidence === "calculated")).toBe(true);
+
+    // ── Gap analysis happy path ──
+    expect(result.current.gapAnalysis.unmappedProducts).toHaveLength(0);
+    expect(result.current.gapAnalysis.totalMappedProducts).toBe(3);  // counts distinct revenue item rows, not unit quantities
+    expect(result.current.gapAnalysis.totalProducts).toBe(3);
+    expect(result.current.gapAnalysis.zeroCostComponents).toHaveLength(0);
+
+    // missingChannels: grabfood is known-missing (no data seeded, OAuth pending)
+    expect(result.current.gapAnalysis.missingChannels).toHaveLength(1);
+    expect(result.current.gapAnalysis.missingChannels[0].source).toBe("grabfood");
   });
 });

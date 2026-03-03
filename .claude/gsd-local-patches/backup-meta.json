@@ -1,0 +1,16 @@
+{
+  "backed_up_at": "2026-02-28T08:20:47.673Z",
+  "from_version": "1.20.5",
+  "files": [
+    "get-shit-done/bin/gsd-tools.cjs",
+    "get-shit-done/bin/gsd-tools.test.cjs",
+    "get-shit-done/templates/config.json",
+    "get-shit-done/workflows/discuss-phase.md",
+    "get-shit-done/workflows/execute-phase.md",
+    "get-shit-done/workflows/plan-phase.md",
+    "get-shit-done/workflows/settings.md",
+    "agents/gsd-phase-researcher.md",
+    "agents/gsd-plan-checker.md",
+    "agents/gsd-planner.md"
+  ]
+}
