@@ -8,6 +8,16 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
+## Current Milestone: v1.6 Operational Simplification & Resilience
+
+**Goal:** Reduce code complexity across the largest files, extract shared patterns, and add E2E test coverage for critical paths — making the system easier to maintain, debug, and extend.
+
+**Target features:**
+- Sales & analytics shared helper extraction (confidence, WIB timezone, sourceToPlatform)
+- Giant backend file splits (externalData, k3martCockpit, incomeStatement, orders, dispatchPlanner)
+- Giant frontend file splits (OverviewTab, GrabFoodManager, FinishedGoodsTab, VouchersManager)
+- E2E Playwright tests for critical paths (order lifecycle, kitchen, analytics)
+
 ## Current State
 
 Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1.5), 34 phases, 161 plans.
@@ -88,7 +98,12 @@ Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1
 
 ### Active
 
-(No active requirements — next milestone not yet defined. Run `/gsd:new-milestone`.)
+- [ ] Sales & analytics backend simplification (shared helpers + query splits)
+- [ ] K3Mart cockpit query simplification
+- [ ] Order system backend simplification (queries + mutations)
+- [ ] Dispatch planner query simplification
+- [ ] Frontend giant file splits (OverviewTab, GrabFoodManager, FinishedGoodsTab, VouchersManager)
+- [ ] E2E Playwright test foundation for critical paths
 
 ### Out of Scope
 
@@ -201,4 +216,4 @@ Deployed via Vercel with GitHub Actions CI. 6 milestones shipped (v1.0–v1.5), 
 | Sentinel-value dual-path testing (v1.5) | Seed deliberately wrong values in unused data paths to catch double-counting bugs | ✓ Good — proved consignment reads from settlements, not externalRevenue |
 
 ---
-*Last updated: 2026-03-03 after v1.5 milestone completion*
+*Last updated: 2026-03-03 after v1.6 milestone start*
