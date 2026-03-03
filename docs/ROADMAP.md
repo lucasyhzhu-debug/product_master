@@ -70,6 +70,35 @@
 - [x] 100% coverage for critical business logic
 - [x] Test infrastructure (Vitest, Testing Library, convex-test)
 
+### v1.5 Financial Statements (In Progress)
+
+#### Phase 32: Income Statement Backend (Completed)
+- [x] Weekly income statement query (`getWeeklyIncomeStatement`) with Revenue → COGS → Gross Profit
+- [x] Multi-channel revenue aggregation (GoBiz, Shopee, TikTok, GrabFood, BigSeller, Consignment, Internal, K3Mart)
+- [x] BOM COGS resolution via `buildProductCOGSMap` (production + packaging split)
+- [x] Confidence classification on every figure (exact/calculated/inferred/missing)
+- [x] Data quality gap analysis (unmapped products, zero-cost components, missing channels)
+- [x] Previous week comparison with delta amounts and percentages
+- [x] Backend integration tests (18 new tests: edge cases, COGS accuracy, multi-channel)
+
+#### Phase 33: Income Statement Frontend (Completed)
+- [x] Standalone `/financials` page with P&L table (Revenue → Deductions → COGS → Gross Profit)
+- [x] Per-channel breakdown with colored dots from platform color system
+- [x] Week navigation (prev/next/today) with WIB timezone Monday-start boundaries
+- [x] Week-over-week comparison columns with delta indicators
+- [x] Confidence indicators: calc icon (calculated), ~ prefix (inferred), -- with warning (missing)
+- [x] Collapsible Data Quality Panel: unmapped products, zero-cost components, coverage stat
+- [x] CSV export with flat-format output and formula injection sanitization
+- [x] Mobile responsive: comparison columns hidden by default with toggle
+- [x] Component extraction: PLRow, ChannelRow, ConfidenceIndicator, DataQualityPanel, financialHelpers
+- [x] Dark mode using CSS variable tokens (per CODE_STYLE.md)
+- [x] E2E UAT: 11 automated tests (page load, navigation, collapsible sections, CSV, permission guard)
+- [x] Route: `/financials` with `canAccessDashboard` permission (Manager, Admin)
+
+#### Phase 34: Income Statement Testing (Planned)
+- [ ] Multi-channel revenue aggregation integration test (gobiz + consignment + internal)
+- [ ] Success criteria audit trail mapping tests to requirements
+
 ---
 
 ## Not Yet Implemented
@@ -125,7 +154,7 @@
 - [ ] Dashboard metrics and charts
 
 ### Priority 5: Data & Reporting
-- [ ] CSV/Excel export for reports
+- [x] CSV/Excel export for reports (Income Statement CSV export, Phase 33)
 - [x] Sales analytics dashboard (K3Mart stock sync + GoBiz revenue sync)
 - [x] GoBiz journal-level sync (5-metric revenue: gross, net, commission, ad burn, promo burn)
 - [ ] Cost trend analysis
@@ -141,6 +170,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 4.0 | 2026-03-02 | Income Statement: backend query + frontend P&L page + CSV export (v1.5 Phases 32-33) |
 | 3.4 | 2026-02-09 | GoBiz journal-level integration (5-metric revenue + item details) |
 | 3.3 | 2026-02-07 | Multi-platform sales integration (K3Mart + GoBiz) |
 | 3.2 | 2026-02-02 | Production tracking refactor, UX improvements |
