@@ -8,18 +8,11 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.5 Financial Statements
+## Current State
 
-**Goal:** Provide a unified weekly income statement (Revenue -> COGS -> Gross Profit) with per-channel breakdown, BOM-resolved COGS, and data quality visibility.
+Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1.5), 34 phases, 161 plans.
 
-**Target features:**
-- Standalone `/financials` page with weekly P&L table
-- Per-channel revenue breakdown (7 channels) with confidence indicators
-- Full BOM COGS resolution (production + packaging) via in-memory map preloading
-- Previous week comparison with delta percentages
-- Flat-format CSV export for external analysis
-- Inline data quality / gap analysis panel (unmapped products, missing channels, zero-cost components)
-- Consignment settlements folded into unified P&L view
+**Latest feature:** Weekly income statement at `/financials` with per-channel Revenue -> COGS -> Gross Profit, BOM-resolved COGS, confidence indicators, comparison deltas, data quality panel, and CSV export.
 
 ## Requirements
 
@@ -85,16 +78,17 @@ Production reliability — the system is the single source of truth for recipes,
 - ✓ Unified Sales Analytics: 8-channel stacked bar chart with dynamic discovery, lifetime units sold, multi-select filter — v1.4 (ANLY-01–03)
 - ✓ Test suite repair: 56→0 failures, orphaned tests/helpers removed — v1.4 (Phase 29.1)
 - ✓ Tech debt cleanup: ExternalSource type guard, pause duration fix, dead code removal — v1.4 (Phase 31)
+- ✓ Weekly income statement page (`/financials`) with P&L from Revenue -> Gross Profit per channel — v1.5
+- ✓ Per-channel revenue aggregation from `externalRevenue` + `consignmentSettlements` — v1.5
+- ✓ Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` helper — v1.5
+- ✓ Previous week comparison with delta amounts and percentages — v1.5
+- ✓ Data quality / gap analysis panel (unmapped products, missing channels, zero-cost components) — v1.5
+- ✓ Flat-format CSV export for external financial analysis — v1.5
+- ✓ Confidence classification on every financial figure (exact/calculated/inferred/missing) — v1.5
 
 ### Active
 
-- [ ] Weekly income statement page (`/financials`) with P&L from Revenue -> Gross Profit
-- [ ] Per-channel revenue aggregation from `externalRevenue` + `consignmentSettlements`
-- [ ] Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` helper
-- [ ] Previous week comparison with delta amounts and percentages
-- [ ] Data quality / gap analysis panel (unmapped products, missing channels, zero-cost components)
-- [ ] Flat-format CSV export for external financial analysis
-- [ ] Confidence classification on every financial figure (exact/calculated/inferred/missing)
+(No active requirements — next milestone not yet defined. Run `/gsd:new-milestone`.)
 
 ### Out of Scope
 
@@ -128,17 +122,18 @@ Production reliability — the system is the single source of truth for recipes,
 
 ## Context
 
-Shipped v1.4 with ~124,946 lines TypeScript across 59 Convex tables.
+Shipped v1.5 with ~130,008 lines TypeScript across 59 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
-Deployed via Vercel with GitHub Actions CI. 5 milestones shipped (v1.0–v1.4), 31 phases, 152 plans.
+Deployed via Vercel with GitHub Actions CI. 6 milestones shipped (v1.0–v1.5), 34 phases, 161 plans.
 
-**Current state after v1.4:**
+**Current state after v1.5:**
+- Financial statements: weekly income statement with per-channel P&L, BOM COGS, confidence indicators, CSV export
 - Multi-platform integration: GoBiz (GoFood × 3 outlets), GrabFood Partner API (store control + webhooks + menu simulator), BigSeller (Shopee + Tokopedia sync), Consignment settlements
 - Sales Analytics: 8-channel unified view with dynamic discovery, lifetime totals, multi-select filter
 - Kitchen: targets from dispatch plan, EoS recording to Finished Goods, waste logging, shift history
 - Codebase: bundle split (main 76kB), dark mode complete, hook naming unified, protectedMutation expanded, ExternalSource type guard pattern
-- Schema: 59 tables, 643 unit tests passing
-- UI: 26+ pages, route-level code splitting with React.lazy
+- Schema: 59 tables, 684 unit tests passing
+- UI: 27 pages, route-level code splitting with React.lazy
 
 **Known technical debt:**
 - E2E Playwright tests not yet written (deferred from v1.3/v1.4)
@@ -146,7 +141,6 @@ Deployed via Vercel with GitHub Actions CI. 5 milestones shipped (v1.0–v1.4), 
 - Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run
 - GrabFood orders:read OAuth2 scope not yet granted (infrastructure works, 401 handled gracefully)
 - BigSeller COGS = 0 for all Frollie orders (profit analytics meaningless until configured in BigSeller)
-- SUMMARY frontmatter `requirements_completed` empty across all v1.4 plans (metadata gap only)
 
 ## Constraints
 
@@ -200,6 +194,11 @@ Deployed via Vercel with GitHub Actions CI. 5 milestones shipped (v1.0–v1.4), 
 | ExternalSource type guard pattern (v1.4) | Runtime `isExternalSource()` narrows string→union for Convex index queries | ✓ Good — replaces `as any` casts, contract test catches drift |
 | Dynamic channel discovery in analytics (v1.4) | Charts discover channels from data instead of hardcoded list | ✓ Good — new sources auto-appear, no frontend changes needed |
 | Single color source of truth: platformColors.ts (v1.4) | All chart/card/badge colors derive from `getPlatformPalette(source)` | ✓ Good — eliminated 3-way color map duplication |
+| Real-time query aggregation for P&L (v1.5) | No snapshot tables — income statement computed from live data on each request | ✓ Good — zero schema changes, safe rollback, always fresh |
+| In-memory BOM COGS map preloading (v1.5) | `buildProductCOGSMap` loads all BOM data into memory maps in one batch, resolves per-item inline | ✓ Good — follows `getLifetimeTotalsInternal` pattern, avoids N+1 |
+| Confidence classification on every figure (v1.5) | Each amount tagged exact/calculated/inferred/missing instead of hiding data quality issues | ✓ Good — transparent, users know what to trust |
+| Consignment folded into unified P&L (v1.5) | Consignment settlements treated as another channel in the same query, not a separate report | ✓ Good — single view, consistent structure |
+| Sentinel-value dual-path testing (v1.5) | Seed deliberately wrong values in unused data paths to catch double-counting bugs | ✓ Good — proved consignment reads from settlements, not externalRevenue |
 
 ---
-*Last updated: 2026-03-02 after v1.5 milestone start*
+*Last updated: 2026-03-03 after v1.5 milestone completion*

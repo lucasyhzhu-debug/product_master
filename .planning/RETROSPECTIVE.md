@@ -50,6 +50,50 @@
 
 ---
 
+## Milestone: v1.5 — Financial Statements
+
+**Shipped:** 2026-03-03
+**Phases:** 3 (32-34) | **Plans:** 9 | **Timeline:** 2 days
+
+### What Was Built
+- Weekly income statement query with per-channel Revenue -> Deductions -> COGS -> Gross Profit aggregation
+- Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` in-memory preloading
+- `/financials` page with week navigation, confidence indicators, comparison deltas, data quality panel
+- Flat-format CSV export with formula injection sanitization
+- 22 income statement tests (12 integration + 10 unit) with sentinel-value dual-path verification
+
+### What Worked
+- **Design doc before coding**: `docs/plans/2026-03-01-income-statement-design.md` + staff review caught scope issues before Phase 32 started — no rework
+- **Triple review on every phase**: 3 independent review agents (requirements, code-quality, staffreview) found more issues than any single reviewer. Consensus items highest-confidence fixes.
+- **Sentinel-value testing pattern**: Seeding deliberately wrong value (99999) in the unused data path proved the query reads from the correct source — mechanical proof, not hope
+- **No schema changes**: Purely read-only feature built on v1.4 data infrastructure. Safe `git revert` rollback at any point.
+- **In-memory BOM map preloading**: Following `getLifetimeTotalsInternal` pattern avoided N+1 queries in COGS resolution
+
+### What Was Inefficient
+- **Phase 33 grew to 5 plans**: Original estimate was 3-4 plans, but review fixes (dark mode tokens, component extraction, dedup) added 2 more. Review-driven rework should be budgeted upfront.
+- **No milestone audit**: Skipped `/gsd:audit-milestone` because all phases were individually verified and triple-reviewed. Acceptable for a 3-phase milestone but wouldn't scale.
+- **Duplicate frontmatter in STATE.md**: GSD CLI appended extra frontmatter blocks instead of replacing — required manual cleanup during milestone completion.
+
+### Patterns Established
+- **Confidence classification**: Every financial figure tagged exact/calculated/inferred/missing — transparent data quality
+- **In-memory BOM map**: `buildProductCOGSMap` preloads all BOM data into Maps for O(1) per-item COGS lookup
+- **Sentinel-value dual-path testing**: Seed wrong values in unused data paths to mechanically prove correct source selection
+- **CSS variable tokens for dark mode**: `--color-status-success/error/warning` replace raw `dark:` Tailwind overrides
+- **financialHelpers.tsx**: Shared helpers for WIB timezone, delta computation, confidence formatting
+
+### Key Lessons
+1. **Budget review-driven rework as 20% of plan count** — 5/9 plans were implementation, 4 were reviews and fixes. Reviews always generate work.
+2. **Sentinel values are mechanical proofs** — When two data sources can provide the same field, seed the wrong one with a sentinel. If the test passes, the correct source is proven.
+3. **Design doc + staff review before Phase 1** — Catches scope issues, API contract questions, and edge cases before a single line of code. v1.5 had zero rework from design issues.
+4. **Triple review consensus** — When 2+ of 3 independent reviewers flag the same issue, it's a high-confidence fix. Single-reviewer items need more judgment.
+5. **Assert gap analysis even on happy paths** — Empty gap analysis fields should be explicitly asserted, not just skipped. Catches silent regressions.
+
+### Cost Observations
+- Model mix: primarily opus (quality profile)
+- Notable: 9 plans across 3 phases in 2 days — fastest milestone yet per plan count (41 min total execution)
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -61,6 +105,7 @@
 | v1.2 | 3 | 20 | 5 days | Dispatch planner, ingredient tracking, BOM patterns |
 | v1.3 | 8 | 49 | 3 days | GoFood depot, kitchen overhaul, legacy cleanup |
 | v1.4 | 9 | 20 | 5 days | Multi-platform integration, unified analytics, milestone audit |
+| v1.5 | 3 | 9 | 2 days | Financial statements, design-doc-first, triple review on every phase |
 
 ### Cumulative Quality
 
@@ -71,6 +116,7 @@
 | v1.2 | ~450 | Ingredient tracking + dispatch planner |
 | v1.3 | ~636 | Full suite, kitchen + codebase cleanup |
 | v1.4 | 643 | ExternalSource contract tests, sourceToPlatform coverage |
+| v1.5 | 684 | Income statement tests (22), sentinel-value dual-path verification |
 
 ### Top Lessons (Verified Across Milestones)
 

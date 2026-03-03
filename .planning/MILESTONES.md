@@ -1,4 +1,25 @@
 # Milestones
+## v1.5 Financial Statements (Shipped: 2026-03-03)
+
+**Phases completed:** 3 phases (32-34), 9 plans
+**Timeline:** 2 days (2026-03-02 to 2026-03-03)
+**Commits:** 52 | **Codebase:** ~130,008 lines TypeScript (59 Convex tables)
+**Requirements:** 14/14 satisfied | **Tests:** 684 passing (22 income statement-specific)
+
+**Key accomplishments:**
+1. Weekly income statement query (`getWeeklyIncomeStatement`) with real-time per-channel Revenue -> Deductions -> COGS -> Gross Profit aggregation across 7 channels
+2. Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` in-memory map preloading — follows `getLifetimeTotalsInternal` pattern
+3. Confidence classification on every financial figure (exact/calculated/inferred/missing) with channel-level worst-confidence propagation
+4. `/financials` page with week navigation (WIB Monday-start), expandable channel rows, comparison deltas, and data quality panel
+5. Flat-format CSV export with formula injection sanitization and per-channel deduction breakdown
+6. Sentinel-value dual-path test strategy proving consignment reads from `consignmentSettlements`, not `externalRevenue`
+
+**Delivered:** Added a weekly income statement feature that aggregates revenue from all 8 sales channels, computes full BOM-resolved COGS (production + packaging), and presents a P&L view with data quality transparency. No schema changes — purely read-only feature built on existing v1.4 data infrastructure.
+
+**Design decisions documented in:** `docs/plans/2026-03-01-income-statement-design.md`
+
+---
+
 ## v1.4 Sales & Channel Integration (Shipped: 2026-03-01)
 
 **Phases completed:** 9 phases (26-31 including 27.1, 27.2, 29.1), 20 plans
