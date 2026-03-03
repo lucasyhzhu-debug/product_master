@@ -11,7 +11,7 @@ const AUTH_STORAGE_KEY = "malo_auth_session";
 /**
  * SessionProvider storage key -- must match the storageKey prop
  * passed to SessionProvider in main.tsx. When login writes the auth
- * token here, useSessionMutation/useSessionQuery will automatically
+ * token here, useSessionMutation will automatically
  * inject it as sessionId in Convex function args.
  */
 const SESSION_ID_KEY = "malo_session_id";
