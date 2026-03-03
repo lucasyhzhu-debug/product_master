@@ -1,6 +1,12 @@
 {
   "permissions": {
-    "allow": [],
+    "allow": [
+      "mcp__plugin_figma_figma__generate_diagram",
+      "Skill(gsd:update)",
+      "Skill(gsd:progress)",
+      "Skill(gsd:progress:*)",
+      "Skill(gsd:audit-milestone)"
+    ],
     "deny": [
       "Bash(rm -rf *)",
       "Bash(del /f /s *)",
