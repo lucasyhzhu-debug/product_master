@@ -72,7 +72,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Sentry/LogRocket integration | Separate initiative — production stability sufficient without external monitoring |
 | Integration adapter refactoring | Adapters are stable, rarely modified; ROI too low for this milestone |
 | Monthly/quarterly P&L views | Additive feature, not simplification |
-| New features or schema changes | This milestone is pure refactoring + resilience — zero schema changes |
+| New feature tables or schema additions | This milestone is pure refactoring + resilience — schema cleanup (field/table removal, index additions) is in scope via Phase 35, but no new feature tables |
 | Order form component splits | Forms are complex but self-contained; splitting risks regression in critical path |
 
 ## Traceability
