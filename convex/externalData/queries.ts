@@ -6,7 +6,7 @@ import { calculatePeriodRange, utcToWibDateStr, isWeekend, getIsoWeekNumber, utc
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
-import { isExternalSource } from "../lib/externalSource";
+import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
 
 const sourceValidator = externalSource;
 
@@ -1475,21 +1475,6 @@ export const getChannelSellThrough = query({
 });
 
 // ─── TIME-SERIES REVENUE QUERY (for stacked charts) ───
-
-/** Map source to platform display name */
-export function sourceToPlatform(source: string): string {
-  switch (source) {
-    case "gobiz": return "GoFood";
-    case "k3mart": return "K3 Mart";
-    case "internal": return "Direct";
-    case "grabfood": return "GrabFood";
-    case "shopee": return "Shopee";
-    case "tiktok": return "Tokopedia";
-    case "consignment": return "Consignment";
-    case "bigseller": return "BigSeller";
-    default: return source;
-  }
-}
 
 export const getRevenueTimeSeries = query({
   args: {

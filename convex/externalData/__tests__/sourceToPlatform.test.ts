@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceToPlatform } from "../queries";
+import { sourceToPlatform } from "../../lib/externalSource";
 
 describe("sourceToPlatform", () => {
   it.each([

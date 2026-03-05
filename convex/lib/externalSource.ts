@@ -24,3 +24,18 @@ export type ExternalSource = (typeof EXTERNAL_SOURCES)[number];
 export function isExternalSource(s: string): s is ExternalSource {
   return (EXTERNAL_SOURCES as readonly string[]).includes(s);
 }
+
+/** Map source to platform display name */
+export function sourceToPlatform(source: string): string {
+  switch (source) {
+    case "gobiz": return "GoFood";
+    case "k3mart": return "K3 Mart";
+    case "internal": return "Direct";
+    case "grabfood": return "GrabFood";
+    case "shopee": return "Shopee";
+    case "tiktok": return "Tokopedia";
+    case "consignment": return "Consignment";
+    case "bigseller": return "BigSeller";
+    default: return source;
+  }
+}

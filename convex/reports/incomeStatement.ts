@@ -15,10 +15,8 @@ import type { Doc } from "../_generated/dataModel";
 import { buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
 import { type Confidence, worstConfidence } from "../lib/confidence";
-import {
-  sourceToPlatform,
-  fetchInternalOrderDataMap,
-} from "../externalData/queries";
+import { sourceToPlatform } from "../lib/externalSource";
+import { fetchInternalOrderDataMap } from "../externalData/queries";
 
 interface ProductDetail {
   name: string;
