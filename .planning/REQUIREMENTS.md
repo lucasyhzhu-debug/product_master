@@ -16,8 +16,8 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 ### Backend File Splits
 
 - [x] **BFS-01**: `externalData/queries.ts` slimmed to under 1,400 LOC (from 1,832) via pure helper extraction
-- [ ] **BFS-02**: `k3martCockpit/queries.ts` slimmed to under 750 LOC (from 985) via pure helper extraction
-- [ ] **BFS-03**: `reports/incomeStatement.ts` imports shared confidence + WIB from lib modules (no local duplicates)
+- [x] **BFS-02**: `k3martCockpit/queries.ts` slimmed to 760 LOC (from 985) via pure helper extraction
+- [x] **BFS-03**: `reports/incomeStatement.ts` imports shared confidence + WIB from lib modules (no local duplicates)
 - [ ] **BFS-04**: `orders/queries.ts` slimmed to under 800 LOC (from 1,279) via helper extraction
 - [ ] **BFS-05**: `orders/mutations/orderCrud.ts` slimmed to under 700 LOC (from 1,085) via validation extraction
 - [ ] **BFS-06**: `dispatchPlanner/queries.ts` slimmed to under 800 LOC (from 1,228) via simulation extraction
@@ -88,8 +88,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BSH-02 | Phase 36 | Complete |
 | BSH-03 | Phase 36 | Complete |
 | BFS-01 | Phase 36 | Complete |
-| BFS-02 | Phase 36 | Pending |
-| BFS-03 | Phase 36 | Pending |
+| BFS-02 | Phase 36 | Complete |
+| BFS-03 | Phase 36 | Complete |
 | BFS-04 | Phase 37 | Pending |
 | BFS-05 | Phase 37 | Pending |
 | BFS-06 | Phase 37 | Pending |
@@ -109,4 +109,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-05 after Plan 36-01 completion (BSH-01, BSH-02, BSH-03)*
+*Last updated: 2026-03-05 after Plan 36-03 completion (BFS-02, BFS-03)*

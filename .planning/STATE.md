@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 36 in progress -- query file decomposition complete
+**Current focus:** Phase 36 complete -- all 3 plans executed, ready for merge
 
 ## Current Position
 
 Phase: 36 — Sales & Analytics Backend Simplification
-Plan: 2 of 3 (complete)
-Status: Plan 36-02 complete -- queries.ts split via helper extraction (1,773 -> 1,387 LOC)
-Last activity: 2026-03-05 — Completed 36-02 (Split externalData/queries.ts)
+Plan: 3 of 3 (complete)
+Status: Phase 36 complete -- k3martCockpit split + incomeStatement verified + CHANGELOG updated
+Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verification)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Last activity: 2026-03-05 — Completed 36-02 (Split externalData/queries.ts)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min (43min total, 4 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min (54min total, 5 plans)
 
 ## Accumulated Context
 
@@ -52,6 +52,9 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P36-02: Unified GoBiz/Internal demand-to-product builder (identical pattern, single helper)
 - P36-02: Pre-fetch orderDataMap pattern eliminates async closure in dashboard aggregation
 - P36-02: queries.ts reduced from 1,773 to 1,387 LOC (22% reduction, 5 helper files)
+- P36-03: k3martCockpit/queries.ts reduced from 985 to 760 LOC (22.8% reduction, 2 helper files)
+- P36-03: queryHelpers/ directory pattern (not helpers/) avoids Windows case-insensitive collision
+- P36-03: 760 LOC slightly over 750 target -- remaining functions too ctx-dependent for pure extraction
 
 ### Open Blockers (carried forward)
 
@@ -70,5 +73,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 36-02 (Split externalData/queries.ts)
-Resume notes: Plan 36-02 complete. Continue with 36-03 (Documentation). Pre-existing build error in k3martCockpit/queries.ts needs separate fix.
+Stopped at: Completed 36-03 (Split k3martCockpit + Final Verification)
+Resume notes: Phase 36 complete. All 3 plans executed. Ready for merge to main and next milestone planning.
