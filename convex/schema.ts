@@ -57,9 +57,9 @@ export default defineSchema({
     baseUnit: v.string(),
     // Phase 20: Links ingredient to an inventory-tracking componentType (for production ingredient tracking)
     ingredientComponentTypeId: v.optional(v.id("componentTypes")),
-  })
-    .index("by_name", ["name"]),
-  // QFIX-05: removed by_brand -- zero withIndex references in codebase
+  }),
+  // OI-01: removed by_name -- zero withIndex references
+  // QFIX-05: removed by_brand -- zero withIndex references
 
   packagingMaterials: defineTable({
     name: v.string(),
@@ -74,8 +74,8 @@ export default defineSchema({
     costPerBaseUnit: v.number(),
     // CACHE: Derived from unitType. Updated: on material edit.
     baseUnit: v.string(),
-  })
-    .index("by_name", ["name"]),
+  }),
+  // OI-02: removed by_name -- zero withIndex references
 
   menuProducts: defineTable({
     code: v.string(),
@@ -108,8 +108,8 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
-    .index("by_pos_slot", ["posSlot"])
-    .index("by_packaging_pos_slot", ["packagingPosSlot"])
+    // OI-04: removed by_pos_slot -- zero withIndex references
+    // OI-05: removed by_packaging_pos_slot -- zero withIndex references
     .index("by_default_price", ["defaultPrice"]),
 
   // ============================================
@@ -163,7 +163,7 @@ export default defineSchema({
     defaultAddress: v.optional(v.string()),
     createdBy: v.string(),
   })
-    .index("by_name", ["name"])
+    // OI-03: removed by_name -- zero withIndex references
     .index("by_phone", ["phone"]),
 
   orders: defineTable({
@@ -367,8 +367,8 @@ export default defineSchema({
     // PRD-7: Cancellation flag for soft delete
     isCancelled: v.optional(v.boolean()),
   })
-    .index("by_order_item", ["orderItemId"])
-    .index("by_production_type", ["productionUnitTypeId"]),
+    .index("by_order_item", ["orderItemId"]),
+  // OI-07: removed by_production_type -- zero withIndex references
   // QFIX-05: removed by_remaining, by_completion -- zero withIndex references
 
   // ============================================
@@ -501,7 +501,8 @@ export default defineSchema({
     .index("by_date_source_product", ["date", "source", "menuProductId"]),
   // QFIX-05: removed by_date_product -- prefix subset of by_date_source_product, zero references
 
-  // Running production tallies per menu product (carries over, manager can reset)
+  // ARCHIVED: Read-only since Phase 21. Source of truth is now productionLog aggregation + productionResets timestamps.
+  // Kept for backward compatibility with existing documents. Do NOT write to this table.
   productionCounts: defineTable({
     menuProductId: v.id("menuProducts"),
     boxed: v.number(), // Total boxed since last reset
@@ -678,8 +679,8 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
-    .index("by_manager_override", ["isManagerOverride"])
-    .index("by_active_valid", ["isActive", "validFrom"]), // For efficient validation queries
+    .index("by_manager_override", ["isManagerOverride"]),
+    // OI-09: removed by_active_valid -- zero withIndex references
 
   // Per-customer voucher usage tracking
   voucherUsage: defineTable({
@@ -1037,7 +1038,7 @@ export default defineSchema({
     .index("by_batch", ["snapshotBatchId"])
     .index("by_outlet_product", ["outletId", "externalProductId"])
     .index("by_outlet_snapshot", ["outletId", "snapshotAt"])
-    .index("by_snapshot_time", ["snapshotAt"])
+    // OI-10: removed by_snapshot_time -- zero withIndex references
     .index("by_batch_outlet", ["snapshotBatchId", "outletId"]),
 
   externalRevenue: defineTable({
@@ -1082,7 +1083,7 @@ export default defineSchema({
     .index("by_outlet", ["outletId"])
     .index("by_period", ["periodStart"])
     .index("by_source_period", ["source", "periodStart"])
-    .index("by_product", ["linkedMenuProductId"])
+    // OI-11: removed by_product -- zero withIndex references
     .index("by_source_txn", ["source", "externalTransactionId"]),
 
   externalRevenueItems: defineTable({
@@ -1270,7 +1271,7 @@ export default defineSchema({
     isEnabled: v.boolean(),
     updatedBy: v.string(),
     updatedAt: v.number(),
-    commissionRate: v.optional(v.number()), // unused — net/gross tracked from external APIs
+    // DUP-01: removed commissionRate -- unused, net/gross tracked from external APIs
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
@@ -1342,8 +1343,8 @@ export default defineSchema({
     editedBy: v.optional(v.string()),
     editNote: v.optional(v.string()),
   })
-    .index("by_date", ["date"])
-    .index("by_date_submitted", ["date", "submittedAt"]),
+    .index("by_date", ["date"]),
+    // OI-14: removed by_date_submitted -- zero withIndex references
 
   // ============================================
   // KITCHEN DAILY OVERRIDES
@@ -1428,7 +1429,7 @@ export default defineSchema({
   })
     .index("by_date", ["date"])
     .index("by_outlet_date", ["outletId", "date"])
-    .index("by_outlet_direction", ["outletId", "direction"])
+    // OI-15: removed by_outlet_direction -- zero withIndex references
     .index("by_status", ["k3martStatus"]),
 
   // ============================================
@@ -1454,11 +1455,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_order_id", ["orderID"])
-    .index("by_merchant", ["merchantID"])
+    // OI-16: removed by_merchant -- zero withIndex references
     .index("by_outlet", ["outletId"])
-    .index("by_time", ["orderTimeMs"])
-    .index("by_sync_log", ["syncLogId"])
-    .index("by_linked_revenue", ["linkedRevenueId"]),
+    .index("by_time", ["orderTimeMs"]),
+    // OI-17: removed by_sync_log -- zero withIndex references
+    // OI-18: removed by_linked_revenue -- zero withIndex references
 
   bigsellerOrders: defineTable({
     platformOrderId: v.string(),    // Dedup key from BigSeller API
@@ -1488,12 +1489,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_platform_order", ["platformOrderId"])
-    .index("by_shop", ["shopId"])
+    // OI-19: removed by_shop -- zero withIndex references
     .index("by_platform", ["platform"])
-    .index("by_time", ["orderTimeMs"])
-    .index("by_sync_log", ["syncLogId"])
-    .index("by_state", ["orderState"])
-    .index("by_linked_revenue", ["linkedRevenueId"]),
+    .index("by_time", ["orderTimeMs"]),
+    // OI-20: removed by_sync_log -- zero withIndex references
+    // OI-21: removed by_state -- zero withIndex references
 
   // Phase 28: BigSeller sync state — singleton document tracking current sync progress.
   // Field named `stage` (not `phase`) to avoid confusion with GSD phase numbers.
@@ -1570,9 +1570,9 @@ export default defineSchema({
   })
     .index("by_outlet", ["outletId"])
     .index("by_period", ["periodStart"])
-    .index("by_outlet_period", ["outletId", "periodStart"])
-    .index("by_status", ["status"])
-    .index("by_outlet_status", ["outletId", "status"]),
+    // OI-12: removed by_outlet_period -- zero withIndex references
+    .index("by_status", ["status"]),
+    // OI-13: removed by_outlet_status -- zero withIndex references
 
   // ============================================
   // GRABFOOD MENU SIMULATOR
@@ -1598,6 +1598,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_menu_product", ["menuProductId"])
-    .index("by_sequence", ["sequence"])
-    .index("by_grabfood_item_id", ["grabfoodItemId"]),
+    .index("by_sequence", ["sequence"]),
+    // OI-22: removed by_grabfood_item_id -- zero withIndex references
 });

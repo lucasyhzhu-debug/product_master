@@ -395,11 +395,10 @@ async function consumeMaterialsByStageInternal(
     throw new Error("Order not found");
   }
 
-  // Get reserved components for this order
+  // Get reserved components for this order (IRB-05: compound index)
   const reservations = await ctx.db
     .query("orderComponentReservations")
-    .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-    .filter((q) => q.eq(q.field("status"), "reserved"))
+    .withIndex("by_order_status", (q) => q.eq("orderId", args.orderId).eq("status", "reserved"))
     .collect();
 
   if (reservations.length === 0) {
@@ -720,11 +719,10 @@ export async function releaseReservationInternal(
     throw new Error("Order not found");
   }
 
-  // Get all reservations for this order
+  // Get all reservations for this order (IRB-05: compound index)
   const reservations = await ctx.db
     .query("orderComponentReservations")
-    .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
-    .filter((q) => q.eq(q.field("status"), "reserved"))
+    .withIndex("by_order_status", (q) => q.eq("orderId", args.orderId).eq("status", "reserved"))
     .collect();
 
   if (reservations.length === 0) {

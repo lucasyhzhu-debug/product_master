@@ -1443,3 +1443,69 @@ cachedCalculatedCogs: v.optional(v.number()),    // Cached calculated COGS from 
 cogsCacheUpdatedAt: v.optional(v.number()),      // When COGS cache was last refreshed
 cogsMissingCount: v.optional(v.number()),        // Number of ingredients with missing costs
 ```
+
+---
+
+## Phase 35: Schema Audit Quick-Win Changes (2026-03-05)
+
+### Indexes Removed (20)
+
+The following indexes had zero `.withIndex()` references across all backend code (including crons.ts and http.ts) and were removed to reduce write overhead:
+
+| Table | Index | Fields |
+|-------|-------|--------|
+| `ingredients` | `by_name` | `["name"]` |
+| `packagingMaterials` | `by_name` | `["name"]` |
+| `customers` | `by_name` | `["name"]` |
+| `menuProducts` | `by_pos_slot` | `["posSlot"]` |
+| `menuProducts` | `by_packaging_pos_slot` | `["packagingPosSlot"]` |
+| `orderItemProduction` | `by_production_type` | `["productionUnitTypeId"]` |
+| `vouchers` | `by_active_valid` | `["isActive", "validFrom"]` |
+| `externalStockSnapshots` | `by_snapshot_time` | `["snapshotAt"]` |
+| `externalRevenue` | `by_product` | `["linkedMenuProductId"]` |
+| `consignmentSettlements` | `by_outlet_period` | `["outletId", "periodStart"]` |
+| `consignmentSettlements` | `by_outlet_status` | `["outletId", "status"]` |
+| `kitchenShiftRecords` | `by_date_submitted` | `["date", "submittedAt"]` |
+| `k3martStockMovements` | `by_outlet_direction` | `["outletId", "direction"]` |
+| `grabfoodOrders` | `by_merchant` | `["merchantID"]` |
+| `grabfoodOrders` | `by_sync_log` | `["syncLogId"]` |
+| `grabfoodOrders` | `by_linked_revenue` | `["linkedRevenueId"]` |
+| `bigsellerOrders` | `by_shop` | `["shopId"]` |
+| `bigsellerOrders` | `by_sync_log` | `["syncLogId"]` |
+| `bigsellerOrders` | `by_state` | `["orderState"]` |
+| `grabfoodMenuItems` | `by_grabfood_item_id` | `["grabfoodItemId"]` |
+
+### Indexes Added (5 compound indexes)
+
+| Table | Index | Fields | Purpose |
+|-------|-------|--------|---------|
+| `externalOutlets` | `by_source_active` | `["source", "isActive"]` | Eliminates isActive post-filter on 9+ query sites |
+| `storageLocations` | `by_type_active` | `["locationType", "isActive"]` | Eliminates isActive post-filter on 4 query sites |
+| `productionLog` | `by_menu_product_timestamp` | `["menuProductId", "timestamp"]` | Efficient per-product production log queries with time filtering |
+| `orderComponentReservations` | `by_order_status` | `["orderId", "status"]` | Efficient reservation lookups by order + status |
+| `externalStockSnapshots` | `by_batch_outlet` | `["snapshotBatchId", "outletId"]` | Eliminates outletId post-filter on 7 query sites |
+
+### Fields Removed
+
+| Table | Field | Reason |
+|-------|-------|--------|
+| `dispatchChannelConfig` | `commissionRate` | Explicitly marked "unused -- net/gross tracked from external APIs" (DUP-01) |
+
+### Critical Query Fix (MIS-01)
+
+`cleanupExpiredSessions` in `convex/auth/mutations.ts` was performing a full table scan instead of using the existing `by_expiry` index. Fixed to use `.withIndex("by_expiry", q => q.lt("expiresAt", now))`.
+
+### Range Bound Anti-Pattern Fixes (IRB-01, IRB-02)
+
+Fixed 8 query sites that applied the upper period bound as a post-scan `.filter()` instead of chaining it in the `.withIndex()` callback:
+- 5 sites in `convex/externalData/queries.ts` (IRB-01: `by_period`)
+- 1 site in `convex/k3martCockpit/queries.ts` (IRB-02: `by_source_period`)
+- 1 site in `convex/k3martKitchen/queries.ts` (IRB-02: `by_source_period`)
+- 1 site in `convex/dispatchPlanner/queries.ts` (IRB-02: `by_source_period`)
+- 1 site in `convex/gofoodDepot/queries.ts` (IRB-02: `by_source_period`)
+
+### Annotations Updated
+
+- `productionCounts` table: Updated comment from "Running production tallies" to "ARCHIVED: Read-only since Phase 21. Source of truth is now productionLog aggregation + productionResets timestamps."
+
+### Net Change: 166 indexes -> 151 indexes (removed 20, added 5)

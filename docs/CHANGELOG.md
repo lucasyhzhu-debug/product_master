@@ -14,6 +14,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] - v1.6 Tech Debt & Resilience
+
+### Schema Audit & Quick-Wins (Phase 35)
+
+**For the team:** Database has been cleaned up -- removed 20 unused indexes and added 5 smarter ones. Queries are faster, and the cleanup fixed a session cleanup function that was scanning all sessions instead of using its index.
+
+- **Schema audit report** produced at `docs/SCHEMA_AUDIT.md` -- 42 findings across 65 tables (1 critical, 20 moderate, 21 low)
+- **20 unused indexes removed** from schema.ts -- eliminates unnecessary write overhead on every insert/update
+- **5 compound indexes added** for `externalOutlets`, `storageLocations`, `productionLog`, `orderComponentReservations`, `externalStockSnapshots` -- eliminates post-scan filters on 30+ query sites
+- **Critical fix (MIS-01):** `cleanupExpiredSessions` now uses `by_expiry` index instead of full table scan
+- **Range bound anti-pattern fixes (IRB-01, IRB-02):** 10 query sites updated to chain both period bounds at the index level instead of using post-scan `.filter()`
+- **Query pattern improvements (MIS-02, MIS-03, IRB-04-06):** 18 query call sites updated to use new compound indexes
+- **Unused field removed:** `dispatchChannelConfig.commissionRate` (explicitly marked unused in code comment)
+- **Annotation updated:** `productionCounts` table header now says "ARCHIVED: Read-only since Phase 21"
+- **Net index change:** 166 -> 151 indexes
+
+---
+
 ## [Unreleased] - v1.5 Financial Statements
 
 ### Added
