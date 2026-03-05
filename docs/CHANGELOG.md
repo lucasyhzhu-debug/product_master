@@ -14,6 +14,35 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Quick-30] - 2026-03-05 - Monthly View & Custom Date Filter for Income Statement
+
+Now you can view the income statement by **month** or pick **any custom date range**, not just weekly. Switch between Weekly, Monthly, and Custom Range modes using the new dropdown on the Income Statement page. Monthly view lets you navigate month-by-month with previous-month comparison. Custom range lets you pick any two dates and automatically compares against an equal-length prior period.
+
+### Added
+- Period mode selector (Weekly / Monthly / Custom Range) on Income Statement page
+- Monthly view with month-by-month navigation and full calendar month boundaries (WIB)
+- Custom date range picker with two native date inputs and equal-length prior period comparison
+- New generalized `getIncomeStatement` query accepting arbitrary `periodStart`/`periodEnd`
+- New helpers: `calculateMonthRange`, `calculateCustomRange` in `convex/lib/periodRange.ts`
+- New helpers: `formatPeriodRange`, `formatMonthLabel`, `PeriodMode` type in frontend
+- Shared `fetchAndAggregate` helper eliminates ~80 lines of duplication in backend
+
+### Changed
+- CSV export column renamed from `prev_week_idr` to `prev_period_idr`
+- CSV filename now includes period mode: `frollie-income-statement-{mode}-{date}.csv`
+- `IncomeStatementData` type updated with optional `periodStart`/`periodEnd` fields
+- Page description dynamically updates based on selected period mode
+
+### Files Modified
+- `convex/reports/incomeStatement.ts` - New query + shared helper refactor
+- `convex/lib/periodRange.ts` - Month/custom range calculators + exported helpers
+- `src/hooks/convex/useFinancials.ts` - Multi-mode hook with skip-based query switching
+- `src/pages/FinancialStatement.tsx` - Period selector UI, date inputs, mode-aware navigation
+- `src/lib/financialHelpers.tsx` - PeriodMode type, formatPeriodRange, formatMonthLabel
+- `src/lib/csvExport.ts` - Updated types and column header
+
+---
+
 ## [Unreleased] - v1.5 Financial Statements
 
 ### Added
