@@ -7,8 +7,8 @@ last_updated: "2026-03-05"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 35 complete -- ready for Phase 36
+**Current focus:** Phase 36 in progress -- extracting shared helpers
 
 ## Current Position
 
-Phase: 35 — Schema Review & Audit (COMPLETE)
-Plan: 2 of 2 (complete)
-Status: Phase 35 complete -- both plans executed successfully
-Last activity: 2026-03-05 — Completed 35-02 (Schema Quick-Win Execution)
+Phase: 36 — Sales & Analytics Backend Simplification
+Plan: 1 of 3 (complete)
+Status: Plan 36-01 complete -- shared helpers extracted
+Last activity: 2026-03-05 — Completed 36-01 (Extract Shared Helpers)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Last activity: 2026-03-05 — Completed 35-02 (Schema Quick-Win Execution)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min (29min total, 2 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min (34min total, 3 plans)
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P35-02: 5 compound indexes added to eliminate post-scan filters on 30+ query sites
 - P35-02: Critical session cleanup (MIS-01) fixed to use by_expiry index
 - P35-02: 10 range bound anti-patterns fixed (IRB-01: 5 sites, IRB-02: 5 sites)
+- P36-01: Direct import updates (no re-export bridges) per CONTEXT.md override of design doc
+- P36-01: WIB helpers placed in periodRange.ts (reuses existing WIB_OFFSET_HOURS) rather than new file
 
 ### Open Blockers (carried forward)
 
@@ -65,5 +67,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 35-02 (Schema Quick-Win Execution) -- Phase 35 fully complete
-Resume notes: Phase 35 complete. Next: merge feature/35-schema-review-audit to main, then `/gsd:execute-phase 36` (Sales Analytics Backend Simplification).
+Stopped at: Completed 36-01 (Extract Shared Helpers)
+Resume notes: Plan 36-01 complete. Continue with 36-02 (Query File Decomposition) and 36-03 (Documentation).

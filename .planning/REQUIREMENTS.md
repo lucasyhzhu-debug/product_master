@@ -9,9 +9,9 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 ### Backend Shared Helpers
 
-- [ ] **BSH-01**: Confidence types and `worstConfidence()` have a single source of truth in `convex/lib/confidence.ts`
-- [ ] **BSH-02**: WIB timezone helpers consolidated into `convex/lib/periodRange.ts` (no duplicates in externalData or k3martCockpit)
-- [ ] **BSH-03**: `sourceToPlatform()` lives in a shared module (`convex/lib/externalSource.ts`), not duplicated across query files
+- [x] **BSH-01**: Confidence types and `worstConfidence()` have a single source of truth in `convex/lib/confidence.ts`
+- [x] **BSH-02**: WIB timezone helpers consolidated into `convex/lib/periodRange.ts` (no duplicates in externalData or k3martCockpit)
+- [x] **BSH-03**: `sourceToPlatform()` lives in a shared module (`convex/lib/externalSource.ts`), not duplicated across query files
 
 ### Backend File Splits
 
@@ -84,9 +84,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCH-01 | Phase 35 | Complete |
 | SCH-02 | Phase 35 | Complete |
 | SCH-03 | Phase 35 | Complete |
-| BSH-01 | Phase 36 | Pending |
-| BSH-02 | Phase 36 | Pending |
-| BSH-03 | Phase 36 | Pending |
+| BSH-01 | Phase 36 | Complete |
+| BSH-02 | Phase 36 | Complete |
+| BSH-03 | Phase 36 | Complete |
 | BFS-01 | Phase 36 | Pending |
 | BFS-02 | Phase 36 | Pending |
 | BFS-03 | Phase 36 | Pending |
@@ -109,4 +109,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-03*
-*Last updated: 2026-03-03 after initial definition*
+*Last updated: 2026-03-05 after Plan 36-01 completion (BSH-01, BSH-02, BSH-03)*

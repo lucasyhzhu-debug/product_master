@@ -110,7 +110,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 ### v1.6 Tech Debt & Resilience (Phases 35-39)
 
 - [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
-- [ ] **Phase 36: Sales & Analytics Backend Simplification** — Shared helpers + query file splits
+- [ ] **Phase 36: Sales & Analytics Backend Simplification** (1/3 plans) — Shared helpers + query file splits
 - [ ] **Phase 37: Order & Dispatch Backend Simplification** — Order + dispatch query/mutation splits
 - [ ] **Phase 38: Frontend Giant File Splits** — Split 4 components >1,200 LOC
 - [ ] **Phase 39: E2E Test Foundation & Resilience** — Playwright setup + critical path tests + Tamtem fix
