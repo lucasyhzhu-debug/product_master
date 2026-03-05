@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### Sales & Analytics Backend Simplification (Phase 36)
+
+**For the team:** No visible changes -- this is a backend code cleanup. Large query files have been split into smaller, testable helper modules. Makes future bug fixes and feature additions faster and less risky.
+
+#### Refactored
+- Extracted confidence types to `convex/lib/confidence.ts` (shared by income statement + dashboard)
+- Consolidated WIB timezone helpers into `convex/lib/periodRange.ts` (5 functions)
+- Moved `sourceToPlatform()` to `convex/lib/externalSource.ts` (single source of truth)
+- Extracted stock and dispatch helpers from `k3martCockpit/queries.ts` into `queryHelpers/` directory (985 -> 760 LOC, -22.8%)
+- Updated `incomeStatement.ts` to import from shared lib modules (no local duplicates)
+- Zero Convex API path changes -- all query/mutation registrations unchanged
+
 ### Schema Audit & Quick-Wins (Phase 35)
 
 **For the team:** Database has been cleaned up -- removed 20 unused indexes and added 5 smarter ones. Queries are faster, and the cleanup fixed a session cleanup function that was scanning all sessions instead of using its index.

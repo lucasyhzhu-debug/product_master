@@ -48,7 +48,7 @@ export interface StockSnapshot {
 export function buildOutletProducts(
   snapshotProducts: StockSnapshot[],
   outletRevenue: Array<{
-    externalProductCode: string;
+    externalProductCode?: string;
     periodStart: number;
     quantitySold?: number;
   }>,
