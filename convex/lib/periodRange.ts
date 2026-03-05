@@ -210,3 +210,47 @@ export function calculateWeekRange(weekStartMs: number): {
     previousEnd: weekStartMs,
   };
 }
+
+// --- WIB Date Formatting Helpers ---
+// Used by time-series, revenue-by-outlet, restock, and sell-through queries.
+
+const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+
+/** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
+export function utcToWibDateStr(utcMs: number): string {
+  return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
+}
+
+/** Check if a WIB-adjusted timestamp falls on a weekend (Sat=6, Sun=0) */
+export function isWeekend(utcMs: number): boolean {
+  const wibDate = new Date(utcMs + WIB_OFFSET_MS);
+  const day = wibDate.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/** Get ISO week number from WIB-adjusted date. Returns "W06" format. */
+export function getIsoWeekNumber(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `W${weekNo.toString().padStart(2, "0")}`;
+}
+
+/** Get YYYY-MM from WIB-adjusted date */
+export function utcToWibMonthStr(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const y = wib.getUTCFullYear();
+  const m = (wib.getUTCMonth() + 1).toString().padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+/** Get "YYYY-MM-DD HH" from UTC epoch ms, WIB-adjusted */
+export function utcToWibHourStr(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const date = wib.toISOString().split("T")[0];
+  const hour = wib.getUTCHours().toString().padStart(2, "0");
+  return `${date} ${hour}`;
+}

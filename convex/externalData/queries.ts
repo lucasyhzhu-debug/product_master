@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { calculatePeriodRange } from "../lib/periodRange";
+import { calculatePeriodRange, utcToWibDateStr, isWeekend, getIsoWeekNumber, utcToWibMonthStr, utcToWibHourStr } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
@@ -743,15 +743,6 @@ export const getOrderDetailsByOrderNumber = query({
 
 // ─── RESTOCK PLANNER QUERIES ───
 
-const WIB_OFFSET_HOURS = 7;
-
-/** Check if a WIB-adjusted timestamp falls on a weekend (Sat=6, Sun=0) */
-function isWeekend(utcMs: number): boolean {
-  const wibDate = new Date(utcMs + WIB_OFFSET_HOURS * 60 * 60 * 1000);
-  const day = wibDate.getUTCDay();
-  return day === 0 || day === 6;
-}
-
 /**
  * Restock overview: returns all channels/outlets with current stock + demand summary.
  * Powers the main grid view of the Restock Planner.
@@ -1484,41 +1475,6 @@ export const getChannelSellThrough = query({
 });
 
 // ─── TIME-SERIES REVENUE QUERY (for stacked charts) ───
-
-const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
-
-/** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
-function utcToWibDateStr(utcMs: number): string {
-  return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
-}
-
-/** Get ISO week number from WIB-adjusted date */
-function getIsoWeekNumber(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  // Thursday of current week determines the year/week
-  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `W${weekNo.toString().padStart(2, "0")}`;
-}
-
-/** Get YYYY-MM from WIB-adjusted date */
-function utcToWibMonthStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const y = wib.getUTCFullYear();
-  const m = (wib.getUTCMonth() + 1).toString().padStart(2, "0");
-  return `${y}-${m}`;
-}
-
-/** Get "YYYY-MM-DD HH" from UTC epoch ms, WIB-adjusted */
-function utcToWibHourStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const date = wib.toISOString().split("T")[0];
-  const hour = wib.getUTCHours().toString().padStart(2, "0");
-  return `${date} ${hour}`;
-}
 
 /** Map source to platform display name */
 export function sourceToPlatform(source: string): string {
