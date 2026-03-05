@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 36 in progress -- extracting shared helpers
+**Current focus:** Phase 36 in progress -- query file decomposition complete
 
 ## Current Position
 
 Phase: 36 — Sales & Analytics Backend Simplification
-Plan: 1 of 3 (complete)
-Status: Plan 36-01 complete -- shared helpers extracted
-Last activity: 2026-03-05 — Completed 36-01 (Extract Shared Helpers)
+Plan: 2 of 3 (complete)
+Status: Plan 36-02 complete -- queries.ts split via helper extraction (1,773 -> 1,387 LOC)
+Last activity: 2026-03-05 — Completed 36-02 (Split externalData/queries.ts)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Last activity: 2026-03-05 — Completed 36-01 (Extract Shared Helpers)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min (34min total, 3 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min (43min total, 4 plans)
 
 ## Accumulated Context
 
@@ -49,6 +49,9 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P35-02: 10 range bound anti-patterns fixed (IRB-01: 5 sites, IRB-02: 5 sites)
 - P36-01: Direct import updates (no re-export bridges) per CONTEXT.md override of design doc
 - P36-01: WIB helpers placed in periodRange.ts (reuses existing WIB_OFFSET_HOURS) rather than new file
+- P36-02: Unified GoBiz/Internal demand-to-product builder (identical pattern, single helper)
+- P36-02: Pre-fetch orderDataMap pattern eliminates async closure in dashboard aggregation
+- P36-02: queries.ts reduced from 1,773 to 1,387 LOC (22% reduction, 5 helper files)
 
 ### Open Blockers (carried forward)
 
@@ -67,6 +70,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Phase 37 context gathered
-Resume notes: Phase 37 CONTEXT.md created. Continue with /gsd:plan-phase 37 (or finish Phase 36 first: 36-02, 36-03 remaining).
-Resume file: .planning/phases/37-order-dispatch-simplification/37-CONTEXT.md
+Stopped at: Completed 36-02 (Split externalData/queries.ts)
+Resume notes: Plan 36-02 complete. Continue with 36-03 (Documentation). Pre-existing build error in k3martCockpit/queries.ts needs separate fix.

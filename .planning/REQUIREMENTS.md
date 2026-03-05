@@ -15,7 +15,7 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 ### Backend File Splits
 
-- [ ] **BFS-01**: `externalData/queries.ts` slimmed to under 1,400 LOC (from 1,832) via pure helper extraction
+- [x] **BFS-01**: `externalData/queries.ts` slimmed to under 1,400 LOC (from 1,832) via pure helper extraction
 - [ ] **BFS-02**: `k3martCockpit/queries.ts` slimmed to under 750 LOC (from 985) via pure helper extraction
 - [ ] **BFS-03**: `reports/incomeStatement.ts` imports shared confidence + WIB from lib modules (no local duplicates)
 - [ ] **BFS-04**: `orders/queries.ts` slimmed to under 800 LOC (from 1,279) via helper extraction
@@ -87,7 +87,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BSH-01 | Phase 36 | Complete |
 | BSH-02 | Phase 36 | Complete |
 | BSH-03 | Phase 36 | Complete |
-| BFS-01 | Phase 36 | Pending |
+| BFS-01 | Phase 36 | Complete |
 | BFS-02 | Phase 36 | Pending |
 | BFS-03 | Phase 36 | Pending |
 | BFS-04 | Phase 37 | Pending |
