@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 36 — Sales & Analytics Backend Simplification
+**Current focus:** Phase 35 — Schema Review & Audit
 
 ## Current Position
 
-Phase: 36 — Sales & Analytics Backend Simplification
+Phase: 35 — Schema Review & Audit
 Plan: —
-Status: Context gathered, ready to plan Phase 36
-Last activity: 2026-03-05 — Phase 36 context gathered
+Status: Context gathered, ready to plan Phase 35
+Last activity: 2026-03-05 — Phase 35 context gathered
 
 ## Performance Metrics
 
@@ -55,5 +55,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Phase 36 context gathered
-Resume notes: Phase 36 context captured at `.planning/phases/36-sales-analytics-backend-simplification/36-CONTEXT.md`. Existing plan at `docs/plans/2026-03-03-sales-analytics-simplification-plan.md` needs scope correction: drop OverviewTab (Phase 38), add K3Mart cockpit extraction (BFS-02). Next: `/gsd:plan-phase 36`.
+Stopped at: Phase 35 context gathered
+Resume notes: Phase 35 context captured at `.planning/phases/35-schema-review-audit/35-CONTEXT.md`. Phase 36 context also gathered in earlier session at `.planning/phases/36-sales-analytics-backend-simplification/36-CONTEXT.md`. Next: `/gsd:plan-phase 35` (schema audit) or `/gsd:plan-phase 36` (sales simplification).
