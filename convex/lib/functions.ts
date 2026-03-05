@@ -20,7 +20,7 @@ import { SessionIdArg } from "convex-helpers/server/sessions";
 import { mutation, query } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
-import { getSessionUser, type UserRole } from "./auth";
+import { getSessionUserWithReason, type UserRole } from "./auth";
 
 /**
  * Protected mutation wrapper.
@@ -48,15 +48,25 @@ export const protectedMutation = customMutation(mutation, {
     { sessionId },
     { roles }: { roles: UserRole[] },
   ) => {
-    const user = await getSessionUser(ctx, sessionId);
-    if (!user || !user.isActive) {
-      throw new ConvexError("Unauthorized");
+    // Diagnostic: detect missing/placeholder sessionId before hitting the DB
+    if (!sessionId) {
+      throw new ConvexError("Unauthorized: no session token provided");
     }
-    if (!roles.includes(user.role as UserRole)) {
-      throw new ConvexError("Unauthorized");
+
+    const result = await getSessionUserWithReason(ctx, sessionId);
+    if (!result.user) {
+      throw new ConvexError(`Unauthorized: ${result.reason}`);
+    }
+    if (!result.user.isActive) {
+      throw new ConvexError("Unauthorized: account is deactivated");
+    }
+    if (!roles.includes(result.user.role as UserRole)) {
+      throw new ConvexError(
+        `Unauthorized: role '${result.user.role}' not in [${roles.join(", ")}]`,
+      );
     }
     return {
-      ctx: { ...ctx, user: user as Doc<"users"> },
+      ctx: { ...ctx, user: result.user as Doc<"users"> },
       args: {},
     };
   },
@@ -85,15 +95,24 @@ export const protectedQuery = customQuery(query, {
     { sessionId },
     { roles }: { roles: UserRole[] },
   ) => {
-    const user = await getSessionUser(ctx, sessionId);
-    if (!user || !user.isActive) {
-      throw new ConvexError("Unauthorized");
+    if (!sessionId) {
+      throw new ConvexError("Unauthorized: no session token provided");
     }
-    if (!roles.includes(user.role as UserRole)) {
-      throw new ConvexError("Unauthorized");
+
+    const result = await getSessionUserWithReason(ctx, sessionId);
+    if (!result.user) {
+      throw new ConvexError(`Unauthorized: ${result.reason}`);
+    }
+    if (!result.user.isActive) {
+      throw new ConvexError("Unauthorized: account is deactivated");
+    }
+    if (!roles.includes(result.user.role as UserRole)) {
+      throw new ConvexError(
+        `Unauthorized: role '${result.user.role}' not in [${roles.join(", ")}]`,
+      );
     }
     return {
-      ctx: { ...ctx, user: user as Doc<"users"> },
+      ctx: { ...ctx, user: result.user as Doc<"users"> },
       args: {},
     };
   },

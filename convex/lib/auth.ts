@@ -75,20 +75,48 @@ export async function getSessionUser(
   ctx: QueryCtx | MutationCtx,
   token: string
 ): Promise<Doc<"users"> | null> {
+  const result = await getSessionUserWithReason(ctx, token);
+  return result.user;
+}
+
+/**
+ * Like getSessionUser, but returns a diagnostic reason when auth fails.
+ * Used by protectedMutation/protectedQuery for actionable error messages.
+ */
+export async function getSessionUserWithReason(
+  ctx: QueryCtx | MutationCtx,
+  token: string
+): Promise<{ user: Doc<"users"> | null; reason: string }> {
   const session = await ctx.db
     .query("sessions")
     .withIndex("by_token", (q) => q.eq("token", token))
     .first();
 
   if (!session) {
-    return null;
+    // Detect common token patterns to give better diagnostics
+    const isUuidFormat = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+    return {
+      user: null,
+      reason: isUuidFormat
+        ? "session not found (token looks like a UUID — may be a stale or pre-login session ID)"
+        : `session not found (token prefix: ${token.slice(0, 8)}...)`,
+    };
   }
 
   if (session.expiresAt < Date.now()) {
-    return null;
+    const expiredAgo = Math.round((Date.now() - session.expiresAt) / 60000);
+    return {
+      user: null,
+      reason: `session expired ${expiredAgo} minutes ago`,
+    };
   }
 
-  return await ctx.db.get(session.userId);
+  const user = await ctx.db.get(session.userId);
+  if (!user) {
+    return { user: null, reason: "user record not found for session" };
+  }
+
+  return { user, reason: "ok" };
 }
 
 /**
