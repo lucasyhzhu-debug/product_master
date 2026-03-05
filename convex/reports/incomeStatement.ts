@@ -471,185 +471,235 @@ function aggregateWeek(
   };
 }
 
-// ─── Main Query ───
+// ─── Shared data-fetching + aggregation helper ───
+// Both getWeeklyIncomeStatement and getIncomeStatement delegate here
+// to avoid duplicating the ~80 lines of I/O + COGS map + aggregation.
+
+import type { QueryCtx } from "../_generated/server";
+
+async function fetchAndAggregate(
+  ctx: QueryCtx,
+  currentStart: number,
+  currentEnd: number,
+  previousStart: number,
+  previousEnd: number
+) {
+  // Phase 1: Parallel fetch of all base data
+  const [
+    currentRevenue,
+    previousRevenue,
+    currentConsignments,
+    previousConsignments,
+    bomComponents,
+    allComponentTypes,
+  ] = await Promise.all([
+    // externalRevenue for current period — both bounds applied at index level
+    ctx.db
+      .query("externalRevenue")
+      .withIndex("by_period", (q) =>
+        q
+          .gte("periodStart", currentStart)
+          .lt("periodStart", currentEnd)
+      )
+      .collect(),
+    // externalRevenue for previous period
+    ctx.db
+      .query("externalRevenue")
+      .withIndex("by_period", (q) =>
+        q
+          .gte("periodStart", previousStart)
+          .lt("periodStart", previousEnd)
+      )
+      .collect(),
+    // consignmentSettlements for current period
+    ctx.db
+      .query("consignmentSettlements")
+      .withIndex("by_period", (q) =>
+        q
+          .gte("periodStart", currentStart)
+          .lt("periodStart", currentEnd)
+      )
+      .collect(),
+    // consignmentSettlements for previous period
+    ctx.db
+      .query("consignmentSettlements")
+      .withIndex("by_period", (q) =>
+        q
+          .gte("periodStart", previousStart)
+          .lt("periodStart", previousEnd)
+      )
+      .collect(),
+    // BOM preload (follows getLifetimeTotalsInternal pattern)
+    ctx.db.query("menuProductComponents").collect(),
+    ctx.db.query("componentTypes").collect(),
+  ]);
+
+  // Phase 2: Fetch revenue items for both periods (needs revenue IDs from Phase 1)
+  // Dedup IDs: consignment linkedRevenueIds may duplicate revenue record IDs.
+  // Using a Set prevents issuing redundant parallel DB queries.
+  const seenIds = new Set<string>();
+  const uniqueRevenueIds: (typeof currentRevenue)[0]["_id"][] = [];
+
+  for (const r of [...currentRevenue, ...previousRevenue]) {
+    const key = r._id as string;
+    if (!seenIds.has(key)) {
+      seenIds.add(key);
+      uniqueRevenueIds.push(r._id);
+    }
+  }
+  for (const s of [...currentConsignments, ...previousConsignments]) {
+    if (s.linkedRevenueId) {
+      const key = s.linkedRevenueId as string;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniqueRevenueIds.push(s.linkedRevenueId);
+      }
+    }
+  }
+
+  const allRevenueItems = await Promise.all(
+    uniqueRevenueIds.map((id) =>
+      ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", id))
+        .collect()
+    )
+  );
+
+  // Build revenueId -> items map.
+  // This shared map is used for both current and previous period aggregation.
+  // Safe because aggregateWeek only looks up items for its own revenue list.
+  const revenueItemsMap = new Map<
+    string,
+    Doc<"externalRevenueItems">[]
+  >();
+  for (let i = 0; i < uniqueRevenueIds.length; i++) {
+    revenueItemsMap.set(
+      uniqueRevenueIds[i] as string,
+      allRevenueItems[i]
+    );
+  }
+
+  // Phase 3: Fetch internal order data for discount correction (both periods)
+  const [currentOrderDataMap, previousOrderDataMap] = await Promise.all([
+    fetchInternalOrderDataMap(ctx, currentRevenue),
+    fetchInternalOrderDataMap(ctx, previousRevenue),
+  ]);
+
+  // Build COGS map
+  // Filter inactive componentTypes to exclude discontinued items from cost calculations.
+  const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
+  const cogsMap = buildProductCOGSMap(
+    bomComponents.map((c) => ({
+      menuProductId: c.menuProductId as string,
+      componentTypeId: c.componentTypeId as string,
+      quantity: c.quantity,
+    })),
+    activeComponentTypes.map((ct) => ({
+      _id: ct._id as string,
+      unitCostIdr: ct.unitCostIdr,
+      category: ct.category,
+    }))
+  );
+
+  // Aggregate both periods (pure — no await needed)
+  const currentPeriod = aggregateWeek(
+    currentRevenue,
+    currentConsignments,
+    revenueItemsMap,
+    cogsMap,
+    currentOrderDataMap,
+    allComponentTypes
+  );
+  const previousPeriod = aggregateWeek(
+    previousRevenue,
+    previousConsignments,
+    revenueItemsMap,
+    cogsMap,
+    previousOrderDataMap,
+    allComponentTypes
+  );
+
+  // Compute deltas
+  const deltas = {
+    grossRevenue: computeDelta(
+      currentPeriod.totalGross,
+      previousPeriod.totalGross
+    ),
+    netRevenue: computeDelta(
+      currentPeriod.netRevenue,
+      previousPeriod.netRevenue
+    ),
+    totalCogs: computeDelta(
+      currentPeriod.totalCogs,
+      previousPeriod.totalCogs
+    ),
+    grossProfit: computeDelta(
+      currentPeriod.grossProfit,
+      previousPeriod.grossProfit
+    ),
+    grossMarginPp:
+      currentPeriod.grossMarginPercent !== null &&
+      previousPeriod.grossMarginPercent !== null
+        ? currentPeriod.grossMarginPercent - previousPeriod.grossMarginPercent
+        : null,
+  };
+
+  return { currentPeriod, previousPeriod, deltas };
+}
+
+// ─── Weekly Income Statement Query (backward-compatible) ───
 
 export const getWeeklyIncomeStatement = query({
   args: {
     weekStart: v.number(), // Epoch ms for Monday 00:00 WIB
   },
   handler: async (ctx, args) => {
-    // Step 1: Compute week ranges
     const range = calculateWeekRange(args.weekStart);
-
-    // Step 2: Parallel data fetching (all I/O upfront)
-    // Phase 1: Parallel fetch of all base data
-    const [
-      currentRevenue,
-      previousRevenue,
-      currentConsignments,
-      previousConsignments,
-      bomComponents,
-      allComponentTypes,
-    ] = await Promise.all([
-      // externalRevenue for current week — both bounds applied at index level
-      ctx.db
-        .query("externalRevenue")
-        .withIndex("by_period", (q) =>
-          q
-            .gte("periodStart", range.currentStart)
-            .lt("periodStart", range.currentEnd)
-        )
-        .collect(),
-      // externalRevenue for previous week
-      ctx.db
-        .query("externalRevenue")
-        .withIndex("by_period", (q) =>
-          q
-            .gte("periodStart", range.previousStart)
-            .lt("periodStart", range.previousEnd)
-        )
-        .collect(),
-      // consignmentSettlements for current week
-      ctx.db
-        .query("consignmentSettlements")
-        .withIndex("by_period", (q) =>
-          q
-            .gte("periodStart", range.currentStart)
-            .lt("periodStart", range.currentEnd)
-        )
-        .collect(),
-      // consignmentSettlements for previous week
-      ctx.db
-        .query("consignmentSettlements")
-        .withIndex("by_period", (q) =>
-          q
-            .gte("periodStart", range.previousStart)
-            .lt("periodStart", range.previousEnd)
-        )
-        .collect(),
-      // BOM preload (follows getLifetimeTotalsInternal pattern)
-      ctx.db.query("menuProductComponents").collect(),
-      ctx.db.query("componentTypes").collect(),
-    ]);
-
-    // Phase 2: Fetch revenue items for both periods (needs revenue IDs from Phase 1)
-    // Dedup IDs: consignment linkedRevenueIds may duplicate revenue record IDs.
-    // Using a Set prevents issuing redundant parallel DB queries.
-    const seenIds = new Set<string>();
-    const uniqueRevenueIds: typeof currentRevenue[0]["_id"][] = [];
-
-    for (const r of [...currentRevenue, ...previousRevenue]) {
-      const key = r._id as string;
-      if (!seenIds.has(key)) {
-        seenIds.add(key);
-        uniqueRevenueIds.push(r._id);
-      }
-    }
-    for (const s of [...currentConsignments, ...previousConsignments]) {
-      if (s.linkedRevenueId) {
-        const key = s.linkedRevenueId as string;
-        if (!seenIds.has(key)) {
-          seenIds.add(key);
-          uniqueRevenueIds.push(s.linkedRevenueId);
-        }
-      }
-    }
-
-    const allRevenueItems = await Promise.all(
-      uniqueRevenueIds.map((id) =>
-        ctx.db
-          .query("externalRevenueItems")
-          .withIndex("by_revenue", (q) => q.eq("revenueId", id))
-          .collect()
-      )
+    const { currentPeriod, previousPeriod, deltas } = await fetchAndAggregate(
+      ctx,
+      range.currentStart,
+      range.currentEnd,
+      range.previousStart,
+      range.previousEnd
     );
 
-    // Build revenueId -> items map.
-    // This shared map is used for both current and previous week aggregation.
-    // This is safe because aggregateWeek only looks up items for the revenue records
-    // it receives (iterating its own revenue list), so each week accesses its own subset.
-    const revenueItemsMap = new Map<
-      string,
-      Doc<"externalRevenueItems">[]
-    >();
-    for (let i = 0; i < uniqueRevenueIds.length; i++) {
-      revenueItemsMap.set(
-        uniqueRevenueIds[i] as string,
-        allRevenueItems[i]
-      );
-    }
-
-    // Phase 3: Fetch internal order data for discount correction (both weeks)
-    const [currentOrderDataMap, previousOrderDataMap] = await Promise.all([
-      fetchInternalOrderDataMap(ctx, currentRevenue),
-      fetchInternalOrderDataMap(ctx, previousRevenue),
-    ]);
-
-    // Step 3: Build COGS map
-    // Filter inactive componentTypes to exclude discontinued items from cost calculations.
-    const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
-    const cogsMap = buildProductCOGSMap(
-      bomComponents.map((c) => ({
-        menuProductId: c.menuProductId as string,
-        componentTypeId: c.componentTypeId as string,
-        quantity: c.quantity,
-      })),
-      activeComponentTypes.map((ct) => ({
-        _id: ct._id as string,
-        unitCostIdr: ct.unitCostIdr,
-        category: ct.category,
-      }))
-    );
-
-    // Step 4: Aggregate both weeks (pure — no await needed)
-    const currentWeek = aggregateWeek(
-      currentRevenue,
-      currentConsignments,
-      revenueItemsMap,
-      cogsMap,
-      currentOrderDataMap,
-      allComponentTypes
-    );
-    const previousWeek = aggregateWeek(
-      previousRevenue,
-      previousConsignments,
-      revenueItemsMap,
-      cogsMap,
-      previousOrderDataMap,
-      allComponentTypes
-    );
-
-    // Step 5: Compute deltas
-    const deltas = {
-      grossRevenue: computeDelta(
-        currentWeek.totalGross,
-        previousWeek.totalGross
-      ),
-      netRevenue: computeDelta(
-        currentWeek.netRevenue,
-        previousWeek.netRevenue
-      ),
-      totalCogs: computeDelta(
-        currentWeek.totalCogs,
-        previousWeek.totalCogs
-      ),
-      grossProfit: computeDelta(
-        currentWeek.grossProfit,
-        previousWeek.grossProfit
-      ),
-      grossMarginPp:
-        currentWeek.grossMarginPercent !== null &&
-        previousWeek.grossMarginPercent !== null
-          ? currentWeek.grossMarginPercent - previousWeek.grossMarginPercent
-          : null,
-    };
-
-    // Step 6: Return structured response
     return {
       weekStart: args.weekStart,
       weekEnd: range.currentEnd,
-      current: currentWeek,
-      previous: previousWeek,
+      current: currentPeriod,
+      previous: previousPeriod,
+      deltas,
+    };
+  },
+});
+
+// ─── Generalized Income Statement Query (any period) ───
+
+export const getIncomeStatement = query({
+  args: {
+    periodStart: v.number(), // Epoch ms UTC
+    periodEnd: v.number(), // Epoch ms UTC (exclusive)
+  },
+  handler: async (ctx, args) => {
+    // Equal-length comparison window immediately before the selected period
+    const duration = args.periodEnd - args.periodStart;
+    const previousStart = args.periodStart - duration;
+    const previousEnd = args.periodStart;
+
+    const { currentPeriod, previousPeriod, deltas } = await fetchAndAggregate(
+      ctx,
+      args.periodStart,
+      args.periodEnd,
+      previousStart,
+      previousEnd
+    );
+
+    return {
+      periodStart: args.periodStart,
+      periodEnd: args.periodEnd,
+      current: currentPeriod,
+      previous: previousPeriod,
       deltas,
     };
   },

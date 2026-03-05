@@ -28,7 +28,7 @@ const WIB_OFFSET_HOURS = 7;
 /**
  * Get the current WIB date components from a UTC timestamp.
  */
-function getWibComponents(utcMs: number) {
+export function getWibComponents(utcMs: number) {
   const d = new Date(utcMs + WIB_OFFSET_HOURS * 60 * 60 * 1000);
   return {
     year: d.getUTCFullYear(),
@@ -42,7 +42,7 @@ function getWibComponents(utcMs: number) {
  * Convert WIB midnight (start of day) to UTC epoch ms.
  * WIB 00:00 = UTC previous day 17:00
  */
-function wibMidnightToUtc(year: number, month: number, day: number): number {
+export function wibMidnightToUtc(year: number, month: number, day: number): number {
   return Date.UTC(year, month, day, -WIB_OFFSET_HOURS, 0, 0, 0);
 }
 
@@ -130,6 +130,57 @@ export function calculatePeriodRange(preset: PeriodPreset, now?: number): Period
       return { currentStart, currentEnd, previousStart, previousEnd, periodLabel: "All time", comparisonLabel: "" };
     }
   }
+}
+
+// ─── Month range calculation ───
+
+/**
+ * Calculate month range boundaries from a year and month.
+ * Returns both the current month range and the previous month range
+ * for comparison calculations.
+ *
+ * @param year - Full year (e.g. 2026)
+ * @param month - 0-indexed month (0=Jan, 11=Dec)
+ * @returns { currentStart, currentEnd, previousStart, previousEnd }
+ *          All values are UTC epoch ms with WIB day boundaries.
+ *          currentEnd is EXCLUSIVE (1st of next month 00:00 WIB).
+ */
+export function calculateMonthRange(year: number, month: number): {
+  currentStart: number;
+  currentEnd: number;
+  previousStart: number;
+  previousEnd: number;
+} {
+  const currentStart = wibMidnightToUtc(year, month, 1);
+  const currentEnd = wibMidnightToUtc(year, month + 1, 1);
+  const previousStart = wibMidnightToUtc(year, month - 1, 1);
+  const previousEnd = currentStart;
+  return { currentStart, currentEnd, previousStart, previousEnd };
+}
+
+// ─── Custom range calculation ───
+
+/**
+ * Calculate an arbitrary period range with an equal-length comparison window
+ * immediately preceding the selected range.
+ *
+ * @param periodStart - UTC epoch ms for the start of the period
+ * @param periodEnd - UTC epoch ms for the end of the period (exclusive)
+ * @returns { currentStart, currentEnd, previousStart, previousEnd }
+ */
+export function calculateCustomRange(periodStart: number, periodEnd: number): {
+  currentStart: number;
+  currentEnd: number;
+  previousStart: number;
+  previousEnd: number;
+} {
+  const duration = periodEnd - periodStart;
+  return {
+    currentStart: periodStart,
+    currentEnd: periodEnd,
+    previousStart: periodStart - duration,
+    previousEnd: periodStart,
+  };
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
