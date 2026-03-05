@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
-status: ready
+status: in-progress
 last_updated: "2026-03-05"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,9 +21,9 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 ## Current Position
 
 Phase: 35 — Schema Review & Audit
-Plan: —
-Status: Context gathered, ready to plan Phase 35
-Last activity: 2026-03-05 - Completed quick task 30: Add monthly view and custom date filter to Income Statement
+Plan: 1 of 2
+Status: Plan 01 complete — Schema Audit report produced
+Last activity: 2026-03-05 — Completed 35-01 (Schema Audit Report)
 
 ## Performance Metrics
 
@@ -32,12 +32,17 @@ Last activity: 2026-03-05 - Completed quick task 30: Add monthly view and custom
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
+**Velocity (v1.6):** Phase 35 P01: 13min, 1 task, 2 files
 
 ## Accumulated Context
 
 ### Decisions
 
 All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
+
+- P35-01: 42 schema findings identified (1 critical, 20 moderate, 21 low) across 65 tables
+- P35-01: 22 unused indexes for removal, 6 range bounds anti-patterns, 1 critical missing index usage
+- P35-01: productionUnitTypes + componentTypes merge documented but NOT recommended for this phase
 
 ### Open Blockers (carried forward)
 
@@ -56,5 +61,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed quick task 30 (income statement period modes)
-Resume notes: Quick task 30 complete on `feature/income-statement-period-modes` branch. Merge to main, then continue with `/gsd:plan-phase 35` (schema audit) or `/gsd:plan-phase 36` (sales simplification).
+Stopped at: Completed 35-01 (Schema Audit Report)
+Resume notes: Plan 35-01 complete. docs/SCHEMA_AUDIT.md produced with 42 findings. Next: execute 35-02 (Quick-Win Execution) to apply safe index removals, additions, and query fixes.
