@@ -15,8 +15,8 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 ### Backend File Splits
 
-- [ ] **BFS-01**: `externalData/queries.ts` slimmed to under 1000 LOC (from 1,832) via helper extraction
-- [ ] **BFS-02**: `k3martCockpit/queries.ts` slimmed to under 500 LOC (from 985) via helper extraction
+- [ ] **BFS-01**: `externalData/queries.ts` slimmed to under 1,300 LOC (from 1,832) via pure helper extraction
+- [ ] **BFS-02**: `k3martCockpit/queries.ts` slimmed to under 750 LOC (from 985) via pure helper extraction
 - [ ] **BFS-03**: `reports/incomeStatement.ts` imports shared confidence + WIB from lib modules (no local duplicates)
 - [ ] **BFS-04**: `orders/queries.ts` slimmed to under 800 LOC (from 1,279) via helper extraction
 - [ ] **BFS-05**: `orders/mutations/orderCrud.ts` slimmed to under 700 LOC (from 1,085) via validation extraction

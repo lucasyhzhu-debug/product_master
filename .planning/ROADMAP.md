@@ -151,8 +151,8 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 - Create `convex/lib/confidence.ts` — shared confidence types + `worstConfidence()`
 - Consolidate WIB timezone helpers into `convex/lib/periodRange.ts`
 - Move `sourceToPlatform()` to `convex/lib/externalSource.ts`
-- Extract dashboard aggregation helpers from `externalData/queries.ts` (1,832 -> <1,000 LOC)
-- Extract K3Mart cockpit helpers from `k3martCockpit/queries.ts` (985 -> <500 LOC)
+- Extract dashboard aggregation helpers from `externalData/queries.ts` (1,832 -> <1,300 LOC)
+- Extract K3Mart cockpit helpers from `k3martCockpit/queries.ts` (985 -> <750 LOC)
 - Update `incomeStatement.ts` to import shared modules (no local duplicates)
 - All Convex function registrations stay in original files
 
@@ -160,8 +160,8 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 1. `convex/lib/confidence.ts` is the single source of truth — no duplicate confidence types elsewhere
 2. All WIB timezone helpers live in `convex/lib/periodRange.ts` — zero duplicates
 3. `sourceToPlatform()` has one definition in `convex/lib/externalSource.ts`
-4. `externalData/queries.ts` under 1,000 LOC
-5. `k3martCockpit/queries.ts` under 500 LOC
+4. `externalData/queries.ts` under 1,300 LOC
+5. `k3martCockpit/queries.ts` under 750 LOC
 6. `npm run build` passes, all tests pass, zero Convex API path changes
 
 ---
