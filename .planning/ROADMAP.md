@@ -110,8 +110,8 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 ### v1.6 Tech Debt & Resilience (Phases 35-39)
 
 - [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
-- [ ] **Phase 36: Sales & Analytics Backend Simplification** (2/3 plans) — Shared helpers + query file splits
-- [ ] **Phase 37: Order & Dispatch Backend Simplification** — Order + dispatch query/mutation splits
+- [ ] **Phase 36: Sales & Analytics Backend Simplification** (1/3 plans) — Shared helpers + query file splits
+- [ ] **Phase 37: Order & Dispatch Backend Simplification** (0/3 plans) — Order + dispatch query/mutation splits
 - [ ] **Phase 38: Frontend Giant File Splits** — Split 4 components >1,200 LOC
 - [ ] **Phase 39: E2E Test Foundation & Resilience** — Playwright setup + critical path tests + Tamtem fix
 
@@ -172,10 +172,17 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 
 **Requirements:** BFS-04, BFS-05, BFS-06
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 37-01-PLAN.md — Extract kitchen enrichment + kanban builder helpers from orders/queries.ts
+- [ ] 37-02-PLAN.md — Extract BOM processing + customer resolution helpers from orders/mutations/orderCrud.ts
+- [ ] 37-03-PLAN.md — Extract types + channel assembly + simulation from dispatchPlanner/queries.ts
+
 **Approach:**
 - Extract order enrichment/aggregation helpers from `orders/queries.ts` (1,279 -> <800 LOC)
 - Extract validation and business rule logic from `orders/mutations/orderCrud.ts` (1,085 -> <700 LOC)
-- Extract simulation/forecast helpers from `dispatchPlanner/queries.ts` (1,228 -> <800 LOC)
+- Extract simulation/forecast helpers from `dispatchPlanner/queries.ts` (1,226 -> <800 LOC)
 - Keep Convex function registrations in place, move pure logic to `helpers/` directories
 
 **Success Criteria:**
@@ -241,6 +248,6 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
-| v1.6 Tech Debt & Resilience | 35-39 | 2 | In Progress | — |
+| v1.6 Tech Debt & Resilience | 35-39 | 5 | In Progress | — |
 
 **Total: 35 phases, 163 plans shipped across 6 milestones + 4 phases remaining**
