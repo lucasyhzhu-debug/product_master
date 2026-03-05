@@ -67,5 +67,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 36-01 (Extract Shared Helpers)
-Resume notes: Plan 36-01 complete. Continue with 36-02 (Query File Decomposition) and 36-03 (Documentation).
+Stopped at: Phase 37 context gathered
+Resume notes: Phase 37 CONTEXT.md created. Continue with /gsd:plan-phase 37 (or finish Phase 36 first: 36-02, 36-03 remaining).
+Resume file: .planning/phases/37-order-dispatch-simplification/37-CONTEXT.md
