@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 35 — Schema Review & Audit
+**Current focus:** Phase 36 — Sales & Analytics Backend Simplification
 
 ## Current Position
 
-Phase: 35 — Schema Review & Audit
+Phase: 36 — Sales & Analytics Backend Simplification
 Plan: —
-Status: Roadmap approved, ready to plan Phase 35
-Last activity: 2026-03-05 — Milestone v1.6 roadmap created (5 phases, 20 requirements)
+Status: Context gathered, ready to plan Phase 36
+Last activity: 2026-03-05 — Phase 36 context gathered
 
 ## Performance Metrics
 
@@ -54,6 +54,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: v1.6 roadmap created, ready to plan Phase 35
-Resume notes: Roadmap has 5 phases (35-39). Phase 35 uses `schema-architect` agent for expert schema audit. Phase 36 has existing implementation plan at `docs/plans/2026-03-03-sales-analytics-simplification-plan.md`.
+Last session: 2026-03-05
+Stopped at: Phase 36 context gathered
+Resume notes: Phase 36 context captured at `.planning/phases/36-sales-analytics-backend-simplification/36-CONTEXT.md`. Existing plan at `docs/plans/2026-03-03-sales-analytics-simplification-plan.md` needs scope correction: drop OverviewTab (Phase 38), add K3Mart cockpit extraction (BFS-02). Next: `/gsd:plan-phase 36`.
