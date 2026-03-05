@@ -573,6 +573,27 @@ export const autoMatchMenuProduct = internalMutation({
     source: sourceValidator,
   },
   handler: async (ctx, args) => {
+    // Step 0: Check externalProductMappings for an existing manual mapping.
+    // This ensures new revenue items from sync pick up mappings the user
+    // already configured in /sales?tab=mappings.
+    const existingMapping = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", args.source))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("externalProductCode"), args.productName),
+          q.eq(q.field("externalProductName"), args.productName)
+        )
+      )
+      .first();
+
+    if (existingMapping?.menuProductId) {
+      return {
+        linkedMenuProductId: existingMapping.menuProductId,
+        matchConfidence: "exact" as const,
+      };
+    }
+
     // Step 1: Try exact price match
     const priceMatches = await ctx.db
       .query("menuProducts")
@@ -620,5 +641,42 @@ export const autoMatchMenuProduct = internalMutation({
       linkedMenuProductId: undefined,
       matchConfidence: "none" as const,
     };
+  },
+});
+
+/**
+ * One-time repair: backfill linkedMenuProductId on revenue items that have
+ * a matching externalProductMappings entry but were synced before the mapping
+ * lookup was added to autoMatchMenuProduct.
+ */
+export const backfillMappingsToRevenueItems = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const mappings = await ctx.db.query("externalProductMappings").collect();
+    let updated = 0;
+
+    for (const mapping of mappings) {
+      if (!mapping.menuProductId) continue;
+
+      // Find revenue items that match this mapping but have no linkedMenuProductId
+      const orphanedItems = await ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_product_name", (q) =>
+          q.eq("source", mapping.source).eq("productName", mapping.externalProductName)
+        )
+        .filter((q) => q.eq(q.field("linkedMenuProductId"), undefined))
+        .collect();
+
+      for (const item of orphanedItems) {
+        await ctx.db.patch(item._id, {
+          linkedMenuProductId: mapping.menuProductId,
+          isAutoMatched: false,
+          matchConfidence: "exact",
+        });
+        updated++;
+      }
+    }
+
+    return { updated };
   },
 });
