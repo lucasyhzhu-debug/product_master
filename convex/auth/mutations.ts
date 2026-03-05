@@ -328,7 +328,7 @@ export const cleanupExpiredSessions = mutation({
     const now = Date.now();
     const expiredSessions = await ctx.db
       .query("sessions")
-      .filter((q) => q.lt(q.field("expiresAt"), now))
+      .withIndex("by_expiry", (q) => q.lt("expiresAt", now))
       .collect();
 
     for (const session of expiredSessions) {

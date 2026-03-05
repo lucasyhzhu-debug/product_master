@@ -542,9 +542,8 @@ export default defineSchema({
     note: v.optional(v.string()), // e.g., "correction"
   })
     .index("by_menu_product", ["menuProductId"])
-    .index("by_timestamp", ["timestamp"]),
-  // QFIX-05: removed by_menu_product_timestamp -- prefix duplicate of by_menu_product, zero references
-  // QFIX-05: removed by_action -- zero withIndex references
+    .index("by_timestamp", ["timestamp"])
+    .index("by_menu_product_timestamp", ["menuProductId", "timestamp"]),
 
   // ============================================
   // INTEGRITY CHECK LOGS
@@ -807,7 +806,8 @@ export default defineSchema({
   })
     .index("by_type", ["locationType"])
     .index("by_active", ["isActive"])
-    .index("by_default", ["isDefault"]),
+    .index("by_default", ["isDefault"])
+    .index("by_type_active", ["locationType", "isActive"]),
 
   // Inventory batches (FIFO tracking + purchase history)
   inventoryBatches: defineTable({
@@ -935,7 +935,8 @@ export default defineSchema({
   })
     .index("by_order", ["orderId"])
     .index("by_component", ["componentTypeId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_order_status", ["orderId", "status"]),
 
   // ============================================
   // FINISHED GOODS INVENTORY
@@ -1014,7 +1015,8 @@ export default defineSchema({
   })
     .index("by_source", ["source"])
     .index("by_source_external_id", ["source", "externalId"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_source_active", ["source", "isActive"]),
 
   externalStockSnapshots: defineTable({
     outletId: v.id("externalOutlets"),
@@ -1035,7 +1037,8 @@ export default defineSchema({
     .index("by_batch", ["snapshotBatchId"])
     .index("by_outlet_product", ["outletId", "externalProductId"])
     .index("by_outlet_snapshot", ["outletId", "snapshotAt"])
-    .index("by_snapshot_time", ["snapshotAt"]),
+    .index("by_snapshot_time", ["snapshotAt"])
+    .index("by_batch_outlet", ["snapshotBatchId", "outletId"]),
 
   externalRevenue: defineTable({
     outletId: v.optional(v.id("externalOutlets")),
