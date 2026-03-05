@@ -3,7 +3,7 @@
  * Pure functions that transform pre-fetched snapshot + revenue data into display-ready objects.
  */
 
-import type { Id, Doc } from "../../_generated/dataModel";
+import type { Id } from "../../_generated/dataModel";
 
 // ─── Types ───
 
@@ -158,4 +158,120 @@ export function buildProductSettings(
       isHidden: t.isHidden ?? false,
     };
   });
+}
+
+// ─── Production readiness helpers ───
+
+export interface ReadinessData {
+  stickered: number;
+  plannedToday: number;
+  plannedTomorrow: number;
+}
+
+/**
+ * Aggregate dispatch plans into a production readiness map.
+ * Builds a map of menuProductId -> { stickered, plannedToday, plannedTomorrow }
+ * from pre-fetched production counts and plan data. Excludes stock-out plans.
+ */
+export function buildProductionReadinessMap(
+  productionCounts: Array<{ menuProductId: string; stickered: number }>,
+  todayPlans: Array<{ menuProductId: string; isStockOut: boolean; plannedQty: number }>,
+  tomorrowPlans: Array<{ menuProductId: string; isStockOut: boolean; plannedQty: number }>
+): Map<string, ReadinessData> {
+  const productMap = new Map<string, ReadinessData>();
+
+  // Initialize with aggregated production counts
+  for (const pc of productionCounts) {
+    productMap.set(pc.menuProductId, {
+      stickered: pc.stickered,
+      plannedToday: 0,
+      plannedTomorrow: 0,
+    });
+  }
+
+  // Aggregate today's planned quantities (only stock-in)
+  for (const plan of todayPlans) {
+    if (!plan.isStockOut) {
+      const existing = productMap.get(plan.menuProductId);
+      if (existing) {
+        existing.plannedToday += plan.plannedQty;
+      } else {
+        productMap.set(plan.menuProductId, {
+          stickered: 0,
+          plannedToday: plan.plannedQty,
+          plannedTomorrow: 0,
+        });
+      }
+    }
+  }
+
+  // Aggregate tomorrow's planned quantities (only stock-in)
+  for (const plan of tomorrowPlans) {
+    if (!plan.isStockOut) {
+      const existing = productMap.get(plan.menuProductId);
+      if (existing) {
+        existing.plannedTomorrow += plan.plannedQty;
+      } else {
+        productMap.set(plan.menuProductId, {
+          stickered: 0,
+          plannedToday: 0,
+          plannedTomorrow: plan.plannedQty,
+        });
+      }
+    }
+  }
+
+  return productMap;
+}
+
+// ─── K3Mart stock aggregation helpers ───
+
+/**
+ * Aggregate K3Mart stock by externalProductCode into menuProductId totals.
+ * Pure function: given a code-to-quantity map and code-to-menuProductId mapping,
+ * produces a menuProductId-to-totalStock map.
+ */
+export function aggregateStockByMenuProduct(
+  stockByCode: Map<string, number>,
+  codeToMenuProduct: Map<string, string>
+): Map<string, number> {
+  const menuProductStockMap = new Map<string, number>();
+  for (const [code, qty] of stockByCode) {
+    const mpId = codeToMenuProduct.get(code);
+    if (mpId) {
+      const existing = menuProductStockMap.get(mpId) ?? 0;
+      menuProductStockMap.set(mpId, existing + qty);
+    }
+  }
+  return menuProductStockMap;
+}
+
+/**
+ * Accumulate snapshot product quantities into a stock-by-code map.
+ * Pure function used by getInventorySources to aggregate stock across outlets.
+ */
+export function accumulateSnapshotStock(
+  snapshotProducts: Array<{ externalProductCode: string; quantity: number }>,
+  stockMap: Map<string, number>
+): void {
+  for (const sp of snapshotProducts) {
+    const existing = stockMap.get(sp.externalProductCode) ?? 0;
+    stockMap.set(sp.externalProductCode, existing + sp.quantity);
+  }
+}
+
+/**
+ * Enrich a mapping-by-code map with snapshot prices.
+ * Sets snapshotPrice on each mapping entry if not already set and snapshot has a price > 0.
+ */
+export function enrichMappingPrices(
+  snapshotProducts: Array<{ externalProductCode: string; price: number }>,
+  mappingByCode: Map<string, { externalName: string; menuProductName: string | null; snapshotPrice: number }>
+): void {
+  for (const sp of snapshotProducts) {
+    const mapping = mappingByCode.get(sp.externalProductCode);
+    if (mapping && mapping.snapshotPrice === 0 && sp.price > 0) {
+      mapping.snapshotPrice = sp.price;
+    }
+  }
 }

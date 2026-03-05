@@ -9,8 +9,10 @@ import { query, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
-import { getWeekNumber, calculateAutoSuggest, getDayTypeForDate, getWeekDatesFromWeekNumber } from "./helpers";
-import { buildOutletProducts, buildStockAndPriceMaps, buildProductSettings } from "./queryHelpers/stockHelpers";
+import { getWeekNumber, getWeekDatesFromWeekNumber } from "./helpers";
+import { buildOutletProducts, buildStockAndPriceMaps, buildProductSettings, buildProductionReadinessMap, aggregateStockByMenuProduct, accumulateSnapshotStock, enrichMappingPrices } from "./queryHelpers/stockHelpers";
+import { aggregatePreviousWeek, buildOutletProductRows, buildPlanCellsAndTotals, fillAutoSuggest } from "./queryHelpers/dispatchHelpers";
+import type { OutletResult, PlanRecord } from "./queryHelpers/dispatchHelpers";
 
 /**
  * Query 1: getOutletStockSummary
@@ -175,12 +177,6 @@ export const getWeeklyDispatchPlans = query({
       .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
       .collect();
 
-    // Build code -> mapping lookup
-    const codeToMapping = new Map<string, typeof productMappings[number]>();
-    for (const m of productMappings) {
-      codeToMapping.set(m.externalProductCode, m);
-    }
-
     // 6. Fetch menu products for names and default prices
     const menuProductIds = new Set<string>();
     for (const m of productMappings) {
@@ -240,84 +236,24 @@ export const getWeeklyDispatchPlans = query({
       .withIndex("by_week", (q) => q.eq("weekNumber", prevWeekNumber))
       .collect();
 
-    // Aggregate previous week: outletId_menuProductId -> total planned qty
-    const prevWeekByOutletProduct = new Map<string, number>();
-    const previousWeekTotals: Record<string, number> = {}; // menuProductId -> total
-    for (const p of prevWeekPlans) {
-      if (!p.isStockOut) {
-        const opKey = `${p.outletId}_${p.menuProductId}`;
-        prevWeekByOutletProduct.set(
-          opKey,
-          (prevWeekByOutletProduct.get(opKey) ?? 0) + p.plannedQty
-        );
-        const mpKey = p.menuProductId as string;
-        previousWeekTotals[mpKey] = (previousWeekTotals[mpKey] ?? 0) + p.plannedQty;
-      }
-    }
+    // Aggregate previous week (extracted to dispatchHelpers)
+    const { prevWeekByOutletProduct, previousWeekTotals } =
+      aggregatePreviousWeek(prevWeekPlans as PlanRecord[]);
 
-    // 9. Build outlet-first response
-    const outletResults: Array<{
-      outletId: Id<"externalOutlets">;
-      outletName: string;
-      isActive: boolean;
-      products: Array<{
-        menuProductId: string;
-        productName: string;
-        externalProductName: string;
-        externalProductCode: string;
-        currentStock: number;
-        price: number;
-        isHidden: boolean;
-      }>;
-      subtotalByDay: Record<string, number>;
-    }> = [];
+    // 9. Build outlet-first response (extracted to dispatchHelpers)
+    const outletResults: OutletResult[] = [];
 
     for (const outlet of allOutlets) {
-      const outletProducts: Array<{
-        menuProductId: string;
-        productName: string;
-        externalProductName: string;
-        externalProductCode: string;
-        currentStock: number;
-        price: number;
-        isHidden: boolean;
-      }> = [];
+      const outletProducts = buildOutletProductRows(
+        outlet._id,
+        productMappings,
+        targetLookup,
+        menuProducts,
+        stockByOutletProduct,
+        priceByOutletProduct,
+        externalNameByCode
+      );
 
-      for (const mapping of productMappings) {
-        if (!mapping.menuProductId) continue;
-
-        const mpId = mapping.menuProductId as string;
-        const productKey = mapping.externalProductCode;
-        const targetKey = `${outlet._id}_${productKey}`;
-        const target = targetLookup.get(targetKey);
-
-        // Filter hidden products
-        if (target?.isHidden === true) continue;
-
-        const mp = menuProducts.get(mpId);
-        const stockKey = `${outlet._id}_${productKey}`;
-        const currentStock = stockByOutletProduct.get(stockKey) ?? 0;
-
-        // Price priority: restockTargets.customPrice > K3MART snapshot price > 0
-        const customPrice = target?.customPrice;
-        const snapshotPrice = priceByOutletProduct.get(stockKey) ?? 0;
-        const price = customPrice ?? snapshotPrice;
-
-        // K3Mart product name from externalProductMappings
-        const k3martName = externalNameByCode.get(productKey) ?? productKey;
-
-        outletProducts.push({
-          menuProductId: mpId,
-          productName: mp?.name ?? k3martName,
-          externalProductName: k3martName,
-          externalProductCode: productKey,
-          currentStock,
-          price,
-          isHidden: false,
-        });
-      }
-
-      // Calculate subtotals by day from existing plans
       const subtotalByDay: Record<string, number> = {};
       for (const date of weekDates) {
         subtotalByDay[date] = 0;
@@ -332,78 +268,11 @@ export const getWeeklyDispatchPlans = query({
       });
     }
 
-    // 10. Build plans lookup and compute subtotals + totals
-    const planCells: Record<
-      string,
-      {
-        plannedQty: number;
-        suggestedQty: number;
-        isStockOut: boolean;
-        status: string;
-        source?: string;
-        destination?: string;
-      }
-    > = {};
+    // 10-11. Build plan cells, compute totals, and fill auto-suggest (extracted to dispatchHelpers)
+    const { planCells, weekTotalsByDay, weekTotalsByProduct, grandTotal } =
+      buildPlanCellsAndTotals(plans as PlanRecord[], outletResults, weekDates);
 
-    const weekTotalsByDay: Record<string, number> = {};
-    const weekTotalsByProduct: Record<string, number> = {};
-    let grandTotal = 0;
-
-    for (const date of weekDates) {
-      weekTotalsByDay[date] = 0;
-    }
-
-    for (const plan of plans) {
-      if (plan.isStockOut) continue; // Only stock-in counts for planning grid
-
-      const cellKey = `${plan.outletId}_${plan.date}_${plan.menuProductId}`;
-      planCells[cellKey] = {
-        plannedQty: plan.plannedQty,
-        suggestedQty: plan.suggestedQty,
-        isStockOut: plan.isStockOut,
-        status: plan.status,
-        source: plan.source ?? undefined,
-        destination: plan.destination ?? undefined,
-      };
-
-      // Update subtotals per outlet
-      const outletResult = outletResults.find(
-        (o) => o.outletId === plan.outletId
-      );
-      if (outletResult && outletResult.subtotalByDay[plan.date] !== undefined) {
-        outletResult.subtotalByDay[plan.date] += plan.plannedQty;
-      }
-
-      // Update week totals
-      if (weekTotalsByDay[plan.date] !== undefined) {
-        weekTotalsByDay[plan.date] += plan.plannedQty;
-      }
-      const mpKey = plan.menuProductId as string;
-      weekTotalsByProduct[mpKey] = (weekTotalsByProduct[mpKey] ?? 0) + plan.plannedQty;
-      grandTotal += plan.plannedQty;
-    }
-
-    // 11. Compute auto-suggest for empty cells
-    for (const outlet of outletResults) {
-      for (const product of outlet.products) {
-        const opKey = `${outlet.outletId}_${product.menuProductId}`;
-        const baseline = prevWeekByOutletProduct.get(opKey) ?? 0;
-
-        for (const date of weekDates) {
-          const cellKey = `${outlet.outletId}_${date}_${product.menuProductId}`;
-          if (!planCells[cellKey]) {
-            const dayType = getDayTypeForDate(date);
-            const suggestedQty = calculateAutoSuggest(baseline, dayType);
-            planCells[cellKey] = {
-              plannedQty: 0,
-              suggestedQty,
-              isStockOut: false,
-              status: "draft",
-            };
-          }
-        }
-      }
-    }
+    fillAutoSuggest(outletResults, prevWeekByOutletProduct, weekDates, planCells);
 
     return {
       outlets: outletResults,
@@ -495,54 +364,12 @@ export const getProductionReadiness = query({
     const allTodayPlans = [...todayPlans, ...todaySubmitted];
     const allTomorrowPlans = [...tomorrowPlans, ...tomorrowSubmitted];
 
-    // Build a map: menuProductId -> { stickered, plannedToday, plannedTomorrow }
-    const productMap = new Map<
-      string,
-      { stickered: number; plannedToday: number; plannedTomorrow: number }
-    >();
-
-    // Initialize with aggregated production counts
-    for (const pc of allProductionCounts) {
-      productMap.set(pc.menuProductId, {
-        stickered: pc.stickered,
-        plannedToday: 0,
-        plannedTomorrow: 0,
-      });
-    }
-
-    // Aggregate today's planned quantities (only stock-in)
-    for (const plan of allTodayPlans) {
-      if (!plan.isStockOut) {
-        const mpId = plan.menuProductId as string;
-        const existing = productMap.get(mpId);
-        if (existing) {
-          existing.plannedToday += plan.plannedQty;
-        } else {
-          productMap.set(mpId, {
-            stickered: 0,
-            plannedToday: plan.plannedQty,
-            plannedTomorrow: 0,
-          });
-        }
-      }
-    }
-
-    // Aggregate tomorrow's planned quantities (only stock-in)
-    for (const plan of allTomorrowPlans) {
-      if (!plan.isStockOut) {
-        const mpId = plan.menuProductId as string;
-        const existing = productMap.get(mpId);
-        if (existing) {
-          existing.plannedTomorrow += plan.plannedQty;
-        } else {
-          productMap.set(mpId, {
-            stickered: 0,
-            plannedToday: 0,
-            plannedTomorrow: plan.plannedQty,
-          });
-        }
-      }
-    }
+    // Build readiness map (extracted to stockHelpers)
+    const productMap = buildProductionReadinessMap(
+      allProductionCounts,
+      allTodayPlans.map((p) => ({ menuProductId: p.menuProductId as string, isStockOut: p.isStockOut, plannedQty: p.plannedQty })),
+      allTomorrowPlans.map((p) => ({ menuProductId: p.menuProductId as string, isStockOut: p.isStockOut, plannedQty: p.plannedQty }))
+    );
 
     // Convert to array with deficit calculation
     const products = await Promise.all(
@@ -650,10 +477,8 @@ export const getInventorySources = query({
         )
         .collect();
 
-      for (const sp of snapshotProducts) {
-        const existing = k3martStockMap.get(sp.externalProductCode) ?? 0;
-        k3martStockMap.set(sp.externalProductCode, existing + sp.quantity);
-      }
+      // Accumulate stock per product code (extracted to stockHelpers)
+      accumulateSnapshotStock(snapshotProducts, k3martStockMap);
     }
 
     // Fetch product mappings to convert externalProductCode -> menuProductId
@@ -662,22 +487,15 @@ export const getInventorySources = query({
       .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
       .collect();
 
-    const codeToMenuProduct = new Map<string, Id<"menuProducts">>();
+    const codeToMenuProduct = new Map<string, string>();
     for (const m of mappings) {
       if (m.menuProductId) {
-        codeToMenuProduct.set(m.externalProductCode, m.menuProductId);
+        codeToMenuProduct.set(m.externalProductCode, m.menuProductId as string);
       }
     }
 
-    // Aggregate by menuProductId
-    const menuProductStockMap = new Map<string, number>();
-    for (const [code, qty] of k3martStockMap) {
-      const mpId = codeToMenuProduct.get(code);
-      if (mpId) {
-        const existing = menuProductStockMap.get(mpId) ?? 0;
-        menuProductStockMap.set(mpId, existing + qty);
-      }
-    }
+    // Aggregate by menuProductId (extracted to stockHelpers)
+    const menuProductStockMap = aggregateStockByMenuProduct(k3martStockMap, codeToMenuProduct);
 
     const k3martTotal = await Promise.all(
       Array.from(menuProductStockMap.entries()).map(
@@ -915,12 +733,8 @@ export const getOutletSettings = query({
           q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
         )
         .collect();
-      for (const sp of snapshotProducts) {
-        const mapping = mappingByCode.get(sp.externalProductCode);
-        if (mapping && mapping.snapshotPrice === 0 && sp.price > 0) {
-          mapping.snapshotPrice = sp.price;
-        }
-      }
+      // Enrich mapping prices from snapshots (extracted to stockHelpers)
+      enrichMappingPrices(snapshotProducts, mappingByCode);
     }
 
     // Build outlet settings
