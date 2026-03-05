@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.6
-milestone_name: Operational Simplification & Resilience
-status: defining_requirements
-last_updated: "2026-03-03"
+milestone_name: Tech Debt & Resilience
+status: ready
+last_updated: "2026-03-05"
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Defining requirements for v1.6
+**Current focus:** Phase 35 — Schema Review & Audit
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 35 — Schema Review & Audit
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-03 — Milestone v1.6 started
+Status: Roadmap approved, ready to plan Phase 35
+Last activity: 2026-03-05 — Milestone v1.6 roadmap created (5 phases, 20 requirements)
 
 ## Performance Metrics
 
@@ -55,5 +55,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Starting v1.6 milestone — defining requirements
-Resume notes: Sales analytics simplification plan already exists at `docs/plans/2026-03-03-sales-analytics-simplification-plan.md`. Proceed to requirements definition, then roadmap creation.
+Stopped at: v1.6 roadmap created, ready to plan Phase 35
+Resume notes: Roadmap has 5 phases (35-39). Phase 35 uses `schema-architect` agent for expert schema audit. Phase 36 has existing implementation plan at `docs/plans/2026-03-03-sales-analytics-simplification-plan.md`.

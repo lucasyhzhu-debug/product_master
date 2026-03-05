@@ -29,6 +29,12 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 - [ ] **FFS-03**: `FinishedGoodsTab.tsx` slimmed to under 600 LOC (from 1,474) via dialog/table extraction
 - [ ] **FFS-04**: `VouchersManager.tsx` slimmed to under 600 LOC (from 1,285) via form extraction
 
+### Schema Review
+
+- [ ] **SCH-01**: Expert audit of all 59 Convex tables identifies data duplication, denormalization waste, and unused/redundant tables
+- [ ] **SCH-02**: Identified schema inefficiencies documented with specific remediation recommendations
+- [ ] **SCH-03**: Quick-win schema cleanups executed (remove unused fields/tables, add missing indexes) where safe
+
 ### Resilience
 
 - [ ] **RES-01**: E2E Playwright test for order lifecycle (create -> confirm -> produce -> complete)
@@ -75,28 +81,31 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BSH-01 | — | Pending |
-| BSH-02 | — | Pending |
-| BSH-03 | — | Pending |
-| BFS-01 | — | Pending |
-| BFS-02 | — | Pending |
-| BFS-03 | — | Pending |
-| BFS-04 | — | Pending |
-| BFS-05 | — | Pending |
-| BFS-06 | — | Pending |
-| FFS-01 | — | Pending |
-| FFS-02 | — | Pending |
-| FFS-03 | — | Pending |
-| FFS-04 | — | Pending |
-| RES-01 | — | Pending |
-| RES-02 | — | Pending |
-| RES-03 | — | Pending |
-| RES-04 | — | Pending |
+| SCH-01 | Phase 35 | Pending |
+| SCH-02 | Phase 35 | Pending |
+| SCH-03 | Phase 35 | Pending |
+| BSH-01 | Phase 36 | Pending |
+| BSH-02 | Phase 36 | Pending |
+| BSH-03 | Phase 36 | Pending |
+| BFS-01 | Phase 36 | Pending |
+| BFS-02 | Phase 36 | Pending |
+| BFS-03 | Phase 36 | Pending |
+| BFS-04 | Phase 37 | Pending |
+| BFS-05 | Phase 37 | Pending |
+| BFS-06 | Phase 37 | Pending |
+| FFS-01 | Phase 38 | Pending |
+| FFS-02 | Phase 38 | Pending |
+| FFS-03 | Phase 38 | Pending |
+| FFS-04 | Phase 38 | Pending |
+| RES-01 | Phase 39 | Pending |
+| RES-02 | Phase 39 | Pending |
+| RES-03 | Phase 39 | Pending |
+| RES-04 | Phase 39 | Pending |
 
 **Coverage:**
-- v1.6 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- v1.6 requirements: 20 total
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-03*

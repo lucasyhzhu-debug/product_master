@@ -8,15 +8,17 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.6 Operational Simplification & Resilience
+## Current Milestone: v1.6 Tech Debt & Resilience
 
-**Goal:** Reduce code complexity across the largest files, extract shared patterns, and add E2E test coverage for critical paths — making the system easier to maintain, debug, and extend.
+**Goal:** Comprehensive tech debt reduction — audit the schema for inefficiencies, extract shared patterns from duplicated logic, split giant files, and add E2E test coverage. Make the 130K LOC / 59-table system easier to maintain, debug, and extend.
 
 **Target features:**
+- Schema audit: expert review of all 59 tables for duplication, unused fields, missing indexes, inefficient patterns
 - Sales & analytics shared helper extraction (confidence, WIB timezone, sourceToPlatform)
 - Giant backend file splits (externalData, k3martCockpit, incomeStatement, orders, dispatchPlanner)
 - Giant frontend file splits (OverviewTab, GrabFoodManager, FinishedGoodsTab, VouchersManager)
 - E2E Playwright tests for critical paths (order lifecycle, kitchen, analytics)
+- Resilience fixes (Tamtem silent failure)
 
 ## Current State
 
