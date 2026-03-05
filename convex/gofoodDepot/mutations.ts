@@ -57,11 +57,10 @@ export const recordShipment = mutation({
       .toISOString()
       .slice(0, 10); // WIB date
 
-    // Find Goldfinch location
+    // Find Goldfinch location (MIS-03: compound index)
     const goldfinchLocation = await ctx.db
       .query("storageLocations")
-      .withIndex("by_type", (q) => q.eq("locationType", "venue"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_type_active", (q) => q.eq("locationType", "venue").eq("isActive", true))
       .first();
 
     if (!goldfinchLocation) {
@@ -265,11 +264,10 @@ export const processSyncSales = internalMutation({
   handler: async (ctx, args) => {
     const now = Date.now();
 
-    // Find Goldfinch location
+    // Find Goldfinch location (MIS-03: compound index)
     const goldfinchLocation = await ctx.db
       .query("storageLocations")
-      .withIndex("by_type", (q) => q.eq("locationType", "venue"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_type_active", (q) => q.eq("locationType", "venue").eq("isActive", true))
       .first();
 
     if (!goldfinchLocation) {

@@ -156,14 +156,11 @@ export const getGoFoodDailyOrder = query({
         )
         .collect();
     } else {
+      // IRB-02: both period bounds at index level
       todayRevenues = await ctx.db
         .query("externalRevenue")
-        .withIndex("by_source_period", (q) => q.eq("source", "gobiz"))
-        .filter((q) =>
-          q.and(
-            q.gte(q.field("periodStart"), todayStart),
-            q.lt(q.field("periodStart"), todayEnd)
-          )
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "gobiz").gte("periodStart", todayStart).lt("periodStart", todayEnd)
         )
         .collect();
     }
@@ -281,9 +278,9 @@ export const getGoldfinchStickerInventory = query({
   handler: async (ctx) => {
     // Find Goldfinch location
     const goldfinchLocation = await ctx.db
+      // MIS-03: compound index
       .query("storageLocations")
-      .withIndex("by_type", (q) => q.eq("locationType", "venue"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_type_active", (q) => q.eq("locationType", "venue").eq("isActive", true))
       .first();
 
     if (!goldfinchLocation) return [];

@@ -20,11 +20,10 @@ export const getOutletStockSummaryInternal = internalQuery({
     date: v.string(), // YYYY-MM-DD
   },
   handler: async (ctx, args) => {
-    // 1. Fetch all active K3 Mart outlets
+    // 1. Fetch all active K3 Mart outlets (MIS-02: compound index)
     const outlets = await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     if (outlets.length === 0) {
@@ -39,12 +38,12 @@ export const getOutletStockSummaryInternal = internalQuery({
     const sevenDaysAgo = todayStart - 7 * 24 * 60 * 60 * 1000;
 
     // 4. Fetch all relevant revenue data (today + last 7 days) for K3 Mart
+    // IRB-02: both period bounds at index level
     const allRevenue = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source_period", (q) =>
-        q.eq("source", "k3mart").gte("periodStart", sevenDaysAgo)
+        q.eq("source", "k3mart").gte("periodStart", sevenDaysAgo).lt("periodStart", todayEnd)
       )
-      .filter((q) => q.lt(q.field("periodStart"), todayEnd))
       .collect();
 
     // 4b. Fetch product mappings to resolve menuProductId
@@ -87,13 +86,12 @@ export const getOutletStockSummaryInternal = internalQuery({
           latestSyncAt = latestSnapshot.snapshotAt;
         }
 
-        // Get all products from this snapshot batch for this outlet
+        // Get all products from this snapshot batch for this outlet (IRB-06: compound index)
         const snapshotProducts = await ctx.db
           .query("externalStockSnapshots")
-          .withIndex("by_batch", (q) =>
-            q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+          .withIndex("by_batch_outlet", (q) =>
+            q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
           )
-          .filter((q) => q.eq(q.field("outletId"), outlet._id))
           .collect();
 
         // Filter revenue for this outlet
@@ -190,10 +188,10 @@ export const getWeeklyDispatchPlans = query({
     }
 
     // 4. Fetch active K3 Mart outlets
+    // MIS-02: compound index
     const allOutlets = await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     // 5. Fetch product mappings
@@ -239,12 +237,12 @@ export const getWeeklyDispatchPlans = query({
 
       if (!latestSnapshot) continue;
 
+      // IRB-06: compound index
       const snapshotProducts = await ctx.db
         .query("externalStockSnapshots")
-        .withIndex("by_batch", (q) =>
-          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+        .withIndex("by_batch_outlet", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
         )
-        .filter((q) => q.eq(q.field("outletId"), outlet._id))
         .collect();
 
       for (const sp of snapshotProducts) {
@@ -650,10 +648,10 @@ export const getInventorySources = query({
     );
 
     // 3. K3 Mart total stock (sum across all active outlets)
+    // MIS-02: compound index
     const k3martOutlets = await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     // Get latest snapshot for each outlet
@@ -668,13 +666,12 @@ export const getInventorySources = query({
 
       if (!latestSnapshot) continue;
 
-      // Get all products in this snapshot batch for this outlet
+      // Get all products in this snapshot batch for this outlet (IRB-06: compound index)
       const snapshotProducts = await ctx.db
         .query("externalStockSnapshots")
-        .withIndex("by_batch", (q) =>
-          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+        .withIndex("by_batch_outlet", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
         )
-        .filter((q) => q.eq(q.field("outletId"), outlet._id))
         .collect();
 
       for (const sp of snapshotProducts) {
@@ -756,12 +753,12 @@ export const getOutletDetail = query({
 
     let stockSnapshots: typeof latestSnapshot[] = [];
     if (latestSnapshot) {
+      // IRB-06: compound index
       stockSnapshots = await ctx.db
         .query("externalStockSnapshots")
-        .withIndex("by_batch", (q) =>
-          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+        .withIndex("by_batch_outlet", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", args.outletId)
         )
-        .filter((q) => q.eq(q.field("outletId"), args.outletId))
         .collect();
     }
 
@@ -920,10 +917,10 @@ export const getOutletSettings = query({
     }
 
     // Enrich with latest snapshot prices (externalProductMappings has no price field)
+    // MIS-02: compound index
     const k3martOutlets = await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     // Get a single snapshot price per product code (from any outlet's latest snapshot)
@@ -934,10 +931,12 @@ export const getOutletSettings = query({
         .order("desc")
         .first();
       if (!latestSnapshot) continue;
+      // IRB-06: compound index
       const snapshotProducts = await ctx.db
         .query("externalStockSnapshots")
-        .withIndex("by_batch", (q) => q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId))
-        .filter((q) => q.eq(q.field("outletId"), outlet._id))
+        .withIndex("by_batch_outlet", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
+        )
         .collect();
       for (const sp of snapshotProducts) {
         const mapping = mappingByCode.get(sp.externalProductCode);

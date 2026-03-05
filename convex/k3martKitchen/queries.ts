@@ -21,9 +21,9 @@ export const getK3MartKitchenSummary = query({
   handler: async (ctx, args) => {
     // 1. Fetch active K3 Mart outlets
     const k3martOutlets = await ctx.db
+      // MIS-02: compound index
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     if (k3martOutlets.length === 0) {
@@ -64,13 +64,12 @@ export const getK3MartKitchenSummary = query({
         latestSnapshotAt = latestSnapshot.snapshotAt;
       }
 
-      // Get all products from this batch for this outlet
+      // Get all products from this batch for this outlet (IRB-06: compound index)
       const batchProducts = await ctx.db
         .query("externalStockSnapshots")
-        .withIndex("by_batch", (q) =>
-          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+        .withIndex("by_batch_outlet", (q) =>
+          q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
         )
-        .filter((q) => q.eq(q.field("outletId"), outlet._id))
         .collect();
 
       const stockMap = new Map<string, { quantity: number; productName: string }>();
@@ -104,12 +103,12 @@ export const getK3MartKitchenSummary = query({
     const todayStart = new Date(args.date + "T00:00:00+07:00").getTime();
     const todayEnd = todayStart + 24 * 60 * 60 * 1000;
 
+    // IRB-02: both period bounds at index level
     const todayRevenues = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source_period", (q) =>
-        q.eq("source", "k3mart").gte("periodStart", todayStart)
+        q.eq("source", "k3mart").gte("periodStart", todayStart).lt("periodStart", todayEnd)
       )
-      .filter((q) => q.lt(q.field("periodStart"), todayEnd))
       .collect();
 
     // Aggregate sales per outlet per externalProductCode

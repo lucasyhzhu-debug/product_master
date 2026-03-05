@@ -66,11 +66,12 @@ export async function aggregateForProduct(
 }> {
   const lastResetAt = resetRecord?.lastResetAt ?? 0;
 
-  // Fetch all log entries for this product after reset
+  // Fetch all log entries for this product after reset (IRB-04: compound index)
   const entries = await ctx.db
     .query("productionLog")
-    .withIndex("by_menu_product", (q) => q.eq("menuProductId", menuProductId))
-    .filter((q) => q.gt(q.field("timestamp"), lastResetAt))
+    .withIndex("by_menu_product_timestamp", (q) =>
+      q.eq("menuProductId", menuProductId).gt("timestamp", lastResetAt)
+    )
     .collect();
 
   // Aggregate counts

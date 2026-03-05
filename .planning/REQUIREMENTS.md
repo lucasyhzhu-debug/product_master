@@ -33,7 +33,7 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 - [x] **SCH-01**: Expert audit of all 59 Convex tables identifies data duplication, denormalization waste, and unused/redundant tables
 - [x] **SCH-02**: Identified schema inefficiencies documented with specific remediation recommendations
-- [ ] **SCH-03**: Quick-win schema cleanups executed (remove unused fields/tables, add missing indexes) where safe
+- [x] **SCH-03**: Quick-win schema cleanups executed (remove unused fields/tables, add missing indexes) where safe
 
 ### Resilience
 
@@ -83,7 +83,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | SCH-01 | Phase 35 | Complete |
 | SCH-02 | Phase 35 | Complete |
-| SCH-03 | Phase 35 | Pending |
+| SCH-03 | Phase 35 | Complete |
 | BSH-01 | Phase 36 | Pending |
 | BSH-02 | Phase 36 | Pending |
 | BSH-03 | Phase 36 | Pending |

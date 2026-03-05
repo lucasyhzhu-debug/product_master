@@ -6,9 +6,9 @@ status: in-progress
 last_updated: "2026-03-05"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 35 — Schema Review & Audit
+**Current focus:** Phase 35 complete -- ready for Phase 36
 
 ## Current Position
 
-Phase: 35 — Schema Review & Audit
-Plan: 1 of 2
-Status: Plan 01 complete — Schema Audit report produced
-Last activity: 2026-03-05 — Completed 35-01 (Schema Audit Report)
+Phase: 35 — Schema Review & Audit (COMPLETE)
+Plan: 2 of 2 (complete)
+Status: Phase 35 complete -- both plans executed successfully
+Last activity: 2026-03-05 — Completed 35-02 (Schema Quick-Win Execution)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Last activity: 2026-03-05 — Completed 35-01 (Schema Audit Report)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35 P01: 13min, 1 task, 2 files
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min (29min total, 2 plans)
 
 ## Accumulated Context
 
@@ -43,6 +43,10 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P35-01: 42 schema findings identified (1 critical, 20 moderate, 21 low) across 65 tables
 - P35-01: 22 unused indexes for removal, 6 range bounds anti-patterns, 1 critical missing index usage
 - P35-01: productionUnitTypes + componentTypes merge documented but NOT recommended for this phase
+- P35-02: 20 unused indexes removed (not 22 -- productionUnitTypes.by_active was incorrectly flagged, OI-06/OI-08 kept)
+- P35-02: 5 compound indexes added to eliminate post-scan filters on 30+ query sites
+- P35-02: Critical session cleanup (MIS-01) fixed to use by_expiry index
+- P35-02: 10 range bound anti-patterns fixed (IRB-01: 5 sites, IRB-02: 5 sites)
 
 ### Open Blockers (carried forward)
 
@@ -61,5 +65,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 35-01 (Schema Audit Report)
-Resume notes: Plan 35-01 complete. docs/SCHEMA_AUDIT.md produced with 42 findings. Next: execute 35-02 (Quick-Win Execution) to apply safe index removals, additions, and query fixes.
+Stopped at: Completed 35-02 (Schema Quick-Win Execution) -- Phase 35 fully complete
+Resume notes: Phase 35 complete. Next: merge feature/35-schema-review-audit to main, then `/gsd:execute-phase 36` (Sales Analytics Backend Simplification).

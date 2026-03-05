@@ -49,10 +49,10 @@ export async function fetchInternalOrderDataMap(
 export const getActiveOutlets = internalQuery({
   args: { source: sourceValidator },
   handler: async (ctx, args) => {
+    // MIS-02: compound index eliminates post-filter
     return await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", args.source))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", args.source).eq("isActive", true))
       .collect();
   },
 });
@@ -402,12 +402,11 @@ export const getDashboardSummary = query({
       .order("desc")
       .take(1);
 
-    // Get recent revenue (last 24 hours)
+    // Get recent revenue (last 24 hours) -- use index bound instead of post-filter
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const recentRevenue = await ctx.db
       .query("externalRevenue")
-      .withIndex("by_period")
-      .filter((q) => q.gte(q.field("periodStart"), oneDayAgo))
+      .withIndex("by_period", (q) => q.gte("periodStart", oneDayAgo))
       .collect();
 
     const totalGross = recentRevenue.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
@@ -518,18 +517,20 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
       .order("desc")
       .take(1);
 
-    // Fetch current period revenue
+    // Fetch current period revenue (IRB-01: both bounds at index level)
     const currentRevenue = await ctx.db
       .query("externalRevenue")
-      .withIndex("by_period", (q) => q.gte("periodStart", range.currentStart))
-      .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
+      .withIndex("by_period", (q) =>
+        q.gte("periodStart", range.currentStart).lt("periodStart", range.currentEnd)
+      )
       .collect();
 
-    // Fetch previous period revenue
+    // Fetch previous period revenue (IRB-01: both bounds at index level)
     const previousRevenue = await ctx.db
       .query("externalRevenue")
-      .withIndex("by_period", (q) => q.gte("periodStart", range.previousStart))
-      .filter((q) => q.lt(q.field("periodStart"), range.previousEnd))
+      .withIndex("by_period", (q) =>
+        q.gte("periodStart", range.previousStart).lt("periodStart", range.previousEnd)
+      )
       .collect();
 
     // Aggregate with discount correction for internal orders.
@@ -762,11 +763,10 @@ export const getRestockOverviewInternal = internalQuery({
     const now = Date.now();
     const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
 
-    // 1. Fetch all active K3 Mart outlets
+    // 1. Fetch all active K3 Mart outlets (MIS-02: compound index)
     const k3martOutlets = await ctx.db
       .query("externalOutlets")
-      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
       .collect();
 
     // 2. Build K3 Mart channel entries
@@ -781,13 +781,12 @@ export const getRestockOverviewInternal = internalQuery({
 
         let stockProducts: Doc<"externalStockSnapshots">[] = [];
         if (latestSnapshot) {
-          // Filter by batch AND outlet to avoid cross-outlet contamination
+          // Filter by batch AND outlet to avoid cross-outlet contamination (IRB-06: compound index)
           stockProducts = await ctx.db
             .query("externalStockSnapshots")
-            .withIndex("by_batch", (q) =>
-              q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+            .withIndex("by_batch_outlet", (q) =>
+              q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", outlet._id)
             )
-            .filter((q) => q.eq(q.field("outletId"), outlet._id))
             .collect();
         }
 
@@ -1197,13 +1196,12 @@ export const getChannelSellThrough = query({
 
       if (latestSnapshot) {
         lastSnapshotAt = latestSnapshot.snapshotAt;
-        // Filter by batch AND outlet to avoid cross-outlet contamination
+        // Filter by batch AND outlet to avoid cross-outlet contamination (IRB-06: compound index)
         const batch = await ctx.db
           .query("externalStockSnapshots")
-          .withIndex("by_batch", (q) =>
-            q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId)
+          .withIndex("by_batch_outlet", (q) =>
+            q.eq("snapshotBatchId", latestSnapshot.snapshotBatchId).eq("outletId", args.outletId!)
           )
-          .filter((q) => q.eq(q.field("outletId"), args.outletId!))
           .collect();
         for (const s of batch) {
           currentStockMap.set(s.externalProductCode, s.quantity);
@@ -1546,11 +1544,12 @@ export const getRevenueTimeSeries = query({
   handler: async (ctx, args) => {
     const range = calculatePeriodRange(args.preset as PeriodPreset);
 
-    // Fetch all revenue within range
+    // Fetch all revenue within range (IRB-01: both bounds at index level)
     const records = await ctx.db
       .query("externalRevenue")
-      .withIndex("by_period", (q) => q.gte("periodStart", range.currentStart))
-      .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
+      .withIndex("by_period", (q) =>
+        q.gte("periodStart", range.currentStart).lt("periodStart", range.currentEnd)
+      )
       .collect();
 
     // For internal orders, look up real order data for accurate gross/net
@@ -1658,11 +1657,12 @@ export const getRevenueByOutletInternal = internalQuery({
   handler: async (ctx, args) => {
     const range = calculatePeriodRange(args.preset as PeriodPreset);
 
-    // Fetch revenue in period
+    // Fetch revenue in period (IRB-01: both bounds at index level)
     const records = await ctx.db
       .query("externalRevenue")
-      .withIndex("by_period", (q) => q.gte("periodStart", range.currentStart))
-      .filter((q) => q.lt(q.field("periodStart"), range.currentEnd))
+      .withIndex("by_period", (q) =>
+        q.gte("periodStart", range.currentStart).lt("periodStart", range.currentEnd)
+      )
       .collect();
 
     // Fetch outlet names and internal order data in parallel

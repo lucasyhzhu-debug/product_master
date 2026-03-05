@@ -109,7 +109,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 
 ### v1.6 Tech Debt & Resilience (Phases 35-39)
 
-- [ ] **Phase 35: Schema Review & Audit** — Expert audit of 59 tables for duplication, waste, missing indexes
+- [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
 - [ ] **Phase 36: Sales & Analytics Backend Simplification** — Shared helpers + query file splits
 - [ ] **Phase 37: Order & Dispatch Backend Simplification** — Order + dispatch query/mutation splits
 - [ ] **Phase 38: Frontend Giant File Splits** — Split 4 components >1,200 LOC
@@ -241,6 +241,6 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
-| v1.6 Tech Debt & Resilience | 35-39 | — | In Progress | — |
+| v1.6 Tech Debt & Resilience | 35-39 | 2 | In Progress | — |
 
-**Total: 34 phases, 161 plans shipped across 6 milestones + 5 new phases planned**
+**Total: 35 phases, 163 plans shipped across 6 milestones + 4 phases remaining**

@@ -453,11 +453,10 @@ async function assembleGofoodChannel(
   allDispatchPlans: Doc<"dispatchPlans">[],
   dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
-  // Fetch active GoFood outlets
+  // Fetch active GoFood outlets (MIS-02: compound index)
   const gofoodOutlets = await ctx.db
     .query("externalOutlets")
-    .withIndex("by_source", (q: any) => q.eq("source", "gobiz"))
-    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .withIndex("by_source_active", (q: any) => q.eq("source", "gobiz").eq("isActive", true))
     .collect();
 
   // Fetch external revenue for the date range
@@ -466,12 +465,12 @@ async function assembleGofoodChannel(
   const rangeStart = new Date(firstDate + "T00:00:00+07:00").getTime();
   const rangeEnd = new Date(lastDate + "T23:59:59+07:00").getTime();
 
+  // IRB-02: both period bounds at index level
   const revenueRecords = await ctx.db
     .query("externalRevenue")
     .withIndex("by_source_period", (q: any) =>
-      q.eq("source", "gobiz").gte("periodStart", rangeStart)
+      q.eq("source", "gobiz").gte("periodStart", rangeStart).lte("periodStart", rangeEnd)
     )
-    .filter((q: any) => q.lte(q.field("periodStart"), rangeEnd))
     .collect();
 
   // Filter dispatch plans for gofood channel
@@ -602,11 +601,10 @@ async function assembleK3martChannel(
   allDispatchPlans: Doc<"dispatchPlans">[],
   dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ) {
-  // Fetch active K3Mart outlets
+  // Fetch active K3Mart outlets (MIS-02: compound index)
   const k3martOutlets = await ctx.db
     .query("externalOutlets")
-    .withIndex("by_source", (q: any) => q.eq("source", "k3mart"))
-    .filter((q: any) => q.eq(q.field("isActive"), true))
+    .withIndex("by_source_active", (q: any) => q.eq("source", "k3mart").eq("isActive", true))
     .collect();
 
   // Fetch k3mart dispatch plans (from K3Mart Cockpit) for baseline/past data
