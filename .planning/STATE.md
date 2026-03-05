@@ -51,9 +51,10 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
+| 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Phase 35 context gathered
-Resume notes: Phase 35 context captured at `.planning/phases/35-schema-review-audit/35-CONTEXT.md`. Phase 36 context also gathered in earlier session at `.planning/phases/36-sales-analytics-backend-simplification/36-CONTEXT.md`. Next: `/gsd:plan-phase 35` (schema audit) or `/gsd:plan-phase 36` (sales simplification).
+Stopped at: Completed quick task 30 (income statement period modes)
+Resume notes: Quick task 30 complete on `feature/income-statement-period-modes` branch. Merge to main, then continue with `/gsd:plan-phase 35` (schema audit) or `/gsd:plan-phase 36` (sales simplification).
