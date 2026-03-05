@@ -766,10 +766,11 @@ export const getOutletDetail = query({
     const now = Date.now();
     const startTime = now - days * 24 * 60 * 60 * 1000;
 
+    // IRB-02: both period bounds at index level
     const revenue = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source_period", (q) =>
-        q.eq("source", "k3mart").gte("periodStart", startTime)
+        q.eq("source", "k3mart").gte("periodStart", startTime).lt("periodStart", now)
       )
       .filter((q) => q.eq(q.field("outletId"), args.outletId))
       .collect();

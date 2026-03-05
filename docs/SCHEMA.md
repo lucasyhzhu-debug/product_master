@@ -1448,7 +1448,7 @@ cogsMissingCount: v.optional(v.number()),        // Number of ingredients with m
 
 ## Phase 35: Schema Audit Quick-Win Changes (2026-03-05)
 
-### Indexes Removed (20)
+### Indexes Removed (21)
 
 The following indexes had zero `.withIndex()` references across all backend code (including crons.ts and http.ts) and were removed to reduce write overhead:
 
@@ -1473,6 +1473,7 @@ The following indexes had zero `.withIndex()` references across all backend code
 | `bigsellerOrders` | `by_shop` | `["shopId"]` |
 | `bigsellerOrders` | `by_sync_log` | `["syncLogId"]` |
 | `bigsellerOrders` | `by_state` | `["orderState"]` |
+| `bigsellerOrders` | `by_linked_revenue` | `["linkedRevenueId"]` |
 | `grabfoodMenuItems` | `by_grabfood_item_id` | `["grabfoodItemId"]` |
 
 ### Indexes Added (5 compound indexes)
@@ -1497,9 +1498,9 @@ The following indexes had zero `.withIndex()` references across all backend code
 
 ### Range Bound Anti-Pattern Fixes (IRB-01, IRB-02)
 
-Fixed 8 query sites that applied the upper period bound as a post-scan `.filter()` instead of chaining it in the `.withIndex()` callback:
+Fixed 10 query sites that applied the upper period bound as a post-scan `.filter()` instead of chaining it in the `.withIndex()` callback:
 - 5 sites in `convex/externalData/queries.ts` (IRB-01: `by_period`)
-- 1 site in `convex/k3martCockpit/queries.ts` (IRB-02: `by_source_period`)
+- 2 sites in `convex/k3martCockpit/queries.ts` (IRB-02: `by_source_period`)
 - 1 site in `convex/k3martKitchen/queries.ts` (IRB-02: `by_source_period`)
 - 1 site in `convex/dispatchPlanner/queries.ts` (IRB-02: `by_source_period`)
 - 1 site in `convex/gofoodDepot/queries.ts` (IRB-02: `by_source_period`)
@@ -1508,4 +1509,4 @@ Fixed 8 query sites that applied the upper period bound as a post-scan `.filter(
 
 - `productionCounts` table: Updated comment from "Running production tallies" to "ARCHIVED: Read-only since Phase 21. Source of truth is now productionLog aggregation + productionResets timestamps."
 
-### Net Change: 166 indexes -> 151 indexes (removed 20, added 5)
+### Net Change: 166 → 150 indexes (removed 21, added 5)

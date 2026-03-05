@@ -463,13 +463,13 @@ async function assembleGofoodChannel(
   const firstDate = dates[0];
   const lastDate = dates[dates.length - 1];
   const rangeStart = new Date(firstDate + "T00:00:00+07:00").getTime();
-  const rangeEnd = new Date(lastDate + "T23:59:59+07:00").getTime();
+  const rangeEnd = new Date(lastDate + "T00:00:00+07:00").getTime() + 24 * 60 * 60 * 1000;
 
-  // IRB-02: both period bounds at index level
+  // IRB-02: both period bounds at index level (exclusive upper bound)
   const revenueRecords = await ctx.db
     .query("externalRevenue")
     .withIndex("by_source_period", (q: any) =>
-      q.eq("source", "gobiz").gte("periodStart", rangeStart).lte("periodStart", rangeEnd)
+      q.eq("source", "gobiz").gte("periodStart", rangeStart).lt("periodStart", rangeEnd)
     )
     .collect();
 
