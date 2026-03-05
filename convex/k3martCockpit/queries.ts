@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
 import { getWeekNumber, calculateAutoSuggest, getDayTypeForDate, getWeekDatesFromWeekNumber } from "./helpers";
+import { buildOutletProducts, buildStockAndPriceMaps, buildProductSettings } from "./queryHelpers/stockHelpers";
 
 /**
  * Query 1: getOutletStockSummary
@@ -99,41 +100,15 @@ export const getOutletStockSummaryInternal = internalQuery({
           (r) => r.outletId === outlet._id
         );
 
-        // Build product list with sales data
-        const products = snapshotProducts.map((sp) => {
-          // Today's sales for this product
-          const todaySales = outletRevenue
-            .filter(
-              (r) =>
-                r.externalProductCode === sp.externalProductCode &&
-                r.periodStart >= todayStart &&
-                r.periodStart < todayEnd
-            )
-            .reduce((sum, r) => sum + (r.quantitySold ?? 0), 0);
-
-          // Last 7 days sales for avg calculation
-          const sevenDaySales = outletRevenue
-            .filter(
-              (r) =>
-                r.externalProductCode === sp.externalProductCode &&
-                r.periodStart >= sevenDaysAgo &&
-                r.periodStart < todayEnd
-            )
-            .reduce((sum, r) => sum + (r.quantitySold ?? 0), 0);
-
-          const avgDailySales7d = sevenDaySales / 7;
-
-          return {
-            externalProductId: sp.externalProductId,
-            externalProductCode: sp.externalProductCode,
-            productName: sp.productName,
-            quantity: sp.quantity,
-            price: sp.price,
-            soldToday: todaySales,
-            avgDailySales7d,
-            menuProductId: codeToMenuProduct.get(sp.externalProductCode) ?? null,
-          };
-        });
+        // Build product list with sales data (extracted to stockHelpers)
+        const products = buildOutletProducts(
+          snapshotProducts,
+          outletRevenue,
+          todayStart,
+          todayEnd,
+          sevenDaysAgo,
+          codeToMenuProduct
+        );
 
         return {
           _id: outlet._id,
@@ -245,15 +220,16 @@ export const getWeeklyDispatchPlans = query({
         )
         .collect();
 
-      for (const sp of snapshotProducts) {
-        stockByOutletProduct.set(
-          `${outlet._id}_${sp.externalProductCode}`,
-          sp.quantity
-        );
-        priceByOutletProduct.set(
-          `${outlet._id}_${sp.externalProductCode}`,
-          sp.price
-        );
+      // Build stock/price maps (extracted to stockHelpers)
+      const { stockEntries, priceEntries } = buildStockAndPriceMaps(
+        outlet._id as string,
+        snapshotProducts
+      );
+      for (const [key, qty] of stockEntries) {
+        stockByOutletProduct.set(key, qty);
+      }
+      for (const [key, price] of priceEntries) {
+        priceByOutletProduct.set(key, price);
       }
     }
 
@@ -953,23 +929,8 @@ export const getOutletSettings = query({
         (t) => t.outletId === outlet._id
       );
 
-      const productSettings = outletTargets.map((t) => {
-        const mapping = mappingByCode.get(t.productKey);
-        return {
-          productKey: t.productKey,
-          menuProductId: t.menuProductId as string | undefined,
-          // Show K3Mart name (externalProductName) as primary display
-          externalProductName: mapping?.externalName ?? t.productKey,
-          // Show POS/menu product name as secondary
-          productName: mapping?.menuProductName ?? mapping?.externalName ?? t.productKey,
-          // Real default price from snapshot (not 0)
-          defaultPrice: mapping?.snapshotPrice ?? 0,
-          weekdayTarget: t.weekdayTarget,
-          weekendTarget: t.weekendTarget,
-          customPrice: t.customPrice ?? null,
-          isHidden: t.isHidden ?? false,
-        };
-      });
+      // Build product settings (extracted to stockHelpers)
+      const productSettings = buildProductSettings(outletTargets, mappingByCode);
 
       return {
         outletId: outlet._id,
