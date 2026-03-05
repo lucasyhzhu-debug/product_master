@@ -13,6 +13,7 @@ import type { Granularity } from "./helpers/timeSeriesHelpers";
 import { computeLifetimeTotals } from "./helpers/lifetimeHelpers";
 import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHelpers";
 import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
+import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
 
 const sourceValidator = externalSource;
 
@@ -688,56 +689,9 @@ export const getRestockOverviewInternal = internalQuery({
           .filter((q) => q.eq(q.field("outletId"), outlet._id))
           .collect();
 
-        // Aggregate demand by product
-        const demandMap = new Map<string, { totalSold: number; productName: string }>();
-        for (const r of revenue) {
-          const key = r.externalProductCode ?? r.productName ?? "unknown";
-          const existing = demandMap.get(key);
-          const qty = r.quantitySold ?? 0;
-          if (existing) {
-            existing.totalSold += qty;
-          } else {
-            demandMap.set(key, {
-              totalSold: qty,
-              productName: r.productName ?? key,
-            });
-          }
-        }
-
-        const products = stockProducts.map((sp) => {
-          const demand = demandMap.get(sp.externalProductCode);
-          const dailyRate = demand ? demand.totalSold / 14 : 0;
-          const daysRemaining = dailyRate > 0 ? sp.quantity / dailyRate : sp.quantity > 0 ? 999 : 0;
-          const status: "critical" | "warning" | "ok" =
-            daysRemaining < 1 ? "critical" : daysRemaining < 2 ? "warning" : "ok";
-
-          return {
-            productKey: sp.externalProductCode,
-            productName: sp.productName,
-            currentStock: sp.quantity,
-            dailyRate: Math.round(dailyRate * 10) / 10,
-            daysRemaining: Math.round(daysRemaining * 10) / 10,
-            status,
-          };
-        });
-
-        // Also add products with demand but no stock data
-        for (const [key, demand] of demandMap) {
-          if (!products.some((p) => p.productKey === key)) {
-            products.push({
-              productKey: key,
-              productName: demand.productName,
-              currentStock: 0,
-              dailyRate: Math.round((demand.totalSold / 14) * 10) / 10,
-              daysRemaining: 0,
-              status: "critical" as const,
-            });
-          }
-        }
-
-        const criticalCount = products.filter((p) => p.status === "critical").length;
-        const warningCount = products.filter((p) => p.status === "warning").length;
-        const totalDailyDemand = products.reduce((sum, p) => sum + p.dailyRate, 0);
+        // Aggregate demand and build product list (pure computation)
+        const { products, criticalCount, warningCount, totalDailyDemand } =
+          buildK3MartOutletProducts(stockProducts, revenue, 14);
 
         return {
           type: "k3mart" as const,
@@ -747,7 +701,7 @@ export const getRestockOverviewInternal = internalQuery({
           products,
           criticalCount,
           warningCount,
-          totalDailyDemand: Math.round(totalDailyDemand * 10) / 10,
+          totalDailyDemand,
         };
       })
     );
@@ -770,19 +724,11 @@ export const getRestockOverviewInternal = internalQuery({
       )
     );
 
-    const gobizDemandMap = new Map<string, { totalSold: number; menuProductId?: string }>();
+    const gobizDemandMap = new Map<string, number>();
     for (let i = 0; i < gobizRevenue.length; i++) {
       const items = allGobizItems[i];
       for (const item of items) {
-        const existing = gobizDemandMap.get(item.productName);
-        if (existing) {
-          existing.totalSold += item.quantity;
-        } else {
-          gobizDemandMap.set(item.productName, {
-            totalSold: item.quantity,
-            menuProductId: item.linkedMenuProductId as string | undefined,
-          });
-        }
+        gobizDemandMap.set(item.productName, (gobizDemandMap.get(item.productName) ?? 0) + item.quantity);
       }
     }
 
@@ -793,26 +739,7 @@ export const getRestockOverviewInternal = internalQuery({
       .collect();
     const gobizStockMap = new Map(gobizManualStock.map((s) => [s.productKey, s]));
 
-    const gobizProducts = Array.from(gobizDemandMap.entries()).map(([name, demand]) => {
-      const dailyRate = demand.totalSold / 14;
-      const manualStock = gobizStockMap.get(name);
-      const currentStock = manualStock?.quantity;
-      const daysRemaining = currentStock !== undefined && dailyRate > 0
-        ? currentStock / dailyRate
-        : undefined;
-      const status = daysRemaining !== undefined
-        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
-        : undefined;
-      return {
-        productKey: name,
-        productName: name,
-        currentStock,
-        dailyRate: Math.round(dailyRate * 10) / 10,
-        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
-        status,
-      };
-    });
-
+    const gobizProducts = buildDemandProducts(gobizDemandMap, gobizStockMap, 14);
     const gobizTotalDemand = gobizProducts.reduce((sum, p) => sum + p.dailyRate, 0);
 
     // 4. Internal channel - look up actual order items for product-level data
@@ -866,26 +793,7 @@ export const getRestockOverviewInternal = internalQuery({
       .collect();
     const internalStockMap = new Map(internalManualStock.map((s) => [s.productKey, s]));
 
-    const internalProducts = Array.from(internalDemandMap.entries()).map(([name, totalSold]) => {
-      const dailyRate = totalSold / 14;
-      const manualStock = internalStockMap.get(name);
-      const currentStock = manualStock?.quantity;
-      const daysRemaining = currentStock !== undefined && dailyRate > 0
-        ? currentStock / dailyRate
-        : undefined;
-      const status = daysRemaining !== undefined
-        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
-        : undefined;
-      return {
-        productKey: name,
-        productName: name,
-        currentStock,
-        dailyRate: Math.round(dailyRate * 10) / 10,
-        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
-        status,
-      };
-    });
-
+    const internalProducts = buildDemandProducts(internalDemandMap, internalStockMap, 14);
     const internalTotalDemand = internalProducts.reduce((sum, p) => sum + p.dailyRate, 0);
 
     // 5. Summary
