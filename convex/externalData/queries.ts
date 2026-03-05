@@ -2,12 +2,15 @@ import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { calculatePeriodRange, utcToWibDateStr, isWeekend, getIsoWeekNumber, utcToWibMonthStr, utcToWibHourStr } from "../lib/periodRange";
+import { calculatePeriodRange, isWeekend } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
 import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
 import { aggregatePeriodRevenue } from "./helpers/dashboardHelpers";
+import { bucketKey, formatBucketLabel } from "./helpers/timeSeriesHelpers";
+import type { Granularity } from "./helpers/timeSeriesHelpers";
+import { computeLifetimeTotals } from "./helpers/lifetimeHelpers";
 
 const sourceValidator = externalSource;
 
@@ -1389,40 +1392,7 @@ export const getRevenueTimeSeries = query({
     // For internal orders, look up real order data for accurate gross/net
     const orderDataMap = await fetchInternalOrderDataMap(ctx, records);
 
-    // Bucket key function
-    function bucketKey(utcMs: number): string {
-      switch (args.granularity) {
-        case "hourly": return utcToWibHourStr(utcMs);
-        case "daily": return utcToWibDateStr(utcMs);
-        case "weekly": return getIsoWeekNumber(utcMs);
-        case "monthly": return utcToWibMonthStr(utcMs);
-      }
-    }
-
-    // Label formatter
-    function formatLabel(key: string): string {
-      switch (args.granularity) {
-        case "hourly": {
-          // "2026-02-16 14" -> "2pm"
-          const hour = parseInt(key.split(" ")[1], 10);
-          const suffix = hour >= 12 ? "pm" : "am";
-          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-          return `${h12}${suffix}`;
-        }
-        case "daily": {
-          // YYYY-MM-DD -> "Feb 10"
-          const d = new Date(key + "T00:00:00Z");
-          return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        }
-        case "weekly":
-          return key; // "W06"
-        case "monthly": {
-          // "2026-02" -> "Feb"
-          const d = new Date(key + "-01T00:00:00Z");
-          return d.toLocaleDateString("en-US", { month: "short" });
-        }
-      }
-    }
+    const granularity = args.granularity as Granularity;
 
     // Discover all unique sources from fetched records
     const discoveredSources = [...new Set(records.map((r) => r.source))];
@@ -1430,7 +1400,7 @@ export const getRevenueTimeSeries = query({
 
     for (const record of records) {
       const ts = record.transactionDate ?? record.periodStart;
-      const key = bucketKey(ts);
+      const key = bucketKey(ts, granularity);
       const platform = record.source;
 
       if (!buckets.has(key)) {
@@ -1469,7 +1439,7 @@ export const getRevenueTimeSeries = query({
 
     // Sort buckets chronologically
     const sortedKeys = Array.from(buckets.keys()).sort();
-    const labels = sortedKeys.map(formatLabel);
+    const labels = sortedKeys.map((key) => formatBucketLabel(key, granularity));
 
     // Build series only for sources with non-zero totals (hide empty channels)
     const series = discoveredSources
@@ -1586,13 +1556,6 @@ export const getRevenueByOutletInternal = internalQuery({
 // NOTE: Full table scan — acceptable at current scale (~1K records).
 // When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
 
-/**
- * Fallback average revenue per ball in IDR, used only when zero BOM-linked
- * products exist (cold start / no product mappings yet).
- * Once any products are mapped, the dynamic weighted average takes over.
- */
-const FALLBACK_REVENUE_PER_BALL = 35_000;
-
 export const getLifetimeTotalsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -1604,63 +1567,6 @@ export const getLifetimeTotalsInternal = internalQuery({
       ctx.db.query("componentTypes").collect(),
     ]);
 
-    // Build set of production component type IDs (BIG_BALL, MID_BALL, etc.)
-    const productionComponentIds = new Set(
-      componentTypes
-        .filter((ct) => ct.category === "production")
-        .map((ct) => ct._id as string)
-    );
-
-    // Build menuProductId -> total ball count map from BOM
-    // A product with 1 BIG_BALL + 2 MID_BALL = 3 balls total
-    const menuProductBallCount = new Map<string, number>();
-    for (const comp of bomComponents) {
-      if (productionComponentIds.has(comp.componentTypeId as string)) {
-        const existing = menuProductBallCount.get(comp.menuProductId as string) ?? 0;
-        menuProductBallCount.set(comp.menuProductId as string, existing + comp.quantity);
-      }
-    }
-
-    // Calculate dynamic avgRevenuePerBall from BOM-linked items.
-    // "Known" items have a linkedMenuProductId with production BOM components.
-    // Their weighted average revenue/ball is used to estimate total balls from
-    // all revenue (including unmapped items).
-    let knownRevenue = 0;
-    let knownBalls = 0;
-
-    for (const item of items) {
-      if (!item.linkedMenuProductId) continue;
-      const ballsPerProduct = menuProductBallCount.get(item.linkedMenuProductId as string);
-      if (!ballsPerProduct || ballsPerProduct <= 0) continue;
-      // This item has a valid BOM mapping with production components
-      knownRevenue += item.totalPrice;
-      knownBalls += item.quantity * ballsPerProduct;
-    }
-
-    // Aggregate lifetime totals from externalRevenue
-    let lifetimeRevenue = 0;
-    let lifetimeTransactions = 0;
-    for (const rev of revenues) {
-      lifetimeRevenue += rev.revenueGross ?? 0;
-      lifetimeTransactions += rev.transactionCount ?? 1;
-    }
-
-    // Dynamic weighted average: revenue / balls from known products.
-    // Falls back to FALLBACK_REVENUE_PER_BALL when no known products exist.
-    const avgRevenuePerBall = knownBalls > 0
-      ? knownRevenue / knownBalls
-      : FALLBACK_REVENUE_PER_BALL;
-
-    // Estimate total balls sold from lifetime gross revenue
-    const totalBalls = lifetimeRevenue > 0
-      ? Math.round(lifetimeRevenue / avgRevenuePerBall)
-      : 0;
-
-    return {
-      totalBalls,
-      lifetimeRevenue,
-      lifetimeTransactions,
-      avgRevenuePerBall,
-    };
+    return computeLifetimeTotals(items, revenues, bomComponents, componentTypes);
   },
 });
