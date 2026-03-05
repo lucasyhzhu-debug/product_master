@@ -9,6 +9,13 @@ import { cn } from "@/lib/utils";
 import { useFinancials } from "@/hooks/convex/useFinancials";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DataQualityPanel } from "@/components/financials/DataQualityPanel";
 import { PLRow } from "@/components/financials/PLRow";
 import { ChannelRow } from "@/components/financials/ChannelRow";
@@ -18,11 +25,35 @@ import {
   WEEK_MS,
   computeDelta,
   formatWeekRange,
+  formatPeriodRange,
   DeltaIndicator,
   SectionHeaderRow,
   PLTableSkeleton,
   ErrorCard,
+  type PeriodMode,
 } from "@/lib/financialHelpers";
+
+// ── Helper: convert UTC epoch ms to YYYY-MM-DD string in WIB for <input type="date"> ──
+function utcToWibDateStr(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const y = wib.getUTCFullYear();
+  const m = String(wib.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(wib.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// ── Helper: convert YYYY-MM-DD string to WIB midnight in UTC epoch ms ──
+function wibDateStrToUtc(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  // WIB 00:00 = UTC previous day 17:00
+  return Date.UTC(y, m - 1, d, -7, 0, 0, 0);
+}
+
+const PERIOD_MODE_LABELS: Record<PeriodMode, string> = {
+  week: "Weekly",
+  month: "Monthly",
+  custom: "Custom Range",
+};
 
 // ── Main page component ──
 
@@ -30,12 +61,23 @@ export function FinancialStatement() {
   const {
     data,
     isLoading,
-    weekStart,
-    weekLabel,
-    isCurrentWeek,
+    periodMode,
+    setPeriodMode,
+    periodLabel,
+    isCurrentPeriod,
+    // Week
     goToPreviousWeek,
     goToNextWeek,
     goToCurrentWeek,
+    // Month
+    goToPreviousMonth,
+    goToNextMonth,
+    goToCurrentMonth,
+    // Custom
+    customStart,
+    customEnd,
+    setCustomStart,
+    setCustomEnd,
   } = useFinancials();
 
   // Section collapse state
@@ -48,14 +90,21 @@ export function FinancialStatement() {
 
   // Derive period-agnostic column headers from data
   const columnHeaders = useMemo(() => {
-    if (!data) return { current: "This Week", previous: "Prev Week" };
-    const currentLabel = formatWeekRange(data.weekStart);
-    const previousStart = data.weekStart - WEEK_MS;
-    const previousLabel = formatWeekRange(previousStart);
+    if (!data) return { current: "This Period", previous: "Prev Period" };
+    if (periodMode === "week") {
+      const currentLabel = formatWeekRange(data.periodStart);
+      const previousStart = data.periodStart - WEEK_MS;
+      const previousLabel = formatWeekRange(previousStart);
+      return { current: currentLabel, previous: previousLabel };
+    }
+    // For month and custom, use the generic period range formatter
+    const currentLabel = formatPeriodRange(data.periodStart, data.periodEnd);
+    const duration = data.periodEnd - data.periodStart;
+    const previousLabel = formatPeriodRange(data.periodStart - duration, data.periodStart);
     return { current: currentLabel, previous: previousLabel };
-  }, [data]);
+  }, [data, periodMode]);
 
-  // Build a lookup map for previous week channels by source
+  // Build a lookup map for previous period channels by source
   type ChannelEntry = NonNullable<typeof data>["previous"]["channels"][0];
   const previousChannelMap = useMemo(() => {
     if (!data) return new Map<string, ChannelEntry>();
@@ -94,11 +143,37 @@ export function FinancialStatement() {
     };
   }, [data]);
 
+  // ── Navigation handlers (mode-aware) ──
+  const goToPrevious = periodMode === "week" ? goToPreviousWeek : goToPreviousMonth;
+  const goToNext = periodMode === "week" ? goToNextWeek : goToNextMonth;
+  const goToCurrent = periodMode === "week" ? goToCurrentWeek : goToCurrentMonth;
+  const currentButtonLabel = periodMode === "week" ? "Today" : "This Month";
+
+  // ── Page description ──
+  const pageDescription = useMemo(() => {
+    switch (periodMode) {
+      case "week":
+        return "Weekly profit and loss statement";
+      case "month":
+        return "Monthly profit and loss statement";
+      case "custom":
+        return "Custom period profit and loss statement";
+    }
+  }, [periodMode]);
+
+  // ── CSV export filename ──
+  const csvFilename = useMemo(() => {
+    if (!data) return "frollie-income-statement.csv";
+    const wibDate = new Date(data.periodStart + WIB_OFFSET_MS);
+    const dateStr = wibDate.toISOString().slice(0, 10);
+    return `frollie-income-statement-${periodMode}-${dateStr}.csv`;
+  }, [data, periodMode]);
+
   return (
     <div className="min-w-[280px]">
       <PageHeader
         title="Income Statement"
-        description="Weekly profit and loss statement"
+        description={pageDescription}
         action={
           <Button
             variant="outline"
@@ -106,10 +181,8 @@ export function FinancialStatement() {
             onClick={() => {
               if (!data) return;
               try {
-                const csv = generateIncomeStatementCSV(data, weekLabel);
-                const wibDate = new Date(weekStart + WIB_OFFSET_MS);
-                const dateStr = wibDate.toISOString().slice(0, 10);
-                downloadCSV(csv, `frollie-income-statement-${dateStr}.csv`);
+                const csv = generateIncomeStatementCSV(data, periodLabel);
+                downloadCSV(csv, csvFilename);
               } catch {
                 toast.error("Failed to export CSV");
               }
@@ -122,31 +195,82 @@ export function FinancialStatement() {
         }
       />
 
-      {/* Week navigation */}
-      <div className="flex items-center justify-center gap-3 mb-6">
-        <Button variant="outline" size="icon" onClick={goToPreviousWeek}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium min-w-[260px] text-center">
-          {weekLabel}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={goToNextWeek}
-          disabled={isCurrentWeek}
+      {/* Period mode selector + navigation */}
+      <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
+        {/* Mode selector */}
+        <Select
+          value={periodMode}
+          onValueChange={(val) => setPeriodMode(val as PeriodMode)}
         >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        {!isCurrentWeek && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={goToCurrentWeek}
-            className="ml-2 text-xs"
-          >
-            Today
-          </Button>
+          <SelectTrigger className="w-[140px] h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.entries(PERIOD_MODE_LABELS) as [PeriodMode, string][]).map(
+              ([mode, label]) => (
+                <SelectItem key={mode} value={mode}>
+                  {label}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
+
+        {/* Week / Month navigation (arrows + label + reset button) */}
+        {periodMode !== "custom" && (
+          <>
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={goToPrevious}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium min-w-[220px] text-center">
+              {periodLabel}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={goToNext}
+              disabled={isCurrentPeriod}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            {!isCurrentPeriod && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={goToCurrent}
+                className="ml-2 text-xs"
+              >
+                {currentButtonLabel}
+              </Button>
+            )}
+          </>
+        )}
+
+        {/* Custom date range picker */}
+        {periodMode === "custom" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="date"
+              value={utcToWibDateStr(customStart)}
+              onChange={(e) => {
+                const ms = wibDateStrToUtc(e.target.value);
+                if (!isNaN(ms)) setCustomStart(ms);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <span className="text-sm text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={utcToWibDateStr(customEnd)}
+              onChange={(e) => {
+                const ms = wibDateStrToUtc(e.target.value);
+                if (!isNaN(ms)) setCustomEnd(ms);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+            <span className="text-xs text-muted-foreground">(vs prior equal period)</span>
+          </div>
         )}
       </div>
 
@@ -167,7 +291,7 @@ export function FinancialStatement() {
 
       {/* Error fallback -- Convex queries rarely fail, but defensive */}
       {!isLoading && !data && (
-        <ErrorCard onRetry={goToCurrentWeek} />
+        <ErrorCard onRetry={goToCurrent} />
       )}
 
       {/* P&L table */}

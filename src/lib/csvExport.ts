@@ -62,8 +62,10 @@ interface WeekData {
 }
 
 export interface IncomeStatementData {
-  weekStart: number;
-  weekEnd: number;
+  weekStart?: number;
+  weekEnd?: number;
+  periodStart?: number;
+  periodEnd?: number;
   current: WeekData;
   previous: WeekData;
   deltas: {
@@ -108,7 +110,7 @@ export function generateIncomeStatementCSV(
     "line_item",
     "amount_idr",
     "confidence",
-    "prev_week_idr",
+    "prev_period_idr",
     "delta_pct",
   ]);
 

@@ -3,7 +3,13 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 // NOTE: WIB_OFFSET_MS and WEEK_MS imported from financialHelpers.tsx.
 // Canonical backend implementation: convex/lib/periodRange.ts
-import { WIB_OFFSET_MS, WEEK_MS } from "@/lib/financialHelpers";
+import {
+  WIB_OFFSET_MS,
+  WEEK_MS,
+  formatMonthLabel,
+  formatPeriodRange,
+  type PeriodMode,
+} from "@/lib/financialHelpers";
 
 /** Get the Monday 00:00 WIB epoch ms for the week containing `now`. */
 function getCurrentWeekStart(): number {
@@ -22,14 +28,102 @@ function getCurrentWeekStart(): number {
   return mondayWibMs - WIB_OFFSET_MS;
 }
 
+/** Get the current year and 0-indexed month in WIB. */
+function getCurrentWibMonth(): { year: number; month: number } {
+  const now = Date.now();
+  const wibDate = new Date(now + WIB_OFFSET_MS);
+  return { year: wibDate.getUTCFullYear(), month: wibDate.getUTCMonth() };
+}
+
+/** Convert WIB midnight (start of day) to UTC epoch ms. WIB 00:00 = UTC previous day 17:00. */
+function wibMidnightToUtc(year: number, month: number, day: number): number {
+  return Date.UTC(year, month, day, -7, 0, 0, 0);
+}
+
 export function useFinancials() {
+  // ── Period mode state ──
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("week");
+
+  // ── Week mode state ──
   const [weekStart, setWeekStart] = useState(() => getCurrentWeekStart());
 
-  const data = useQuery(
+  // ── Month mode state ──
+  const [monthYear, setMonthYear] = useState(() => getCurrentWibMonth().year);
+  const [monthIndex, setMonthIndex] = useState(() => getCurrentWibMonth().month);
+
+  // ── Custom mode state ──
+  // Default custom range: current month
+  const [customStart, setCustomStart] = useState<number>(() => {
+    const { year, month } = getCurrentWibMonth();
+    return wibMidnightToUtc(year, month, 1);
+  });
+  const [customEnd, setCustomEnd] = useState<number>(() => {
+    const { year, month } = getCurrentWibMonth();
+    return wibMidnightToUtc(year, month + 1, 1);
+  });
+
+  // ── Compute periodStart/periodEnd for non-week modes ──
+  const monthPeriod = useMemo(() => {
+    const periodStart = wibMidnightToUtc(monthYear, monthIndex, 1);
+    const periodEnd = wibMidnightToUtc(monthYear, monthIndex + 1, 1);
+    return { periodStart, periodEnd };
+  }, [monthYear, monthIndex]);
+
+  // ── Queries (only one fires at a time via "skip") ──
+  const weeklyData = useQuery(
     api.reports.incomeStatement.getWeeklyIncomeStatement,
-    { weekStart }
+    periodMode === "week" ? { weekStart } : "skip"
   );
 
+  const monthlyData = useQuery(
+    api.reports.incomeStatement.getIncomeStatement,
+    periodMode === "month"
+      ? { periodStart: monthPeriod.periodStart, periodEnd: monthPeriod.periodEnd }
+      : "skip"
+  );
+
+  const customData = useQuery(
+    api.reports.incomeStatement.getIncomeStatement,
+    periodMode === "custom"
+      ? { periodStart: customStart, periodEnd: customEnd }
+      : "skip"
+  );
+
+  // ── Merge query results into a single data shape ──
+  // The page component doesn't need to know which query ran.
+  const data = useMemo(() => {
+    if (periodMode === "week") {
+      if (!weeklyData) return undefined;
+      return {
+        periodStart: weeklyData.weekStart,
+        periodEnd: weeklyData.weekEnd,
+        current: weeklyData.current,
+        previous: weeklyData.previous,
+        deltas: weeklyData.deltas,
+      };
+    }
+    if (periodMode === "month") {
+      if (!monthlyData) return undefined;
+      return {
+        periodStart: monthlyData.periodStart,
+        periodEnd: monthlyData.periodEnd,
+        current: monthlyData.current,
+        previous: monthlyData.previous,
+        deltas: monthlyData.deltas,
+      };
+    }
+    // custom
+    if (!customData) return undefined;
+    return {
+      periodStart: customData.periodStart,
+      periodEnd: customData.periodEnd,
+      current: customData.current,
+      previous: customData.previous,
+      deltas: customData.deltas,
+    };
+  }, [periodMode, weeklyData, monthlyData, customData]);
+
+  // ── Week navigation ──
   const goToPreviousWeek = useCallback(() => {
     setWeekStart((prev) => prev - WEEK_MS);
   }, []);
@@ -42,7 +136,34 @@ export function useFinancials() {
     setWeekStart(getCurrentWeekStart());
   }, []);
 
-  // Format week label: "Week of Feb 24 - Mar 2, 2026" (WIB dates)
+  // ── Month navigation ──
+  const goToPreviousMonth = useCallback(() => {
+    setMonthIndex((prev) => {
+      if (prev === 0) {
+        setMonthYear((y) => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
+  }, []);
+
+  const goToNextMonth = useCallback(() => {
+    setMonthIndex((prev) => {
+      if (prev === 11) {
+        setMonthYear((y) => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
+  }, []);
+
+  const goToCurrentMonth = useCallback(() => {
+    const { year, month } = getCurrentWibMonth();
+    setMonthYear(year);
+    setMonthIndex(month);
+  }, []);
+
+  // ── Labels ──
   const weekLabel = useMemo(() => {
     const startWib = new Date(weekStart + WIB_OFFSET_MS);
     const endWib = new Date(weekStart + WEEK_MS + WIB_OFFSET_MS - 1); // Sunday 23:59:59 WIB
@@ -58,19 +179,68 @@ export function useFinancials() {
     return `Week of ${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
   }, [weekStart]);
 
-  // Use >= to prevent navigating into the future even if the component
-  // re-renders across a week boundary (e.g., Sunday 23:59 -> Monday 00:01 WIB).
-  // Memoized to avoid calling getCurrentWeekStart() on every render.
+  const monthLabel = useMemo(
+    () => formatMonthLabel(monthYear, monthIndex),
+    [monthYear, monthIndex]
+  );
+
+  const customLabel = useMemo(
+    () => formatPeriodRange(customStart, customEnd),
+    [customStart, customEnd]
+  );
+
+  const periodLabel = useMemo(() => {
+    switch (periodMode) {
+      case "week":
+        return weekLabel;
+      case "month":
+        return monthLabel;
+      case "custom":
+        return customLabel;
+    }
+  }, [periodMode, weekLabel, monthLabel, customLabel]);
+
+  // ── Current period check (prevent future navigation) ──
   const isCurrentWeek = useMemo(() => weekStart >= getCurrentWeekStart(), [weekStart]);
+
+  const isCurrentMonth = useMemo(() => {
+    const { year, month } = getCurrentWibMonth();
+    return monthYear >= year && (monthYear > year || monthIndex >= month);
+  }, [monthYear, monthIndex]);
+
+  const isCurrentPeriod = useMemo(() => {
+    switch (periodMode) {
+      case "week":
+        return isCurrentWeek;
+      case "month":
+        return isCurrentMonth;
+      case "custom":
+        return false; // Custom mode has no "current" concept
+    }
+  }, [periodMode, isCurrentWeek, isCurrentMonth]);
 
   return {
     data,
     isLoading: data === undefined,
+    periodMode,
+    setPeriodMode,
+    periodLabel,
+    isCurrentPeriod,
+    // Week navigation
     weekStart,
-    weekLabel,
-    isCurrentWeek,
     goToPreviousWeek,
     goToNextWeek,
     goToCurrentWeek,
+    // Month navigation
+    monthYear,
+    monthIndex,
+    goToPreviousMonth,
+    goToNextMonth,
+    goToCurrentMonth,
+    // Custom date range
+    customStart,
+    customEnd,
+    setCustomStart,
+    setCustomEnd,
   };
 }

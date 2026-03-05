@@ -32,6 +32,42 @@ export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Re-export Confidence type for consumers
 export type { Confidence };
 
+// ── Period mode type ──
+export type PeriodMode = "week" | "month" | "custom";
+
+// ── Month names ──
+export const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+// ── Month label formatter ──
+export function formatMonthLabel(year: number, month: number): string {
+  return `${MONTH_NAMES[month]} ${year}`;
+}
+
+// ── Generic period range formatter (WIB dates) ──
+export function formatPeriodRange(startUtcMs: number, endUtcMs: number): string {
+  const startWib = new Date(startUtcMs + WIB_OFFSET_MS);
+  // endUtcMs is exclusive, so subtract 1ms to get the last instant of the period
+  const endWib = new Date(endUtcMs + WIB_OFFSET_MS - 1);
+  const startMonth = startWib.toLocaleString("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  });
+  const endMonth = endWib.toLocaleString("en-US", {
+    month: "short",
+    timeZone: "UTC",
+  });
+  const startDay = startWib.getUTCDate();
+  const endDay = endWib.getUTCDate();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} - ${endDay}`;
+  }
+  return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+}
+
 // ── computeDelta (shared between UI and CSV export) ──
 
 export function computeDelta(
