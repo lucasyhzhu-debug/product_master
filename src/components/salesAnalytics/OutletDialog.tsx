@@ -53,7 +53,7 @@ export function OutletDialog({ open, onOpenChange, editingOutlet }: OutletDialog
     setSaving(true);
     try {
       await upsertOutlet({
-        source: "grabfood" as any,
+        source: "grabfood" as const,
         externalId: merchantId.trim(),
         name: name.trim(),
         isActive: true,

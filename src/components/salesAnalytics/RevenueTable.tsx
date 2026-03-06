@@ -1,9 +1,7 @@
 import { useState, Fragment } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { wibDateStrToUtcMs } from "@/lib/dateUtils";
-import { utcToWibTimeStr } from "@/lib/dateUtils";
-import { formatDateId } from "@/lib/dateUtils";
+import { wibDateStrToUtcMs, utcToWibTimeStr, formatDateId } from "@/lib/dateUtils";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { RevenueRecord } from "./overviewUtils";
 import { PlatformBadge } from "./PlatformBadge";
@@ -166,16 +164,15 @@ export function RevenueTable({
             ? Array.from(storeGroups.entries()).map(([storeName, storeRecords]) => {
                 const isStoreExpanded = !collapsedStores.has(storeName);
                 return (
-                  <>{/* Store group */}
+                  <Fragment key={storeName}>
                     <StoreGroupHeader
-                      key={`group-${storeName}`}
                       storeName={storeName}
                       records={storeRecords}
                       isExpanded={isStoreExpanded}
                       onToggle={() => toggleStore(storeName)}
                     />
                     {isStoreExpanded && storeRecords.map((record) => renderRow(record))}
-                  </>
+                  </Fragment>
                 );
               })
             : filtered.map((record) => renderRow(record))}

@@ -32,7 +32,6 @@ export type ProductGroupedViewProps = {
     quantity: number
   ) => Promise<void>;
   onAdjust: (state: AdjustDialogState) => void;
-  token: string;
 };
 
 export function ProductGroupedView({

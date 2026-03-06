@@ -7,8 +7,7 @@ import { getPlatformPalette } from "@/lib/platformColors";
 import { useRevenueByOutlet, type PeriodPreset } from "@/hooks/convex";
 
 export function PlatformHierarchy({ preset }: { preset: PeriodPreset }) {
-  const { data, isLoading, refresh: refreshByOutlet } = useRevenueByOutlet(preset);
-  void refreshByOutlet; // available for sync handlers if needed
+  const { data, isLoading } = useRevenueByOutlet(preset);
   const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
 
   if (isLoading || !data) {

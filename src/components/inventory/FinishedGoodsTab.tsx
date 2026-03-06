@@ -405,7 +405,6 @@ export function FinishedGoodsTab() {
             allLocations={locationsForTransfer}
             onTransfer={handleTransfer}
             onAdjust={setAdjustDialogState}
-            token={user?.token ?? ""}
           />
         ) : (
           /* Fallback: original ProductStockCard grid while groupedOverview loads */

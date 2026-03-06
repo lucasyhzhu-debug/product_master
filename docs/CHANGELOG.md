@@ -16,6 +16,19 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### Frontend Giant File Splits (Phase 38)
+
+**For the team:** No visible changes -- the same pages and features work exactly as before. Four large frontend files have been split into smaller, focused components for easier maintenance and faster development.
+
+#### Refactored
+- Split `OverviewTab.tsx` into 14 sub-components (1,273 → 283 LOC, -78%)
+- Split `GrabFoodManager.tsx` into 6 tab components (1,486 → 173 LOC, -88%)
+- Split `FinishedGoodsTab.tsx` into 6 view/settings components (1,474 → 488 LOC, -67%)
+- Split `VouchersManager.tsx` into 5 components in new `src/components/vouchers/` directory (1,285 → 506 LOC, -61%)
+- Created shared `src/lib/dateUtils.ts` with 6 WIB timezone helpers
+- Eliminated duplicate `formatCurrencyIDR` (replaced with shared `formatCurrency`)
+- Total: 5,518 → 1,450 LOC across 4 parent files (-74%), 32 new focused component files
+
 ### Order & Dispatch Backend Simplification (Phase 37)
 
 **For the team:** No visible changes -- backend code cleanup. Three large files in the orders and dispatch planner modules have been split into smaller, testable helper modules. Bug fixes included: completed-today filter now correctly uses completion time instead of creation time, and cancelled production records are no longer counted in kitchen stats.
