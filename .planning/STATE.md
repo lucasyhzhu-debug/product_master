@@ -3,27 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
-stopped_at: Phase 39 context gathered
-last_updated: "2026-03-06T13:59:51.176Z"
-last_activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verification)
+stopped_at: Completed 38-04 (VouchersManager Split)
+last_updated: "2026-03-06"
+last_activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 12
-  completed_plans: 8
----
-
----
-gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Tech Debt & Resilience
-status: in-progress
-last_updated: "2026-03-05"
-progress:
-  total_phases: 5
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_plans: 9
 ---
 
 # Project State
@@ -31,14 +18,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 36 complete -- all 3 plans executed, ready for merge
+**Current focus:** Phase 38 — Frontend Giant File Splits (plan 04 of 04 complete)
 
 ## Current Position
 
-Phase: 36 — Sales & Analytics Backend Simplification
-Plan: 3 of 3 (complete)
-Status: Phase 36 complete -- k3martCockpit split + incomeStatement verified + CHANGELOG updated
-Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verification)
+Phase: 38 — Frontend Giant File Splits
+Plan: 4 of 4 (complete)
+Status: Phase 38-04 complete -- VouchersManager split to 506 LOC
+Last activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 
 ## Performance Metrics
 
@@ -47,7 +34,7 @@ Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verif
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min (54min total, 5 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38-04: 5min
 
 ## Accumulated Context
 
@@ -70,6 +57,8 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P36-03: k3martCockpit/queries.ts reduced from 985 to 760 LOC (22.8% reduction, 2 helper files)
 - P36-03: queryHelpers/ directory pattern (not helpers/) avoids Windows case-insensitive collision
 - P36-03: 760 LOC slightly over 750 target -- remaining functions too ctx-dependent for pure extraction
+- P38-04: VouchersManager.tsx split from 1,285 to 506 LOC (60.6% reduction), 5 components + barrel in src/components/vouchers/
+- P38-04: FreeVoucherDialog made self-contained with own state/handler (critical for LOC target)
 
 ### Open Blockers (carried forward)
 
@@ -87,6 +76,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-06T13:59:51.172Z
-Stopped at: Phase 39 context gathered
-Resume notes: Phase 36 complete. All 3 plans executed. Ready for merge to main and next milestone planning.
+Last session: 2026-03-06
+Stopped at: Completed 38-04 (VouchersManager Split)
+Resume notes: Phase 38 plan 04 complete. VouchersManager split to 506 LOC. Pre-existing salesAnalytics build errors noted (unrelated to this plan).

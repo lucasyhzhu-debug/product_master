@@ -195,7 +195,7 @@ Plans:
 
 **Requirements:** FFS-01, FFS-02, FFS-03, FFS-04
 
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 - [ ] 38-01-PLAN.md — Split OverviewTab.tsx + create shared dateUtils.ts (FFS-01)
