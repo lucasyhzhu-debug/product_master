@@ -3,6 +3,13 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
+import {
+  calculateBallStatsFromItems,
+  calculateProductionStatsByType,
+  sortByPriorityComparator,
+  aggregateKitchenStats,
+  calculateOrderBallCounts,
+} from "./helpers/kitchenEnrichment";
 import type { OrderWithItems } from "./types";
 
 // ============================================
@@ -373,120 +380,6 @@ export const getKitchenOrders = query({
 });
 
 /**
- * Calculate ball stats from orderItemProduction records.
- * Items without production records contribute 0 balls.
- */
-function calculateBallStatsFromItems(
-  items: Array<Doc<"orderItems"> & { productionRecords?: Doc<"orderItemProduction">[] }>
-): { bigBallsNeeded: number; midBallsNeeded: number } {
-  let bigBallsNeeded = 0;
-  let midBallsNeeded = 0;
-
-  for (const item of items) {
-    if (item.isCancelled) continue;
-
-    // NEW system: production records (BOM-derived, correct codes)
-    const records = item.productionRecords ?? [];
-    const activeRecords = records.filter(r => !r.isCancelled);
-
-    if (activeRecords.length > 0) {
-      for (const record of activeRecords) {
-        if (record.productionUnitCode === "BIG_BALL") {
-          bigBallsNeeded += record.unitsRemaining;
-        } else if (record.productionUnitCode === "MID_BALL") {
-          midBallsNeeded += record.unitsRemaining;
-        }
-      }
-      continue; // Skip items without production records (0 balls)
-    }
-
-    // Items without production records contribute 0 balls
-  }
-
-  return { bigBallsNeeded, midBallsNeeded };
-}
-
-/**
- * Calculate NEW system production statistics by production unit type.
- * Aggregates unitsRemaining from orderItemProduction records.
- */
-function calculateProductionStatsByType(
-  itemsWithProduction: Array<Doc<"orderItems"> & { productionRecords: Doc<"orderItemProduction">[] }>,
-  productionUnitTypes: Doc<"productionUnitTypes">[]
-): Array<{
-  code: string;
-  name: string;
-  color: string;
-  unitsNeeded: number;
-}> {
-  return productionUnitTypes
-    .map((unitType) => {
-      let unitsNeeded = 0;
-
-      for (const item of itemsWithProduction) {
-        for (const record of item.productionRecords) {
-          if (record.productionUnitTypeId === unitType._id) {
-            unitsNeeded += record.unitsRemaining;
-          }
-        }
-      }
-
-      return {
-        code: unitType.code,
-        name: unitType.name,
-        color: unitType.color ?? "#93C572", // Default to pistachio green if not set
-        unitsNeeded,
-      };
-    })
-    .filter((p) => p.unitsNeeded > 0);
-}
-
-/**
- * Assign priority based on order status.
- * Phase 14: Simplified for 7-status model.
- * Priority 0: BeingPrepared (active production)
- * Priority 1: PaymentReceived (paid, waiting for kitchen)
- * Priority 2: Draft (de-prioritized)
- * Priority 3: AwaitingDelivery (ready for pickup/shipment)
- */
-function getStatusPriority(status: string): number {
-  if (status === "BeingPrepared") {
-    return 0;
-  } else if (status === "PaymentReceived") {
-    return 1;
-  } else if (status === "Draft") {
-    return 2;
-  } else if (status === "AwaitingDelivery") {
-    return 3;
-  }
-  return 4; // Fallback
-}
-
-/**
- * Comparator for sorting active (non-completed) orders by priority, then dueDate, then creation time.
- */
-function sortByPriorityComparator<T extends Doc<"orders">>(a: T, b: T): number {
-  const aPriority = getStatusPriority(a.status);
-  const bPriority = getStatusPriority(b.status);
-
-  // Sort by priority first
-  if (aPriority !== bPriority) {
-    return aPriority - bPriority;
-  }
-
-  // Within same priority group, sort by due date (earliest first)
-  if (a.dueDate !== b.dueDate) {
-    if (!a.dueDate && !b.dueDate) return 0;
-    if (!a.dueDate) return 1;
-    if (!b.dueDate) return -1;
-    return a.dueDate - b.dueDate;
-  }
-
-  // Finally by creation time (earliest first)
-  return a._creationTime - b._creationTime;
-}
-
-/**
  * Get order events for audit trail display.
  * Returns events in reverse chronological order.
  */
@@ -660,154 +553,33 @@ export const getKitchenStats = query({
       }
     }));
 
-    // Calculate stats for pending orders from orderItemProduction records
-    let bigBallsNeeded = 0;
-    let midBallsNeeded = 0;
-
-    for (const order of pendingOrders) {
-      const items = itemsByOrder.get(order._id.toString()) ?? [];
-      for (const item of items) {
-        if (item.isCancelled) continue;
-
-        const records = productionByItem.get(item._id.toString()) ?? [];
-        const activeRecords = records.filter(r => !r.isCancelled);
-
-        for (const record of activeRecords) {
-          if (record.productionUnitCode === "BIG_BALL") {
-            bigBallsNeeded += record.unitsRemaining;
-          } else if (record.productionUnitCode === "MID_BALL") {
-            midBallsNeeded += record.unitsRemaining;
-          }
-        }
-      }
-    }
-
-    // Calculate stats for completed orders today from orderItemProduction records
-    let bigBallsCompleted = 0;
-    let midBallsCompleted = 0;
-
-    for (const order of completedTodayOrders) {
-      const items = itemsByOrder.get(order._id.toString()) ?? [];
-      for (const item of items) {
-        if (item.isCancelled) continue;
-
-        const records = productionByItem.get(item._id.toString()) ?? [];
-        const activeRecords = records.filter(r => !r.isCancelled);
-
-        for (const record of activeRecords) {
-          if (record.productionUnitCode === "BIG_BALL") {
-            bigBallsCompleted += record.unitsCompleted;
-          } else if (record.productionUnitCode === "MID_BALL") {
-            midBallsCompleted += record.unitsCompleted;
-          }
-        }
-      }
-    }
-
-    // PRD-5: Calculate dynamic production type stats (NEW system)
+    // PRD-5: Fetch production unit types for dynamic stats (DB query stays in orchestrator)
     const productionUnitTypes = await ctx.db
       .query("productionUnitTypes")
       .withIndex("by_active", (q) => q.eq("isActive", true))
       .collect();
 
-    // productionByItem already built above (moved for dual-read pattern)
-
-    // Calculate stats per production type
-    const productionByType = productionUnitTypes
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((unitType) => {
-        let unitsNeeded = 0;
-        let unitsCompleted = 0;
-
-        // Pending orders -> units needed (remaining)
-        // Pending = Confirmed + InProduction + Packaging
-        for (const order of pendingOrders) {
-          const items = itemsByOrder.get(order._id.toString()) ?? [];
-          for (const item of items) {
-            const records = productionByItem.get(item._id.toString()) ?? [];
-            for (const record of records) {
-              if (record.productionUnitTypeId === unitType._id) {
-                unitsNeeded += record.unitsRemaining;
-              }
-            }
-          }
-        }
-
-        // Completed orders today -> units completed
-        for (const order of completedTodayOrders) {
-          const items = itemsByOrder.get(order._id.toString()) ?? [];
-          for (const item of items) {
-            const records = productionByItem.get(item._id.toString()) ?? [];
-            for (const record of records) {
-              if (record.productionUnitTypeId === unitType._id) {
-                unitsCompleted += record.unitsCompleted;
-              }
-            }
-          }
-        }
-
-        return {
-          code: unitType.code,
-          name: unitType.name,
-          color: unitType.color,
-          unitsNeeded,
-          unitsCompleted,
-        };
-      });
-
-    // Phase 15: Calculate minTargetToday -- balls needed from orders due today only
-    // Use WIB timezone (UTC+7) for date comparison
+    // WIB day boundaries for due-today calculation
     const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
-    const wibTodayStr = wibNow.toISOString().split("T")[0]; // "YYYY-MM-DD" in WIB
-    // WIB day boundaries in UTC timestamps
+    const wibTodayStr = wibNow.toISOString().split("T")[0];
     const wibDayStartUtc = new Date(wibTodayStr + "T00:00:00+07:00").getTime();
     const wibDayEndUtc = wibDayStartUtc + 24 * 60 * 60 * 1000;
 
-    let bigBallsNeededToday = 0;
-    let midBallsNeededToday = 0;
-    let dueTodayOrderCount = 0;
-
-    for (const order of pendingOrders) {
-      if (!order.dueDate) continue;
-      if (order.dueDate >= wibDayStartUtc && order.dueDate < wibDayEndUtc) {
-        dueTodayOrderCount++;
-        const items = itemsByOrder.get(order._id.toString()) ?? [];
-        for (const item of items) {
-          if (item.isCancelled) continue;
-          const records = productionByItem.get(item._id.toString()) ?? [];
-          const activeRecords = records.filter(r => !r.isCancelled);
-          for (const record of activeRecords) {
-            if (record.productionUnitCode === "BIG_BALL") {
-              bigBallsNeededToday += record.unitsRemaining;
-            } else if (record.productionUnitCode === "MID_BALL") {
-              midBallsNeededToday += record.unitsRemaining;
-            }
-          }
-        }
-      }
-    }
-
-    // Phase 15: Count non-terminal, non-cancelled orders still left to complete
-    const ordersLeftToComplete = pendingOrders.length;
+    const stats = aggregateKitchenStats({
+      pendingOrders, completedTodayOrders, itemsByOrder, productionByItem,
+      productionUnitTypes, wibDayStartUtc, wibDayEndUtc,
+    });
 
     return {
-      bigBallsNeeded,
-      bigBallsCompleted,
-      midBallsNeeded,
-      midBallsCompleted,
+      bigBallsNeeded: stats.bigBallsNeeded,
+      bigBallsCompleted: stats.bigBallsCompleted,
+      midBallsNeeded: stats.midBallsNeeded,
+      midBallsCompleted: stats.midBallsCompleted,
       ordersPending: pendingOrders.length,
       ordersCompletedToday: completedTodayOrders.length,
-      // PRD-5: Dynamic production type stats
-      productionByType,
-      // Phase 15: Due-today ball targets
-      minTargetToday: {
-        totalBalls: bigBallsNeededToday + midBallsNeededToday,
-        bigBalls: bigBallsNeededToday,
-        midBalls: midBallsNeededToday,
-        orderCount: dueTodayOrderCount,
-      },
-      // Phase 15: Orders left to complete (non-terminal)
-      ordersLeftToComplete,
+      productionByType: stats.productionByType,
+      minTargetToday: stats.minTargetToday,
+      ordersLeftToComplete: stats.ordersLeftToComplete,
     };
   },
 });
@@ -1062,23 +834,7 @@ export const getCompletedToday = query({
       const customer = customersById.get(order.customerId.toString()) ?? null;
 
       // Calculate ball counts from orderItemProduction records
-      let bigBalls = 0;
-      let midBalls = 0;
-
-      for (const item of items) {
-        if (item.isCancelled) continue;
-
-        const records = productionByItem.get(item._id.toString()) ?? [];
-        const activeRecords = records.filter(r => !r.isCancelled);
-
-        for (const record of activeRecords) {
-          if (record.productionUnitCode === "BIG_BALL") {
-            bigBalls += record.unitsCompleted;
-          } else if (record.productionUnitCode === "MID_BALL") {
-            midBalls += record.unitsCompleted;
-          }
-        }
-      }
+      const { bigBalls, midBalls } = calculateOrderBallCounts(items, productionByItem);
 
       return {
         ...order,

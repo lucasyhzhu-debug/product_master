@@ -8,3 +8,4 @@ export * from "./statusFetching";
 export * from "./voucherHandling";
 export * from "./autoEntry";
 export * from "./customerResolution";
+export * from "./kitchenEnrichment";
