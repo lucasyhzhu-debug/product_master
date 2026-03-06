@@ -3,14 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
-stopped_at: Completed 38-04 (VouchersManager Split)
-last_updated: "2026-03-06"
+stopped_at: Completed 38-01-PLAN.md (OverviewTab Split)
+last_updated: "2026-03-06T14:06:53.553Z"
 last_activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
+progress:
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.6
+milestone_name: Tech Debt & Resilience
+status: in-progress
+stopped_at: Completed 38-02 (GrabFoodManager Split)
+last_updated: "2026-03-06"
+last_activity: 2026-03-06 — Completed 38-02 (GrabFoodManager Split)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 12
+  percent: 100
 ---
 
 # Project State
@@ -34,7 +50,7 @@ Last activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38-04: 5min
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P04 5min
 
 ## Accumulated Context
 
@@ -57,6 +73,12 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P36-03: k3martCockpit/queries.ts reduced from 985 to 760 LOC (22.8% reduction, 2 helper files)
 - P36-03: queryHelpers/ directory pattern (not helpers/) avoids Windows case-insensitive collision
 - P36-03: 760 LOC slightly over 750 target -- remaining functions too ctx-dependent for pure extraction
+- P38-01: OverviewTab.tsx split from 1,273 to 283 LOC (78% reduction), 14 new files in salesAnalytics + shared dateUtils.ts
+- P38-01: PeriodData type includes all PeriodSummary fields (totalAdBurn, totalPromoBurn) for prop type safety
+- P38-01: Shared WIB helpers consolidated in src/lib/dateUtils.ts (6 exports, single source of truth)
+- P38-02: GrabFoodManager.tsx split from 1,486 to 173 LOC (88% reduction), 6 tab components in salesAnalytics/
+- P38-02: Named GrabFoodSettingsTab (not SettingsTab) to avoid barrel collision with existing SettingsTab
+- P38-02: formatCurrencyIDR eliminated from codebase, replaced with formatCurrency(amount ?? 0) pattern
 - P38-04: VouchersManager.tsx split from 1,285 to 506 LOC (60.6% reduction), 5 components + barrel in src/components/vouchers/
 - P38-04: FreeVoucherDialog made self-contained with own state/handler (critical for LOC target)
 
@@ -76,6 +98,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Completed 38-04 (VouchersManager Split)
+Last session: 2026-03-06T14:06:53.549Z
+Stopped at: Completed 38-01-PLAN.md (OverviewTab Split)
 Resume notes: Phase 38 plan 04 complete. VouchersManager split to 506 LOC. Pre-existing salesAnalytics build errors noted (unrelated to this plan).

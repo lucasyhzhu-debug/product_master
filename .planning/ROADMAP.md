@@ -112,7 +112,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 - [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
 - [x] **Phase 36: Sales & Analytics Backend Simplification** (3/3 plans) — completed 2026-03-05
 - [x] **Phase 37: Order & Dispatch Backend Simplification** (3/3 plans) — completed 2026-03-06
-- [ ] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC
+- [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
 - [ ] **Phase 39: E2E Test Foundation & Resilience** — Playwright setup + critical path tests + Tamtem fix
 
 #### Phase 35: Schema Review & Audit
@@ -195,7 +195,7 @@ Plans:
 
 **Requirements:** FFS-01, FFS-02, FFS-03, FFS-04
 
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 - [ ] 38-01-PLAN.md — Split OverviewTab.tsx + create shared dateUtils.ts (FFS-01)
