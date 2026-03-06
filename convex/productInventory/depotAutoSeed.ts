@@ -106,47 +106,52 @@ export async function ensureDepotLocation(
   // 5. Seed zero-stock productInventory rows for active packaging component types
   const activePackagingComponents = await ctx.db
     .query("componentTypes")
-    .filter((q) =>
-      q.and(
-        q.eq(q.field("isActive"), true),
-        q.eq(q.field("category"), "packaging")
-      )
-    )
+    .withIndex("by_category", (q) => q.eq("category", "packaging"))
+    .filter((q) => q.eq(q.field("isActive"), true))
     .collect();
 
-  for (const ct of activePackagingComponents) {
-    // Find menuProducts linked to this component type
-    const links = await ctx.db
-      .query("menuProductComponents")
-      .withIndex("by_component_type", (q) => q.eq("componentTypeId", ct._id))
-      .collect();
+  // Fetch all menuProductComponent links in parallel across component types
+  const allLinks = await Promise.all(
+    activePackagingComponents.map((ct) =>
+      ctx.db
+        .query("menuProductComponents")
+        .withIndex("by_component_type", (q) => q.eq("componentTypeId", ct._id))
+        .collect()
+    )
+  );
 
-    // Collect unique menuProductIds
-    const seenMenuProducts = new Set<string>();
+  // Collect unique menuProductIds across all component types
+  const uniqueMenuProductIds = new Set<Id<"menuProducts">>();
+  for (const links of allLinks) {
     for (const link of links) {
-      const mpIdStr = link.menuProductId as string;
-      if (seenMenuProducts.has(mpIdStr)) continue;
-      seenMenuProducts.add(mpIdStr);
+      uniqueMenuProductIds.add(link.menuProductId);
+    }
+  }
 
-      // Check if productInventory already exists for this (menuProductId, locationId) pair
-      const existingInventory = await ctx.db
+  // Check existing inventory and seed missing rows in parallel
+  const existingChecks = await Promise.all(
+    [...uniqueMenuProductIds].map((mpId) =>
+      ctx.db
         .query("productInventory")
         .withIndex("by_product_location", (q) =>
-          q.eq("menuProductId", link.menuProductId).eq("locationId", locationId)
+          q.eq("menuProductId", mpId).eq("locationId", locationId)
         )
-        .first();
+        .first()
+        .then((existing) => ({ mpId, existing }))
+    )
+  );
 
-      if (!existingInventory) {
-        await ctx.db.insert("productInventory", {
-          menuProductId: link.menuProductId,
-          locationId,
-          quantity: 0,
-          lastUpdated: now,
-        });
-        console.log(
-          `[AUTO-SEED] Seeded zero-stock inventory for menuProduct ${link.menuProductId} at "${config.locationName}"`
-        );
-      }
+  for (const { mpId, existing } of existingChecks) {
+    if (!existing) {
+      await ctx.db.insert("productInventory", {
+        menuProductId: mpId,
+        locationId,
+        quantity: 0,
+        lastUpdated: now,
+      });
+      console.log(
+        `[AUTO-SEED] Seeded zero-stock inventory for menuProduct ${mpId} at "${config.locationName}"`
+      );
     }
   }
 

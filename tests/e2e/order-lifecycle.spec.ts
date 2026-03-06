@@ -344,10 +344,10 @@ test.describe("Order Lifecycle — Create to Complete", () => {
 
       await screenshot(page, "order-lifecycle-11-final-state");
     } else {
-      // Could not navigate to order detail — log and screenshot
+      // Could not navigate to order detail — screenshot and skip
       console.log("[E2E] Could not navigate to order detail page");
       await screenshot(page, "order-lifecycle-08-could-not-navigate");
-      // The test still passes — we verified order creation in Step 1
+      test.skip(true, "Could not navigate to order detail — no orders on Kanban board");
     }
   });
 });

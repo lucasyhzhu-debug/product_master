@@ -143,7 +143,8 @@ test.describe("Sales Analytics — Period Navigation & Channel Breakdown", () =>
       console.log("Revenue table is in empty state — no data for selected period (OK)");
     }
 
-    expect(true).toBe(true);
+    // Assert: either channel breakdown or sales details section is visible
+    expect(breakdownVisible || detailsVisible || hasEmptyState || hasNoRecords).toBe(true);
   });
 
   test("Tab navigation round-trip works", async ({ page }) => {
@@ -183,7 +184,5 @@ test.describe("Sales Analytics — Period Navigation & Channel Breakdown", () =>
     const grossSales = page.locator('text=Gross Sales').first();
     await expect(grossSales).toBeVisible({ timeout: 15_000 });
     console.log("Successfully returned to Overview — Gross Sales card visible");
-
-    expect(true).toBe(true);
   });
 });

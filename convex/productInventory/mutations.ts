@@ -574,23 +574,33 @@ export const processGofoodSales = internalMutation({
       let linkedLocationId: Id<"storageLocations"> | null;
 
       if (outletLocationCache.has(outletIdStr)) {
-        linkedLocationId = outletLocationCache.get(outletIdStr)!;
+        linkedLocationId = outletLocationCache.get(outletIdStr) ?? null;
       } else {
         const outlet = await ctx.db.get(item.outletId);
         linkedLocationId = outlet?.linkedStorageLocationId ?? null;
+
+        if (!linkedLocationId) {
+          // Auto-seed: create depot location and link outlet (reuse fetched outlet)
+          if (!outlet) {
+            console.warn(`processGofoodSales: outlet ${outletIdStr} not found in DB — skipping item`);
+            outletLocationCache.set(outletIdStr, null);
+            continue;
+          }
+          const autoSeeded = await ensureDepotLocation(ctx, item.outletId, outlet.name);
+          if (!autoSeeded) {
+            console.warn(`processGofoodSales: outlet ${outletIdStr} could not be auto-seeded — skipping item`);
+            outletLocationCache.set(outletIdStr, null);
+            continue;
+          }
+          linkedLocationId = autoSeeded;
+        }
+
         outletLocationCache.set(outletIdStr, linkedLocationId);
       }
 
       if (!linkedLocationId) {
-        // Auto-seed: create depot location and link outlet
-        const outlet = await ctx.db.get(item.outletId);
-        const autoSeeded = await ensureDepotLocation(ctx, item.outletId, outlet?.name ?? "Unknown");
-        if (!autoSeeded) {
-          console.warn(`processGofoodSales: outlet ${outletIdStr} could not be auto-seeded — skipping item`);
-          continue;
-        }
-        linkedLocationId = autoSeeded;
-        outletLocationCache.set(outletIdStr, linkedLocationId);
+        // Cached null from a previous failed auto-seed attempt
+        continue;
       }
 
       const locationId: Id<"storageLocations"> = linkedLocationId;
@@ -635,9 +645,8 @@ export const processGofoodSales = internalMutation({
 
       processed++;
 
-      // Check for low-stock alert
-      const effectiveThreshold = globalThreshold;
-      if (newQuantity <= effectiveThreshold) {
+      // Check for low-stock alert (only when crossing threshold from above, not already negative)
+      if (previousQuantity > globalThreshold && newQuantity <= globalThreshold) {
         lowStockAlerts++;
       }
     }
