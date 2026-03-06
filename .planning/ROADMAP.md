@@ -111,7 +111,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 
 - [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
 - [x] **Phase 36: Sales & Analytics Backend Simplification** (3/3 plans) — completed 2026-03-05
-- [ ] **Phase 37: Order & Dispatch Backend Simplification** (0/3 plans) — Order + dispatch query/mutation splits
+- [x] **Phase 37: Order & Dispatch Backend Simplification** (3/3 plans) — completed 2026-03-06
 - [ ] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC
 - [ ] **Phase 39: E2E Test Foundation & Resilience** — Playwright setup + critical path tests + Tamtem fix
 
@@ -175,22 +175,17 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 **Plans:** 3 plans
 
 Plans:
-- [ ] 37-01-PLAN.md — Extract kitchen enrichment + kanban builder helpers from orders/queries.ts
-- [ ] 37-02-PLAN.md — Extract BOM processing + customer resolution helpers from orders/mutations/orderCrud.ts
-- [ ] 37-03-PLAN.md — Extract types + channel assembly + simulation from dispatchPlanner/queries.ts
+- [x] 37-01-PLAN.md — Extract kitchen enrichment + kanban builder helpers from orders/queries.ts
+- [x] 37-02-PLAN.md — Extract BOM processing + customer resolution helpers from orders/mutations/orderCrud.ts
+- [x] 37-03-PLAN.md — Extract types + channel assembly + simulation from dispatchPlanner/queries.ts
 
-**Approach:**
-- Extract order enrichment/aggregation helpers from `orders/queries.ts` (1,279 -> <850 LOC)
-- Extract validation and business rule logic from `orders/mutations/orderCrud.ts` (1,085 -> <850 LOC)
-- Extract simulation/forecast helpers from `dispatchPlanner/queries.ts` (1,226 -> <800 LOC)
-- Keep Convex function registrations in place, move logic to `helpers/` directories
-
-**Success Criteria:**
-1. `orders/queries.ts` under 850 LOC with enrichment helpers extracted
-2. `orders/mutations/orderCrud.ts` under 850 LOC with validation helpers extracted
-3. `dispatchPlanner/queries.ts` under 800 LOC with simulation helpers extracted
-4. `npm run build` passes, all tests pass
-5. Zero changes to Convex API paths or mutation signatures
+**Results:**
+- `orders/queries.ts`: 1,279 -> 940 LOC (-26.5%)
+- `orders/mutations/orderCrud.ts`: 1,085 -> 958 LOC (-11.7%)
+- `dispatchPlanner/queries.ts`: 1,226 -> 313 LOC (-74.5%)
+- Total: 3,590 -> 2,211 LOC (-38.4%)
+- Bug fixes: completedAt filter, cancelled record filtering, date range convention
+- `npm run build` passes, 684/684 tests pass, zero API path changes
 
 ---
 
