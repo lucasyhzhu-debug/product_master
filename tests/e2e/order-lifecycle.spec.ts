@@ -158,6 +158,28 @@ test.describe("Order Lifecycle — Create to Complete", () => {
     await expect(submitButton).toBeEnabled({ timeout: 5_000 });
     await submitButton.click();
 
+    // Handle potential soft-block dialog: "This doesn't look like an address"
+    // This appears when delivery address is empty or doesn't look like an address
+    await page.waitForTimeout(1000);
+    const saveAnywayBtn = page
+      .locator("button")
+      .filter({ hasText: /Save anyway/i })
+      .first();
+    if ((await saveAnywayBtn.count()) > 0 && (await saveAnywayBtn.isVisible())) {
+      await saveAnywayBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Handle potential low price warning dialog (< Rp 20,000)
+    const lowPriceConfirmBtn = page
+      .locator("button")
+      .filter({ hasText: /Yes, Create Order/i })
+      .first();
+    if ((await lowPriceConfirmBtn.count()) > 0 && (await lowPriceConfirmBtn.isVisible())) {
+      await lowPriceConfirmBtn.click();
+      await page.waitForTimeout(500);
+    }
+
     // Wait for navigation back to orders page (redirect to /orders?open=...)
     await page.waitForURL(/\/orders/, { timeout: 15_000 });
     await page.waitForTimeout(2000); // Wait for Convex reactive update
