@@ -3,14 +3,29 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
+stopped_at: Completed 39-03-PLAN.md
+last_updated: "2026-03-06T16:11:39.067Z"
+last_activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
+progress:
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 13
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.6
+milestone_name: Tech Debt & Resilience
+status: in-progress
 stopped_at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
-last_updated: "2026-03-06T14:14:58.193Z"
+last_updated: "2026-03-06T16:10:49.484Z"
 last_activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 ---
@@ -33,14 +48,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 38 — Frontend Giant File Splits (plan 04 of 04 complete)
+**Current focus:** Phase 39 — E2E Test Foundation & Resilience (plan 03 of 03 complete)
 
 ## Current Position
 
-Phase: 38 — Frontend Giant File Splits
-Plan: 4 of 4 (complete)
-Status: Phase 38-04 complete -- VouchersManager split to 506 LOC
-Last activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
+Phase: 39 — E2E Test Foundation & Resilience
+Plan: 3 of 3
+Status: Phase 39-03 complete -- Sales analytics period navigation E2E test
+Last activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
 
 ## Performance Metrics
 
@@ -49,7 +64,7 @@ Last activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P03 8min, P04 5min
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P03 8min, P04 5min | Phase 39: P03 3min
 
 ## Accumulated Context
 
@@ -82,6 +97,10 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P38-03: handleUpdateLocationType wrapper bridges FinishedGoodsSettings string params to typed Convex mutation
 - P38-04: VouchersManager.tsx split from 1,285 to 506 LOC (60.6% reduction), 5 components + barrel in src/components/vouchers/
 - P38-04: FreeVoucherDialog made self-contained with own state/handler (critical for LOC target)
+- P39-03: Period badges are Badge components with cursor-pointer class, not buttons -- use text-based selectors
+- P39-03: HeroCards has 5 cards (Gross Sales, Net Sales, Commissions Paid, Discounts Given, Delivery Fees)
+- P39-03: Channel breakdown is ChannelSummary card grid (All Channels + dynamic channels) not a traditional table
+- [Phase 39]: P39-03: Period badges use cursor-pointer class selector (Badge components, not buttons)
 
 ### Open Blockers (carried forward)
 
@@ -96,9 +115,10 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 |---|-------------|------|--------|--------|-----------|
 | 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
+| Phase 39 P03 | 3min | 1 tasks | 1 files |
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
-Resume notes: Phase 38 all 4 plans complete. FinishedGoodsTab split to 488 LOC. Ready for phase merge to main.
+Last session: 2026-03-06T16:11:30.422Z
+Stopped at: Completed 39-03-PLAN.md
+Resume notes: Phase 39 plan 03 complete. Sales analytics period navigation E2E test (189 LOC). Tests require dev server + Convex running.
