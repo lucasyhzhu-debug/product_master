@@ -113,7 +113,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 - [x] **Phase 36: Sales & Analytics Backend Simplification** (3/3 plans) — completed 2026-03-05
 - [x] **Phase 37: Order & Dispatch Backend Simplification** (3/3 plans) — completed 2026-03-06
 - [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
-- [ ] **Phase 39: E2E Test Foundation & Resilience** (0/3 plans) — Playwright E2E tests + Tamtem fix
+- [x] **Phase 39: E2E Test Foundation & Resilience** (0/3 plans) — Playwright E2E tests + Tamtem fix (completed 2026-03-06)
 
 #### Phase 35: Schema Review & Audit
 
@@ -225,7 +225,7 @@ Plans:
 
 **Requirements:** RES-01, RES-02, RES-03, RES-04
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 39-01-PLAN.md — Fix Tamtem depot auto-seed + unit test (RES-04)

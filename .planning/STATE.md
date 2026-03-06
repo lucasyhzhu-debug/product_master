@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
+stopped_at: Completed 39-02-PLAN.md (Order Lifecycle & Kitchen E2E)
+last_updated: "2026-03-06T16:20:59.184Z"
+last_activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
+progress:
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 15
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.6
+milestone_name: Tech Debt & Resilience
+status: in-progress
 stopped_at: Completed 39-03-PLAN.md
 last_updated: "2026-03-06T16:11:39.067Z"
 last_activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
@@ -34,7 +49,7 @@ Last activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P03 8min, P04 5min | Phase 39: P01 5min, P03 3min
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P03 8min, P04 5min | Phase 39: P01 5min, P02 12min, P03 3min
 
 ## Accumulated Context
 
@@ -74,6 +89,8 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P39-03: HeroCards has 5 cards (Gross Sales, Net Sales, Commissions Paid, Discounts Given, Delivery Fees)
 - P39-03: Channel breakdown is ChannelSummary card grid (All Channels + dynamic channels) not a traditional table
 - [Phase 39]: P39-03: Period badges use cursor-pointer class selector (Badge components, not buttons)
+- [Phase 39]: P39-02: Order lifecycle E2E test handles address validation + stock shortage dialogs during status transitions
+- [Phase 39]: P39-02: Kitchen EoS test gracefully degrades when no production targets configured (passes with logging)
 
 ### Open Blockers (carried forward)
 
@@ -93,6 +110,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-06T16:12:31Z
-Stopped at: Completed 39-01-PLAN.md (Tamtem Depot Auto-Seed)
+Last session: 2026-03-06T16:20:55.603Z
+Stopped at: Completed 39-02-PLAN.md (Order Lifecycle & Kitchen E2E)
 Resume notes: Phase 39 plans 01 and 03 complete. Plan 02 (E2E order lifecycle) pending. Auto-seed helper + 6 unit tests added.
