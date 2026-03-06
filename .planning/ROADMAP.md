@@ -112,8 +112,8 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 - [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
 - [x] **Phase 36: Sales & Analytics Backend Simplification** (3/3 plans) — completed 2026-03-05
 - [x] **Phase 37: Order & Dispatch Backend Simplification** (3/3 plans) — completed 2026-03-06
-- [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
-- [ ] **Phase 39: E2E Test Foundation & Resilience** — Playwright setup + critical path tests + Tamtem fix
+- [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
+- [ ] **Phase 39: E2E Test Foundation & Resilience** (0/3 plans) — Playwright E2E tests + Tamtem fix
 
 #### Phase 35: Schema Review & Audit
 
@@ -225,19 +225,26 @@ Plans:
 
 **Requirements:** RES-01, RES-02, RES-03, RES-04
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 39-01-PLAN.md — Fix Tamtem depot auto-seed + unit test (RES-04)
+- [ ] 39-02-PLAN.md — Order lifecycle + kitchen production E2E tests (RES-01, RES-02)
+- [ ] 39-03-PLAN.md — Sales analytics period navigation E2E test (RES-03)
+
 **Approach:**
-- Set up Playwright config, test fixtures, auth helpers (PIN login)
-- E2E test: order lifecycle (create -> confirm -> produce -> complete)
+- Fix `processGofoodSales` silent skip: auto-seed depot storage locations when missing (both Tamtem + Goldfinch)
+- E2E test: order lifecycle (create via UI form -> confirm -> produce -> complete)
 - E2E test: kitchen production flow (view targets -> EoS recording)
-- E2E test: sales analytics (period selector, channel breakdown)
-- Fix Tamtem depot deduction silent skip
+- E2E test: sales analytics (period selector switching, channel breakdown columns)
+- Extend existing E2E infrastructure (helpers.ts, global-setup.ts, playwright.config.ts)
 
 **Success Criteria:**
-1. Playwright config and auth fixture working
+1. Tamtem depot deduction auto-seeds instead of silently skipping
 2. Order lifecycle E2E test passes
 3. Kitchen production E2E test passes
-4. Sales analytics E2E test verifies page load and data
-5. Tamtem depot deduction logs error or auto-seeds (no silent skip)
+4. Sales analytics E2E test verifies period switching and table structure
+5. `npm run build` and `npm run test` both pass
 
 ---
 
@@ -251,6 +258,6 @@ Plans:
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
-| v1.6 Tech Debt & Resilience | 35-39 | 9 | In Progress | — |
+| v1.6 Tech Debt & Resilience | 35-39 | 12 | In Progress | -- |
 
-**Total: 35 phases, 163 plans shipped across 6 milestones + 4 phases remaining**
+**Total: 35 phases, 163 plans shipped across 6 milestones + 3 plans remaining**
