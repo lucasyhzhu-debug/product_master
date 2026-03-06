@@ -32,14 +32,13 @@ export async function resolveCustomer(
     // Build insert data — only include optional fields if defined.
     // `create` passes source + defaultAddress; `createDraft` does not.
     // Omitting undefined fields preserves original behavior for both callers.
-    const insertData: Record<string, unknown> = {
+    const customerId = await ctx.db.insert("customers", {
       name: args.newCustomer.name,
       phone: args.newCustomer.phone,
       createdBy: args.createdBy ?? "admin",
-    };
-    if (args.newCustomer.source !== undefined) insertData.source = args.newCustomer.source;
-    if (args.defaultAddress !== undefined) insertData.defaultAddress = args.defaultAddress;
-    const customerId = await ctx.db.insert("customers", insertData as never);
+      ...(args.newCustomer.source !== undefined && { source: args.newCustomer.source }),
+      ...(args.defaultAddress !== undefined && { defaultAddress: args.defaultAddress }),
+    } as never);
     return {
       customerId,
       customerName: args.newCustomer.name,

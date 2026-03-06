@@ -6,15 +6,16 @@
  * They are NOT pure functions -- they require ctx for DB queries and modify input objects.
  */
 import type { Doc, Id } from "../../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
 import type { ChannelSection, ProductRow, PlanCell } from "../types";
-import { epochToDateString, CHANNEL_COLORS } from "../helpers";
+import { epochToDateString } from "../helpers";
 
 /**
  * Direct Sales channel: each order with dueDate in the window becomes an outlet row.
  * Quantities count in dailyTotals only at dueDate (not production-start day).
  */
 export async function assembleDirectChannel(
-  ctx: { db: any },
+  ctx: QueryCtx,
   section: ChannelSection,
   dates: string[],
   todayStr: string,
@@ -29,7 +30,7 @@ export async function assembleDirectChannel(
 
   // Convert date range to epoch for querying orders by dueDate
   const rangeStart = new Date(firstDate + "T00:00:00+07:00").getTime();
-  const rangeEnd = new Date(lastDate + "T23:59:59+07:00").getTime();
+  const rangeEnd = new Date(lastDate + "T00:00:00+07:00").getTime() + 24 * 60 * 60 * 1000;
 
   // Fetch orders with dueDate in range (exclude Draft and Cancelled)
   const orders = await ctx.db
@@ -42,7 +43,7 @@ export async function assembleDirectChannel(
   const relevantOrders = orders.filter((o: Doc<"orders">) => {
     if (!o.dueDate) return false;
     if (excludeStatuses.has(o.status)) return false;
-    return o.dueDate >= rangeStart && o.dueDate <= rangeEnd;
+    return o.dueDate >= rangeStart && o.dueDate < rangeEnd;
   });
 
   // Aggregate all orders into per-product-per-date totals (not one row per order)
@@ -174,7 +175,7 @@ export async function assembleDirectChannel(
  * Past days use actual sales from externalRevenue; future days use dispatchPlans.
  */
 export async function assembleGofoodChannel(
-  ctx: { db: any },
+  ctx: QueryCtx,
   section: ChannelSection,
   dates: string[],
   todayStr: string,
@@ -322,7 +323,7 @@ export async function assembleGofoodChannel(
  * Future days are editable via dispatchPlans table.
  */
 export async function assembleK3martChannel(
-  ctx: { db: any },
+  ctx: QueryCtx,
   section: ChannelSection,
   dates: string[],
   todayStr: string,
@@ -446,7 +447,7 @@ export async function assembleK3martChannel(
  * Consignment channel: editable. Uses consignmentOutlets + dispatchPlans.
  */
 export async function assembleConsignmentChannel(
-  ctx: { db: any },
+  ctx: QueryCtx,
   section: ChannelSection,
   dates: string[],
   todayStr: string,
@@ -542,7 +543,7 @@ export async function assembleConsignmentChannel(
  * quantities to ball counts via the resolveBalls helper (defined internally).
  */
 export async function computeBallTotals(
-  ctx: { db: any },
+  ctx: QueryCtx,
   dates: string[],
   dailyChannelProductQty: Record<string, Record<string, Record<string, number>>>,
 ): Promise<{

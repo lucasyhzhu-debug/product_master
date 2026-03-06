@@ -10,6 +10,8 @@ import {
   aggregateKitchenStats,
   calculateOrderBallCounts,
 } from "./helpers/kitchenEnrichment";
+import { KANBAN_COLUMNS, sortKanbanColumn, buildKanbanCard } from "./helpers/kanbanBuilders";
+import type { KanbanOrderCard } from "./helpers/kanbanBuilders";
 import type { OrderWithItems } from "./types";
 
 // ============================================
@@ -516,14 +518,14 @@ export const getKitchenStats = query({
     ]);
     const pendingOrders = [...draftOrders, ...awaitingPaymentOrders, ...paymentReceivedOrders, ...beingPreparedOrders];
 
-    // Completed-today: fetch terminal and near-terminal statuses, filter by creation time
+    // Completed-today: fetch terminal and near-terminal statuses, filter by completedAt
     const [completedOrders, awaitingDeliveryOrders] = await Promise.all([
       ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "Complete")).collect(),
       ctx.db.query("orders").withIndex("by_status", (q) => q.eq("status", "AwaitingDelivery")).collect(),
     ]);
     const completedTodayOrders = [
       ...completedOrders, ...awaitingDeliveryOrders,
-    ].filter((o) => o._creationTime >= midnight);
+    ].filter((o) => o.completedAt && o.completedAt >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)
     // Draft and AwaitingPayment orders never have orderItemProduction records
@@ -798,7 +800,7 @@ export const getCompletedToday = query({
 
     const completedToday = [
       ...awaitingDeliveryOrders, ...completedOrders2,
-    ].filter((o) => o._creationTime >= midnight);
+    ].filter((o) => o.completedAt && o.completedAt >= midnight);
 
     // OPTIMIZED: Per-order indexed lookups for items (not full table scan)
     const itemsByOrder = new Map<string, Doc<"orderItems">[]>();
@@ -864,50 +866,9 @@ export const getCompletedToday = query({
 export const listForKanban = query({
   args: {},
   handler: async (ctx) => {
-    // Define column -> status mapping (matches STATUS_CATEGORIES in statusTransitions.ts)
-    const columns = [
-      { key: "draft", statuses: ["Draft"] as const },
-      { key: "awaiting_payment", statuses: ["AwaitingPayment"] as const },
-      { key: "payment_received", statuses: ["PaymentReceived"] as const },
-      { key: "being_prepared", statuses: ["BeingPrepared"] as const },
-      { key: "awaiting_delivery", statuses: ["AwaitingDelivery"] as const },
-      // Include legacy terminal statuses (CompleteShipped, PickedUp) for unmigrated orders
-      { key: "complete", statuses: ["Complete", "Cancelled", "CompleteShipped", "PickedUp"] as const },
-    ];
+    const result: Record<string, KanbanOrderCard[]> = {};
 
-    const result: Record<string, Array<{
-      _id: string;
-      _creationTime: number;
-      orderNumber: string;
-      status: string;
-      customerName: string;
-      customerPhone?: string;
-      contactWa?: string;
-      dueDate?: number;
-      completedAt?: number;
-      deliveryType?: string;
-      deliveryAddress?: string;
-      totalAmount: number;
-      totalCost: number;
-      totalMargin: number;
-      finalTotal?: number;
-      orderLevelDiscount?: number;
-      orderLevelDiscountType?: string;
-      voucherDiscountValue?: number;
-      expedited?: boolean;
-      creatorName: string;
-      notes?: string;
-      createdByUserId?: string;
-      items: Array<{
-        _id: string;
-        productName: string;
-        productVariant?: string;
-        quantity: number;
-        lineTotal: number;
-      }>;
-    }>> = {};
-
-    for (const col of columns) {
+    for (const col of KANBAN_COLUMNS) {
       const orders: Doc<"orders">[] = [];
       for (const status of col.statuses) {
         const statusOrders = await ctx.db
@@ -917,23 +878,7 @@ export const listForKanban = query({
         orders.push(...statusOrders);
       }
 
-      // For "complete" column: limit to last 50 by completedAt descending (performance)
-      let sortedOrders: Doc<"orders">[];
-      if (col.key === "complete") {
-        sortedOrders = orders
-          .sort((a, b) => (b.completedAt ?? b._creationTime) - (a.completedAt ?? a._creationTime))
-          .slice(0, 50);
-      } else if (col.key === "draft") {
-        // Draft column: newest first (creation date descending)
-        sortedOrders = orders.sort(
-          (a, b) => b._creationTime - a._creationTime
-        );
-      } else {
-        // Other columns: dueDate ascending (nearest due first), nulls last
-        sortedOrders = orders.sort(
-          (a, b) => (a.dueDate ?? Infinity) - (b.dueDate ?? Infinity)
-        );
-      }
+      const sortedOrders = sortKanbanColumn(col.key, orders);
 
       // Enrich with items + creator name
       const enriched = await Promise.all(
@@ -944,53 +889,13 @@ export const listForKanban = query({
             .filter((q) => q.neq(q.field("isCancelled"), true))
             .collect();
 
-          // Resolve creator name from users table
           let creatorName = order.createdBy ?? "admin";
           if (order.createdByUserId) {
             const user = await ctx.db.get(order.createdByUserId);
             if (user) creatorName = user.name;
           }
 
-          return {
-            // Identity
-            _id: order._id,
-            _creationTime: order._creationTime,
-            orderNumber: order.orderNumber,
-            status: order.status,
-            // Customer
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            contactWa: order.contactWa,
-            // Timing
-            dueDate: order.dueDate,
-            completedAt: order.completedAt,
-            // Delivery
-            deliveryType: order.deliveryType,
-            deliveryAddress: order.deliveryAddress,
-            // Pricing (used by KanbanCard for discount display)
-            totalAmount: order.totalAmount,
-            totalCost: order.totalCost,
-            totalMargin: order.totalMargin,
-            finalTotal: order.finalTotal,
-            orderLevelDiscount: order.orderLevelDiscount,
-            orderLevelDiscountType: order.orderLevelDiscountType,
-            voucherDiscountValue: order.voucherDiscountValue,
-            // Flags
-            expedited: order.expedited,
-            // Creator
-            creatorName,
-            // Notes + ownership (for kanban highlight features)
-            notes: order.notes,
-            createdByUserId: order.createdByUserId,
-            // Items — lean shape
-            items: items.map((item) => ({
-              _id: item._id,
-              productName: item.productName,
-              productVariant: item.productVariant,
-              quantity: item.quantity,
-              lineTotal: item.lineTotal,
-            })),
-          };
+          return buildKanbanCard(order, items, creatorName);
         })
       );
 

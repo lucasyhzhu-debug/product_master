@@ -205,8 +205,10 @@ export function aggregateKitchenStats(args: {
       for (const order of pendingOrders) {
         const items = itemsByOrder.get(order._id.toString()) ?? [];
         for (const item of items) {
+          if (item.isCancelled) continue;
           const records = productionByItem.get(item._id.toString()) ?? [];
           for (const record of records) {
+            if (record.isCancelled) continue;
             if (record.productionUnitTypeId === unitType._id) {
               unitsNeeded += record.unitsRemaining;
             }
@@ -218,8 +220,10 @@ export function aggregateKitchenStats(args: {
       for (const order of completedTodayOrders) {
         const items = itemsByOrder.get(order._id.toString()) ?? [];
         for (const item of items) {
+          if (item.isCancelled) continue;
           const records = productionByItem.get(item._id.toString()) ?? [];
           for (const record of records) {
+            if (record.isCancelled) continue;
             if (record.productionUnitTypeId === unitType._id) {
               unitsCompleted += record.unitsCompleted;
             }
