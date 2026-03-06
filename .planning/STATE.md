@@ -7,8 +7,8 @@ last_updated: "2026-03-05"
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -16,14 +16,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 35 complete -- ready for Phase 36
+**Current focus:** Phase 36 complete -- all 3 plans executed, ready for merge
 
 ## Current Position
 
-Phase: 35 — Schema Review & Audit (COMPLETE)
-Plan: 2 of 2 (complete)
-Status: Phase 35 complete -- both plans executed successfully
-Last activity: 2026-03-05 — Completed 35-02 (Schema Quick-Win Execution)
+Phase: 36 — Sales & Analytics Backend Simplification
+Plan: 3 of 3 (complete)
+Status: Phase 36 complete -- k3martCockpit split + incomeStatement verified + CHANGELOG updated
+Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verification)
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Last activity: 2026-03-05 — Completed 35-02 (Schema Quick-Win Execution)
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min (29min total, 2 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min (54min total, 5 plans)
 
 ## Accumulated Context
 
@@ -47,6 +47,14 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P35-02: 5 compound indexes added to eliminate post-scan filters on 30+ query sites
 - P35-02: Critical session cleanup (MIS-01) fixed to use by_expiry index
 - P35-02: 10 range bound anti-patterns fixed (IRB-01: 5 sites, IRB-02: 5 sites)
+- P36-01: Direct import updates (no re-export bridges) per CONTEXT.md override of design doc
+- P36-01: WIB helpers placed in periodRange.ts (reuses existing WIB_OFFSET_HOURS) rather than new file
+- P36-02: Unified GoBiz/Internal demand-to-product builder (identical pattern, single helper)
+- P36-02: Pre-fetch orderDataMap pattern eliminates async closure in dashboard aggregation
+- P36-02: queries.ts reduced from 1,773 to 1,387 LOC (22% reduction, 5 helper files)
+- P36-03: k3martCockpit/queries.ts reduced from 985 to 760 LOC (22.8% reduction, 2 helper files)
+- P36-03: queryHelpers/ directory pattern (not helpers/) avoids Windows case-insensitive collision
+- P36-03: 760 LOC slightly over 750 target -- remaining functions too ctx-dependent for pure extraction
 
 ### Open Blockers (carried forward)
 
@@ -65,5 +73,5 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 ## Session Continuity
 
 Last session: 2026-03-05
-Stopped at: Completed 35-02 (Schema Quick-Win Execution) -- Phase 35 fully complete
-Resume notes: Phase 35 complete. Next: merge feature/35-schema-review-audit to main, then `/gsd:execute-phase 36` (Sales Analytics Backend Simplification).
+Stopped at: Completed 36-03 (Split k3martCockpit + Final Verification)
+Resume notes: Phase 36 complete. All 3 plans executed. Ready for merge to main and next milestone planning.

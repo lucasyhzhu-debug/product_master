@@ -2,11 +2,18 @@ import { v } from "convex/values";
 import { query, internalQuery } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { calculatePeriodRange } from "../lib/periodRange";
+import { calculatePeriodRange, isWeekend } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
-import { isExternalSource } from "../lib/externalSource";
+import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
+import { aggregatePeriodRevenue } from "./helpers/dashboardHelpers";
+import { bucketKey, formatBucketLabel } from "./helpers/timeSeriesHelpers";
+import type { Granularity } from "./helpers/timeSeriesHelpers";
+import { computeLifetimeTotals } from "./helpers/lifetimeHelpers";
+import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHelpers";
+import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
+import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
 
 const sourceValidator = externalSource;
 
@@ -533,116 +540,6 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
       )
       .collect();
 
-    // Aggregate with discount correction for internal orders.
-    // Internal sync stores revenueGross = finalTotal (post-discount),
-    // but we need gross = totalAmount (pre-discount) and discounts separated.
-    async function aggregate(records: typeof currentRevenue) {
-      // Group records by source
-      const bySource = new Map<string, typeof records>();
-      for (const record of records) {
-        const existing = bySource.get(record.source) ?? [];
-        existing.push(record);
-        bySource.set(record.source, existing);
-      }
-
-      // Per-channel platform aggregation (for non-internal sources) — single pass
-      function aggregatePlatformChannel(channelRecords: typeof records) {
-        let gross = 0, commission = 0, adBurn = 0, promoBurn = 0, txns = 0;
-        for (const r of channelRecords) {
-          gross      += r.revenueGross    ?? 0;
-          commission += r.commission      ?? 0;
-          adBurn     += r.adBurn          ?? 0;
-          promoBurn  += r.promoBurn       ?? 0;
-          txns       += r.transactionCount ?? 0;
-        }
-        const net = gross - commission - adBurn - promoBurn;
-        return { gross, net, txns, commission, adBurn, promoBurn };
-      }
-
-      // Internal orders: special handling — look up real orders for pre-discount totals
-      const internalRecords = bySource.get("internal") ?? [];
-      let internalGross = 0;
-      let internalNet = 0;
-      let totalDiscounts = 0;
-      let totalDeliveryFees = 0;
-      const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
-
-      const orderDataMap = await fetchInternalOrderDataMap(ctx, internalRecords);
-      for (const rec of internalRecords) {
-        const orderNumber = rec.externalTransactionId;
-        if (!orderNumber) continue;
-        const od = orderDataMap.get(orderNumber);
-        if (od) {
-          const netProduct = od.finalTotal - od.deliveryFee;
-          internalGross += od.totalAmount;
-          internalNet += netProduct;
-          totalDiscounts += od.totalAmount - netProduct;
-          totalDeliveryFees += od.deliveryFee;
-        } else {
-          // Fallback to revenue record data if order deleted
-          internalGross += rec.revenueGross ?? 0;
-          internalNet += rec.revenueGross ?? 0;
-        }
-      }
-
-      // Build dynamic channels array, accumulating totals in a single pass
-      const channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }> = [];
-      let totalCommission = 0;
-      let totalAdBurn = 0;
-      let totalPromoBurn = 0;
-      let platformGross = 0;
-      let totalNet = internalNet;
-      let totalTransactions = internalTxns;
-
-      for (const [source, sourceRecords] of bySource) {
-        if (source === "internal") continue; // handled separately above
-        const agg = aggregatePlatformChannel(sourceRecords);
-        totalCommission += agg.commission;
-        totalAdBurn += agg.adBurn;
-        totalPromoBurn += agg.promoBurn;
-        platformGross += agg.gross;
-        totalNet += agg.net;
-        totalTransactions += agg.txns;
-        if (agg.gross > 0 || agg.txns > 0) {
-          channels.push({
-            source,
-            displayName: sourceToPlatform(source),
-            gross: agg.gross,
-            net: agg.net,
-            transactions: agg.txns,
-          });
-        }
-      }
-
-      // Add internal channel if it has data
-      if (internalGross > 0 || internalTxns > 0) {
-        channels.push({
-          source: "internal",
-          displayName: sourceToPlatform("internal"),
-          gross: internalGross,
-          net: internalNet,
-          transactions: internalTxns,
-        });
-      }
-
-      // Sort channels by gross revenue descending (biggest first)
-      channels.sort((a, b) => b.gross - a.gross);
-
-      return {
-        totalGross: platformGross + internalGross,
-        totalNet,
-        totalTransactions,
-        totalCommission,
-        totalAdBurn,
-        totalPromoBurn,
-        totalDiscounts,
-        totalDeliveryFees,
-        platformGross,
-        internalGross,
-        channels,
-      };
-    }
-
     // Active outlets = distinct outlets with sales in the current period
     const k3martActiveOutletIds = new Set(
       currentRevenue
@@ -655,11 +552,13 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         .map((r) => r.outletId!)
     );
 
-    // Run both period aggregations in parallel
-    const [currentAgg, previousAgg] = await Promise.all([
-      aggregate(currentRevenue),
-      aggregate(previousRevenue),
+    // Pre-fetch order data maps, then run pure aggregation
+    const [currentOrderDataMap, previousOrderDataMap] = await Promise.all([
+      fetchInternalOrderDataMap(ctx, currentRevenue),
+      fetchInternalOrderDataMap(ctx, previousRevenue),
     ]);
+    const currentAgg = aggregatePeriodRevenue(currentRevenue, currentOrderDataMap);
+    const previousAgg = aggregatePeriodRevenue(previousRevenue, previousOrderDataMap);
 
     return {
       platforms: {
@@ -743,15 +642,6 @@ export const getOrderDetailsByOrderNumber = query({
 
 // ─── RESTOCK PLANNER QUERIES ───
 
-const WIB_OFFSET_HOURS = 7;
-
-/** Check if a WIB-adjusted timestamp falls on a weekend (Sat=6, Sun=0) */
-function isWeekend(utcMs: number): boolean {
-  const wibDate = new Date(utcMs + WIB_OFFSET_HOURS * 60 * 60 * 1000);
-  const day = wibDate.getUTCDay();
-  return day === 0 || day === 6;
-}
-
 /**
  * Restock overview: returns all channels/outlets with current stock + demand summary.
  * Powers the main grid view of the Restock Planner.
@@ -799,56 +689,9 @@ export const getRestockOverviewInternal = internalQuery({
           .filter((q) => q.eq(q.field("outletId"), outlet._id))
           .collect();
 
-        // Aggregate demand by product
-        const demandMap = new Map<string, { totalSold: number; productName: string }>();
-        for (const r of revenue) {
-          const key = r.externalProductCode ?? r.productName ?? "unknown";
-          const existing = demandMap.get(key);
-          const qty = r.quantitySold ?? 0;
-          if (existing) {
-            existing.totalSold += qty;
-          } else {
-            demandMap.set(key, {
-              totalSold: qty,
-              productName: r.productName ?? key,
-            });
-          }
-        }
-
-        const products = stockProducts.map((sp) => {
-          const demand = demandMap.get(sp.externalProductCode);
-          const dailyRate = demand ? demand.totalSold / 14 : 0;
-          const daysRemaining = dailyRate > 0 ? sp.quantity / dailyRate : sp.quantity > 0 ? 999 : 0;
-          const status: "critical" | "warning" | "ok" =
-            daysRemaining < 1 ? "critical" : daysRemaining < 2 ? "warning" : "ok";
-
-          return {
-            productKey: sp.externalProductCode,
-            productName: sp.productName,
-            currentStock: sp.quantity,
-            dailyRate: Math.round(dailyRate * 10) / 10,
-            daysRemaining: Math.round(daysRemaining * 10) / 10,
-            status,
-          };
-        });
-
-        // Also add products with demand but no stock data
-        for (const [key, demand] of demandMap) {
-          if (!products.some((p) => p.productKey === key)) {
-            products.push({
-              productKey: key,
-              productName: demand.productName,
-              currentStock: 0,
-              dailyRate: Math.round((demand.totalSold / 14) * 10) / 10,
-              daysRemaining: 0,
-              status: "critical" as const,
-            });
-          }
-        }
-
-        const criticalCount = products.filter((p) => p.status === "critical").length;
-        const warningCount = products.filter((p) => p.status === "warning").length;
-        const totalDailyDemand = products.reduce((sum, p) => sum + p.dailyRate, 0);
+        // Aggregate demand and build product list (pure computation)
+        const { products, criticalCount, warningCount, totalDailyDemand } =
+          buildK3MartOutletProducts(stockProducts, revenue, 14);
 
         return {
           type: "k3mart" as const,
@@ -858,7 +701,7 @@ export const getRestockOverviewInternal = internalQuery({
           products,
           criticalCount,
           warningCount,
-          totalDailyDemand: Math.round(totalDailyDemand * 10) / 10,
+          totalDailyDemand,
         };
       })
     );
@@ -881,19 +724,11 @@ export const getRestockOverviewInternal = internalQuery({
       )
     );
 
-    const gobizDemandMap = new Map<string, { totalSold: number; menuProductId?: string }>();
+    const gobizDemandMap = new Map<string, number>();
     for (let i = 0; i < gobizRevenue.length; i++) {
       const items = allGobizItems[i];
       for (const item of items) {
-        const existing = gobizDemandMap.get(item.productName);
-        if (existing) {
-          existing.totalSold += item.quantity;
-        } else {
-          gobizDemandMap.set(item.productName, {
-            totalSold: item.quantity,
-            menuProductId: item.linkedMenuProductId as string | undefined,
-          });
-        }
+        gobizDemandMap.set(item.productName, (gobizDemandMap.get(item.productName) ?? 0) + item.quantity);
       }
     }
 
@@ -904,26 +739,7 @@ export const getRestockOverviewInternal = internalQuery({
       .collect();
     const gobizStockMap = new Map(gobizManualStock.map((s) => [s.productKey, s]));
 
-    const gobizProducts = Array.from(gobizDemandMap.entries()).map(([name, demand]) => {
-      const dailyRate = demand.totalSold / 14;
-      const manualStock = gobizStockMap.get(name);
-      const currentStock = manualStock?.quantity;
-      const daysRemaining = currentStock !== undefined && dailyRate > 0
-        ? currentStock / dailyRate
-        : undefined;
-      const status = daysRemaining !== undefined
-        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
-        : undefined;
-      return {
-        productKey: name,
-        productName: name,
-        currentStock,
-        dailyRate: Math.round(dailyRate * 10) / 10,
-        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
-        status,
-      };
-    });
-
+    const gobizProducts = buildDemandProducts(gobizDemandMap, gobizStockMap, 14);
     const gobizTotalDemand = gobizProducts.reduce((sum, p) => sum + p.dailyRate, 0);
 
     // 4. Internal channel - look up actual order items for product-level data
@@ -977,26 +793,7 @@ export const getRestockOverviewInternal = internalQuery({
       .collect();
     const internalStockMap = new Map(internalManualStock.map((s) => [s.productKey, s]));
 
-    const internalProducts = Array.from(internalDemandMap.entries()).map(([name, totalSold]) => {
-      const dailyRate = totalSold / 14;
-      const manualStock = internalStockMap.get(name);
-      const currentStock = manualStock?.quantity;
-      const daysRemaining = currentStock !== undefined && dailyRate > 0
-        ? currentStock / dailyRate
-        : undefined;
-      const status = daysRemaining !== undefined
-        ? (daysRemaining < 1 ? "critical" as const : daysRemaining < 2 ? "warning" as const : "ok" as const)
-        : undefined;
-      return {
-        productKey: name,
-        productName: name,
-        currentStock,
-        dailyRate: Math.round(dailyRate * 10) / 10,
-        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
-        status,
-      };
-    });
-
+    const internalProducts = buildDemandProducts(internalDemandMap, internalStockMap, 14);
     const internalTotalDemand = internalProducts.reduce((sum, p) => sum + p.dailyRate, 0);
 
     // 5. Summary
@@ -1166,15 +963,7 @@ export const getChannelSellThrough = query({
     const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
 
     // Count weekdays and weekend days in 30-day window
-    let numWeekdays = 0;
-    let numWeekendDays = 0;
-    for (let d = thirtyDaysAgo; d < now; d += 24 * 60 * 60 * 1000) {
-      if (isWeekend(d)) numWeekendDays++;
-      else numWeekdays++;
-    }
-    // Ensure at least 1 to avoid division by zero
-    numWeekdays = Math.max(numWeekdays, 1);
-    numWeekendDays = Math.max(numWeekendDays, 1);
+    const { numWeekdays, numWeekendDays } = countDayTypes(thirtyDaysAgo, now);
 
     // Fetch outlet info if K3 Mart
     let outletName: string | undefined;
@@ -1221,17 +1010,6 @@ export const getChannelSellThrough = query({
     }
 
     // Build product-level sell-through analysis
-    type ProductAnalysis = {
-      productKey: string;
-      productName: string;
-      menuProductId?: string;
-      weekdaySalesTotal: number;
-      weekendSalesTotal: number;
-      last7dSales: number;
-      prev7dSales: number;
-      transactionCount: number;
-    };
-
     const productMap = new Map<string, ProductAnalysis>();
 
     function getOrCreate(key: string, name: string, menuProductId?: string): ProductAnalysis {
@@ -1385,84 +1163,8 @@ export const getChannelSellThrough = query({
     }
     const targetMap = new Map(targets.map((t) => [t.productKey, t]));
 
-    // Add stock-only products (have stock but no sales in 30 days)
-    for (const key of currentStockMap.keys()) {
-      if (!productMap.has(key)) {
-        productMap.set(key, {
-          productKey: key,
-          productName: key,
-          weekdaySalesTotal: 0,
-          weekendSalesTotal: 0,
-          last7dSales: 0,
-          prev7dSales: 0,
-          transactionCount: 0,
-        });
-      }
-    }
-
-    // Build final product list
-    const products = Array.from(productMap.values()).map((p) => {
-      const weekdayDailyRate = p.weekdaySalesTotal / numWeekdays;
-      const weekendDailyRate = p.weekendSalesTotal / numWeekendDays;
-      const totalSold30d = p.weekdaySalesTotal + p.weekendSalesTotal;
-      const overallDailyRate = totalSold30d / 30;
-
-      const currentStock = currentStockMap.get(p.productKey);
-      const daysRemaining =
-        currentStock !== undefined && overallDailyRate > 0
-          ? currentStock / overallDailyRate
-          : undefined;
-      const status =
-        daysRemaining !== undefined
-          ? daysRemaining < 1
-            ? ("critical" as const)
-            : daysRemaining < 2
-              ? ("warning" as const)
-              : ("ok" as const)
-          : undefined;
-
-      // Suggestions: cover weekday (5 days) or weekend (2 days) + 20% buffer
-      const suggestedWeekday = Math.ceil(weekdayDailyRate * 5 * 1.2);
-      const suggestedWeekend = Math.ceil(weekendDailyRate * 2 * 1.2);
-
-      const target = targetMap.get(p.productKey);
-
-      // Trend
-      const trendDirection: "up" | "down" | "flat" =
-        p.last7dSales > p.prev7dSales * 1.1
-          ? "up"
-          : p.last7dSales < p.prev7dSales * 0.9
-            ? "down"
-            : "flat";
-
-      // Confidence
-      const confidence: "high" | "medium" | "low" =
-        p.transactionCount >= 20 ? "high" : p.transactionCount >= 5 ? "medium" : "low";
-
-      return {
-        productKey: p.productKey,
-        productName: p.productName,
-        menuProductId: p.menuProductId,
-        currentStock,
-        weekdaySalesTotal: p.weekdaySalesTotal,
-        weekendSalesTotal: p.weekendSalesTotal,
-        totalSold30d,
-        weekdayDailyRate: Math.round(weekdayDailyRate * 10) / 10,
-        weekendDailyRate: Math.round(weekendDailyRate * 10) / 10,
-        overallDailyRate: Math.round(overallDailyRate * 10) / 10,
-        daysRemaining: daysRemaining !== undefined ? Math.round(daysRemaining * 10) / 10 : undefined,
-        status,
-        suggestedWeekday,
-        suggestedWeekend,
-        targetWeekday: target?.weekdayTarget,
-        targetWeekend: target?.weekendTarget,
-        last7dSales: p.last7dSales,
-        prev7dSales: p.prev7dSales,
-        trendDirection,
-        transactionCount: p.transactionCount,
-        confidence,
-      };
-    });
+    // Build final product list (pure computation delegated to helper)
+    const products = buildSellThroughProducts(productMap, currentStockMap, targetMap, numWeekdays, numWeekendDays);
 
     // Sort: K3 Mart by days remaining asc, others by daily demand desc
     if (args.channel === "k3mart") {
@@ -1485,56 +1187,6 @@ export const getChannelSellThrough = query({
 
 // ─── TIME-SERIES REVENUE QUERY (for stacked charts) ───
 
-const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
-
-/** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
-function utcToWibDateStr(utcMs: number): string {
-  return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
-}
-
-/** Get ISO week number from WIB-adjusted date */
-function getIsoWeekNumber(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  // Thursday of current week determines the year/week
-  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `W${weekNo.toString().padStart(2, "0")}`;
-}
-
-/** Get YYYY-MM from WIB-adjusted date */
-function utcToWibMonthStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const y = wib.getUTCFullYear();
-  const m = (wib.getUTCMonth() + 1).toString().padStart(2, "0");
-  return `${y}-${m}`;
-}
-
-/** Get "YYYY-MM-DD HH" from UTC epoch ms, WIB-adjusted */
-function utcToWibHourStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const date = wib.toISOString().split("T")[0];
-  const hour = wib.getUTCHours().toString().padStart(2, "0");
-  return `${date} ${hour}`;
-}
-
-/** Map source to platform display name */
-export function sourceToPlatform(source: string): string {
-  switch (source) {
-    case "gobiz": return "GoFood";
-    case "k3mart": return "K3 Mart";
-    case "internal": return "Direct";
-    case "grabfood": return "GrabFood";
-    case "shopee": return "Shopee";
-    case "tiktok": return "Tokopedia";
-    case "consignment": return "Consignment";
-    case "bigseller": return "BigSeller";
-    default: return source;
-  }
-}
-
 export const getRevenueTimeSeries = query({
   args: {
     preset: periodPresetValidator,
@@ -1555,40 +1207,7 @@ export const getRevenueTimeSeries = query({
     // For internal orders, look up real order data for accurate gross/net
     const orderDataMap = await fetchInternalOrderDataMap(ctx, records);
 
-    // Bucket key function
-    function bucketKey(utcMs: number): string {
-      switch (args.granularity) {
-        case "hourly": return utcToWibHourStr(utcMs);
-        case "daily": return utcToWibDateStr(utcMs);
-        case "weekly": return getIsoWeekNumber(utcMs);
-        case "monthly": return utcToWibMonthStr(utcMs);
-      }
-    }
-
-    // Label formatter
-    function formatLabel(key: string): string {
-      switch (args.granularity) {
-        case "hourly": {
-          // "2026-02-16 14" -> "2pm"
-          const hour = parseInt(key.split(" ")[1], 10);
-          const suffix = hour >= 12 ? "pm" : "am";
-          const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-          return `${h12}${suffix}`;
-        }
-        case "daily": {
-          // YYYY-MM-DD -> "Feb 10"
-          const d = new Date(key + "T00:00:00Z");
-          return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        }
-        case "weekly":
-          return key; // "W06"
-        case "monthly": {
-          // "2026-02" -> "Feb"
-          const d = new Date(key + "-01T00:00:00Z");
-          return d.toLocaleDateString("en-US", { month: "short" });
-        }
-      }
-    }
+    const granularity = args.granularity as Granularity;
 
     // Discover all unique sources from fetched records
     const discoveredSources = [...new Set(records.map((r) => r.source))];
@@ -1596,7 +1215,7 @@ export const getRevenueTimeSeries = query({
 
     for (const record of records) {
       const ts = record.transactionDate ?? record.periodStart;
-      const key = bucketKey(ts);
+      const key = bucketKey(ts, granularity);
       const platform = record.source;
 
       if (!buckets.has(key)) {
@@ -1635,7 +1254,7 @@ export const getRevenueTimeSeries = query({
 
     // Sort buckets chronologically
     const sortedKeys = Array.from(buckets.keys()).sort();
-    const labels = sortedKeys.map(formatLabel);
+    const labels = sortedKeys.map((key) => formatBucketLabel(key, granularity));
 
     // Build series only for sources with non-zero totals (hide empty channels)
     const series = discoveredSources
@@ -1752,13 +1371,6 @@ export const getRevenueByOutletInternal = internalQuery({
 // NOTE: Full table scan — acceptable at current scale (~1K records).
 // When externalRevenueItems exceeds ~50K rows, consider pre-aggregation (ANLY-04).
 
-/**
- * Fallback average revenue per ball in IDR, used only when zero BOM-linked
- * products exist (cold start / no product mappings yet).
- * Once any products are mapped, the dynamic weighted average takes over.
- */
-const FALLBACK_REVENUE_PER_BALL = 35_000;
-
 export const getLifetimeTotalsInternal = internalQuery({
   args: {},
   handler: async (ctx) => {
@@ -1770,63 +1382,6 @@ export const getLifetimeTotalsInternal = internalQuery({
       ctx.db.query("componentTypes").collect(),
     ]);
 
-    // Build set of production component type IDs (BIG_BALL, MID_BALL, etc.)
-    const productionComponentIds = new Set(
-      componentTypes
-        .filter((ct) => ct.category === "production")
-        .map((ct) => ct._id as string)
-    );
-
-    // Build menuProductId -> total ball count map from BOM
-    // A product with 1 BIG_BALL + 2 MID_BALL = 3 balls total
-    const menuProductBallCount = new Map<string, number>();
-    for (const comp of bomComponents) {
-      if (productionComponentIds.has(comp.componentTypeId as string)) {
-        const existing = menuProductBallCount.get(comp.menuProductId as string) ?? 0;
-        menuProductBallCount.set(comp.menuProductId as string, existing + comp.quantity);
-      }
-    }
-
-    // Calculate dynamic avgRevenuePerBall from BOM-linked items.
-    // "Known" items have a linkedMenuProductId with production BOM components.
-    // Their weighted average revenue/ball is used to estimate total balls from
-    // all revenue (including unmapped items).
-    let knownRevenue = 0;
-    let knownBalls = 0;
-
-    for (const item of items) {
-      if (!item.linkedMenuProductId) continue;
-      const ballsPerProduct = menuProductBallCount.get(item.linkedMenuProductId as string);
-      if (!ballsPerProduct || ballsPerProduct <= 0) continue;
-      // This item has a valid BOM mapping with production components
-      knownRevenue += item.totalPrice;
-      knownBalls += item.quantity * ballsPerProduct;
-    }
-
-    // Aggregate lifetime totals from externalRevenue
-    let lifetimeRevenue = 0;
-    let lifetimeTransactions = 0;
-    for (const rev of revenues) {
-      lifetimeRevenue += rev.revenueGross ?? 0;
-      lifetimeTransactions += rev.transactionCount ?? 1;
-    }
-
-    // Dynamic weighted average: revenue / balls from known products.
-    // Falls back to FALLBACK_REVENUE_PER_BALL when no known products exist.
-    const avgRevenuePerBall = knownBalls > 0
-      ? knownRevenue / knownBalls
-      : FALLBACK_REVENUE_PER_BALL;
-
-    // Estimate total balls sold from lifetime gross revenue
-    const totalBalls = lifetimeRevenue > 0
-      ? Math.round(lifetimeRevenue / avgRevenuePerBall)
-      : 0;
-
-    return {
-      totalBalls,
-      lifetimeRevenue,
-      lifetimeTransactions,
-      avgRevenuePerBall,
-    };
+    return computeLifetimeTotals(items, revenues, bomComponents, componentTypes);
   },
 });

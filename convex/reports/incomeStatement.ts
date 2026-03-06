@@ -14,14 +14,9 @@ import { query } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
-import {
-  sourceToPlatform,
-  fetchInternalOrderDataMap,
-} from "../externalData/queries";
-
-// ─── Types ───
-
-type Confidence = "exact" | "calculated" | "inferred" | "missing";
+import { type Confidence, worstConfidence } from "../lib/confidence";
+import { sourceToPlatform } from "../lib/externalSource";
+import { fetchInternalOrderDataMap } from "../externalData/queries";
 
 interface ProductDetail {
   name: string;
@@ -111,21 +106,6 @@ function getChannelRevenueConfidence(source: string): Confidence {
     default:
       return "inferred";
   }
-}
-
-// ─── Confidence comparison ───
-// Placed above aggregateWeek so readers encounter it before first use.
-
-const CONFIDENCE_RANK: Record<Confidence, number> = {
-  exact: 0,
-  calculated: 1,
-  inferred: 2,
-  missing: 3,
-};
-
-/** Returns the worse (lowest-quality) confidence of two values. */
-function worstConfidence(a: Confidence, b: Confidence): Confidence {
-  return CONFIDENCE_RANK[a] >= CONFIDENCE_RANK[b] ? a : b;
 }
 
 // ─── Shared COGS resolution helper ───
