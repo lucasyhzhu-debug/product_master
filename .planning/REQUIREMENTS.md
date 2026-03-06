@@ -26,7 +26,7 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 - [x] **FFS-01**: `OverviewTab.tsx` slimmed to under 400 LOC (from 1,273) via sub-component extraction
 - [x] **FFS-02**: `GrabFoodManager.tsx` slimmed to under 600 LOC (from 1,486) via tab extraction
-- [ ] **FFS-03**: `FinishedGoodsTab.tsx` slimmed to under 600 LOC (from 1,474) via dialog/table extraction
+- [x] **FFS-03**: `FinishedGoodsTab.tsx` slimmed to under 600 LOC (from 1,474) via dialog/table extraction
 - [x] **FFS-04**: `VouchersManager.tsx` slimmed to under 600 LOC (from 1,285) via form extraction
 
 ### Schema Review
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BFS-06 | Phase 37 | Pending |
 | FFS-01 | Phase 38 | Complete |
 | FFS-02 | Phase 38 | Complete |
-| FFS-03 | Phase 38 | Pending |
+| FFS-03 | Phase 38 | Complete |
 | FFS-04 | Phase 38 | Complete |
 | RES-01 | Phase 39 | Pending |
 | RES-02 | Phase 39 | Pending |
