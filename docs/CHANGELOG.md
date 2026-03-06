@@ -20,10 +20,14 @@ After merging any code change, add a new entry with:
 
 **For the team:** No visible changes -- this is a backend code cleanup. Large query files have been split into smaller, testable helper modules. Makes future bug fixes and feature additions faster and less risky.
 
+#### Bug Fix
+- `autoMatchMenuProduct` now checks `externalProductMappings` before falling back to name matching (prevents stale mappings)
+
 #### Refactored
 - Extracted confidence types to `convex/lib/confidence.ts` (shared by income statement + dashboard)
 - Consolidated WIB timezone helpers into `convex/lib/periodRange.ts` (5 functions)
 - Moved `sourceToPlatform()` to `convex/lib/externalSource.ts` (single source of truth)
+- Extracted dashboard, time-series, lifetime, sell-through, and restock helpers from `externalData/queries.ts` into `helpers/` directory (1,832 -> 1,387 LOC, -24.3%)
 - Extracted stock and dispatch helpers from `k3martCockpit/queries.ts` into `queryHelpers/` directory (985 -> 760 LOC, -22.8%)
 - Updated `incomeStatement.ts` to import from shared lib modules (no local duplicates)
 - Zero Convex API path changes -- all query/mutation registrations unchanged

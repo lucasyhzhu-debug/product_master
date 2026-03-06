@@ -1,6 +1,7 @@
 /**
  * Stock summary and outlet settings computation helpers.
- * Pure functions that transform pre-fetched snapshot + revenue data into display-ready objects.
+ * Helper functions that transform pre-fetched snapshot + revenue data into display-ready objects.
+ * Note: accumulateSnapshotStock and enrichMappingPrices mutate their input maps in-place for efficiency.
  */
 
 import type { Id } from "../../_generated/dataModel";

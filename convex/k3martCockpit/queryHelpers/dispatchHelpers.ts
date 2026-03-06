@@ -1,6 +1,7 @@
 /**
  * Dispatch plan grid computation helpers.
- * Pure functions that build plan cells, subtotals, and auto-suggest quantities.
+ * Helper functions that build plan cells, subtotals, and auto-suggest quantities.
+ * Note: fillAutoSuggest and buildPlanCellsAndTotals mutate their input structures in-place for efficiency.
  */
 
 import type { Id } from "../../_generated/dataModel";

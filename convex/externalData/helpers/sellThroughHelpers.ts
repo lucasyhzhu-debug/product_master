@@ -1,6 +1,7 @@
 /**
  * Sell-through analysis helpers.
- * Pure functions for computing daily rates, stock status, and restock suggestions.
+ * Helper functions for computing daily rates, stock status, and restock suggestions.
+ * Note: buildSellThroughProducts mutates the passed-in productMap for efficiency.
  */
 import { isWeekend } from "../../lib/periodRange";
 import type { Doc } from "../../_generated/dataModel";
