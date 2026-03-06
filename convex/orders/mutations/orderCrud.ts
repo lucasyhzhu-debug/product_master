@@ -2,12 +2,12 @@
  * Order CRUD mutations
  * Core order lifecycle: create, cancel, remove, complete
  */
-import { mutation, type MutationCtx } from "../../_generated/server";
+import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals, generateOrderNumber as formatOrderNumber, parseDeliveryAddress } from "../helpers";
+import { parseDeliveryAddress } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -23,6 +23,12 @@ import {
   recordVoucherUsage,
   releaseVoucherUsage,
   validateFinalPrice,
+  resolveCustomer,
+  generateNextOrderNumber,
+  buildOrderItems,
+  applyItemLinkedVoucherDiscount,
+  calculateOrderLevelDiscount,
+  buildCopiedOrderItems,
 } from "../helpers/index";
 
 // Auth helper for token -> userId resolution
@@ -30,54 +36,6 @@ import { getSessionUser } from "../../lib/auth";
 
 // Shared validators
 import { orderItemInput } from "../validators";
-
-// ============================================
-// Helper Functions
-// ============================================
-
-async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
-  const now = new Date();
-  const datePrefix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(
-    now.getDate()
-  ).padStart(2, "0")}`;
-  const prefix = `${datePrefix}-`;
-
-  // Get today's orders using index for efficient lookup
-  const todayOrders = await ctx.db
-    .query("orders")
-    .withIndex("by_order_number", (q) =>
-      q.gte("orderNumber", prefix).lt("orderNumber", `${datePrefix}.`)
-    )
-    .collect();
-
-  // Find the highest sequence number used today (handles gaps from deletions)
-  let maxSequence = 0;
-  for (const order of todayOrders) {
-    const parts = order.orderNumber.split("-");
-    if (parts.length === 2) {
-      const seq = parseInt(parts[1], 10);
-      if (!isNaN(seq) && seq > maxSequence) {
-        maxSequence = seq;
-      }
-    }
-  }
-
-  // Use pure helper for format string generation
-  const orderNumber = formatOrderNumber(now, maxSequence);
-
-  // Verify uniqueness (handles race condition)
-  const existing = await ctx.db
-    .query("orders")
-    .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-    .first();
-
-  if (existing) {
-    // Rare race condition - retry with incremented sequence
-    return formatOrderNumber(now, maxSequence + 1);
-  }
-
-  return orderNumber;
-}
 
 // ============================================
 // Mutations
@@ -119,39 +77,20 @@ export const create = mutation({
     createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Handle customer
-    let customerId: Id<"customers">;
-    let customerName: string;
-    let customerPhone: string | undefined;
-
-    if (args.customerId) {
-      const customer = await ctx.db.get(args.customerId);
-      if (!customer) {
-        throw new Error("Customer not found");
-      }
-      customerId = args.customerId;
-      customerName = customer.name;
-      customerPhone = customer.phone;
-    } else if (args.newCustomer) {
-      customerId = await ctx.db.insert("customers", {
-        name: args.newCustomer.name,
-        phone: args.newCustomer.phone,
-        source: args.newCustomer.source,
-        createdBy: args.createdBy ?? "admin",
-        defaultAddress: args.deliveryAddress || undefined,
-      });
-      customerName = args.newCustomer.name;
-      customerPhone = args.newCustomer.phone;
-    } else {
-      throw new Error("Either customerId or newCustomer is required");
-    }
+    // Resolve customer using shared helper
+    const { customerId, customerName, customerPhone } = await resolveCustomer(ctx, {
+      customerId: args.customerId,
+      newCustomer: args.newCustomer,
+      createdBy: args.createdBy,
+      defaultAddress: args.deliveryAddress,
+    });
 
     // Generate order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
-    // Calculate totals and fetch menu product data for production fields
-    let totalAmount = 0;
-    let totalCost = 0;
+    // Build order items with calculated line totals
+    const { itemsToCreate, totalAmount: initialTotalAmount, totalCost } = buildOrderItems(args.items);
+    let totalAmount = initialTotalAmount;
 
     // Fetch all menu products needed (batch for efficiency)
     const menuProductIds = args.items
@@ -215,37 +154,10 @@ export const create = mutation({
       }
     }
 
-    const itemsToCreate = args.items.map((item) => {
-      const discount = item.discountAmount ?? 0;
-      const { lineTotal, lineCost, lineMargin } = calculateLineTotals(
-        item.quantity,
-        item.unitPrice,
-        item.unitCost,
-        discount
-      );
-      totalAmount += lineTotal;
-      totalCost += lineCost;
-
-      // BOM-02: No longer stamp productionType/productionUnits from menuProduct.
-      // Production tracking uses orderItemProduction records (created below).
-      return {
-        ...item,
-        discountAmount: discount,
-        lineTotal,
-        lineCost,
-        lineMargin,
-      };
-    });
-
     // Calculate order-level discount (manual discount)
-    let manualDiscountAmount = 0;
-    if (args.orderLevelDiscount !== undefined && args.orderLevelDiscountType !== undefined) {
-      if (args.orderLevelDiscountType === "percentage") {
-        manualDiscountAmount = totalAmount * (args.orderLevelDiscount / 100);
-      } else {
-        manualDiscountAmount = args.orderLevelDiscount;
-      }
-    }
+    let manualDiscountAmount = calculateOrderLevelDiscount(
+      totalAmount, args.orderLevelDiscount, args.orderLevelDiscountType
+    );
 
     // Process voucher if provided
     let voucherInfo: {
@@ -271,24 +183,9 @@ export const create = mutation({
 
       // For item-linked vouchers: apply per-unit discount to each matching item
       if (voucherInfo.applicableMenuProductId && voucherInfo.discountValuePerUnit !== undefined) {
-        const linkedProductId = voucherInfo.applicableMenuProductId;
-        const perUnitDiscount = voucherInfo.discountValuePerUnit;
-        let newTotalAmount = 0;
-        for (let i = 0; i < itemsToCreate.length; i++) {
-          const item = itemsToCreate[i];
-          if (item.menuProductId === linkedProductId) {
-            const addedDiscount = perUnitDiscount * item.quantity;
-            const newDiscountAmount = item.discountAmount + addedDiscount;
-            const newLineTotal = item.quantity * item.unitPrice - newDiscountAmount;
-            itemsToCreate[i] = {
-              ...item,
-              discountAmount: newDiscountAmount,
-              lineTotal: newLineTotal,
-            };
-          }
-          newTotalAmount += itemsToCreate[i].lineTotal;
-        }
-        totalAmount = newTotalAmount;
+        totalAmount = applyItemLinkedVoucherDiscount(
+          itemsToCreate, voucherInfo.applicableMenuProductId, voucherInfo.discountValuePerUnit
+        );
       }
     }
 
@@ -681,33 +578,15 @@ export const createDraft = mutation({
     createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Resolve customer (same pattern as existing create mutation)
-    let customerId: Id<"customers">;
-    let customerName: string;
-    let customerPhone: string | undefined;
-
-    if (args.customerId) {
-      const customer = await ctx.db.get(args.customerId);
-      if (!customer) {
-        throw new Error("Customer not found");
-      }
-      customerId = args.customerId;
-      customerName = customer.name;
-      customerPhone = customer.phone;
-    } else if (args.newCustomer) {
-      customerId = await ctx.db.insert("customers", {
-        name: args.newCustomer.name,
-        phone: args.newCustomer.phone,
-        createdBy: args.createdBy ?? "admin",
-      });
-      customerName = args.newCustomer.name;
-      customerPhone = args.newCustomer.phone;
-    } else {
-      throw new Error("Either customerId or newCustomer is required");
-    }
+    // Resolve customer using shared helper
+    const { customerId, customerName, customerPhone } = await resolveCustomer(ctx, {
+      customerId: args.customerId,
+      newCustomer: args.newCustomer,
+      createdBy: args.createdBy,
+    });
 
     // Generate order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
     // Create minimal Draft order
     const orderId = await ctx.db.insert("orders", {
@@ -957,7 +836,7 @@ export const copyFromCancelled = mutation({
       .collect();
 
     // Generate new order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
     // Due date defaults to tomorrow
     const tomorrow = new Date();
@@ -977,14 +856,8 @@ export const copyFromCancelled = mutation({
     }
 
     // Recalculate totals from source items (no voucher)
-    let totalAmount = 0;
-    let totalCost = 0;
     const activeItems = sourceItems.filter((item) => !item.isCancelled);
-
-    for (const item of activeItems) {
-      totalAmount += item.lineTotal;
-      totalCost += item.lineCost;
-    }
+    const { itemsToCopy, totalAmount, totalCost } = buildCopiedOrderItems(activeItems);
 
     // Create new order (no voucher, no manual discount)
     const newOrderId = await ctx.db.insert("orders", {
@@ -1015,7 +888,7 @@ export const copyFromCancelled = mutation({
     });
 
     // Copy items (non-cancelled only) and create production records
-    for (const item of activeItems) {
+    for (const item of itemsToCopy) {
       const orderItemId = await ctx.db.insert("orderItems", {
         orderId: newOrderId,
         productName: item.productName,

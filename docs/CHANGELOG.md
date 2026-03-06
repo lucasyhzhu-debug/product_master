@@ -16,6 +16,24 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### Order & Dispatch Backend Simplification (Phase 37)
+
+**For the team:** No visible changes -- backend code cleanup. Three large files in the orders and dispatch planner modules have been split into smaller, testable helper modules. Bug fixes included: completed-today filter now correctly uses completion time instead of creation time, and cancelled production records are no longer counted in kitchen stats.
+
+#### Bug Fixes
+- `getKitchenStats` and `getCompletedToday` now filter by `completedAt` instead of `_creationTime` (orders completed on a different day than created were missed)
+- `aggregateKitchenStats` production-by-type loops now exclude cancelled items and cancelled production records
+- `assembleDirectChannel` date range fixed from inclusive `T23:59:59` to exclusive upper bound (consistent with codebase convention)
+
+#### Refactored
+- Extracted `kitchenEnrichment.ts` (6 functions) and `kanbanBuilders.ts` (4 exports) from `orders/queries.ts` (1,279 -> 940 LOC, -26.5%)
+- Extracted `customerResolution.ts` (2 functions) and `orderItemProcessing.ts` (4 functions) from `orders/mutations/orderCrud.ts` (1,085 -> 958 LOC, -11.7%)
+- Extracted `types.ts` (5 interfaces), `weeklyPlanBuilder.ts` (5 functions), and `inventorySimulation.ts` (1 function) from `dispatchPlanner/queries.ts` (1,226 -> 313 LOC, -74.5%)
+- Replaced `ctx: { db: any }` with proper `QueryCtx` typing in all dispatch planner helpers
+- Removed dead `enrichBomComponents` function (68 LOC unused code)
+- Zero Convex API path changes -- all query/mutation registrations unchanged
+- Total: 3,590 -> 2,211 LOC across 3 target files (-38.4%)
+
 ### Sales & Analytics Backend Simplification (Phase 36)
 
 **For the team:** No visible changes -- this is a backend code cleanup. Large query files have been split into smaller, testable helper modules. Makes future bug fixes and feature additions faster and less risky.
