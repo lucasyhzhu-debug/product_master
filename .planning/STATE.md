@@ -3,30 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
-stopped_at: Completed 38-01-PLAN.md (OverviewTab Split)
-last_updated: "2026-03-06T14:06:53.553Z"
-last_activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
+stopped_at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
+last_updated: "2026-03-06"
+last_activity: 2026-03-06 — Completed 38-03 (FinishedGoodsTab Split)
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 12
   completed_plans: 12
----
-
----
-gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Tech Debt & Resilience
-status: in-progress
-stopped_at: Completed 38-02 (GrabFoodManager Split)
-last_updated: "2026-03-06"
-last_activity: 2026-03-06 — Completed 38-02 (GrabFoodManager Split)
-progress:
-  total_phases: 5
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
-  percent: 100
 ---
 
 # Project State
