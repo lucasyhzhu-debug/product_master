@@ -11,6 +11,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id, Doc } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { logStatusTransition } from "../orders/helpers/statusTransitions";
+import { ensureDepotLocation } from "./depotAutoSeed";
 
 /**
  * Add stock — Kitchen/staff adds finished goods to a location.
@@ -581,11 +582,15 @@ export const processGofoodSales = internalMutation({
       }
 
       if (!linkedLocationId) {
-        // Outlet not linked to a storage location — skip
-        console.log(
-          `processGofoodSales: outlet ${outletIdStr} has no linkedStorageLocationId — skipping item`
-        );
-        continue;
+        // Auto-seed: create depot location and link outlet
+        const outlet = await ctx.db.get(item.outletId);
+        const autoSeeded = await ensureDepotLocation(ctx, item.outletId, outlet?.name ?? "Unknown");
+        if (!autoSeeded) {
+          console.warn(`processGofoodSales: outlet ${outletIdStr} could not be auto-seeded — skipping item`);
+          continue;
+        }
+        linkedLocationId = autoSeeded;
+        outletLocationCache.set(outletIdStr, linkedLocationId);
       }
 
       const locationId: Id<"storageLocations"> = linkedLocationId;
