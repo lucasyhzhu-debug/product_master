@@ -37,7 +37,8 @@ export function countDayTypes(startMs: number, endMs: number): { numWeekdays: nu
 
 /**
  * Build the final sell-through product list from accumulated product analysis data.
- * Pure transformation: computes daily rates, stock status, trend, and suggestions.
+ * Computes daily rates, stock status, trend, and suggestions.
+ * Note: mutates productMap to add stock-only products (items with stock but no sales).
  */
 export function buildSellThroughProducts(
   productMap: Map<string, ProductAnalysis>,

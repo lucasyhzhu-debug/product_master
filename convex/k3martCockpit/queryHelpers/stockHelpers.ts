@@ -249,7 +249,7 @@ export function aggregateStockByMenuProduct(
 
 /**
  * Accumulate snapshot product quantities into a stock-by-code map.
- * Pure function used by getInventorySources to aggregate stock across outlets.
+ * Mutates stockMap in-place. Used by getInventorySources to aggregate stock across outlets.
  */
 export function accumulateSnapshotStock(
   snapshotProducts: Array<{ externalProductCode: string; quantity: number }>,

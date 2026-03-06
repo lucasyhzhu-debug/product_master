@@ -33,6 +33,7 @@ export function sourceToPlatform(source: string): string {
     case "internal": return "Direct";
     case "grabfood": return "GrabFood";
     case "shopee": return "Shopee";
+    // Tokopedia merged with TikTok Shop in Indonesia (2023). Source key "tiktok" represents the combined platform.
     case "tiktok": return "Tokopedia";
     case "consignment": return "Consignment";
     case "bigseller": return "BigSeller";
