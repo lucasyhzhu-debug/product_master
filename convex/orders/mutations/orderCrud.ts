@@ -2,12 +2,12 @@
  * Order CRUD mutations
  * Core order lifecycle: create, cancel, remove, complete
  */
-import { mutation, type MutationCtx } from "../../_generated/server";
+import { mutation } from "../../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 
 // Pure calculation helpers (no ctx dependency)
-import { calculateLineTotals, generateOrderNumber as formatOrderNumber, parseDeliveryAddress } from "../helpers";
+import { calculateLineTotals, parseDeliveryAddress } from "../helpers";
 
 // Ctx-dependent helpers from helpers/ directory
 import {
@@ -23,6 +23,8 @@ import {
   recordVoucherUsage,
   releaseVoucherUsage,
   validateFinalPrice,
+  resolveCustomer,
+  generateNextOrderNumber,
 } from "../helpers/index";
 
 // Auth helper for token -> userId resolution
@@ -30,54 +32,6 @@ import { getSessionUser } from "../../lib/auth";
 
 // Shared validators
 import { orderItemInput } from "../validators";
-
-// ============================================
-// Helper Functions
-// ============================================
-
-async function generateOrderNumber(ctx: MutationCtx): Promise<string> {
-  const now = new Date();
-  const datePrefix = `${String(now.getMonth() + 1).padStart(2, "0")}${String(
-    now.getDate()
-  ).padStart(2, "0")}`;
-  const prefix = `${datePrefix}-`;
-
-  // Get today's orders using index for efficient lookup
-  const todayOrders = await ctx.db
-    .query("orders")
-    .withIndex("by_order_number", (q) =>
-      q.gte("orderNumber", prefix).lt("orderNumber", `${datePrefix}.`)
-    )
-    .collect();
-
-  // Find the highest sequence number used today (handles gaps from deletions)
-  let maxSequence = 0;
-  for (const order of todayOrders) {
-    const parts = order.orderNumber.split("-");
-    if (parts.length === 2) {
-      const seq = parseInt(parts[1], 10);
-      if (!isNaN(seq) && seq > maxSequence) {
-        maxSequence = seq;
-      }
-    }
-  }
-
-  // Use pure helper for format string generation
-  const orderNumber = formatOrderNumber(now, maxSequence);
-
-  // Verify uniqueness (handles race condition)
-  const existing = await ctx.db
-    .query("orders")
-    .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
-    .first();
-
-  if (existing) {
-    // Rare race condition - retry with incremented sequence
-    return formatOrderNumber(now, maxSequence + 1);
-  }
-
-  return orderNumber;
-}
 
 // ============================================
 // Mutations
@@ -119,35 +73,16 @@ export const create = mutation({
     createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Handle customer
-    let customerId: Id<"customers">;
-    let customerName: string;
-    let customerPhone: string | undefined;
-
-    if (args.customerId) {
-      const customer = await ctx.db.get(args.customerId);
-      if (!customer) {
-        throw new Error("Customer not found");
-      }
-      customerId = args.customerId;
-      customerName = customer.name;
-      customerPhone = customer.phone;
-    } else if (args.newCustomer) {
-      customerId = await ctx.db.insert("customers", {
-        name: args.newCustomer.name,
-        phone: args.newCustomer.phone,
-        source: args.newCustomer.source,
-        createdBy: args.createdBy ?? "admin",
-        defaultAddress: args.deliveryAddress || undefined,
-      });
-      customerName = args.newCustomer.name;
-      customerPhone = args.newCustomer.phone;
-    } else {
-      throw new Error("Either customerId or newCustomer is required");
-    }
+    // Resolve customer using shared helper
+    const { customerId, customerName, customerPhone } = await resolveCustomer(ctx, {
+      customerId: args.customerId,
+      newCustomer: args.newCustomer,
+      createdBy: args.createdBy,
+      defaultAddress: args.deliveryAddress,
+    });
 
     // Generate order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
     // Calculate totals and fetch menu product data for production fields
     let totalAmount = 0;
@@ -681,33 +616,15 @@ export const createDraft = mutation({
     createdBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Resolve customer (same pattern as existing create mutation)
-    let customerId: Id<"customers">;
-    let customerName: string;
-    let customerPhone: string | undefined;
-
-    if (args.customerId) {
-      const customer = await ctx.db.get(args.customerId);
-      if (!customer) {
-        throw new Error("Customer not found");
-      }
-      customerId = args.customerId;
-      customerName = customer.name;
-      customerPhone = customer.phone;
-    } else if (args.newCustomer) {
-      customerId = await ctx.db.insert("customers", {
-        name: args.newCustomer.name,
-        phone: args.newCustomer.phone,
-        createdBy: args.createdBy ?? "admin",
-      });
-      customerName = args.newCustomer.name;
-      customerPhone = args.newCustomer.phone;
-    } else {
-      throw new Error("Either customerId or newCustomer is required");
-    }
+    // Resolve customer using shared helper
+    const { customerId, customerName, customerPhone } = await resolveCustomer(ctx, {
+      customerId: args.customerId,
+      newCustomer: args.newCustomer,
+      createdBy: args.createdBy,
+    });
 
     // Generate order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
     // Create minimal Draft order
     const orderId = await ctx.db.insert("orders", {
@@ -957,7 +874,7 @@ export const copyFromCancelled = mutation({
       .collect();
 
     // Generate new order number
-    const orderNumber = await generateOrderNumber(ctx);
+    const orderNumber = await generateNextOrderNumber(ctx);
 
     // Due date defaults to tomorrow
     const tomorrow = new Date();
