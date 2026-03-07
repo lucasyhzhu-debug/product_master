@@ -57,25 +57,6 @@ export function useExternalSnapshots(outletId?: Id<"externalOutlets">) {
   return { data, isLoading: data === undefined };
 }
 
-/**
- * Get revenue records, optionally filtered by source and period.
- * Always applies a periodStart bound (defaults to last 90 days) to prevent
- * unbounded full table scans (~80 MB bandwidth savings).
- */
-export function useExternalRevenue(
-  source?: "k3mart" | "gobiz" | "internal",
-  periodStart?: number,
-  periodEnd?: number
-) {
-  // Default to last 90 days if no period specified — prevents unbounded scan
-  const effectivePeriodStart = periodStart ?? (Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const data = useQuery(api.externalData.queries.getRevenue, {
-    source,
-    periodStart: effectivePeriodStart,
-    periodEnd,
-  });
-  return { data, isLoading: data === undefined };
-}
 
 /**
  * Get sync logs, optionally filtered by source.
@@ -181,17 +162,6 @@ export function useLifetimeTotals() {
   return { data, isLoading, error, refresh: load };
 }
 
-/**
- * Get order details by order number (for expanding internal order rows).
- * Uses skip pattern - pass undefined to skip the query.
- */
-export function useOrderDetailsByOrderNumber(orderNumber?: string) {
-  const data = useQuery(
-    api.externalData.queries.getOrderDetailsByOrderNumber,
-    orderNumber ? { orderNumber } : "skip"
-  );
-  return { data, isLoading: data === undefined };
-}
 
 // ============================================
 // Platform Credentials Hooks
@@ -257,17 +227,6 @@ export function useSyncInternalOrders() {
   return useAction(api.integrations.internal.adapter.syncInternalOrders);
 }
 
-/**
- * Get revenue line items for a specific revenue record.
- * Uses skip pattern for conditional fetching (only when expanded).
- */
-export function useRevenueItems(revenueId?: Id<"externalRevenue">) {
-  const data = useQuery(
-    api.externalData.queries.getRevenueItems,
-    revenueId ? { revenueId } : "skip"
-  );
-  return { data, isLoading: data === undefined };
-}
 
 // ============================================
 // Restock Planner Hooks

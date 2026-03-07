@@ -34,12 +34,13 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
     await screenshot(page, "11-sales-analytics-overview-full");
 
     // USABILITY: Stats cards should be the first thing visible
-    // Look for the 4 stats cards: Gross Revenue, Net Revenue, Transactions, Active Outlets
+    // Look for the 5 hero cards: Gross Sales, Net Sales, Commissions Paid, Discounts Given, Delivery Fees
     const statsLabels = [
-      "Gross Revenue",
-      "Net Revenue",
-      "Transactions",
-      "Active Outlets",
+      "Gross Sales",
+      "Net Sales",
+      "Commissions Paid",
+      "Discounts Given",
+      "Delivery Fees",
     ];
 
     console.log("--- STATS CARDS ANALYSIS ---");
@@ -58,34 +59,14 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
       }
     }
 
-    // Check if all 4 cards are in a grid row on desktop
-    const cardElements = page.locator(
-      'div[class*="grid"] > div:has(div:has-text("Revenue"))'
-    );
-    const cardCount = await cardElements.count();
-    console.log(`Stats card grid items: ${cardCount}`);
-
-    // USABILITY: The numbers should be large and bold (text-2xl font-bold)
-    const bigNumbers = page.locator(".text-2xl.font-bold");
-    const bigNumberCount = await bigNumbers.count();
-    console.log(`Large bold metric numbers: ${bigNumberCount}`);
-
-    if (bigNumberCount < 4) {
-      console.log(
-        "ISSUE: Fewer than 4 prominent metric numbers -- cofounder can't scan key data at a glance"
-      );
-    }
-
-    // USABILITY: Period label should give time context
-    const periodLabels = page.locator("text=/Last 24|Last 7|This week|Today/i");
-    const periodCount = await periodLabels.count();
-    console.log(`Period context labels: ${periodCount}`);
-
-    if (periodCount === 0) {
-      console.log(
-        "ISSUE: No time period context -- cofounder doesn't know if these are today's, this week's, or this month's numbers"
-      );
-    }
+    // At least one hero card label should be visible
+    const visibleCount = (await Promise.all(
+      statsLabels.map(async (label) => {
+        const card = page.locator(`text=${label}`).first();
+        return await card.isVisible().catch(() => false);
+      })
+    )).filter(Boolean).length;
+    console.log(`Visible hero card labels: ${visibleCount} / ${statsLabels.length}`);
 
     await screenshotElement(
       page,
@@ -93,10 +74,10 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
       "12-stats-cards-closeup"
     );
 
-    expect(true).toBe(true);
+    expect(visibleCount).toBeGreaterThanOrEqual(1);
   });
 
-  test("US-7: Overview shows chart and channel analytics (revenue table removed)", async ({
+  test("US-7: Overview shows chart and channel analytics", async ({
     page,
   }) => {
     await navigateTo(page, "/sales");
@@ -124,7 +105,7 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
     console.log(`Chart section visible: ${chartVisible}`);
 
     await screenshot(page, "14-chart-legend-filter");
-    expect(true).toBe(true);
+    expect(chartVisible).toBe(true);
   });
 
   test("US-9: Page description reflects all channels", async ({
@@ -148,7 +129,7 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
     console.log(`Page title "Sales Analytics" visible: ${titleVisible}`);
 
     await screenshot(page, "17-page-header");
-    expect(true).toBe(true);
+    expect(titleVisible).toBe(true);
   });
 
   test("US-10: Information density -- can cofounder absorb it all at a glance?", async ({
@@ -184,6 +165,6 @@ test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
     console.log(`Settings tab visible: ${settingsVisible}`);
 
     await screenshot(page, "18-full-overview-page");
-    expect(true).toBe(true);
+    expect(overviewVisible).toBe(true);
   });
 });

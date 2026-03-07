@@ -223,13 +223,10 @@ export {
   // Query hooks
   useExternalOutlets,
   useExternalSnapshots,
-  useExternalRevenue,
   useExternalSyncLogs,
   useExternalProductMappings,
   useDashboardSalesSummary,
   useDashboardSalesSummaryByPeriod,
-  useOrderDetailsByOrderNumber,
-  useRevenueItems,
   // Platform credentials hooks
   useCredentialStatus,
   useRefreshK3MartToken,

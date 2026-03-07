@@ -16,6 +16,16 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### Sales Analytics Cleanup (Quick Task 31)
+
+**For the team:** The Sales Analytics overview page is now faster and less cluttered -- the detailed transactions table has been removed since the chart, hero cards, and channel summary already cover all analytics needs.
+
+#### Removed
+- Sales Details (RevenueTable) card from Sales Analytics overview -- eliminates a Convex query that fetched thousands of individual revenue records
+- 7 orphaned component files (RevenueTable, RevenueItemDetails, InternalOrderDetails, StoreGroupHeader, PlatformBadge, ConfidenceBadge, MatchStatusBadge) -- 742 LOC eliminated
+- 4 dead type/constant exports from overviewUtils.ts (RevenueRecord, ConfidenceLevel, MatchConfidence, SOURCE_DISPLAY_NAMES)
+- 3 dead hooks from useExternalData.ts (useExternalRevenue, useOrderDetailsByOrderNumber, useRevenueItems)
+
 ### E2E Test Foundation & Resilience (Phase 39)
 
 **For the team:** GoFood sales at Tamtem and Goldfinch now automatically set up their depot inventory when first encountered — no more manual configuration needed. New automated browser tests cover the order lifecycle, kitchen production, and sales analytics pages to catch regressions early.
