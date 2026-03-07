@@ -5,27 +5,12 @@ milestone_name: Tech Debt & Resilience
 status: in-progress
 stopped_at: Completed 39-02-PLAN.md (Order Lifecycle & Kitchen E2E)
 last_updated: "2026-03-06T16:26:11.202Z"
-last_activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
+last_activity: 2026-03-07 - Completed quick task 31: Remove Sales Details table from Sales Analytics Overview
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 15
   completed_plans: 15
----
-
----
-gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Tech Debt & Resilience
-status: in-progress
-stopped_at: Completed 39-03-PLAN.md
-last_updated: "2026-03-06T16:11:39.067Z"
-last_activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
-progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 14
 ---
 
 # Project State
@@ -40,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-03)
 Phase: 39 — E2E Test Foundation & Resilience
 Plan: 3 of 3
 Status: Phase 39-03 complete -- Sales analytics period navigation E2E test
-Last activity: 2026-03-06 — Completed 39-03 (Sales Analytics Period E2E)
+Last activity: 2026-03-07 - Completed quick task 31: Remove Sales Details table
 
 ## Performance Metrics
 
