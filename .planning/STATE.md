@@ -105,11 +105,12 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 |---|-------------|------|--------|--------|-----------|
 | 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
+| 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
 | Phase 39 P01 | 5min | 2 tasks | 3 files |
 | Phase 39 P03 | 3min | 1 tasks | 1 files |
 
 ## Session Continuity
 
-Last session: 2026-03-06T16:20:55.603Z
-Stopped at: Completed 39-02-PLAN.md (Order Lifecycle & Kitchen E2E)
-Resume notes: Phase 39 plans 01 and 03 complete. Plan 02 (E2E order lifecycle) pending. Auto-seed helper + 6 unit tests added.
+Last session: 2026-03-07T03:35:56Z
+Stopped at: Completed quick task 31 (Remove Sales Details table)
+Resume notes: Quick task 31 complete. 7 orphaned components deleted, OverviewTab cleaned, E2E tests updated.
