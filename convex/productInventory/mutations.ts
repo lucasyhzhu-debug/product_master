@@ -11,6 +11,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id, Doc } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { logStatusTransition } from "../orders/helpers/statusTransitions";
+import { ensureDepotLocation } from "./depotAutoSeed";
 
 /**
  * Add stock — Kitchen/staff adds finished goods to a location.
@@ -573,18 +574,32 @@ export const processGofoodSales = internalMutation({
       let linkedLocationId: Id<"storageLocations"> | null;
 
       if (outletLocationCache.has(outletIdStr)) {
-        linkedLocationId = outletLocationCache.get(outletIdStr)!;
+        linkedLocationId = outletLocationCache.get(outletIdStr) ?? null;
       } else {
         const outlet = await ctx.db.get(item.outletId);
         linkedLocationId = outlet?.linkedStorageLocationId ?? null;
+
+        if (!linkedLocationId) {
+          // Auto-seed: create depot location and link outlet (reuse fetched outlet)
+          if (!outlet) {
+            console.warn(`processGofoodSales: outlet ${outletIdStr} not found in DB — skipping item`);
+            outletLocationCache.set(outletIdStr, null);
+            continue;
+          }
+          const autoSeeded = await ensureDepotLocation(ctx, item.outletId, outlet.name);
+          if (!autoSeeded) {
+            console.warn(`processGofoodSales: outlet ${outletIdStr} could not be auto-seeded — skipping item`);
+            outletLocationCache.set(outletIdStr, null);
+            continue;
+          }
+          linkedLocationId = autoSeeded;
+        }
+
         outletLocationCache.set(outletIdStr, linkedLocationId);
       }
 
       if (!linkedLocationId) {
-        // Outlet not linked to a storage location — skip
-        console.log(
-          `processGofoodSales: outlet ${outletIdStr} has no linkedStorageLocationId — skipping item`
-        );
+        // Cached null from a previous failed auto-seed attempt
         continue;
       }
 
@@ -630,9 +645,8 @@ export const processGofoodSales = internalMutation({
 
       processed++;
 
-      // Check for low-stock alert
-      const effectiveThreshold = globalThreshold;
-      if (newQuantity <= effectiveThreshold) {
+      // Check for low-stock alert (only when crossing threshold from above, not already negative)
+      if (previousQuantity > globalThreshold && newQuantity <= globalThreshold) {
         lowStockAlerts++;
       }
     }

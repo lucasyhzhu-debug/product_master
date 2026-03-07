@@ -16,6 +16,25 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### E2E Test Foundation & Resilience (Phase 39)
+
+**For the team:** GoFood sales at Tamtem and Goldfinch now automatically set up their depot inventory when first encountered — no more manual configuration needed. New automated browser tests cover the order lifecycle, kitchen production, and sales analytics pages to catch regressions early.
+
+#### Bug Fixes
+- `processGofoodSales` no longer silently skips inventory deductions when an outlet has no linked storage location — it auto-creates the depot and links it
+- Low-stock alerts now only fire when stock crosses the threshold from above (not on every deduction into already-negative inventory)
+
+#### Added
+- `convex/productInventory/depotAutoSeed.ts` — shared `ensureDepotLocation` helper for auto-creating depot storage locations (Tamtem Depot, Legato Goldfinch)
+- E2E test: order lifecycle (create order → status transitions through BeingPrepared)
+- E2E test: kitchen production (page load, production targets, End-of-Shift 3-step flow)
+- E2E test: sales analytics (period selector switching, channel breakdown, tab navigation)
+- 6 unit tests for depot auto-seed logic (idempotency, unknown outlet handling, zero-stock seeding)
+
+#### Improved
+- Auto-seed uses `Promise.all` for parallel DB queries instead of serial N+1 pattern
+- `componentTypes` query uses `.withIndex("by_category")` instead of full table scan
+
 ### Frontend Giant File Splits (Phase 38)
 
 **For the team:** No visible changes -- the same pages and features work exactly as before. Four large frontend files have been split into smaller, focused components for easier maintenance and faster development.

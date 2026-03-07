@@ -37,10 +37,10 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 ### Resilience
 
-- [ ] **RES-01**: E2E Playwright test for order lifecycle (create -> confirm -> produce -> complete)
-- [ ] **RES-02**: E2E Playwright test for kitchen production flow (tray allocation -> EoS recording)
-- [ ] **RES-03**: E2E Playwright test for sales analytics page (period selector, channel breakdown)
-- [ ] **RES-04**: Tamtem depot deduction no longer silently skips — error is logged or auto-seed runs
+- [x] **RES-01**: E2E Playwright test for order lifecycle (create -> confirm -> produce -> complete)
+- [x] **RES-02**: E2E Playwright test for kitchen production flow (tray allocation -> EoS recording)
+- [x] **RES-03**: E2E Playwright test for sales analytics page (period selector, channel breakdown)
+- [x] **RES-04**: Tamtem depot deduction no longer silently skips — error is logged or auto-seed runs
 
 ## Future Requirements
 
@@ -97,10 +97,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FFS-02 | Phase 38 | Complete |
 | FFS-03 | Phase 38 | Complete |
 | FFS-04 | Phase 38 | Complete |
-| RES-01 | Phase 39 | Pending |
-| RES-02 | Phase 39 | Pending |
-| RES-03 | Phase 39 | Pending |
-| RES-04 | Phase 39 | Pending |
+| RES-01 | Phase 39 | Complete |
+| RES-02 | Phase 39 | Complete |
+| RES-03 | Phase 39 | Complete |
+| RES-04 | Phase 39 | Complete |
 
 **Coverage:**
 - v1.6 requirements: 20 total
