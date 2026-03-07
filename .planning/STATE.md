@@ -3,12 +3,29 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Tech Debt & Resilience
 status: in-progress
-last_updated: "2026-03-05"
+stopped_at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
+last_updated: "2026-03-06T14:14:58.193Z"
+last_activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 12
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.6
+milestone_name: Tech Debt & Resilience
+status: in-progress
+stopped_at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
+last_updated: "2026-03-06"
+last_activity: 2026-03-06 — Completed 38-03 (FinishedGoodsTab Split)
+progress:
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -16,14 +33,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-03)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 36 complete -- all 3 plans executed, ready for merge
+**Current focus:** Phase 38 — Frontend Giant File Splits (plan 04 of 04 complete)
 
 ## Current Position
 
-Phase: 36 — Sales & Analytics Backend Simplification
-Plan: 3 of 3 (complete)
-Status: Phase 36 complete -- k3martCockpit split + incomeStatement verified + CHANGELOG updated
-Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verification)
+Phase: 38 — Frontend Giant File Splits
+Plan: 4 of 4 (complete)
+Status: Phase 38-04 complete -- VouchersManager split to 506 LOC
+Last activity: 2026-03-06 — Completed 38-04 (VouchersManager Split)
 
 ## Performance Metrics
 
@@ -32,7 +49,7 @@ Last activity: 2026-03-05 — Completed 36-03 (Split k3martCockpit + Final Verif
 **Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
 **Velocity (v1.4):** 20 plans across 9 phases in 5 days
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min (54min total, 5 plans)
+**Velocity (v1.6):** Phase 35: P01 13min, P02 16min | Phase 36: P01 5min, P02 9min, P03 11min | Phase 38: P01 7min, P02 6min, P03 8min, P04 5min
 
 ## Accumulated Context
 
@@ -55,6 +72,16 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 - P36-03: k3martCockpit/queries.ts reduced from 985 to 760 LOC (22.8% reduction, 2 helper files)
 - P36-03: queryHelpers/ directory pattern (not helpers/) avoids Windows case-insensitive collision
 - P36-03: 760 LOC slightly over 750 target -- remaining functions too ctx-dependent for pure extraction
+- P38-01: OverviewTab.tsx split from 1,273 to 283 LOC (78% reduction), 14 new files in salesAnalytics + shared dateUtils.ts
+- P38-01: PeriodData type includes all PeriodSummary fields (totalAdBurn, totalPromoBurn) for prop type safety
+- P38-01: Shared WIB helpers consolidated in src/lib/dateUtils.ts (6 exports, single source of truth)
+- P38-02: GrabFoodManager.tsx split from 1,486 to 173 LOC (88% reduction), 6 tab components in salesAnalytics/
+- P38-02: Named GrabFoodSettingsTab (not SettingsTab) to avoid barrel collision with existing SettingsTab
+- P38-02: formatCurrencyIDR eliminated from codebase, replaced with formatCurrency(amount ?? 0) pattern
+- P38-03: FinishedGoodsTab.tsx split from 1,474 to 488 LOC (67% reduction), 6 new files (utils + 4 views + settings)
+- P38-03: handleUpdateLocationType wrapper bridges FinishedGoodsSettings string params to typed Convex mutation
+- P38-04: VouchersManager.tsx split from 1,285 to 506 LOC (60.6% reduction), 5 components + barrel in src/components/vouchers/
+- P38-04: FreeVoucherDialog made self-contained with own state/handler (critical for LOC target)
 
 ### Open Blockers (carried forward)
 
@@ -72,6 +99,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-05
-Stopped at: Completed 36-03 (Split k3martCockpit + Final Verification)
-Resume notes: Phase 36 complete. All 3 plans executed. Ready for merge to main and next milestone planning.
+Last session: 2026-03-06
+Stopped at: Completed 38-03-PLAN.md (FinishedGoodsTab Split)
+Resume notes: Phase 38 all 4 plans complete. FinishedGoodsTab split to 488 LOC. Ready for phase merge to main.
