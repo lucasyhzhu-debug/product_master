@@ -12,16 +12,14 @@ import {
  *
  * Persona: Co-founder navigating to the dedicated sales page.
  * They want to see:
- * - All key metrics at once (gross, net, transactions, outlets) — no hunting
+ * - All key metrics at once (gross, net, transactions, outlets) -- no hunting
  * - Platform breakdown to know which channel is performing best
- * - Revenue table filterable by platform
  * - Trends/patterns visible at a glance
- * - Confidence indicators (is this data exact or estimated?)
  *
- * Critical: They don't want to click around — everything should be scannable.
+ * Critical: They don't want to click around -- everything should be scannable.
  */
 
-test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => {
+test.describe("Sales Analytics Overview -- Cofounder Revenue Dashboard", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsManager(page);
   });
@@ -74,7 +72,7 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
 
     if (bigNumberCount < 4) {
       console.log(
-        "ISSUE: Fewer than 4 prominent metric numbers — cofounder can't scan key data at a glance"
+        "ISSUE: Fewer than 4 prominent metric numbers -- cofounder can't scan key data at a glance"
       );
     }
 
@@ -85,7 +83,7 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
 
     if (periodCount === 0) {
       console.log(
-        "ISSUE: No time period context — cofounder doesn't know if these are today's, this week's, or this month's numbers"
+        "ISSUE: No time period context -- cofounder doesn't know if these are today's, this week's, or this month's numbers"
       );
     }
 
@@ -98,67 +96,25 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
     expect(true).toBe(true);
   });
 
-  test("US-7: Revenue table shows data with clear platform attribution", async ({
+  test("US-7: Overview shows chart and channel analytics (revenue table removed)", async ({
     page,
   }) => {
     await navigateTo(page, "/sales");
     await waitForDataLoad(page);
 
-    // Find revenue table
-    const revenueTable = page.locator("table").first();
-    const tableVisible = await revenueTable.isVisible().catch(() => false);
+    // Revenue table was intentionally removed -- verify overview still loads with key sections
+    const chartSection = page.locator('[class*="recharts"]').first();
+    const chartVisible = await chartSection.isVisible().catch(() => false);
+    console.log(`Chart section visible: ${chartVisible}`);
 
-    console.log("--- REVENUE TABLE ANALYSIS ---");
-    console.log(`Revenue table visible: ${tableVisible}`);
-
-    if (tableVisible) {
-      // Check column headers
-      const headers = ["Date", "Platform", "Product", "Qty", "Gross", "Net", "Confidence"];
-      for (const header of headers) {
-        const th = page.locator(`th:has-text("${header}")`).first();
-        const visible = await th.isVisible().catch(() => false);
-        console.log(`  Column "${header}": ${visible ? "present" : "MISSING"}`);
-      }
-
-      // Check for platform badges in table
-      const k3Badge = page.locator('table td >> text=K3 Mart');
-      const gobizBadge = page.locator('table td >> text=GoBiz');
-      const internalBadge = page.locator('table td >> text=Internal');
-
-      console.log(`K3 Mart rows: ${await k3Badge.count()}`);
-      console.log(`GoBiz rows: ${await gobizBadge.count()}`);
-      console.log(`Internal rows: ${await internalBadge.count()}`);
-
-      // Check for empty state
-      const emptyState = page.locator("text=No revenue data available");
-      if (await emptyState.isVisible().catch(() => false)) {
-        console.log("NOTE: Revenue table is empty — no data synced yet");
-        await screenshot(page, "13-revenue-table-empty");
-      } else {
-        await screenshotElement(page, "table", "13-revenue-table-data");
-      }
-
-      // Check row count — is it overwhelming?
-      const rows = page.locator("table tbody tr");
-      const rowCount = await rows.count();
-      console.log(`Total revenue rows: ${rowCount}`);
-
-      if (rowCount > 20) {
-        console.log(
-          "WARNING: Many rows visible — consider pagination or summarization for busy cofounder"
-        );
-      }
-    } else {
-      console.log("ISSUE: No revenue table found — cofounder can't see transaction details");
-    }
-
-    expect(true).toBe(true);
+    await screenshot(page, "13-overview-chart-and-channels");
+    expect(chartVisible).toBe(true);
   });
 
   test("US-8: Chart legend acts as channel filter", async ({
     page,
   }) => {
-    // Phase 30: Platform filter badges were removed — chart legend IS the filter now
+    // Phase 30: Platform filter badges were removed -- chart legend IS the filter now
     await navigateTo(page, "/sales");
     await waitForDataLoad(page);
 
@@ -166,11 +122,6 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
     const chartSection = page.locator('[class*="recharts"]').first();
     const chartVisible = await chartSection.isVisible().catch(() => false);
     console.log(`Chart section visible: ${chartVisible}`);
-
-    // Verify "Sales Details" table shows all channels (no filter badges)
-    const salesDetails = page.locator("text=Sales Details").first();
-    const detailsVisible = await salesDetails.isVisible().catch(() => false);
-    console.log(`Sales Details visible: ${detailsVisible}`);
 
     await screenshot(page, "14-chart-legend-filter");
     expect(true).toBe(true);
@@ -200,7 +151,7 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
     expect(true).toBe(true);
   });
 
-  test("US-10: Information density — can cofounder absorb it all at a glance?", async ({
+  test("US-10: Information density -- can cofounder absorb it all at a glance?", async ({
     page,
   }) => {
     // Holistic usability: how much vertical space does the overview take?
@@ -220,22 +171,8 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
 
     if (pageHeight > viewportHeight * 2) {
       console.log(
-        "WARNING: Page requires significant scrolling — busy cofounder may miss bottom content"
+        "WARNING: Page requires significant scrolling -- busy cofounder may miss bottom content"
       );
-    }
-
-    // Check if both stats cards AND revenue table fit in first viewport
-    const revenueTable = page.locator("text=Revenue Details").first();
-    if (await revenueTable.isVisible().catch(() => false)) {
-      const tableBox = await revenueTable.boundingBox();
-      if (tableBox) {
-        console.log(
-          `Revenue Details header position: y=${Math.round(tableBox.y)}px`
-        );
-        console.log(
-          `Visible without scrolling: ${tableBox.y < viewportHeight}`
-        );
-      }
     }
 
     // Tab navigation: are both tabs easily clickable?
@@ -247,34 +184,6 @@ test.describe("Sales Analytics Overview — Cofounder Revenue Dashboard", () => 
     console.log(`Settings tab visible: ${settingsVisible}`);
 
     await screenshot(page, "18-full-overview-page");
-    expect(true).toBe(true);
-  });
-
-  test("US-11: Confidence badges help cofounder trust the data", async ({
-    page,
-  }) => {
-    await navigateTo(page, "/sales");
-    await waitForDataLoad(page);
-
-    // Check for confidence badges in the revenue table
-    const exactBadges = page.locator('table >> text="Exact"');
-    const inferredBadges = page.locator('table >> text="Inferred"');
-    const manualBadges = page.locator('table >> text="Manual"');
-
-    console.log("--- DATA CONFIDENCE ANALYSIS ---");
-    console.log(`Exact confidence entries: ${await exactBadges.count()}`);
-    console.log(`Inferred confidence entries: ${await inferredBadges.count()}`);
-    console.log(`Manual confidence entries: ${await manualBadges.count()}`);
-
-    // Internal orders should all be "Exact" confidence
-    // Check if the confidence colors are distinct
-    if ((await exactBadges.count()) > 0) {
-      const exactBg = await exactBadges.first().evaluate((el) =>
-        window.getComputedStyle(el).backgroundColor
-      );
-      console.log(`Exact badge color: ${exactBg}`);
-    }
-
     expect(true).toBe(true);
   });
 });

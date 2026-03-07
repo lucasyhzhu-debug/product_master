@@ -15,8 +15,8 @@ import {
  * - Tab navigation round-trip
  *
  * Does NOT duplicate coverage from sales-analytics-overview.spec.ts which already
- * tests: stats cards visibility (US-6), revenue table (US-7), chart legend (US-8),
- * page description (US-9), info density (US-10), confidence badges (US-11).
+ * tests: stats cards visibility (US-6), chart + channel analytics (US-7), chart legend (US-8),
+ * page description (US-9), info density (US-10).
  */
 
 test.describe("Sales Analytics — Period Navigation & Channel Breakdown", () => {
@@ -119,32 +119,8 @@ test.describe("Sales Analytics — Period Navigation & Channel Breakdown", () =>
 
     await screenshot(page, "sales-period-04-channel-breakdown");
 
-    // Verify the Sales Details (revenue table) section exists
-    const salesDetails = page.locator('text=Sales Details').first();
-    const detailsVisible = await salesDetails.isVisible().catch(() => false);
-    console.log(`Sales Details section visible: ${detailsVisible}`);
-
-    // If the revenue table is visible, verify column headers
-    if (detailsVisible) {
-      const tableHeaders = ["Date", "Platform", "Product", "Qty", "Gross", "Net", "Confidence"];
-      for (const header of tableHeaders) {
-        const th = page.locator(`th:has-text("${header}")`).first();
-        const visible = await th.isVisible().catch(() => false);
-        console.log(`Table column "${header}": ${visible ? "present" : "MISSING or table empty"}`);
-      }
-    }
-
-    // The table may show "No Revenue Data Yet" empty state — that is acceptable
-    const emptyState = page.locator('text=No Revenue Data Yet');
-    const noRecords = page.locator('text=No records match');
-    const hasEmptyState = await emptyState.isVisible().catch(() => false);
-    const hasNoRecords = await noRecords.isVisible().catch(() => false);
-    if (hasEmptyState || hasNoRecords) {
-      console.log("Revenue table is in empty state — no data for selected period (OK)");
-    }
-
-    // Assert: either channel breakdown or sales details section is visible
-    expect(breakdownVisible || detailsVisible || hasEmptyState || hasNoRecords).toBe(true);
+    // Assert: channel breakdown section is visible
+    expect(breakdownVisible).toBe(true);
   });
 
   test("Tab navigation round-trip works", async ({ page }) => {
