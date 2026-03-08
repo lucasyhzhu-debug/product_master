@@ -90,9 +90,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BFS-01 | Phase 36 | Complete |
 | BFS-02 | Phase 36 | Complete |
 | BFS-03 | Phase 36 | Complete |
-| BFS-04 | Phase 37 | Pending |
-| BFS-05 | Phase 37 | Pending |
-| BFS-06 | Phase 37 | Pending |
+| BFS-04 | Phase 40 | Pending |
+| BFS-05 | Phase 40 | Pending |
+| BFS-06 | Phase 40 | Pending |
 | FFS-01 | Phase 38 | Complete |
 | FFS-02 | Phase 38 | Complete |
 | FFS-03 | Phase 38 | Complete |
