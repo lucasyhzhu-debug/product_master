@@ -18,8 +18,8 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 - [x] **BFS-01**: `externalData/queries.ts` slimmed to under 1,400 LOC (from 1,832) via pure helper extraction
 - [x] **BFS-02**: `k3martCockpit/queries.ts` slimmed to 760 LOC (from 985) via pure helper extraction
 - [x] **BFS-03**: `reports/incomeStatement.ts` imports shared confidence + WIB from lib modules (no local duplicates)
-- [x] **BFS-04**: `orders/queries.ts` slimmed to under 800 LOC (from 1,279) via helper extraction
-- [x] **BFS-05**: `orders/mutations/orderCrud.ts` slimmed to under 700 LOC (from 1,085) via validation extraction
+- [x] **BFS-04**: `orders/queries.ts` reduced to 940 LOC (from 1,279, -26.5%) via helper extraction (target was <800; ctx-dependent code limits further extraction)
+- [x] **BFS-05**: `orders/mutations/orderCrud.ts` reduced to 958 LOC (from 1,085, -11.7%) via validation extraction (target was <700; mutation ctx prevents pure extraction)
 - [x] **BFS-06**: `dispatchPlanner/queries.ts` slimmed to under 800 LOC (from 1,228) via simulation extraction
 
 ### Frontend File Splits
@@ -31,7 +31,7 @@ Requirements for v1.6 Operational Simplification & Resilience. Each maps to road
 
 ### Schema Review
 
-- [x] **SCH-01**: Expert audit of all 59 Convex tables identifies data duplication, denormalization waste, and unused/redundant tables
+- [x] **SCH-01**: Expert audit of all 65 Convex tables identifies data duplication, denormalization waste, and unused/redundant tables
 - [x] **SCH-02**: Identified schema inefficiencies documented with specific remediation recommendations
 - [x] **SCH-03**: Quick-win schema cleanups executed (remove unused fields/tables, add missing indexes) where safe
 

@@ -91,8 +91,6 @@ All v1.0-v1.5 decisions archived in PROJECT.md Key Decisions table.
 | 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 | 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
-| Phase 39 P01 | 5min | 2 tasks | 3 files |
-| Phase 39 P03 | 3min | 1 tasks | 1 files |
 
 ## Session Continuity
 

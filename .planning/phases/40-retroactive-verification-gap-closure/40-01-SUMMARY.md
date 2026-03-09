@@ -63,7 +63,7 @@ completed: 2026-03-09
 - Added `requirements-completed` frontmatter to 37-01/02/03-SUMMARY.md
 - Updated REQUIREMENTS.md: BFS-04/05/06 remapped from Phase 40/Pending to Phase 37/Complete
 - All 12 requirement IDs (SCH-01-03, BSH-01-03, BFS-01-06) now have SATISFIED status in their VERIFICATION.md
-- All 20 v1.6 requirements now traceable via 3-source cross-reference (VERIFICATION + SUMMARY + ROADMAP)
+- With these 12 closed, all 20 v1.6 requirements are now traceable via 3-source cross-reference (VERIFICATION + SUMMARY + ROADMAP) — the other 8 (FFS-01-04, RES-01-04) were already verified by Phases 38-39
 
 ## Task Commits
 
