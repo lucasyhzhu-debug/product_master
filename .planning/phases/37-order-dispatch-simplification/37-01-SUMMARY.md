@@ -2,6 +2,7 @@
 phase: 37-order-dispatch-simplification
 plan: 01
 status: complete
+requirements-completed: [BFS-04]
 ---
 
 # Plan 37-01 Summary: Extract Helpers from orders/queries.ts
