@@ -2,6 +2,52 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.6 — Tech Debt & Resilience
+
+**Shipped:** 2026-03-09
+**Phases:** 6 (35-40) | **Plans:** 16 | **Timeline:** 7 days
+
+### What Was Built
+- Schema audit: 42 findings across 65 tables, 20 unused indexes removed, 5 compound indexes added, 10 range bound fixes
+- Backend helper extraction: 5 files from 6,348 to 4,358 LOC (-31.3%) via shared confidence, WIB timezone, and pure function modules
+- Frontend file splits: 4 components from 5,518 to 1,450 LOC (-74%) via sub-component extraction with shared dateUtils.ts
+- E2E Playwright tests for 3 critical paths (order lifecycle, kitchen production, sales analytics)
+- Tamtem depot auto-seed: eliminates silent failures when depot storage locations don't exist
+- Retroactive verification: 3 VERIFICATION.md files created, all 20 requirements 3-source verified
+
+### What Worked
+- **Schema audit before refactoring**: Phase 35's expert audit identified exactly which indexes to remove and add before Phases 36-37 started extracting helpers. The compound indexes eliminated post-scan filters at 19+ call sites.
+- **Pure function extraction pattern**: Keeping Convex function registrations in original files while extracting logic into helpers/ achieved significant LOC reduction with zero API path changes. dispatchPlanner achieved -74.5% because simulation was almost entirely ctx-independent.
+- **Parallel frontend file splits**: 4 agents splitting 4 independent component files ran cleanly in ~10 min total. No merge conflicts because each agent touched different files.
+- **Triple review on every phase**: Caught real bugs (completedAt filter, cancelled record filtering) during code review that would have shipped as silent production issues.
+- **Milestone audit -> gap closure pipeline**: `/gsd:audit-milestone` identified 12 documentation gaps. Phase 40 closed all of them before milestone completion. Clean exit.
+
+### What Was Inefficient
+- **LOC target overestimation**: Plans consistently claimed larger reductions than achievable. BFS-04 target was <800 but delivered 940; BFS-05 target was <700 but delivered 958. Ctx-dependent code limits pure extraction. Planners must sum `lines_removed - lines_added_back` per candidate.
+- **Stale audit after gap closure**: The v1.6 audit file still says `status: gaps_found` even after Phase 40 closed all gaps. No mechanism to re-run or update the audit status. Future milestones should either re-audit or annotate the file.
+- **Phase 38 plan checkbox inconsistency**: ROADMAP showed `- [ ]` (unchecked) for Phase 38 and 39 plan items despite all being complete. Cosmetic but confusing during audit.
+- **Phase 40 added late**: 6th phase was unplanned — created by `/gsd:plan-milestone-gaps` to close audit-identified documentation gaps. Verification should be built into execution, not retrofitted.
+
+### Patterns Established
+- **queryHelpers/ directory pattern**: Use `queryHelpers/` (not `helpers/`) when a `helpers.ts` file already exists in the same directory — avoids Windows case-insensitive collision
+- **Auto-seed on first use**: DEPOT_CONFIG array pattern for auto-creating infrastructure (depot locations) when first accessed rather than requiring manual migration
+- **Retroactive verification**: When phases ship without VERIFICATION.md, create them from codebase evidence (wc -l, grep imports, build results) before milestone completion
+- **Shared dateUtils.ts**: Frontend WIB timezone helpers in `src/lib/dateUtils.ts` — single source of truth for date formatting across all analytics components
+- **formatCurrency(amount ?? 0)**: Replaces `formatCurrencyIDR` — null amounts render as "Rp 0" instead of "-"
+
+### Key Lessons
+1. **Ctx-dependency ratio predicts extraction ROI** — dispatchPlanner (95% self-contained) achieved -74.5%, while orderCrud (interleaved DB inserts) only achieved -11.7%. Plan LOC targets based on how much code depends on Convex ctx, not total function length.
+2. **Build verification into execution, not after** — 3/6 phases shipped without VERIFICATION.md, requiring Phase 40 to retrofit. The audit→gap closure pipeline works, but verifying during execution is cheaper.
+3. **Review findings must be fixed before re-review** — Phase 37 plans were reviewed twice with zero fixes between reviews. All 3 reviewers flagged the same stale issues both times.
+4. **Compound indexes eliminate post-scan filters** — `.withIndex("idx", q => q.gte(start))` + `.filter(q => q.lt(end))` is a post-scan filter. Both bounds must be inside `.withIndex()` for true index-level filtering.
+5. **Fragment keys on list wrappers** — When extracting components from `.map()` callbacks, the outermost element needs a `key`. Bare `<>...</>` fragments need `<Fragment key={...}>` for React reconciliation.
+
+### Cost Observations
+- Model mix: primarily opus (quality profile)
+- Notable: Pure refactoring milestone — no new features, no schema additions. Focus on maintainability and test coverage.
+
+---
+
 ## Milestone: v1.4 — Sales & Channel Integration
 
 **Shipped:** 2026-03-01
@@ -106,6 +152,7 @@
 | v1.3 | 8 | 49 | 3 days | GoFood depot, kitchen overhaul, legacy cleanup |
 | v1.4 | 9 | 20 | 5 days | Multi-platform integration, unified analytics, milestone audit |
 | v1.5 | 3 | 9 | 2 days | Financial statements, design-doc-first, triple review on every phase |
+| v1.6 | 6 | 16 | 7 days | Schema audit, backend/frontend LOC reduction, E2E tests, retroactive verification |
 
 ### Cumulative Quality
 
@@ -117,6 +164,7 @@
 | v1.3 | ~636 | Full suite, kitchen + codebase cleanup |
 | v1.4 | 643 | ExternalSource contract tests, sourceToPlatform coverage |
 | v1.5 | 684 | Income statement tests (22), sentinel-value dual-path verification |
+| v1.6 | 690 | Schema index audit, depot auto-seed tests (6), E2E Playwright tests (3) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -125,3 +173,4 @@
 3. **API discovery gate before integration phases** — v1.1 GoBiz paste-fix, v1.4 GrabFood scope gap — always validate endpoints before building
 4. **Milestone audit catches what phase verification misses** — Cross-phase integration, tech debt accumulation, requirement coverage gaps
 5. **Branch-per-phase discipline** — Never branch from another feature branch; always from main after merge
+6. **Build verification into execution** — v1.6 required Phase 40 to retrofit 3 missing VERIFICATION.md files. Cheaper to verify during execution than after audit.
