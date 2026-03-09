@@ -115,7 +115,7 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 - [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
 - [x] **Phase 39: E2E Test Foundation & Resilience** (0/3 plans) — Playwright E2E tests + Tamtem fix
  (completed 2026-03-06)
-- [ ] **Phase 40: Retroactive Verification Gap Closure** (1 plan) — Close 12 documentation gaps from audit
+- [x] **Phase 40: Retroactive Verification Gap Closure** (1/1 plans) — Close 12 documentation gaps from audit (completed 2026-03-09)
 
 #### Phase 35: Schema Review & Audit
 
@@ -261,7 +261,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 40-01-PLAN.md — Create 3 VERIFICATION.md files, fix Phase 37 SUMMARY frontmatter, update REQUIREMENTS.md traceability
+- [x] 40-01-PLAN.md — Create 3 VERIFICATION.md files, fix Phase 37 SUMMARY frontmatter, update REQUIREMENTS.md traceability
 
 **Approach:**
 - Create VERIFICATION.md for Phase 35 (verify SCH-01/02/03 against codebase)
@@ -290,4 +290,4 @@ Plans:
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | In Progress | -- |
 
-**Total: 40 phases, 177 plans shipped across 6 milestones + 1 plan remaining**
+**Total: 40 phases, 178 plans shipped across 7 milestones**
