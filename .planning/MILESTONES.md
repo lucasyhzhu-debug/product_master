@@ -1,4 +1,23 @@
 # Milestones
+## v1.6 Tech Debt & Resilience (Shipped: 2026-03-09)
+
+**Phases completed:** 6 phases (35-40), 16 plans
+**Timeline:** 7 days (2026-03-03 to 2026-03-09)
+**Commits:** 112 | **Codebase:** ~131,764 lines TypeScript (65 Convex tables)
+**Requirements:** 20/20 satisfied | **Tests:** 690 passing (+6 depot auto-seed tests)
+
+**Key accomplishments:**
+1. Schema audit: 42 findings across 65 tables — 20 unused indexes removed, 5 compound indexes added, 10 range bound anti-pattern fixes, critical session cleanup query fixed
+2. Backend helper extraction: 5 major files reduced from 6,348 to 4,358 LOC (-31.3%) via pure function extraction — shared confidence, WIB timezone, and sourceToPlatform helpers
+3. Frontend giant file splits: 4 components reduced from 5,518 to 1,450 LOC (-74%) via sub-component extraction — shared `dateUtils.ts` for WIB timezone
+4. E2E test foundation: 3 Playwright tests for critical paths (order lifecycle, kitchen production, sales analytics) with ~798 LOC
+5. Tamtem depot auto-seed: silent failures eliminated — `depotAutoSeed.ts` auto-creates depot location on first GoFood sale (154 LOC + 407 LOC tests)
+6. Verification gap closure: retroactive VERIFICATION.md for 3 phases, all 20 requirements 3-source verified (VERIFICATION + SUMMARY + ROADMAP)
+
+**Delivered:** Comprehensive tech debt reduction — schema audit with index cleanup, backend and frontend file splits reducing total LOC in 9 target files by ~46%, E2E test infrastructure for 3 critical paths, and Tamtem depot resilience fix. Pure refactoring milestone: no new feature tables, no API path changes, no schema additions.
+
+---
+
 ## v1.5 Financial Statements (Shipped: 2026-03-03)
 
 **Phases completed:** 3 phases (32-34), 9 plans

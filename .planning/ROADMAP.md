@@ -8,7 +8,7 @@
 - ✅ **v1.3 GoFood, Kitchen & Legacy Cleanup** — Phases 19-25 (shipped 2026-02-24)
 - ✅ **v1.4 Sales & Channel Integration** — Phases 26-31 (shipped 2026-03-01)
 - ✅ **v1.5 Financial Statements** — Phases 32-34 (shipped 2026-03-03)
-- ◆ **v1.6 Tech Debt & Resilience** — Phases 35-39 (in progress)
+- ✅ **v1.6 Tech Debt & Resilience** — Phases 35-40 (shipped 2026-03-09)
 
 ## Phases
 
@@ -107,176 +107,19 @@ Full details: `.planning/milestones/v1.5-ROADMAP.md`
 
 </details>
 
-### v1.6 Tech Debt & Resilience (Phases 35-40)
+<details>
+<summary>✅ v1.6 Tech Debt & Resilience (Phases 35-40) — SHIPPED 2026-03-09</summary>
 
-- [x] **Phase 35: Schema Review & Audit** (2/2 plans) — completed 2026-03-05
-- [x] **Phase 36: Sales & Analytics Backend Simplification** (3/3 plans) — completed 2026-03-05
-- [x] **Phase 37: Order & Dispatch Backend Simplification** (3/3 plans) — completed 2026-03-06
-- [x] **Phase 38: Frontend Giant File Splits** (0/4 plans) — Split 4 components >1,200 LOC (completed 2026-03-06)
-- [x] **Phase 39: E2E Test Foundation & Resilience** (0/3 plans) — Playwright E2E tests + Tamtem fix
- (completed 2026-03-06)
-- [ ] **Phase 40: Retroactive Verification Gap Closure** (1 plan) — Close 12 documentation gaps from audit
+- [x] Phase 35: Schema Review & Audit (2/2 plans) — completed 2026-03-05
+- [x] Phase 36: Sales Analytics Backend Simplification (3/3 plans) — completed 2026-03-05
+- [x] Phase 37: Order & Dispatch Backend Simplification (3/3 plans) — completed 2026-03-06
+- [x] Phase 38: Frontend Giant File Splits (4/4 plans) — completed 2026-03-06
+- [x] Phase 39: E2E Test Foundation & Resilience (3/3 plans) — completed 2026-03-06
+- [x] Phase 40: Retroactive Verification Gap Closure (1/1 plan) — completed 2026-03-09
 
-#### Phase 35: Schema Review & Audit
+Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
-**Goal:** Expert audit of all 59 Convex tables to identify data duplication, unused/redundant tables, denormalization waste, missing indexes, and inefficient patterns. Produce actionable findings and execute safe quick-wins.
-
-**Requirements:** SCH-01, SCH-02, SCH-03
-
-**Agent:** `schema-architect` — Convex schema specialist
-
-**Approach:**
-- Read `convex/schema.ts` (1,600 LOC, 59 tables) end-to-end
-- Cross-reference with actual query patterns in `convex/*/queries.ts` and `convex/*/mutations.ts`
-- Identify: duplicate data across tables, unused tables/fields from legacy cleanup, missing indexes on frequently-queried fields, denormalization that's no longer needed
-- Document findings as a structured report with severity and remediation recommendations
-- Execute safe quick-wins (remove unused fields/tables, add missing indexes) that don't require data migration
-
-**Success Criteria:**
-1. Schema audit report produced with categorized findings (duplication, unused, missing indexes, inefficiency)
-2. Each finding has severity (critical/moderate/low) and specific remediation recommendation
-3. Safe quick-win cleanups executed (no data migration required)
-4. `npm run build` passes after any schema changes
-5. All existing tests pass after changes
-
----
-
-#### Phase 36: Sales & Analytics Backend Simplification
-
-**Goal:** Extract shared helpers (confidence, WIB timezone, sourceToPlatform) and split the largest analytics query files into slim orchestrators + pure helper modules. No API path changes.
-
-**Requirements:** BSH-01, BSH-02, BSH-03, BFS-01, BFS-02, BFS-03
-
-**Existing plan:** `docs/plans/2026-03-03-sales-analytics-simplification-plan.md`
-
-**Approach:**
-- Create `convex/lib/confidence.ts` — shared confidence types + `worstConfidence()`
-- Consolidate WIB timezone helpers into `convex/lib/periodRange.ts`
-- Move `sourceToPlatform()` to `convex/lib/externalSource.ts`
-- Extract dashboard, restock, and analytics helpers from `externalData/queries.ts` (1,832 -> <1,400 LOC)
-- Extract K3Mart cockpit helpers from `k3martCockpit/queries.ts` (985 -> <750 LOC)
-- Update `incomeStatement.ts` to import shared modules (no local duplicates)
-- All Convex function registrations stay in original files
-
-**Success Criteria:**
-1. `convex/lib/confidence.ts` is the single source of truth — no duplicate confidence types elsewhere
-2. All WIB timezone helpers live in `convex/lib/periodRange.ts` — zero duplicates
-3. `sourceToPlatform()` has one definition in `convex/lib/externalSource.ts`
-4. `externalData/queries.ts` under 1,400 LOC
-5. `k3martCockpit/queries.ts` under 750 LOC
-6. `npm run build` passes, all tests pass, zero Convex API path changes
-
----
-
-#### Phase 37: Order & Dispatch Backend Simplification
-
-**Goal:** Split the order management and dispatch planner query/mutation files by extracting validation logic, enrichment helpers, and simulation code into pure helper modules.
-
-**Requirements:** BFS-04, BFS-05, BFS-06
-
-**Plans:** 3 plans
-
-Plans:
-- [x] 37-01-PLAN.md — Extract kitchen enrichment + kanban builder helpers from orders/queries.ts
-- [x] 37-02-PLAN.md — Extract BOM processing + customer resolution helpers from orders/mutations/orderCrud.ts
-- [x] 37-03-PLAN.md — Extract types + channel assembly + simulation from dispatchPlanner/queries.ts
-
-**Results:**
-- `orders/queries.ts`: 1,279 -> 940 LOC (-26.5%)
-- `orders/mutations/orderCrud.ts`: 1,085 -> 958 LOC (-11.7%)
-- `dispatchPlanner/queries.ts`: 1,226 -> 313 LOC (-74.5%)
-- Total: 3,590 -> 2,211 LOC (-38.4%)
-- Bug fixes: completedAt filter, cancelled record filtering, date range convention
-- `npm run build` passes, 684/684 tests pass, zero API path changes
-
----
-
-#### Phase 38: Frontend Giant File Splits
-
-**Goal:** Split the 4 largest frontend components (all >1,200 LOC) into focused sub-components.
-
-**Requirements:** FFS-01, FFS-02, FFS-03, FFS-04
-
-**Plans:** 4/4 plans complete
-
-Plans:
-- [ ] 38-01-PLAN.md — Split OverviewTab.tsx + create shared dateUtils.ts (FFS-01)
-- [ ] 38-02-PLAN.md — Split GrabFoodManager.tsx into tab components (FFS-02)
-- [ ] 38-03-PLAN.md — Split FinishedGoodsTab.tsx into view + settings components (FFS-03)
-- [ ] 38-04-PLAN.md — Split VouchersManager.tsx into voucher components (FFS-04)
-
-**Approach:**
-- Split `OverviewTab.tsx` (1,273 LOC): extract HeroCards, ChannelSummary, RevenueTable, PlatformHierarchy, LifetimeHero, 7 small helper components, consolidate WIB helpers into `src/lib/dateUtils.ts`
-- Split `GrabFoodManager.tsx` (1,486 LOC): extract 5 tab components (Orders, StoreStatus, Menu, Settings, Webhooks) + OutletDialog, replace formatCurrencyIDR with formatCurrency
-- Split `FinishedGoodsTab.tsx` (1,474 LOC): extract 4 view components (Product/Location/Platform grouped views, InlineTransferForm) + settings panel
-- Split `VouchersManager.tsx` (1,285 LOC): extract VoucherCard, OverrideCard, VoucherForm, FreeVoucherDialog into new `src/components/vouchers/` directory
-- Each extracted component receives data via props; self-contained components keep their hooks
-
-**Success Criteria:**
-1. `OverviewTab.tsx` under 400 LOC
-2. `GrabFoodManager.tsx` under 600 LOC
-3. `FinishedGoodsTab.tsx` under 600 LOC
-4. `VouchersManager.tsx` under 600 LOC
-5. `npm run build` passes with no type errors
-
----
-
-#### Phase 39: E2E Test Foundation & Resilience
-
-**Goal:** Establish Playwright E2E test infrastructure and write tests for the 3 most critical user paths. Fix the Tamtem depot silent failure.
-
-**Requirements:** RES-01, RES-02, RES-03, RES-04
-
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 39-01-PLAN.md — Fix Tamtem depot auto-seed + unit test (RES-04)
-- [ ] 39-02-PLAN.md — Order lifecycle + kitchen production E2E tests (RES-01, RES-02)
-- [ ] 39-03-PLAN.md — Sales analytics period navigation E2E test (RES-03)
-
-**Approach:**
-- Fix `processGofoodSales` silent skip: auto-seed depot storage locations when missing (both Tamtem + Goldfinch)
-- E2E test: order lifecycle (create via UI form -> confirm -> produce -> complete)
-- E2E test: kitchen production flow (view targets -> EoS recording)
-- E2E test: sales analytics (period selector switching, channel breakdown columns)
-- Extend existing E2E infrastructure (helpers.ts, global-setup.ts, playwright.config.ts)
-
-**Success Criteria:**
-1. Tamtem depot deduction auto-seeds instead of silently skipping
-2. Order lifecycle E2E test passes
-3. Kitchen production E2E test passes
-4. Sales analytics E2E test verifies period switching and table structure
-5. `npm run build` and `npm run test` both pass
-
----
-
-#### Phase 40: Retroactive Verification Gap Closure
-
-**Goal:** Create missing VERIFICATION.md files for Phases 35, 36, 37. Fix Phase 37 SUMMARY frontmatter. Update REQUIREMENTS.md traceability. Close all 12 documentation gaps identified by the v1.6 audit.
-
-**Requirements:** SCH-01, SCH-02, SCH-03, BSH-01, BSH-02, BSH-03, BFS-01, BFS-02, BFS-03, BFS-04, BFS-05, BFS-06
-
-**Gap Closure:** Closes all gaps from v1.6 audit (2026-03-07)
-
-**Plans:** 1 plan
-
-Plans:
-- [ ] 40-01-PLAN.md — Create 3 VERIFICATION.md files, fix Phase 37 SUMMARY frontmatter, update REQUIREMENTS.md traceability
-
-**Approach:**
-- Create VERIFICATION.md for Phase 35 (verify SCH-01/02/03 against codebase)
-- Create VERIFICATION.md for Phase 36 (verify BSH-01/02/03, BFS-01/02/03 against LOC counts)
-- Create VERIFICATION.md for Phase 37 + fix SUMMARY frontmatter (verify BFS-04/05/06)
-- Update REQUIREMENTS.md: mark BFS-04/05/06 complete, update coverage
-
-**Success Criteria:**
-1. VERIFICATION.md exists for Phases 35, 36, 37 (3 files created)
-2. Phase 37 SUMMARY files have requirements-completed frontmatter
-3. All 20 v1.6 requirements show "satisfied" in 3-source cross-reference
-4. REQUIREMENTS.md traceability table shows all 20 requirements as Complete
-5. Re-audit would return status: complete
-
----
+</details>
 
 ## Progress
 
@@ -288,6 +131,6 @@ Plans:
 | v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | Complete | 2026-02-24 |
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
-| v1.6 Tech Debt & Resilience | 35-40 | 16 | In Progress | -- |
+| v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
 
-**Total: 40 phases, 177 plans shipped across 6 milestones + 1 plan remaining**
+**Total: 40 phases, 177 plans shipped across 7 milestones**

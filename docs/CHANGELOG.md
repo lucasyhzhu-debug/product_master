@@ -16,6 +16,19 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
+### Retroactive Verification Gap Closure (Phase 40)
+
+**For the team:** No code changes -- this closes a documentation gap identified during the v1.6 milestone audit. All phases now have proper verification reports for traceability.
+
+#### Added
+- VERIFICATION.md for Phase 35 (Schema Review & Audit) covering SCH-01/02/03
+- VERIFICATION.md for Phase 36 (Sales Analytics Backend Simplification) covering BSH-01/02/03, BFS-01/02/03
+- VERIFICATION.md for Phase 37 (Order & Dispatch Simplification) covering BFS-04/05/06
+- `requirements-completed` frontmatter added to Phase 37 SUMMARY files
+
+#### Fixed
+- REQUIREMENTS.md traceability: BFS-04/05/06 correctly mapped to Phase 37 (was incorrectly mapped to Phase 40)
+
 ### Sales Analytics Cleanup (Quick Task 31)
 
 **For the team:** The Sales Analytics overview page is now faster and less cluttered -- the detailed transactions table has been removed since the chart, hero cards, and channel summary already cover all analytics needs.

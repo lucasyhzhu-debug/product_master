@@ -8,23 +8,16 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.6 Tech Debt & Resilience
-
-**Goal:** Comprehensive tech debt reduction — audit the schema for inefficiencies, extract shared patterns from duplicated logic, split giant files, and add E2E test coverage. Make the 130K LOC / 59-table system easier to maintain, debug, and extend.
-
-**Target features:**
-- Schema audit: expert review of all 59 tables for duplication, unused fields, missing indexes, inefficient patterns
-- Sales & analytics shared helper extraction (confidence, WIB timezone, sourceToPlatform)
-- Giant backend file splits (externalData, k3martCockpit, incomeStatement, orders, dispatchPlanner)
-- Giant frontend file splits (OverviewTab, GrabFoodManager, FinishedGoodsTab, VouchersManager)
-- E2E Playwright tests for critical paths (order lifecycle, kitchen, analytics)
-- Resilience fixes (Tamtem silent failure)
-
 ## Current State
 
-Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1.5), 34 phases, 161 plans.
+**Latest milestone:** v1.6 Tech Debt & Resilience (shipped 2026-03-09)
+**Next milestone:** Planning — `/gsd:new-milestone`
 
-**Latest feature:** Weekly income statement at `/financials` with per-channel Revenue -> COGS -> Gross Profit, BOM-resolved COGS, confidence indicators, comparison deltas, data quality panel, and CSV export.
+## Context
+
+Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–v1.6), 40 phases, 177 plans.
+
+**Latest milestone:** v1.6 — Schema audit with index cleanup (42 findings, 20 indexes removed, 5 added), backend helper extraction (-31.3% LOC across 5 files), frontend file splits (-74% LOC across 4 components), E2E Playwright tests for 3 critical paths, and Tamtem depot auto-seed resilience fix.
 
 ## Requirements
 
@@ -97,15 +90,16 @@ Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1
 - ✓ Data quality / gap analysis panel (unmapped products, missing channels, zero-cost components) — v1.5
 - ✓ Flat-format CSV export for external financial analysis — v1.5
 - ✓ Confidence classification on every financial figure (exact/calculated/inferred/missing) — v1.5
+- ✓ Schema audit: 42 findings across 65 tables, 20 unused indexes removed, 5 compound indexes added — v1.6
+- ✓ Backend helper extraction: shared confidence, WIB timezone, sourceToPlatform helpers — v1.6
+- ✓ Backend file splits: 5 major files from 6,348 to 4,358 LOC (-31.3%) — v1.6
+- ✓ Frontend file splits: 4 components from 5,518 to 1,450 LOC (-74%) — v1.6
+- ✓ E2E Playwright tests for order lifecycle, kitchen production, sales analytics — v1.6
+- ✓ Tamtem depot auto-seed: silent failures eliminated — v1.6
 
 ### Active
 
-- [ ] Sales & analytics backend simplification (shared helpers + query splits)
-- [ ] K3Mart cockpit query simplification
-- [ ] Order system backend simplification (queries + mutations)
-- [ ] Dispatch planner query simplification
-- [ ] Frontend giant file splits (OverviewTab, GrabFoodManager, FinishedGoodsTab, VouchersManager)
-- [ ] E2E Playwright test foundation for critical paths
+(No active requirements — next milestone not yet planned)
 
 ### Out of Scope
 
@@ -127,7 +121,7 @@ Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1
 | Per-unit consignment serialization | Batch tracking sufficient for Rp 40-120k product |
 | ~~Consignment sales upload (CON-01–05)~~ | **Completed in v1.4** as manual settlement entry form (simpler than Excel upload) |
 | ~~Sales Analytics consignment segments (ANLY-01–03)~~ | **Completed in v1.4** — per-outlet segments in unified chart |
-| E2E Playwright tests (E2E-01–04) | Deferred to v1.6; income statement is v1.5 priority |
+| ~~E2E Playwright tests (E2E-01–04)~~ | **Completed in v1.6** — order lifecycle, kitchen production, sales analytics E2E tests |
 | Line-item voucher codes (VCH-01) | Current order-level vouchers work; per-product discounts deferred |
 | Customer CRM / Sales pipeline | Deferred |
 | Notifications bell (NTF-01) | Deferred |
@@ -139,23 +133,24 @@ Shipped v1.5 Financial Statements (2026-03-03). 6 milestones complete (v1.0–v1
 
 ## Context
 
-Shipped v1.5 with ~130,008 lines TypeScript across 59 Convex tables.
+Shipped v1.6 with ~131,764 lines TypeScript across 65 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
-Deployed via Vercel with GitHub Actions CI. 6 milestones shipped (v1.0–v1.5), 34 phases, 161 plans.
+Deployed via Vercel with GitHub Actions CI. 7 milestones shipped (v1.0–v1.6), 40 phases, 177 plans.
 
-**Current state after v1.5:**
+**Current state after v1.6:**
 - Financial statements: weekly income statement with per-channel P&L, BOM COGS, confidence indicators, CSV export
-- Multi-platform integration: GoBiz (GoFood × 3 outlets), GrabFood Partner API (store control + webhooks + menu simulator), BigSeller (Shopee + Tokopedia sync), Consignment settlements
+- Multi-platform integration: GoBiz (GoFood x 3 outlets), GrabFood Partner API (store control + webhooks + menu simulator), BigSeller (Shopee + Tokopedia sync), Consignment settlements
 - Sales Analytics: 8-channel unified view with dynamic discovery, lifetime totals, multi-select filter
 - Kitchen: targets from dispatch plan, EoS recording to Finished Goods, waste logging, shift history
-- Codebase: bundle split (main 76kB), dark mode complete, hook naming unified, protectedMutation expanded, ExternalSource type guard pattern
-- Schema: 59 tables, 684 unit tests passing
+- Codebase: schema audited (150 indexes optimized), backend helpers extracted (-31.3% LOC), frontend files split (-74% LOC), shared WIB timezone + confidence modules
+- Schema: 65 tables, 690 unit tests passing, 3 E2E Playwright tests
 - UI: 27 pages, route-level code splitting with React.lazy
 
 **Known technical debt:**
-- E2E Playwright tests not yet written (deferred from v1.3/v1.4)
 - Generic query factory not applied to all query files (only simple entities)
-- Tamtem depot deduction silently skips when seedFinishedGoodsLocations not run
+- Integration adapter files large but stable (gobiz 1,207 LOC, k3mart 1,106 LOC, grabfood 829 LOC)
+- Order form components large (OrderFormPOS 1,068 LOC, OrderCreate 1,017 LOC)
+- E2E tests conditionally skip assertions when dev database lacks data
 - GrabFood orders:read OAuth2 scope not yet granted (infrastructure works, 401 handled gracefully)
 - BigSeller COGS = 0 for all Frollie orders (profit analytics meaningless until configured in BigSeller)
 
@@ -216,6 +211,12 @@ Deployed via Vercel with GitHub Actions CI. 6 milestones shipped (v1.0–v1.5), 
 | Confidence classification on every figure (v1.5) | Each amount tagged exact/calculated/inferred/missing instead of hiding data quality issues | ✓ Good — transparent, users know what to trust |
 | Consignment folded into unified P&L (v1.5) | Consignment settlements treated as another channel in the same query, not a separate report | ✓ Good — single view, consistent structure |
 | Sentinel-value dual-path testing (v1.5) | Seed deliberately wrong values in unused data paths to catch double-counting bugs | ✓ Good — proved consignment reads from settlements, not externalRevenue |
+| Schema audit before refactoring (v1.6) | Expert review of all tables before helper extraction ensures correct index usage | ✓ Good — 42 findings, 20 unused indexes removed, 5 compound indexes added |
+| Pure function extraction pattern (v1.6) | Move logic that doesn't need ctx into helper modules; keep Convex registrations in original files | ✓ Good — 31.3% backend LOC reduction, zero API path changes |
+| queryHelpers/ directory naming (v1.6) | Avoids Windows case-insensitive collision with existing helpers.ts file | ✓ Good — k3martCockpit extraction worked cleanly |
+| Auto-seed depot on first sale (v1.6) | DEPOT_CONFIG array makes adding new depot patterns trivial; eliminates silent failures | ✓ Good — Tamtem depot fixed, pattern reusable for new outlets |
+| Retroactive verification for audit gaps (v1.6) | Created VERIFICATION.md after execution when audit revealed missing docs | ✓ Good — all 20 requirements 3-source verified |
+| Shared dateUtils.ts for WIB timezone (v1.6) | Frontend WIB helpers consolidated into single module instead of per-component duplicates | ✓ Good — 6 exports, single source of truth |
 
 ---
-*Last updated: 2026-03-03 after v1.6 milestone start*
+*Last updated: 2026-03-09 after v1.6 milestone*

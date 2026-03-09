@@ -2,6 +2,7 @@
 phase: 37-order-dispatch-simplification
 plan: 02
 status: complete
+requirements-completed: [BFS-05]
 ---
 
 # Plan 37-02 Summary: Extract Helpers from orders/mutations/orderCrud.ts
