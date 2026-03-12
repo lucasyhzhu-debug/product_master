@@ -148,7 +148,11 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
   2. System accounts (isSystem: true) cannot be deleted via any mutation
   3. Atomic daily counter helper generates sequential EXP-MMDD-NNN and JE-MMDD-NNN formatted numbers without collisions
   4. Journal entry lines denormalize `entryDate` from their parent entry for direct index-based period queries
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 41-01-PLAN.md -- Schema (10 tables + users bank fields) + Chart of Accounts seed function
+- [ ] 41-02-PLAN.md -- Atomic daily counter helper (EXP/JE/RMB-MMDD-NNN)
 
 ### Phase 42: Journal Engine
 **Goal**: All journal entry creation goes through a single validated helper that enforces double-entry integrity and correct reversal dating
