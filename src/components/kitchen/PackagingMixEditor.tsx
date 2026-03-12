@@ -120,7 +120,7 @@ function ProductRow({
   return (
     <div className="flex items-center gap-2 py-1.5">
       {/* Product name */}
-      <span className="flex-1 text-sm font-medium truncate" title={productName}>
+      <span className="flex-1 text-sm font-medium break-words min-w-0" title={productName}>
         {productName}
       </span>
 
