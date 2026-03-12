@@ -113,4 +113,70 @@
 | Receipt OCR extraction | Nice-to-have; manual entry is sufficient at current expense volume |
 
 ## Traceability
-(Filled by roadmap — maps REQ-IDs to phases)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| COA-01 | Phase 43 | Pending |
+| COA-02 | Phase 43 | Pending |
+| COA-03 | Phase 43 | Pending |
+| COA-04 | Phase 41 | Pending |
+| COA-05 | Phase 41 | Pending |
+| EXP-01 | Phase 44 | Pending |
+| EXP-02 | Phase 44 | Pending |
+| EXP-03 | Phase 44 | Pending |
+| EXP-04 | Phase 44 | Pending |
+| EXP-05 | Phase 44 | Pending |
+| EXP-06 | Phase 41 | Pending |
+| EXP-07 | Phase 45 | Pending |
+| EXP-08 | Phase 45 | Pending |
+| EXP-09 | Phase 45 | Pending |
+| EXP-10 | Phase 45 | Pending |
+| EXP-11 | Phase 45 | Pending |
+| EXP-12 | Phase 45 | Pending |
+| EXP-13 | Phase 45 | Pending |
+| EXP-14 | Phase 45 | Pending |
+| EXP-15 | Phase 45 | Pending |
+| EXP-16 | Phase 45 | Pending |
+| EXP-17 | Phase 45 | Pending |
+| EXP-18 | Phase 44 | Pending |
+| FRAUD-01 | Phase 45 | Pending |
+| FRAUD-02 | Phase 45 | Pending |
+| FRAUD-03 | Phase 45 | Pending |
+| FRAUD-04 | Phase 45 | Pending |
+| FRAUD-05 | Phase 45 | Pending |
+| FRAUD-06 | Phase 50 | Pending |
+| FRAUD-07 | Phase 50 | Pending |
+| FRAUD-08 | Phase 50 | Pending |
+| RMB-01 | Phase 46 | Pending |
+| RMB-02 | Phase 46 | Pending |
+| RMB-03 | Phase 46 | Pending |
+| RMB-04 | Phase 46 | Pending |
+| RMB-05 | Phase 46 | Pending |
+| RMB-06 | Phase 46 | Pending |
+| RMB-07 | Phase 46 | Pending |
+| RMB-08 | Phase 46 | Pending |
+| PAY-01 | Phase 47 | Pending |
+| PAY-02 | Phase 47 | Pending |
+| PAY-03 | Phase 47 | Pending |
+| PAY-04 | Phase 47 | Pending |
+| JE-01 | Phase 42 | Pending |
+| JE-02 | Phase 42 | Pending |
+| JE-03 | Phase 42 | Pending |
+| JE-04 | Phase 41 | Pending |
+| JE-05 | Phase 41 | Pending |
+| JE-06 | Phase 42 | Pending |
+| PNL-01 | Phase 49 | Pending |
+| PNL-02 | Phase 49 | Pending |
+| PNL-03 | Phase 49 | Pending |
+| PNL-04 | Phase 49 | Pending |
+| PNL-05 | Phase 49 | Pending |
+| XANL-01 | Phase 50 | Pending |
+| XANL-02 | Phase 50 | Pending |
+| XANL-03 | Phase 50 | Pending |
+| XANL-04 | Phase 50 | Pending |
+| XANL-05 | Phase 50 | Pending |
+| XANL-06 | Phase 50 | Pending |
+| PERM-01 | Phase 48 | Pending |
+| PERM-02 | Phase 48 | Pending |
+| PERM-03 | Phase 48 | Pending |
+| PERM-04 | Phase 48 | Pending |

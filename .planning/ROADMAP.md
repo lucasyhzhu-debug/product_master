@@ -9,6 +9,7 @@
 - ✅ **v1.4 Sales & Channel Integration** — Phases 26-31 (shipped 2026-03-01)
 - ✅ **v1.5 Financial Statements** — Phases 32-34 (shipped 2026-03-03)
 - ✅ **v1.6 Tech Debt & Resilience** — Phases 35-40 (shipped 2026-03-09)
+- **v1.7 Expense & Accounting** — Phases 41-50 (in progress)
 
 ## Phases
 
@@ -121,6 +122,136 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 </details>
 
+### v1.7 Expense & Accounting (In Progress)
+
+**Milestone Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend the P&L to Net Income with OpEx breakdown.
+
+- [ ] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure
+- [ ] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support
+- [ ] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts
+- [ ] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail
+- [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
+- [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
+- [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
+- [ ] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration
+- [ ] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income
+- [ ] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring
+
+## Phase Details
+
+### Phase 41: Schema, Seed & Counters
+**Goal**: All accounting tables exist in the database and the Chart of Accounts is seeded with 36 PSAK-aligned default accounts
+**Depends on**: Nothing (first phase of v1.7)
+**Requirements**: COA-04, COA-05, EXP-06, JE-04, JE-05
+**Success Criteria** (what must be TRUE):
+  1. Running `accounts:seedDefaults` creates 36 GL accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) and is idempotent on re-run
+  2. System accounts (isSystem: true) cannot be deleted via any mutation
+  3. Atomic daily counter helper generates sequential EXP-MMDD-NNN and JE-MMDD-NNN formatted numbers without collisions
+  4. Journal entry lines denormalize `entryDate` from their parent entry for direct index-based period queries
+**Plans**: TBD
+
+### Phase 42: Journal Engine
+**Goal**: All journal entry creation goes through a single validated helper that enforces double-entry integrity and correct reversal dating
+**Depends on**: Phase 41
+**Requirements**: JE-01, JE-02, JE-03, JE-06
+**Success Criteria** (what must be TRUE):
+  1. `createJournalEntryWithLines` helper rejects any entry where total debits != total credits
+  2. No update mutation exists for journal entries -- the only correction path is creating a reversing entry
+  3. Reversal entries post to the same accounting period (date) as the original entry, not Date.now()
+  4. All downstream JE consumers (expense approval, reimbursement, payroll, void) use the single creation helper -- no direct `ctx.db.insert` on journalEntryLines
+**Plans**: TBD
+
+### Phase 43: Chart of Accounts Management
+**Goal**: Admin can manage the Chart of Accounts without touching the database directly
+**Depends on**: Phase 41
+**Requirements**: COA-01, COA-02, COA-03
+**Success Criteria** (what must be TRUE):
+  1. Admin can view the full Chart of Accounts with account code, name, type (Asset/Liability/Equity/Revenue/Expense), and active status
+  2. Admin can add custom GL accounts with unique codes following PSAK numbering conventions (4xxx, 5xxx, 6xxx, 7xxx, 1xxx-3xxx)
+  3. Deactivated accounts are hidden from new expense dropdowns but existing journal entries referencing them are preserved and visible
+**Plans**: TBD
+
+### Phase 44: Expense Submission
+**Goal**: Any authenticated user can create expense drafts, attach receipts, and submit them for approval
+**Depends on**: Phase 42
+**Requirements**: EXP-01, EXP-02, EXP-03, EXP-04, EXP-05, EXP-18
+**Success Criteria** (what must be TRUE):
+  1. User can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
+  2. Submitting a draft transitions it to Pending status and makes it visible in the approval queue
+  3. Receipt upload is enforced for expenses > Rp 50,000 (blocked at backend) and optional for <= Rp 50,000
+  4. Uploading a receipt with a SHA-256 hash matching an existing receipt hard-blocks submission with a reference to the duplicate expense
+  5. Every status transition (Draft, Pending, Approved, Rejected, AwaitingPayment, Reimbursed, Voided) is recorded in an immutable audit trail with actor, timestamp, and optional comment
+**Plans**: TBD
+
+### Phase 45: Expense Approval & Void
+**Goal**: Managers and admins can approve or reject expenses following Delegation of Authority rules, with fraud detection flags shown inline
+**Depends on**: Phase 44
+**Requirements**: EXP-07, EXP-08, EXP-09, EXP-10, EXP-11, EXP-12, EXP-13, EXP-14, EXP-15, EXP-16, EXP-17, FRAUD-01, FRAUD-02, FRAUD-03, FRAUD-04, FRAUD-05
+**Success Criteria** (what must be TRUE):
+  1. Eligible approvers see pending expenses in their queue (broadcast routing -- first to act wins), with self-submitted expenses excluded
+  2. Expenses <= Rp 500K are approvable by Manager or Admin; expenses > Rp 500K require Admin approval; approver comment is mandatory for expenses >= Rp 500K
+  3. Approving an expense atomically generates a journal entry (DR OpEx account, CR 2200 Accrued Expenses or CR 1100 Cash for company_card) and transitions to AwaitingPayment (personal) or Approved-terminal (company card)
+  4. Rejected expenses include a reason, and the submitter can revise and resubmit (linked via previousExpenseId chain with rejection count badge visible to approvers)
+  5. Admin can void non-terminal expenses with a reason, generating a reversing JE; reimbursed expenses cannot be voided directly (must void the reimbursement batch instead); approved expenses are immutable (no field edits)
+  6. Fraud flags are visible to approvers: duplicate detection (same employee + amount + date within 7 days), late submission (> 14 days old), and rejection history chain
+**Plans**: TBD
+
+### Phase 46: Reimbursement
+**Goal**: Admin can batch approved expenses by employee, confirm bank transfers, and track reimbursement history
+**Depends on**: Phase 45
+**Requirements**: RMB-01, RMB-02, RMB-03, RMB-04, RMB-05, RMB-06, RMB-07, RMB-08
+**Success Criteria** (what must be TRUE):
+  1. Admin can view approved expenses grouped by employee with bank details and running totals
+  2. Admin can create a reimbursement batch (one per employee) with auto-generated RMB-MMDD-NNN number and confirm it by entering BCA reference number, transfer date, and source bank account
+  3. Confirming a batch atomically generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
+  4. Admin can void a confirmed batch with reason, generating a reversing JE and returning linked expenses to AwaitingPayment status
+  5. Admin can manage company bank accounts (name, bank, account number, active status) and users can optionally store their bank details on their profile for reimbursement
+**Plans**: TBD
+
+### Phase 47: Payroll
+**Goal**: Admin can record payroll entries that auto-generate journal entries for salary expense tracking
+**Depends on**: Phase 42
+**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
+  2. Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
+  3. Admin can void a payroll entry, generating a reversing journal entry posted to the same period as the original
+  4. Payroll entries are viewable by period and employee type with filtering
+**Plans**: TBD
+
+### Phase 48: Frontend Permissions & Routes
+**Goal**: All expense, reimbursement, payroll, and analytics pages are accessible through the app with correct role-based guards
+**Depends on**: Phase 44, Phase 45, Phase 46, Phase 47
+**Requirements**: PERM-01, PERM-02, PERM-03, PERM-04
+**Success Criteria** (what must be TRUE):
+  1. All authenticated roles (kitchen, order_staff, manager, admin) can submit expenses and view their own expense history
+  2. Manager and Admin can access the approval queue and approve expenses within their DoA thresholds
+  3. Admin-only pages (Reimbursement Manager, bank accounts, payroll entries, All Expenses audit view) are blocked for non-admin roles
+  4. Manager and Admin can access the Expense Analytics dashboard; Finance hub card on HubPage links to all accounting sub-pages
+**Plans**: TBD
+
+### Phase 49: P&L Integration
+**Goal**: The income statement extends below Gross Profit to show OpEx breakdown, EBIT, and Net Income sourced from journal entries
+**Depends on**: Phase 42, Phase 48
+**Requirements**: PNL-01, PNL-02, PNL-03, PNL-04, PNL-05
+**Success Criteria** (what must be TRUE):
+  1. Income statement shows Operating Expenses broken down by GL account name (6xxx accounts) below Gross Profit
+  2. EBIT (Operating Profit) = Gross Profit - Total OpEx is displayed with EBIT margin percentage
+  3. Other Income/Expense section (7xxx accounts) and Net Income with net margin percentage are displayed below EBIT
+  4. OpEx data is sourced from a single indexed query on journalEntryLines by entryDate (business date, not _creationTime), with in-memory grouping by accountId -- no N+1 pattern
+**Plans**: TBD
+
+### Phase 50: Expense Analytics
+**Goal**: Managers and admins can monitor OpEx trends, spend distribution, and fraud flags from a dedicated analytics dashboard
+**Depends on**: Phase 48, Phase 49
+**Requirements**: XANL-01, XANL-02, XANL-03, XANL-04, XANL-05, XANL-06, FRAUD-06, FRAUD-07, FRAUD-08
+**Success Criteria** (what must be TRUE):
+  1. Dashboard shows total OpEx for the selected period with spend breakdown by GL category (bar or pie chart) and by employee
+  2. Monthly spend trend is displayed as a 6-month line chart showing OpEx trajectory
+  3. Pending reimbursement total and average approval time are displayed as summary metrics
+  4. Active fraud flags are surfaced: split detection (same employee + same GL + multiple expenses within 48hrs summing > Rp 500K), approver concentration (> 80% of one employee's expenses approved by same person in 30 days), and unfamiliar vendor (vendor not seen in 90 days)
+**Plans**: TBD
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -132,5 +263,6 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
+| v1.7 Expense & Accounting | 41-50 | TBD | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones**
+**Total: 40 phases, 177 plans shipped across 7 milestones + 10 phases planned for v1.7**

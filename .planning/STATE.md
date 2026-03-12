@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
-status: defining_requirements
+status: ready_to_plan
 stopped_at: null
-last_updated: "2026-03-12T12:00:00Z"
-last_activity: 2026-03-12 - Milestone v1.7 started
+last_updated: "2026-03-12T14:00:00Z"
+last_activity: 2026-03-12 - Roadmap created for v1.7 (10 phases, 64 requirements)
 progress:
-  total_phases: 0
+  total_phases: 10
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,14 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- defining requirements
+**Current focus:** v1.7 Expense & Accounting -- Phase 41 ready to plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-12 — Milestone v1.7 started
+Phase: 41 of 50 (Schema, Seed & Counters)
+Plan: --
+Status: Ready to plan
+Last activity: 2026-03-12 -- Roadmap created for v1.7 (10 phases, 64 requirements mapped)
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -41,6 +43,15 @@ Last activity: 2026-03-12 — Milestone v1.7 started
 ### Decisions
 
 All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
+v1.7 decisions pending -- no implementation started yet.
+
+### Research Findings (v1.7)
+
+Key staff review fixes embedded in roadmap:
+- C1: Reversal JE uses original entry date, not Date.now() (Phase 42)
+- C2: Single-query aggregation for OpEx in P&L, not N+1 per GL account (Phase 49)
+- C3: Should-Have fraud controls (FRAUD-06/07/08) included with analytics (Phase 50)
+- I3: Frontend permissions defined before routes reference them (Phase 48)
 
 ### Open Blockers (carried forward)
 
@@ -59,6 +70,6 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-09
-Stopped at: v1.6 milestone complete and archived
-Resume notes: Run `/gsd:new-milestone` to plan v1.7. Use `/clear` first for fresh context window.
+Last session: 2026-03-12
+Stopped at: Roadmap created for v1.7 Expense & Accounting (10 phases, 64 requirements)
+Resume notes: Run `/gsd:plan-phase 41` to start planning Phase 41 (Schema, Seed & Counters)
