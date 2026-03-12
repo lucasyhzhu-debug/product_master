@@ -83,7 +83,7 @@ export function KitchenOrderSummary() {
                     className="rounded-md border border-border bg-card px-2.5 py-2 text-xs"
                   >
                     <div className="font-medium text-foreground">{order.orderNumber}</div>
-                    <div className="text-muted-foreground truncate">{order.customerName}</div>
+                    <div className="text-muted-foreground break-words">{order.customerName}</div>
                     <div className="mt-0.5 text-muted-foreground">
                       {order.items
                         .map((item) => `${item.quantity}x ${item.productName}`)
