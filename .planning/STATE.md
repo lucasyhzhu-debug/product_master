@@ -1,29 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Tech Debt & Resilience
-status: complete
-stopped_at: Milestone v1.6 archived
-last_updated: "2026-03-09T12:00:00Z"
-last_activity: 2026-03-09 - Milestone v1.6 archived and tagged
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-12T12:00:00Z"
+last_activity: 2026-03-12 - Milestone v1.7 started
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-03-09)
+See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Planning next milestone
+**Current focus:** v1.7 Expense & Accounting -- defining requirements
 
 ## Current Position
 
-Milestone: v1.6 -- COMPLETE (shipped 2026-03-09)
-Next: `/gsd:new-milestone` to plan v1.7+
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-12 — Milestone v1.7 started
 
 ## Performance Metrics
 

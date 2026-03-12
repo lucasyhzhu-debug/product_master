@@ -96,3 +96,6 @@ prod-snapshot-work/
 # BUILD ARTIFACTS
 # =============================================================================
 bundlemeta.json
+
+# Visual brainstorming companion
+.superpowers/

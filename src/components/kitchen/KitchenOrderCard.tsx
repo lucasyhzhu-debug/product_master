@@ -136,7 +136,7 @@ export function KitchenOrderCard({
               {dueDateLabel ? (
                 <span
                   className={cn(
-                    'text-sm font-semibold truncate',
+                    'text-sm font-semibold break-words',
                     URGENCY_TEXT_CLASSES[urgency]
                   )}
                 >
@@ -160,7 +160,7 @@ export function KitchenOrderCard({
           {/* Row 2: Customer name + order number + delivery badge */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-sm font-medium truncate">
+              <span className="text-sm font-medium break-words">
                 {order.customerName}
               </span>
               <span className="text-xs font-mono text-muted-foreground flex-shrink-0">

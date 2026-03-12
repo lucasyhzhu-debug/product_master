@@ -226,7 +226,7 @@ export function KitchenViewV2() {
                   <CardContent className="py-2.5 px-3">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium text-foreground truncate">
+                        <span className="font-medium text-foreground break-words">
                           {record.submittedBy}
                         </span>
                         <span className="text-muted-foreground shrink-0">

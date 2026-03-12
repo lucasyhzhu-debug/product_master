@@ -1,44 +1,54 @@
 # Stack Research
 
-**Domain:** Multi-channel sales integration — GrabFood POS API (OAuth2), BigSeller profit analytics (cookie auth, async sync), consignment Excel upload, unified Sales Analytics
-**Researched:** 2026-02-25
-**Confidence:** HIGH — verified against existing codebase, official API docs, and official library documentation
+**Domain:** Expense management, double-entry accounting, receipt upload with fraud controls, and financial reporting extension
+**Researched:** 2026-03-12
+**Confidence:** HIGH -- verified against existing codebase patterns, official Web API documentation, and Convex file storage docs
 
 ---
 
 ## What This Document Covers
 
-v1.4 (Sales & Channel Integration) adds four new capability areas to the existing Convex + React 19 stack:
+v1.7 (Expense & Accounting) adds five capability areas to the existing Convex + React 19 stack:
 
-1. **GrabFood POS API** — OAuth2 client credentials, order polling, store control, inventory read/write
-2. **BigSeller profit sync** — JWT cookie auth, async sync-first workflow (1–10 min), order-level data
-3. **Consignment Excel upload** — `.xlsx` parse in browser, structured rows to Convex
-4. **Unified Sales Analytics** — multi-channel charts combining GoFood, BigSeller (Shopee + TikTok), consignment, direct
+1. **Chart of Accounts backbone** -- PSAK-aligned 36-account CoA with seeded defaults
+2. **Expense submission with receipt upload** -- file upload to Convex `_storage`, client-side SHA-256 hashing via Web Crypto API
+3. **Approval workflow with Delegation of Authority** -- broadcast routing, concurrency guards, fraud controls
+4. **Reimbursement batching** -- batch creation, bank transfer tracking, journal entry generation
+5. **P&L extension + Expense Analytics** -- OpEx breakdown, EBIT, Net Income, category charts
 
 ---
 
-## Existing Stack — What's Already There (DO NOT Re-Add)
+## Existing Stack -- What's Already There (DO NOT Re-Add)
 
-| Already Have | Version | Relevant Capability |
+| Already Have | Version | Relevant Capability for v1.7 |
 |---|---|---|
-| Convex | ^1.31.7 | serverless backend, HTTP actions (webhooks), cron jobs, `ctx.scheduler`, `platformCredentials` table |
-| React | ^19.2.0 | file input, hooks, lazy loading |
-| TypeScript | ~5.9.3 | type safety |
-| Vite | ^7.2.4 | build tool, code splitting |
-| Recharts | ^3.7.0 | stacked bar charts, line charts — already in `SalesAnalytics.tsx` |
-| date-fns | ^4.1.0 | date arithmetic |
-| Tailwind CSS | ^4.1.18 | styling |
-| shadcn/ui (Radix UI) | various | UI primitives including `<Table>`, `<Dialog>`, `<Progress>` |
-| Sonner | ^2.0.7 | toast notifications |
-| Lucide React | ^0.564.0 | icons including `Upload`, `FileSpreadsheet` |
+| Convex | ^1.31.7 | `_storage` file storage, `generateUploadUrl`, `storage.getUrl()`, mutation serialization (concurrency guard), `protectedMutation` pattern |
+| React | ^19.2.0 | File input, hooks, `React.lazy` code splitting |
+| TypeScript | ~5.9.3 | Type safety, ES2022 target, `DOM` lib types include Web Crypto API |
+| Vite | ^7.2.4 | Build tool, dev server (HTTPS available for Web Crypto) |
+| Recharts | ^3.7.0 | `BarChart`, `AreaChart`, `PieChart`, `LineChart`, `ResponsiveContainer` -- all chart types needed for Expense Analytics |
+| date-fns | ^4.1.0 | Date arithmetic for period filtering, late submission checks |
+| Tailwind CSS | ^4.1.18 | Styling |
+| shadcn/ui (Radix UI) | various | `<Table>`, `<Dialog>`, `<Tabs>`, `<Progress>`, `<Badge>`, `<Card>`, `<Select>`, `<RadioGroup>`, `<Accordion>` |
+| Sonner | ^2.0.7 | Toast notifications for approval/rejection/upload feedback |
+| Lucide React | ^0.564.0 | Icons including `Upload`, `Receipt`, `CheckCircle`, `XCircle`, `AlertTriangle`, `Banknote` |
+| Framer Motion | ^11.15.0 | Animations for status transitions |
+| convex-helpers | ^0.1.112 | Utility patterns for Convex |
 
-**GrabFood partial infrastructure already built:**
-- `convex/integrations/grabfood/config.ts` — OAuth2 config, all endpoint paths, typed interfaces
-- `convex/integrations/grabfood/adapter.ts` — token management, `testConnection`, `respondToOrder`, `markOrderReady`, `getStoreStatus`, `pauseStore`, `notifyMenuUpdate`, `autoRefreshToken`, webhook HTTP handlers
-- `convex/http.ts` — HTTP router exists, grabfood webhook routes need registration
-- `platformCredentials` table — stores `client_id`, `client_secret`, token, expiry
+**Existing file upload infrastructure:**
+- `convex/feedback/mutations.ts` -- `generateUploadUrl` mutation (unauthenticated, for feedback screenshots)
+- `convex/grabfoodMenu/mutations.ts` -- `generateUploadUrl` mutation (authenticated, for menu photos)
+- `src/components/grabfoodMenu/PhotoUpload.tsx` -- Complete client-side upload component: file validation, `fetch(uploadUrl, { method: "POST" })`, storageId extraction
+- `convex/feedback/queries.ts` -- `ctx.storage.getUrl(storageId)` pattern for serving stored files
 
-**No BigSeller infrastructure exists yet.** No consignment upload infrastructure exists yet.
+**Existing ID generation pattern:**
+- `convex/orders/helpers.ts` -- `generateOrderNumber(date, existingOrdersToday)` using `MMDD-NNN` format
+- Orders query existing records to determine sequence number (count-based)
+- v1.7 introduces a `counters` table for atomic increment instead (design spec Section 3)
+
+**Existing auth pattern:**
+- `convex/lib/auth.ts` -- `requireRole(ctx, args.token, ["admin"])` for all protected mutations
+- All roles defined: `kitchen`, `order_staff`, `manager`, `admin`
 
 ---
 
@@ -46,130 +56,189 @@ v1.4 (Sales & Channel Integration) adds four new capability areas to the existin
 
 ### New Dependencies Required
 
-| Library | Version | Purpose | Why |
-|---|---|---|---|
-| `xlsx` (SheetJS Community Edition) | 0.20.3 (CDN tarball) | Parse `.xlsx` consignment Excel uploads in-browser | Only maintained browser-compatible Excel parser. Reads `ArrayBuffer` from `<input type="file">` with no server round-trip. Named ESM imports are tree-shakeable. Apache 2.0 license. |
+**None.** Zero new npm packages needed for v1.7.
 
-**That is the only new dependency.** All other v1.4 requirements are satisfied by existing stack.
+Every v1.7 requirement is satisfied by existing stack + browser-native Web APIs.
 
-### Decision Matrix — Why No Other New Libraries
+### Decision Matrix -- Why No New Libraries
 
 | Requirement | How to Solve | New Library? |
 |---|---|---|
-| GrabFood OAuth2 token exchange | Native `fetch` with `URLSearchParams` body — already in `adapter.ts` | No |
-| GrabFood API calls (list orders, pause store, etc.) | Native `fetch` with Bearer header — already in `adapter.ts` | No |
-| GrabFood webhook receive | Convex `httpAction` — already in `adapter.ts`, register in `http.ts` | No |
-| GrabFood token cron refresh | `internalAction` + `cronJobs()` — `autoRefreshToken` exists, `crons.ts` empty | No |
-| BigSeller cookie-based API calls | Native `fetch` with `Cookie` header in `"use node"` action — same pattern as GoBiz | No |
-| BigSeller async sync polling (1–10 min) | `ctx.scheduler.runAfter(60000, ...)` chain — Convex native async workflow | No |
-| BigSeller daily sync cron | `cronJobs()` in `crons.ts` | No |
-| BigSeller token storage | `platformCredentials` table — already supports any platform | No |
-| Consignment Excel parse | SheetJS `XLSX.read(arrayBuffer)` | **YES — add SheetJS** |
-| Multi-channel analytics charts | Recharts (already ^3.7.0 in `SalesAnalytics.tsx`) — add new data series | No |
-| Date range filtering | date-fns (already ^4.1.0) | No |
-| Registry extension (new platforms) | Edit `convex/integrations/registry.ts` | No |
+| Receipt image upload | Convex `_storage` + `generateUploadUrl` -- already implemented in GrabFood menu | No |
+| SHA-256 receipt hashing | Web Crypto API `crypto.subtle.digest("SHA-256", arrayBuffer)` -- browser-native, ES2022 lib types | No |
+| Hex string conversion from hash | `Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("")` -- no library needed | No |
+| Expense form with receipt preview | shadcn/ui `<Dialog>` + `<Card>` + native `<input type="file" accept="image/*">` | No |
+| Approval queue UI | shadcn/ui `<Tabs>` + `<Card>` + `<Badge>` + `<Table>` | No |
+| Status timeline visualization | Tailwind CSS + Lucide icons -- simple vertical timeline component | No |
+| Chart of Accounts management | shadcn/ui `<Table>` + `<Dialog>` for CRUD | No |
+| Expense Analytics: Spend by Category | Recharts `<PieChart>` + `<Pie>` + `<Cell>` -- available in ^3.7.0 | No |
+| Expense Analytics: Monthly Trend | Recharts `<LineChart>` + `<Line>` -- available in ^3.7.0 | No |
+| Expense Analytics: Spend by Employee | Recharts `<BarChart>` + `<Bar>` -- already used in SalesAnalytics | No |
+| P&L extension (OpEx section) | Extend existing `IncomeStatement` component with `journalEntryLines` aggregation | No |
+| Counter table for ID generation | New `counters` table with atomic mutation increment -- Convex mutation serialization handles race conditions | No |
+| Date period filtering | date-fns `startOfWeek`, `endOfWeek`, `subDays`, `differenceInDays` -- already in project | No |
+| Duplicate detection (amount + date window) | Convex index query on `expenses` table -- pure backend logic | No |
+| Receipt hash dedup | Convex index `by_receipt_hash` on `expenses` table -- query before insert | No |
+| Immutable journal entries | No update mutation -- architectural decision, not a library | No |
+| Debit/credit balance validation | Simple arithmetic check `totalDebits === totalCredits` in mutation | No |
+| Reimbursement batch grouping | Convex query with `.filter()` grouping by employee -- pure backend | No |
+| File size validation | `file.size > MAX_FILE_SIZE` -- browser-native File API | No |
+| Image type validation | `file.type` check + `accept="image/jpeg,image/png,image/webp"` attribute | No |
 
 ---
 
-## SheetJS Installation
+## Key Technology Decisions
 
-The npm registry `xlsx` package (version 0.18.5) is **stale and unmaintained**. SheetJS stopped publishing to the npm registry. The current version (0.20.3) is only available from the SheetJS CDN:
+### 1. Web Crypto API for SHA-256 Receipt Hashing
 
-```bash
-npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-```
+**Decision:** Use browser-native `crypto.subtle.digest("SHA-256", arrayBuffer)` for receipt deduplication.
 
-The tarball installs identically to a registry package — saves to `node_modules/xlsx`, appears in `package.json` as the tarball URL. All imports like `import { read, utils } from 'xlsx'` work unchanged.
+**Why:** Web Crypto API is available in all modern browsers (baseline since January 2020). It runs in a secure context (HTTPS), which Vite dev server and Vercel production both provide. The TypeScript `DOM` lib (already in `tsconfig.app.json`) includes full type definitions. No polyfill needed for ES2022 target.
 
-**Post-install `package.json` entry:**
-```json
-"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
-```
-
-Types are bundled in the package — no `@types/xlsx` needed.
-
----
-
-## Integration Patterns by Feature
-
-### GrabFood: Complete the Existing Module
-
-The `adapter.ts` already has token management and most actions. What v1.4 adds on top:
-
-1. **`grabfoodOrders` table** — persist incoming webhook orders and polled history. The `handleOrderWebhook` handler has a TODO comment explicitly for this.
-2. **`listOrders` action** — call `GET /partner/v1/orders` to backfill historical order data (pagination via `more: boolean` flag)
-3. **Store control UI** — surface `getStoreStatus` and `pauseStore` to frontend. Per merchant ID (3 outlets: Crystal, Goldfinch, Tamtem).
-4. **Register webhooks in `http.ts`** — `handleOrderWebhook` and `handleMenuSyncWebhook` exist but are not registered in the HTTP router
-5. **Activate cron** — `autoRefreshToken` exists but `crons.ts` is empty. Token expires every 1h — cron every 45min.
-
-**No new libraries.** Pattern extension of existing module.
-
-### BigSeller: New Module Following GoBiz Pattern
-
-BigSeller uses **JWT cookie auth** (`muc_token`, 30-day expiry). This is the same pattern as GoBiz — manual cookie paste, store in `platformCredentials`, use on every API call.
-
-**The sync-first async workflow requires a scheduler chain, not a polling loop:**
-
-```
-Daily cron (11pm) → triggerBigSellerSync action
-  → POST sync/task/create.json
-  → scheduler.runAfter(60000, checkBigSellerSyncStatus)
-    → GET sync/task/detail/new/get.json
-    → if taskStatus === "complete" → scheduler.runAfter(0, fetchBigSellerData)
-    → if taskStatus === "progress" → scheduler.runAfter(60000, checkBigSellerSyncStatus)  // repeat
-    → if taskStatus === "fail" → log error, alert dashboard health
-  → fetchBigSellerData action
-    → POST listStatsData.json (daily aggregates)
-    → POST pageList.json (paginate all pages, pageSize: 50)
-    → upsert to Convex by platformOrderId (idempotent)
-```
-
-**Critical constraint:** A single Convex action cannot run for 10 minutes. The scheduler chain pattern (each action schedules the next) is the correct Convex approach for async external workflows that take longer than a single action timeout. This is documented in Convex best practices.
-
-**31-day max range** — BigSeller enforces this server-side. For sync ranges > 31 days, trigger multiple syncs sequentially. For daily incremental sync (recommended), this is never an issue.
-
-### Consignment Excel: Client-Side Parse Only
-
-Parse the Excel file entirely in the browser. Send structured JSON rows to a Convex mutation. The file never leaves the browser — no Convex `generateUploadUrl`, no `_storage` table.
-
+**Implementation pattern:**
 ```typescript
-import { read, utils } from 'xlsx';
-
-async function parseConsignmentFile(file: File): Promise<ConsignmentRow[]> {
+async function computeReceiptHash(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
-  const wb = read(buffer, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  return utils.sheet_to_json<ConsignmentRow>(ws);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  // Use Array.from for ES2022 compatibility (NOT Uint8Array.toHex which requires ES2025+)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 ```
 
-Lazy-load the upload component — SheetJS adds ~180KB to the chunk it's in:
+**Why client-side, not server-side:** The design spec explicitly requires client-side hashing to avoid reading large files in Convex mutation context. Convex mutations have execution time limits -- reading a multi-MB receipt image into memory for hashing would be wasteful. The hash is computed in the browser and passed as a string argument alongside the storageId.
+
+**Compatibility note:** Do NOT use `Uint8Array.prototype.toHex()` for hex conversion. This method only achieved baseline browser support in September 2025 and the project targets ES2022. Use the `Array.from().map().join()` pattern instead, which works in all browsers.
+
+### 2. Convex `_storage` for Receipt Files
+
+**Decision:** Use existing Convex file storage with the same 3-step upload pattern as GrabFood menu photos.
+
+**Why:** The pattern is already proven in the codebase:
+1. Call `generateUploadUrl` mutation to get a short-lived upload URL (expires in 1 hour)
+2. `POST` the file to the URL, get back `{ storageId }`
+3. Pass `storageId` to the expense submission mutation
+
+**What's different from GrabFood photos:**
+- Receipt upload adds SHA-256 hash computation between steps 1 and 3
+- Receipt upload requires auth (use `requireRole` pattern from `grabfoodMenu/mutations.ts`, not the unauthenticated `feedback/mutations.ts` pattern)
+- File types: `image/jpeg, image/png, image/webp` (same as GrabFood)
+- File size limit: 5MB (same as GrabFood `PhotoUpload.tsx`)
+
+**Serving receipt URLs:** Use `ctx.storage.getUrl(receiptFileId)` in queries, following `feedback/queries.ts`. URLs are temporary and regenerated on each query -- this is correct for receipts (no permanent public URL needed).
+
+### 3. Counters Table for Atomic ID Generation
+
+**Decision:** Introduce a `counters` table with compound index for atomic sequential ID generation.
+
+**Why:** The existing order number system counts existing records to determine the next sequence number. This works for orders because order creation is relatively infrequent. For expenses, approvals, and journal entries happening in parallel, the count-based approach risks race conditions. The `counters` table with `prefix + date` compound index and Convex mutation serialization guarantees unique sequential numbers.
+
+**Pattern:**
 ```typescript
-const ConsignmentUploadPage = React.lazy(() => import('./pages/ConsignmentUploadPage'));
+// counters table: { prefix: string, date: string, lastSequence: number }
+// Index: by_prefix_date on [prefix, date]
+// Mutation reads counter, increments, writes back -- serialized by Convex
 ```
 
-### Unified Analytics: Extend Existing Recharts Patterns
+This is a standard counter/sequence pattern in event-sourced systems. Convex mutation serialization means two simultaneous mutations on the same counter document will be serialized automatically -- no distributed locks needed.
 
-`SalesAnalytics.tsx` already has `PLATFORM_COLORS`, stacked `<Bar>` charts, and period presets. Adding BigSeller/consignment channels is:
+### 4. Recharts for Expense Analytics Charts
 
-1. Extend `externalRevenue` table with `source` literals: add `"shopee"`, `"tiktok"` (currently only `"k3mart"`, `"gobiz"`, `"internal"`)
-2. Add corresponding color entries to `PLATFORM_COLORS`
-3. Add new `<Bar dataKey="..." />` for each new channel
-4. Update `SalesAnalytics` Convex query to aggregate new sources
+**Decision:** Reuse Recharts ^3.7.0 (already installed) for all Expense Analytics visualizations.
 
-No new chart types, no new charting library.
+**Verified chart types available in Recharts 3.x:**
+| Chart Type Needed | Recharts Component | Used in Codebase? |
+|---|---|---|
+| Spend by Category (pie) | `<PieChart>` + `<Pie>` + `<Cell>` | **New** -- not yet used, but verified available |
+| Monthly Trend (line) | `<LineChart>` + `<Line>` | **New** -- not yet used, but verified available |
+| Spend by Employee (bar) | `<BarChart>` + `<Bar>` | YES -- `SalesChart.tsx` uses stacked bars |
+| Period comparison (area) | `<AreaChart>` + `<Area>` | YES -- `SalesChart.tsx` uses area for monthly |
+
+All imports follow the same pattern as `SalesChart.tsx`:
+```typescript
+import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+```
+
+**No Recharts upgrade needed.** The ^3.7.0 version already installed supports all required chart types. PieChart has been available since Recharts 1.x.
+
+### 5. No Additional Form Library
+
+**Decision:** Use existing shadcn/ui form components (inputs, selects, radio groups) with controlled React state. Do NOT add react-hook-form, formik, or zod for expense forms.
+
+**Why:** The codebase consistently uses controlled components with `useState` for forms (OrderCreate, RecipeEditor, ProductEditor). Adding a form library for one feature would create inconsistency. The expense form has ~8 fields -- not complex enough to justify a form library.
 
 ---
 
-## Registry Extension Required
+## Patterns to Follow
 
-`convex/integrations/registry.ts` `PlatformId` type is `"k3mart" | "gobiz" | "internal"`. Two additions:
+### Receipt Upload Component Pattern
+
+Follow `src/components/grabfoodMenu/PhotoUpload.tsx` structure, extended with SHA-256 hashing:
 
 ```typescript
-export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller";
+// Pseudocode -- actual implementation follows PhotoUpload.tsx pattern
+const handleReceiptUpload = async (file: File) => {
+  // 1. Validate file size and type
+  if (file.size > MAX_FILE_SIZE) { toast.error("..."); return; }
+
+  // 2. Compute SHA-256 hash (client-side, before upload)
+  const hash = await computeReceiptHash(file);
+
+  // 3. Check for duplicate hash (optional pre-check via query)
+  // ... or let the mutation reject on duplicate
+
+  // 4. Get upload URL from Convex
+  const uploadUrl = await generateUploadUrl({ token });
+
+  // 5. Upload file
+  const response = await fetch(uploadUrl, { method: "POST", body: file, headers: { "Content-Type": file.type } });
+  const { storageId } = await response.json();
+
+  // 6. Return storageId + hash to parent form
+  onUploadComplete(storageId, hash);
+};
 ```
 
-GrabFood already uses `platformId: "grabfood"` in its config but is not in the registry type union or `PLATFORMS` object. BigSeller is entirely new.
+### Journal Entry Creation Pattern
+
+All journal entries follow the same mutation structure. Create a shared helper:
+
+```typescript
+// convex/journalEntries/helpers.ts
+export function validateJournalBalance(lines: { debitAmount: number; creditAmount: number }[]): void {
+  const totalDebits = lines.reduce((sum, l) => sum + l.debitAmount, 0);
+  const totalCredits = lines.reduce((sum, l) => sum + l.creditAmount, 0);
+  if (Math.abs(totalDebits - totalCredits) > 0.01) {
+    throw new Error(`Journal entry does not balance: debits=${totalDebits}, credits=${totalCredits}`);
+  }
+}
+```
+
+### Counter Table Pattern
+
+```typescript
+// convex/lib/counters.ts
+export async function getNextSequence(ctx: MutationCtx, prefix: string): Promise<string> {
+  const now = new Date();
+  const dateKey = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+
+  const existing = await ctx.db
+    .query("counters")
+    .withIndex("by_prefix_date", q => q.eq("prefix", prefix).eq("date", dateKey))
+    .unique();
+
+  const nextSeq = existing ? existing.lastSequence + 1 : 1;
+
+  if (existing) {
+    await ctx.db.patch(existing._id, { lastSequence: nextSeq });
+  } else {
+    await ctx.db.insert("counters", { prefix, date: dateKey, lastSequence: nextSeq });
+  }
+
+  return `${prefix}-${dateKey}-${String(nextSeq).padStart(3, "0")}`;
+}
+```
 
 ---
 
@@ -177,19 +246,19 @@ GrabFood already uses `platformId: "grabfood"` in its config but is not in the r
 
 | Avoid | Why | Use Instead |
 |---|---|---|
-| `xlsx` from npm registry (`npm install xlsx`) | npm version 0.18.5 is 2+ years stale, missing bug fixes, security-unfixed issues | CDN tarball `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` |
-| `exceljs` | No browser build — Node.js only. Would require server-side parse, adding unnecessary round-trip + `"use node"` action | SheetJS 0.20.3 — native browser support |
-| `papaparse` | CSV only — cannot parse `.xlsx` binary format | SheetJS handles both formats |
-| `axios` | Not in codebase by design; `fetch` with `Cookie` header handles BigSeller auth identically | Native `fetch` |
-| Official GrabFood JS SDK | No JS/TypeScript SDK exists — only Go, Java, Python | Native `fetch` (already implemented in `adapter.ts`) |
-| `node-cron` or external cron service | Convex provides native `cronJobs()` | `crons.ts` with `cronJobs()` |
-| Any polling helper library | Convex scheduler chain (`ctx.scheduler.runAfter`) handles async polling natively | `ctx.scheduler.runAfter` |
-| New charting library (nivo, Victory, Chart.js) | Recharts ^3.7.0 is already installed and handles all needed chart types | Recharts existing install |
-| Recharts upgrade | Currently on ^3.7.0 (current major). Mid-milestone upgrades risk type breakage | Stay on ^3.7.0 |
-| `react-dropzone` | ~30KB for a styled dropzone not needed — this is an infrequent admin action | Native `<input type="file" accept=".xlsx">` |
-| `FileSaver.js` | Not needed — SheetJS `writeFileXLSX()` handles browser download natively | SheetJS built-in download |
-| `@tanstack/react-table` | Tables in analytics are simple read-only — no sorting/filtering complexity | shadcn `<Table>` components (already installed) |
-| Convex file storage for Excel uploads | Raw file bytes are not the durable record — structured rows are | Client-side parse, store rows only |
+| `crypto-js` or `js-sha256` | Unnecessary dependency -- Web Crypto API provides native SHA-256 in all modern browsers with better performance (hardware-accelerated) | `crypto.subtle.digest("SHA-256", buffer)` |
+| `uuid` or `nanoid` for expense IDs | Design spec requires sequential `MMDD-NNN` format IDs for human readability (bank transfer references) | `counters` table with atomic increment |
+| `react-hook-form` or `formik` | Not used anywhere in codebase; expense form has ~8 fields -- controlled `useState` is sufficient and consistent | Controlled components with `useState` |
+| `zod` for form validation | Backend already validates via Convex argument validators (`v.string()`, `v.number()`, etc.); frontend validation is simple range/presence checks | Inline validation before mutation call |
+| `react-dropzone` | ~30KB for a styled dropzone; receipt upload is a single file select, not drag-and-drop batch upload | Native `<input type="file" accept="image/*">` |
+| `sharp` or `jimp` for image processing | No image processing needed -- receipts stored as-is, no resizing/compression | Direct upload to `_storage` |
+| `nivo`, `Victory`, `Chart.js` | Recharts ^3.7.0 is already installed and covers all needed chart types (pie, line, bar, area) | Recharts (existing) |
+| `@tanstack/react-table` | Expense tables are simple read-only lists with status filters -- no complex sorting/grouping needed | shadcn `<Table>` (existing) |
+| `xlsx` / SheetJS | No spreadsheet export needed for v1.7; the existing CSV export pattern on `/financials` covers P&L export | No export library |
+| Additional CSS animation library | Status transition animations are simple fade/slide -- Framer Motion (already installed) or Tailwind transitions handle this | Framer Motion or Tailwind `transition-*` |
+| Any state management library (Redux, Zustand, Jotai) | Convex provides real-time reactive queries -- approval queue auto-updates when another user approves/rejects; no client-side state sync needed | Convex `useQuery` reactivity |
+| External file storage (S3, R2, Cloudflare Images) | Convex `_storage` handles receipt images natively with temporary URLs; no CDN or public URL needed for internal receipts | Convex `_storage` |
+| `bcrypt` or password hashing library | No new auth flows; existing PIN-based auth unchanged | Existing `convex/lib/auth.ts` |
 
 ---
 
@@ -197,53 +266,73 @@ GrabFood already uses `platformId: "grabfood"` in its config but is not in the r
 
 | Recommended | Alternative | When Alternative Makes Sense |
 |---|---|---|
-| SheetJS 0.20.3 (CDN tarball) | ExcelJS 4.x | Only if pixel-perfect Excel formatting is needed (cell colors, merged cells, print areas). For data import/export, SheetJS is simpler. |
-| Client-side Excel parse | Server-side via Convex `"use node"` action | Only for password-protected files or complex VBA macros — not applicable here |
-| Convex scheduler chain for BigSeller polling | External webhook from BigSeller | BigSeller does not provide webhooks — poll-only API |
-| Manual cookie paste for BigSeller (GoBiz pattern) | Full OAuth2 authorization code flow | BigSeller has no OAuth2 — cookie-based session is the only supported auth method |
-| React.lazy() for consignment upload page | Including SheetJS in main bundle | Only if upload is used so frequently that lazy-load flicker is unacceptable. Admin-only, infrequent — lazy load always preferred |
+| Web Crypto API (browser-native SHA-256) | `crypto-js` npm package | Only if you need SHA-256 in a non-secure context (HTTP, no HTTPS). Not applicable -- Vite dev and Vercel production both use HTTPS. |
+| `Array.from().map().join()` hex conversion | `Uint8Array.prototype.toHex()` | When targeting ES2025+ and dropping support for browsers before Sept 2025. Project targets ES2022 -- not safe yet. |
+| Convex `_storage` for receipts | Cloudflare R2 via `@convex-dev/r2` component | Only if receipts need public CDN URLs, custom domains, or > 1GB files. Internal receipts < 5MB with temporary URLs -- `_storage` is simpler. |
+| `counters` table (atomic increment) | Count-based sequence (like orders) | For low-frequency ID generation where race conditions are unlikely. Expenses/JEs may be created in parallel during batch operations -- counter table is safer. |
+| Inline form validation | Zod schema validation | When forms have 20+ fields with complex cross-field validation rules. Expense form has ~8 fields with simple rules -- inline is clearer. |
+| Controlled `useState` forms | react-hook-form | When forms have many fields, frequent re-renders are a problem, or you need field-level validation feedback. Not the case here -- consistency with existing codebase patterns is more valuable. |
 
 ---
 
 ## Version Compatibility
 
-| Package | Version | Compatibility Notes |
+| Technology | Version | Compatibility Notes |
 |---|---|---|
-| xlsx (SheetJS) | 0.20.3 | Vite 7.x compatible — SheetJS added required `package.json` metadata in 0.18.10. Named ESM imports tree-shake correctly. No `vite.config.ts` changes needed. |
-| xlsx (SheetJS) | 0.20.3 | React 19 compatible — UI-framework agnostic. No peer dependency conflicts. |
-| xlsx (SheetJS) | 0.20.3 | TypeScript ~5.9 compatible — types bundled in package. No `@types/xlsx` needed. |
-| Recharts | ^3.7.0 | Adding new `<Bar>` data keys to existing chart is backward-compatible. No API changes. |
-| Convex | ^1.31.7 | `ctx.scheduler.runAfter` available since Convex 0.x — fully supported. `"use node"` fetch with `Cookie` header — verified via GoBiz integration pattern. |
+| Web Crypto API | Browser-native | Baseline since Jan 2020. TypeScript `DOM` lib (in `tsconfig.app.json`: `"lib": ["ES2022", "DOM", "DOM.Iterable"]`) includes `crypto.subtle` types. No polyfill needed. |
+| Recharts | ^3.7.0 | `PieChart`, `LineChart` available since Recharts 1.x. No version bump needed. Tree-shakeable -- importing `PieChart` does not pull in unused chart types. |
+| Convex `_storage` | ^1.31.7 | `generateUploadUrl`, `storage.getUrl()` available since early Convex versions. 5MB receipt files well within limits (no file size limit on storage, 2-min upload timeout). |
+| date-fns | ^4.1.0 | `differenceInDays`, `subDays`, `startOfWeek` all available. Used for late submission check (14-day window) and duplicate detection (7-day window). |
+| shadcn/ui Radix primitives | various | `<Tabs>` (for My Expenses / Approvals / All Expenses views), `<RadioGroup>` (for payment method), `<Select>` (for GL account picker) all already installed. |
 
 ---
 
 ## Installation
 
 ```bash
-# The only new dependency for v1.4
-npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+# No new packages to install for v1.7.
+# The entire feature set uses existing dependencies + browser-native APIs.
 
-# Verify installation
+# Verify existing stack is healthy
 npm run type-check
 npm run build
+npm run test
 ```
 
-No dev dependencies needed.
+---
+
+## Schema Additions Summary (for Stack Context)
+
+10 new tables, 1 modified table. All use existing Convex patterns:
+
+| Table | Key Stack Integration |
+|---|---|
+| `accounts` | Seeded via `accounts:seedDefaults` (follows `tags:seedDefaults` pattern) |
+| `expenses` | `receiptFileId: v.optional(v.id("_storage"))` -- Convex file storage |
+| `expenseStatusHistory` | Immutable audit trail (follows order audit trail pattern) |
+| `reimbursementBatches` | Links to `bankAccounts` table and `users` table |
+| `reimbursementBatchItems` | Junction table (follows `menuProductComponents` pattern) |
+| `journalEntries` | Source-linked entries with reversal chain |
+| `journalEntryLines` | Denormalized `entryDate` for Convex index queries (cannot span tables) |
+| `bankAccounts` | Simple CRUD entity |
+| `payrollEntries` | Admin-only, auto-generates journal entry on creation |
+| `counters` | Atomic sequence generation for EXP/RMB/JE numbers |
+| `users` (modified) | +`bankAccountNumber`, +`bankName` optional fields |
 
 ---
 
 ## Sources
 
-- SheetJS installation (frameworks/bundlers): [https://docs.sheetjs.com/docs/getting-started/installation/frameworks/](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/) — version 0.20.3, CDN tarball method confirmed — HIGH confidence
-- SheetJS React integration: [https://docs.sheetjs.com/docs/demos/frontend/react/](https://docs.sheetjs.com/docs/demos/frontend/react/) — `ArrayBuffer` read pattern confirmed — HIGH confidence
-- Convex actions + Node runtime: [https://docs.convex.dev/functions/actions](https://docs.convex.dev/functions/actions) — `"use node"` + `fetch` with headers confirmed — HIGH confidence
-- Convex cron jobs: [https://docs.convex.dev/scheduling/cron-jobs](https://docs.convex.dev/scheduling/cron-jobs) — `internalAction` scheduling confirmed — HIGH confidence
-- Convex best practices: [https://docs.convex.dev/understanding/best-practices/](https://docs.convex.dev/understanding/best-practices/) — scheduler chain pattern for long-running async work confirmed — HIGH confidence
-- Existing codebase: `convex/integrations/grabfood/adapter.ts`, `convex/integrations/gobiz/config.ts`, `convex/integrations/registry.ts`, `convex/http.ts`, `convex/crons.ts`, `package.json` — verified directly — HIGH confidence
-- GrabFood API reference: `docs/GRABFOOD_API.md` — OAuth2 client credentials, endpoint paths, 1h token expiry confirmed — HIGH confidence
-- BigSeller API reference: `docs/BIGSELLER_PROFIT_API.md` — cookie auth, sync-first workflow, 31-day limit, async duration confirmed — HIGH confidence
+- Web Crypto API `SubtleCrypto.digest()`: [MDN documentation](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) -- baseline since Jan 2020, SHA-256 support confirmed -- HIGH confidence
+- `Uint8Array.toHex()` browser support: [Can I Use](https://caniuse.com/mdn-javascript_builtins_uint8array_tohex) -- baseline Sept 2025, too new for ES2022 target -- HIGH confidence
+- Convex file storage upload pattern: [Convex docs](https://docs.convex.dev/file-storage/upload-files) -- 3-step upload (generateUploadUrl, POST, save storageId) confirmed -- HIGH confidence
+- Convex file storage overview: [Convex docs](https://docs.convex.dev/file-storage) -- `_storage` table, `storage.getUrl()`, temporary URLs confirmed -- HIGH confidence
+- Recharts PieChart examples: [Recharts docs](https://recharts.github.io/en-US/examples/TwoLevelPieChart/) -- PieChart, Pie, Cell components confirmed available -- HIGH confidence
+- Recharts npm: [npm registry](https://www.npmjs.com/package/recharts) -- ^3.7.0 current -- HIGH confidence
+- Existing codebase patterns: `src/components/grabfoodMenu/PhotoUpload.tsx` (upload), `convex/feedback/mutations.ts` (generateUploadUrl), `convex/feedback/queries.ts` (storage.getUrl), `convex/orders/helpers.ts` (ID generation), `src/components/salesAnalytics/SalesChart.tsx` (Recharts usage) -- verified directly -- HIGH confidence
+- Design spec: `docs/superpowers/specs/2026-03-12-expense-accounting-system-design.md` -- all requirements cross-referenced -- HIGH confidence
 
 ---
 
-*Stack research for: Frollie Recipe Master v1.4 — Sales & Channel Integration*
-*Researched: 2026-02-25*
+*Stack research for: Frollie Recipe Master v1.7 -- Expense & Accounting*
+*Researched: 2026-03-12*

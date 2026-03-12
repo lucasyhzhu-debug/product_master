@@ -401,13 +401,13 @@ export function EndOfShiftForm({
             const delta = qty > 0 ? qty - item.quantity : null;
 
             return (
-              <div key={item.menuProductId} className="flex items-center gap-2">
-                {/* Product name + optional mixed-type warning — left, flex-1 */}
+              <div key={item.menuProductId} className="space-y-1">
+                {/* Row 1: Product name (full width, wraps freely) */}
                 <Label
                   htmlFor={`produced-${item.menuProductId}`}
-                  className="flex-1 text-sm font-normal min-w-0"
+                  className="text-sm font-normal break-words"
                 >
-                  <span className="block truncate">{item.name}</span>
+                  {item.name}
                   {isFlagged && (
                     <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                       <AlertTriangle className="h-3 w-3" />
@@ -416,42 +416,48 @@ export function EndOfShiftForm({
                   )}
                 </Label>
 
-                {/* Target label — right of product name, left of input */}
-                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                  target: {item.quantity}
-                </span>
+                {/* Row 2: Target + input + delta in a single line */}
+                <div className="flex items-center gap-2">
+                  {/* Target label */}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                    target: {item.quantity}
+                  </span>
 
-                {/* Produced input */}
-                <Input
-                  id={`produced-${item.menuProductId}`}
-                  type="number"
-                  min={0}
-                  value={qty || ""}
-                  placeholder="0"
-                  onChange={(e) =>
-                    setProducedQty(item.menuProductId, Number(e.target.value))
-                  }
-                  className="w-20 text-right tabular-nums shrink-0"
-                />
+                  {/* Spacer */}
+                  <span className="flex-1" />
 
-                {/* Live delta — only shown when quantity > 0; invisible reserves space */}
-                <span
-                  className={`text-xs font-medium tabular-nums w-20 text-right shrink-0 ${
-                    delta === null
-                      ? "invisible"
-                      : delta >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-amber-600 dark:text-amber-400"
-                  }`}
-                >
-                  {delta === null
-                    ? ""
-                    : delta === 0
-                      ? "✓ on target"
-                      : delta > 0
-                        ? `+${delta} over`
-                        : `${delta} under`}
-                </span>
+                  {/* Produced input */}
+                  <Input
+                    id={`produced-${item.menuProductId}`}
+                    type="number"
+                    min={0}
+                    value={qty || ""}
+                    placeholder="0"
+                    onChange={(e) =>
+                      setProducedQty(item.menuProductId, Number(e.target.value))
+                    }
+                    className="w-20 text-right tabular-nums shrink-0"
+                  />
+
+                  {/* Live delta — only shown when quantity > 0; invisible reserves space */}
+                  <span
+                    className={`text-xs font-medium tabular-nums whitespace-nowrap shrink-0 ${
+                      delta === null
+                        ? "invisible"
+                        : delta >= 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {delta === null
+                      ? ""
+                      : delta === 0
+                        ? "on target"
+                        : delta > 0
+                          ? `+${delta} over`
+                          : `${delta} under`}
+                  </span>
+                </div>
               </div>
             );
           })}
