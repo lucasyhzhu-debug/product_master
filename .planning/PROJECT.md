@@ -8,10 +8,23 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
+## Current Milestone: v1.7 Expense & Accounting
+
+**Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend P&L to Net Income with OpEx breakdown.
+
+**Target features:**
+- Chart of Accounts backbone (PSAK-aligned, 36 accounts)
+- Expense submission with receipt upload and fraud controls
+- Approval workflow with Delegation of Authority (DoA)
+- Reimbursement batching with bank transfer tracking
+- Payroll entry with auto-generated journal entries
+- P&L extension: OpEx breakdown, EBIT, Net Income
+- Expense Analytics dashboard
+
 ## Current State
 
 **Latest milestone:** v1.6 Tech Debt & Resilience (shipped 2026-03-09)
-**Next milestone:** Planning — `/gsd:new-milestone`
+**Active milestone:** v1.7 Expense & Accounting
 
 ## Context
 
@@ -99,7 +112,7 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ### Active
 
-(No active requirements — next milestone not yet planned)
+(Defining requirements for v1.7 Expense & Accounting)
 
 ### Out of Scope
 
@@ -219,4 +232,4 @@ Deployed via Vercel with GitHub Actions CI. 7 milestones shipped (v1.0–v1.6), 
 | Shared dateUtils.ts for WIB timezone (v1.6) | Frontend WIB helpers consolidated into single module instead of per-component duplicates | ✓ Good — 6 exports, single source of truth |
 
 ---
-*Last updated: 2026-03-09 after v1.6 milestone*
+*Last updated: 2026-03-12 — v1.7 Expense & Accounting milestone started*
