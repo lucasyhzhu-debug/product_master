@@ -1,346 +1,290 @@
-# Domain Pitfalls: v1.4 Sales & Channel Integration
+# Pitfalls Research: v1.7 Expense & Accounting System
 
-**Domain:** GrabFood POS API, BigSeller marketplace sync (Shopee + Tokopedia), consignment Excel upload, and unified multi-channel analytics — added to an existing Convex + React 19 + TypeScript production system
-**Researched:** 2026-02-25
-**Confidence:** HIGH (GrabFood/BigSeller from official SDK + verified API docs in `docs/`; Convex-specific from direct codebase inspection; Excel from known SheetJS patterns confirmed in prior v1.3 research)
+**Domain:** Employee expense management, double-entry accounting, and P&L extension -- added to an existing Convex + React 19 production system (65 tables, 150 indexes, ~131K LOC TypeScript)
+**Researched:** 2026-03-12
+**Confidence:** HIGH (Convex-specific pitfalls from 40 phases of direct production experience documented in CLAUDE.md; accounting pitfalls from design spec and staff review analysis; integration pitfalls from existing incomeStatement.ts code inspection)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause data corruption, silent revenue misreporting, API credential suspension, or a rewrite of a complete phase.
+Mistakes that cause incorrect financial reporting, unbalanced books, data corruption, or a rewrite of the journal entry system.
 
 ---
 
-### Pitfall 1: Requesting a New GrabFood OAuth2 Token on Every API Call
+### Pitfall 1: Reversal Journal Entries Using `Date.now()` Instead of Original Business Date
 
 **What goes wrong:**
-The adapter calls the OAuth2 token endpoint (`POST https://api.grab.com/grabid/v1/oauth2/token`) before every API request instead of caching the token for its full `expires_in` duration (3600 seconds). GrabFood's official documentation explicitly states: "Requesting a new token per API call is not permitted." This produces HTTP 429 rate limit errors, unnecessary latency per call, and risks GrabFood suspending the partner credentials.
+When voiding an expense or reimbursement batch, the reversing journal entry is dated with `Date.now()` (the current timestamp) instead of the original entry's business date. A reversal created on March 15 for an expense dated March 5 shows the reversal in the March 15 period. The P&L for March 5-11 still shows the expense as if it were valid, while March 12-18 shows a phantom credit. Period-correct P&L is broken.
 
 **Why it happens:**
-Developers copy the token-fetch example from docs without reading the caching requirement. The existing GoBiz integration in this codebase uses a manual cookie paste (not OAuth2), so there is no prior OAuth2 caching pattern to follow internally.
+`Date.now()` is the Convex pattern for timestamping events (used in `logOrderEvent`, `logStatusTransition`, session creation). Developers apply the same pattern to journal entries without recognizing that accounting reversals have different date semantics than audit log timestamps. The staff review (C1) flagged this exact bug in the implementation plan.
 
 **How to avoid:**
-The `resolveToken()` function in `convex/integrations/grabfood/adapter.ts` already implements the correct pattern: check `platformCredentials` cache first; only fetch a fresh token if `tokenExpiresAt - Date.now() < tokenRefreshBufferMs` (5 minutes). Every new action that calls GrabFood must call `resolveToken()`. Never call `fetchFreshToken()` directly from outside `resolveToken()`.
+Accept a `reversalDate` parameter in `createReversingEntry()`. Set the default policy: "Reversals post to the same period as the original entry." For expense voids, use `originalExpense.expenseDate`. For batch voids, use `originalBatch.transferDate` (or the original confirmation journal entry's date). Document this as an explicit accounting policy comment in the code. Write a unit test: create a JE on March 5, void on March 15, assert `reversalEntry.date === originalEntry.date`, NOT `Date.now()`.
 
 **Warning signs:**
-- HTTP 429 responses from `api.grab.com/grabid/v1/oauth2/token`
-- Token fetch logs appearing more than once per hour in Convex function logs
-- GrabFood partner support flagging the credentials
+- P&L for a closed period changes after a void in a later period
+- `journalEntryLines` with `entryDate` in a period that has no corresponding expense submissions
+- OpEx totals going negative in a period (reversal without matching original)
 
-**Phase to address:** GrabFood foundation phase (GF credentials + token management). Pattern is already scaffolded — the pitfall is bypassing it during feature expansion.
+**Phase to address:** Backend foundation (journal entry helper implementation) -- the `createReversingEntry` function design.
 
 ---
 
-### Pitfall 2: GrabFood Webhook Handler Processes Order Before Returning HTTP 200
+### Pitfall 2: `_creationTime` Used for Period Filtering Instead of `entryDate`
 
 **What goes wrong:**
-The webhook handler processes the incoming order synchronously — writing to DB, calling `respondToOrder` — before returning HTTP 200. If processing takes longer than GrabFood's acknowledgment timeout, Grab marks the webhook as failed and retries. Each retry re-runs the same processing, creating duplicate order records.
+The P&L extension queries `journalEntryLines` to aggregate OpEx for a selected period. If the query filters by `_creationTime` instead of the denormalized `entryDate` field, entries appear in the wrong period. An expense from March 1 approved and journaled on March 8 shows in the March 8 period instead of the March 1 period. This is the most common accounting data error in Convex apps.
 
 **Why it happens:**
-The correct pattern (return 200 immediately, then process asynchronously) feels counterintuitive. The current `handleOrderWebhook` in `convex/integrations/grabfood/adapter.ts` already returns 200 immediately with a TODO for async processing. The trap is moving the DB write above the `return new Response("OK")` line when implementing the actual storage logic.
+Convex's `_creationTime` is the default timestamp developers reach for. The project has an explicit documented lesson: "`_creationTime` is insertion time, NOT business event time -- use `completedAt` for filtering" (CLAUDE.md Common Pitfalls). But this lesson refers to orders, not journal entries. The accounting system introduces a new table where the same trap applies with higher stakes.
 
 **How to avoid:**
-Structure the HTTP handler as:
-1. Parse body
-2. `return new Response("OK", { status: 200 })` immediately
-3. Schedule async processing: `ctx.scheduler.runAfter(0, internal.grabfood.processIncomingOrder, { order })`
-
-Never `await` a mutation or action before returning 200. Deduplicate on `orderID` in the processing action: check if the order already exists before inserting.
+The spec already mandates `entryDate` denormalization on `journalEntryLines`. Enforce this in three places:
+1. The `createJournalEntry` helper MUST copy `journalEntries.date` into every `journalEntryLines.entryDate` field. Write a unit test asserting they match.
+2. The `getOpExByPeriod` query MUST use `.withIndex("by_account_entryDate", ...)` or the recommended `by_entryDate` index -- never `_creationTime`.
+3. Add a comment at the top of `convex/journal/queries.ts`: "ALL period filters use entryDate (business date), never _creationTime (insertion time)."
 
 **Warning signs:**
-- Duplicate order records for the same `orderID` in `grabfoodIncomingOrders`
-- GrabFood dashboard showing webhook delivery failures despite orders appearing in the system
-- Convex logs showing the same `orderID` processed twice within 30 seconds
+- Any `.filter(q => q.gte(q.field("_creationTime"), ...))` pattern in journal query files
+- Period totals that change depending on when the approval mutation ran rather than when the expense occurred
+- Tests using `Date.now()` as the period boundary instead of explicit business dates
 
-**Phase to address:** GrabFood webhook implementation phase. The TODO comment in the existing adapter marks the exact danger point.
+**Phase to address:** Backend foundation (journal entry queries) and P&L integration wave.
 
 ---
 
-### Pitfall 3: Menu Changes Not Going Live — `notifyMenuUpdate` Step Skipped
+### Pitfall 3: N+1 Query Pattern in OpEx Period Aggregation
 
 **What goes wrong:**
-After calling `PUT /partner/v1/menu` or `PUT /partner/v1/batch/menu`, menu changes are staged but NOT live in the GrabFood consumer app until `POST /partner/v1/merchant/menu/notification` is called. Developers see no API error from the PUT and assume the change propagated. Items remain at their old availability status in production.
+The `getOpExByPeriod` query fetches all 11 OpEx accounts, then loops through each one issuing a separate indexed query per account against `journalEntryLines`. With 11 OpEx accounts plus 3 Other Income/Expense accounts, this is 14 sequential database round-trips per P&L render. Combined with the existing income statement's ~10 parallel reads for revenue/COGS, the total query count approaches 25. The P&L page becomes noticeably slow, especially on mobile (the primary access device for this SME).
 
 **Why it happens:**
-Most REST APIs apply changes immediately on a successful PUT. GrabFood requires an explicit "notify" step to trigger their internal sync job. This two-step requirement is documented but easy to skip.
+The `by_account_entryDate` compound index requires the `accountId` as the first key. Without a `by_entryDate` index, there's no way to fetch all journal lines in a period in a single query. The N+1 pattern feels natural: "for each account, get its entries." The staff review (C2) flagged this.
 
 **How to avoid:**
-Always call `notifyMenuUpdate()` as a mandatory second step after any menu write. Treat it as part of the same operation, not optional cleanup. Save the `Job-ID` from the notification response header and store it so `traceMenuSync` can poll for the result. Surface `PARTIAL_FAILURE` results to the admin UI — do not silently discard sync errors.
+Add a `by_entryDate` index to `journalEntryLines`. Fetch ALL journal lines in the period in one indexed query, then group by `accountId` in memory. This reduces 14 DB round-trips to 1. The in-memory grouping is trivial for the expected volume (dozens of entries per week at current scale).
+
+```typescript
+// GOOD: Single query, in-memory grouping
+const allLines = await ctx.db.query("journalEntryLines")
+  .withIndex("by_entryDate", q => q.gte("entryDate", periodStart).lt("entryDate", periodEnd))
+  .collect();
+const byAccount = new Map<string, typeof allLines>();
+for (const line of allLines) {
+  const existing = byAccount.get(line.accountId) ?? [];
+  existing.push(line);
+  byAccount.set(line.accountId, existing);
+}
+
+// BAD: N+1 per-account queries
+for (const account of opexAccounts) {
+  const lines = await ctx.db.query("journalEntryLines")
+    .withIndex("by_account_entryDate", q => q.eq("accountId", account._id).gte("entryDate", start))
+    .collect();
+}
+```
 
 **Warning signs:**
-- Menu changes confirmed via API but not visible in GrabFood app after 10 minutes
-- `menuTrace` returns `PENDING` indefinitely (notification step was skipped entirely)
-- `PARTIAL_FAILURE` webhooks arriving silently with item errors
+- P&L page taking >2 seconds to render (visible in Convex dashboard function execution time)
+- `getOpExByPeriod` query showing 11+ database reads in Convex logs
+- Mobile users complaining about Financial Statement page being slow
 
-**Phase to address:** GrabFood menu sync phase. Add integration test: after batch availability update, confirm `notifyMenuUpdate` was called and `traceMenuSync` reaches `SUCCESS` or surfaces a `PARTIAL_FAILURE` alert.
+**Phase to address:** Schema phase (add `by_entryDate` index) and P&L integration wave (query implementation).
 
 ---
 
-### Pitfall 4: BigSeller Querying Data Before Sync Completes — Silent All-Zero Results
+### Pitfall 4: Unbalanced Journal Entries Silently Committed
 
 **What goes wrong:**
-`POST listStatsData.json` and `POST pageList.json` both return `code: -1, msg: "Failed, please try again later"` when called while `taskStatus = "progress"`. If the query fires before sync completes (which takes 1–10 minutes), the response returns no data. If this `-1` code is treated as a success with empty results, the upsert commits zero records without any error. The codebase appears to have "synced successfully" while storing nothing.
+A journal entry is created where total debits do not equal total credits. The unbalanced entry corrupts the general ledger. Every downstream report (P&L, future Balance Sheet, Cash Flow) produces incorrect figures. The error compounds with every subsequent entry because GL balances are running totals.
 
 **Why it happens:**
-The two-phase async nature of BigSeller is documented in `docs/BIGSELLER_PROFIT_API.md` but easy to short-circuit. A cron that triggers sync and then immediately queries (`await triggerSync(); await queryData()`) will always return empty because sync takes minutes, not seconds.
+The `createJournalEntry` mutation inserts the header and line items as separate DB writes. If the balance check is performed on the input arguments but a rounding error or off-by-one produces mismatched amounts, the entry is committed before validation. Floating-point arithmetic in JavaScript is the root cause: `0.1 + 0.2 !== 0.3`. IDR amounts are whole numbers (no decimals) so this is less risky, but any future extension to non-IDR currencies reintroduces the problem.
 
 **How to avoid:**
-Implement the complete poll-then-query workflow using Convex scheduler (not a while-loop — see Pitfall 12):
-1. Cron triggers `bigsellerStartSync` → creates task → schedules `bigsellerPollSync` in 60 seconds
-2. `bigsellerPollSync` checks `sync/task/detail/new/get.json` — if `"progress"`, reschedules in 60 seconds (max 20 retries); if `"complete"`, schedules `bigsellerFetchData`
-3. `bigsellerFetchData` calls `listStatsData` + `pageList` (paginating fully) and upserts results
-
-Treat `code: -1` as a hard error that must be logged and retried, never silently skipped.
+Validate `Math.abs(totalDebits - totalCredits) < 1` (1 IDR tolerance for rounding) as the first step in `createJournalEntry`, before any `ctx.db.insert`. Throw a hard error if unbalanced. This is non-negotiable -- every accounting system enforces this invariant. Write a unit test that attempts to create a JE with debits=100000 and credits=99999 and expects it to succeed (within tolerance), and another with debits=100000 and credits=98000 that throws. Also write a periodic integrity check query: scan all `journalEntries`, join to their lines, and flag any where `sum(debits) !== sum(credits)`.
 
 **Warning signs:**
-- BigSeller data never appears despite sync creation succeeding
-- `code: -1` responses in Convex action logs being swallowed
-- `successOrderNum` shows orders in sync detail but `pageList` returns empty `rows`
+- Trial balance (sum of all account balances) not equaling zero
+- OpEx total not matching the sum of individual GL account totals
+- Any `journalEntryLines` rows with both `debitAmount > 0` AND `creditAmount > 0` on the same line
 
-**Phase to address:** BigSeller foundation phase. This is the most critical constraint of the entire BigSeller integration.
+**Phase to address:** Backend foundation (journal mutation implementation) -- must be the first validation in `createJournalEntry`.
 
 ---
 
-### Pitfall 5: BigSeller Cron Collision — Second Sync Triggered While First is Still Running
+### Pitfall 5: Receipt Upload Race Condition -- File Stored but Expense Mutation Fails
 
 **What goes wrong:**
-If a daily cron fires and the previous sync task is still `"progress"`, `sync/task/create.json` returns `code: -1, "The sync task is in progress, please try again later"`. If unhandled, the cron fails silently and no data is collected. The next day's cron collides again, creating a permanent gap.
+The receipt upload flow is a two-step process: (1) call `generateUploadUrl`, upload file to `_storage`, get `storageId`; (2) call `submitExpense` mutation with the `storageId`. If step 2 fails (validation error, network timeout, user navigates away), the file is orphaned in `_storage` with no referencing document. Over time, orphaned files accumulate, consuming storage quota. More critically, if the user retries the submission without re-uploading, the `storageId` from the previous attempt might have expired or been garbage-collected, and the expense is submitted without a receipt.
 
 **Why it happens:**
-BigSeller enforces one sync at a time per account. Convex crons run on a fixed schedule regardless of whether the previous run completed. A long sync (10+ minutes for large order volumes or slow platform API) overlaps the next scheduled cron.
+Convex file upload is inherently a two-phase operation (get URL + upload to storage, then reference in a document). This is not transactional -- the file upload and the document write cannot be atomically linked. The staff review (I5) flagged the missing upload flow documentation. The existing codebase has two `generateUploadUrl` implementations (feedback, grabfoodMenu) but neither handles orphan cleanup.
 
 **How to avoid:**
-Before calling `sync/task/create.json`, always check `sync/task/detail/new/get.json` first. If `taskStatus = "progress"`, skip the new sync and re-enter the polling loop to complete the existing task. Persist sync state in the DB (last triggered timestamp, current phase, last completed range) so the poll workflow can resume after a Convex cold start.
+1. Compute SHA-256 hash client-side BEFORE uploading (using `crypto.subtle.digest`).
+2. Upload file to `_storage` and receive `storageId`.
+3. Pass both `storageId` and `receiptImageHash` to the `saveDraft` or `submitExpense` mutation.
+4. If the mutation fails, show a clear retry button that does NOT re-upload the file -- it reuses the existing `storageId`.
+5. For orphan cleanup: add a scheduled job (or manual admin action) that queries `_storage` for files not referenced by any `expenses.receiptFileId`. This is a "nice to have" -- at current scale (5-10 expenses/week), orphans are negligible.
+
+Do NOT delete receipt files after expense void -- the spec explicitly states "Receipt files linked to journal entries, not deletable after approval."
 
 **Warning signs:**
-- Daily cron logs showing `code: -1` from `sync/task/create.json`
-- BigSeller data gap (missing days) with no error in the UI
-- `platformCredentials` or sync state record showing `lastSyncAt` not advancing day-over-day
+- `_storage` growing faster than expected
+- Expenses submitted without `receiptFileId` despite the user uploading a file
+- Console errors during the upload-then-submit flow
 
-**Phase to address:** BigSeller foundation phase — cron + polling architecture design.
+**Phase to address:** Frontend expense form implementation and backend expense mutation -- the upload flow must be designed as an atomic-feeling UX even though it is technically two steps.
 
 ---
 
-### Pitfall 6: BigSeller JWT Cookie Expiry — Silent Auth Failure After 30 Days
+### Pitfall 6: Expense Approval Mutation Not Checking Current Status (Concurrency)
 
 **What goes wrong:**
-The `muc_token` JWT expires 30 days after the last login. The token refreshes on each authenticated request, but if the Convex cron is disabled or no API calls are made for 30 consecutive days, the cookie expires. Subsequent calls to BigSeller receive an HTML login page redirect instead of JSON — the JSON parser crashes with an opaque error, not a clear "re-authenticate" message.
+Two managers both see the same expense in their approval queue. Both click "Approve" within seconds. The first approval creates a journal entry. The second approval creates a DUPLICATE journal entry for the same expense. The expense amount is double-counted in OpEx.
 
 **Why it happens:**
-30-day session cookies feel "permanent enough" during development. The GoBiz integration has the same cookie-paste pattern but has a reconnect UI; BigSeller needs the same. There is currently no proactive expiry warning for session-cookie-based integrations.
+Convex mutations have optimistic concurrency control (OCC) -- if two mutations read and write the same document, the second one is retried. BUT the retry only triggers if the mutations conflict on the same document fields. If the approval mutation reads the expense, checks status, writes the JE, and patches the expense status -- the second mutation's read happens AFTER the first's write because of OCC. This should work correctly IF the status check (`expense.status === "submitted"`) is a hard guard that throws before creating the JE.
+
+The pitfall is writing the approval mutation as: (1) create JE, (2) THEN check status. If the JE creation is done before the status check, the OCC retry still creates the JE before discovering the expense is already approved.
 
 **How to avoid:**
-Decode the `muc_token` JWT at storage time and persist the `exp` field (Unix seconds) in `platformCredentials.tokenExpiresAt`. Add a pre-flight check before every BigSeller API call: if `exp - Date.now()/1000 < 3 * 24 * 3600` (3 days), surface a "BigSeller session expiring soon — re-login required" warning in the dashboard sync health panel.
+Structure the approval mutation as:
+1. Read expense document
+2. Check `expense.status === "submitted"` -- throw "Expense already processed" if not
+3. ONLY THEN create the journal entry
+4. Patch expense status to `approved` / `awaiting_payment`
 
-Add explicit non-JSON response handling in the BigSeller HTTP client: if `Content-Type` is `text/html`, treat as auth failure and set `lastRefreshStatus: "error"` with message "Re-login required" — never let it propagate as a JSON parse crash.
+The read-check-write pattern within a single Convex mutation is atomic because of OCC. The key is: check BEFORE write. Write a unit test that simulates concurrent approval: call the approve mutation twice for the same expense -- second call must throw, and only ONE journal entry exists.
 
 **Warning signs:**
-- JSON parse errors in BigSeller action logs (HTML page being parsed as JSON)
-- `lastRefreshStatus: "error"` in `platformCredentials` for BigSeller platform
-- Dashboard sync health showing BigSeller stale for more than 3 days
+- Two journal entries with the same `sourceId` and `sourceType: "expense_approval"`
+- Expense amount appearing doubled in OpEx totals
+- `expenseStatusHistory` showing two `submitted -> approved` transitions for the same expense
 
-**Phase to address:** BigSeller auth phase — must be addressed before first production deployment.
+**Phase to address:** Backend expense lifecycle (approval mutation implementation).
 
 ---
 
-### Pitfall 7: BigSeller 31-Day Range Limit Breaking Historical Backfill
+### Pitfall 7: Existing P&L Query Timeout After Adding OpEx Aggregation
 
 **What goes wrong:**
-On initial deployment, the user wants to backfill 3+ months of historical marketplace data. Calling `sync/task/create.json` with a 90-day range returns an error (31-day maximum). If the backfill logic does not chunk the range into 31-day segments and does not respect the "one sync at a time" constraint, the backfill either errors immediately or fires concurrent syncs that all fail.
+The existing `fetchAndAggregate` function in `convex/reports/incomeStatement.ts` already performs ~10 parallel database reads for revenue and COGS data. Adding OpEx aggregation (14 more queries if the N+1 pattern is used, or at minimum 2 more queries with the recommended approach) pushes the total query complexity beyond Convex's query execution limits. The P&L page fails to load or times out intermittently.
 
 **Why it happens:**
-The 31-day limit is documented in the API reference but developers typically test with small ranges (7 days) and only discover the constraint during the first production backfill.
+The existing income statement query is already near its complexity budget. Each new data source added to the query compounds the I/O. The `fetchAndAggregate` function was designed for revenue + COGS only. Extending it with journal entry aggregation without restructuring creates a monolithic query that does too much.
 
 **How to avoid:**
-Implement a sequential chunked backfill: split any date range longer than 31 days into 31-day segments and process each segment serially (trigger → poll → fetch → store → advance window). Never parallelize BigSeller syncs. Store the last successfully synced `endTime` in the DB so a interrupted backfill resumes from where it left off.
+Two options (both acceptable):
+1. **Extend `fetchAndAggregate`** with the single-query approach (using `by_entryDate` index): fetch all journal lines for the period in one query, group in memory. This adds exactly 2 database reads (current period + previous period) instead of 28 (14 accounts x 2 periods).
+2. **Separate query**: Create a new `getOpExData` query that returns OpEx/Other data independently. The frontend calls both `getIncomeStatement` and `getOpExData` in parallel. This is cleaner but requires coordinating two reactive subscriptions.
+
+Option 1 is recommended for simplicity -- the existing `fetchAndAggregate` pattern handles the previous-period comparison logic that OpEx also needs.
 
 **Warning signs:**
-- `sync/task/create.json` error on first deploy with a large date range
-- Incomplete backfill with no indication of which date range succeeded
-- Missing analytics data for the first weeks after deployment
+- `getWeeklyIncomeStatement` or `getIncomeStatement` queries exceeding 5 seconds in Convex dashboard
+- Intermittent "Query timed out" errors on the Financial Statement page
+- P&L page showing a spinner for >3 seconds on desktop
 
-**Phase to address:** BigSeller foundation phase — backfill design must be included in the initial sync architecture.
+**Phase to address:** P&L integration wave -- must be addressed in the same phase as the OpEx query implementation, not deferred.
 
 ---
 
-### Pitfall 8: `externalOutlets.source` Schema Union Excludes New Platform Sources
+### Pitfall 8: `seedDefaults` Not Run After Deployment -- All Expense Mutations Fail
 
 **What goes wrong:**
-The `externalOutlets.source` field is currently `v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal"))`. The same union is repeated in `externalRevenue`, `externalRevenueItems`, and `externalSyncLogs`. Adding BigSeller data requires new source values (`"shopee"`, `"tokopedia"`, or `"bigseller"`). If these literals are added to some tables but not all, TypeScript type errors are hidden at the boundaries and analytics queries silently exclude records from the missing source.
+The expense approval mutation looks up system accounts by code ("2200" for Employee Reimbursements Payable, "1100" for Cash). If `accounts:seedDefaults` has not been run in the Convex dashboard, these accounts do not exist. The mutation throws a cryptic "Cannot read properties of null" error instead of a clear "Run seedDefaults" message. Every expense that reaches the approval stage fails silently.
 
 **Why it happens:**
-The same enum is defined four times across four table schemas rather than in a single shared validator. Updating one is easy; remembering to update all four requires a checklist.
+The deployment sequence requires a manual step (running `seedDefaults` from the Convex dashboard Functions tab) between schema deployment and feature activation. This is consistent with existing patterns (`tags:seedDefaults`, `menuProducts:seedDefaults`) but the existing seed functions are nice-to-haves -- missing tags don't break core functionality. Missing CoA accounts break ALL accounting operations.
 
 **How to avoid:**
-Add `v.literal("shopee")`, `v.literal("tokopedia")`, and `v.literal("bigseller")` to the `source` union in ALL four tables in a single schema change: `externalOutlets`, `externalRevenue`, `externalRevenueItems`, `externalSyncLogs`. Also update `registry.ts` `PlatformId` type. Run `npm run type-check` after the change — TypeScript will catch any missed location.
+1. In the approval mutation, add an explicit guard: `if (!cashAccount) throw new ConvexError("System account 1100 not found. Run accounts:seedDefaults from the Convex dashboard.")`.
+2. Add `seedDefaults` to the deployment checklist in the plan (Task 20 or equivalent).
+3. Consider making `seedDefaults` idempotent AND adding an auto-seed pattern: the first expense-related mutation checks if accounts exist and creates them if missing. This follows the `DEPOT_CONFIG` auto-seed pattern from Phase 40 (Tamtem depot).
 
 **Warning signs:**
-- TypeScript compile error on new source literals — good, this is early detection
-- New revenue records written but not appearing in analytics queries (source filter excludes new value)
-- `externalOutlets` query returning zero results for BigSeller outlets
+- First expense approval after deployment failing with null reference error
+- `accounts` table showing 0 documents after deployment
+- No accounts visible in the GL account dropdown on the expense form
 
-**Phase to address:** Schema migration — must be the FIRST task of the BigSeller integration phase, before any data fetching code is written.
+**Phase to address:** Schema + CoA foundation phase AND deployment verification.
 
 ---
 
-### Pitfall 9: SKU-to-MenuProduct Mapping via String Matching — Fragile Like Ingredient Simulation
+### Pitfall 9: WIB Timezone Boundary Mismatch Between Revenue and OpEx Period Filters
 
 **What goes wrong:**
-BigSeller order data contains SKU codes like `"FRO-DubChe-Reg1"`. Mapping these to `menuProducts` records using substring or similarity string matching (identical to the documented ingredient simulation fragility in `PROJECT.md` technical debt) silently breaks when a SKU code changes or a new product is added. Revenue from unmapped SKUs disappears from analytics without any error.
+The existing income statement uses `periodStart` (WIB-aligned epoch ms) to filter `externalRevenue` and `consignmentSettlements`. The new OpEx section uses `entryDate` to filter `journalEntryLines`. If `entryDate` is stored as WIB midnight but the period filter uses raw UTC boundaries (or vice versa), revenue and OpEx end up in different periods. The P&L shows Revenue for one week and OpEx for a different (overlapping but shifted) week.
 
 **Why it happens:**
-The `externalRevenueItems` table already has a `matchConfidence` field with fuzzy values — suggesting the existing GoFood/K3Mart item matching uses name-based fuzzy logic. Extending the same pattern to BigSeller SKUs is the path of least resistance but inherits all its fragility.
+The existing `calculateWeekRange` and `calculatePeriodRange` functions in `convex/lib/periodRange.ts` use WIB-adjusted boundaries (`wibMidnightToUtc`). The spec says `expenseDate` is a timestamp, but doesn't specify whether it should be WIB-normalized. If expense submission uses `Date.now()` for `expenseDate` (user's local time converted to UTC) while the period query uses WIB boundaries, a 7-hour offset mismatch occurs.
 
 **How to avoid:**
-Build an explicit `bigsellerSkuMappings` table (or extend the existing product mapping system used for GoFood/K3Mart) that stores `sku → menuProductId` with an admin-editable UI. On sync, auto-map SKUs that match a configured mapping exactly. Flag unmapped SKUs in a "needs review" state. Never silently drop unmapped SKU revenue — store every order even with `linkedMenuProductId: undefined` and surface unmapped SKUs in a reconciliation panel.
+Normalize `expenseDate` to WIB midnight on submission: when the user picks "March 5, 2026" as the expense date, store it as `wibMidnightToUtc(2026, 2, 5)` (March 5, 00:00 WIB = March 4, 17:00 UTC). This ensures expense dates align with the same WIB day boundaries used by revenue queries. Import and use `wibMidnightToUtc` from `convex/lib/periodRange.ts` in the expense submission mutation. Since `entryDate` is denormalized from `journalEntries.date`, and `journalEntries.date` comes from `expenses.expenseDate`, the entire chain is WIB-consistent.
+
+Write a test: create an expense with date "March 5 WIB", query the period "March 3-9 WIB" (a week), assert the expense appears. Query "Feb 24 - March 2 WIB", assert it does NOT appear.
 
 **Warning signs:**
-- Analytics showing lower Shopee/Tokopedia revenue than expected
-- No error logs but `linkedMenuProductId` is undefined for most `externalRevenueItems` rows
-- Adding a new menu product does not retroactively map existing synced orders
+- Expenses appearing in the wrong week on the P&L
+- OpEx totals that don't match when switching between weekly and monthly views
+- Expense dated "Monday" showing up in the previous week's P&L
 
-**Phase to address:** BigSeller data mapping phase — SKU mapping table design must be finalized before the first production sync runs.
+**Phase to address:** Backend expense submission mutation AND P&L integration -- both must use the same WIB normalization.
 
 ---
 
-### Pitfall 10: GrabFood Minor-Unit Price Misinterpretation — IDR Divided by 100 Gives 100x Wrong Revenue
+### Pitfall 10: Missing Auth Permission Gaps -- Kitchen/Order Staff Accessing Admin Expense Features
 
 **What goes wrong:**
-GrabFood API prices are in minor units. For IDR, the minor unit IS the whole Rupiah (IDR has no decimal places; `currency.exponent = 0`). Developers familiar with Stripe or other payment APIs where minor units require division by 100 apply the same rule: `price / 100`. An order with `subtotal: 25000` (Rp 25,000) is stored as Rp 250. In a multi-channel analytics view next to BigSeller's whole-IDR values, this appears as GrabFood revenue being 100x lower than other channels.
+The spec defines 4 new permissions: `canSubmitExpenses` (all roles), `canApproveExpenses` (manager, admin), `canManageReimbursements` (admin), `canAccessExpenseAnalytics` (manager, admin). If these permissions are added to `ROLE_PERMISSIONS` in `src/lib/types.ts` but the `ProtectedRoute` type definition is not extended, the TypeScript type for `requiredPermission` does not include the new values. The route renders but the permission check silently passes because the type mismatch causes a string comparison that always fails (or always succeeds, depending on the fallback logic).
 
 **Why it happens:**
-The GrabFood API documentation notes that `exponent` varies by currency and is 0 for IDR. This is easy to overlook. The existing `externalRevenue` table stores GoFood and K3Mart revenue as whole IDR, establishing a convention the GrabFood integration must follow.
+The `ROLE_PERMISSIONS` object and the `ProtectedRoute` component use the same type system but are defined in different files. Adding a permission to the object without updating the type union creates a silent type-widening issue. The existing codebase has 12 permission flags that all work -- the 13th-16th can easily be missed because the developer assumes "just adding to the object is enough."
 
 **How to avoid:**
-When ingesting GrabFood order data, check `currency.exponent`: if `exponent === 0` (IDR), store `price` as-is with no conversion. Add a comment in the GrabFood ingest code: "IDR prices from GrabFood are whole Rupiah. No division needed." Write a unit test: parse a sample GrabFood order with `subtotal: 25000` and `currency.exponent: 0` and assert the stored value is `25000`, not `250`.
+1. Add all 4 new permissions to `ROLE_PERMISSIONS` for all 4 roles.
+2. Verify the `ProtectedRoute` component type accepts the new permission strings (it should if the type is derived from `keyof typeof ROLE_PERMISSIONS[UserRole]`).
+3. Backend mutations MUST independently enforce auth via `requireRole()` -- never rely on frontend-only guards. Every expense mutation must check: `requireRole(ctx, args.token, ["kitchen", "order_staff", "manager", "admin"])` for submission, `requireRole(ctx, args.token, ["manager", "admin"])` for approval, `requireRole(ctx, args.token, ["admin"])` for reimbursements.
+4. Write a test: call the approve mutation with a `kitchen` role token -- expect "Not authorized" error.
 
 **Warning signs:**
-- GrabFood channel showing 100x lower revenue than expected in analytics
-- Order-level margin showing Rp 190 for a product priced at Rp 19,000
-- Cross-channel total significantly misaligned with bank settlements
+- New expense routes accessible without login (missing `ProtectedRoute` wrapper)
+- Kitchen staff able to access the reimbursement manager page
+- No TypeScript error when using a non-existent permission name in a route
 
-**Phase to address:** GrabFood data ingestion phase and unified analytics schema design phase.
+**Phase to address:** Frontend foundation wave (permissions + routes) -- must be verified before frontend pages are built.
 
 ---
 
-### Pitfall 11: BigSeller Negative Fee Fields Added Instead of Subtracted in Profit Calculation
+### Pitfall 11: Self-Approval Check Only on Frontend -- Backend Mutation Allows It
 
 **What goes wrong:**
-BigSeller fee fields `commissionFee`, `sellerShippingFee`, and `otherFee` are documented as **negative values when they represent costs**. For example, a Rp 5,850 platform commission is returned as `commissionFee: -5850`. If these fields are naively summed with `platformIncome` in a profit calculation (`platformIncome + commissionFee`), the negative value correctly reduces profit. But if someone "fixes" the sign by writing `platformIncome - commissionFee`, the negative value is subtracted and profit is INCREASED by the commission cost — resulting in inflated analytics.
+The DoA rules specify that the submitter cannot approve their own expense. If this check exists only in the frontend (hiding the "Approve" button when `expense.submittedBy === currentUser._id`), a direct mutation call via the Convex dashboard or a crafted API request bypasses the check. The admin approves their own expense, creating a journal entry with no oversight.
 
 **Why it happens:**
-The sign convention (`negative = cost`) is documented in the API reference's Data Glossary but counterintuitive. The BigSeller UI displays fees as positive numbers to users, so developers assume the API also returns positive values.
+Frontend-only validation is the common pattern for UX controls. But financial controls MUST be backend-enforced because they are fraud prevention mechanisms, not UX conveniences. The spec explicitly states "Backend mutation rejects `approvedBy === submittedBy` regardless of frontend guards."
 
 **How to avoid:**
-Store all fee fields in `externalRevenue` as the raw values from BigSeller (negative for costs). Compute profit as: `platformIncome + commissionFee + sellerShippingFee + otherFee + serviceFee` — because adding a negative number correctly reduces the total. Add a comment to the profit calculation: "Fee fields are negative — adding them reduces profit." Write a unit test with a known order where `commissionFee: -5850` and verify the resulting `profit` is reduced by exactly 5850.
+In the approve mutation:
+```typescript
+const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+const expense = await ctx.db.get(args.expenseId);
+if (expense.submittedBy === user._id) {
+  throw new ConvexError("Cannot approve your own expense");
+}
+```
+This must be a hard throw, not a soft return. Write a test: seed an admin user, create an expense as that admin, attempt to approve as the same admin -- expect error. Also test the edge case: single admin in the system submits an expense > 500K -- the mutation must throw "No eligible approver" because the only admin is the submitter.
 
 **Warning signs:**
-- Tokopedia/TikTok channel showing higher profit margins than Shopee for equivalent orders
-- Per-order profit exceeds `platformIncome` (impossible without negative cost fields being sign-flipped)
-- BigSeller COGS-less profit margin showing >100%
+- `expenseStatusHistory` showing `approvedBy === submittedBy` on any record
+- The approve mutation not checking the user identity at all
+- Frontend hiding the button but no backend guard
 
-**Phase to address:** BigSeller data ingestion phase — fee calculation must be unit-tested before analytics queries are built.
-
----
-
-### Pitfall 12: Convex Action Timeout on BigSeller Polling — While-Loop Approach
-
-**What goes wrong:**
-Convex actions have a maximum execution time. A BigSeller sync can take 1–10 minutes. If polling is implemented as a `while` loop with `sleep(60000)` inside a single action, the action times out. When the action times out mid-poll, the sync is left in `"progress"` state with no scheduled continuation — the system is permanently stuck until manually reset.
-
-**Why it happens:**
-Polling loops feel natural in synchronous code. The Convex action timeout is easy to forget when developing against small datasets where sync completes in under 60 seconds.
-
-**How to avoid:**
-Never implement polling as a loop inside a single Convex action. Use the scheduler-based pattern: each poll check is a separate short-lived action scheduled 60 seconds after the previous one. This pattern also survives Convex deployment restarts because the scheduler persists jobs across function reloads. Cap the maximum poll reschedules at 20 (20 minutes total) before marking the sync as `"fail"` and alerting the admin.
-
-**Warning signs:**
-- Convex function logs showing action timeout errors for BigSeller sync actions
-- Sync state stuck in `"progress"` indefinitely with no subsequent poll actions scheduled
-- Dashboard showing sync running for more than 15 minutes
-
-**Phase to address:** BigSeller foundation phase. The scheduler-based polling architecture must be the design baseline — not a later refactor from a loop-based approach.
-
----
-
-### Pitfall 13: Consignment Excel Upload — SheetJS Numeric Cell Type Coercion Returns NaN
-
-**What goes wrong:**
-SheetJS parses Excel cells as their native type. Indonesian consignment POS exports frequently have number-formatted cells where the value looks like `"Rp 25.000"` (with period as thousands separator) or `"4"` stored as a text cell. SheetJS's default mode returns these as strings. JavaScript `Number("Rp 25.000")` returns `NaN`. Arithmetic on NaN silently propagates. Convex's `v.number()` validator rejects `NaN` with a type error that surfaces as a generic mutation failure, not a per-row validation message.
-
-**Why it happens:**
-Developers test with well-formed files they create. Real-world Indonesian POS exports vary in cell formatting. The `.000` thousands separator format is extremely common in Indonesia and always produces NaN via `Number()`.
-
-**How to avoid:**
-After parsing with SheetJS, coerce every numeric column explicitly: strip non-digit characters before converting (`parseInt(String(cell).replace(/[^\d]/g, ""), 10)`), then validate `isNaN()`. Return a structured validation result per row (row number, column name, raw value, error message) so the UI shows exactly which rows failed. Reject the entire upload if any required numeric column contains invalid values — do not partially insert.
-
-**Warning signs:**
-- Revenue totals showing 0 or NaN after upload despite correct-looking data
-- Convex mutation error: "Value is not a valid number" with no indication of which row
-- `externalRevenue.revenueGross` stored as 0 (fell through a `Number() || 0` fallback)
-
-**Phase to address:** Consignment upload foundation phase — write validation unit tests against sample files before implementing the upload UI.
-
----
-
-### Pitfall 14: Consignment Upload Partial Failure — No Idempotent Batch Rollback
-
-**What goes wrong:**
-A consignment upload inserts 50 `externalRevenue` records. If row 35 fails, records 1–34 are already committed. The user sees an error and re-uploads the file. Records 1–34 are now duplicated. There is no automatic rollback in Convex for partial batch failures unless the entire batch is in a single mutation.
-
-**Why it happens:**
-Progress-reporting during upload tempts developers to split the batch into per-row mutations (one per row allows updating a progress bar). Without idempotency guards, re-uploads double the existing data.
-
-**How to avoid:**
-Process the entire upload batch in a single Convex mutation. Use a `uploadBatchId` (UUID generated client-side before the upload) stored on every inserted record. Before inserting, check if any record with this `uploadBatchId` already exists — if so, skip all inserts (idempotent re-upload). Implement a `deleteConsignmentBatch(uploadBatchId)` mutation that atomically removes all records from the bad upload batch. Surface the `uploadBatchId` in the upload confirmation UI so admins can reference it for reversal.
-
-**Warning signs:**
-- Duplicate revenue records with the same date and outlet after re-upload attempts
-- Revenue totals showing double the expected amount
-- No way to identify which records came from which specific upload
-
-**Phase to address:** Consignment upload phase — design the `uploadBatchId` idempotency pattern before writing the upload mutation.
-
----
-
-### Pitfall 15: Unified Analytics — Adding New Channel as Reactive Subscription Instead of On-Demand Action
-
-**What goes wrong:**
-The v1.3 optimization converted heavy analytical queries to on-demand (action-backed) fetches to reduce Convex bandwidth. If new BigSeller/GrabFood analytics queries are added as reactive `useQuery` subscriptions rather than on-demand actions, the bandwidth spikes return. The `externalRevenue` table will grow significantly with multi-channel data — a subscription scanning it on every render becomes increasingly expensive.
-
-**Why it happens:**
-Reactive queries are the natural Convex pattern. The on-demand action wrapper pattern (from `convex/externalData/actions.ts`) is a less obvious indirection layer. New developers adding analytics for a new channel default to `useQuery`.
-
-**How to avoid:**
-All multi-channel analytics queries must follow the established pattern: `internalQuery` function in `convex/externalData/queries.ts` wrapped in an on-demand `action` in `convex/externalData/actions.ts`. Never expose a reactive `useQuery(api.externalData.*)` subscription for analytical aggregations. Add `by_source_period` composite index scans so source filters apply at the index level, not post-scan.
-
-**Warning signs:**
-- Convex bandwidth dashboard spike after adding new analytics queries
-- New analytics query not wrapped in an `action` (grep: `useQuery(api.externalData` should return no new results)
-- `SalesAnalytics.tsx` re-fetching on every render rather than explicit user-triggered refresh
-
-**Phase to address:** Unified analytics phase — apply the on-demand pattern consistently from the start, not after noticing bandwidth issues.
-
----
-
-### Pitfall 16: GrabFood Webhook Without HMAC Signature Validation — Fake Orders
-
-**What goes wrong:**
-The GrabFood webhook endpoint (`/api/grabfood/order`) is a public HTTPS URL. Without HMAC signature validation, any actor who discovers the URL can POST fake order payloads. The adapter's current `handleOrderWebhook` in `adapter.ts` has a `// TODO: Add HMAC signature validation` comment. Shipping without implementing this means the production order queue can be polluted with fabricated orders.
-
-**Why it happens:**
-HMAC validation is a "Phase 5 — Reliability" item in the GrabFood Integration Checklist. Developers implement basic functionality first and defer security hardening, then the TODO remains indefinitely.
-
-**How to avoid:**
-GrabFood provides an HMAC Secret in the partner project dashboard (Credentials section). Implement HMAC-SHA256 signature validation before the webhook goes to production. Verify the `X-Grab-Signature` header against the request body using the HMAC Secret. Reject requests with invalid or missing signatures with HTTP 401 (but still ensure the 200-first pattern applies for valid requests). This is a one-time implementation of ~20 lines.
-
-**Warning signs:**
-- The `// TODO: Add HMAC signature validation` comment still present in `handleOrderWebhook`
-- Unexpected orders appearing in the system with unknown `merchantID` values
-- Order queue showing orders with malformed or missing required fields
-
-**Phase to address:** GrabFood webhook implementation phase — HMAC validation must be implemented before the webhook is registered in the GrabFood production portal.
+**Phase to address:** Backend expense lifecycle (approval mutation) -- the self-approval check must exist in the backend, not just the frontend.
 
 ---
 
@@ -350,93 +294,91 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Store BigSeller `costFee: 0` without flagging in UI | Simpler schema, no COGS setup required | Profit margin shows ~100% — misleading analytics, wrong business decisions | Never — always surface "COGS not configured" caveat in UI |
-| Add new `source` literal to one schema table only | Avoids touching multiple files | TypeScript errors at table boundaries; analytics queries silently exclude new sources | Never — update all four tables in one schema change |
-| Poll BigSeller sync with a `while` loop in a single action | Simpler linear code | Action timeout after Convex limit, no recovery path | Never — use scheduler pattern from day one |
-| Fuzzy SKU string matching for BigSeller → menuProduct | Auto-maps most SKUs without admin effort | Silent revenue misattribution, compounds over time | Only as fallback — require admin confirmation for non-exact matches |
-| Skip webhook HMAC validation for faster shipping | Saves ~20 lines of implementation | Fake orders can be injected into the production queue | Never before production registration of the webhook |
-| Fetch GrabFood token per API call for simpler code | No token state management needed | Rate limit errors, possible credential suspension per GrabFood's explicit prohibition | Never |
-| Inline hardcoded BigSeller shop IDs instead of table-driven config | Faster to implement | Breaks when a new Shopee/Tokopedia shop is added; requires code deploy to add shop | Never — store shop IDs in `platformCredentials` or a `bigsellerShops` config table |
+| Skip `by_entryDate` index, accept N+1 pattern | Fewer schema changes, simpler queries | 14 sequential DB reads per P&L render; compounds with Balance Sheet queries | Never -- add the index from day one; it costs nothing |
+| Store `expenseDate` as raw `Date.now()` without WIB normalization | Simpler submission code | Period boundary mismatches between revenue (WIB-aligned) and OpEx (UTC-aligned) | Never -- WIB normalization is a 1-line change with high correctness impact |
+| Use `v.string()` for `sourceId` on `journalEntries` | Avoids discriminated union complexity | No type safety on source references; `sourceId` could be any string | Acceptable -- Convex doesn't support discriminated union IDs natively |
+| Use `v.string()` for `expenseStatusHistory.fromStatus/toStatus` | Simpler schema, avoids repeated union type | Any string can be stored; no validation on history entries | Fix -- use the `expenseStatus` validator for type safety |
+| Skip Should-Have fraud controls (split detection, approver concentration) | Reduces scope, faster shipping | No detection of expense splitting or rubber-stamp approval patterns | Acceptable for v1 -- defer to future phase with explicit backlog item |
+| Hardcode account codes ("2200", "1100") in mutations | Faster to write than lookup-by-code queries | Breaks if account codes change; magic strings scattered across codebase | Acceptable temporarily -- extract to constants file (e.g., `SYSTEM_ACCOUNTS.CASH = "1100"`) |
+| Counter table rows never cleaned up | No maintenance code needed | ~1,095 rows/year (3 prefixes x 365 days) | Acceptable -- negligible at this scale for years |
 
 ---
 
 ## Integration Gotchas
 
-Common mistakes when connecting to GrabFood, BigSeller, and consignment systems.
+Common mistakes when integrating the accounting system with existing Frollie features.
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| GrabFood OAuth2 | Fetch token per API call | Cache in `platformCredentials`, reuse until `tokenExpiresAt - 5 min`; call `resolveToken()` in every action |
-| GrabFood OAuth2 | Use `prdBaseUrl` for staging tests | Always use sandbox `baseUrl` for testing; switch to `prdBaseUrl` only when deploying against production merchant credentials |
-| GrabFood menu sync | Assume `PUT /menu` applies immediately | Always call `POST /merchant/menu/notification` after any menu write; poll `traceMenuSync` for result |
-| GrabFood webhooks | Process order synchronously before returning 200 | Return 200 immediately; schedule async processing via `ctx.scheduler.runAfter` |
-| GrabFood webhooks | Skip HMAC validation for speed | Implement HMAC-SHA256 check before production webhook registration |
-| BigSeller auth | Treat `muc_token` as an opaque string | Decode JWT, persist `exp` field, surface expiry warning 3 days before expiry |
-| BigSeller sync | Query `listStatsData` immediately after `sync/task/create` | Poll `sync/task/detail/new/get.json` until `taskStatus = "complete"` — takes 1–10 minutes |
-| BigSeller sync | Trigger daily cron without checking current sync state | Always check existing task status first; if in-progress, re-enter polling instead of creating new task |
-| BigSeller date range | Use a 90-day range for initial backfill | Split into 31-day chunks and process serially |
-| BigSeller fees | Assume `commissionFee`, `otherFee`, `sellerShippingFee` are positive costs | These are **negative values** — add them to profit (negative + profit = correctly reduced profit); never subtract |
-| BigSeller pagination | Fetch only page 1 of `pageList` | Loop until `pageNo >= totalPage`; Frollie currently small but will grow |
-| SheetJS | Assume cell values are typed correctly | Explicitly coerce every numeric column; handle Indonesian Rp thousands separator |
-| SheetJS | Trust `sheet['!ref']` range for data extent | Use `sheet_to_json` with explicit header; validate column names before processing |
-| `externalRevenue.source` | Cram Shopee/Tokopedia data under `"internal"` | Add proper source literals to the union in all four tables |
+| Integration Point | Common Mistake | Correct Approach |
+|-------------------|----------------|------------------|
+| P&L extension | Adding OpEx data as a separate `useQuery` subscription instead of extending `fetchAndAggregate` | Extend the existing `fetchAndAggregate` function; single reactive subscription = single re-render |
+| P&L extension | Modifying `WeekData` type in a breaking way | Add new fields (`opex`, `totalOpEx`, `ebit`, `netIncome`) alongside existing fields; never remove or rename existing fields |
+| Revenue/COGS data | Attempting to move revenue data from real-time aggregation to stored journal entries | Revenue (4xxx) and COGS (5xxx) remain "virtual" -- sourced from `externalRevenue` + BOM. Only OpEx (6xxx) uses stored journal entries |
+| File storage | Not gating `generateUploadUrl` with auth | The existing `feedback/mutations.ts` has NO auth on `generateUploadUrl`. The expense version MUST have auth (`requireRole`) because receipts are financial documents |
+| User bank details | Adding required fields to existing `users` table | `bankAccountNumber` and `bankName` MUST be `v.optional()` -- existing user documents don't have these fields |
+| Permission system | Adding permissions to `ROLE_PERMISSIONS` but not to the TypeScript type union | Both the runtime object AND the type definition must be updated in sync |
+| Existing FIFO inventory | Expense system touching inventory tables | Expense system has ZERO interaction with inventory. If a future "petty cash from inventory" feature is added, it must go through the existing `inventory/` module, not the expense module |
 
 ---
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as multi-channel data accumulates.
+Patterns that work at small scale but fail as expense volume grows.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Reactive `useQuery` subscription on `externalRevenue` table scan | Analytics page causes high bandwidth; slow on mobile | Use on-demand action pattern established in v1.3 | When `externalRevenue` exceeds ~500 rows (3–4 months of multi-channel data) |
-| BigSeller `pageList` not fully paginated | Sync appears complete but 90% of orders missing | Loop until `pageNo >= totalPage` | When monthly Shopee+Tokopedia orders exceed `pageSize: 50` |
-| GrabFood order list without pagination loop | Historical backfill incomplete | Loop incrementing `page` until `more: false` | When GrabFood order backfill exceeds one page |
-| Storing BigSeller `skuVoList` as a JSON blob | Simple insert, no normalization needed | Store as separate table rows; JSON blobs are not queryable in Convex | Immediately — JSON blobs cannot be indexed or filtered |
-| Analytics period aggregation without timezone normalization | Different channels show different "today" totals | Normalize all ingested timestamps to WIB midnight UTC (`T00:00:00+07:00`) at ingest time | On first cross-channel daily comparison |
-| BigSeller polling loop inside single Convex action | Linear code, easy to read | Use `ctx.scheduler` chain instead | When sync takes more than Convex action max duration |
+| N+1 per-account journal queries | P&L page slow (>2s); 14 sequential DB reads visible in Convex logs | Add `by_entryDate` index; single query + in-memory grouping | Immediately at 11+ OpEx accounts -- this is a day-one issue, not a scale issue |
+| Reactive subscription on `journalEntryLines` without index bounds | P&L re-renders on every JE insert across ALL periods | Use `.withIndex("by_entryDate", ...)` with tight period bounds; Convex only re-fires for documents matching the index range | When journal entries exceed ~100 (2-3 months of operations) |
+| Duplicate detection scanning all expenses for 7-day window | Slow submission as expense count grows | Index `by_amount_date_submitter` enables efficient duplicate lookup without full table scan | When expenses exceed ~500 (6-12 months) |
+| Approval queue query scanning all expenses | Manager sees all expenses, not just pending | Index `by_status` with `status === "submitted"` filter at index level | When total expenses exceed ~200 |
+| Receipt image stored at original resolution | `_storage` quota consumed by 5+ MB phone photos | Client-side image compression before upload (canvas resize to 1024px max width) | When receipt count exceeds ~100 |
 
 ---
 
 ## Security Mistakes
 
+Domain-specific security issues for financial data.
+
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Logging full GrabFood `access_token` in Convex console | Token visible in dashboard logs to any dashboard-access user | Log only `tokenPreview` (first 30 chars) — already done in current `adapter.ts`; ensure no new log lines add the full token |
-| GrabFood webhook endpoint without HMAC validation | Fake orders injected into production queue | Implement `X-Grab-Signature` HMAC-SHA256 check before production registration (see Pitfall 16) |
-| BigSeller `muc_token` JWT stored in `platformCredentials.password` field without access restriction | JWT grants full BigSeller account access | Acceptable for internal tool (same risk pattern as GoBiz token); ensure only `admin` role can read `platformCredentials` |
-| Consignment upload mutation not gated by `requireRole` | `kitchen` role staff can upload and corrupt revenue data | Wrap in `requireRole(ctx, args.token, ["manager", "admin"])` — consignment revenue is manager-level data |
-| No file size guard on Excel upload | 50k-row file exhausts Convex document write quota | Reject files >5 MB or >2,000 parsed rows with clear user error message |
+| Self-approval check only in frontend | Admin can approve own expense via direct mutation call; zero oversight on admin spending | Backend mutation MUST check `approvedBy !== submittedBy`; throw hard error |
+| No receipt hash dedup enforcement | Same receipt image used for multiple expense claims (fraud) | SHA-256 hash computed client-side, stored in `receiptImageHash`; backend blocks submission if hash exists on any expense |
+| `generateUploadUrl` without auth | Unauthenticated users can upload files to `_storage`; storage quota abuse | Add `requireRole(ctx, args.token, [...allRoles])` to the expense `generateUploadUrl` mutation |
+| Journal entries mutable after creation | Approved expense amounts can be silently changed; audit trail meaningless | No `update` mutation for `journalEntries` or `journalEntryLines`; only void + new entry pattern |
+| Expense amount editable after approval | GL entries show one amount, expense shows a different (edited) amount | No update mutation for approved expenses; immutability enforced by absence of mutation, not just UI hiding |
+| `seedDefaults` callable without auth | Any unauthenticated client can call `accounts:seedDefaults`; creates 36 accounts | Acceptable (consistent with existing seed patterns); seed is idempotent with existence checks; document as dashboard-only |
 
 ---
 
 ## UX Pitfalls
 
+Common user experience mistakes in expense management for an SME with 5-10 staff.
+
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| BigSeller sync progress not visible during 8-minute wait | User thinks feature is broken; re-clicks sync, triggering "already in progress" errors | Show sync state machine in dashboard: "Triggering...", "Syncing (est. 5–10 min)", "Fetching data...", "Complete" with timestamps |
-| Analytics showing `profit: Rp 1,770,500` with no COGS caveat | Manager thinks margin is 99% when COGS has not been entered in BigSeller | Show "Profit = Revenue (COGS not configured in BigSeller)" whenever all `costFee` values are 0 for BigSeller records |
-| Excel upload with no row-level validation feedback | User re-uploads whole file guessing at what was wrong | Show a table of failed rows with column name, raw cell value, and error reason before accepting the upload |
-| GrabFood menu sync `PARTIAL_FAILURE` silently logged but not surfaced | Menu items appear available when they are actually unavailable in the GrabFood app | Show a persistent banner on the GrabFood settings page when the last menu sync resulted in `PARTIAL_FAILURE` |
-| Multi-channel analytics defaulting to UTC midnight boundaries | Analytics for "today" shows different totals depending on time of day (pre/post midnight UTC) | Apply `Asia/Jakarta UTC+7` offset for all "today", "this week", "this month" period calculations across all channels |
+| No confirmation before expense submission | User accidentally submits a draft with missing fields | Show a confirmation dialog with expense summary before calling `submitExpense`; validate all fields including receipt requirement |
+| Receipt upload failure with no retry | User uploads a 5 MB photo, network drops, no way to retry without re-filling the entire form | Store form state in component state; only upload receipt on submit; show retry button on upload failure; preserve all other fields |
+| Rejection reason not visible on resubmission | Employee resubmits without knowing why the original was rejected; rejected again for the same reason | Show full rejection chain with reasons in the expense form when `previousExpenseId` is set; make rejection reason prominent, not hidden in a collapsible |
+| Approval queue showing all expenses at once | Manager with 20 pending expenses cannot prioritize; no sorting or filtering | Sort by submission date (oldest first); filter by amount range, late flag, duplicate warning; show count badge in navigation |
+| Reimbursement confirmation with no bank detail preview | Admin confirms batch transfer without seeing the employee's bank name/number; sends to wrong account | Show employee bank details prominently in the batch confirmation form; warn if bank details are missing |
+| Company card expenses appearing in reimbursement queue | Admin tries to batch company card expenses that don't need reimbursement | Filter reimbursement queue to only show `personal_cash` and `personal_transfer` expenses; company card expenses go to `approved` as terminal |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **GrabFood OAuth**: `resolveToken()` is called in every new action — verify no `fetchFreshToken()` calls outside `resolveToken()`
-- [ ] **GrabFood webhooks**: HTTP 200 returned before any `await` — verify no processing logic above the `return new Response("OK")` line
-- [ ] **GrabFood HMAC**: Signature validation implemented — the `// TODO: Add HMAC signature validation` comment must be resolved before production webhook registration
-- [ ] **GrabFood menu sync**: `notifyMenuUpdate` called after every menu write — verify in Convex logs that the notification endpoint is called
-- [ ] **BigSeller polling**: Scheduler-based poll loop, not a `while` loop — no `while` or `do-while` in any BigSeller sync action
-- [ ] **BigSeller auth**: `exp` decoded from JWT and stored in `tokenExpiresAt` — verify `platformCredentials` record has expiry date, not `undefined`
-- [ ] **BigSeller fees**: Negative fees correctly handled — verify per-order profit calculation with a known test order where `commissionFee: -5850`
-- [ ] **BigSeller pagination**: All pages fetched from `pageList` — verify `pageNo < totalPage` loop condition is present
-- [ ] **Schema migration**: All four `source` union validators updated — `npm run type-check` passes with new literals
-- [ ] **Consignment upload**: `uploadBatchId` stored on every inserted record — verify reversal mutation deletes all records for a given batch ID
-- [ ] **Analytics pattern**: All new multi-channel analytics queries use on-demand action pattern — no new direct `useQuery(api.externalData.*)` reactive subscriptions for analytical data
-- [ ] **Price units**: GrabFood IDR prices stored as whole Rupiah (not divided by 100) — verify with a known test order where `subtotal: 25000` stores as `25000`
-- [ ] **BigSeller COGS**: "COGS not configured" caveat visible in UI whenever `costFee: 0` for BigSeller records
+- [ ] **Journal balance:** Every `createJournalEntry` call validates `sum(debits) === sum(credits)` before inserting -- verify no code path skips the check
+- [ ] **`entryDate` denormalization:** Every `journalEntryLines` insert copies `date` from the parent `journalEntries` -- verify no lines have `entryDate` differing from their parent's `date`
+- [ ] **WIB normalization:** `expenseDate` stored as WIB midnight, not raw `Date.now()` -- verify an expense dated "March 5" stores as `wibMidnightToUtc(2026, 2, 5)`
+- [ ] **Self-approval backend guard:** `approvedBy !== submittedBy` check exists in the BACKEND approve mutation, not just the frontend -- verify with a test calling the mutation directly
+- [ ] **Receipt requirement enforcement:** `receiptFileId` required for amount > Rp 50,000 enforced in the BACKEND submit mutation, not just the frontend -- verify with a test
+- [ ] **Reversal date:** `createReversingEntry` uses the original entry's date, not `Date.now()` -- verify with a test that creates and voids in different periods
+- [ ] **`seedDefaults` run:** After deployment, `accounts` table has 36 documents -- verify before testing any expense flow
+- [ ] **Permission gating:** Reimbursement manager page returns "Not authorized" for manager role, not just admin -- verify the `ProtectedRoute` uses `canManageReimbursements`
+- [ ] **Company card accounting:** Company card approval creates JE with `CR 1100 Cash` (not `CR 2200 Reimbursements Payable`) -- verify with a unit test
+- [ ] **Void cascade:** Voiding a reimbursement batch returns all linked expenses to `awaiting_payment` status -- verify the batch void mutation patches all linked expenses
+- [ ] **Counter atomicity:** Two concurrent expense submissions produce different `EXP-MMDD-NNN` numbers (no duplicates) -- verify with Convex mutation serialization test
+- [ ] **Existing P&L unbroken:** After adding OpEx section, the existing Revenue and Gross Profit figures remain identical to before -- verify by comparing output with and without the extension
+- [ ] **No `by_entryDate` index:** If the `by_entryDate` index on `journalEntryLines` is missing from the schema, the OpEx aggregation falls back to the N+1 pattern -- verify the index exists before deploying
 
 ---
 
@@ -444,13 +386,14 @@ Patterns that work at small scale but fail as multi-channel data accumulates.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Duplicate GrabFood webhook orders (P2) | MEDIUM | Query for duplicate `orderID` records in `grabfoodIncomingOrders`; run deduplication mutation; add `requestID` uniqueness constraint going forward |
-| BigSeller sync stuck in "progress" indefinitely (P4/P5) | LOW | Manually check `sync/task/detail/new/get.json` via Convex action; if truly stuck, wait for BigSeller's own timeout; trigger fresh sync for the affected date range |
-| `externalRevenue` records with wrong/missing source enum (P8) | LOW | Schema migration adding new literals is non-destructive; existing records need no field updates; fix enum, redeploy, re-sync affected date ranges |
-| Consignment upload with duplicate records (P14) | LOW | Call `deleteConsignmentBatch(uploadBatchId)` to atomically remove all records from bad upload; re-upload corrected file |
-| GrabFood minor-unit price stored as /100 IDR (P10) | HIGH | Data migration: multiply affected `externalRevenue.revenueGross` records by 100; identify by `source: "grabfood"` and `revenueGross < 10000` (below minimum plausible product price) |
-| BigSeller JWT expired with no warning (P6) | LOW | Admin re-pastes fresh `muc_token` via settings UI (same reconnect pattern as GoBiz); implement proactive expiry warning to prevent recurrence |
-| BigSeller fees sign-flipped in profit calculation (P11) | MEDIUM | Recalculate `profit` for all stored BigSeller orders using raw fee fields; update analytics derived values; add unit test to prevent regression |
+| Unbalanced journal entries (P4) | HIGH | Identify all unbalanced entries via integrity query; create correcting entries to re-balance; add balance validation to prevent recurrence; this is an accounting audit event |
+| Reversal in wrong period (P1) | MEDIUM | Identify reversals where `date !== originalEntry.date`; create new reversing entries with correct dates; void the incorrect reversals; re-run P&L for affected periods |
+| Duplicate journal entries from concurrent approval (P6) | MEDIUM | Query for duplicate `sourceId` + `sourceType` combinations; void the duplicate entry; add concurrency guard to prevent recurrence |
+| `_creationTime` used for period filter (P2) | MEDIUM | Replace all `_creationTime` references with `entryDate` in journal queries; existing data is fine (the entries themselves are correct, only the query was wrong) |
+| `seedDefaults` not run (P8) | LOW | Run `accounts:seedDefaults` from Convex dashboard; existing expenses in `draft` or `submitted` status are unaffected; only approval mutations need accounts |
+| WIB timezone mismatch (P9) | MEDIUM | Identify expenses with non-WIB-normalized dates; write a migration to normalize `expenseDate` to WIB midnight; update `journalEntries.date` and `journalEntryLines.entryDate` to match |
+| Self-approval in production (P11) | LOW | Void the self-approved expense's journal entry; resubmit the expense for proper approval by a different approver; add backend guard to prevent recurrence |
+| Orphaned receipt files (P5) | LOW | At current scale (5-10 expenses/week), orphan files are negligible; run a cleanup query if storage quota becomes an issue; never delete files referenced by approved expenses |
 
 ---
 
@@ -458,38 +401,31 @@ Patterns that work at small scale but fail as multi-channel data accumulates.
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| GrabFood token per call (P1) | GrabFood foundation — token management | `resolveToken()` in all actions; no direct `fetchFreshToken()` calls outside it |
-| Webhook 200 after processing (P2) | GrabFood webhook handler implementation | Send 2 rapid webhook POSTs for same order; confirm only 1 record created |
-| Menu sync without notify (P3) | GrabFood menu sync phase | Confirm `notifyMenuUpdate` called in all menu-write flows; `menuTrace` reaches SUCCESS |
-| BigSeller query during progress (P4) | BigSeller foundation — polling architecture | `code: -1` from BigSeller is logged as error, not treated as empty success |
-| BigSeller cron collision (P5) | BigSeller foundation — cron design | Two rapid sync triggers: second is gracefully skipped or absorbed into existing poll |
-| JWT expiry silent failure (P6) | BigSeller auth phase | HTML response from BigSeller → "Re-login required" error, not JSON parse crash |
-| 31-day range limit (P7) | BigSeller foundation — backfill design | 90-day backfill request correctly splits into 3 sequential 31-day syncs |
-| Schema union excludes new sources (P8) | Schema migration phase — first task | `npm run type-check` passes with new source literals; `externalOutlets` query returns BigSeller outlets |
-| SKU mapping via string matching (P9) | BigSeller data mapping phase | Unknown SKU stored with `linkedMenuProductId: undefined` and surfaced in reconciliation UI |
-| SheetJS numeric coercion (P10 / old P13) | Consignment upload foundation | Unit tests with Indonesian Rp-formatted cells, text-typed numbers, empty cells |
-| GrabFood IDR minor unit (P10) | GrabFood ingest phase | Unit test: `subtotal: 25000` + `exponent: 0` → stored as `25000` |
-| BigSeller negative fees (P11) | BigSeller ingest phase | Unit test: known order with `commissionFee: -5850` → profit reduced by 5850 |
-| Upload batch no rollback (P14) | Consignment upload mutation design | Upload with invalid row 35; confirm zero records inserted; re-upload succeeds with exactly N records |
-| Action timeout on polling (P12) | BigSeller foundation — architecture | Code review: no `while` loops in BigSeller actions; all polls via `ctx.scheduler` |
-| Analytics reactive subscription (P15) | Unified analytics phase | No new `useQuery(api.externalData.*)` subscriptions for analytical data; all wrapped in actions |
-| Webhook without HMAC (P16) | GrabFood webhook implementation | `// TODO: Add HMAC` comment removed; signature validation tested with a known-valid and known-invalid payload |
+| Reversal date bug (P1) | Backend foundation: journal helper | Test: void in different period, assert reversal date matches original |
+| `_creationTime` vs `entryDate` (P2) | Backend foundation: journal queries | Grep: zero `_creationTime` references in `convex/journal/` files |
+| N+1 query pattern (P3) | Schema phase (add index) + P&L integration | Convex dashboard: `getOpExByPeriod` shows 1-2 DB reads, not 14 |
+| Unbalanced JE (P4) | Backend foundation: journal mutation | Test: unbalanced entry throws; integrity check finds zero violations |
+| Receipt upload race (P5) | Frontend expense form implementation | Manual test: upload receipt, close browser, resubmit -- receipt still attached |
+| Concurrent approval (P6) | Backend expense lifecycle | Test: two approve calls for same expense; second throws; 1 JE exists |
+| P&L query timeout (P7) | P&L integration wave | Convex dashboard: `getIncomeStatement` executes in <3 seconds |
+| `seedDefaults` not run (P8) | Deployment verification step | `accounts` table shows 36 documents after deployment |
+| WIB timezone mismatch (P9) | Backend expense submission + P&L integration | Test: expense dated "March 5 WIB" appears in "March 3-9 WIB" period query |
+| Auth permission gaps (P10) | Frontend foundation: permissions + routes | Test: kitchen role token → approve mutation → "Not authorized" |
+| Self-approval bypass (P11) | Backend expense lifecycle: approve mutation | Test: admin submits and approves own expense → error thrown |
 
 ---
 
 ## Sources
 
-- GrabFood Partner API official SDK documentation — `docs/GRABFOOD_API.md` (OpenAPI v1.1.3, SDK v1.0.2, verified 2026-02-24)
-- BigSeller Profit Analytics API — `docs/BIGSELLER_PROFIT_API.md` (reverse-engineered, verified 2026-02-25)
-- Existing GrabFood adapter implementation — `convex/integrations/grabfood/adapter.ts` (scaffolded, staging-ready)
-- Existing schema design — `convex/schema.ts` (59 tables, specifically `externalRevenue`, `externalOutlets`, `externalSyncLogs`, `externalRevenueItems`)
-- Integration registry — `convex/integrations/registry.ts` (current PlatformId union)
-- v1.3 on-demand query pattern — `convex/externalData/actions.ts`
-- GoBiz integration (comparison pattern) — `convex/integrations/gobiz/`
-- Known technical debt — `PROJECT.md` (ingredient simulation name-matching fragility, current source union gaps)
-- Production outage lessons — `docs/LESSONS_LEARNED.md` (Vite TDZ crash, gsd-debugger commits to main)
-- Prior v1.3 PITFALLS.md — SheetJS date parsing, merged cells, mutation argument limits (patterns applicable to consignment upload in v1.4)
+- Staff review: `docs/reviews/staffreview-expense-accounting-plan-2026-03-12.md` (4 critical, 6 important findings -- C1, C2, C3, C4, I1-I6)
+- Design spec: `docs/superpowers/specs/2026-03-12-expense-accounting-system-design.md` (10 tables, 36 accounts, full lifecycle)
+- Existing income statement: `convex/reports/incomeStatement.ts` (687 lines -- `fetchAndAggregate` pattern, `WeekData` type)
+- Existing period range helpers: `convex/lib/periodRange.ts` (WIB timezone utilities)
+- Existing auth: `convex/lib/auth.ts` (`requireRole` pattern), `convex/lib/functions.ts` (`protectedMutation` wrapper)
+- Existing file upload patterns: `convex/feedback/mutations.ts` (no-auth `generateUploadUrl`), `convex/grabfoodMenu/mutations.ts` (auth-gated `generateUploadUrl`)
+- Project accumulated lessons: CLAUDE.md Common Pitfalls section (12 documented pitfalls including `_creationTime` lesson, React hooks order, Convex OCC)
+- Session memory: 40 phases of production experience, `_creationTime` vs business date lesson, auto-seed depot pattern
 
 ---
-*Pitfalls research for: v1.4 Sales & Channel Integration (GrabFood POS, BigSeller, Consignment, Unified Analytics)*
-*Researched: 2026-02-25*
+*Pitfalls research for: v1.7 Expense & Accounting System (double-entry accounting, expense management, P&L extension)*
+*Researched: 2026-03-12*

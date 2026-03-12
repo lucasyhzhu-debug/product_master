@@ -1,154 +1,100 @@
 # Project Research Summary
 
-**Project:** Frollie Recipe Master v1.4 — Sales & Channel Integration
-**Domain:** Multi-channel sales integration (GrabFood POS API, BigSeller marketplace analytics, Consignment Excel upload, Unified Analytics)
-**Researched:** 2026-02-25
-**Confidence:** HIGH
+**Project:** Frollie Recipe Master v1.7 -- Expense & Accounting
+**Domain:** Employee expense management, double-entry accounting, and financial statement extension for an Indonesian FMCG snack company
+**Researched:** 2026-03-12
+**Overall confidence:** HIGH
 
 ## Executive Summary
 
-This milestone extends an existing Convex + React 19 production system with four new capability areas: GrabFood POS store control and order history, BigSeller profit sync covering Shopee and Tokopedia channels, consignment outlet Excel upload, and a unified multi-channel Sales Analytics view. The system already has significant foundational work in place — a GrabFood adapter module with token management and most actions is scaffolded, the `externalRevenue` table with `source` discriminator is the correct analytics hub to extend, and the GoBiz/K3Mart integrations provide proven patterns for external data sync. Only one new dependency is required: SheetJS 0.20.3 from the CDN tarball for client-side Excel parsing.
+This milestone adds expense tracking, double-entry accounting, reimbursement management, payroll journal entries, and extends the existing P&L (income statement) to include Operating Expenses, EBIT, and Net Income. The system currently has 65 Convex tables with 150 indexes, 26 pages, and ~131K LOC TypeScript. After v1.7, it will have 75 tables, ~174 indexes, 29 pages, and 3 new backend modules.
 
-The recommended approach is additive and pattern-consistent. Every new external platform follows the established adapter module pattern in `convex/integrations/{platform}/`. All sales events from all channels flow into the existing `externalRevenue` table with a `source` literal — raw platform tables (`grabfoodOrders`, `bigsellerOrders`) are stored separately for drill-down only. BigSeller's multi-minute async sync workflow requires a scheduler-chain polling pattern (not a blocking loop) because Convex actions have a finite execution timeout. Consignment Excel files should be parsed client-side in the browser, with only validated typed JSON submitted to Convex mutations.
+The technical stack requires zero new external dependencies. Everything needed -- file upload (receipts via Convex `_storage`), role-based auth (`requireRole`), real-time queries, and data visualization (Recharts) -- already exists in the codebase. The only "new" technology is the Web Crypto API for client-side SHA-256 receipt hashing, which is a browser built-in requiring no install. This makes v1.7 the lowest-risk milestone from a dependency perspective across all 7 milestones shipped so far.
 
-The primary risks are: GrabFood webhook handler returning 200 after processing (produces duplicate orders from retries); BigSeller sync being triggered while one is already running (silent data gap); incorrect sign handling of BigSeller negative fee fields (inflated profit analytics); GrabFood IDR minor-unit prices being divided by 100 (100x revenue underreporting); and SheetJS numeric coercion failing on Indonesian Rp-formatted cells (NaN propagating into revenue records). Each of these has a clear prevention strategy and must be verified before the relevant phase is considered complete.
+The architecture is a hybrid model: Revenue (4xxx) and COGS (5xxx) continue to be computed via real-time aggregation from `externalRevenue` + BOM tables (the existing v1.5 pattern), while OpEx (6xxx) and Other Income/Expense (7xxx) are read from stored journal entry lines. The P&L query (`fetchAndAggregate`) is extended with 3 additional parallel queries in its `Promise.all` batch -- accounts lookup (36 rows), current period journal lines, and prior period journal lines. This adds negligible latency since all queries run in parallel and the journal line result sets are small at current scale (5-10 concurrent users).
+
+A staff review identified 4 critical issues and 6 improvements. The two most architecturally significant are: (C1) reversal journal entries using `Date.now()` instead of the original business date, which would corrupt P&L across periods; and (C2) an N+1 query pattern where OpEx aggregation would issue 14 sequential DB reads (one per GL account). Both have clear solutions documented in ARCHITECTURE.md -- same-period reversal policy and single `by_entryDate` index query with in-memory grouping, respectively.
 
 ---
 
 ## Key Findings
 
-### Recommended Stack
+**Stack:** Zero new dependencies. Convex file storage for receipts, Web Crypto API for SHA-256 hashing, existing Recharts for analytics charts. The most notable stack decision is what NOT to add -- no accounting library, no PDF generator, no separate database.
 
-The existing stack handles all v1.4 requirements without major additions. Convex `"use node"` actions support native `fetch()` with `Cookie` headers (BigSeller auth) and standard OAuth2 flows (GrabFood auth). Recharts is already installed for analytics charts. The only new dependency is SheetJS 0.20.3 installed from the CDN tarball (`npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`) — the npm registry version 0.18.5 is stale and must be avoided. GrabFood has no official JS/TypeScript SDK; native `fetch` via the existing adapter is correct.
+**Architecture:** Hybrid P&L (real-time revenue/COGS + stored OpEx journal lines) with a single-query aggregation pattern. 10 new tables, 24 new indexes (total 174). The `createJournalEntryWithLines` helper enforces denormalization and balance validation as the single creation path for all journal entries.
 
-**Core technologies:**
-- **SheetJS 0.20.3 (CDN tarball only):** Client-side `.xlsx` parsing for consignment upload — the only browser-compatible maintained Excel parser; named ESM imports tree-shake correctly with Vite 7.x
-- **Convex `ctx.scheduler.runAfter`:** Scheduler-chain polling for BigSeller's 1–10 minute async sync workflow — required because BigSeller does not provide webhooks and Convex action timeouts preclude blocking poll loops
-- **Recharts `^3.7.0` (existing):** Unified analytics charts — additive new `<Bar>` data series for GrabFood, Shopee/Tokopedia, and Consignment channels; no chart library change needed
-- **`platformCredentials` table (existing):** Credential storage for all new platforms — GrabFood OAuth2 tokens and BigSeller JWT cookie follow the same storage pattern as GoBiz
-
-**Critical install note:** Run `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`. Do NOT run `npm install xlsx` — the npm registry version is 2+ years stale and abandoned. Verify `package.json` shows the CDN tarball URL, not a semver string.
-
-### Expected Features
-
-**Must have (table stakes for v1.4 launch):**
-- GrabFood OAuth2 token management with caching — calling the token endpoint per request is explicitly prohibited by GrabFood and risks credential suspension
-- GrabFood outlet store status display (OPEN/CLOSED/PAUSED per outlet) and pause/unpause control — emergency kitchen tool to stop orders when stock runs out
-- GrabFood order history pull and storage — managers need revenue data without logging into the GrabFood Merchant portal
-- GrabFood menu item availability toggle (batch) — prevents overselling out-of-stock items on the platform
-- BigSeller muc_token JWT storage with expiry warning — prerequisite for all BigSeller functionality
-- BigSeller sync trigger + scheduler-chain poll until complete + daily stats and per-order data storage
-- BigSeller Shopee + Tokopedia revenue visible in Sales Analytics
-- Consignment Excel upload with column mapping, row preview table, and per-row validation errors
-- Consignment template download (.xlsx pre-formatted)
-- Unified Sales Analytics with all channels in one view (GoFood x3 existing + GrabFood + Shopee + Tokopedia + Consignment)
-- Lifetime units sold counter with per-product channel breakdown
-
-**Should have (differentiators that eliminate portal context-switching):**
-- GrabFood menu sync status tracking — surface PARTIAL_FAILURE results in UI; managers confirm changes propagated
-- BigSeller per-shop breakdown (Frollie-S Shopee vs Frollie-T Tokopedia) in analytics filter
-- Explicit SKU-to-menuProduct mapping table with admin confirmation UI — no silent fuzzy matching
-- BigSeller period-over-period comparison (growthRatio from API response — essentially free to display)
-- Consignment upload history with delete (audit log with batch reversal)
-- Sync health dashboard covering all channels (extend existing GoFood/K3Mart health panel)
-
-**Defer to v1.5+:**
-- GrabFood operating hours management (use GrabFood portal; rare enough that portal access is faster)
-- BigSeller inventory sync to Shopee/Tokopedia (COGS is 0 in BigSeller; premature until configured)
-- Automated BigSeller daily cron without manual trigger (8-minute sync + one-at-a-time constraint requires careful scheduling)
-- GrabFood campaign management (requires special partner scope; use GrabFood portal)
-- Full accounting integration for any channel (out of scope; export summaries for accountant)
-
-### Architecture Approach
-
-All four features extend a proven architecture pattern: external platforms live in `convex/integrations/{platform}/` adapter modules; all sales events converge in `externalRevenue` with a `source` discriminator; analytics queries read exclusively from `externalRevenue` using the on-demand action pattern (not reactive `useQuery` subscriptions) established in v1.3. Four new schema tables are needed (`grabfoodOrders`, `bigsellerOrders`, `bigsellerDailyStats`, `consignmentUploads`), three new `source` literals (`"grabfood"`, `"bigseller"`, `"consignment"`), and two new frontend pages (`GrabFoodManager.tsx`, `ConsignmentUpload.tsx`). The GrabFood adapter is already mostly built — the missing pieces are webhook persistence, HTTP route registration in `http.ts`, cron wiring in `crons.ts`, and the `syncOrderHistory` pull action. BigSeller is built from scratch following the GoBiz adapter pattern.
-
-**Major components:**
-1. **`integrations/grabfood/adapter.ts` (extend)** — Complete webhook persistence via `ctx.scheduler.runAfter(0, ...)`, register routes in `http.ts`, wire `autoRefreshToken` cron, add `syncOrderHistory` pull action, implement HMAC-SHA256 webhook signature validation
-2. **`integrations/bigseller/` (new)** — Full adapter module: `config.ts`, `adapter.ts` with `triggerSync` → `pollSync` → `fetchSyncData` scheduler chain, `mutations.ts` for DB writes; follows GoBiz pattern exactly
-3. **`consignment/` Convex module (new)** — `mutations.ts` for batch upsert with `uploadBatchId` idempotency and `deleteConsignmentBatch`, `queries.ts` for upload history
-4. **`ConsignmentUpload.tsx` (new frontend page)** — ExcelDropzone, ColumnMapper, SalePreviewTable components; SheetJS parses file in browser; validated JSON submitted to Convex mutation
-5. **`GrabFoodManager.tsx` (new frontend page)** — StoreStatusCard per outlet, OrderHistoryTable, pause/unpause controls
-6. **`SalesAnalytics.tsx` / `OverviewTab.tsx` (extend)** — 3 new data series in Recharts stacked chart; BigSeller settings panel with JWT paste and sync trigger; updated `getRevenueTimeSeries` query via on-demand action wrapper
-
-### Critical Pitfalls
-
-1. **BigSeller query before sync completes (Pitfall 4)** — `listStatsData` and `pageList` return `code: -1` (empty, no data) while sync is in progress. Never treat `code: -1` as empty success. Implement the full scheduler-chain poll: trigger → pollSync every 60s (max 20 retries) → fetchData only when `taskStatus = "complete"`.
-
-2. **GrabFood webhook returns 200 after processing (Pitfall 2)** — Any `await` before `return new Response("OK")` causes GrabFood to retry and creates duplicate orders. Pattern: parse body → return 200 immediately → `ctx.scheduler.runAfter(0, internal.grabfoodOrders.upsertOrder, order)`. The existing adapter has a TODO comment marking this exact location.
-
-3. **GrabFood IDR minor-unit prices divided by 100 (Pitfall 10)** — IDR has `currency.exponent = 0`; no division needed. `subtotal: 25000` stores as 25000 IDR. Mismatch produces 100x revenue underreporting visible only in cross-channel comparison. Requires a unit test: `subtotal: 25000` + `exponent: 0` → stored as `25000`.
-
-4. **BigSeller negative fee fields sign-flipped (Pitfall 11)** — `commissionFee`, `sellerShippingFee`, and `otherFee` are negative values representing costs. Profit = `platformIncome + commissionFee + sellerShippingFee + otherFee`. Never subtract them. Unit test required: `commissionFee: -5850` → profit reduced by 5850.
-
-5. **Schema source union missing new literals in some tables (Pitfall 8)** — The `source` union appears in four separate table definitions: `externalRevenue`, `externalRevenueItems`, `externalSyncLogs`, `externalOutlets`. All four must be updated in a single schema change. `npm run type-check` catches any missed location.
-
-6. **Consignment upload partial failure without rollback (Pitfall 14)** — Process the entire upload batch in a single Convex mutation. Generate `uploadBatchId` client-side before submitting; store on every record; check for existing batch before inserting (idempotent re-upload). `deleteConsignmentBatch(uploadBatchId)` enables reversal.
-
-7. **GrabFood webhook without HMAC validation (Pitfall 16)** — The `// TODO: Add HMAC signature validation` comment in the existing `handleOrderWebhook` must be resolved before production webhook registration. Implement `X-Grab-Signature` HMAC-SHA256 check. ~20 lines of code; fake orders can be injected without it.
+**Critical pitfall:** The reversal date bug (C1) is the highest-impact issue. Using `Date.now()` for reversal entries would post to the wrong accounting period, making both the original and reversal periods incorrect on the P&L. The fix is simple (use the original entry's `date` field), but missing it would require retroactive correction of all affected periods.
 
 ---
 
 ## Implications for Roadmap
 
-Based on the dependency graph and architecture, a clear 5-phase structure emerges. Phases 2, 3, and 4 are independent of each other after Phase 1 completes and can be parallelized across agents.
+Based on research, the milestone naturally divides into 7 phases with clear dependency chains. The key constraint is Convex's deploy-first-then-code pattern: schema must be deployed before any mutations can reference new tables, and seed data (Chart of Accounts) must exist before mutations can look up system accounts.
 
-### Phase 1: Schema Foundation
+### Phase 1: Schema + Seed + Counters [Foundation]
 
-**Rationale:** Four new tables and three new `source` literals across four existing tables must be deployed before any integration code can write data. This is the hard dependency gate for all parallel work in Phases 2–4. A `npx convex deploy` is required after this phase.
-**Delivers:** Updated `schema.ts` with `grabfoodOrders`, `bigsellerOrders`, `bigsellerDailyStats`, `consignmentUploads` tables; `source` union extended with `"grabfood"`, `"bigseller"`, `"consignment"` in all four affected tables; `registry.ts` PlatformId union updated; `externalRevenue` gets optional `consignmentUploadId` field
-**Addresses:** Prerequisite for all v1.4 features
-**Avoids:** Pitfall 8 (source union missing from some tables) — update all four tables atomically in this single phase
+**Rationale:** Convex requires tables to exist before mutations can reference them. The Chart of Accounts seed data is a prerequisite for all journal entry creation. Counter infrastructure (EXP-MMDD-NNN format) is needed by expense submission.
 
-### Phase 2: GrabFood Integration
+- Addresses: 10 new table definitions, 2 optional user fields, accounts:seedDefaults, counter helper
+- Avoids: Pitfall "Schema deploy ordering" -- deploying mutations before tables exist causes runtime errors
+- Risk: LOW -- purely additive schema changes, no migrations needed
 
-**Rationale:** GrabFood has the most pre-built infrastructure (adapter, token management, config) — lowest implementation friction of the three new integrations. Store control (pause/unpause) has immediate operational value enabling managers to stop incoming orders during kitchen emergencies without switching apps.
-**Delivers:** Webhook persistence via scheduler (`handleOrderWebhook` → `ctx.scheduler` → `upsertOrder` → `externalRevenue`); HMAC-SHA256 webhook signature validation; HTTP route registration in `http.ts`; `autoRefreshToken` cron in `crons.ts`; `syncOrderHistory` pull action with pagination; `GrabFoodManager.tsx` page (store status per outlet, pause/unpause, menu availability toggle, order history); GrabFood channel feeding `externalRevenue` with `source: "grabfood"`
-**Addresses:** GrabFood token management, order history pull, store status display, outlet pause/unpause, menu item availability toggle
-**Avoids:** Pitfall 1 (token per call — use `resolveToken()` in every action); Pitfall 2 (webhook 200-first pattern); Pitfall 3 (menu change without `notifyMenuUpdate` — always call notification endpoint after menu write); Pitfall 10 (IDR minor-unit price — no division, unit test required); Pitfall 16 (HMAC validation before production webhook registration)
-**Research flag:** Well-documented via official GrabFood OpenAPI SDK v1.1.3. No additional research needed.
+### Phase 2: Journal Engine [Core Accounting]
 
-### Phase 3: BigSeller Integration
+**Rationale:** The journal entry system is the dependency for expenses, reimbursements, and payroll. Building it second (after schema) means all three consumers can develop against a tested, validated journal API. The `createJournalEntryWithLines` helper enforces denormalization (C2 fix) and balance validation as invariants.
 
-**Rationale:** Highest technical complexity due to async sync-poll-query workflow and JWT cookie auth. Must be completed before Phase 5 (analytics) can show Shopee/Tokopedia data. The scheduler-chain pattern is the critical design baseline — implementing it incorrectly (while-loop) requires a full rewrite.
-**Delivers:** `integrations/bigseller/` adapter module (config, adapter with scheduler chain, helpers, mutations); `triggerSync` → `pollSync` (60s intervals, max 20 retries before fail) → `fetchSyncData` workflow; `bigsellerDailyStats` and `bigsellerOrders` upsert with idempotency; `externalRevenue` bridge (`source: "bigseller"`); daily cron in `crons.ts` with pre-flight sync status check; BigSeller settings panel in SalesAnalytics SettingsTab (JWT paste, sync trigger, progress indicator, last-synced display)
-**Addresses:** BigSeller muc_token storage and expiry warning, sync trigger and poll, daily stats, per-order data, shop-level breakdown, sync status visibility
-**Avoids:** Pitfall 4 (query during sync — full scheduler-chain poll, `code: -1` is hard error not empty success); Pitfall 5 (cron collision — pre-flight check for in-progress sync before triggering); Pitfall 6 (JWT expiry — decode `exp`, store `tokenExpiresAt`, surface 3-day warning); Pitfall 7 (31-day limit — sequential chunked backfill, sequential not parallel); Pitfall 11 (negative fees — unit test required); Pitfall 12 (while-loop action timeout — scheduler chain pattern only, no `while` loops)
-**Research flag:** BigSeller API is reverse-engineered from browser traffic (MEDIUM confidence). Implement with defensive error handling. Verify `taskStatus` values, `code: -1` behavior, and pagination behavior against live Frollie BigSeller account before considering production-ready. Do not skip this validation step.
+- Addresses: JE creation helper, reversal helper (C1 fix), system account lookup (I6 fix), single-query aggregation (C2 fix)
+- Avoids: Anti-pattern "direct journalEntryLines insertion" -- all JE creation through single helper
 
-### Phase 4: Consignment Upload
+### Phase 3: Expense Lifecycle [Main Feature]
 
-**Rationale:** Fully independent of GrabFood and BigSeller — no shared code paths. Simpler implementation (no async polling, no OAuth). Can be developed in parallel with Phase 3. Unblocks consignment outlet revenue tracking which is currently done manually outside the system.
-**Delivers:** SheetJS installed (CDN tarball); `consignment/` Convex module (`upsertSales` mutation with `uploadBatchId` idempotency, `deleteConsignmentBatch`, `listUploads` query); `ConsignmentUpload.tsx` page (ExcelDropzone, ColumnMapper with fuzzy Indonesian header pre-fill, SalePreviewTable with per-row validation errors); template download; upload history with delete; `/consignment` route in `App.tsx`; consignment channel feeding `externalRevenue` with `source: "consignment"`
-**Addresses:** Excel upload (bulk summary + transaction detail formats), outlet selector, row preview, per-row validation, duplicate period detection, upload history, template download
-**Avoids:** Pitfall 13/SheetJS coercion (strip non-digit chars from Indonesian Rp-formatted cells, unit test with known `.000`-separator values); Pitfall 14 (partial batch failure — `uploadBatchId` idempotency, single-mutation batch insert); Anti-pattern of parsing Excel in a Convex mutation (parse client-side in browser, submit typed JSON only)
-**Research flag:** Column mapping logic for variable-format Indonesian POS Excel exports needs validation against real outlet files before finalizing the ColumnMapper. Recommend collecting sample files from each consignment partner before Phase 4 Wave 2 frontend work begins.
+**Rationale:** This is the largest feature and has the most business logic (status transitions, DoA routing, fraud controls, receipt upload). It depends on the journal engine (Phase 2) because expense approval auto-generates journal entries. Building expenses before reimbursements is correct because reimbursements consume approved expenses.
 
-### Phase 5: Unified Analytics Revamp
+- Addresses: Expense CRUD, status transitions, DoA routing, self-approval blocking, receipt upload with SHA-256 dedup, auto JE on approval
+- Avoids: Pitfall "approval without JE" -- every approval must atomically create a journal entry
 
-**Rationale:** This phase makes all new channel data visible in one place — it is the culmination of the milestone. Depends on Phases 2, 3, and 4 having schema and `externalRevenue` records in place. The chart extensions show zero values gracefully before data exists, so the frontend changes can be coded earlier, but the query extensions should wait for real data to validate against.
-**Delivers:** Extended `getRevenueTimeSeries` and `getDashboardSummaryByPeriod` queries for three new sources (wrapped in on-demand action pattern); updated `sourceToPlatform()` mapping; Recharts stacked chart with 3 new data series (GrabFood green-600, Shopee orange-500, Tokopedia red-500, Consignment purple-500); PlatformFilter updated for 8+ channels (checkbox multi-select recommended over radio buttons); lifetime totals cross-channel aggregation query; per-product lifetime breakdown table; GrabFood connection status in SettingsTab; BigSeller COGS-not-configured caveat displayed whenever `costFee = 0`
-**Addresses:** All-channel unified view, period presets, channel filter, lifetime totals, per-product breakdown, cross-channel strategic insight
-**Avoids:** Pitfall 15 (reactive `useQuery` subscription on externalRevenue — wrap all new analytical queries in on-demand action pattern, no new `useQuery(api.externalData.*)` subscriptions for analytical data); COGS-not-configured caveat for BigSeller records surfaced explicitly
+### Phase 4: Reimbursement + Payroll [Parallel Pair]
+
+**Rationale:** Reimbursement and payroll are independent of each other but both depend on the journal engine (Phase 2) and expenses (Phase 3, for reimbursement only). They can be built in parallel by separate agents.
+
+- Addresses: Reimbursement batch management, payroll JE generation, void/reversal for both
+- Avoids: Pitfall "reimbursement without linked expenses" -- batch creation validates all expenses are in approved state
+
+### Phase 5: Frontend Foundation [Sequential]
+
+**Rationale:** Permission definitions must exist before route guards can reference them (addresses staff review I3). Hooks and routes depend on permission names being in the type system. This phase is sequential: permissions first, then hooks/routes.
+
+- Addresses: 4 new ROLE_PERMISSIONS flags, 3 hooks, 3 lazy routes, Finance hub card
+- Avoids: Pitfall "route before permission" -- TypeScript error if permission name doesn't exist in ROLE_PERMISSIONS
+
+### Phase 6: Frontend Pages [Parallel Trio]
+
+**Rationale:** ExpenseManager, ReimbursementManager, and ExpenseAnalytics have no shared state and can be built in parallel. All consume hooks from Phase 5.
+
+- Addresses: Expense submission form, approval queue, reimbursement batch view, OpEx analytics dashboards
+- Avoids: Pitfall "page without hook" -- hooks from Phase 5 must exist first
+
+### Phase 7: P&L Integration + Verification [Final]
+
+**Rationale:** This is the culmination phase where OpEx flows into the P&L view. It must be last because it depends on journal entries actually existing in the database (from expense approval in Phase 3) and the frontend rendering infrastructure (from Phase 6). End-to-end verification ensures the complete data flow: expense approval -> JE creation -> journal lines with denormalized entryDate -> fetchAndAggregate single-query -> WeekData extension -> FinancialStatement.tsx rendering.
+
+- Addresses: fetchAndAggregate extension, WeekData type extension, FinancialStatement OpEx/EBIT/Net Income sections
+- Avoids: Pitfall "N+1 in P&L query" -- uses single by_entryDate range scan with in-memory grouping
 
 ### Phase Ordering Rationale
 
-- **Phase 1 first and alone:** Schema is the hard dependency gate. Without new tables and source literals deployed, no integration code can write or be tested against real data. Deploying schema changes before any integration code is also safer — additive schema changes require no data migration.
-- **Phases 2, 3, 4 in parallel:** After schema deploys, GrabFood, BigSeller, and Consignment share no code paths. Assigning to separate agents simultaneously compresses calendar time significantly.
-- **BigSeller before Consignment (if sequential):** BigSeller's scheduler chain is the most complex new pattern in the codebase. Implementing GrabFood's simpler async pattern (webhook → scheduler → upsert) first gives the team experience with Convex scheduler before tackling BigSeller's multi-phase poll.
-- **Phase 5 last:** Analytics revamp reads from all new data sources. Building it last ensures query extensions are validated against real data shapes and `externalRevenue` records actually exist for new channels.
+- **Schema before everything:** Convex deploys require table definitions before mutation code
+- **Journal engine before consumers:** Expenses, reimbursements, and payroll all create JEs
+- **Expenses before reimbursements:** Reimbursement batches reference approved expenses
+- **Permissions before routes:** TypeScript requires permission names in the type system before ProtectedRoute can reference them (I3)
+- **P&L integration last:** Requires end-to-end data flow verification, depends on all prior phases
 
-### Research Flags
+### Research Flags for Phases
 
-Phases needing attention during implementation:
-
-- **Phase 3 (BigSeller):** API is reverse-engineered from browser traffic (MEDIUM confidence). Verify `code: -1` error handling, `taskStatus` values, `listStatsData` vs `pageList` data shapes, and pagination behavior against live Frollie BigSeller account before finalizing the adapter. Do not treat the API reference as authoritative without live verification.
-- **Phase 4 (Consignment):** Column mapping logic needs validation against actual Excel files from each consignment outlet. The header fuzzy-match list (e.g., "Tanggal" → Date, "Nama Produk" → Product Name, "Qty" → Quantity) should be tested against real outlet files — not just the pre-formatted template — before ColumnMapper is finalized.
-
-Phases with established patterns (no additional research needed):
-- **Phase 1 (Schema):** Pure Convex schema extension — additive only, no migration, fully documented pattern
-- **Phase 2 (GrabFood):** Official OpenAPI SDK; existing adapter skeleton with scaffolded patterns; HIGH confidence across all endpoints
-- **Phase 5 (Analytics):** Extends existing proven Recharts + on-demand action wrapper pattern from v1.3
+- **Phase 2 (Journal Engine):** Standard double-entry pattern, but the single-creation-path enforcement and denormalization correctness need thorough testing. Recommend 8+ unit tests minimum.
+- **Phase 3 (Expense Lifecycle):** Largest phase. The status transition matrix (6 states, 11 transitions) and DoA routing logic are the most complex business rules. May benefit from splitting into sub-phases if implementation plan exceeds 15 files.
+- **Phase 7 (P&L Integration):** Modifies the `fetchAndAggregate` hot path. Needs careful testing to ensure existing Revenue/COGS data is unchanged while OpEx/Other data is correctly added.
+- **All other phases:** Follow established codebase patterns with no additional research needed.
 
 ---
 
@@ -156,45 +102,45 @@ Phases with established patterns (no additional research needed):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Only one new dependency (SheetJS 0.20.3 CDN tarball). All other decisions use existing verified libraries. CDN tarball install verified against official SheetJS docs. Version compatibility with Vite 7.x and TypeScript 5.9 confirmed. |
-| Features | HIGH | GrabFood features from official OpenAPI SDK v1.1.3. BigSeller features verified against live Frollie account data (19 orders, 2 shops, ~8 min sync observed). Consignment patterns carried forward from v1.3 research with known-good results. |
-| Architecture | HIGH | Direct codebase inspection confirms adapter module pattern, `externalRevenue` hub, on-demand action query pattern. Build order is dependency-validated against actual file structure and schema. |
-| Pitfalls | HIGH | GrabFood pitfalls from official API docs and existing TODO comments in `adapter.ts`. BigSeller pitfalls from live data verification. Convex-specific pitfalls from direct codebase inspection and CLAUDE.md documented patterns. |
+| Stack | HIGH | Zero new dependencies. All technologies already in production use across 40 prior phases. Web Crypto API is a browser standard (no library risk). |
+| Features | HIGH | Design spec validated by CPA advisory. All features map directly to established SME accounting workflows (expense submission, manager approval, batch reimbursement). No novel domain concepts. |
+| Architecture | HIGH | Integration pattern verified by direct inspection of `fetchAndAggregate` (687 lines), `requireRole`, `useProtectedMutation`, `ProtectedRoute`, and `HubPage`. Schema change is purely additive. Index budget (174/unlimited) has no risk. |
+| Pitfalls | HIGH | Staff review C1-C4 and I1-I6 findings all have architectural resolutions documented. Convex-specific pitfalls draw from 40 phases of production experience. The reversal date (C1) and N+1 query (C2) fixes are the highest-value findings. |
 
-**Overall confidence:** HIGH
+---
 
-### Gaps to Address
+## Gaps to Address
 
-- **GrabFood merchant ID setup per outlet:** Research confirms 3 outlets (Crystal, Goldfinch, Tamtem) may have separate `merchantID` values and potentially separate `client_id`/`client_secret` pairs. The per-outlet credential structure must be confirmed with actual GrabFood partner portal credentials before Phase 2 implementation. If all 3 outlets share a single credential, the `platformCredentials` design simplifies considerably.
-- **GrabFood grabItemID values per outlet:** Menu availability toggle requires GrabFood's internal item IDs for each product per outlet. These must be obtained from the GrabFood portal or via API product listing before the menu toggle feature can be activated. This is a setup dependency, not a code dependency.
-- **Consignment outlet Excel format variability:** Column headers vary by outlet. A real file from each consignment partner is needed before finalizing ColumnMapper logic. Recommend collecting samples before Phase 4 starts.
-- **BigSeller COGS is 0:** `costFee = 0` for all current Frollie orders because COGS is not configured in BigSeller. Profit margin analytics are meaningless until COGS is entered. Surface this caveat prominently — this is a data quality gap that persists after v1.4 unless the business configures COGS in BigSeller separately.
-- **BigSeller `pageList` pagination at scale:** Current Frollie data is small (19 orders observed during research). The pagination loop (`pageNo < totalPage`) is designed but not yet stress-tested with larger volumes. Monitor on first full production sync and verify the loop terminates correctly.
+- **Fraud control ML/scoring (C3 from staff review):** The design spec mentions fraud flags (duplicate detection, receipt hash dedup, round-number flagging) but the plan included phantom UI badges for ML-based fraud scoring that has no backend. Resolution: implement only the rule-based fraud flags (duplicate, hash, round-number) in v1.7. ML scoring deferred to future milestone.
+- **Payroll tax withholding rules:** The design spec uses a simple "DR Salaries, CR Cash" journal template. Indonesian payroll has PPh 21 withholding requirements. For v1.7, the simple template is sufficient (the accountant handles tax externally). If payroll grows in scope, a future milestone should add tax calculation.
+- **Multi-currency support:** All amounts are IDR. No multi-currency consideration in v1.7. This is correct for the current business (domestic FMCG) but would need addressing if the company expands internationally.
+- **Audit report generation:** The journal entry system stores complete audit trails, but there is no export/report generation feature in v1.7. If auditors require formatted reports, a future phase should add PDF/Excel export of journal entries by period.
+- **Period close/lock:** The design spec does not include an accounting period close mechanism. In v1.7, journal entries can be created for any date. A future milestone should add period locking to prevent retroactive entries in closed periods.
 
 ---
 
 ## Sources
 
-### Primary (HIGH confidence)
-- `docs/GRABFOOD_API.md` — GrabFood Partner API OpenAPI v1.1.3, SDK v1.0.2; OAuth2 flow, order endpoints, menu batch API, webhook HMAC requirements
-- `convex/integrations/grabfood/adapter.ts` — existing GrabFood module skeleton; all existing actions verified
-- `convex/integrations/gobiz/adapter.ts` — canonical multi-phase sync pattern; BigSeller adapter follows this model
-- `convex/schema.ts` — current 59-table schema; source union definitions across all four affected tables confirmed by direct inspection
-- `convex/externalData/actions.ts` and `queries.ts` — on-demand action pattern for analytics queries; `sourceToPlatform()` mapping
-- `src/pages/SalesAnalytics.tsx` — existing analytics page structure, Recharts usage, PLATFORM_COLORS, PlatformFilter type
-- SheetJS official docs: `https://docs.sheetjs.com/docs/getting-started/installation/frameworks/` — CDN tarball installation verified for Vite and React
-- Convex official docs: `https://docs.convex.dev/scheduling/cron-jobs` and `https://docs.convex.dev/functions/actions` — scheduler chain pattern for long-running async work
+### Primary (HIGH confidence -- direct codebase inspection)
+- `convex/schema.ts` -- 65 tables, 150 indexes (line-by-line verification)
+- `convex/reports/incomeStatement.ts` -- `fetchAndAggregate` pattern, `WeekData` type, parallel query structure
+- `convex/lib/auth.ts` -- `requireRole` pattern, session management
+- `src/lib/types.ts` -- `ROLE_PERMISSIONS` structure with 14 boolean flags
+- `src/App.tsx` -- 21 lazy routes with `ProtectedRoute` pattern
+- `src/pages/HubPage.tsx` -- `HUB_AREAS` card array
+- `src/hooks/convex/useFinancials.ts` -- P&L data flow through `WeekData`
+- `src/hooks/convex/useProtectedMutation.ts` -- auto token injection pattern
+- `convex/feedback/mutations.ts` -- `generateUploadUrl` file upload pattern
 
-### Secondary (MEDIUM confidence)
-- `docs/BIGSELLER_PROFIT_API.md` — BigSeller API reverse-engineered from browser network traffic; behavior verified against live Frollie data 2026-02-25; no official API documentation exists
-- `convex/integrations/registry.ts` — platform registry; current `PlatformId` union confirmed
-- Previous v1.3 FEATURES.md and PITFALLS.md (2026-02-22) — consignment upload UX patterns and SheetJS pitfalls carried forward
+### Secondary (HIGH confidence -- project documentation)
+- `docs/superpowers/specs/2026-03-12-expense-accounting-system-design.md` -- complete design spec with 10 tables, 36-account CoA, expense lifecycle, DoA thresholds, journal templates
+- `docs/reviews/staffreview-expense-accounting-plan-2026-03-12.md` -- C1-C4 critical issues, I1-I6 improvements, I3 wave parallelism fix
+- `.planning/PROJECT.md` -- v1.7 milestone context, constraints, existing state
 
 ### Tertiary (context)
-- `docs/LESSONS_LEARNED.md` — production outage patterns (Vite TDZ crash, import discipline)
-- `.planning/PROJECT.md` — out-of-scope declarations, technical debt acknowledgments (ingredient simulation name-matching fragility)
-- `CLAUDE.md` — Pitfall #8 (no dynamic imports in Convex actions); project-wide conventions and file path map
+- `CLAUDE.md` -- project conventions, tech stack versions, common pitfalls (13 documented)
+- `MEMORY.md` -- session memory with 40 shipped phases, schema state, key architecture decisions
 
 ---
-*Research completed: 2026-02-25*
+*Research completed: 2026-03-12*
 *Ready for roadmap: yes*
