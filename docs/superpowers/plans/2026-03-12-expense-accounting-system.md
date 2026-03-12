@@ -80,8 +80,9 @@
 
 | File | Scope |
 |------|-------|
+| `tests/convex/helpers.ts` | Shared test utilities (seedUserWithSession, seedOpExAccount) |
 | `tests/convex/expenses.test.ts` | Expense submission, validation, duplicate detection, receipt rules |
-| `tests/convex/expenseApproval.test.ts` | DoA routing, self-approval block, concurrency, journal entries |
+| `tests/convex/expenseApproval.test.ts` | DoA routing, self-approval block, concurrency, journal entries, resubmission |
 | `tests/convex/reimbursements.test.ts` | Batching, confirmation, void, journal entries |
 | `tests/convex/payroll.test.ts` | Payroll creation, void, journal entries |
 | `tests/convex/journalIntegrity.test.ts` | Debit=credit balance, reversal linkage, immutability |
@@ -196,8 +197,8 @@ Add inside `defineSchema({})` before the closing `});`:
 
   expenseStatusHistory: defineTable({
     expenseId: v.id("expenses"),
-    fromStatus: v.string(),
-    toStatus: v.string(),
+    fromStatus: expenseStatus,
+    toStatus: expenseStatus,
     changedBy: v.id("users"),
     changedAt: v.number(),
     comment: v.optional(v.string()),
@@ -253,7 +254,8 @@ Add inside `defineSchema({})` before the closing `});`:
     description: v.optional(v.string()),
   })
     .index("by_journal_entry", ["journalEntryId"])
-    .index("by_account_entryDate", ["accountId", "entryDate"]),
+    .index("by_account_entryDate", ["accountId", "entryDate"])
+    .index("by_entryDate", ["entryDate"]),
 
   bankAccounts: defineTable({
     name: v.string(),
@@ -280,6 +282,9 @@ Add inside `defineSchema({})` before the closing `});`:
     .index("by_period", ["periodStart"])
     .index("by_employee_type", ["employeeType"]),
 
+  // NOTE: Counter rows accumulate indefinitely (one per prefix+date combo).
+  // At ~3 prefixes × 365 days/year this is ~1K rows/year — negligible.
+  // If cleanup is ever needed, a scheduled job can prune rows older than N days.
   counters: defineTable({
     prefix: v.string(),
     date: v.string(),
@@ -324,14 +329,12 @@ git commit -m "feat(schema): add 10 expense/accounting tables + user bank fields
 import { convexTest } from "convex-test";
 import { expect, test, describe } from "vitest";
 import schema from "../../convex/schema";
+import { generateSequentialId, getDateMMDD } from "../../convex/counters/helpers";
 
 describe("counter generation", () => {
   test("first ID of the day returns 001", async () => {
     const t = convexTest(schema);
-    // Directly test via run() since helpers need MutationCtx
     const result = await t.run(async (ctx) => {
-      // Import inline to get the helper
-      const { generateSequentialId } = await import("../../convex/counters/helpers");
       return await generateSequentialId(ctx, "EXP", "0312");
     });
     expect(result).toBe("EXP-0312-001");
@@ -340,7 +343,6 @@ describe("counter generation", () => {
   test("second ID of the day returns 002", async () => {
     const t = convexTest(schema);
     const result = await t.run(async (ctx) => {
-      const { generateSequentialId } = await import("../../convex/counters/helpers");
       await generateSequentialId(ctx, "EXP", "0312");
       return await generateSequentialId(ctx, "EXP", "0312");
     });
@@ -350,7 +352,6 @@ describe("counter generation", () => {
   test("different prefix on same day is independent", async () => {
     const t = convexTest(schema);
     const result = await t.run(async (ctx) => {
-      const { generateSequentialId } = await import("../../convex/counters/helpers");
       await generateSequentialId(ctx, "EXP", "0312");
       return await generateSequentialId(ctx, "JE", "0312");
     });
@@ -360,16 +361,14 @@ describe("counter generation", () => {
   test("different day resets to 001", async () => {
     const t = convexTest(schema);
     const result = await t.run(async (ctx) => {
-      const { generateSequentialId } = await import("../../convex/counters/helpers");
       await generateSequentialId(ctx, "EXP", "0312");
       return await generateSequentialId(ctx, "EXP", "0313");
     });
     expect(result).toBe("EXP-0313-001");
   });
 
-  test("getDateMMDD formats timestamp to MMDD in WIB", async () => {
+  test("getDateMMDD formats timestamp to MMDD in WIB", () => {
     // March 12, 2026 at noon WIB = March 12 05:00 UTC
-    const { getDateMMDD } = await import("../../convex/counters/helpers");
     const ts = Date.UTC(2026, 2, 12, 5, 0, 0); // noon WIB
     expect(getDateMMDD(ts)).toBe("0312");
   });
@@ -481,11 +480,14 @@ export const list = query({
         .withIndex("by_type", (q) => q.eq("type", args.type!))
         .collect();
     }
-    const all = await ctx.db.query("accounts").collect();
     if (args.activeOnly) {
-      return all.filter((a) => a.isActive);
+      // Use by_active_type index with only the isActive prefix — Convex allows partial prefix match
+      return await ctx.db
+        .query("accounts")
+        .withIndex("by_active_type", (q) => q.eq("isActive", true))
+        .collect();
     }
-    return all;
+    return await ctx.db.query("accounts").collect();
   },
 });
 
@@ -522,10 +524,11 @@ import { v } from "convex/values";
 import { accountType } from "../schema";
 import { requireRole } from "../lib/auth";
 
-/** Seed the default Chart of Accounts. Idempotent — skips existing codes. */
+/** Seed the default Chart of Accounts. Idempotent — skips existing codes. Admin only. */
 export const seedDefaults = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
     const DEFAULT_ACCOUNTS: Array<{
       code: string;
       name: string;
@@ -633,7 +636,11 @@ export const create = mutation({
   },
 });
 
-/** Deactivate an account (admin only). System accounts cannot be deleted. */
+/**
+ * Deactivate an account (admin only). System accounts cannot be deactivated.
+ * NOTE: Deactivated accounts with existing journal entries remain queryable for
+ * historical P&L — they just won't appear in the expense form category dropdown.
+ */
 export const deactivate = mutation({
   args: {
     token: v.string(),
@@ -677,6 +684,13 @@ git commit -m "feat(accounts): Chart of Accounts queries, mutations, and seedDef
 // convex/bankAccounts/queries.ts
 import { query } from "../_generated/server";
 
+/**
+ * List active bank accounts.
+ * Intentionally unauthenticated — this is a read-only query returning
+ * non-sensitive data (bank name + masked account number). Used by the
+ * reimbursement confirmation form dropdown accessible only to admins
+ * via ProtectedRoute.
+ */
 export const listActive = query({
   args: {},
   handler: async (ctx) => {
@@ -755,6 +769,7 @@ import { convexTest } from "convex-test";
 import { expect, test, describe } from "vitest";
 import schema from "../../convex/schema";
 import type { Id } from "../../convex/_generated/dataModel";
+import { createJournalEntry } from "../../convex/journal/mutations";
 
 describe("journal entry integrity", () => {
   test("balanced entry creates successfully", async () => {
@@ -774,7 +789,6 @@ describe("journal entry integrity", () => {
         isActive: true, failedAttempts: 0, createdAt: Date.now(),
       });
 
-      const { createJournalEntry } = await import("../../convex/journal/mutations");
       const entryId = await createJournalEntry(ctx, {
         date: Date.now(),
         description: "Test expense",
@@ -819,7 +833,6 @@ describe("journal entry integrity", () => {
         isActive: true, failedAttempts: 0, createdAt: Date.now(),
       });
 
-      const { createJournalEntry } = await import("../../convex/journal/mutations");
       await expect(
         createJournalEntry(ctx, {
           date: Date.now(),
@@ -848,7 +861,6 @@ describe("journal entry integrity", () => {
       });
 
       const entryDate = Date.UTC(2026, 2, 12);
-      const { createJournalEntry } = await import("../../convex/journal/mutations");
       const entryId = await createJournalEntry(ctx, {
         date: entryDate,
         description: "Test",
@@ -885,6 +897,11 @@ import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { generateSequentialId, getDateMMDD } from "../counters/helpers";
 
+/** Well-known GL account codes — avoids magic strings in JE creation.
+ * Exported so expense/reimbursement mutations can import them. */
+export const REIMB_PAYABLE_CODE = "2200";
+export const CASH_ACCOUNT_CODE = "1100";
+
 interface JournalLine {
   accountId: Id<"accounts">;
   debitAmount: number;
@@ -911,17 +928,18 @@ export async function createJournalEntry(
   ctx: MutationCtx,
   args: CreateJournalEntryArgs
 ): Promise<Id<"journalEntries">> {
-  // Validate balance
+  // Validate minimum line count (double-entry requires at least 2 lines)
+  if (args.lines.length < 2) {
+    throw new Error("Journal entry must have at least two lines (double-entry)");
+  }
+
+  // Validate balance — amounts are integer IDR (no fractional cents), so exact comparison is safe
   const totalDebit = args.lines.reduce((s, l) => s + l.debitAmount, 0);
   const totalCredit = args.lines.reduce((s, l) => s + l.creditAmount, 0);
-  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+  if (totalDebit !== totalCredit) {
     throw new Error(
       `Journal entry must balance: debits (${totalDebit}) != credits (${totalCredit})`
     );
-  }
-
-  if (args.lines.length === 0) {
-    throw new Error("Journal entry must have at least one line");
   }
 
   const dateMMDD = getDateMMDD(args.date);
@@ -982,8 +1000,11 @@ export async function createReversingEntry(
     description: `Reversal: ${line.description ?? ""}`.trim(),
   }));
 
+  // Use the ORIGINAL entry's business date so the reversal lands in the same
+  // accounting period. Using Date.now() would distort P&L if reversal crosses
+  // a period boundary (e.g., void in March for a February expense).
   const reversalId = await createJournalEntry(ctx, {
-    date: Date.now(),
+    date: original.date,
     description: `Reversal of ${original.entryNumber}: ${original.description}`,
     sourceType,
     sourceId,
@@ -1007,8 +1028,14 @@ export async function createReversingEntry(
 // convex/journal/queries.ts
 import { v } from "convex/values";
 import { query } from "../_generated/server";
+import { journalSourceType } from "../schema";
 
-/** Get OpEx totals by account for a period. Used by P&L extension. */
+/**
+ * Get OpEx totals by account for a period. Used by P&L extension.
+ * NOTE: In Task 18 this logic MUST be inlined into `fetchAndAggregate` in
+ * `convex/reports/incomeStatement.ts` — Convex queries cannot call other
+ * registered queries. Keep this standalone version for direct UI usage.
+ */
 export const getOpExByPeriod = query({
   args: {
     periodStart: v.number(),
@@ -1021,47 +1048,49 @@ export const getOpExByPeriod = query({
       .withIndex("by_type", (q) => q.eq("type", "opex"))
       .collect();
 
-    const results: Array<{
-      accountId: string;
-      code: string;
-      name: string;
-      total: number;
-    }> = [];
+    // Parallelize all account line queries to avoid N+1 sequential reads
+    const accountTotals = await Promise.all(
+      opexAccounts.map(async (account) => {
+        const lines = await ctx.db
+          .query("journalEntryLines")
+          .withIndex("by_account_entryDate", (q) =>
+            q
+              .eq("accountId", account._id)
+              .gte("entryDate", args.periodStart)
+              .lt("entryDate", args.periodEnd)
+          )
+          .collect();
 
-    for (const account of opexAccounts) {
-      const lines = await ctx.db
-        .query("journalEntryLines")
-        .withIndex("by_account_entryDate", (q) =>
-          q
-            .eq("accountId", account._id)
-            .gte("entryDate", args.periodStart)
-            .lt("entryDate", args.periodEnd)
-        )
-        .collect();
+        // OpEx = debit - credit (expenses increase with debits)
+        const total = lines.reduce(
+          (sum, l) => sum + l.debitAmount - l.creditAmount,
+          0
+        );
 
-      // OpEx = debit - credit (expenses increase with debits)
-      const total = lines.reduce(
-        (sum, l) => sum + l.debitAmount - l.creditAmount,
-        0
-      );
+        return { accountId: account._id as string, code: account.code, name: account.name, total };
+      })
+    );
 
-      if (total !== 0) {
-        results.push({
-          accountId: account._id as string,
-          code: account.code,
-          name: account.name,
-          total,
-        });
-      }
-    }
-
-    // Sort by account code
-    results.sort((a, b) => a.code.localeCompare(b.code));
-    return results;
+    // Filter zeros and sort by account code
+    return accountTotals
+      .filter((r) => r.total !== 0)
+      .sort((a, b) => a.code.localeCompare(b.code));
   },
 });
 
-/** Get Other Income/Expense totals (7xxx) for a period. */
+/**
+ * Get Other Income/Expense totals (7xxx) for a period.
+ *
+ * Sign convention for 7xxx accounts:
+ * - 7100 Interest Income: CREDIT normal → positive total = income (good)
+ * - 7200 Interest Expense: DEBIT normal → positive total = expense (bad)
+ * - 7900 Other Non-Operating: DEBIT normal → positive total = expense
+ *
+ * We compute debit - credit uniformly. In the P&L, the frontend displays:
+ * - Positive values as expenses (reduces income)
+ * - Negative values as income (increases income)
+ * Net Income = EBIT - totalOther (where totalOther is sum of debit-credit).
+ */
 export const getOtherByPeriod = query({
   args: {
     periodStart: v.number(),
@@ -1073,57 +1102,45 @@ export const getOtherByPeriod = query({
       .withIndex("by_type", (q) => q.eq("type", "other"))
       .collect();
 
-    const results: Array<{
-      accountId: string;
-      code: string;
-      name: string;
-      total: number;
-    }> = [];
+    // Parallelize all account line queries to avoid N+1 sequential reads
+    const accountTotals = await Promise.all(
+      otherAccounts.map(async (account) => {
+        const lines = await ctx.db
+          .query("journalEntryLines")
+          .withIndex("by_account_entryDate", (q) =>
+            q
+              .eq("accountId", account._id)
+              .gte("entryDate", args.periodStart)
+              .lt("entryDate", args.periodEnd)
+          )
+          .collect();
 
-    for (const account of otherAccounts) {
-      const lines = await ctx.db
-        .query("journalEntryLines")
-        .withIndex("by_account_entryDate", (q) =>
-          q
-            .eq("accountId", account._id)
-            .gte("entryDate", args.periodStart)
-            .lt("entryDate", args.periodEnd)
-        )
-        .collect();
+        const total = lines.reduce(
+          (sum, l) => sum + l.debitAmount - l.creditAmount,
+          0
+        );
 
-      // Other expense = debit - credit, Other income = credit - debit
-      // Using standard: debit - credit for expense accounts
-      const total = lines.reduce(
-        (sum, l) => sum + l.debitAmount - l.creditAmount,
-        0
-      );
+        return { accountId: account._id as string, code: account.code, name: account.name, total };
+      })
+    );
 
-      if (total !== 0) {
-        results.push({
-          accountId: account._id as string,
-          code: account.code,
-          name: account.name,
-          total,
-        });
-      }
-    }
-
-    results.sort((a, b) => a.code.localeCompare(b.code));
-    return results;
+    return accountTotals
+      .filter((r) => r.total !== 0)
+      .sort((a, b) => a.code.localeCompare(b.code));
   },
 });
 
 /** List journal entries for a source (e.g., all JEs for an expense). */
 export const getBySource = query({
   args: {
-    sourceType: v.string(),
+    sourceType: journalSourceType,
     sourceId: v.string(),
   },
   handler: async (ctx, args) => {
     const entries = await ctx.db
       .query("journalEntries")
       .withIndex("by_source", (q) =>
-        q.eq("sourceType", args.sourceType as any).eq("sourceId", args.sourceId)
+        q.eq("sourceType", args.sourceType).eq("sourceId", args.sourceId)
       )
       .collect();
 
@@ -1179,12 +1196,14 @@ git commit -m "feat(journal): journal entry creation with balance validation and
 
 ```typescript
 // convex/expenses/helpers.ts
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 
 const LATE_SUBMISSION_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RECEIPT_THRESHOLD = 50000;
-const DOA_THRESHOLD = 500000;
+/** Receipt required above this amount (IDR). */
+const RECEIPT_THRESHOLD_IDR = 50000;
+/** Delegation of Authority threshold (IDR). Above this, admin-only approval. */
+const DOA_THRESHOLD_IDR = 500000;
 const DUPLICATE_WINDOW_DAYS = 7;
 
 /** Check if expense is a late submission (> 14 days). */
@@ -1195,12 +1214,12 @@ export function isLateSubmission(expenseDateMs: number, nowMs: number): boolean 
 
 /** Check if receipt is required (amount > 50,000 IDR). */
 export function isReceiptRequired(amount: number): boolean {
-  return amount > RECEIPT_THRESHOLD;
+  return amount > RECEIPT_THRESHOLD_IDR;
 }
 
 /** Get eligible approver roles based on DoA threshold. */
 export function getEligibleRoles(amount: number): Array<"manager" | "admin"> {
-  if (amount > DOA_THRESHOLD) {
+  if (amount > DOA_THRESHOLD_IDR) {
     return ["admin"];
   }
   return ["manager", "admin"];
@@ -1209,11 +1228,11 @@ export function getEligibleRoles(amount: number): Array<"manager" | "admin"> {
 /** Check if a user is eligible to approve an expense. */
 export function isEligibleApprover(
   approver: Doc<"users">,
-  submitterId: string,
+  submitterId: Id<"users">,
   amount: number
 ): boolean {
   // Self-approval blocked
-  if ((approver._id as string) === submitterId) return false;
+  if (approver._id === submitterId) return false;
   // Must be active
   if (!approver.isActive) return false;
   // Check role against DoA
@@ -1248,6 +1267,8 @@ export function canTransition(
   const transitions: Record<string, string[]> = {
     draft: ["submitted", "voided"],
     submitted: ["approved", "rejected", "voided"],
+    // approved -> voided: only reachable for company_card expenses (approved is terminal
+    // for company_card; personal_cash/personal_transfer auto-transitions to awaiting_payment)
     approved: ["awaiting_payment", "voided"],
     awaiting_payment: ["reimbursed", "voided"],
     // Terminal states — no outbound transitions
@@ -1277,17 +1298,19 @@ git commit -m "feat(expenses): pure helper functions for DoA, duplicates, receip
 
 - [ ] **Step 1: Write failing tests for expense submission**
 
-```typescript
-// tests/convex/expenses.test.ts
-import { convexTest } from "convex-test";
-import { expect, test, describe } from "vitest";
-import { api } from "../../convex/_generated/api";
-import schema from "../../convex/schema";
-import type { Id } from "../../convex/_generated/dataModel";
+**First, create the shared test helper file** `tests/convex/helpers.ts`:
 
-// Helper: seed a user and return { userId, token }
-async function seedUserWithSession(
-  t: ReturnType<typeof convexTest>,
+```typescript
+// tests/convex/helpers.ts
+// Shared test utilities — avoids duplicating seed helpers across test files.
+import { convexTest } from "convex-test";
+import schema from "../../convex/schema";
+
+export type TestCtx = ReturnType<typeof convexTest<typeof schema>>;
+
+/** Seed a user with session and return { userId, token }. */
+export async function seedUserWithSession(
+  t: TestCtx,
   overrides: { role?: "kitchen" | "order_staff" | "manager" | "admin"; name?: string } = {}
 ) {
   return await t.run(async (ctx) => {
@@ -1310,8 +1333,8 @@ async function seedUserWithSession(
   });
 }
 
-// Helper: seed OpEx account
-async function seedOpExAccount(t: ReturnType<typeof convexTest>) {
+/** Seed an OpEx account and return its ID. */
+export async function seedOpExAccount(t: TestCtx) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert("accounts", {
       code: "6500", name: "Office & Supplies", type: "opex",
@@ -1319,6 +1342,18 @@ async function seedOpExAccount(t: ReturnType<typeof convexTest>) {
     });
   });
 }
+```
+
+Then in `tests/convex/expenses.test.ts`:
+
+```typescript
+// tests/convex/expenses.test.ts
+import { convexTest } from "convex-test";
+import { expect, test, describe } from "vitest";
+import { api } from "../../convex/_generated/api";
+import schema from "../../convex/schema";
+import type { Id } from "../../convex/_generated/dataModel";
+import { seedUserWithSession, seedOpExAccount } from "./helpers";
 
 describe("expense submission", () => {
   test("valid draft save creates expense", async () => {
@@ -1455,30 +1490,7 @@ import { expect, test, describe } from "vitest";
 import { api } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
 import type { Id } from "../../convex/_generated/dataModel";
-
-async function seedUserWithSession(
-  t: ReturnType<typeof convexTest>,
-  overrides: { role?: "kitchen" | "order_staff" | "manager" | "admin"; name?: string } = {}
-) {
-  return await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      name: overrides.name ?? "Test User",
-      pinHash: "salt:hash",
-      role: overrides.role ?? "order_staff",
-      isActive: true,
-      failedAttempts: 0,
-      createdAt: Date.now(),
-    });
-    const token = "test-token-" + Math.random();
-    await ctx.db.insert("sessions", {
-      userId,
-      token,
-      expiresAt: Date.now() + 8 * 60 * 60 * 1000,
-      createdAt: Date.now(),
-    });
-    return { userId, token };
-  });
-}
+import { seedUserWithSession } from "./helpers";
 
 async function seedAccountAndExpense(
   t: ReturnType<typeof convexTest>,
@@ -1742,6 +1754,81 @@ describe("receipt hash dedup", () => {
   });
 });
 
+describe("duplicate detection (same employee + amount + date within 7 days)", () => {
+  test("same employee + same amount + 3 days apart → duplicate warning", async () => {
+    const t = convexTest(schema);
+    const { token } = await seedUserWithSession(t);
+    const accountId = await t.run(async (ctx) =>
+      ctx.db.insert("accounts", {
+        code: "6500", name: "Office", type: "opex", category: "OpEx",
+        isActive: true, isSystem: true,
+      })
+    );
+
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    await t.mutation(api.expenses.mutations.saveDraft, {
+      token, amount: 100000, accountId, expenseDate: threeDaysAgo,
+      description: "First", vendorName: "V", paymentMethod: "personal_cash",
+    });
+    const id2 = await t.mutation(api.expenses.mutations.saveDraft, {
+      token, amount: 100000, accountId, expenseDate: Date.now(),
+      description: "Second", vendorName: "V", paymentMethod: "personal_cash",
+    });
+
+    // Duplicate is a soft warning, not a hard block — check the flag
+    const expense = await t.run(async (ctx) => ctx.db.get(id2));
+    expect(expense!.duplicateWarning).toBeTruthy();
+  });
+
+  test("different employee + same amount → no duplicate warning", async () => {
+    const t = convexTest(schema);
+    const { token: token1 } = await seedUserWithSession(t, { name: "User1" });
+    const { token: token2 } = await seedUserWithSession(t, { name: "User2" });
+    const accountId = await t.run(async (ctx) =>
+      ctx.db.insert("accounts", {
+        code: "6500", name: "Office", type: "opex", category: "OpEx",
+        isActive: true, isSystem: true,
+      })
+    );
+
+    await t.mutation(api.expenses.mutations.saveDraft, {
+      token: token1, amount: 100000, accountId, expenseDate: Date.now(),
+      description: "User1 expense", vendorName: "V", paymentMethod: "personal_cash",
+    });
+    const id2 = await t.mutation(api.expenses.mutations.saveDraft, {
+      token: token2, amount: 100000, accountId, expenseDate: Date.now(),
+      description: "User2 expense", vendorName: "V", paymentMethod: "personal_cash",
+    });
+
+    const expense = await t.run(async (ctx) => ctx.db.get(id2));
+    expect(expense!.duplicateWarning).toBeUndefined();
+  });
+
+  test("same employee + same amount + 8 days apart → no duplicate warning", async () => {
+    const t = convexTest(schema);
+    const { token } = await seedUserWithSession(t);
+    const accountId = await t.run(async (ctx) =>
+      ctx.db.insert("accounts", {
+        code: "6500", name: "Office", type: "opex", category: "OpEx",
+        isActive: true, isSystem: true,
+      })
+    );
+
+    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    await t.mutation(api.expenses.mutations.saveDraft, {
+      token, amount: 100000, accountId, expenseDate: eightDaysAgo,
+      description: "First", vendorName: "V", paymentMethod: "personal_cash",
+    });
+    const id2 = await t.mutation(api.expenses.mutations.saveDraft, {
+      token, amount: 100000, accountId, expenseDate: Date.now(),
+      description: "Second", vendorName: "V", paymentMethod: "personal_cash",
+    });
+
+    const expense = await t.run(async (ctx) => ctx.db.get(id2));
+    expect(expense!.duplicateWarning).toBeUndefined();
+  });
+});
+
 describe("expense void", () => {
   test("void company_card expense creates correct reversing JE (CR OpEx, DR Cash)", async () => {
     const t = convexTest(schema);
@@ -1750,7 +1837,7 @@ describe("expense void", () => {
     const { expenseId } = await seedAccountAndExpense(t, staffToken, 100000, "company_card");
 
     await t.mutation(api.expenses.mutations.approve, { token: adminToken, expenseId });
-    await t.mutation(api.expenses.mutations.void, { token: adminToken, expenseId, reason: "Error" });
+    await t.mutation(api.expenses.mutations.voidExpense, { token: adminToken, expenseId, reason: "Error" });
 
     const expense = await t.run(async (ctx) => ctx.db.get(expenseId));
     expect(expense!.status).toBe("voided");
@@ -1776,8 +1863,111 @@ describe("expense void", () => {
     await t.run(async (ctx) => ctx.db.patch(expenseId, { status: "reimbursed" }));
 
     await expect(
-      t.mutation(api.expenses.mutations.void, { token: adminToken, expenseId, reason: "Error" })
+      t.mutation(api.expenses.mutations.voidExpense, { token: adminToken, expenseId, reason: "Error" })
     ).rejects.toThrow("Cannot void");
+  });
+});
+
+describe("expense void — personal_cash path", () => {
+  test("void personal_cash approved expense creates correct reversing JE (DR 2200, CR OpEx)", async () => {
+    const t = convexTest(schema);
+    const { token: staffToken } = await seedUserWithSession(t, { role: "order_staff" });
+    const { token: adminToken } = await seedUserWithSession(t, { role: "admin" });
+    const { expenseId } = await seedAccountAndExpense(t, staffToken, 100000, "personal_cash");
+
+    await t.mutation(api.expenses.mutations.approve, { token: adminToken, expenseId });
+    // personal_cash approved → status is now "awaiting_payment"
+    await t.mutation(api.expenses.mutations.voidExpense, { token: adminToken, expenseId, reason: "Error" });
+
+    // Verify reversing JE exists with swapped lines (original was DR OpEx, CR 2200)
+    const reversals = await t.run(async (ctx) => {
+      const entries = await ctx.db.query("journalEntries")
+        .withIndex("by_source", (q) => q.eq("sourceType", "expense_void").eq("sourceId", expenseId as string))
+        .collect();
+      if (entries.length === 0) return [];
+      const lines = await ctx.db.query("journalEntryLines")
+        .withIndex("by_journal_entry", (q) => q.eq("journalEntryId", entries[0]._id))
+        .collect();
+      return lines;
+    });
+    expect(reversals).toHaveLength(2);
+    // Reversal: DR 2200 (Reimb Payable), CR OpEx
+    const debitLine = reversals.find((l) => l.debitAmount > 0)!;
+    const creditLine = reversals.find((l) => l.creditAmount > 0)!;
+    expect(debitLine.debitAmount).toBe(100000);
+    expect(creditLine.creditAmount).toBe(100000);
+  });
+});
+
+describe("expense resubmission", () => {
+  test("resubmit creates new expense linked to rejected original", async () => {
+    const t = convexTest(schema);
+    const { token: staffToken } = await seedUserWithSession(t, { role: "order_staff" });
+    const { token: adminToken } = await seedUserWithSession(t, { role: "admin" });
+    const { expenseId } = await seedAccountAndExpense(t, staffToken, 100000);
+
+    // Reject the expense
+    await t.mutation(api.expenses.mutations.reject, {
+      token: adminToken, expenseId, reason: "Missing receipt",
+    });
+
+    // Resubmit creates a NEW expense
+    const newExpenseId = await t.mutation(api.expenses.mutations.resubmit, {
+      token: staffToken, expenseId,
+    });
+
+    const newExpense = await t.run(async (ctx) => ctx.db.get(newExpenseId));
+    expect(newExpense!.status).toBe("draft");
+    expect(newExpense!.previousExpenseId).toBe(expenseId);
+    // Original stays rejected
+    const original = await t.run(async (ctx) => ctx.db.get(expenseId));
+    expect(original!.status).toBe("rejected");
+  });
+
+  test("cannot resubmit non-rejected expense", async () => {
+    const t = convexTest(schema);
+    const { token: staffToken } = await seedUserWithSession(t, { role: "order_staff" });
+    const { expenseId } = await seedAccountAndExpense(t, staffToken, 100000);
+
+    // Expense is still "submitted", not "rejected"
+    await expect(
+      t.mutation(api.expenses.mutations.resubmit, { token: staffToken, expenseId })
+    ).rejects.toThrow("Only rejected expenses can be resubmitted");
+  });
+});
+
+describe("edge cases — deactivated entities", () => {
+  test("deactivated employee with pending expenses can still be approved", async () => {
+    const t = convexTest(schema);
+    const { userId: staffId, token: staffToken } = await seedUserWithSession(t, { role: "order_staff" });
+    const { token: adminToken } = await seedUserWithSession(t, { role: "admin" });
+    const { expenseId } = await seedAccountAndExpense(t, staffToken, 50000);
+
+    // Deactivate the employee after submission
+    await t.run(async (ctx) => ctx.db.patch(staffId, { isActive: false }));
+
+    // Admin should still be able to approve (expense was valid at submission time)
+    await t.mutation(api.expenses.mutations.approve, { token: adminToken, expenseId });
+    const expense = await t.run(async (ctx) => ctx.db.get(expenseId));
+    expect(expense!.status).toBe("awaiting_payment");
+  });
+
+  test("deactivated GL account blocks new expense creation", async () => {
+    const t = convexTest(schema);
+    const { token } = await seedUserWithSession(t);
+    const accountId = await t.run(async (ctx) =>
+      ctx.db.insert("accounts", {
+        code: "6999", name: "Old Account", type: "opex", category: "OpEx",
+        isActive: false, isSystem: false,
+      })
+    );
+
+    await expect(
+      t.mutation(api.expenses.mutations.saveDraft, {
+        token, amount: 25000, accountId, expenseDate: Date.now(),
+        description: "Test", vendorName: "V", paymentMethod: "personal_cash",
+      })
+    ).rejects.toThrow("Account is not active");
   });
 });
 
@@ -1818,12 +2008,14 @@ Create `convex/expenses/mutations.ts` with these registered mutations:
 - `submit` — transition draft → submitted, validate receipt requirement, detect duplicates
 - `approve` — DoA check, self-approval block, concurrency guard, journal entry creation
 - `reject` — with required reason for ≥ 500K
-- `void` — admin only, creates reversing journal entry if approved
+- `voidExpense` — admin only, creates reversing journal entry if approved (named `voidExpense` because `void` is a JS reserved word)
+- `resubmit` — create a new expense from a rejected one (copies fields, sets `previousExpenseId`, status = `draft`)
 
 The mutations should:
 - Use `requireRole(ctx, args.token, [...])` for auth
 - Call `generateSequentialId` from `convex/counters/helpers.ts` for expense numbers
 - Call `createJournalEntry` from `convex/journal/mutations.ts` for accounting entries
+- Use `REIMB_PAYABLE_CODE` and `CASH_ACCOUNT_CODE` named constants (from `convex/journal/mutations.ts`) instead of magic strings when looking up accounts by code
 - Record status changes in `expenseStatusHistory`
 - Look up accounts by code ("2200", "1100") for journal entry lines — throw clear error if system accounts missing (requires `seedDefaults` to have been run)
 - Check `expense.status === "submitted"` before approve (concurrency guard)
@@ -1831,8 +2023,28 @@ The mutations should:
 - **Mandatory approver comment for >= 500K**: If `amount >= 500000` and no `approverComment` provided, throw "Comment required for expenses >= Rp 500,000"
 - **Receipt hash dedup in saveDraft**: If `receiptImageHash` provided, query `by_receipt_hash` index. If any existing expense has the same hash, throw "Receipt image already used by EXP-XXXX"
 - **Zero eligible approver check in submit**: Query all active users with eligible roles (per DoA), exclude submitter. If zero remain, throw "No eligible approver for this amount"
+- **`resubmit` mutation**: Only works on rejected expenses. Copies all fields into a new expense with `status: "draft"`, sets `previousExpenseId` to the original. Original stays rejected (terminal). The user can then edit and re-submit the new draft.
 
-Full implementation should be ~250 lines following the patterns in `convex/orders/mutations/orderCrud.ts`.
+Also add `generateUploadUrl` — the Convex file upload flow requires a registered mutation:
+
+```typescript
+/** Generate a presigned upload URL for receipt images. */
+export const generateUploadUrl = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    // Any authenticated user can upload receipts
+    await requireRole(ctx, args.token, ["kitchen", "order_staff", "manager", "admin"]);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+```
+
+The frontend uses this in a two-step flow:
+1. Call `generateUploadUrl` → get presigned URL
+2. `fetch(url, { method: "POST", body: file })` → get `storageId`
+3. Pass `storageId` as `receiptFileId` in `saveDraft`
+
+Full implementation should be ~300 lines following the patterns in `convex/orders/mutations/orderCrud.ts`.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
@@ -1842,8 +2054,8 @@ Expected: ALL PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add convex/expenses/mutations.ts tests/convex/expenses.test.ts tests/convex/expenseApproval.test.ts
-git commit -m "feat(expenses): expense submission, approval, rejection, void with TDD"
+git add convex/expenses/mutations.ts tests/convex/helpers.ts tests/convex/expenses.test.ts tests/convex/expenseApproval.test.ts
+git commit -m "feat(expenses): expense submission, approval, rejection, void, resubmit with TDD"
 ```
 
 ---
@@ -2032,7 +2244,7 @@ Each hook wraps `useQuery` / `useMutation` calls with the appropriate API paths.
 - `usePendingApprovals(token)` — approval queue
 - `useAllExpenses(token, filters?)` — admin audit view
 - `useExpenseDetail(expenseId)` — single expense
-- Mutation hooks: `useSaveDraft`, `useSubmitExpense`, `useApproveExpense`, `useRejectExpense`, `useVoidExpense`
+- Mutation hooks: `useSaveDraft`, `useSubmitExpense`, `useApproveExpense`, `useRejectExpense`, `useVoidExpense`, `useResubmitExpense`, `useGenerateUploadUrl`
 
 `useReimbursements.ts`:
 - `usePendingReimbursements(token)` — grouped by employee
@@ -2126,9 +2338,13 @@ const ExpenseAnalytics = lazyWithPreload(() =>
 
 Check if `ProtectedRoute` component's `requiredPermission` prop type needs updating to include the new permission names. If it reads from `ROLE_PERMISSIONS` dynamically, no change needed. If it has a static union type, add the 4 new permissions.
 
-- [ ] **Step 4: Add navigation links to sidebar/header**
+- [ ] **Step 4: Add navigation links to Header and MobileBottomNav**
 
-Add links to `/expenses`, `/reimbursements`, and `/expense-analytics` in the navigation component (likely `src/components/layout/Header.tsx` or similar). Follow existing navigation patterns:
+Add links to `/expenses`, `/reimbursements`, and `/expense-analytics` in:
+- `src/components/layout/Header.tsx` (desktop nav)
+- `src/components/layout/MobileBottomNav.tsx` (mobile nav)
+
+Follow existing navigation patterns:
 - Expenses: visible to all roles (canSubmitExpenses)
 - Reimbursements: admin only (canManageReimbursements)
 - Expense Analytics: manager + admin (canAccessExpenseAnalytics)
@@ -2136,8 +2352,8 @@ Add links to `/expenses`, `/reimbursements`, and `/expense-analytics` in the nav
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/App.tsx src/components/auth/ProtectedRoute.tsx
-git commit -m "feat(routing): add expense, reimbursement, and analytics routes"
+git add src/App.tsx src/components/auth/ProtectedRoute.tsx src/components/layout/Header.tsx src/components/layout/MobileBottomNav.tsx
+git commit -m "feat(routing): add expense, reimbursement, and analytics routes with nav links"
 ```
 
 ---
@@ -2178,11 +2394,19 @@ Map expense statuses to colors:
 
 - [ ] **Step 3: Build FraudFlags component**
 
-Display contextual badges:
-- Late submission → amber "Late (X days)"
-- Duplicate warning → amber "Possible duplicate: EXP-XXXX"
-- New vendor → blue "New vendor"
-- Split detection → red "Split alert"
+Display contextual badges based on data available from the expense record:
+- Late submission → amber "Late (X days)" — from `expense.lateSubmission`
+- Duplicate warning → amber "Possible duplicate: EXP-XXXX" — from `expense.duplicateWarning`
+
+> **DEFERRED fraud controls (spec section 5 "should-have"):**
+> The following fraud detection queries require cross-expense analytics that are
+> not included in this initial implementation. They should be added in a follow-up:
+> - Split detection: same vendor + multiple sub-threshold claims within 7 days
+> - Approver concentration: >80% of an employee's expenses approved by same person
+> - Unfamiliar vendor: vendor name not seen in prior 90 days of expenses
+>
+> Until implemented, the FraudFlags component should NOT render placeholder badges
+> for these — only show flags that have real data behind them.
 
 - [ ] **Step 4: Commit**
 
@@ -2222,10 +2446,11 @@ Expandable card showing:
 - [ ] **Step 3: Wire up mutations**
 
 - "Save Draft" → `saveDraft` mutation
-- "Submit" → `submit` mutation
+- "Submit" → `submit` mutation (uses `generateUploadUrl` + fetch for receipt upload first)
 - "Approve" → `approve` mutation with optimistic UI
 - "Reject" → `reject` mutation with reason dialog
-- "Void" → `void` mutation with confirmation
+- "Void" → `voidExpense` mutation with confirmation
+- "Resubmit" → `resubmit` mutation (visible on rejected expenses, creates new draft)
 
 - [ ] **Step 4: Run build to verify**
 
@@ -2341,7 +2566,9 @@ netIncome: number;
 netMarginPercent: number | null;
 ```
 
-In `fetchAndAggregate`, after computing grossProfit, add parallel queries for OpEx and Other from `journalEntryLines` (same pattern as `convex/journal/queries.ts:getOpExByPeriod`). Compute EBIT = Gross Profit - Total OpEx, Net Income = EBIT - Other Expense.
+In `fetchAndAggregate`, after computing grossProfit, **inline** the OpEx and Other aggregation logic (same pattern as `convex/journal/queries.ts:getOpExByPeriod` and `getOtherByPeriod`). You CANNOT call registered queries from within another query — Convex does not support query-calling-query. Instead, copy the account lookup + `Promise.all` line aggregation pattern directly into `fetchAndAggregate`.
+
+Compute EBIT = Gross Profit - Total OpEx, Net Income = EBIT - Total Other.
 
 - [ ] **Step 2: Update useFinancials.ts**
 
@@ -2465,12 +2692,15 @@ git commit -m "docs: add expense & accounting system to changelog, schema, and A
 | Agent A | Task 9: Reimbursements | `convex/reimbursements/` |
 | Agent B | Task 10: Payroll | `convex/payroll/` |
 
-### Wave 4: Frontend Foundation [PARALLEL after Wave 3]
-| Agent | Task | Files |
+### Wave 4: Frontend Foundation [SEQUENTIAL after Wave 3]
+Task 11 (permissions) MUST complete before Task 12 (hooks) and Task 13 (routes),
+because hooks and routes reference the new permission names in TypeScript types.
+
+| Order | Task | Files |
 |-------|------|-------|
-| Agent A | Task 11: Permissions | `src/lib/types.ts` |
-| Agent B | Task 12: Hooks | `src/hooks/convex/` |
-| Agent C | Task 13: Routes | `src/App.tsx` |
+| 1 | Task 11: Permissions | `src/lib/types.ts` |
+| 2 | Task 12: Hooks | `src/hooks/convex/` |
+| 3 | Task 13: Routes | `src/App.tsx`, `src/components/layout/Header.tsx` |
 
 ### Wave 5: Frontend Pages [PARALLEL after Wave 4]
 | Agent | Task | Files |
@@ -2490,6 +2720,17 @@ git commit -m "docs: add expense & accounting system to changelog, schema, and A
 - [ ] CHANGELOG.md (always required)
 - [ ] SCHEMA.md (10 new tables)
 - [ ] API_REFERENCE.md (7 new backend directories)
+
+## Deferred: E2E Playwright Tests
+
+The spec (section 7) lists 5 E2E test scenarios:
+1. Submit expense → approve → reimburse → verify P&L
+2. DoA routing (manager vs admin threshold)
+3. Reject → resubmit → approve cycle
+4. Duplicate receipt image block
+5. Batch void → expenses return to awaiting_payment
+
+These are **explicitly deferred** to a follow-up task. This plan focuses on backend integration tests (Vitest + convex-test) which cover all business logic. E2E tests should be added once the UI pages are stable, following patterns in `tests/e2e/`.
 
 ## Success Criteria
 - [ ] `npm run type-check` passes
