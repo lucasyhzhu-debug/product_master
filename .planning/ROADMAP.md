@@ -130,7 +130,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
 - [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
 - [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
-- [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
+- [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
 - [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
 - [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
 - [ ] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration
@@ -239,7 +239,11 @@ Plans:
   2. Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
   3. Admin can void a payroll entry, generating a reversing journal entry posted to the same period as the original
   4. Payroll entries are viewable by period and employee type with filtering
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 47-01-PLAN.md -- Backend: schema update (payrollNumber), pure helpers (TDD), mutations (create + void + upload), queries (list + getById)
+- [ ] 47-02-PLAN.md -- Frontend: hooks, PayrollManager page, route registration, header navigation
 
 ### Phase 48: Frontend Permissions & Routes
 **Goal**: All expense, reimbursement, payroll, and analytics pages are accessible through the app with correct role-based guards
