@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
-status: ready_to_plan
+status: in_progress
 stopped_at: null
-last_updated: "2026-03-12T14:00:00Z"
-last_activity: 2026-03-12 - Roadmap created for v1.7 (10 phases, 64 requirements)
+last_updated: "2026-03-13T05:17:07Z"
+last_activity: 2026-03-13 - Completed 41-01-PLAN.md (schema + seed)
 progress:
   total_phases: 10
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 41 of 50 (Schema, Seed & Counters)
-Plan: --
-Status: Ready to plan
-Last activity: 2026-03-12 -- Roadmap created for v1.7 (10 phases, 64 requirements mapped)
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-03-13 -- Completed 41-01-PLAN.md (10 accounting tables + 39-account seed function)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 5%
 
 ## Performance Metrics
 
@@ -43,7 +43,11 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
-v1.7 decisions pending -- no implementation started yet.
+
+**v1.7 Decisions:**
+- 41-01: 39 PSAK accounts (not 36) -- detailed enumeration is authoritative over summary count
+- 41-01: Upsert seed pattern (patch on re-run) matching productionUnitTypes:seedDefaults
+- 41-01: journalEntryLines.entryDate denormalized for cross-table index queries
 
 ### Research Findings (v1.7)
 
@@ -70,6 +74,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-12
-Stopped at: Roadmap created for v1.7 Expense & Accounting (10 phases, 64 requirements)
-Resume notes: Run `/gsd:plan-phase 41` to start planning Phase 41 (Schema, Seed & Counters)
+Last session: 2026-03-13
+Stopped at: Completed 41-01-PLAN.md
+Resume notes: Execute 41-02-PLAN.md (counter helper) to complete Phase 41

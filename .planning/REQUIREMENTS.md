@@ -4,8 +4,8 @@
 - [ ] **COA-01**: Admin can view the full Chart of Accounts with account code, name, type, and active status
 - [ ] **COA-02**: Admin can add custom GL accounts with unique codes following PSAK numbering conventions
 - [ ] **COA-03**: Admin can deactivate GL accounts (hidden from new expense dropdowns, existing references preserved)
-- [ ] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
-- [ ] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
+- [x] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
+- [x] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
 
 ## Expense Submission
 - [ ] **EXP-01**: Any authenticated user can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
@@ -65,7 +65,7 @@
 - [ ] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
 - [ ] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
 - [ ] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
-- [ ] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
+- [x] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
 - [ ] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
 - [ ] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
 
@@ -119,8 +119,8 @@
 | COA-01 | Phase 43 | Pending |
 | COA-02 | Phase 43 | Pending |
 | COA-03 | Phase 43 | Pending |
-| COA-04 | Phase 41 | Pending |
-| COA-05 | Phase 41 | Pending |
+| COA-04 | Phase 41 | Complete |
+| COA-05 | Phase 41 | Complete |
 | EXP-01 | Phase 44 | Pending |
 | EXP-02 | Phase 44 | Pending |
 | EXP-03 | Phase 44 | Pending |
@@ -162,7 +162,7 @@
 | JE-01 | Phase 42 | Pending |
 | JE-02 | Phase 42 | Pending |
 | JE-03 | Phase 42 | Pending |
-| JE-04 | Phase 41 | Pending |
+| JE-04 | Phase 41 | Complete |
 | JE-05 | Phase 41 | Pending |
 | JE-06 | Phase 42 | Pending |
 | PNL-01 | Phase 49 | Pending |
