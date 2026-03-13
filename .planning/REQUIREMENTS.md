@@ -16,27 +16,27 @@
 - [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
 
 ## Expense Approval
-- [ ] **EXP-07**: Eligible approvers see pending expenses in their approval queue (broadcast routing — first to act wins)
-- [ ] **EXP-08**: Expenses ≤ Rp 500,000 can be approved by Manager or Admin (except submitter)
-- [ ] **EXP-09**: Expenses > Rp 500,000 can only be approved by Admin (except submitter)
-- [ ] **EXP-10**: Self-approval is blocked at the backend level regardless of role
-- [ ] **EXP-11**: Approver comment is mandatory for expenses ≥ Rp 500,000
-- [ ] **EXP-12**: Approving an expense auto-generates a journal entry (DR OpEx account, CR 2200 or CR 1100 for company_card)
-- [ ] **EXP-13**: Rejected expenses include a reason and can be revised and resubmitted (linked via previousExpenseId)
-- [ ] **EXP-14**: Approved expenses with personal payment method auto-transition to AwaitingPayment status
-- [ ] **EXP-15**: Company card expenses go directly to Approved as terminal status (no reimbursement needed)
+- [x] **EXP-07**: Eligible approvers see pending expenses in their approval queue (broadcast routing — first to act wins)
+- [x] **EXP-08**: Expenses ≤ Rp 500,000 can be approved by Manager or Admin (except submitter)
+- [x] **EXP-09**: Expenses > Rp 500,000 can only be approved by Admin (except submitter)
+- [x] **EXP-10**: Self-approval is blocked at the backend level regardless of role
+- [x] **EXP-11**: Approver comment is mandatory for expenses ≥ Rp 500,000
+- [x] **EXP-12**: Approving an expense auto-generates a journal entry (DR OpEx account, CR 2200 or CR 1100 for company_card)
+- [x] **EXP-13**: Rejected expenses include a reason and can be revised and resubmitted (linked via previousExpenseId)
+- [x] **EXP-14**: Approved expenses with personal payment method auto-transition to AwaitingPayment status
+- [x] **EXP-15**: Company card expenses go directly to Approved as terminal status (no reimbursement needed)
 
 ## Expense Void
-- [ ] **EXP-16**: Admin can void any non-terminal expense with a reason, generating a reversing journal entry
-- [ ] **EXP-17**: Reimbursed expenses cannot be voided directly — the reimbursement batch must be voided instead
+- [x] **EXP-16**: Admin can void any non-terminal expense with a reason, generating a reversing journal entry
+- [x] **EXP-17**: Reimbursed expenses cannot be voided directly — the reimbursement batch must be voided instead
 - [x] **EXP-18**: Every status transition is recorded in an immutable audit trail (expenseStatusHistory)
 
 ## Fraud Controls — Must-Have
-- [ ] **FRAUD-01**: System warns on duplicate detection (same employee + amount + date within 7 days)
-- [ ] **FRAUD-02**: System hard-blocks submission of receipts with duplicate SHA-256 hash (shows reference to existing expense)
-- [ ] **FRAUD-03**: Late submission flag shown to approver when expense date > 14 days before submission
-- [ ] **FRAUD-04**: Rejection history with full chain shown to approver (count badge + reasons)
-- [ ] **FRAUD-05**: Approved expenses are immutable — no field edits allowed, only void + resubmit
+- [x] **FRAUD-01**: System warns on duplicate detection (same employee + amount + date within 7 days)
+- [x] **FRAUD-02**: System hard-blocks submission of receipts with duplicate SHA-256 hash (shows reference to existing expense)
+- [x] **FRAUD-03**: Late submission flag shown to approver when expense date > 14 days before submission
+- [x] **FRAUD-04**: Rejection history with full chain shown to approver (count badge + reasons)
+- [x] **FRAUD-05**: Approved expenses are immutable — no field edits allowed, only void + resubmit
 
 ## Fraud Controls — Should-Have
 - [ ] **FRAUD-06**: Split detection alert when same employee + same GL + multiple expenses within 48hrs sum > Rp 500K
@@ -127,23 +127,23 @@
 | EXP-04 | Phase 44 | Complete |
 | EXP-05 | Phase 44 | Complete |
 | EXP-06 | Phase 41 | Complete |
-| EXP-07 | Phase 45 | Pending |
-| EXP-08 | Phase 45 | Pending |
-| EXP-09 | Phase 45 | Pending |
-| EXP-10 | Phase 45 | Pending |
-| EXP-11 | Phase 45 | Pending |
-| EXP-12 | Phase 45 | Pending |
-| EXP-13 | Phase 45 | Pending |
-| EXP-14 | Phase 45 | Pending |
-| EXP-15 | Phase 45 | Pending |
-| EXP-16 | Phase 45 | Pending |
-| EXP-17 | Phase 45 | Pending |
+| EXP-07 | Phase 45 | Complete |
+| EXP-08 | Phase 45 | Complete |
+| EXP-09 | Phase 45 | Complete |
+| EXP-10 | Phase 45 | Complete |
+| EXP-11 | Phase 45 | Complete |
+| EXP-12 | Phase 45 | Complete |
+| EXP-13 | Phase 45 | Complete |
+| EXP-14 | Phase 45 | Complete |
+| EXP-15 | Phase 45 | Complete |
+| EXP-16 | Phase 45 | Complete |
+| EXP-17 | Phase 45 | Complete |
 | EXP-18 | Phase 44 | Complete |
-| FRAUD-01 | Phase 45 | Pending |
-| FRAUD-02 | Phase 45 | Pending |
-| FRAUD-03 | Phase 45 | Pending |
-| FRAUD-04 | Phase 45 | Pending |
-| FRAUD-05 | Phase 45 | Pending |
+| FRAUD-01 | Phase 45 | Complete |
+| FRAUD-02 | Phase 45 | Complete |
+| FRAUD-03 | Phase 45 | Complete |
+| FRAUD-04 | Phase 45 | Complete |
+| FRAUD-05 | Phase 45 | Complete |
 | FRAUD-06 | Phase 50 | Pending |
 | FRAUD-07 | Phase 50 | Pending |
 | FRAUD-08 | Phase 50 | Pending |

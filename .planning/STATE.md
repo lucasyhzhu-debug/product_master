@@ -3,30 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 44-02-PLAN.md (expense submission frontend)
-last_updated: "2026-03-13T08:29:00.036Z"
-last_activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
+stopped_at: Completed 45-01-PLAN.md (expense approval backend)
+last_updated: "2026-03-13T13:58:24Z"
+last_activity: 2026-03-13 -- Completed 45-01-PLAN.md (DoA helpers, approve/reject/void mutations, approval queries)
 progress:
   total_phases: 10
   completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 44-02-PLAN.md (expense submission frontend)
-last_updated: "2026-03-13T08:21:04Z"
-last_activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
-progress:
-  total_phases: 10
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 8
+  completed_plans: 7
 ---
 
 # Project State
@@ -34,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 44 complete (2/2 plans)
+**Current focus:** v1.7 Expense & Accounting -- Phase 45 in progress (1/2 plans)
 
 ## Current Position
 
-Phase: 44 of 50 (Expense Submission)
-Plan: 2 of 2
-Status: Phase 44 complete
-Last activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
+Phase: 45 of 50 (Expense Approval & Void)
+Plan: 1 of 2
+Status: Plan 45-01 complete, 45-02 remaining
+Last activity: 2026-03-13 -- Completed 45-01-PLAN.md (DoA helpers, approve/reject/void mutations, approval queries)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 87%
 
 ## Performance Metrics
 
@@ -80,6 +64,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 44-01: updateDraft excludes self from duplicate check to prevent false positives
 - 44-02: useSessionQuery for protectedQuery endpoints (first usage in codebase; useQuery lacks sessionId auto-injection)
 - 44-02: ReceiptUpload is self-contained component with generateUploadUrl prop and SHA-256 client-side hashing
+- 45-01: DoA helpers are pure functions (no ctx) for TDD testability
+- 45-01: canApproveExpense checks self-approval BEFORE role check (fail-fast)
+- 45-01: VOIDABLE_STATUSES kept module-level (not exported) -- isVoidableStatus() is the public API
+- 45-01: getRejectionChain uses explicit Doc<"expenses"> to break circular type inference
 
 ### Research Findings (v1.7)
 
@@ -107,5 +95,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 44-02-PLAN.md (expense submission frontend)
-Resume notes: Phase 44 complete (2/2 plans). Full expense submission workflow: backend API + frontend UI. Next phase: 45 (expense approval).
+Stopped at: Completed 45-01-PLAN.md (expense approval backend)
+Resume notes: Phase 45 plan 01 complete (1/2). Backend: approve/reject/void mutations + approval queries. Next: 45-02 (approval frontend).

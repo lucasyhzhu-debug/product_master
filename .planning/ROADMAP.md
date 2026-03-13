@@ -208,7 +208,7 @@ Plans:
   4. Rejected expenses include a reason, and the submitter can revise and resubmit (linked via previousExpenseId chain with rejection count badge visible to approvers)
   5. Admin can void non-terminal expenses with a reason, generating a reversing JE; reimbursed expenses cannot be voided directly (must void the reimbursement batch instead); approved expenses are immutable (no field edits)
   6. Fraud flags are visible to approvers: duplicate detection (same employee + amount + date within 7 days), late submission (> 14 days old), and rejection history chain
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 45-01-PLAN.md -- DoA pure helpers (TDD), approve/reject/void mutations, approval queue + rejection chain queries
