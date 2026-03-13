@@ -1,6 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { protectedMutation } from "../lib/functions";
+import { requireRole } from "../lib/auth";
 
 // ---------------------------------------------------------------------------
 // Account type derivation from PSAK code prefix
@@ -96,8 +97,12 @@ export const DEFAULT_ACCOUNTS = [
  * All 39 defaults have isSystem: true and isActive: true.
  */
 export const seedDefaults = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    // Auth guard: require admin when called from frontend. Optional for dashboard seeding.
+    if (args.token) {
+      await requireRole(ctx, args.token, ["admin"]);
+    }
     const results: Array<{ code: string; action: "created" | "updated"; id: string }> = [];
 
     for (const account of DEFAULT_ACCOUNTS) {
@@ -216,8 +221,8 @@ export const update = protectedMutation({
       throw new Error("Account name cannot be empty");
     }
 
-    // Build patch object — only include provided fields, no undefined values
-    const patch: { name?: string; isActive?: boolean; description?: string | undefined } = {};
+    // Build patch object — only include provided fields
+    const patch: Record<string, any> = {};
     if (args.name !== undefined) {
       patch.name = args.name.trim();
     }
@@ -225,17 +230,17 @@ export const update = protectedMutation({
       patch.isActive = args.isActive;
     }
 
-    // Handle description clearing: empty string = remove field, non-empty = set, undefined = skip
-    if (args.description !== undefined) {
-      if (args.description === "") {
-        // Clear description by setting to undefined (removes field from document)
-        patch.description = undefined;
-      } else {
-        patch.description = args.description;
-      }
+    // Handle description: "" = clear field, non-empty = set, undefined = skip
+    const shouldClearDescription = args.description === "";
+    if (args.description !== undefined && args.description !== "") {
+      patch.description = args.description;
     }
 
-    if (Object.keys(patch).length > 0) {
+    if (shouldClearDescription) {
+      // ctx.db.patch ignores undefined values, so use replace to remove the optional field
+      const { _id, _creationTime, description: _, ...rest } = account;
+      await ctx.db.replace(args.id, { ...rest, ...patch });
+    } else if (Object.keys(patch).length > 0) {
       await ctx.db.patch(args.id, patch);
     }
   },
@@ -271,10 +276,10 @@ export const remove = protectedMutation({
       throw new Error("Cannot delete account: it is referenced by journal entries");
     }
 
-    // Block deletion if referenced by expenses (no index, scan is acceptable for rare operation)
+    // Block deletion if referenced by expenses
     const expenseRef = await ctx.db
       .query("expenses")
-      .filter((q) => q.eq(q.field("accountId"), args.id))
+      .withIndex("by_account", (q) => q.eq("accountId", args.id))
       .first();
     if (expenseRef) {
       throw new Error("Cannot delete account: it is referenced by expenses");

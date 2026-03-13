@@ -1676,7 +1676,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_amount_date_submitter", ["amount", "expenseDate", "submittedBy"])
     .index("by_receipt_hash", ["receiptImageHash"])
-    .index("by_expense_number", ["expenseNumber"]),
+    .index("by_expense_number", ["expenseNumber"])
+    .index("by_account", ["accountId"]),
 
   // Expense status audit trail
   expenseStatusHistory: defineTable({

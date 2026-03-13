@@ -373,7 +373,13 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
 
-    const ids = Array.from(selectedIds);
+    // Filter through canDelete to prevent partial failures (defense-in-depth)
+    const ids = Array.from(selectedIds).filter((id) => {
+      if (!canDelete || !displayItems) return true;
+      const item = displayItems.find((i) => i._id === id);
+      return item ? canDelete(item) : true;
+    });
+    if (ids.length === 0) return;
 
     try {
       if (onBulkDelete) {
