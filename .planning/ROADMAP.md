@@ -130,7 +130,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
 - [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
 - [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
-- [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
+- [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
 - [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
 - [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
 - [ ] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration
@@ -208,7 +208,7 @@ Plans:
   4. Rejected expenses include a reason, and the submitter can revise and resubmit (linked via previousExpenseId chain with rejection count badge visible to approvers)
   5. Admin can void non-terminal expenses with a reason, generating a reversing JE; reimbursed expenses cannot be voided directly (must void the reimbursement batch instead); approved expenses are immutable (no field edits)
   6. Fraud flags are visible to approvers: duplicate detection (same employee + amount + date within 7 days), late submission (> 14 days old), and rejection history chain
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 45-01-PLAN.md -- DoA pure helpers (TDD), approve/reject/void mutations, approval queue + rejection chain queries

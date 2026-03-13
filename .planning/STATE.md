@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 45-01-PLAN.md (expense approval backend)
-last_updated: "2026-03-13T13:58:24Z"
-last_activity: 2026-03-13 -- Completed 45-01-PLAN.md (DoA helpers, approve/reject/void mutations, approval queries)
+stopped_at: Completed 45-02-PLAN.md (expense approval frontend)
+last_updated: "2026-03-13T14:08:31Z"
+last_activity: 2026-03-13 -- Completed 45-02-PLAN.md (approval queue page, fraud flags, approval actions, rejection chain)
 progress:
   total_phases: 10
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 45 in progress (1/2 plans)
+**Current focus:** v1.7 Expense & Accounting -- Phase 45 complete (2/2 plans)
 
 ## Current Position
 
 Phase: 45 of 50 (Expense Approval & Void)
-Plan: 1 of 2
-Status: Plan 45-01 complete, 45-02 remaining
-Last activity: 2026-03-13 -- Completed 45-01-PLAN.md (DoA helpers, approve/reject/void mutations, approval queries)
+Plan: 2 of 2
+Status: Phase 45 complete (2/2 plans)
+Last activity: 2026-03-13 -- Completed 45-02-PLAN.md (approval frontend: hooks, fraud flags, approval actions, rejection chain, ExpenseApproval page)
 
-Progress: [████████░░] 87%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -68,6 +68,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 45-01: canApproveExpense checks self-approval BEFORE role check (fail-fast)
 - 45-01: VOIDABLE_STATUSES kept module-level (not exported) -- isVoidableStatus() is the public API
 - 45-01: getRejectionChain uses explicit Doc<"expenses"> to break circular type inference
+- 45-02: allowedRoles pattern for route guard since canApproveExpenses permission flag deferred to Phase 48
+- 45-02: ApprovalActions uses separate Dialog instances per action type (approve/reject/void) for simpler state management
+- 45-02: Receipt thumbnail deferred -- expense queries don't resolve storage URLs, shows "Receipt attached" badge instead
 
 ### Research Findings (v1.7)
 
@@ -95,5 +98,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 45-01-PLAN.md (expense approval backend)
-Resume notes: Phase 45 plan 01 complete (1/2). Backend: approve/reject/void mutations + approval queries. Next: 45-02 (approval frontend).
+Stopped at: Completed 45-02-PLAN.md (expense approval frontend)
+Resume notes: Phase 45 complete (2/2). Full expense approval workflow: backend mutations + queries (Plan 01), frontend hooks + page + components (Plan 02). Next: Phase 46 (expense reimbursement).
