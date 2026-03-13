@@ -92,6 +92,9 @@ const ExpenseSubmit = lazyWithPreload(() =>
 const MyExpenses = lazyWithPreload(() =>
   import('./pages/MyExpenses').then(m => ({ default: m.MyExpenses }))
 );
+const ExpenseApproval = lazyWithPreload(() =>
+  import('./pages/ExpenseApproval').then(m => ({ default: m.ExpenseApproval }))
+);
 
 function App() {
   return (
@@ -253,6 +256,14 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <ExpenseSubmit />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="expenses/approve"
+                    element={
+                      <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                        <ExpenseApproval />
                       </ProtectedRoute>
                     }
                   />

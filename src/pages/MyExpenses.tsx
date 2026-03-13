@@ -6,6 +6,7 @@
 import { useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +22,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, Receipt, X, Loader2 } from "lucide-react";
+import { Plus, Receipt, X, Loader2, ClipboardCheck } from "lucide-react";
 import {
   useMyExpenses,
   useExpenseStatusHistory,
@@ -43,10 +44,13 @@ const TABS = [
 
 export function MyExpenses() {
   useDocumentTitle("My Expenses");
+  const { user } = useAuth();
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedExpenseId, setSelectedExpenseId] = useState<Id<"expenses"> | null>(null);
+
+  const isApprover = user?.role === "manager" || user?.role === "admin";
 
   // Map tab value to status filter
   const statusFilter: ExpenseStatus | undefined =
@@ -94,12 +98,22 @@ export function MyExpenses() {
       <PageHeader
         title="My Expenses"
         action={
-          <Button asChild>
-            <Link to="/expenses/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Expense
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {isApprover && (
+              <Button variant="outline" asChild>
+                <Link to="/expenses/approve">
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  Review Approvals
+                </Link>
+              </Button>
+            )}
+            <Button asChild>
+              <Link to="/expenses/new">
+                <Plus className="h-4 w-4 mr-2" />
+                New Expense
+              </Link>
+            </Button>
+          </div>
         }
       />
 
