@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
+  CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatCurrency } from "@/lib/utils";
@@ -98,10 +99,9 @@ export function BatchCard({ batch, onConfirm, onVoid }: BatchCardProps) {
           </p>
         )}
 
-        {/* Actions row */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          {/* Expandable trigger */}
-          <Collapsible open={expanded} onOpenChange={setExpanded}>
+        {/* Actions row + expandable expenses */}
+        <Collapsible open={expanded} onOpenChange={setExpanded}>
+          <div className="flex items-center justify-between gap-2 pt-1">
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="text-xs">
                 {expanded ? (
@@ -112,47 +112,46 @@ export function BatchCard({ batch, onConfirm, onVoid }: BatchCardProps) {
                 Expenses
               </Button>
             </CollapsibleTrigger>
-          </Collapsible>
 
-          <div className="flex items-center gap-2">
-            {batch.status === "pending" && onConfirm && (
-              <Button
-                size="sm"
-                onClick={() =>
-                  onConfirm(
-                    batch._id as Id<"reimbursementBatches">,
-                    batch.batchNumber,
-                    batch.totalAmount,
-                  )
-                }
-              >
-                <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                Confirm
-              </Button>
-            )}
-            {batch.status === "confirmed" && onVoid && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                onClick={() =>
-                  onVoid(
-                    batch._id as Id<"reimbursementBatches">,
-                    batch.batchNumber,
-                  )
-                }
-              >
-                <XCircle className="h-3.5 w-3.5 mr-1" />
-                Void
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {batch.status === "pending" && onConfirm && (
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    onConfirm(
+                      batch._id as Id<"reimbursementBatches">,
+                      batch.batchNumber,
+                      batch.totalAmount,
+                    )
+                  }
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                  Confirm
+                </Button>
+              )}
+              {batch.status === "confirmed" && onVoid && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                  onClick={() =>
+                    onVoid(
+                      batch._id as Id<"reimbursementBatches">,
+                      batch.batchNumber,
+                    )
+                  }
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                  Void
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Expandable expense details -- using separate Collapsible state */}
-        {expanded && (
-          <BatchExpenseList batchId={batch._id as Id<"reimbursementBatches">} />
-        )}
+          <CollapsibleContent>
+            <BatchExpenseList batchId={batch._id as Id<"reimbursementBatches">} />
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );

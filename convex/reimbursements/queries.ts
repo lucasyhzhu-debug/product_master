@@ -112,10 +112,12 @@ export const listBatches = protectedQuery({
       batches = await ctx.db
         .query("reimbursementBatches")
         .withIndex("by_status", (q) => q.eq("status", args.status!))
+        .order("desc")
         .take(100);
     } else {
       batches = await ctx.db
         .query("reimbursementBatches")
+        .order("desc")
         .take(100);
     }
 

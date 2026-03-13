@@ -362,16 +362,14 @@ export const updateBankDetails = protectedMutation({
   handler: async (ctx, args) => {
     const updates: Record<string, string | undefined> = {};
     if (args.bankAccountNumber !== undefined) {
+      // Empty string → undefined (clears the field in Convex)
       updates.bankAccountNumber = args.bankAccountNumber.trim() || undefined;
     }
     if (args.bankName !== undefined) {
       updates.bankName = args.bankName.trim() || undefined;
     }
-    const filteredUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([, v]) => v !== undefined)
-    );
-    if (Object.keys(filteredUpdates).length > 0) {
-      await ctx.db.patch(ctx.user._id, filteredUpdates);
+    if (Object.keys(updates).length > 0) {
+      await ctx.db.patch(ctx.user._id, updates);
     }
   },
 });
