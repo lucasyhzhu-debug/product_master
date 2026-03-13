@@ -193,31 +193,135 @@ export function buildReversedLines(lines: JournalLine[]): JournalLine[] {
 }
 
 // ---------------------------------------------------------------------------
-// Async functions (require MutationCtx) -- stubs for Task 2
+// Async functions (require MutationCtx)
 // ---------------------------------------------------------------------------
 
 /**
  * Create a journal entry with lines. Single entry point for all journal creation.
  *
- * @throws Error if lines fail validation (balance, integer, etc.)
+ * Flow:
+ * 1. Validate lines (balance, integer, etc.) -- throws before any DB writes
+ * 2. Generate sequential entry number (JE-MMDD-NNN)
+ * 3. Insert journal entry header
+ * 4. Insert lines with denormalized entryDate from parent (JE-04)
+ *
+ * @throws Error if lines fail validation
  */
 export async function createJournalEntryWithLines(
-  _ctx: MutationCtx,
-  _params: CreateJournalEntryParams
+  ctx: MutationCtx,
+  params: CreateJournalEntryParams
 ): Promise<Id<"journalEntries">> {
-  throw new Error("Not implemented");
+  // Validate before any DB writes
+  validateJournalLines(params.lines);
+
+  // Generate sequential entry number: JE-MMDD-NNN
+  const entryNumber = await getNextNumber(ctx, "JE");
+
+  // Insert journal entry header
+  const entryId = await ctx.db.insert("journalEntries", {
+    entryNumber,
+    date: params.date,
+    description: params.description,
+    sourceType: params.sourceType,
+    sourceId: params.sourceId,
+    isReversed: false,
+    createdBy: params.createdBy,
+    createdAt: Date.now(),
+  });
+
+  // Insert lines with denormalized entryDate from parent (JE-04)
+  for (const line of params.lines) {
+    await ctx.db.insert("journalEntryLines", {
+      journalEntryId: entryId,
+      accountId: line.accountId,
+      entryDate: params.date, // Denormalized from parent (JE-04)
+      debitAmount: line.debitAmount,
+      creditAmount: line.creditAmount,
+      description: line.description,
+    });
+  }
+
+  return entryId;
 }
 
 /**
  * Create a reversal entry for an existing journal entry.
  *
- * @throws Error if original entry is already reversed, sourceType pairing is invalid, or no lines exist
+ * Flow:
+ * 1. Fetch and validate original entry
+ * 2. Validate sourceType pairing (delegates to validateVoidPairing)
+ * 3. Fetch original lines
+ * 4. Build reversed lines (swap debit/credit)
+ * 5. Create reversal entry via createJournalEntryWithLines (JE-06)
+ * 6. Mark original as reversed (ONLY ctx.db.patch on journalEntries, JE-02)
+ *
+ * Uses original.date as reversal business date, NOT Date.now() (JE-03).
+ * Passes original.sourceId through to maintain by_source index queryability.
+ *
+ * @throws Error if original not found, already reversed, sourceType invalid, or no lines
  */
 export async function createReversalEntry(
-  _ctx: MutationCtx,
-  _originalEntryId: Id<"journalEntries">,
-  _sourceType: "expense_void" | "reimbursement_void" | "payroll_void",
-  _createdBy: Id<"users">
+  ctx: MutationCtx,
+  originalEntryId: Id<"journalEntries">,
+  sourceType: "expense_void" | "reimbursement_void" | "payroll_void",
+  createdBy: Id<"users">
 ): Promise<Id<"journalEntries">> {
-  throw new Error("Not implemented");
+  // Fetch original entry
+  const original = await ctx.db.get(originalEntryId);
+  if (!original) {
+    throw new Error("Original journal entry not found");
+  }
+
+  // Guard: already reversed
+  if (original.isReversed) {
+    throw new Error("Journal entry has already been reversed");
+  }
+
+  // Validate sourceType pairing (delegates to pure function)
+  validateVoidPairing(original.sourceType, sourceType);
+
+  // Fetch original lines
+  const originalLines = await ctx.db
+    .query("journalEntryLines")
+    .withIndex("by_journal_entry", (q) =>
+      q.eq("journalEntryId", originalEntryId)
+    )
+    .collect();
+
+  // Guard: no lines (data integrity error)
+  if (originalLines.length === 0) {
+    throw new Error(
+      "Original journal entry has no lines (data integrity error)"
+    );
+  }
+
+  // Build reversed lines -- extract only JournalLine fields from DB docs
+  const reversedLines = buildReversedLines(
+    originalLines.map((line) => ({
+      accountId: line.accountId,
+      debitAmount: line.debitAmount,
+      creditAmount: line.creditAmount,
+      description: line.description,
+    }))
+  );
+
+  // Create reversal entry via createJournalEntryWithLines (JE-06)
+  // CRITICAL: use original.date, NOT Date.now() (JE-03)
+  // Pass sourceId through to maintain by_source index queryability
+  const reversalId = await createJournalEntryWithLines(ctx, {
+    date: original.date, // Same accounting period as original (JE-03)
+    description: `Reversal of ${original.entryNumber}: ${original.description}`,
+    sourceType,
+    sourceId: original.sourceId,
+    createdBy,
+    lines: reversedLines,
+  });
+
+  // Mark original as reversed (ONLY ctx.db.patch on journalEntries, JE-02)
+  await ctx.db.patch(originalEntryId, {
+    isReversed: true,
+    reversedByEntryId: reversalId,
+  });
+
+  return reversalId;
 }
