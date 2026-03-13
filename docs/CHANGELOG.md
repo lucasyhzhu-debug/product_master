@@ -14,6 +14,39 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] - v1.7 Expense & Accounting
+
+### Double-Entry Journal Engine (Phase 42) — 2026-03-13
+
+**For the team:** The accounting backbone is now in place. Every expense, reimbursement, and payroll entry will flow through a single journal engine that guarantees debits always equal credits — no more manual spreadsheet balancing.
+
+#### Added
+- `convex/lib/journalEngine.ts` (347 lines) — single entry point for all journal creation with 7 exported functions and 3 type exports
+- `createJournalEntryWithLines` — validates balance (debits = credits), enforces IDR integer amounts, generates JE-MMDD-NNN numbers, denormalizes entry dates to lines
+- `createReversalEntry` — void workflow that swaps debits/credits, validates sourceType pairing, uses original entry date (not current date) for correct accounting period
+- `validateJournalLines`, `validateVoidPairing`, `buildDebitLine`, `buildCreditLine`, `buildReversedLines` — pure exported functions for downstream use
+- 27 unit tests for all validation and builder logic
+- Staffreview report: `docs/reviews/staffreview-gsd-phase-42-journal-engine-2026-03-13.md`
+
+#### Design Decisions
+- No direct `ctx.db.insert` on journalEntries/journalEntryLines allowed outside journalEngine.ts
+- No update/patch on journal data fields — entries are immutable, only reversals allowed
+- Negative amount check fires before integer check (so -50000.5 says "non-negative", not "whole numbers")
+- `Promise.all` for parallel line inserts (performance for large payroll batches)
+
+### Accounting Schema, Seed & Counters (Phase 41) — 2026-03-13
+
+**For the team:** The database foundation for expense tracking and accounting is ready. 10 new tables, a Chart of Accounts with 39 standard Indonesian accounting categories, and an automatic numbering system for journal entries, expenses, and reimbursements.
+
+#### Added
+- 10 new accounting tables in Convex schema (accounts, expenses, expenseStatusHistory, reimbursementBatches, reimbursementBatchItems, journalEntries, journalEntryLines, bankAccounts, payrollEntries, counters) — schema now at 75 tables
+- `convex/accounts/mutations.ts` — Chart of Accounts seed function with 39 PSAK-aligned default accounts (1xxx Assets through 7xxx Other Income/Expense)
+- `convex/lib/counter.ts` — atomic daily counter helper generating PREFIX-MMDD-NNN sequential numbers (e.g., JE-0313-001) using WIB timezone
+- Bank account fields added to users table (bankAccountNumber, bankName) for reimbursement payouts
+- 12 unit tests for counter formatting and WIB date logic, 6 seed tests
+
+---
+
 ## [Unreleased] - v1.6 Tech Debt & Resilience
 
 ### Retroactive Verification Gap Closure (Phase 40)
