@@ -104,6 +104,12 @@ export const getStatusHistory = protectedQuery({
     expenseId: v.id("expenses"),
   },
   handler: async (ctx, args) => {
+    // Phase 44: owner-only access — verify expense belongs to current user
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense || expense.submittedBy !== ctx.user._id) {
+      return [];
+    }
+
     const entries = await ctx.db
       .query("expenseStatusHistory")
       .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseId))

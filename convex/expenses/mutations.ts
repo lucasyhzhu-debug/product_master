@@ -208,9 +208,8 @@ export const updateDraft = protectedMutation({
         checkDate
       );
 
-      if (duplicateWarning !== null) {
-        patch.duplicateWarning = duplicateWarning;
-      }
+      // Always update: set warning or clear stale one
+      patch.duplicateWarning = duplicateWarning ?? undefined;
     }
 
     if (Object.keys(patch).length > 0) {
@@ -301,11 +300,9 @@ export const submitExpense = protectedMutation({
       status: "submitted",
       submittedAt: now,
       lateSubmission,
+      // Always update: set warning or clear stale one
+      duplicateWarning: duplicateWarning ?? undefined,
     };
-
-    if (duplicateWarning !== null) {
-      patch.duplicateWarning = duplicateWarning;
-    }
 
     await ctx.db.patch(args.expenseId, patch);
 

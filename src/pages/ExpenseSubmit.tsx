@@ -38,6 +38,7 @@ import {
   useExpenseUploadUrl,
 } from "@/hooks/convex/useExpenses";
 import { ReceiptUpload } from "@/components/expenses/ReceiptUpload";
+import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
 import type { Id } from "../../convex/_generated/dataModel";
 
 // Payment method options matching schema validators
@@ -49,7 +50,7 @@ const PAYMENT_METHODS = [
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
 
-// Minimum amount that requires receipt (matches FRAUD-03)
+// Minimum amount that requires receipt (EXP-03)
 const RECEIPT_WARNING_THRESHOLD = 50_000;
 
 interface FormState {
@@ -64,8 +65,7 @@ interface FormState {
 }
 
 function getDefaultDate(): string {
-  const now = new Date();
-  return now.toISOString().slice(0, 10);
+  return utcToWibDateStr(Date.now());
 }
 
 const INITIAL_FORM: FormState = {
@@ -85,8 +85,11 @@ export function ExpenseSubmit() {
 
   useDocumentTitle(isEditing ? "Edit Expense" : "New Expense");
 
-  // Data queries
-  const accounts = useAccounts(true);
+  // Data queries — filter to expense-relevant account types (opex, cogs, other)
+  const allAccounts = useAccounts(true);
+  const accounts = allAccounts?.filter((a) =>
+    ["opex", "cogs", "other"].includes(a.type)
+  );
   const existingExpense = useExpense(editId ?? undefined);
   const generateUploadUrl = useExpenseUploadUrl();
 
@@ -117,9 +120,7 @@ export function ExpenseSubmit() {
         description: existingExpense.description,
         amount: String(existingExpense.amount),
         accountId: existingExpense.accountId,
-        expenseDate: new Date(existingExpense.expenseDate)
-          .toISOString()
-          .slice(0, 10),
+        expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
         paymentMethod: existingExpense.paymentMethod as PaymentMethod,
         receiptFileId: existingExpense.receiptFileId,
@@ -158,7 +159,7 @@ export function ExpenseSubmit() {
       description: form.description.trim(),
       amount: Number(form.amount),
       accountId: form.accountId as Id<"accounts">,
-      expenseDate: new Date(form.expenseDate).getTime(),
+      expenseDate: wibDateStrToUtcMs(form.expenseDate),
       vendorName: form.vendorName.trim(),
       paymentMethod: form.paymentMethod,
       ...(form.receiptFileId && { receiptFileId: form.receiptFileId }),
@@ -256,7 +257,7 @@ export function ExpenseSubmit() {
   }, []);
 
   // Loading states
-  if (accounts === undefined) {
+  if (allAccounts === undefined) {
     return (
       <div className="space-y-4">
         <PageHeader title="New Expense" backTo="/expenses" backLabel="My Expenses" />
@@ -351,7 +352,7 @@ export function ExpenseSubmit() {
                 <SelectValue placeholder="Select category..." />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((account) => (
+                {accounts?.map((account) => (
                   <SelectItem key={account._id} value={account._id}>
                     {account.code} - {account.name}
                   </SelectItem>
