@@ -128,7 +128,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 - [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
 - [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
-- [ ] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts
+- [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
 - [ ] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail
 - [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
 - [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
@@ -176,7 +176,7 @@ Plans:
   1. Admin can view the full Chart of Accounts with account code, name, type (Asset/Liability/Equity/Revenue/Expense), and active status
   2. Admin can add custom GL accounts with unique codes following PSAK numbering conventions (4xxx, 5xxx, 6xxx, 7xxx, 1xxx-3xxx)
   3. Deactivated accounts are hidden from new expense dropdowns but existing journal entries referencing them are preserved and visible
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 43-01-PLAN.md -- Backend queries/mutations + useAccounts hook + AccountsManager page + route

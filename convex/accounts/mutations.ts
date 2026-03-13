@@ -1,7 +1,30 @@
 import { mutation } from "../_generated/server";
+import { v } from "convex/values";
+import { protectedMutation } from "../lib/functions";
+import { requireRole } from "../lib/auth";
+
+// ---------------------------------------------------------------------------
+// Account type derivation from PSAK code prefix
+// ---------------------------------------------------------------------------
+
+type AccountType = "asset" | "liability" | "equity" | "revenue" | "cogs" | "opex" | "other";
+
+const CODE_PREFIX_TO_TYPE: Record<string, { type: AccountType; category: string }> = {
+  "1": { type: "asset", category: "Assets" },
+  "2": { type: "liability", category: "Liabilities" },
+  "3": { type: "equity", category: "Equity" },
+  "4": { type: "revenue", category: "Revenue" },
+  "5": { type: "cogs", category: "Cost of Goods Sold" },
+  "6": { type: "opex", category: "Operating Expenses" },
+  "7": { type: "other", category: "Other Income/Expense" },
+};
+
+// ---------------------------------------------------------------------------
+// Default Chart of Accounts — 39 PSAK-aligned GL accounts
+// ---------------------------------------------------------------------------
 
 /**
- * Default Chart of Accounts — 36 PSAK-aligned GL accounts.
+ * Default Chart of Accounts — 39 PSAK-aligned GL accounts.
  * Exported for test validation. Used by seedDefaults mutation.
  */
 export const DEFAULT_ACCOUNTS = [
@@ -59,6 +82,10 @@ export const DEFAULT_ACCOUNTS = [
   { code: "3300", name: "Current Period P&L", type: "equity" as const, category: "Equity", isSystem: true, isActive: true },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// seedDefaults — upsert 39 system accounts
+// ---------------------------------------------------------------------------
+
 /**
  * Seed default Chart of Accounts.
  * Run from Convex dashboard Functions tab: accounts:seedDefaults
@@ -67,11 +94,15 @@ export const DEFAULT_ACCOUNTS = [
  * - If account code exists: patch with current values (update)
  * - If not exists: insert new record (create)
  *
- * All 36 defaults have isSystem: true and isActive: true.
+ * All 39 defaults have isSystem: true and isActive: true.
  */
 export const seedDefaults = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { token: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    // Auth guard: require admin when called from frontend. Optional for dashboard seeding.
+    if (args.token) {
+      await requireRole(ctx, args.token, ["admin"]);
+    }
     const results: Array<{ code: string; action: "created" | "updated"; id: string }> = [];
 
     for (const account of DEFAULT_ACCOUNTS) {
@@ -106,5 +137,154 @@ export const seedDefaults = mutation({
     }
 
     return results;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// CRUD mutations — admin-only via protectedMutation
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a custom GL account.
+ * Code must be 4 digits with valid PSAK prefix (1-7). Type and category are auto-derived.
+ */
+export const create = protectedMutation({
+  roles: ["admin"],
+  args: {
+    code: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Validate name is non-empty
+    if (!args.name.trim()) {
+      throw new Error("Account name cannot be empty");
+    }
+
+    // Validate code format: exactly 4 digits
+    if (!/^\d{4}$/.test(args.code)) {
+      throw new Error("Account code must be exactly 4 digits");
+    }
+
+    // Validate code prefix maps to a valid PSAK range
+    const prefix = args.code[0];
+    const mapping = CODE_PREFIX_TO_TYPE[prefix];
+    if (!mapping) {
+      throw new Error(
+        `Invalid account code prefix "${prefix}". Must be 1 (Asset), 2 (Liability), 3 (Equity), 4 (Revenue), 5 (COGS), 6 (OpEx), or 7 (Other).`
+      );
+    }
+
+    // Validate code uniqueness via by_code index
+    const existing = await ctx.db
+      .query("accounts")
+      .withIndex("by_code", (q) => q.eq("code", args.code))
+      .first();
+    if (existing) {
+      throw new Error(`Account code "${args.code}" already exists`);
+    }
+
+    // Insert with auto-derived type and category
+    return await ctx.db.insert("accounts", {
+      code: args.code,
+      name: args.name.trim(),
+      type: mapping.type,
+      category: mapping.category,
+      isSystem: false,
+      isActive: true,
+      ...(args.description !== undefined && { description: args.description }),
+    });
+  },
+});
+
+/**
+ * Update an existing GL account.
+ * Code is immutable after creation (for all accounts, not just system).
+ * Name, description, and isActive can be changed.
+ */
+export const update = protectedMutation({
+  roles: ["admin"],
+  args: {
+    id: v.id("accounts"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const account = await ctx.db.get(args.id);
+    if (!account) {
+      throw new Error("Account not found");
+    }
+
+    // Validate name is non-empty if provided
+    if (args.name !== undefined && args.name.trim() === "") {
+      throw new Error("Account name cannot be empty");
+    }
+
+    // Build patch object — only include provided fields
+    const patch: Record<string, any> = {};
+    if (args.name !== undefined) {
+      patch.name = args.name.trim();
+    }
+    if (args.isActive !== undefined) {
+      patch.isActive = args.isActive;
+    }
+
+    // Handle description: "" = clear field, non-empty = set, undefined = skip
+    const shouldClearDescription = args.description === "";
+    if (args.description !== undefined && args.description !== "") {
+      patch.description = args.description;
+    }
+
+    if (shouldClearDescription) {
+      // ctx.db.patch ignores undefined values, so use replace to remove the optional field
+      const { _id, _creationTime, description: _, ...rest } = account;
+      await ctx.db.replace(args.id, { ...rest, ...patch });
+    } else if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(args.id, patch);
+    }
+  },
+});
+
+/**
+ * Delete a GL account.
+ * System accounts (isSystem: true) cannot be deleted.
+ * Accounts referenced by journal entry lines or expenses cannot be deleted.
+ */
+export const remove = protectedMutation({
+  roles: ["admin"],
+  args: {
+    id: v.id("accounts"),
+  },
+  handler: async (ctx, args) => {
+    const account = await ctx.db.get(args.id);
+    if (!account) {
+      throw new Error("Account not found");
+    }
+
+    // Block system account deletion
+    if (account.isSystem) {
+      throw new Error("Cannot delete system account");
+    }
+
+    // Block deletion if referenced by journal entry lines
+    const journalLineRef = await ctx.db
+      .query("journalEntryLines")
+      .withIndex("by_account_entryDate", (q) => q.eq("accountId", args.id))
+      .first();
+    if (journalLineRef) {
+      throw new Error("Cannot delete account: it is referenced by journal entries");
+    }
+
+    // Block deletion if referenced by expenses
+    const expenseRef = await ctx.db
+      .query("expenses")
+      .withIndex("by_account", (q) => q.eq("accountId", args.id))
+      .first();
+    if (expenseRef) {
+      throw new Error("Cannot delete account: it is referenced by expenses");
+    }
+
+    await ctx.db.delete(args.id);
   },
 });

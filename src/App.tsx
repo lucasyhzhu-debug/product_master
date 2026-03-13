@@ -83,6 +83,9 @@ const GrabFoodManager = lazyWithPreload(() =>
 const GrabFoodMenuSimulator = lazyWithPreload(() =>
   import('./pages/GrabFoodMenuSimulator').then(m => ({ default: m.GrabFoodMenuSimulator }))
 );
+const AccountsManager = lazyWithPreload(() =>
+  import('./pages/AccountsManager').then(m => ({ default: m.AccountsManager }))
+);
 
 function App() {
   return (
@@ -226,6 +229,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessVouchers">
                         <VouchersManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Chart of Accounts (admin-only) */}
+                  <Route
+                    path="accounts"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <AccountsManager />
                       </ProtectedRoute>
                     }
                   />
