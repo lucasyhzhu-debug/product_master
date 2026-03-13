@@ -85,6 +85,9 @@ export interface EntityManagerConfig<T extends { _id: string }> {
   onDelete: (id: string) => Promise<any>;
   onBulkDelete?: (ids: string[]) => Promise<void>;
 
+  /** Per-item delete visibility. When provided, delete button is hidden for items where canDelete returns false. */
+  canDelete?: (item: T) => boolean;
+
   // Page layout
   pageTitle: string;
   pageDescription?: string;
@@ -167,6 +170,7 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
     onUpdate,
     onDelete,
     onBulkDelete,
+    canDelete,
     pageTitle,
     pageDescription,
     backTo,
@@ -347,7 +351,8 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
   const handleSelectAll = (checked: boolean) => {
     if (!displayItems) return;
     if (checked) {
-      setSelectedIds(new Set(displayItems.map((item) => item._id)));
+      const deletableItems = displayItems.filter(item => !canDelete || canDelete(item));
+      setSelectedIds(new Set(deletableItems.map((item) => item._id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -591,15 +596,17 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteRequest(item)}
-                        title={`Delete ${entityName}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {(!canDelete || canDelete(item)) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteRequest(item)}
+                          title={`Delete ${entityName}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -638,6 +645,7 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
                 onSelect={(checked) => handleSelectItem(item._id, checked)}
                 onEdit={() => handleEdit(item)}
                 onDelete={() => handleDeleteRequest(item)}
+                showDelete={!canDelete || canDelete(item)}
               />
             )
           )}
@@ -735,6 +743,7 @@ interface DefaultCardProps<T extends { _id: string }> {
   onSelect: (checked: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  showDelete?: boolean;
 }
 
 function DefaultCard<T extends { _id: string }>({
@@ -745,6 +754,7 @@ function DefaultCard<T extends { _id: string }>({
   onSelect,
   onEdit,
   onDelete,
+  showDelete = true,
 }: DefaultCardProps<T>) {
   const [titleCol, ...detailCols] = columns;
 
@@ -794,15 +804,17 @@ function DefaultCard<T extends { _id: string }>({
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-              onClick={onDelete}
-              title={`Delete ${entityName}`}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {showDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                onClick={onDelete}
+                title={`Delete ${entityName}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
