@@ -19,11 +19,11 @@ const CODE_PREFIX_TO_TYPE: Record<string, { type: AccountType; category: string 
 };
 
 // ---------------------------------------------------------------------------
-// Default Chart of Accounts — 36 PSAK-aligned GL accounts
+// Default Chart of Accounts — 39 PSAK-aligned GL accounts
 // ---------------------------------------------------------------------------
 
 /**
- * Default Chart of Accounts — 36 PSAK-aligned GL accounts.
+ * Default Chart of Accounts — 39 PSAK-aligned GL accounts.
  * Exported for test validation. Used by seedDefaults mutation.
  */
 export const DEFAULT_ACCOUNTS = [
@@ -82,7 +82,7 @@ export const DEFAULT_ACCOUNTS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// seedDefaults — upsert 36 system accounts
+// seedDefaults — upsert 39 system accounts
 // ---------------------------------------------------------------------------
 
 /**
@@ -93,7 +93,7 @@ export const DEFAULT_ACCOUNTS = [
  * - If account code exists: patch with current values (update)
  * - If not exists: insert new record (create)
  *
- * All 36 defaults have isSystem: true and isActive: true.
+ * All 39 defaults have isSystem: true and isActive: true.
  */
 export const seedDefaults = mutation({
   args: {},
@@ -151,6 +151,11 @@ export const create = protectedMutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Validate name is non-empty
+    if (!args.name.trim()) {
+      throw new Error("Account name cannot be empty");
+    }
+
     // Validate code format: exactly 4 digits
     if (!/^\d{4}$/.test(args.code)) {
       throw new Error("Account code must be exactly 4 digits");
@@ -212,7 +217,7 @@ export const update = protectedMutation({
     }
 
     // Build patch object — only include provided fields, no undefined values
-    const patch: Record<string, any> = {};
+    const patch: { name?: string; isActive?: boolean; description?: string | undefined } = {};
     if (args.name !== undefined) {
       patch.name = args.name.trim();
     }

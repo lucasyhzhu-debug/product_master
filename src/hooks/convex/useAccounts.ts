@@ -26,25 +26,25 @@ export function useAccount(id: Id<"accounts"> | undefined) {
 // MUTATION HOOKS
 // ============================================================================
 
-// Suppress successMessage to avoid double toast
-// (EntityManager already shows toast on success; createMutationHook would add a second one)
+// Suppress both success and error messages to avoid double toast
+// (EntityManager already shows toast on both success and error)
 
 /** Create a new GL account */
 export const useCreateAccount = createMutationHook(
   api.accounts.mutations.create,
-  { successMessage: "", errorMessage: "Failed to create account" }
+  { successMessage: "", errorMessage: "" }
 );
 
 /** Update an existing GL account */
 export const useUpdateAccount = createMutationHook(
   api.accounts.mutations.update,
-  { successMessage: "", errorMessage: "Failed to update account" }
+  { successMessage: "", errorMessage: "" }
 );
 
 /** Delete a GL account */
 export const useDeleteAccount = createMutationHook(
   api.accounts.mutations.remove,
-  { successMessage: "", errorMessage: "Failed to delete account" }
+  { successMessage: "", errorMessage: "" }
 );
 
 // ============================================================================

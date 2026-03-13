@@ -438,7 +438,10 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
   // Derived state for rendering
   // -------------------------------------------------------------------------
 
-  const allSelected = displayItems ? displayItems.length > 0 && displayItems.every((item) => selectedIds.has(item._id)) : false;
+  const deletableDisplayItems = displayItems
+    ? displayItems.filter(item => !canDelete || canDelete(item))
+    : [];
+  const allSelected = deletableDisplayItems.length > 0 && deletableDisplayItems.every((item) => selectedIds.has(item._id));
   const someSelected = selectedIds.size > 0;
 
   // -------------------------------------------------------------------------
@@ -575,6 +578,7 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
                     <Checkbox
                       checked={selectedIds.has(item._id)}
                       onCheckedChange={(checked) => handleSelectItem(item._id, !!checked)}
+                      disabled={canDelete ? !canDelete(item) : false}
                       aria-label={`Select ${entityName}`}
                     />
                   </TableCell>
@@ -627,6 +631,7 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
                   <Checkbox
                     checked={selectedIds.has(item._id)}
                     onCheckedChange={(checked) => handleSelectItem(item._id, !!checked)}
+                    disabled={canDelete ? !canDelete(item) : false}
                     aria-label={`Select ${entityName}`}
                   />
                 </div>
@@ -642,6 +647,7 @@ export function EntityManager<T extends { _id: string }>(config: EntityManagerCo
                 columns={columns}
                 entityName={entityName}
                 selected={selectedIds.has(item._id)}
+                disabled={canDelete ? !canDelete(item) : false}
                 onSelect={(checked) => handleSelectItem(item._id, checked)}
                 onEdit={() => handleEdit(item)}
                 onDelete={() => handleDeleteRequest(item)}
@@ -740,6 +746,7 @@ interface DefaultCardProps<T extends { _id: string }> {
   columns: EntityColumn<T>[];
   entityName: string;
   selected: boolean;
+  disabled?: boolean;
   onSelect: (checked: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -751,6 +758,7 @@ function DefaultCard<T extends { _id: string }>({
   columns,
   entityName,
   selected,
+  disabled = false,
   onSelect,
   onEdit,
   onDelete,
@@ -775,6 +783,7 @@ function DefaultCard<T extends { _id: string }>({
             <Checkbox
               checked={selected}
               onCheckedChange={(checked) => onSelect(!!checked)}
+              disabled={disabled}
               aria-label={`Select ${entityName}`}
               className="mt-1"
             />

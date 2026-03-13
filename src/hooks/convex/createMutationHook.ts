@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/utils";
 export interface MutationHookConfig {
   /** Toast message on success. Pass empty string to suppress the toast (e.g. when caller handles it). */
   successMessage: string;
+  /** Toast message on error (used as fallback). Pass empty string to suppress the toast (e.g. when EntityManager handles it). */
   errorMessage: string;
 }
 
@@ -32,7 +33,9 @@ export function createMutationHook<
         }
         return result;
       } catch (error: unknown) {
-        toast.error(getErrorMessage(error, config.errorMessage));
+        if (config.errorMessage !== "") {
+          toast.error(getErrorMessage(error, config.errorMessage));
+        }
         throw error;
       }
     };

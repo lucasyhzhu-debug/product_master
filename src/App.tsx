@@ -235,7 +235,7 @@ function App() {
 
                   {/* Chart of Accounts (admin-only) */}
                   <Route
-                    path="/accounts"
+                    path="accounts"
                     element={
                       <ProtectedRoute allowedRoles={["admin"]}>
                         <AccountsManager />
