@@ -3,29 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 45-02-PLAN.md (expense approval frontend)
-last_updated: "2026-03-13T14:41:56.566Z"
-last_activity: "2026-03-13 -- Completed 45-02-PLAN.md (approval frontend: hooks, fraud flags, approval actions, rejection chain, ExpenseApproval page)"
+stopped_at: Completed 46-01-PLAN.md (reimbursement backend)
+last_updated: "2026-03-13T21:40:13.428Z"
+last_activity: 2026-03-14 -- Completed 46-01-PLAN.md (audit trail extraction, bank accounts CRUD, reimbursement batch mutations/queries, 22 new tests)
 progress:
   total_phases: 10
   completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 45-02-PLAN.md (expense approval frontend)
-last_updated: "2026-03-13T14:08:31Z"
-last_activity: 2026-03-13 -- Completed 45-02-PLAN.md (approval queue page, fraud flags, approval actions, rejection chain)
-progress:
-  total_phases: 10
-  completed_phases: 5
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -33,14 +19,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 45 complete (2/2 plans)
+**Current focus:** v1.7 Expense & Accounting -- Phase 46 plan 01 complete (reimbursement backend)
 
 ## Current Position
 
-Phase: 45 of 50 (Expense Approval & Void)
-Plan: 2 of 2
-Status: Phase 45 complete (2/2 plans)
-Last activity: 2026-03-13 -- Completed 45-02-PLAN.md (approval frontend: hooks, fraud flags, approval actions, rejection chain, ExpenseApproval page)
+Phase: 46 of 50 (Reimbursement)
+Plan: 1 of 2
+Status: Plan 46-01 complete (reimbursement backend)
+Last activity: 2026-03-14 -- Completed 46-01-PLAN.md (audit trail extraction, bank accounts CRUD, reimbursement batch mutations/queries, 22 new tests)
 
 Progress: [█████████░] 90%
 
@@ -86,6 +72,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 45-02: allowedRoles pattern for route guard since canApproveExpenses permission flag deferred to Phase 48
 - 45-02: ApprovalActions uses separate Dialog instances per action type (approve/reject/void) for simpler state management
 - 45-02: Receipt thumbnail deferred -- expense queries don't resolve storage URLs, shows "Receipt attached" badge instead
+- [Phase 46]: recordStatusChange extracted to shared auditTrail.ts (reusable by both expenses and reimbursements)
+- [Phase 46]: listBatches uses .take(100) cap instead of .collect() (I3 fix for unbounded growth)
+- [Phase 46]: confirmBatch uses transferDate as JE business date, not Date.now() (C1 staff review)
+- [Phase 46]: Double-batching guard checks by_expense index on reimbursementBatchItems for pending batches
 
 ### Research Findings (v1.7)
 
@@ -112,6 +102,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-13
-Stopped at: Completed 45-02-PLAN.md (expense approval frontend)
-Resume notes: Phase 45 complete (2/2). Full expense approval workflow: backend mutations + queries (Plan 01), frontend hooks + page + components (Plan 02). Next: Phase 46 (expense reimbursement).
+Last session: 2026-03-14
+Stopped at: Completed 46-01-PLAN.md (reimbursement backend)
+Resume notes: Phase 46 plan 01 complete (1/2). Reimbursement backend: audit trail extraction, bank accounts CRUD, batch mutations (create/confirm/void with JE), queries, 22 new tests. Next: Phase 46 plan 02 (reimbursement frontend).
