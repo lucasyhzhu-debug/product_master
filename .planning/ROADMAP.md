@@ -224,7 +224,11 @@ Plans:
   3. Confirming a batch atomically generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
   4. Admin can void a confirmed batch with reason, generating a reversing JE and returning linked expenses to AwaitingPayment status
   5. Admin can manage company bank accounts (name, bank, account number, active status) and users can optionally store their bank details on their profile for reimbursement
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 46-01-PLAN.md -- Backend: extract auditTrail helper, bank accounts CRUD, user bank details, reimbursement mutations + queries
+- [ ] 46-02-PLAN.md -- Frontend: hooks, ReimbursementManager page, BankAccountsManager page, components, routes
 
 ### Phase 47: Payroll
 **Goal**: Admin can record payroll entries that auto-generate journal entries for salary expense tracking
