@@ -39,14 +39,39 @@ export type JournalSourceType =
   | "payroll_void"
   | "manual"; // No mutation creates manual entries in Phase 42; included to match schema
 
+/** Void source types that reverse an original entry */
+export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void";
+
+/** Source types that can be reversed (non-void, non-manual) */
+export type ReversibleSourceType = "expense_approval" | "reimbursement" | "payroll";
+
 export interface CreateJournalEntryParams {
   date: number; // Business date (accounting period), NOT Date.now()
   description: string;
   sourceType: JournalSourceType;
-  sourceId?: string; // Id of source record (expense, batch, payroll entry)
+  sourceId?: string; // String ID of source record (expense, batch, payroll entry)
   createdBy: Id<"users">;
   lines: JournalLine[]; // Min 2 lines, debits must equal credits
 }
+
+// ---------------------------------------------------------------------------
+// Constants (module-level for reuse and to avoid re-creation per call)
+// ---------------------------------------------------------------------------
+
+/** Source types that cannot be reversed — manual requires manual correction, void types are already reversals (no double-void) */
+const NON_REVERSIBLE_TYPES: readonly string[] = [
+  "manual",
+  "expense_void",
+  "reimbursement_void",
+  "payroll_void",
+];
+
+/** Maps original source type → expected void source type */
+const VALID_VOID_PAIRS: Record<string, VoidSourceType> = {
+  expense_approval: "expense_void",
+  reimbursement: "reimbursement_void",
+  payroll: "payroll_void",
+};
 
 // ---------------------------------------------------------------------------
 // Pure validation functions (exported for testing without MutationCtx)
@@ -120,32 +145,24 @@ export function validateJournalLines(lines: JournalLine[]): void {
  * Guards non-reversible types explicitly (manual, void types) before checking
  * the pairing map. This prevents:
  * - Manual entries being reversed (they require manual correction)
- * - Double-voids (reversing a reversal)
+ * - Double-voids (reversing a reversal — void entries are themselves reversals)
  *
- * @throws Error if original sourceType is non-reversible or pairing is invalid
+ * @throws Error if original sourceType is non-reversible, unknown, or pairing is invalid
  */
 export function validateVoidPairing(
-  originalSourceType: string,
-  voidSourceType: string
+  originalSourceType: JournalSourceType,
+  voidSourceType: VoidSourceType
 ): void {
   // Guard non-reversible source types FIRST (explicit intent, not implicit undefined lookup)
-  const NON_REVERSIBLE_TYPES = [
-    "manual",
-    "expense_void",
-    "reimbursement_void",
-    "payroll_void",
-  ];
   if (NON_REVERSIBLE_TYPES.includes(originalSourceType)) {
-    throw new Error(`Cannot reverse a ${originalSourceType} entry`);
+    throw new Error(`Cannot reverse an ${originalSourceType} entry`);
   }
 
   // Validate the pairing
-  const VALID_VOID_PAIRS: Record<string, string> = {
-    expense_approval: "expense_void",
-    reimbursement: "reimbursement_void",
-    payroll: "payroll_void",
-  };
   const expectedVoidType = VALID_VOID_PAIRS[originalSourceType];
+  if (expectedVoidType === undefined) {
+    throw new Error(`Unknown source type: ${originalSourceType}`);
+  }
   if (expectedVoidType !== voidSourceType) {
     throw new Error(
       `Cannot create ${voidSourceType} reversal for ${originalSourceType} entry`
@@ -230,16 +247,19 @@ export async function createJournalEntryWithLines(
   });
 
   // Insert lines with denormalized entryDate from parent (JE-04)
-  for (const line of params.lines) {
-    await ctx.db.insert("journalEntryLines", {
-      journalEntryId: entryId,
-      accountId: line.accountId,
-      entryDate: params.date, // Denormalized from parent (JE-04)
-      debitAmount: line.debitAmount,
-      creditAmount: line.creditAmount,
-      description: line.description,
-    });
-  }
+  // Promise.all batches independent inserts in a single Convex transaction round-trip
+  await Promise.all(
+    params.lines.map((line) =>
+      ctx.db.insert("journalEntryLines", {
+        journalEntryId: entryId,
+        accountId: line.accountId,
+        entryDate: params.date, // Denormalized from parent (JE-04)
+        debitAmount: line.debitAmount,
+        creditAmount: line.creditAmount,
+        description: line.description,
+      })
+    )
+  );
 
   return entryId;
 }
@@ -263,7 +283,7 @@ export async function createJournalEntryWithLines(
 export async function createReversalEntry(
   ctx: MutationCtx,
   originalEntryId: Id<"journalEntries">,
-  sourceType: "expense_void" | "reimbursement_void" | "payroll_void",
+  sourceType: VoidSourceType,
   createdBy: Id<"users">
 ): Promise<Id<"journalEntries">> {
   // Fetch original entry

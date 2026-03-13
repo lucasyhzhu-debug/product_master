@@ -6,7 +6,7 @@ import {
   buildCreditLine,
   buildReversedLines,
 } from "../journalEngine";
-import type { JournalLine } from "../journalEngine";
+import type { JournalLine, JournalSourceType, VoidSourceType } from "../journalEngine";
 import type { Id } from "../../_generated/dataModel";
 
 // Mock account IDs for pure function tests (no DB access needed)
@@ -153,19 +153,19 @@ describe("validateVoidPairing", () => {
   it("rejects mismatched pairing (expense_approval -> payroll_void)", () => {
     expect(() =>
       validateVoidPairing("expense_approval", "payroll_void")
-    ).toThrow();
+    ).toThrow("Cannot create payroll_void reversal for expense_approval entry");
   });
 
   it("rejects manual sourceType as non-reversible", () => {
     expect(() =>
       validateVoidPairing("manual", "expense_void")
-    ).toThrow("Cannot reverse a manual entry");
+    ).toThrow("Cannot reverse an manual entry");
   });
 
   it("rejects void sourceType (expense_void) as non-reversible (no double-void)", () => {
     expect(() =>
       validateVoidPairing("expense_void", "expense_void")
-    ).toThrow("Cannot reverse a expense_void entry");
+    ).toThrow("Cannot reverse an expense_void entry");
   });
 });
 
