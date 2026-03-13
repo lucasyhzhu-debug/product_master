@@ -191,7 +191,7 @@ Plans:
   3. Receipt upload is enforced for expenses > Rp 50,000 (blocked at backend) and optional for <= Rp 50,000
   4. Uploading a receipt with a SHA-256 hash matching an existing receipt hard-blocks submission with a reference to the duplicate expense
   5. Every status transition (Draft, Pending, Approved, Rejected, AwaitingPayment, Reimbursed, Voided) is recorded in an immutable audit trail with actor, timestamp, and optional comment
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 44-01-PLAN.md -- Backend helpers + tests, expense mutations + queries (CRUD, fraud controls, audit trail)
