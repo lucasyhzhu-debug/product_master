@@ -65,6 +65,42 @@ export function useExpenseUploadUrl() {
 }
 
 // ============================================================================
+// APPROVAL QUERY HOOKS (Phase 45)
+// ============================================================================
+
+/** List expenses pending approval for the current user (manager/admin only) */
+export function usePendingForApproval() {
+  return useSessionQuery(api.expenses.queries.listPendingForApproval, {});
+}
+
+/** Get the rejection chain for an expense (previous rejected versions) */
+export function useRejectionChain(expenseId: Id<"expenses"> | undefined) {
+  return useSessionQuery(
+    api.expenses.queries.getRejectionChain,
+    expenseId ? { expenseId } : "skip"
+  );
+}
+
+// ============================================================================
+// APPROVAL MUTATION HOOKS (Phase 45)
+// ============================================================================
+
+export const useApproveExpense = createMutationHook(
+  api.expenses.mutations.approveExpense,
+  { successMessage: "Expense approved", errorMessage: "Failed to approve expense" }
+);
+
+export const useRejectExpense = createMutationHook(
+  api.expenses.mutations.rejectExpense,
+  { successMessage: "Expense rejected", errorMessage: "Failed to reject expense" }
+);
+
+export const useVoidExpense = createMutationHook(
+  api.expenses.mutations.voidExpense,
+  { successMessage: "Expense voided", errorMessage: "Failed to void expense" }
+);
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -72,3 +108,5 @@ export type Expense = NonNullable<ReturnType<typeof useMyExpenses>>[number];
 export type ExpenseStatusHistoryEntry = NonNullable<
   ReturnType<typeof useExpenseStatusHistory>
 >[number];
+export type PendingExpense = NonNullable<ReturnType<typeof usePendingForApproval>>[number];
+export type RejectionChainEntry = NonNullable<ReturnType<typeof useRejectionChain>>[number];

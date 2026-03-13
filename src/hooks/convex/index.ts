@@ -391,18 +391,28 @@ export {
   type Account,
 } from "./useAccounts";
 
-// Expenses (Expense Submission - Phase 44)
+// Expenses (Expense Submission - Phase 44, Approval - Phase 45)
 export {
+  // Query hooks
   useMyExpenses,
   useExpense,
   useExpenseStatusHistory,
+  usePendingForApproval,
+  useRejectionChain,
+  // Mutation hooks
   useCreateExpenseDraft,
   useUpdateExpenseDraft,
   useSubmitExpense,
   useExpenseUploadUrl,
+  useApproveExpense,
+  useRejectExpense,
+  useVoidExpense,
+  // Types
   type Expense,
   type ExpenseStatus,
   type ExpenseStatusHistoryEntry,
+  type PendingExpense,
+  type RejectionChainEntry,
 } from "./useExpenses";
 
 // Dispatch Planner (Unified Dispatch Planner)
