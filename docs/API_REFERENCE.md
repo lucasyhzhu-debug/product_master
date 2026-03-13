@@ -1598,6 +1598,57 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 
 ---
 
+### Chart of Accounts (Phase 43)
+
+#### `accounts.queries.list`
+**Type:** Query (real-time, reactive)
+**Auth:** None (read-only, route protected by admin role)
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `activeOnly` | `optional boolean` | If true, returns only active accounts via `by_active_type` index |
+
+**Returns:** `Account[]` sorted by code ascending (natural PSAK ordering: 1xxx, 2xxx, ..., 7xxx)
+
+#### `accounts.queries.getById`
+**Type:** Query
+**Auth:** None
+**Args:** `{ id: Id<"accounts"> }`
+**Returns:** `Account | null`
+
+#### `accounts.mutations.seedDefaults`
+**Type:** Mutation
+**Auth:** Optional (`token: v.optional(v.string())` — enforces admin when provided)
+**Args:** `{ token?: string }`
+**Returns:** `Array<{ code, action: "created" | "updated", id }>` — 39 PSAK-aligned default accounts
+**Notes:** Upsert pattern — safe to re-run. Call from Convex dashboard Functions tab.
+
+#### `accounts.mutations.create`
+**Type:** Protected Mutation (admin)
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `code` | `string` | 4-digit PSAK code (validated: format + prefix 1-7 + uniqueness) |
+| `name` | `string` | Account name (required, trimmed) |
+| `description` | `optional string` | Optional notes |
+
+**Returns:** `Id<"accounts">`
+**Notes:** Type and category auto-derived from code prefix.
+
+#### `accounts.mutations.update`
+**Type:** Protected Mutation (admin)
+**Args:** `{ id, name?, description?, isActive? }`
+**Notes:** Code is immutable. Empty description string clears the field (uses `ctx.db.replace()`).
+
+#### `accounts.mutations.remove`
+**Type:** Protected Mutation (admin)
+**Args:** `{ id: Id<"accounts"> }`
+**Errors:** Blocked if system account, referenced by journal entries (`by_account_entryDate` index), or referenced by expenses (`by_account` index).
+
+---
+
 ### Library Utilities
 
 #### `buildProductCOGSMap` (convex/lib/costCalculator.ts)

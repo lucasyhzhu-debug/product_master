@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Chart of Accounts Management (Phase 43) — 2026-03-13
+
+**For the team:** Admins can now view, create, and manage GL accounts directly in the app. The 39 default Indonesian accounting categories (PSAK-aligned) are seeded automatically, and custom accounts can be added with automatic type/category derivation from the account code prefix.
+
+#### Added
+- `src/pages/AccountsManager.tsx` — admin-only Chart of Accounts page at `/accounts` with table/card views, search, and bulk operations
+- `convex/accounts/queries.ts` — list (with optional active-only filter) and getById queries
+- `convex/accounts/mutations.ts` — create (with PSAK code validation), update, remove (with system account and dependency protection), seedDefaults (with optional auth)
+- `src/hooks/convex/useAccounts.ts` — Convex hooks for accounts CRUD
+- Enhanced `EntityManager` with `canDelete` prop — hides delete button and disables checkbox per-row (backward-compatible, reusable for all entity pages)
+- `by_account` index on `expenses` table for efficient dependency checking
+
+#### Triple Review Fixes (2 rounds)
+- Round 1: Fixed route path (relative), code field hidden on edit, typed AccountType, expense dependency check, toast suppression
+- Round 2: Fixed description clearing (use `ctx.db.replace()` instead of patch with undefined), added auth guard to seedDefaults, added `by_account` index, defense-in-depth bulk delete filtering
+
 ### Double-Entry Journal Engine (Phase 42) — 2026-03-13
 
 **For the team:** The accounting backbone is now in place. Every expense, reimbursement, and payroll entry will flow through a single journal engine that guarantees debits always equal credits — no more manual spreadsheet balancing.

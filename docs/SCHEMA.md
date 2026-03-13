@@ -1510,3 +1510,48 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 - `productionCounts` table: Updated comment from "Running production tallies" to "ARCHIVED: Read-only since Phase 21. Source of truth is now productionLog aggregation + productionResets timestamps."
 
 ### Net Change: 166 → 150 indexes (removed 21, added 5)
+
+---
+
+## Accounting & Expense Tables (Phase 41-43)
+
+### `accounts` — Chart of Accounts (PSAK-aligned GL accounts)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | `string` | 4-digit PSAK code (1xxx-7xxx). Prefix determines type. |
+| `name` | `string` | Account display name (e.g., "Direct Sales") |
+| `type` | `union` | `"asset"` \| `"liability"` \| `"equity"` \| `"revenue"` \| `"cogs"` \| `"opex"` \| `"other"` |
+| `category` | `string` | Display group (e.g., "Revenue", "Operating Expenses") |
+| `isActive` | `boolean` | Active accounts appear in dropdowns |
+| `isSystem` | `boolean` | System accounts cannot be deleted |
+| `description` | `optional string` | Optional notes |
+
+**Indexes:** `by_code` (code), `by_type` (type), `by_active_type` (isActive, type)
+
+**Seed:** 39 default accounts via `accounts:seedDefaults` from dashboard. Upsert pattern — safe to re-run.
+
+**Code prefix mapping:**
+- `1xxx` = Asset, `2xxx` = Liability, `3xxx` = Equity, `4xxx` = Revenue
+- `5xxx` = COGS, `6xxx` = OpEx, `7xxx` = Other Income/Expense
+
+### `expenses` — Expense Records
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accountId` | `id("accounts")` | GL account reference |
+| `expenseNumber` | `string` | Sequential EXP-MMDD-NNN format |
+| `submittedBy` | `id("users")` | Employee who submitted |
+| `amount` | `number` | IDR amount (integer) |
+| `expenseDate` | `number` | Epoch ms of expense date |
+| `description` | `string` | Expense description |
+| `vendorName` | `string` | Vendor/payee name |
+| `paymentMethod` | `union` | `"personal_cash"` \| `"personal_transfer"` \| `"company_card"` |
+| `status` | `union` | `"draft"` \| `"submitted"` \| `"approved"` \| `"rejected"` \| `"awaiting_payment"` \| `"reimbursed"` \| `"voided"` |
+| `receiptFileId` | `optional id("_storage")` | Receipt image in Convex storage |
+| `receiptImageHash` | `optional string` | For duplicate detection |
+| `lateSubmission` | `boolean` | Flagged if submitted after policy window |
+
+**Indexes:** `by_submitter_status`, `by_status`, `by_amount_date_submitter`, `by_receipt_hash`, `by_expense_number`, `by_account`
+
+**Note:** Full field list in `convex/schema.ts` (includes approval/rejection/void workflow fields).

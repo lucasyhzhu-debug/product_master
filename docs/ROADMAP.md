@@ -99,6 +99,24 @@
 - [ ] Multi-channel revenue aggregation integration test (gobiz + consignment + internal)
 - [ ] Success criteria audit trail mapping tests to requirements
 
+#### Phase 41: Accounting Schema, Seed & Counters (Completed)
+- [x] 10 new accounting tables (accounts, expenses, journalEntries, journalEntryLines, etc.)
+- [x] 39 PSAK-aligned default GL accounts seeded via `accounts:seedDefaults`
+- [x] Atomic daily counter helper (`convex/lib/counter.ts`) for sequential numbering (JE-MMDD-NNN)
+
+#### Phase 42: Double-Entry Journal Engine (Completed)
+- [x] `convex/lib/journalEngine.ts` — single entry point for all journal creation (7 exports, 347 LOC)
+- [x] Balance validation (debits = credits), IDR integer enforcement, sequential JE numbering
+- [x] Reversal workflow with sourceType pairing and debit/credit swap
+- [x] 27 unit tests for validation and builder logic
+
+#### Phase 43: Chart of Accounts Management (Completed)
+- [x] Admin-only AccountsManager page at `/accounts` with EntityManager pattern
+- [x] CRUD mutations with PSAK code validation, system account protection, dependency checks
+- [x] 39 seeded accounts viewable with type-colored badges, search, bulk operations
+- [x] EntityManager `canDelete` prop enhancement (reusable for all entity pages)
+- [x] Two rounds of triple-review fixes applied
+
 ---
 
 ## Not Yet Implemented
@@ -170,6 +188,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 5.0 | 2026-03-13 | Accounting foundation: schema + journal engine + Chart of Accounts UI (v1.7 Phases 41-43) |
 | 4.0 | 2026-03-02 | Income Statement: backend query + frontend P&L page + CSV export (v1.5 Phases 32-33) |
 | 3.4 | 2026-02-09 | GoBiz journal-level integration (5-metric revenue + item details) |
 | 3.3 | 2026-02-07 | Multi-platform sales integration (K3Mart + GoBiz) |
