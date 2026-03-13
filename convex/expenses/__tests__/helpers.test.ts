@@ -4,9 +4,15 @@ import {
   validateExpenseAmount,
   isLateSubmission,
   checkDuplicateExpense,
+  canApproveExpense,
+  requiresApproverComment,
+  getTargetStatusAfterApproval,
+  isVoidableStatus,
   RECEIPT_THRESHOLD,
   DUPLICATE_WINDOW_DAYS,
   LATE_SUBMISSION_DAYS,
+  DOA_ADMIN_ONLY_THRESHOLD,
+  COMMENT_REQUIRED_THRESHOLD,
 } from "../helpers";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -150,5 +156,135 @@ describe("checkDuplicateExpense", () => {
     const result = checkDuplicateExpense(existing, 50000, baseDate);
     expect(result).toBeTypeOf("string");
     expect(result).toContain("EXP-0319-001");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 45: DoA (Delegation of Authority) helpers
+// ---------------------------------------------------------------------------
+
+describe("DoA constants", () => {
+  it("DOA_ADMIN_ONLY_THRESHOLD is 500000", () => {
+    expect(DOA_ADMIN_ONLY_THRESHOLD).toBe(500_000);
+  });
+
+  it("COMMENT_REQUIRED_THRESHOLD is 500000", () => {
+    expect(COMMENT_REQUIRED_THRESHOLD).toBe(500_000);
+  });
+});
+
+describe("canApproveExpense", () => {
+  const submitterId = "user_submitter";
+  const approverId = "user_approver";
+
+  // Manager: can approve <= 500K submitted by others
+  it("manager can approve expense at threshold (500K)", () => {
+    const result = canApproveExpense("manager", 500_000, submitterId, approverId);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it("manager cannot approve expense above threshold (500,001)", () => {
+    const result = canApproveExpense("manager", 500_001, submitterId, approverId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeDefined();
+  });
+
+  // Admin: can approve any amount submitted by others
+  it("admin can approve expense above threshold (500,001)", () => {
+    const result = canApproveExpense("admin", 500_001, submitterId, approverId);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it("admin can approve expense at low amount", () => {
+    const result = canApproveExpense("admin", 100_000, submitterId, approverId);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  // Self-approval blocked for ALL roles
+  it("admin cannot approve own expense", () => {
+    const result = canApproveExpense("admin", 100_000, submitterId, submitterId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("own expense");
+  });
+
+  it("manager cannot approve own expense", () => {
+    const result = canApproveExpense("manager", 100_000, submitterId, submitterId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toContain("own expense");
+  });
+
+  // Non-approver roles blocked
+  it("order_staff cannot approve", () => {
+    const result = canApproveExpense("order_staff", 100_000, submitterId, approverId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeDefined();
+  });
+
+  it("kitchen cannot approve", () => {
+    const result = canApproveExpense("kitchen", 100_000, submitterId, approverId);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeDefined();
+  });
+});
+
+describe("requiresApproverComment", () => {
+  it("returns true at threshold (500K -- >= not >)", () => {
+    expect(requiresApproverComment(500_000)).toBe(true);
+  });
+
+  it("returns true above threshold", () => {
+    expect(requiresApproverComment(500_001)).toBe(true);
+  });
+
+  it("returns false below threshold (499,999)", () => {
+    expect(requiresApproverComment(499_999)).toBe(false);
+  });
+
+  it("returns false for small amount", () => {
+    expect(requiresApproverComment(1_000)).toBe(false);
+  });
+});
+
+describe("getTargetStatusAfterApproval", () => {
+  it("company_card -> approved (terminal)", () => {
+    expect(getTargetStatusAfterApproval("company_card")).toBe("approved");
+  });
+
+  it("personal_cash -> awaiting_payment", () => {
+    expect(getTargetStatusAfterApproval("personal_cash")).toBe("awaiting_payment");
+  });
+
+  it("personal_transfer -> awaiting_payment", () => {
+    expect(getTargetStatusAfterApproval("personal_transfer")).toBe("awaiting_payment");
+  });
+});
+
+describe("isVoidableStatus", () => {
+  it("submitted is voidable", () => {
+    expect(isVoidableStatus("submitted")).toBe(true);
+  });
+
+  it("approved is voidable", () => {
+    expect(isVoidableStatus("approved")).toBe(true);
+  });
+
+  it("awaiting_payment is voidable", () => {
+    expect(isVoidableStatus("awaiting_payment")).toBe(true);
+  });
+
+  it("rejected is voidable", () => {
+    expect(isVoidableStatus("rejected")).toBe(true);
+  });
+
+  it("reimbursed is NOT voidable", () => {
+    expect(isVoidableStatus("reimbursed")).toBe(false);
+  });
+
+  it("voided is NOT voidable", () => {
+    expect(isVoidableStatus("voided")).toBe(false);
+  });
+
+  it("draft is NOT voidable", () => {
+    expect(isVoidableStatus("draft")).toBe(false);
   });
 });
