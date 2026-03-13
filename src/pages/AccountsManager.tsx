@@ -59,7 +59,7 @@ const columns: EntityColumn<Account>[] = [
     render: (item) => (
       <div className="flex items-center gap-1.5">
         {item.isSystem && (
-          <Lock className="h-3.5 w-3.5 text-muted-foreground" title="System account" />
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="System account" />
         )}
         {item.isActive ? (
           <span className="text-sm text-muted-foreground">Active</span>
