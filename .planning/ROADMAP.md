@@ -127,7 +127,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 **Milestone Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend the P&L to Net Income with OpEx breakdown.
 
 - [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
-- [ ] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support
+- [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
 - [ ] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts
 - [ ] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail
 - [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
@@ -163,7 +163,7 @@ Plans:
   2. No update mutation exists for journal entries -- the only correction path is creating a reversing entry
   3. Reversal entries post to the same accounting period (date) as the original entry, not Date.now()
   4. All downstream JE consumers (expense approval, reimbursement, payroll, void) use the single creation helper -- no direct `ctx.db.insert` on journalEntryLines
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 42-01-PLAN.md -- Journal engine helper (createJournalEntryWithLines, createReversalEntry, validation, tests)
@@ -176,7 +176,10 @@ Plans:
   1. Admin can view the full Chart of Accounts with account code, name, type (Asset/Liability/Equity/Revenue/Expense), and active status
   2. Admin can add custom GL accounts with unique codes following PSAK numbering conventions (4xxx, 5xxx, 6xxx, 7xxx, 1xxx-3xxx)
   3. Deactivated accounts are hidden from new expense dropdowns but existing journal entries referencing them are preserved and visible
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 43-01-PLAN.md -- Backend queries/mutations + useAccounts hook + AccountsManager page + route
 
 ### Phase 44: Expense Submission
 **Goal**: Any authenticated user can create expense drafts, attach receipts, and submit them for approval
@@ -188,7 +191,11 @@ Plans:
   3. Receipt upload is enforced for expenses > Rp 50,000 (blocked at backend) and optional for <= Rp 50,000
   4. Uploading a receipt with a SHA-256 hash matching an existing receipt hard-blocks submission with a reference to the duplicate expense
   5. Every status transition (Draft, Pending, Approved, Rejected, AwaitingPayment, Reimbursed, Voided) is recorded in an immutable audit trail with actor, timestamp, and optional comment
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 44-01-PLAN.md -- Backend helpers + tests, expense mutations + queries (CRUD, fraud controls, audit trail)
+- [ ] 44-02-PLAN.md -- Frontend hooks, shared components, ExpenseSubmit page, MyExpenses page, route registration
 
 ### Phase 45: Expense Approval & Void
 **Goal**: Managers and admins can approve or reject expenses following Delegation of Authority rules, with fraud detection flags shown inline
