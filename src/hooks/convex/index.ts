@@ -415,6 +415,36 @@ export {
   type RejectionChainEntry,
 } from "./useExpenses";
 
+// Reimbursements (Reimbursement Batching - Phase 46)
+export {
+  // Query hooks
+  useAwaitingPayment,
+  useBatches,
+  useBatchById,
+  useBatchItems,
+  // Mutation hooks
+  useCreateBatch,
+  useConfirmBatch,
+  useVoidBatch,
+  // Types
+  type AwaitingPaymentGroup,
+  type Batch,
+} from "./useReimbursements";
+
+// Bank Accounts (Reimbursement Batching - Phase 46)
+export {
+  // Query hooks
+  useBankAccounts,
+  useBankAccount,
+  // Mutation hooks
+  useCreateBankAccount,
+  useUpdateBankAccount,
+  useDeleteBankAccount,
+  useUpdateBankDetails,
+  // Types
+  type BankAccount,
+} from "./useBankAccounts";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks

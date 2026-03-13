@@ -5,6 +5,7 @@
  */
 
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 
 // ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ export const listAwaitingPayment = protectedQuery({
     // Enrich with user details and format
     const result = [];
     for (const group of byEmployee.values()) {
-      const user = await ctx.db.get(group.userId as never);
+      const user = await ctx.db.get(group.userId as Id<"users">);
       const userName = user?.name ?? "Unknown User";
       const bankAccountNumber = user?.bankAccountNumber ?? null;
       const bankName = user?.bankName ?? null;
