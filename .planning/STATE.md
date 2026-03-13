@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 43-01-PLAN.md (chart of accounts management)
-last_updated: "2026-03-13T06:48:46.519Z"
-last_activity: 2026-03-13 -- Completed 43-01-PLAN.md (COA management with PSAK validation and EntityManager canDelete)
+stopped_at: Completed 44-02-PLAN.md (expense submission frontend)
+last_updated: "2026-03-13T08:29:00.036Z"
+last_activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
 progress:
   total_phases: 10
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 6
 ---
 
 ---
@@ -18,15 +18,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 43-01-PLAN.md (chart of accounts management)
-last_updated: "2026-03-13T06:42:43Z"
-last_activity: 2026-03-13 -- Completed 43-01-PLAN.md (COA management with PSAK validation and EntityManager canDelete)
+stopped_at: Completed 44-02-PLAN.md (expense submission frontend)
+last_updated: "2026-03-13T08:21:04Z"
+last_activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
 progress:
   total_phases: 10
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -34,16 +34,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 43 Plan 01 complete
+**Current focus:** v1.7 Expense & Accounting -- Phase 44 complete (2/2 plans)
 
 ## Current Position
 
-Phase: 43 of 50 (Chart of Accounts Management)
-Plan: 1 of 1
-Status: Phase 43 Plan 01 complete
-Last activity: 2026-03-13 -- Completed 43-01-PLAN.md (COA management with PSAK validation and EntityManager canDelete)
+Phase: 44 of 50 (Expense Submission)
+Plan: 2 of 2
+Status: Phase 44 complete
+Last activity: 2026-03-13 -- Completed 44-02-PLAN.md (expense frontend hooks, pages, and routes)
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -75,6 +75,11 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 43-01: Account code immutable after creation (stripped from update payload, not just system accounts)
 - 43-01: Double toast suppressed via empty successMessage on mutation hooks (EntityManager handles toast)
 - 43-01: Lock icon uses aria-label not title prop (Lucide React type constraint)
+- 44-01: ALL_ROLES constant for all-user access instead of new auth wrapper
+- 44-01: recordStatusChange internal helper (not exported) keeps audit trail coupling tight
+- 44-01: updateDraft excludes self from duplicate check to prevent false positives
+- 44-02: useSessionQuery for protectedQuery endpoints (first usage in codebase; useQuery lacks sessionId auto-injection)
+- 44-02: ReceiptUpload is self-contained component with generateUploadUrl prop and SHA-256 client-side hashing
 
 ### Research Findings (v1.7)
 
@@ -102,5 +107,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 43-01-PLAN.md (chart of accounts management)
-Resume notes: Phase 43 Plan 01 complete (1/1 plans). COA management page ready at /accounts. Phase 43 has only 1 plan -- phase complete pending merge.
+Stopped at: Completed 44-02-PLAN.md (expense submission frontend)
+Resume notes: Phase 44 complete (2/2 plans). Full expense submission workflow: backend API + frontend UI. Next phase: 45 (expense approval).

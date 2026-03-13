@@ -8,11 +8,11 @@
 - [x] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
 
 ## Expense Submission
-- [ ] **EXP-01**: Any authenticated user can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
-- [ ] **EXP-02**: User can submit a draft expense for approval, triggering routing to eligible approvers
-- [ ] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
-- [ ] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
-- [ ] **EXP-05**: User can view their own expense history with status filters and timeline tracker
+- [x] **EXP-01**: Any authenticated user can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
+- [x] **EXP-02**: User can submit a draft expense for approval, triggering routing to eligible approvers
+- [x] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
+- [x] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
+- [x] **EXP-05**: User can view their own expense history with status filters and timeline tracker
 - [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
 
 ## Expense Approval
@@ -29,7 +29,7 @@
 ## Expense Void
 - [ ] **EXP-16**: Admin can void any non-terminal expense with a reason, generating a reversing journal entry
 - [ ] **EXP-17**: Reimbursed expenses cannot be voided directly — the reimbursement batch must be voided instead
-- [ ] **EXP-18**: Every status transition is recorded in an immutable audit trail (expenseStatusHistory)
+- [x] **EXP-18**: Every status transition is recorded in an immutable audit trail (expenseStatusHistory)
 
 ## Fraud Controls — Must-Have
 - [ ] **FRAUD-01**: System warns on duplicate detection (same employee + amount + date within 7 days)
@@ -121,11 +121,11 @@
 | COA-03 | Phase 43 | Complete |
 | COA-04 | Phase 41 | Complete |
 | COA-05 | Phase 41 | Complete |
-| EXP-01 | Phase 44 | Pending |
-| EXP-02 | Phase 44 | Pending |
-| EXP-03 | Phase 44 | Pending |
-| EXP-04 | Phase 44 | Pending |
-| EXP-05 | Phase 44 | Pending |
+| EXP-01 | Phase 44 | Complete |
+| EXP-02 | Phase 44 | Complete |
+| EXP-03 | Phase 44 | Complete |
+| EXP-04 | Phase 44 | Complete |
+| EXP-05 | Phase 44 | Complete |
 | EXP-06 | Phase 41 | Complete |
 | EXP-07 | Phase 45 | Pending |
 | EXP-08 | Phase 45 | Pending |
@@ -138,7 +138,7 @@
 | EXP-15 | Phase 45 | Pending |
 | EXP-16 | Phase 45 | Pending |
 | EXP-17 | Phase 45 | Pending |
-| EXP-18 | Phase 44 | Pending |
+| EXP-18 | Phase 44 | Complete |
 | FRAUD-01 | Phase 45 | Pending |
 | FRAUD-02 | Phase 45 | Pending |
 | FRAUD-03 | Phase 45 | Pending |

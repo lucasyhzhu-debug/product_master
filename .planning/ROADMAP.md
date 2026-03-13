@@ -129,7 +129,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
 - [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
 - [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
-- [ ] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail
+- [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
 - [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
 - [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
 - [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
@@ -191,7 +191,7 @@ Plans:
   3. Receipt upload is enforced for expenses > Rp 50,000 (blocked at backend) and optional for <= Rp 50,000
   4. Uploading a receipt with a SHA-256 hash matching an existing receipt hard-blocks submission with a reference to the duplicate expense
   5. Every status transition (Draft, Pending, Approved, Rejected, AwaitingPayment, Reimbursed, Voided) is recorded in an immutable audit trail with actor, timestamp, and optional comment
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 44-01-PLAN.md -- Backend helpers + tests, expense mutations + queries (CRUD, fraud controls, audit trail)

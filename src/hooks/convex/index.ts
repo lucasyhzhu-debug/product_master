@@ -391,6 +391,20 @@ export {
   type Account,
 } from "./useAccounts";
 
+// Expenses (Expense Submission - Phase 44)
+export {
+  useMyExpenses,
+  useExpense,
+  useExpenseStatusHistory,
+  useCreateExpenseDraft,
+  useUpdateExpenseDraft,
+  useSubmitExpense,
+  useExpenseUploadUrl,
+  type Expense,
+  type ExpenseStatus,
+  type ExpenseStatusHistoryEntry,
+} from "./useExpenses";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
