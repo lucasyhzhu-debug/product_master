@@ -38,11 +38,9 @@ created: 2026-03-12
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 41-01-01 | 01 | 1 | COA-04 | unit | `npx vitest run convex/accounts/__tests__/seed.test.ts -x` | ❌ W0 | ⬜ pending |
-| 41-01-02 | 01 | 1 | COA-05 | unit | `npx vitest run convex/accounts/__tests__/seed.test.ts -x` | ❌ W0 | ⬜ pending |
-| 41-01-03 | 01 | 1 | EXP-06 | unit | `npx vitest run convex/lib/__tests__/counter.test.ts -x` | ❌ W0 | ⬜ pending |
-| 41-01-04 | 01 | 1 | JE-04 | schema | `npm run type-check` | N/A | ⬜ pending |
-| 41-01-05 | 01 | 1 | JE-05 | unit | `npx vitest run convex/lib/__tests__/counter.test.ts -x` | ❌ W0 | ⬜ pending |
+| 41-01-T1 | 01 | 1 | JE-04 | schema | `npm run type-check` | N/A | ⬜ pending |
+| 41-01-T2 | 01 | 1 | COA-04, COA-05 | unit | `npx vitest run convex/accounts/__tests__/seed.test.ts -x` | ❌ W0 | ⬜ pending |
+| 41-02-T1 | 02 | 2 | EXP-06, JE-05 | unit | `npx vitest run convex/lib/__tests__/counter.test.ts -x` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
