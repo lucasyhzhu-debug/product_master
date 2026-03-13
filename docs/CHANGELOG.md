@@ -16,6 +16,34 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense Submission (Phase 44) — 2026-03-13
+
+**For the team:** Any staff member can now submit expense claims through the app. Fill in the details, attach a receipt photo, save as draft, and submit for approval — all from your phone. The system automatically flags late submissions and warns about possible duplicates to prevent mistakes.
+
+#### Added
+- `src/pages/ExpenseSubmit.tsx` — expense creation form at `/expenses/new` with draft save and submit workflow
+- `src/pages/MyExpenses.tsx` — personal expense list at `/expenses` with status filter tabs (All, Drafts, Pending, Approved, Rejected) and chronological audit trail timeline
+- `src/components/expenses/StatusBadge.tsx` — color-coded badge for 7 expense statuses
+- `src/components/expenses/ReceiptUpload.tsx` — receipt upload with client-side SHA-256 hashing (5MB limit, JPEG/PNG/WebP/PDF)
+- `src/components/expenses/ExpenseCard.tsx` — expense list card with fraud warning icons
+- `src/hooks/convex/useExpenses.ts` — typed query/mutation hooks with `ExpenseStatus` union type
+- `convex/expenses/helpers.ts` — pure validation functions (requiresReceipt, validateExpenseAmount, isLateSubmission, checkDuplicateExpense)
+- `convex/expenses/__tests__/helpers.test.ts` — 22 unit tests covering all helper functions
+- `convex/expenses/mutations.ts` — createDraft, updateDraft, submitExpense, generateUploadUrl with protectedMutation
+- `convex/expenses/queries.ts` — listMyExpenses, getById, getStatusHistory with owner-only access
+
+#### Fraud Controls
+- FRAUD-01: Soft duplicate warning when same amount + date within 7-day window
+- FRAUD-02: Hard block on reused receipt images (SHA-256 hash match)
+- FRAUD-03: Late submission flag when expense date > 14 days before submission
+- EXP-03: Receipt required for expenses over Rp 50,000
+
+#### Triple Review Fixes
+- Fixed stale `duplicateWarning` never being cleared when condition resolves
+- Added ownership check to `getStatusHistory` query (security fix)
+- Switched to WIB timezone helpers (`utcToWibDateStr`/`wibDateStrToUtcMs`) for correct Indonesian date handling
+- Filtered GL dropdown to expense-relevant account types only (opex, cogs, other)
+
 ### Chart of Accounts Management (Phase 43) — 2026-03-13
 
 **For the team:** Admins can now view, create, and manage GL accounts directly in the app. The 39 default Indonesian accounting categories (PSAK-aligned) are seeded automatically, and custom accounts can be added with automatic type/category derivation from the account code prefix.
