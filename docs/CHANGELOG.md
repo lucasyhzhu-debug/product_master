@@ -16,6 +16,37 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense Approval & Void (Phase 45) — 2026-03-13
+
+**For the team:** Managers and admins can now review and approve expense claims from a dedicated approval queue. The system enforces approval limits (managers up to Rp 500K, admins unlimited), blocks self-approval, and shows fraud warnings. Rejected expenses include a reason that the submitter sees, and admins can void any non-terminal expense. Previously rejected resubmissions show the full rejection history.
+
+#### Added
+- `src/pages/ExpenseApproval.tsx` — approval queue page at `/expenses/approve` with fraud flag badges and submitter names
+- `src/components/expenses/FraudFlags.tsx` — duplicate, late submission, and rejection count warning badges
+- `src/components/expenses/ApprovalActions.tsx` — approve/reject/void buttons with confirmation dialogs
+- `src/components/expenses/RejectionChain.tsx` — timeline display of prior rejection reasons
+- `src/hooks/convex/useExpenses.ts` — 5 new hooks (usePendingForApproval, useRejectionChain, useApproveExpense, useRejectExpense, useVoidExpense)
+- `convex/expenses/mutations.ts` — approveExpense, rejectExpense, voidExpense with DoA enforcement
+- `convex/expenses/queries.ts` — listPendingForApproval (FIFO queue with DoA filtering), getRejectionChain (walks previousExpenseId chain)
+- `convex/expenses/helpers.ts` — canApproveExpense, requiresApproverComment, getTargetStatusAfterApproval, isVoidableStatus (24 new tests, 46 total)
+
+#### Approval Rules (Delegation of Authority)
+- EXP-07/08: Manager approves up to Rp 500K, admin approves any amount
+- EXP-10: Self-approval blocked for all roles
+- EXP-11: Comment required for approvals >= Rp 500K
+- EXP-14: Company card expenses go to "approved" (no reimbursement needed)
+- EXP-15: Personal payment expenses go to "awaiting_payment"
+- EXP-16/17: Void available for non-terminal expenses (admin only)
+- FRAUD-04/05: Rejection count badge and rejection chain timeline
+
+#### Triple Review Fixes
+- Fixed rejection count badge never rendering (no-op ternary → actual count from useRejectionChain)
+- Consolidated APPROVER_ROLES to single source in constants.ts
+- Used CSS variable tokens for FraudFlags dark mode
+- Fixed stale closure in approval click handler
+- Added submitter name display to approval queue cards
+- Fixed rejection chain off-by-one (starts from previousExpenseId)
+
 ### Expense Submission (Phase 44) — 2026-03-13
 
 **For the team:** Any staff member can now submit expense claims through the app. Fill in the details, attach a receipt photo, save as draft, and submit for approval — all from your phone. The system automatically flags late submissions and warns about possible duplicates to prevent mistakes.
