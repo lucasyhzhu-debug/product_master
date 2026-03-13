@@ -1,9 +1,9 @@
 # Requirements: v1.7 Expense & Accounting
 
 ## Chart of Accounts
-- [ ] **COA-01**: Admin can view the full Chart of Accounts with account code, name, type, and active status
-- [ ] **COA-02**: Admin can add custom GL accounts with unique codes following PSAK numbering conventions
-- [ ] **COA-03**: Admin can deactivate GL accounts (hidden from new expense dropdowns, existing references preserved)
+- [x] **COA-01**: Admin can view the full Chart of Accounts with account code, name, type, and active status
+- [x] **COA-02**: Admin can add custom GL accounts with unique codes following PSAK numbering conventions
+- [x] **COA-03**: Admin can deactivate GL accounts (hidden from new expense dropdowns, existing references preserved)
 - [x] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
 - [x] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
 
@@ -116,9 +116,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COA-01 | Phase 43 | Pending |
-| COA-02 | Phase 43 | Pending |
-| COA-03 | Phase 43 | Pending |
+| COA-01 | Phase 43 | Complete |
+| COA-02 | Phase 43 | Complete |
+| COA-03 | Phase 43 | Complete |
 | COA-04 | Phase 41 | Complete |
 | COA-05 | Phase 41 | Complete |
 | EXP-01 | Phase 44 | Pending |
