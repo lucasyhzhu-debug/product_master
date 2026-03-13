@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 46-01-PLAN.md (reimbursement backend)
-last_updated: "2026-03-13T21:40:13.428Z"
-last_activity: 2026-03-14 -- Completed 46-01-PLAN.md (audit trail extraction, bank accounts CRUD, reimbursement batch mutations/queries, 22 new tests)
+stopped_at: Completed 46-02-PLAN.md (reimbursement frontend)
+last_updated: "2026-03-13T21:54:42Z"
+last_activity: 2026-03-14 -- Completed 46-02-PLAN.md (reimbursement frontend: hooks, components, pages, routes, navigation)
 progress:
   total_phases: 10
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 46 of 50 (Reimbursement)
-Plan: 1 of 2
-Status: Plan 46-01 complete (reimbursement backend)
-Last activity: 2026-03-14 -- Completed 46-01-PLAN.md (audit trail extraction, bank accounts CRUD, reimbursement batch mutations/queries, 22 new tests)
+Plan: 2 of 2
+Status: Phase 46 complete (reimbursement backend + frontend)
+Last activity: 2026-03-14 -- Completed 46-02-PLAN.md (reimbursement frontend: hooks, components, pages, routes, navigation)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -76,6 +76,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 46]: listBatches uses .take(100) cap instead of .collect() (I3 fix for unbounded growth)
 - [Phase 46]: confirmBatch uses transferDate as JE business date, not Date.now() (C1 staff review)
 - [Phase 46]: Double-batching guard checks by_expense index on reimbursementBatchItems for pending batches
+- [Phase 46]: useUpdateBankDetails lives in useBankAccounts.ts (domain grouping) not useExpenses.ts
+- [Phase 46]: EntityManager mutation hooks suppress toasts (empty strings) to avoid double toast
+- [Phase 46]: canAccessUsers permission for reimbursement nav items (canManageReimbursements deferred to Phase 48)
+- [Phase 46]: Auto-open ConfirmBatchDialog after batch creation for streamlined admin workflow
 
 ### Research Findings (v1.7)
 
@@ -103,5 +107,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 46-01-PLAN.md (reimbursement backend)
-Resume notes: Phase 46 plan 01 complete (1/2). Reimbursement backend: audit trail extraction, bank accounts CRUD, batch mutations (create/confirm/void with JE), queries, 22 new tests. Next: Phase 46 plan 02 (reimbursement frontend).
+Stopped at: Completed 46-02-PLAN.md (reimbursement frontend)
+Resume notes: Phase 46 complete (2/2). Reimbursement frontend: 13 hooks, 3 components, 2 pages (ReimbursementManager, BankAccountsManager), routes with admin guards, Header nav links. All 804 tests passing, build clean. Next: Phase 47 (Payroll) or merge Phase 46 to main.
