@@ -1,13 +1,15 @@
 /**
  * Expense Mutations — CRUD operations for expense lifecycle.
  *
- * Covers: createDraft, updateDraft, submitExpense, generateUploadUrl.
- * All mutations use protectedMutation with ALL_ROLES (any authenticated user).
+ * Covers: createDraft, updateDraft, submitExpense, generateUploadUrl (Phase 44),
+ *         approveExpense, rejectExpense, voidExpense (Phase 45).
  *
  * Fraud controls:
  * - FRAUD-01: Soft duplicate warning (same amount + date within 7 days)
  * - FRAUD-02: Hard block on matching receipt hash
  * - FRAUD-03: Late submission flag (expenseDate + 14 days < submission time)
+ * - FRAUD-04: Self-approval blocked
+ * - FRAUD-05: DoA threshold enforcement
  */
 
 import { v } from "convex/values";
@@ -20,8 +22,18 @@ import {
   validateExpenseAmount,
   isLateSubmission,
   checkDuplicateExpense,
+  canApproveExpense,
+  requiresApproverComment,
+  getTargetStatusAfterApproval,
+  isVoidableStatus,
 } from "./helpers";
-import { ALL_ROLES } from "./constants";
+import { ALL_ROLES, APPROVER_ROLES } from "./constants";
+import {
+  createJournalEntryWithLines,
+  createReversalEntry,
+  buildDebitLine,
+  buildCreditLine,
+} from "../lib/journalEngine";
 
 // ---------------------------------------------------------------------------
 // Internal audit trail helper
@@ -324,5 +336,236 @@ export const generateUploadUrl = protectedMutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Phase 45: Approval / Rejection / Void mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Approve a submitted expense.
+ *
+ * Enforces DoA (EXP-07/08), self-approval block (EXP-09/FRAUD-04),
+ * comment requirement (EXP-11), creates journal entry (DR OpEx, CR based
+ * on payment method), and transitions to approved or awaiting_payment.
+ */
+export const approveExpense = protectedMutation({
+  roles: [...APPROVER_ROLES],
+  args: {
+    expenseId: v.id("expenses"),
+    comment: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    // Concurrency guard: must be in submitted status
+    if (expense.status !== "submitted") {
+      throw new Error("Expense has already been processed");
+    }
+
+    // Self-approval block (FRAUD-04)
+    if (expense.submittedBy === ctx.user._id) {
+      throw new Error("Cannot approve your own expense");
+    }
+
+    // DoA check (EXP-07/08/FRAUD-05)
+    const doaResult = canApproveExpense(
+      ctx.user.role,
+      expense.amount,
+      expense.submittedBy,
+      ctx.user._id
+    );
+    if (!doaResult.allowed) {
+      throw new Error(doaResult.reason!);
+    }
+
+    // Comment requirement for >= Rp 500K (EXP-11)
+    if (requiresApproverComment(expense.amount) && !args.comment?.trim()) {
+      throw new Error("Comment required for expenses >= Rp 500,000");
+    }
+
+    // Determine credit account based on payment method
+    // company_card -> "1100" (Cash), personal -> "2200" (Employee Reimbursements Payable)
+    const creditCode = expense.paymentMethod === "company_card" ? "1100" : "2200";
+    const creditAccount = await ctx.db
+      .query("accounts")
+      .withIndex("by_code", (q) => q.eq("code", creditCode))
+      .unique();
+
+    if (!creditAccount) {
+      throw new Error(
+        `Account ${creditCode} not found. Run accounts:seedDefaults first.`
+      );
+    }
+
+    // Create journal entry (DR OpEx account, CR credit account)
+    const journalEntryId = await createJournalEntryWithLines(ctx, {
+      date: expense.expenseDate,
+      description: `Expense ${expense.expenseNumber}: ${expense.description}`,
+      sourceType: "expense_approval",
+      sourceId: expense._id,
+      createdBy: ctx.user._id,
+      lines: [
+        buildDebitLine(expense.accountId, expense.amount, expense.description),
+        buildCreditLine(creditAccount._id, expense.amount),
+      ],
+    });
+
+    // Determine target status based on payment method (EXP-14/15)
+    const targetStatus = getTargetStatusAfterApproval(expense.paymentMethod);
+
+    // Patch expense
+    await ctx.db.patch(args.expenseId, {
+      status: targetStatus,
+      approvedBy: ctx.user._id,
+      approvedAt: Date.now(),
+      approverComment: args.comment,
+      journalEntryId,
+    });
+
+    // Audit trail
+    await recordStatusChange(
+      ctx,
+      args.expenseId,
+      "submitted",
+      targetStatus,
+      ctx.user._id,
+      args.comment
+    );
+
+    return { success: true, targetStatus, journalEntryId };
+  },
+});
+
+/**
+ * Reject a submitted expense.
+ *
+ * Requires a non-empty reason. Transitions to rejected status.
+ * The submitter can create a revision via createDraft with previousExpenseId.
+ */
+export const rejectExpense = protectedMutation({
+  roles: [...APPROVER_ROLES],
+  args: {
+    expenseId: v.id("expenses"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    // Concurrency guard: must be in submitted status
+    if (expense.status !== "submitted") {
+      throw new Error("Expense has already been processed");
+    }
+
+    // Cannot reject own expense
+    if (expense.submittedBy === ctx.user._id) {
+      throw new Error("Cannot reject your own expense");
+    }
+
+    // Reason validation
+    const reason = args.reason.trim();
+    if (!reason) {
+      throw new Error("Rejection reason is required");
+    }
+
+    // Patch expense
+    await ctx.db.patch(args.expenseId, {
+      status: "rejected",
+      rejectedBy: ctx.user._id,
+      rejectedAt: Date.now(),
+      rejectionReason: reason,
+    });
+
+    // Audit trail
+    await recordStatusChange(
+      ctx,
+      args.expenseId,
+      "submitted",
+      "rejected",
+      ctx.user._id,
+      reason
+    );
+
+    return { success: true };
+  },
+});
+
+/**
+ * Void an expense (admin only).
+ *
+ * Blocks voiding reimbursed expenses (EXP-17).
+ * Creates a reversing journal entry if the expense had a JE.
+ * Transitions to voided status.
+ */
+export const voidExpense = protectedMutation({
+  roles: ["admin"],
+  args: {
+    expenseId: v.id("expenses"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    // Reason validation
+    const reason = args.reason.trim();
+    if (!reason) {
+      throw new Error("Void reason is required");
+    }
+
+    // EXP-17: Reimbursed expenses cannot be voided directly
+    if (expense.status === "reimbursed") {
+      throw new Error(
+        "Cannot void a reimbursed expense. Void the reimbursement batch instead."
+      );
+    }
+
+    // Check voidable status
+    if (!isVoidableStatus(expense.status)) {
+      throw new Error(
+        `Cannot void expense with status '${expense.status}'`
+      );
+    }
+
+    // If expense has a journal entry (approved/awaiting_payment), create reversing JE
+    if (expense.journalEntryId) {
+      await createReversalEntry(
+        ctx,
+        expense.journalEntryId,
+        "expense_void",
+        ctx.user._id
+      );
+    }
+
+    const previousStatus = expense.status;
+
+    // Patch expense
+    await ctx.db.patch(args.expenseId, {
+      status: "voided",
+      voidedBy: ctx.user._id,
+      voidedAt: Date.now(),
+      voidReason: reason,
+    });
+
+    // Audit trail
+    await recordStatusChange(
+      ctx,
+      args.expenseId,
+      previousStatus,
+      "voided",
+      ctx.user._id,
+      reason
+    );
+
+    return { success: true };
   },
 });
