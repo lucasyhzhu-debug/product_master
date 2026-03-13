@@ -12,7 +12,7 @@
 - [x] **EXP-02**: User can submit a draft expense for approval, triggering routing to eligible approvers
 - [x] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
 - [x] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
-- [ ] **EXP-05**: User can view their own expense history with status filters and timeline tracker
+- [x] **EXP-05**: User can view their own expense history with status filters and timeline tracker
 - [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
 
 ## Expense Approval
@@ -125,7 +125,7 @@
 | EXP-02 | Phase 44 | Complete |
 | EXP-03 | Phase 44 | Complete |
 | EXP-04 | Phase 44 | Complete |
-| EXP-05 | Phase 44 | Pending |
+| EXP-05 | Phase 44 | Complete |
 | EXP-06 | Phase 41 | Complete |
 | EXP-07 | Phase 45 | Pending |
 | EXP-08 | Phase 45 | Pending |
