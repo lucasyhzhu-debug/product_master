@@ -163,7 +163,10 @@ Plans:
   2. No update mutation exists for journal entries -- the only correction path is creating a reversing entry
   3. Reversal entries post to the same accounting period (date) as the original entry, not Date.now()
   4. All downstream JE consumers (expense approval, reimbursement, payroll, void) use the single creation helper -- no direct `ctx.db.insert` on journalEntryLines
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 42-01-PLAN.md -- Journal engine helper (createJournalEntryWithLines, createReversalEntry, validation, tests)
 
 ### Phase 43: Chart of Accounts Management
 **Goal**: Admin can manage the Chart of Accounts without touching the database directly
