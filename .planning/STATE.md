@@ -3,30 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 41-02-PLAN.md (Phase 41 complete)
-last_updated: "2026-03-13T05:31:40.262Z"
-last_activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
+stopped_at: Completed 42-01-PLAN.md (journal engine)
+last_updated: "2026-03-13T06:07:12.030Z"
+last_activity: 2026-03-13 -- Completed 42-01-PLAN.md (journal engine with balance validation and reversal)
 progress:
   total_phases: 10
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 2
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: "Completed 41-02-PLAN.md (Phase 41 complete)"
-last_updated: "2026-03-13T05:23:50Z"
-last_activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
-progress:
-  total_phases: 10
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -34,16 +19,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 41 complete, Phase 42 next
+**Current focus:** v1.7 Expense & Accounting -- Phase 42 Plan 01 complete
 
 ## Current Position
 
-Phase: 41 of 50 (Schema, Seed & Counters) -- COMPLETE
-Plan: 2 of 2
-Status: Phase 41 complete
-Last activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
+Phase: 42 of 50 (Journal Engine)
+Plan: 1 of 1
+Status: Phase 42 Plan 01 complete
+Last activity: 2026-03-13 -- Completed 42-01-PLAN.md (journal engine with balance validation and reversal)
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -67,6 +52,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 41-02: getWibDateStr delegates to getWibComponents (no WIB logic duplication)
 - 41-02: Counter uses .unique() not .first() to prevent silent corruption from duplicate rows
 - 41-02: Optional now parameter matches calculatePeriodRange testability pattern
+- 42-01: Negative check fires before integer check in validateJournalLines (fractional negative throws "non-negative")
+- 42-01: NON_REVERSIBLE_TYPES explicit guard prevents accidental double-voids
+- 42-01: createReversalEntry passes original.sourceId through for by_source index queryability
+- 42-01: Integration tests for ctx-dependent journal functions deferred -- pure function extraction covers critical logic
 
 ### Research Findings (v1.7)
 
@@ -94,5 +83,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 41-02-PLAN.md (Phase 41 complete)
-Resume notes: Phase 41 complete (2/2 plans). Merge branch to main, then start Phase 42.
+Stopped at: Completed 42-01-PLAN.md (journal engine)
+Resume notes: Phase 42 Plan 01 complete (1/1 plans). Journal engine ready. Phase 42 has only 1 plan -- phase complete pending merge.

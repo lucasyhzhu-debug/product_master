@@ -62,12 +62,12 @@
 - [ ] **PAY-04**: Payroll entries are viewable by period and employee type
 
 ## Journal Entries
-- [ ] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
-- [ ] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
-- [ ] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
+- [x] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
+- [x] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
+- [x] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
 - [x] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
 - [x] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
-- [ ] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
+- [x] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
 
 ## P&L Extension
 - [ ] **PNL-01**: Income statement extends below Gross Profit to show Operating Expenses broken down by GL account (6xxx)
@@ -159,12 +159,12 @@
 | PAY-02 | Phase 47 | Pending |
 | PAY-03 | Phase 47 | Pending |
 | PAY-04 | Phase 47 | Pending |
-| JE-01 | Phase 42 | Pending |
-| JE-02 | Phase 42 | Pending |
-| JE-03 | Phase 42 | Pending |
+| JE-01 | Phase 42 | Complete |
+| JE-02 | Phase 42 | Complete |
+| JE-03 | Phase 42 | Complete |
 | JE-04 | Phase 41 | Complete |
 | JE-05 | Phase 41 | Complete |
-| JE-06 | Phase 42 | Pending |
+| JE-06 | Phase 42 | Complete |
 | PNL-01 | Phase 49 | Pending |
 | PNL-02 | Phase 49 | Pending |
 | PNL-03 | Phase 49 | Pending |
