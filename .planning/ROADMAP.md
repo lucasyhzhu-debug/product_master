@@ -128,8 +128,8 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 - [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
 - [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
-- [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
-- [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
+- [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
+- [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
 - [ ] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls
 - [ ] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management
 - [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
@@ -208,7 +208,11 @@ Plans:
   4. Rejected expenses include a reason, and the submitter can revise and resubmit (linked via previousExpenseId chain with rejection count badge visible to approvers)
   5. Admin can void non-terminal expenses with a reason, generating a reversing JE; reimbursed expenses cannot be voided directly (must void the reimbursement batch instead); approved expenses are immutable (no field edits)
   6. Fraud flags are visible to approvers: duplicate detection (same employee + amount + date within 7 days), late submission (> 14 days old), and rejection history chain
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 45-01-PLAN.md -- DoA pure helpers (TDD), approve/reject/void mutations, approval queue + rejection chain queries
+- [ ] 45-02-PLAN.md -- Frontend hooks, FraudFlags/ApprovalActions/RejectionChain components, ExpenseApproval page, route
 
 ### Phase 46: Reimbursement
 **Goal**: Admin can batch approved expenses by employee, confirm bank transfers, and track reimbursement history
