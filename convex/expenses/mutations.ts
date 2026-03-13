@@ -34,28 +34,7 @@ import {
   buildDebitLine,
   buildCreditLine,
 } from "../lib/journalEngine";
-
-// ---------------------------------------------------------------------------
-// Internal audit trail helper
-// ---------------------------------------------------------------------------
-
-async function recordStatusChange(
-  ctx: { db: MutationCtx["db"] },
-  expenseId: Id<"expenses">,
-  fromStatus: string | undefined,
-  toStatus: string,
-  changedBy: Id<"users">,
-  comment?: string
-): Promise<void> {
-  await ctx.db.insert("expenseStatusHistory", {
-    expenseId,
-    fromStatus,
-    toStatus,
-    changedBy,
-    changedAt: Date.now(),
-    comment,
-  });
-}
+import { recordStatusChange } from "./auditTrail";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)

@@ -7,6 +7,7 @@ import {
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_DURATION_MS,
 } from "../lib/auth";
+import { protectedMutation } from "../lib/functions";
 
 // ============================================
 // Authentication Mutations
@@ -336,5 +337,41 @@ export const cleanupExpiredSessions = mutation({
     }
 
     return { deleted: expiredSessions.length };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Self-service bank details (Phase 46)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update the current user's own bank details.
+ *
+ * Any authenticated user can update their bank account number and bank name.
+ * Uses the filter-entries patch pattern (matching updateUser convention).
+ *
+ * Sending an empty string for a field clears (unsets) it.
+ * Sending undefined for a field skips it entirely.
+ */
+export const updateBankDetails = protectedMutation({
+  roles: ["kitchen", "order_staff", "manager", "admin"],
+  args: {
+    bankAccountNumber: v.optional(v.string()),
+    bankName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const updates: Record<string, string | undefined> = {};
+    if (args.bankAccountNumber !== undefined) {
+      updates.bankAccountNumber = args.bankAccountNumber.trim() || undefined;
+    }
+    if (args.bankName !== undefined) {
+      updates.bankName = args.bankName.trim() || undefined;
+    }
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, v]) => v !== undefined)
+    );
+    if (Object.keys(filteredUpdates).length > 0) {
+      await ctx.db.patch(ctx.user._id, filteredUpdates);
+    }
   },
 });
