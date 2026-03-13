@@ -86,6 +86,12 @@ const GrabFoodMenuSimulator = lazyWithPreload(() =>
 const AccountsManager = lazyWithPreload(() =>
   import('./pages/AccountsManager').then(m => ({ default: m.AccountsManager }))
 );
+const ExpenseSubmit = lazyWithPreload(() =>
+  import('./pages/ExpenseSubmit').then(m => ({ default: m.ExpenseSubmit }))
+);
+const MyExpenses = lazyWithPreload(() =>
+  import('./pages/MyExpenses').then(m => ({ default: m.MyExpenses }))
+);
 
 function App() {
   return (
@@ -229,6 +235,24 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessVouchers">
                         <VouchersManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Expenses - All authenticated roles (Phase 44) */}
+                  <Route
+                    path="expenses"
+                    element={
+                      <ProtectedRoute>
+                        <MyExpenses />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="expenses/new"
+                    element={
+                      <ProtectedRoute>
+                        <ExpenseSubmit />
                       </ProtectedRoute>
                     }
                   />

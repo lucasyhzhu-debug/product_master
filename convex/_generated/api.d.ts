@@ -33,6 +33,9 @@ import type * as dispatchPlanner_helpers_weeklyPlanBuilder from "../dispatchPlan
 import type * as dispatchPlanner_mutations from "../dispatchPlanner/mutations.js";
 import type * as dispatchPlanner_queries from "../dispatchPlanner/queries.js";
 import type * as dispatchPlanner_types from "../dispatchPlanner/types.js";
+import type * as expenses_helpers from "../expenses/helpers.js";
+import type * as expenses_mutations from "../expenses/mutations.js";
+import type * as expenses_queries from "../expenses/queries.js";
 import type * as externalData_actions from "../externalData/actions.js";
 import type * as externalData_helpers_dashboardHelpers from "../externalData/helpers/dashboardHelpers.js";
 import type * as externalData_helpers_lifetimeHelpers from "../externalData/helpers/lifetimeHelpers.js";
@@ -211,6 +214,9 @@ declare const fullApi: ApiFromModules<{
   "dispatchPlanner/mutations": typeof dispatchPlanner_mutations;
   "dispatchPlanner/queries": typeof dispatchPlanner_queries;
   "dispatchPlanner/types": typeof dispatchPlanner_types;
+  "expenses/helpers": typeof expenses_helpers;
+  "expenses/mutations": typeof expenses_mutations;
+  "expenses/queries": typeof expenses_queries;
   "externalData/actions": typeof externalData_actions;
   "externalData/helpers/dashboardHelpers": typeof externalData_helpers_dashboardHelpers;
   "externalData/helpers/lifetimeHelpers": typeof externalData_helpers_lifetimeHelpers;

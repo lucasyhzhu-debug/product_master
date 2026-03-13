@@ -2,8 +2,7 @@
  * Expense hooks for expense submission workflow.
  * Query hooks + factory-generated mutation hooks.
  */
-import { useQuery } from "convex/react";
-import { useSessionMutation } from "convex-helpers/react/sessions";
+import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { createMutationHook } from "./createMutationHook";
@@ -24,17 +23,17 @@ export type ExpenseStatus =
 
 /** List current user's expenses with optional status filter */
 export function useMyExpenses(status?: ExpenseStatus) {
-  return useQuery(api.expenses.queries.listMyExpenses, status ? { status } : {});
+  return useSessionQuery(api.expenses.queries.listMyExpenses, status ? { status } : {});
 }
 
 /** Get a single expense by ID */
 export function useExpense(id: Id<"expenses"> | undefined) {
-  return useQuery(api.expenses.queries.getById, id ? { expenseId: id } : "skip");
+  return useSessionQuery(api.expenses.queries.getById, id ? { expenseId: id } : "skip");
 }
 
 /** Get the status change history for an expense (audit trail) */
 export function useExpenseStatusHistory(expenseId: Id<"expenses"> | undefined) {
-  return useQuery(
+  return useSessionQuery(
     api.expenses.queries.getStatusHistory,
     expenseId ? { expenseId } : "skip"
   );
