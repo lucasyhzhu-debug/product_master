@@ -26,7 +26,7 @@ export function FraudFlags({
       {duplicateWarning && (
         <Badge
           variant="outline"
-          className="text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700"
+          className="text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30 bg-[var(--color-status-warning-bg)]"
           title={duplicateWarning}
         >
           <AlertTriangle className="h-3 w-3 mr-1" aria-label="Duplicate warning" />
@@ -36,7 +36,7 @@ export function FraudFlags({
       {lateSubmission && (
         <Badge
           variant="outline"
-          className="text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-700"
+          className="text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30 bg-[var(--color-status-warning-bg)]"
         >
           <Clock className="h-3 w-3 mr-1" aria-label="Late submission" />
           Late (&gt;14 days)

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePendingForApproval } from "@/hooks/convex/useExpenses";
+import { usePendingForApproval, useRejectionChain } from "@/hooks/convex/useExpenses";
 import { useAccounts } from "@/hooks/convex/useAccounts";
 import { ExpenseStatusBadge } from "@/components/expenses/StatusBadge";
 import { FraudFlags } from "@/components/expenses/FraudFlags";
@@ -124,8 +124,9 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
   };
   const PaymentIcon = paymentInfo.icon;
 
-  // Count rejections from previousExpenseId presence (the chain query handles the details)
   const hasRejectionHistory = !!expense.previousExpenseId;
+  const rejectionChain = useRejectionChain(hasRejectionHistory ? expense._id : undefined);
+  const rejectionCount = rejectionChain?.length ?? 0;
 
   return (
     <Card>
@@ -140,6 +141,9 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
               <ExpenseStatusBadge status={expense.status} />
             </div>
             <p className="text-sm font-medium">{expense.description}</p>
+            <p className="text-xs text-muted-foreground">
+              Submitted by {expense.submitterName}
+            </p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-lg font-semibold">{formatCurrency(expense.amount)}</p>
@@ -150,7 +154,7 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
         <FraudFlags
           duplicateWarning={expense.duplicateWarning}
           lateSubmission={expense.lateSubmission}
-          rejectionCount={hasRejectionHistory ? undefined : undefined}
+          rejectionCount={rejectionCount > 0 ? rejectionCount : undefined}
         />
 
         {/* Detail row: vendor, date, GL category, payment method, receipt */}

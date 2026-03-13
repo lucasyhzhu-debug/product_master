@@ -3,6 +3,8 @@
  * No ctx dependency -- all functions are testable without Convex runtime.
  */
 
+import { APPROVER_ROLES } from "./constants";
+
 export const RECEIPT_THRESHOLD = 50_000; // Rp 50,000
 export const DUPLICATE_WINDOW_DAYS = 7;
 export const LATE_SUBMISSION_DAYS = 14;
@@ -57,9 +59,6 @@ export function checkDuplicateExpense(
 // Phase 45: DoA (Delegation of Authority) helpers
 // ---------------------------------------------------------------------------
 
-/** Roles that can approve expenses */
-const APPROVER_ROLES: readonly string[] = ["manager", "admin"];
-
 /** Voidable expense statuses (non-terminal, non-draft, non-reimbursed) */
 const VOIDABLE_STATUSES: readonly string[] = [
   "submitted",
@@ -83,13 +82,13 @@ export function canApproveExpense(
   submittedBy: string,
   approverId: string
 ): { allowed: boolean; reason?: string } {
-  // Self-approval check first (EXP-09)
+  // Self-approval check first (EXP-10)
   if (submittedBy === approverId) {
     return { allowed: false, reason: "Cannot approve your own expense" };
   }
 
   // Role check
-  if (!APPROVER_ROLES.includes(userRole)) {
+  if (!(APPROVER_ROLES as readonly string[]).includes(userRole)) {
     return { allowed: false, reason: `Role '${userRole}' cannot approve expenses` };
   }
 

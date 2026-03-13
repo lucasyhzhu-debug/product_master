@@ -166,7 +166,20 @@ export const listPendingForApproval = protectedQuery({
     }
 
     // Sort by submittedAt ascending (FIFO -- oldest first)
-    return pending.sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
+    pending.sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
+
+    // Join submitter names for display in approval queue
+    const userIds = [...new Set(pending.map((e) => e.submittedBy))];
+    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+    const nameMap = new Map<string, string>();
+    for (const user of users) {
+      if (user) nameMap.set(user._id, user.name);
+    }
+
+    return pending.map((e) => ({
+      ...e,
+      submitterName: nameMap.get(e.submittedBy) ?? "Unknown",
+    }));
   },
 });
 
@@ -189,7 +202,11 @@ export const getRejectionChain = protectedQuery({
       rejectedBy: string | undefined;
     }> = [];
 
-    let currentId: Id<"expenses"> | undefined = args.expenseId;
+    // Start from the previous expense (the current one is submitted, not rejected)
+    const current = await ctx.db.get(args.expenseId);
+    if (!current) return chain;
+
+    let currentId: Id<"expenses"> | undefined = current.previousExpenseId;
     let iterations = 0;
     const MAX_ITERATIONS = 20;
 
@@ -197,7 +214,6 @@ export const getRejectionChain = protectedQuery({
       const expense: Doc<"expenses"> | null = await ctx.db.get(currentId);
       if (!expense) break;
 
-      // Only include rejected entries in the chain (skip current/first expense)
       if (expense.status === "rejected") {
         chain.push({
           expenseId: expense._id,

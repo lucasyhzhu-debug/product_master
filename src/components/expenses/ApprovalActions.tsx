@@ -19,8 +19,7 @@ import { useApproveExpense, useRejectExpense, useVoidExpense } from "@/hooks/con
 import { formatCurrency } from "@/lib/utils";
 import { Check, X, Ban } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
-
-const COMMENT_REQUIRED_THRESHOLD = 500_000;
+import { COMMENT_REQUIRED_THRESHOLD } from "../../../convex/expenses/helpers";
 
 interface ApprovalActionsProps {
   expenseId: Id<"expenses">;
@@ -46,18 +45,6 @@ export function ApprovalActions({
 
   const commentRequired = amount >= COMMENT_REQUIRED_THRESHOLD;
 
-  const handleApproveClick = useCallback(() => {
-    if (commentRequired) {
-      // Open dialog for comment when >= 500K
-      setActiveDialog("approve");
-      setComment("");
-    } else {
-      // Direct approve for < 500K
-      handleApproveSubmit();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commentRequired]);
-
   const handleApproveSubmit = useCallback(async () => {
     setIsSubmitting(true);
     try {
@@ -74,6 +61,15 @@ export function ApprovalActions({
       setIsSubmitting(false);
     }
   }, [approve, expenseId, comment, onActionComplete]);
+
+  const handleApproveClick = useCallback(() => {
+    if (commentRequired) {
+      setActiveDialog("approve");
+      setComment("");
+    } else {
+      handleApproveSubmit();
+    }
+  }, [commentRequired, handleApproveSubmit]);
 
   const handleRejectSubmit = useCallback(async () => {
     if (!comment.trim()) return;
