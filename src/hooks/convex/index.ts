@@ -381,6 +381,16 @@ export {
 // Income Statement (Phase 33)
 export { useFinancials } from "./useFinancials";
 
+// Accounts (Chart of Accounts Management - Phase 43)
+export {
+  useAccounts,
+  useAccount,
+  useCreateAccount,
+  useUpdateAccount,
+  useDeleteAccount,
+  type Account,
+} from "./useAccounts";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
