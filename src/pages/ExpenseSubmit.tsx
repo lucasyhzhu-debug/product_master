@@ -6,7 +6,7 @@
  *   /expenses/new       -- create new expense
  *   /expenses/new?edit=ID -- edit existing draft
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -104,11 +104,11 @@ export function ExpenseSubmit() {
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formLoaded, setFormLoaded] = useState(!isEditing);
+  const formLoadedRef = useRef(!isEditing);
 
   // Pre-fill form when editing
   useEffect(() => {
-    if (isEditing && existingExpense && !formLoaded) {
+    if (isEditing && existingExpense && !formLoadedRef.current) {
       // Verify it's a draft
       if (existingExpense.status !== "draft") {
         toast.error("Only draft expenses can be edited");
@@ -130,9 +130,9 @@ export function ExpenseSubmit() {
       if (existingExpense.duplicateWarning) {
         setDuplicateWarning(existingExpense.duplicateWarning);
       }
-      setFormLoaded(true);
+      formLoadedRef.current = true;
     }
-  }, [isEditing, existingExpense, formLoaded, navigate]);
+  }, [isEditing, existingExpense, navigate]);
 
   const updateField = useCallback(
     <K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -266,7 +266,7 @@ export function ExpenseSubmit() {
     );
   }
 
-  if (isEditing && !formLoaded) {
+  if (isEditing && !formLoadedRef.current) {
     return (
       <div className="space-y-4">
         <PageHeader title="Edit Expense" backTo="/expenses" backLabel="My Expenses" />

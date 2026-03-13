@@ -8,8 +8,7 @@
 
 import { v } from "convex/values";
 import { protectedQuery } from "../lib/functions";
-
-const ALL_ROLES = ["kitchen", "order_staff", "manager", "admin"] as const;
+import { ALL_ROLES } from "./constants";
 
 // Schema-aligned status validator for query args
 const expenseStatusValidator = v.union(
@@ -115,7 +114,9 @@ export const getStatusHistory = protectedQuery({
       .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseId))
       .collect();
 
-    // Sort chronologically
-    return entries.sort((a, b) => a.changedAt - b.changedAt);
+    // Sort chronologically (tiebreaker by _id for same-ms entries)
+    return entries.sort(
+      (a, b) => a.changedAt - b.changedAt || a._id.localeCompare(b._id)
+    );
   },
 });

@@ -21,8 +21,7 @@ import {
   isLateSubmission,
   checkDuplicateExpense,
 } from "./helpers";
-
-const ALL_ROLES = ["kitchen", "order_staff", "manager", "admin"] as const;
+import { ALL_ROLES } from "./constants";
 
 // ---------------------------------------------------------------------------
 // Internal audit trail helper

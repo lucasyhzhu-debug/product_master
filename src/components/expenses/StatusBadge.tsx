@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
+import type { ExpenseStatus } from "@/hooks/convex/useExpenses";
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+const STATUS_CONFIG: Record<ExpenseStatus, { label: string; className: string }> = {
   draft: {
     label: "Draft",
     className: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
@@ -31,8 +32,8 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   },
 };
 
-export function ExpenseStatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] || { label: status, className: "" };
+export function ExpenseStatusBadge({ status }: { status: ExpenseStatus | string }) {
+  const config = STATUS_CONFIG[status as ExpenseStatus] ?? { label: status, className: "" };
   return (
     <Badge variant="outline" className={config.className}>
       {config.label}
