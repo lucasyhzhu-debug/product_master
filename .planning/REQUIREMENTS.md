@@ -4,8 +4,8 @@
 - [ ] **COA-01**: Admin can view the full Chart of Accounts with account code, name, type, and active status
 - [ ] **COA-02**: Admin can add custom GL accounts with unique codes following PSAK numbering conventions
 - [ ] **COA-03**: Admin can deactivate GL accounts (hidden from new expense dropdowns, existing references preserved)
-- [ ] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
-- [ ] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
+- [x] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
+- [x] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
 
 ## Expense Submission
 - [ ] **EXP-01**: Any authenticated user can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
@@ -13,7 +13,7 @@
 - [ ] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
 - [ ] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
 - [ ] **EXP-05**: User can view their own expense history with status filters and timeline tracker
-- [ ] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
+- [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
 
 ## Expense Approval
 - [ ] **EXP-07**: Eligible approvers see pending expenses in their approval queue (broadcast routing — first to act wins)
@@ -65,8 +65,8 @@
 - [ ] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
 - [ ] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
 - [ ] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
-- [ ] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
-- [ ] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
+- [x] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
+- [x] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
 - [ ] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
 
 ## P&L Extension
@@ -113,4 +113,70 @@
 | Receipt OCR extraction | Nice-to-have; manual entry is sufficient at current expense volume |
 
 ## Traceability
-(Filled by roadmap — maps REQ-IDs to phases)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| COA-01 | Phase 43 | Pending |
+| COA-02 | Phase 43 | Pending |
+| COA-03 | Phase 43 | Pending |
+| COA-04 | Phase 41 | Complete |
+| COA-05 | Phase 41 | Complete |
+| EXP-01 | Phase 44 | Pending |
+| EXP-02 | Phase 44 | Pending |
+| EXP-03 | Phase 44 | Pending |
+| EXP-04 | Phase 44 | Pending |
+| EXP-05 | Phase 44 | Pending |
+| EXP-06 | Phase 41 | Complete |
+| EXP-07 | Phase 45 | Pending |
+| EXP-08 | Phase 45 | Pending |
+| EXP-09 | Phase 45 | Pending |
+| EXP-10 | Phase 45 | Pending |
+| EXP-11 | Phase 45 | Pending |
+| EXP-12 | Phase 45 | Pending |
+| EXP-13 | Phase 45 | Pending |
+| EXP-14 | Phase 45 | Pending |
+| EXP-15 | Phase 45 | Pending |
+| EXP-16 | Phase 45 | Pending |
+| EXP-17 | Phase 45 | Pending |
+| EXP-18 | Phase 44 | Pending |
+| FRAUD-01 | Phase 45 | Pending |
+| FRAUD-02 | Phase 45 | Pending |
+| FRAUD-03 | Phase 45 | Pending |
+| FRAUD-04 | Phase 45 | Pending |
+| FRAUD-05 | Phase 45 | Pending |
+| FRAUD-06 | Phase 50 | Pending |
+| FRAUD-07 | Phase 50 | Pending |
+| FRAUD-08 | Phase 50 | Pending |
+| RMB-01 | Phase 46 | Pending |
+| RMB-02 | Phase 46 | Pending |
+| RMB-03 | Phase 46 | Pending |
+| RMB-04 | Phase 46 | Pending |
+| RMB-05 | Phase 46 | Pending |
+| RMB-06 | Phase 46 | Pending |
+| RMB-07 | Phase 46 | Pending |
+| RMB-08 | Phase 46 | Pending |
+| PAY-01 | Phase 47 | Pending |
+| PAY-02 | Phase 47 | Pending |
+| PAY-03 | Phase 47 | Pending |
+| PAY-04 | Phase 47 | Pending |
+| JE-01 | Phase 42 | Pending |
+| JE-02 | Phase 42 | Pending |
+| JE-03 | Phase 42 | Pending |
+| JE-04 | Phase 41 | Complete |
+| JE-05 | Phase 41 | Complete |
+| JE-06 | Phase 42 | Pending |
+| PNL-01 | Phase 49 | Pending |
+| PNL-02 | Phase 49 | Pending |
+| PNL-03 | Phase 49 | Pending |
+| PNL-04 | Phase 49 | Pending |
+| PNL-05 | Phase 49 | Pending |
+| XANL-01 | Phase 50 | Pending |
+| XANL-02 | Phase 50 | Pending |
+| XANL-03 | Phase 50 | Pending |
+| XANL-04 | Phase 50 | Pending |
+| XANL-05 | Phase 50 | Pending |
+| XANL-06 | Phase 50 | Pending |
+| PERM-01 | Phase 48 | Pending |
+| PERM-02 | Phase 48 | Pending |
+| PERM-03 | Phase 48 | Pending |
+| PERM-04 | Phase 48 | Pending |

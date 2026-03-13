@@ -2,15 +2,31 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
-status: defining_requirements
-stopped_at: null
-last_updated: "2026-03-12T12:00:00Z"
-last_activity: 2026-03-12 - Milestone v1.7 started
+status: in_progress
+stopped_at: Completed 41-02-PLAN.md (Phase 41 complete)
+last_updated: "2026-03-13T05:31:40.262Z"
+last_activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 10
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 2
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: "Completed 41-02-PLAN.md (Phase 41 complete)"
+last_updated: "2026-03-13T05:23:50Z"
+last_activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
+progress:
+  total_phases: 10
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -18,14 +34,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- defining requirements
+**Current focus:** v1.7 Expense & Accounting -- Phase 41 complete, Phase 42 next
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-12 — Milestone v1.7 started
+Phase: 41 of 50 (Schema, Seed & Counters) -- COMPLETE
+Plan: 2 of 2
+Status: Phase 41 complete
+Last activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
+
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -41,6 +59,22 @@ Last activity: 2026-03-12 — Milestone v1.7 started
 ### Decisions
 
 All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
+
+**v1.7 Decisions:**
+- 41-01: 39 PSAK accounts (not 36) -- detailed enumeration is authoritative over summary count
+- 41-01: Upsert seed pattern (patch on re-run) matching productionUnitTypes:seedDefaults
+- 41-01: journalEntryLines.entryDate denormalized for cross-table index queries
+- 41-02: getWibDateStr delegates to getWibComponents (no WIB logic duplication)
+- 41-02: Counter uses .unique() not .first() to prevent silent corruption from duplicate rows
+- 41-02: Optional now parameter matches calculatePeriodRange testability pattern
+
+### Research Findings (v1.7)
+
+Key staff review fixes embedded in roadmap:
+- C1: Reversal JE uses original entry date, not Date.now() (Phase 42)
+- C2: Single-query aggregation for OpEx in P&L, not N+1 per GL account (Phase 49)
+- C3: Should-Have fraud controls (FRAUD-06/07/08) included with analytics (Phase 50)
+- I3: Frontend permissions defined before routes reference them (Phase 48)
 
 ### Open Blockers (carried forward)
 
@@ -59,6 +93,6 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-09
-Stopped at: v1.6 milestone complete and archived
-Resume notes: Run `/gsd:new-milestone` to plan v1.7. Use `/clear` first for fresh context window.
+Last session: 2026-03-13
+Stopped at: Completed 41-02-PLAN.md (Phase 41 complete)
+Resume notes: Phase 41 complete (2/2 plans). Merge branch to main, then start Phase 42.
