@@ -13,8 +13,6 @@
  */
 
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
 import { protectedMutation } from "../lib/functions";
 import { getNextNumber } from "../lib/counter";
 import {
