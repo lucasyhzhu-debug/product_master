@@ -28,6 +28,8 @@ import {
   MapPin,
   Leaf,
   FileText,
+  Receipt,
+  Landmark,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -109,6 +111,8 @@ const configItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
+  { path: '/reimbursements', label: 'Reimburse', icon: Receipt, permission: 'canAccessUsers' },
+  { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canAccessUsers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
 ];
 
