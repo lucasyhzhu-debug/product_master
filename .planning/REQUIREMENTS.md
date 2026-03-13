@@ -13,7 +13,7 @@
 - [ ] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
 - [ ] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
 - [ ] **EXP-05**: User can view their own expense history with status filters and timeline tracker
-- [ ] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
+- [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
 
 ## Expense Approval
 - [ ] **EXP-07**: Eligible approvers see pending expenses in their approval queue (broadcast routing — first to act wins)
@@ -66,7 +66,7 @@
 - [ ] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
 - [ ] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
 - [x] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
-- [ ] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
+- [x] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
 - [ ] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
 
 ## P&L Extension
@@ -126,7 +126,7 @@
 | EXP-03 | Phase 44 | Pending |
 | EXP-04 | Phase 44 | Pending |
 | EXP-05 | Phase 44 | Pending |
-| EXP-06 | Phase 41 | Pending |
+| EXP-06 | Phase 41 | Complete |
 | EXP-07 | Phase 45 | Pending |
 | EXP-08 | Phase 45 | Pending |
 | EXP-09 | Phase 45 | Pending |
@@ -163,7 +163,7 @@
 | JE-02 | Phase 42 | Pending |
 | JE-03 | Phase 42 | Pending |
 | JE-04 | Phase 41 | Complete |
-| JE-05 | Phase 41 | Pending |
+| JE-05 | Phase 41 | Complete |
 | JE-06 | Phase 42 | Pending |
 | PNL-01 | Phase 49 | Pending |
 | PNL-02 | Phase 49 | Pending |

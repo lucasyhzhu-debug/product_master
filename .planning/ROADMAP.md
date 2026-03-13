@@ -126,7 +126,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 **Milestone Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend the P&L to Net Income with OpEx breakdown.
 
-- [ ] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure
+- [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
 - [ ] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support
 - [ ] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts
 - [ ] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail
@@ -148,7 +148,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
   2. System accounts (isSystem: true) cannot be deleted via any mutation
   3. Atomic daily counter helper generates sequential EXP-MMDD-NNN and JE-MMDD-NNN formatted numbers without collisions
   4. Journal entry lines denormalize `entryDate` from their parent entry for direct index-based period queries
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 41-01-PLAN.md -- Schema (10 tables + users bank fields) + Chart of Accounts seed function

@@ -3,14 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: null
-last_updated: "2026-03-13T05:17:07Z"
-last_activity: 2026-03-13 - Completed 41-01-PLAN.md (schema + seed)
+stopped_at: "Completed 41-02-PLAN.md (Phase 41 complete)"
+last_updated: "2026-03-13T05:23:50Z"
+last_activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
 progress:
   total_phases: 10
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 1
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -18,16 +19,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 41 ready to plan
+**Current focus:** v1.7 Expense & Accounting -- Phase 41 complete, Phase 42 next
 
 ## Current Position
 
-Phase: 41 of 50 (Schema, Seed & Counters)
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-03-13 -- Completed 41-01-PLAN.md (10 accounting tables + 39-account seed function)
+Phase: 41 of 50 (Schema, Seed & Counters) -- COMPLETE
+Plan: 2 of 2
+Status: Phase 41 complete
+Last activity: 2026-03-13 -- Completed 41-02-PLAN.md (atomic daily counter helper)
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -48,6 +49,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 41-01: 39 PSAK accounts (not 36) -- detailed enumeration is authoritative over summary count
 - 41-01: Upsert seed pattern (patch on re-run) matching productionUnitTypes:seedDefaults
 - 41-01: journalEntryLines.entryDate denormalized for cross-table index queries
+- 41-02: getWibDateStr delegates to getWibComponents (no WIB logic duplication)
+- 41-02: Counter uses .unique() not .first() to prevent silent corruption from duplicate rows
+- 41-02: Optional now parameter matches calculatePeriodRange testability pattern
 
 ### Research Findings (v1.7)
 
@@ -75,5 +79,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 41-01-PLAN.md
-Resume notes: Execute 41-02-PLAN.md (counter helper) to complete Phase 41
+Stopped at: Completed 41-02-PLAN.md (Phase 41 complete)
+Resume notes: Phase 41 complete (2/2 plans). Merge branch to main, then start Phase 42.
