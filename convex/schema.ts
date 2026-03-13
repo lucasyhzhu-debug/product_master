@@ -437,6 +437,9 @@ export default defineSchema({
     lockedUntil: v.optional(v.number()),
     lastLoginAt: v.optional(v.number()),
     createdAt: v.number(),
+    // Phase 41: Bank details for reimbursement payments
+    bankAccountNumber: v.optional(v.string()),
+    bankName: v.optional(v.string()),
   })
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
@@ -1600,4 +1603,209 @@ export default defineSchema({
     .index("by_menu_product", ["menuProductId"])
     .index("by_sequence", ["sequence"]),
     // OI-22: removed by_grabfood_item_id -- zero withIndex references
+
+  // ============================================
+  // ACCOUNTING & EXPENSE TABLES
+  // Phase 41: Foundational data layer for v1.7 Expense & Accounting system
+  // ============================================
+
+  // Chart of Accounts — PSAK-aligned GL accounts (1xxx-7xxx)
+  accounts: defineTable({
+    code: v.string(),
+    name: v.string(),
+    type: v.union(
+      v.literal("asset"),
+      v.literal("liability"),
+      v.literal("equity"),
+      v.literal("revenue"),
+      v.literal("cogs"),
+      v.literal("opex"),
+      v.literal("other")
+    ),
+    category: v.string(),
+    isActive: v.boolean(),
+    isSystem: v.boolean(),
+    description: v.optional(v.string()),
+  })
+    .index("by_code", ["code"])
+    .index("by_type", ["type"])
+    .index("by_active_type", ["isActive", "type"]),
+
+  // Expense records — full lifecycle from draft to reimbursed/voided
+  expenses: defineTable({
+    expenseNumber: v.string(),
+    submittedBy: v.id("users"),
+    amount: v.number(),
+    accountId: v.id("accounts"),
+    expenseDate: v.number(),
+    description: v.string(),
+    vendorName: v.string(),
+    paymentMethod: v.union(
+      v.literal("personal_cash"),
+      v.literal("personal_transfer"),
+      v.literal("company_card")
+    ),
+    receiptFileId: v.optional(v.id("_storage")),
+    receiptImageHash: v.optional(v.string()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("submitted"),
+      v.literal("approved"),
+      v.literal("rejected"),
+      v.literal("awaiting_payment"),
+      v.literal("reimbursed"),
+      v.literal("voided")
+    ),
+    lateSubmission: v.boolean(),
+    duplicateWarning: v.optional(v.string()),
+    submittedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    approverComment: v.optional(v.string()),
+    rejectedBy: v.optional(v.id("users")),
+    rejectedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
+    previousExpenseId: v.optional(v.id("expenses")),
+    voidedBy: v.optional(v.id("users")),
+    voidedAt: v.optional(v.number()),
+    voidReason: v.optional(v.string()),
+    journalEntryId: v.optional(v.id("journalEntries")),
+    createdAt: v.number(),
+  })
+    .index("by_submitter_status", ["submittedBy", "status"])
+    .index("by_status", ["status"])
+    .index("by_amount_date_submitter", ["amount", "expenseDate", "submittedBy"])
+    .index("by_receipt_hash", ["receiptImageHash"])
+    .index("by_expense_number", ["expenseNumber"]),
+
+  // Expense status audit trail
+  expenseStatusHistory: defineTable({
+    expenseId: v.id("expenses"),
+    fromStatus: v.optional(v.string()),
+    toStatus: v.string(),
+    changedBy: v.id("users"),
+    changedAt: v.number(),
+    comment: v.optional(v.string()),
+  })
+    .index("by_expense", ["expenseId"]),
+
+  // Reimbursement batches — group approved expenses for bank transfer
+  reimbursementBatches: defineTable({
+    batchNumber: v.string(),
+    employeeUserId: v.id("users"),
+    totalAmount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("voided")
+    ),
+    bankAccountId: v.optional(v.id("bankAccounts")),
+    bankReference: v.optional(v.string()),
+    transferDate: v.optional(v.number()),
+    confirmedBy: v.optional(v.id("users")),
+    confirmedAt: v.optional(v.number()),
+    voidedBy: v.optional(v.id("users")),
+    voidedAt: v.optional(v.number()),
+    voidReason: v.optional(v.string()),
+    journalEntryId: v.optional(v.id("journalEntries")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_batch_number", ["batchNumber"])
+    .index("by_employee_status", ["employeeUserId", "status"])
+    .index("by_status", ["status"]),
+
+  // Reimbursement batch line items — link expenses to batches
+  reimbursementBatchItems: defineTable({
+    batchId: v.id("reimbursementBatches"),
+    expenseId: v.id("expenses"),
+  })
+    .index("by_batch", ["batchId"])
+    .index("by_expense", ["expenseId"]),
+
+  // Double-entry journal entries — header record
+  journalEntries: defineTable({
+    entryNumber: v.string(),
+    date: v.number(),
+    description: v.string(),
+    sourceType: v.union(
+      v.literal("expense_approval"),
+      v.literal("expense_void"),
+      v.literal("reimbursement"),
+      v.literal("reimbursement_void"),
+      v.literal("payroll"),
+      v.literal("payroll_void"),
+      v.literal("manual")
+    ),
+    sourceId: v.optional(v.string()),
+    isReversed: v.boolean(),
+    reversedByEntryId: v.optional(v.id("journalEntries")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_entry_number", ["entryNumber"])
+    .index("by_source", ["sourceType", "sourceId"])
+    .index("by_date", ["date"]),
+
+  // Double-entry journal entry lines — debit/credit per account
+  // entryDate denormalized from parent journalEntries.date (Convex indexes cannot span tables)
+  journalEntryLines: defineTable({
+    journalEntryId: v.id("journalEntries"),
+    accountId: v.id("accounts"),
+    entryDate: v.number(),
+    debitAmount: v.number(),
+    creditAmount: v.number(),
+    description: v.optional(v.string()),
+  })
+    .index("by_journal_entry", ["journalEntryId"])
+    .index("by_account_entryDate", ["accountId", "entryDate"])
+    .index("by_entryDate", ["entryDate"]),
+
+  // Company bank accounts for reimbursement transfers
+  bankAccounts: defineTable({
+    name: v.string(),
+    bankName: v.string(),
+    accountNumber: v.string(),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_active", ["isActive"]),
+
+  // Payroll entries — contractor and staff salary records
+  payrollEntries: defineTable({
+    employeeType: v.union(
+      v.literal("contractor"),
+      v.literal("staff")
+    ),
+    frequency: v.union(
+      v.literal("weekly"),
+      v.literal("monthly")
+    ),
+    amount: v.number(),
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    description: v.string(),
+    attachmentFileId: v.optional(v.id("_storage")),
+    status: v.optional(v.union(
+      v.literal("active"),
+      v.literal("voided")
+    )),
+    voidedBy: v.optional(v.id("users")),
+    voidedAt: v.optional(v.number()),
+    voidReason: v.optional(v.string()),
+    journalEntryId: v.optional(v.id("journalEntries")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_period", ["periodStart"])
+    .index("by_employee_type", ["employeeType"]),
+
+  // Atomic daily counters for sequential ID generation (EXP-MMDD-NNN, RMB-MMDD-NNN, JE-MMDD-NNN)
+  counters: defineTable({
+    prefix: v.string(),
+    date: v.string(),
+    lastSequence: v.number(),
+  })
+    .index("by_prefix_date", ["prefix", "date"]),
 });
