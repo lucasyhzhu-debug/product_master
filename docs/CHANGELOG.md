@@ -16,6 +16,34 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Frontend Permissions & Routes (Phase 48) — 2026-03-14
+
+**For the team:** Finance pages now use permission-based access instead of role-based. This means access can be fine-tuned per role (who can submit expenses, who can approve, who manages reimbursements, who sees analytics). Navigation menus automatically show only the pages each user has permission to access.
+
+#### Added
+- 4 permission flags: `canSubmitExpenses`, `canApproveExpenses`, `canManageReimbursements`, `canAccessExpenseAnalytics`
+- `src/pages/ExpenseAnalytics.tsx` — stub page for future analytics dashboard
+- Expense & Expense Analytics links in Header and mobile navigation
+- `tests/unit/permissions.test.ts` — 16 permission assertions across all roles
+
+#### Changed
+- 7 finance routes (`/expenses`, `/expenses/new`, `/expenses/approve`, `/reimbursements`, `/bank-accounts`, `/payroll`, `/accounts`) migrated from `allowedRoles` to `requiredPermission` guards
+- Reimbursements navigation icon changed from Receipt to HandCoins for visual clarity
+
+### Payroll Management (Phase 47) — 2026-03-14
+
+**For the team:** You can now record payroll entries for staff and contractors. Each entry tracks the payment period, amount, employee type, and optional file attachments. Entries can be voided with a reason if needed. The system auto-generates payroll numbers (PAY-YYYYMM-NNN) for easy reference.
+
+#### Added
+- `src/pages/PayrollManager.tsx` — full payroll management page with filters, summary cards, create/edit/void dialogs
+- `src/hooks/convex/usePayroll.ts` — 5 hooks for payroll CRUD operations
+- `convex/payroll/mutations.ts` — create, update, void payroll entries with auth
+- `convex/payroll/queries.ts` — list (with filters), getById, summary queries
+- `convex/payroll/helpers.ts` — payroll number generation
+- `convex/lib/validation.ts` — shared validators extracted from expenses/reimbursements/payroll
+- `tests/convex/payroll.test.ts` — 345-line integration test suite
+- `convex/payroll/__tests__/helpers.test.ts` — unit tests for payroll number generation
+
 ### Reimbursement Batches (Phase 46) — 2026-03-14
 
 **For the team:** Approved expenses paid from personal funds can now be grouped into reimbursement batches per employee. Finance confirms each batch, marks it as paid once the transfer is done, and the system tracks the full lifecycle with audit trails. Employees can also register their bank account details for faster payouts.
