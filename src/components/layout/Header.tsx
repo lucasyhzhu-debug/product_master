@@ -30,6 +30,7 @@ import {
   FileText,
   Receipt,
   Landmark,
+  DollarSign,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -113,6 +114,7 @@ const adminItems: NavItem[] = [
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/reimbursements', label: 'Reimburse', icon: Receipt, permission: 'canAccessUsers' },
   { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canAccessUsers' },
+  { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canAccessUsers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
 ];
 

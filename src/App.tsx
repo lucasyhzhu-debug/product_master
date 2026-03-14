@@ -101,6 +101,9 @@ const ReimbursementManager = lazyWithPreload(() =>
 const BankAccountsManager = lazyWithPreload(() =>
   import('./pages/BankAccountsManager').then(m => ({ default: m.BankAccountsManager }))
 );
+const PayrollManager = lazyWithPreload(() =>
+  import('./pages/PayrollManager').then(m => ({ default: m.PayrollManager }))
+);
 
 function App() {
   return (
@@ -288,6 +291,16 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["admin"]}>
                         <BankAccountsManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Payroll (admin-only, Phase 47) */}
+                  <Route
+                    path="payroll"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <PayrollManager />
                       </ProtectedRoute>
                     }
                   />
