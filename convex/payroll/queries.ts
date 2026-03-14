@@ -6,6 +6,7 @@
  */
 
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 
 // ---------------------------------------------------------------------------
@@ -68,9 +69,9 @@ export const list = protectedQuery({
 
     const userMap = new Map<string, string>();
     for (const userId of userIds) {
-      const user = await ctx.db.get(userId as never);
-      if (user && "name" in user) {
-        userMap.set(userId, user.name as string);
+      const user = await ctx.db.get(userId as Id<"users">);
+      if (user) {
+        userMap.set(userId, user.name ?? "Unknown");
       }
     }
 

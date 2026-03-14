@@ -117,8 +117,8 @@ function CreatePayrollForm() {
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Parsed amount for display
-  const parsedAmount = parseFloat(amount) || 0;
+  // Parsed amount for display -- use parseInt to avoid fractional IDR
+  const parsedAmount = parseInt(amount, 10) || 0;
 
   // Validation
   const isValid =

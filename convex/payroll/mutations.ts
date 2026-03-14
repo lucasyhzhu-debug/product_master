@@ -46,6 +46,9 @@ export const create = protectedMutation({
   },
   handler: async (ctx, args) => {
     // Validate inputs
+    if (!args.recipientName.trim()) {
+      throw new Error("Recipient name is required");
+    }
     validatePositiveIntegerAmount(args.amount);
     validatePeriodRange(args.periodStart, args.periodEnd);
     validateRequiredDescription(args.description);
