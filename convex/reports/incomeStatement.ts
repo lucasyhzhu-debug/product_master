@@ -187,7 +187,7 @@ const KNOWN_MISSING_CHANNELS = [
 // filters near-zero-balance items from display, sorts by code ascending.
 
 function aggregateJournalLines(
-  lines: Array<{ accountId: any; debitAmount: number; creditAmount: number }>,
+  lines: Array<{ accountId: string; debitAmount: number; creditAmount: number }>,
   targetIds: Set<string>,
   lookup: Map<string, { code: string; name: string }>
 ): { items: Array<{ code: string; name: string; total: number }>; total: number } {
@@ -532,7 +532,7 @@ async function fetchAndAggregate(
   previousStart: number,
   previousEnd: number
 ) {
-  // Phase 1: Parallel fetch of all base data
+  // Phase 1: Parallel fetch of all base data (revenue, consignments, BOM, accounts, journal lines)
   const [
     currentRevenue,
     previousRevenue,
@@ -540,6 +540,10 @@ async function fetchAndAggregate(
     previousConsignments,
     bomComponents,
     allComponentTypes,
+    opexAccounts,
+    otherAccounts,
+    currentJournalLines,
+    previousJournalLines,
   ] = await Promise.all([
     // externalRevenue for current period — both bounds applied at index level
     ctx.db
@@ -580,12 +584,16 @@ async function fetchAndAggregate(
     // BOM preload (follows getLifetimeTotalsInternal pattern)
     ctx.db.query("menuProductComponents").collect(),
     ctx.db.query("componentTypes").collect(),
-  ]);
-
-  // Phase 1b: Fetch accounts and journal lines for OpEx/Other aggregation (parallel with Phase 2)
-  const [opexAccounts, otherAccounts] = await Promise.all([
+    // Accounts for OpEx/Other aggregation
     ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "opex")).collect(),
     ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "other")).collect(),
+    // Single indexed query per period using by_entryDate (PNL-04: not N+1)
+    ctx.db.query("journalEntryLines")
+      .withIndex("by_entryDate", (q) => q.gte("entryDate", currentStart).lt("entryDate", currentEnd))
+      .collect(),
+    ctx.db.query("journalEntryLines")
+      .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
+      .collect(),
   ]);
 
   // Build lookup structures for journal aggregation
@@ -595,16 +603,6 @@ async function fetchAndAggregate(
   for (const a of [...opexAccounts, ...otherAccounts]) {
     accountLookup.set(a._id as string, { code: a.code, name: a.name });
   }
-
-  // Single indexed query per period using by_entryDate (PNL-04: not N+1)
-  const [currentJournalLines, previousJournalLines] = await Promise.all([
-    ctx.db.query("journalEntryLines")
-      .withIndex("by_entryDate", (q) => q.gte("entryDate", currentStart).lt("entryDate", currentEnd))
-      .collect(),
-    ctx.db.query("journalEntryLines")
-      .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
-      .collect(),
-  ]);
 
   // Aggregate journal lines per period (pure function, no ctx)
   const currentOpex = aggregateJournalLines(currentJournalLines, opexIds, accountLookup);
