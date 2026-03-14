@@ -44,16 +44,16 @@
 - [ ] **FRAUD-08**: Unfamiliar vendor flag when vendor name not seen in system in last 90 days
 
 ## Reimbursement
-- [ ] **RMB-01**: Admin can view approved expenses grouped by employee with bank details and running totals
-- [ ] **RMB-02**: Admin can create reimbursement batches (one per employee) with auto-generated RMB-MMDD-NNN number
-- [ ] **RMB-03**: Admin can confirm a batch by entering BCA reference number, transfer date, and source bank account
-- [ ] **RMB-04**: Confirming a batch auto-generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
-- [ ] **RMB-05**: Admin can void a confirmed batch with reason, generating a reversing journal entry and returning expenses to AwaitingPayment
-- [ ] **RMB-06**: Batch history is searchable by RMB code or BCA reference
+- [x] **RMB-01**: Admin can view approved expenses grouped by employee with bank details and running totals
+- [x] **RMB-02**: Admin can create reimbursement batches (one per employee) with auto-generated RMB-MMDD-NNN number
+- [x] **RMB-03**: Admin can confirm a batch by entering BCA reference number, transfer date, and source bank account
+- [x] **RMB-04**: Confirming a batch auto-generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
+- [x] **RMB-05**: Admin can void a confirmed batch with reason, generating a reversing journal entry and returning expenses to AwaitingPayment
+- [x] **RMB-06**: Batch history is searchable by RMB code or BCA reference
 
 ## Bank Accounts
-- [ ] **RMB-07**: Admin can manage company bank accounts (name, bank, account number, active status)
-- [ ] **RMB-08**: Users can optionally store their bank account details on their profile for reimbursement
+- [x] **RMB-07**: Admin can manage company bank accounts (name, bank, account number, active status)
+- [x] **RMB-08**: Users can optionally store their bank account details on their profile for reimbursement
 
 ## Payroll
 - [ ] **PAY-01**: Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
@@ -147,14 +147,14 @@
 | FRAUD-06 | Phase 50 | Pending |
 | FRAUD-07 | Phase 50 | Pending |
 | FRAUD-08 | Phase 50 | Pending |
-| RMB-01 | Phase 46 | Pending |
-| RMB-02 | Phase 46 | Pending |
-| RMB-03 | Phase 46 | Pending |
-| RMB-04 | Phase 46 | Pending |
-| RMB-05 | Phase 46 | Pending |
-| RMB-06 | Phase 46 | Pending |
-| RMB-07 | Phase 46 | Pending |
-| RMB-08 | Phase 46 | Pending |
+| RMB-01 | Phase 46 | Complete |
+| RMB-02 | Phase 46 | Complete |
+| RMB-03 | Phase 46 | Complete |
+| RMB-04 | Phase 46 | Complete |
+| RMB-05 | Phase 46 | Complete |
+| RMB-06 | Phase 46 | Complete |
+| RMB-07 | Phase 46 | Complete |
+| RMB-08 | Phase 46 | Complete |
 | PAY-01 | Phase 47 | Pending |
 | PAY-02 | Phase 47 | Pending |
 | PAY-03 | Phase 47 | Pending |

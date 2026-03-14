@@ -95,6 +95,12 @@ const MyExpenses = lazyWithPreload(() =>
 const ExpenseApproval = lazyWithPreload(() =>
   import('./pages/ExpenseApproval').then(m => ({ default: m.ExpenseApproval }))
 );
+const ReimbursementManager = lazyWithPreload(() =>
+  import('./pages/ReimbursementManager').then(m => ({ default: m.ReimbursementManager }))
+);
+const BankAccountsManager = lazyWithPreload(() =>
+  import('./pages/BankAccountsManager').then(m => ({ default: m.BankAccountsManager }))
+);
 
 function App() {
   return (
@@ -264,6 +270,24 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["manager", "admin"]}>
                         <ExpenseApproval />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Reimbursements (admin-only, Phase 46) */}
+                  <Route
+                    path="reimbursements"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ReimbursementManager />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="bank-accounts"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <BankAccountsManager />
                       </ProtectedRoute>
                     }
                   />
