@@ -4,6 +4,21 @@ milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
 stopped_at: Completed 49-01-PLAN.md
+last_updated: "2026-03-14T14:10:22.539Z"
+last_activity: 2026-03-14 -- Completed 49-01-PLAN.md (extended P&L below Gross Profit with journal aggregation)
+progress:
+  total_phases: 11
+  completed_phases: 9
+  total_plans: 14
+  completed_plans: 14
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 49-01-PLAN.md
 last_updated: "2026-03-14T13:53:54.367Z"
 last_activity: 2026-03-14 -- Completed 49-01-PLAN.md (extended P&L below Gross Profit with journal aggregation)
 progress:

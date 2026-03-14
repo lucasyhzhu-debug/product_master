@@ -294,7 +294,7 @@ Plans:
 | v1.0 Concerns Cleanup & Refactor | 1-11 | 36 | Complete | 2026-02-15 |
 | v1.1 Stabilization & QoL | 12-16 | 27 | Complete | 2026-02-16 |
 | v1.2 Unified Planning & Revenue | 17-18 | 20 | Complete | 2026-02-21 |
-| v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | 1/1 | Complete   | 2026-03-14 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
+| v1.3 GoFood, Kitchen & Legacy Cleanup | 19-25 | 49 | 1/1 | Complete    | 2026-03-14 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
 | v1.7 Expense & Accounting | 41-50 | TBD | In progress | - |
