@@ -445,6 +445,17 @@ export {
   type BankAccount,
 } from "./useBankAccounts";
 
+// Payroll (Payroll Management - Phase 47)
+export {
+  usePayrollEntries,
+  usePayrollEntry,
+  useCreatePayroll,
+  useVoidPayroll,
+  usePayrollUploadUrl,
+  type PayrollEntry,
+  type PayrollStatus,
+} from "./usePayroll";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
