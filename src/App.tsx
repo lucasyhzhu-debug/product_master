@@ -104,6 +104,9 @@ const BankAccountsManager = lazyWithPreload(() =>
 const PayrollManager = lazyWithPreload(() =>
   import('./pages/PayrollManager').then(m => ({ default: m.PayrollManager }))
 );
+const ExpenseAnalytics = lazyWithPreload(() =>
+  import('./pages/ExpenseAnalytics').then(m => ({ default: m.ExpenseAnalytics }))
+);
 
 function App() {
   return (
@@ -255,7 +258,7 @@ function App() {
                   <Route
                     path="expenses"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute requiredPermission="canSubmitExpenses">
                         <MyExpenses />
                       </ProtectedRoute>
                     }
@@ -263,7 +266,7 @@ function App() {
                   <Route
                     path="expenses/new"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute requiredPermission="canSubmitExpenses">
                         <ExpenseSubmit />
                       </ProtectedRoute>
                     }
@@ -271,8 +274,18 @@ function App() {
                   <Route
                     path="expenses/approve"
                     element={
-                      <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                      <ProtectedRoute requiredPermission="canApproveExpenses">
                         <ExpenseApproval />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Expense Analytics - Manager and Admin (Phase 50 stub) */}
+                  <Route
+                    path="expense-analytics"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessExpenseAnalytics">
+                        <ExpenseAnalytics />
                       </ProtectedRoute>
                     }
                   />
@@ -281,7 +294,7 @@ function App() {
                   <Route
                     path="reimbursements"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
                         <ReimbursementManager />
                       </ProtectedRoute>
                     }
@@ -289,7 +302,7 @@ function App() {
                   <Route
                     path="bank-accounts"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
                         <BankAccountsManager />
                       </ProtectedRoute>
                     }
@@ -299,7 +312,7 @@ function App() {
                   <Route
                     path="payroll"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
                         <PayrollManager />
                       </ProtectedRoute>
                     }
@@ -309,7 +322,7 @@ function App() {
                   <Route
                     path="accounts"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
                         <AccountsManager />
                       </ProtectedRoute>
                     }
