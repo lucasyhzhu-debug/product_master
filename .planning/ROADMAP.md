@@ -288,6 +288,26 @@ Plans:
 - [ ] 50-01-PLAN.md -- Backend: fraud detection helpers (TDD), analytics queries (OpEx, metrics, fraud flags)
 - [ ] 50-02-PLAN.md -- Frontend: hooks, chart/card sub-components, ExpenseAnalytics dashboard page
 
+### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
+**Goal**: Admin can bulk-import 350+ historical employee expense records as journal entries via CSV upload, backfilling OpEx in the P&L for periods before the accounting system existed
+**Depends on:** Phase 50
+**Requirements**: None (one-off import tool)
+**Success Criteria** (what must be TRUE):
+  1. Admin can download a CSV template and a Chart of Accounts reference file
+  2. Admin can upload a CSV and see row-level validation errors with clear messages
+  3. Admin can review summaries (by GL account, by period, total) before confirming
+  4. Confirming creates one JE per valid row (DR expense account, CR 1100 Cash) with sourceType "manual" and [Historical Import] prefix
+  5. All JEs from one import share the same sourceId (importBatchId) for traceability
+  6. Receipt URLs from CSV are preserved in journalEntries.metadata.receiptUrl
+  7. Import handles 350+ rows via batched mutation calls (50/batch) with progress indication
+**Plans:** 4 plans
+
+Plans:
+- [ ] 51-01-PLAN.md -- Schema metadata field + journal engine extension
+- [ ] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
+- [ ] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
+- [ ] 51-04-PLAN.md -- Verification + documentation + smoke test
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -299,16 +319,6 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-50 | TBD | In progress | - |
+| v1.7 Expense & Accounting | 41-51 | TBD | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 10 phases planned for v1.7**
-
-### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 50
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 51 to break down)
+**Total: 40 phases, 177 plans shipped across 7 milestones + 11 phases planned for v1.7**
