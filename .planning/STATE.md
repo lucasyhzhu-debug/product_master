@@ -3,30 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 46-02-PLAN.md (reimbursement frontend)
-last_updated: "2026-03-13T22:12:33.692Z"
-last_activity: "2026-03-14 -- Completed 46-02-PLAN.md (reimbursement frontend: hooks, components, pages, routes, navigation)"
+stopped_at: Completed 47-01-PLAN.md (payroll backend)
+last_updated: "2026-03-14T01:53:00Z"
+last_activity: "2026-03-14 -- Completed 47-01-PLAN.md (payroll backend: schema, shared validation, mutations, queries, integration tests)"
 progress:
   total_phases: 10
   completed_phases: 6
   total_plans: 12
-  completed_plans: 10
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 46-02-PLAN.md (reimbursement frontend)
-last_updated: "2026-03-13T21:54:42Z"
-last_activity: 2026-03-14 -- Completed 46-02-PLAN.md (reimbursement frontend: hooks, components, pages, routes, navigation)
-progress:
-  total_phases: 10
-  completed_phases: 6
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  completed_plans: 11
 ---
 
 # Project State
@@ -34,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 46 plan 01 complete (reimbursement backend)
+**Current focus:** v1.7 Expense & Accounting -- Phase 47 plan 01 complete (payroll backend)
 
 ## Current Position
 
-Phase: 46 of 50 (Reimbursement)
-Plan: 2 of 2
-Status: Phase 46 complete (reimbursement backend + frontend)
-Last activity: 2026-03-14 -- Completed 46-02-PLAN.md (reimbursement frontend: hooks, components, pages, routes, navigation)
+Phase: 47 of 50 (Payroll)
+Plan: 1 of 2
+Status: Phase 47 plan 01 complete (payroll backend)
+Last activity: 2026-03-14 -- Completed 47-01-PLAN.md (payroll backend: schema, shared validation, mutations, queries, integration tests)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -95,6 +79,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 46]: EntityManager mutation hooks suppress toasts (empty strings) to avoid double toast
 - [Phase 46]: canAccessUsers permission for reimbursement nav items (canManageReimbursements deferred to Phase 48)
 - [Phase 46]: Auto-open ConfirmBatchDialog after batch creation for streamlined admin workflow
+- 47-01: Shared validation in convex/lib/validation.ts eliminates duplication across expenses, reimbursements, and payroll
+- 47-01: Insert payroll entry first (for sourceId), then create JE, then patch with journalEntryId
+- 47-01: Explicit journalEntryId guard (no non-null assertion) in voidEntry for safety
 
 ### Research Findings (v1.7)
 
@@ -122,5 +109,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 46-02-PLAN.md (reimbursement frontend)
-Resume notes: Phase 46 complete (2/2). Reimbursement frontend: 13 hooks, 3 components, 2 pages (ReimbursementManager, BankAccountsManager), routes with admin guards, Header nav links. All 804 tests passing, build clean. Next: Phase 47 (Payroll) or merge Phase 46 to main.
+Stopped at: Completed 47-01-PLAN.md (payroll backend)
+Resume notes: Phase 47 plan 01 complete (1/2). Payroll backend: schema updated (payrollNumber, recipientName, required status, by_status index), shared validation (convex/lib/validation.ts), mutations (create, voidEntry, generateUploadUrl), queries (list, getById), 18 tests passing, build clean. Next: 47-02 (payroll frontend).
