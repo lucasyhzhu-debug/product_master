@@ -623,6 +623,24 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.totalPackagingCogs).toBe(8000); // 4 * 2000
   });
 
+  test("empty week returns zero OpEx/EBIT/Other/NetIncome fields", async () => {
+    const t = convexTest(schema);
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // All new P&L fields should exist with zeros/nulls
+    expect(result.current.opex).toEqual([]);
+    expect(result.current.totalOpEx).toBe(0);
+    expect(result.current.ebit).toBe(0);
+    expect(result.current.ebitMarginPercent).toBeNull();
+    expect(result.current.otherItems).toEqual([]);
+    expect(result.current.totalOther).toBe(0);
+    expect(result.current.netIncome).toBe(0);
+    expect(result.current.netMarginPercent).toBeNull();
+  });
+
   test("multi-channel revenue aggregation: gobiz + consignment + internal", async () => {
     const t = convexTest(schema);
 
@@ -837,5 +855,390 @@ describe("getWeeklyIncomeStatement", () => {
     // missingChannels: grabfood is known-missing (no data seeded, OAuth pending)
     expect(result.current.gapAnalysis.missingChannels).toHaveLength(1);
     expect(result.current.gapAnalysis.missingChannels[0].source).toBe("grabfood");
+  });
+});
+
+// ============================================
+// Helpers: seed journal entry data
+// ============================================
+
+async function seedAccount(
+  t: TestContext,
+  overrides: {
+    code: string;
+    name: string;
+    type: "asset" | "liability" | "equity" | "revenue" | "cogs" | "opex" | "other";
+    category?: string;
+  }
+): Promise<Id<"accounts">> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("accounts", {
+      code: overrides.code,
+      name: overrides.name,
+      type: overrides.type,
+      category: overrides.category ?? "Test",
+      isActive: true,
+      isSystem: false,
+    });
+  });
+}
+
+async function seedUser(t: TestContext): Promise<Id<"users">> {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("users", {
+      name: "Test User",
+      pinHash: "salt:hash",
+      role: "admin",
+      isActive: true,
+      failedAttempts: 0,
+      createdAt: Date.now(),
+    });
+  });
+}
+
+async function seedJournalEntryWithLines(
+  t: TestContext,
+  opts: {
+    userId: Id<"users">;
+    entryDate: number;
+    lines: Array<{
+      accountId: Id<"accounts">;
+      debitAmount: number;
+      creditAmount: number;
+    }>;
+  }
+): Promise<Id<"journalEntries">> {
+  const journalEntryId = await t.run(async (ctx) => {
+    return await ctx.db.insert("journalEntries", {
+      entryNumber: `JE-TEST-${Date.now()}`,
+      date: opts.entryDate,
+      description: "Test journal entry",
+      sourceType: "manual",
+      isReversed: false,
+      createdBy: opts.userId,
+      createdAt: Date.now(),
+    });
+  });
+
+  for (const line of opts.lines) {
+    await t.run(async (ctx) => {
+      await ctx.db.insert("journalEntryLines", {
+        journalEntryId,
+        accountId: line.accountId,
+        entryDate: opts.entryDate,
+        debitAmount: line.debitAmount,
+        creditAmount: line.creditAmount,
+      });
+    });
+  }
+
+  return journalEntryId;
+}
+
+// ============================================
+// P&L OpEx/EBIT/Other/NetIncome Tests
+// ============================================
+
+describe("P&L OpEx/EBIT/Other/NetIncome", () => {
+  test("OpEx aggregation groups by GL account, filters near-zero-balance, sorts by code", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Seed 3 OpEx accounts
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const acc6200 = await seedAccount(t, { code: "6200", name: "Rent & Utilities", type: "opex" });
+    const acc6300 = await seedAccount(t, { code: "6300", name: "Transportation", type: "opex" });
+
+    // Need a balancing account (asset)
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    // Seed journal entries within the test week
+    // 6100 gets DR 500000 (non-zero)
+    // 6200 gets DR 0.005 (near-zero, should be filtered)
+    // 6300 gets DR 300000 (non-zero)
+    const entryDate = TEST_WEEK_START + DAY_MS; // Within current week
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6100, debitAmount: 500000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 500000 },
+      ],
+    });
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6200, debitAmount: 0.005, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 0.005 },
+      ],
+    });
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6300, debitAmount: 300000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 300000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // 6200 should be filtered (near-zero), only 6100 and 6300 should appear
+    expect(result.current.opex).toHaveLength(2);
+    // Sorted by code ascending
+    expect(result.current.opex[0].code).toBe("6100");
+    expect(result.current.opex[0].name).toBe("Salaries & Wages");
+    expect(result.current.opex[0].total).toBe(500000);
+    expect(result.current.opex[1].code).toBe("6300");
+    expect(result.current.opex[1].name).toBe("Transportation");
+    expect(result.current.opex[1].total).toBe(300000);
+
+    // totalOpEx includes ALL items (including near-zero before filtering)
+    expect(result.current.totalOpEx).toBeCloseTo(800000.005, 2);
+  });
+
+  test("Other Income/Expense: credit-normal account shows negative total", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // 7100 Interest Income: credit-normal -> debit - credit = negative
+    const acc7100 = await seedAccount(t, { code: "7100", name: "Interest Income", type: "other" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    const entryDate = TEST_WEEK_START + DAY_MS;
+
+    // Interest Income: DR Cash 10000, CR Interest Income 10000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: accCash, debitAmount: 10000, creditAmount: 0 },
+        { accountId: acc7100, debitAmount: 0, creditAmount: 10000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // total = debit - credit = 0 - 10000 = -10000 (income)
+    expect(result.current.otherItems).toHaveLength(1);
+    expect(result.current.otherItems[0].code).toBe("7100");
+    expect(result.current.otherItems[0].total).toBe(-10000);
+    expect(result.current.totalOther).toBe(-10000);
+  });
+
+  test("reversed entry in same period cancels out", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    const entryDate = TEST_WEEK_START + DAY_MS;
+
+    // Original: DR 6100 100000, CR Cash 100000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6100, debitAmount: 100000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 100000 },
+      ],
+    });
+
+    // Reversal: CR 6100 100000, DR Cash 100000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6100, debitAmount: 0, creditAmount: 100000 },
+        { accountId: accCash, debitAmount: 100000, creditAmount: 0 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // Net = 0, so 6100 should be filtered from display
+    expect(result.current.opex).toHaveLength(0);
+    expect(result.current.totalOpEx).toBe(0);
+  });
+
+  test("EBIT = grossProfit - totalOpEx, margins use netRevenue as denominator", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Seed revenue: gross 1000000
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 1000000,
+    });
+
+    // Seed OpEx: DR 200000
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START + DAY_MS,
+      lines: [
+        { accountId: acc6100, debitAmount: 200000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 200000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // grossProfit = netRevenue - COGS = 1000000 - 0 = 1000000
+    expect(result.current.grossProfit).toBe(1000000);
+    // ebit = grossProfit - totalOpEx = 1000000 - 200000 = 800000
+    expect(result.current.ebit).toBe(800000);
+    // ebitMarginPercent = ebit / netRevenue * 100 = 800000 / 1000000 * 100 = 80
+    expect(result.current.ebitMarginPercent).toBeCloseTo(80, 1);
+  });
+
+  test("Net Income = EBIT - totalOther", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Revenue: 1000000
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 1000000,
+    });
+
+    // OpEx: DR 200000
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START + DAY_MS,
+      lines: [
+        { accountId: acc6100, debitAmount: 200000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 200000 },
+      ],
+    });
+
+    // Other: Interest Expense DR 50000
+    const acc7200 = await seedAccount(t, { code: "7200", name: "Interest Expense", type: "other" });
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START + DAY_MS,
+      lines: [
+        { accountId: acc7200, debitAmount: 50000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 50000 },
+      ],
+    });
+
+    // Other: Interest Income CR 10000
+    const acc7100 = await seedAccount(t, { code: "7100", name: "Interest Income", type: "other" });
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START + DAY_MS,
+      lines: [
+        { accountId: accCash, debitAmount: 10000, creditAmount: 0 },
+        { accountId: acc7100, debitAmount: 0, creditAmount: 10000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // grossProfit = 1000000
+    // ebit = 1000000 - 200000 = 800000
+    // totalOther = 50000 + (-10000) = 40000 (net expense)
+    // netIncome = ebit - totalOther = 800000 - 40000 = 760000
+    expect(result.current.ebit).toBe(800000);
+    expect(result.current.totalOther).toBe(40000);
+    expect(result.current.netIncome).toBe(760000);
+    // netMarginPercent = 760000 / 1000000 * 100 = 76
+    expect(result.current.netMarginPercent).toBeCloseTo(76, 1);
+  });
+
+  test("deltas computed for new fields", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Seed OpEx account
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    // Revenue for previous week
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START - WEEK_MS,
+      revenueGross: 800000,
+    });
+
+    // OpEx for previous week: 100000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START - WEEK_MS + DAY_MS,
+      lines: [
+        { accountId: acc6100, debitAmount: 100000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 100000 },
+      ],
+    });
+
+    // Revenue for current week
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 1000000,
+    });
+
+    // OpEx for current week: 200000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate: TEST_WEEK_START + DAY_MS,
+      lines: [
+        { accountId: acc6100, debitAmount: 200000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 200000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // Verify deltas exist for new fields
+    expect(result.deltas.totalOpEx).toBeDefined();
+    expect(result.deltas.totalOpEx.amount).toBe(100000); // 200000 - 100000
+    expect(result.deltas.totalOpEx.percent).toBeCloseTo(100); // 100000/100000 * 100
+
+    expect(result.deltas.ebit).toBeDefined();
+    // Current EBIT = 1000000 - 200000 = 800000
+    // Previous EBIT = 800000 - 100000 = 700000
+    expect(result.deltas.ebit.amount).toBe(100000);
+
+    expect(result.deltas.ebitMarginPp).toBeDefined();
+    // Current ebitMargin = 800000/1000000*100 = 80%
+    // Previous ebitMargin = 700000/800000*100 = 87.5%
+    // Delta = 80 - 87.5 = -7.5 pp
+    expect(result.deltas.ebitMarginPp).toBeCloseTo(-7.5, 1);
+
+    expect(result.deltas.totalOther).toBeDefined();
+    expect(result.deltas.netIncome).toBeDefined();
+    expect(result.deltas.netMarginPp).toBeDefined();
   });
 });

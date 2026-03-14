@@ -55,6 +55,34 @@ const PERIOD_MODE_LABELS: Record<PeriodMode, string> = {
   custom: "Custom Range",
 };
 
+/** Merge items from current and previous periods by code, producing a union list sorted by code.
+ *  Items present in only one period get 0 for the missing period. */
+function unionMergeByCode(
+  currentItems: Array<{ code: string; name: string; total: number }>,
+  previousItems: Array<{ code: string; name: string; total: number }>
+): Array<{ code: string; name: string; currentTotal: number; previousTotal: number }> {
+  const map = new Map<string, { name: string; currentTotal: number; previousTotal: number }>();
+
+  for (const item of currentItems) {
+    map.set(item.code, { name: item.name, currentTotal: item.total, previousTotal: 0 });
+  }
+
+  for (const item of previousItems) {
+    const existing = map.get(item.code);
+    if (existing) {
+      existing.previousTotal = item.total;
+    } else {
+      map.set(item.code, { name: item.name, currentTotal: 0, previousTotal: item.total });
+    }
+  }
+
+  const result = Array.from(map.entries())
+    .map(([code, data]) => ({ code, ...data }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  return result;
+}
+
 // ── Main page component ──
 
 export function FinancialStatement() {
@@ -84,6 +112,8 @@ export function FinancialStatement() {
   const [revenueExpanded, setRevenueExpanded] = useState(true);
   const [deductionsExpanded, setDeductionsExpanded] = useState(false);
   const [cogsExpanded, setCogsExpanded] = useState(false);
+  const [opexExpanded, setOpexExpanded] = useState(false);
+  const [otherExpanded, setOtherExpanded] = useState(false);
 
   // Mobile comparison toggle
   const [showComparison, setShowComparison] = useState(false);
@@ -141,6 +171,17 @@ export function FinancialStatement() {
       packaging: computeDelta(c.totalPackagingCogs, p.totalPackagingCogs),
       total: computeDelta(c.totalCogs, p.totalCogs),
     };
+  }, [data]);
+
+  // Merged OpEx and Other items (union by code from both periods)
+  const mergedOpexItems = useMemo(() => {
+    if (!data) return [];
+    return unionMergeByCode(data.current.opex, data.previous.opex);
+  }, [data]);
+
+  const mergedOtherItems = useMemo(() => {
+    if (!data) return [];
+    return unionMergeByCode(data.current.otherItems, data.previous.otherItems);
   }, [data]);
 
   // ── Navigation handlers (mode-aware) ──
@@ -529,6 +570,170 @@ export function FinancialStatement() {
                     delta={
                       data.deltas.grossMarginPp != null
                         ? { amount: data.deltas.grossMarginPp, percent: data.deltas.grossMarginPp }
+                        : null
+                    }
+                    unit="pp"
+                  />
+                </td>
+              </tr>
+
+              {/* -- OPERATING EXPENSES SECTION -- */}
+              <SectionHeaderRow
+                label="Operating Expenses"
+                isExpanded={opexExpanded}
+                onToggle={() => setOpexExpanded(!opexExpanded)}
+              />
+
+              {opexExpanded && mergedOpexItems.map((item) => (
+                <PLRow
+                  key={item.code}
+                  label={`${item.code} ${item.name}`}
+                  currentAmount={item.currentTotal}
+                  previousAmount={item.previousTotal}
+                  delta={computeDelta(item.currentTotal, item.previousTotal)}
+                  isNegative
+                  invertColor
+                  indent={1}
+                  showComparison={showComparison}
+                />
+              ))}
+
+              {/* Total Operating Expenses (always visible) */}
+              <PLRow
+                label="Total Operating Expenses"
+                currentAmount={data.current.totalOpEx}
+                previousAmount={data.previous.totalOpEx}
+                delta={data.deltas.totalOpEx}
+                isNegative
+                invertColor
+                isBold
+                showComparison={showComparison}
+              />
+
+              {/* -- EBIT -- */}
+              <PLRow
+                label="EBIT (Operating Profit)"
+                currentAmount={data.current.ebit}
+                previousAmount={data.previous.ebit}
+                delta={data.deltas.ebit}
+                isBold
+                showComparison={showComparison}
+                isTopBorder
+              />
+
+              {/* EBIT Margin % row */}
+              <tr className="bg-muted/20">
+                <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
+                  EBIT Margin %
+                </td>
+                <td className="py-2 text-sm text-right tabular-nums font-medium">
+                  {data.current.ebitMarginPercent != null
+                    ? `${data.current.ebitMarginPercent.toFixed(1)}%`
+                    : "N/A"}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 text-sm text-right tabular-nums font-medium",
+                    "md:table-cell",
+                    !showComparison && "hidden"
+                  )}
+                >
+                  {data.previous.ebitMarginPercent != null
+                    ? `${data.previous.ebitMarginPercent.toFixed(1)}%`
+                    : "N/A"}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 text-sm text-right",
+                    "md:table-cell",
+                    !showComparison && "hidden"
+                  )}
+                >
+                  <DeltaIndicator
+                    delta={
+                      data.deltas.ebitMarginPp != null
+                        ? { amount: data.deltas.ebitMarginPp, percent: data.deltas.ebitMarginPp }
+                        : null
+                    }
+                    unit="pp"
+                  />
+                </td>
+              </tr>
+
+              {/* -- OTHER INCOME/EXPENSE SECTION -- */}
+              <SectionHeaderRow
+                label="Other Income / Expense"
+                isExpanded={otherExpanded}
+                onToggle={() => setOtherExpanded(!otherExpanded)}
+              />
+
+              {otherExpanded && mergedOtherItems.map((item) => (
+                <PLRow
+                  key={item.code}
+                  label={`${item.code} ${item.name}`}
+                  currentAmount={item.currentTotal}
+                  previousAmount={item.previousTotal}
+                  delta={computeDelta(item.currentTotal, item.previousTotal)}
+                  isNegative
+                  indent={1}
+                  showComparison={showComparison}
+                />
+              ))}
+
+              {/* Total Other Income / Expense (always visible) */}
+              <PLRow
+                label="Total Other Income / Expense"
+                currentAmount={data.current.totalOther}
+                previousAmount={data.previous.totalOther}
+                delta={data.deltas.totalOther}
+                isNegative
+                isBold
+                showComparison={showComparison}
+              />
+
+              {/* -- NET INCOME -- */}
+              <PLRow
+                label="NET INCOME"
+                currentAmount={data.current.netIncome}
+                previousAmount={data.previous.netIncome}
+                delta={data.deltas.netIncome}
+                isBold
+                showComparison={showComparison}
+                isTopBorder
+              />
+
+              {/* Net Margin % row */}
+              <tr className="bg-muted/20">
+                <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
+                  Net Margin %
+                </td>
+                <td className="py-2 text-sm text-right tabular-nums font-medium">
+                  {data.current.netMarginPercent != null
+                    ? `${data.current.netMarginPercent.toFixed(1)}%`
+                    : "N/A"}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 text-sm text-right tabular-nums font-medium",
+                    "md:table-cell",
+                    !showComparison && "hidden"
+                  )}
+                >
+                  {data.previous.netMarginPercent != null
+                    ? `${data.previous.netMarginPercent.toFixed(1)}%`
+                    : "N/A"}
+                </td>
+                <td
+                  className={cn(
+                    "py-2 text-sm text-right",
+                    "md:table-cell",
+                    !showComparison && "hidden"
+                  )}
+                >
+                  <DeltaIndicator
+                    delta={
+                      data.deltas.netMarginPp != null
+                        ? { amount: data.deltas.netMarginPp, percent: data.deltas.netMarginPp }
                         : null
                     }
                     unit="pp"

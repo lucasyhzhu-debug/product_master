@@ -132,10 +132,10 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
 - [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
 - [x] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management (completed 2026-03-13)
-- [x] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support (completed 2026-03-14)
+- [x] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support (completed 2026-03-14)
 - [x] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration (completed 2026-03-14)
-- [ ] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income
-- [ ] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring
+- [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
+- [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
 
 ## Phase Details
 
@@ -282,10 +282,11 @@ Plans:
   2. Monthly spend trend is displayed as a 6-month line chart showing OpEx trajectory
   3. Pending reimbursement total and average approval time are displayed as summary metrics
   4. Active fraud flags are surfaced: split detection (same employee + same GL + multiple expenses within 48hrs summing > Rp 500K), approver concentration (> 80% of one employee's expenses approved by same person in 30 days), and unfamiliar vendor (vendor not seen in 90 days)
-**Plans**: 1 plan
+**Plans**: 2 plans
 
 Plans:
-- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
+- [ ] 50-01-PLAN.md -- Backend: fraud detection helpers (TDD), analytics queries (OpEx, metrics, fraud flags)
+- [ ] 50-02-PLAN.md -- Frontend: hooks, chart/card sub-components, ExpenseAnalytics dashboard page
 
 ## Progress
 
@@ -307,7 +308,7 @@ Plans:
 **Goal:** [To be planned]
 **Requirements**: TBD
 **Depends on:** Phase 50
-**Plans:** 0 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 51 to break down)
