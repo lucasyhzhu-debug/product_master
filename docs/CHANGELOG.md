@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Reimbursement Batches (Phase 46) — 2026-03-14
+
+**For the team:** Approved expenses paid from personal funds can now be grouped into reimbursement batches per employee. Finance confirms each batch, marks it as paid once the transfer is done, and the system tracks the full lifecycle with audit trails. Employees can also register their bank account details for faster payouts.
+
+#### Added
+- `src/pages/ReimbursementManager.tsx` — main page at `/reimbursements` showing pending expenses grouped by submitter and batch history with status cards
+- `src/pages/BankAccountsManager.tsx` — employee bank account management at `/bank-accounts`
+- `src/components/reimbursements/` — BatchCard (status workflow display), ConfirmBatchDialog (review before confirming), PendingExpensesGroup (group pending expenses by submitter)
+- `src/hooks/convex/useReimbursements.ts` — 6 hooks (usePendingForReimbursement, useReimbursementBatches, useBatchDetail, useCreateBatch, useConfirmBatch, useMarkBatchPaid, useVoidBatch)
+- `src/hooks/convex/useBankAccounts.ts` — 4 hooks for bank account CRUD
+- `convex/reimbursements/mutations.ts` — createBatch, confirmBatch, markBatchPaid, voidBatch with full audit trail
+- `convex/reimbursements/queries.ts` — listPendingForReimbursement (groups by submitter), listBatches, getBatchDetail
+- `convex/bankAccounts/` — bank account CRUD mutations and queries
+- `convex/expenses/auditTrail.ts` — extracted shared audit trail helper (used by both expenses and reimbursements)
+- `convex/auth/mutations.ts` — updateBankDetails mutation for user self-service bank info
+- `tests/convex/reimbursementBatch.test.ts` — 591-line integration test suite covering full batch lifecycle
+
+#### Batch Workflow
+- REIMB-01: Group approved personal-payment expenses by submitter into batches
+- REIMB-02: Confirm batch (locks expenses, records total)
+- REIMB-03: Mark batch as paid (records payment reference and date)
+- REIMB-04: Void batch (returns expenses to pending pool)
+
 ### Expense Approval & Void (Phase 45) — 2026-03-13
 
 **For the team:** Managers and admins can now review and approve expense claims from a dedicated approval queue. The system enforces approval limits (managers up to Rp 500K, admins unlimited), blocks self-approval, and shows fraud warnings. Rejected expenses include a reason that the submitter sees, and admins can void any non-terminal expense. Previously rejected resubmissions show the full rejection history.
