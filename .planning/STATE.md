@@ -3,29 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 47-02-PLAN.md (payroll frontend)
-last_updated: "2026-03-14T02:16:40.415Z"
-last_activity: "2026-03-14 -- Completed 47-02-PLAN.md (payroll frontend: hooks, PayrollManager page, route, header nav)"
+stopped_at: Completed 48-01-PLAN.md (frontend permissions & routes)
+last_updated: "2026-03-14T11:44:48Z"
+last_activity: "2026-03-14 -- Completed 48-01-PLAN.md (4 permission flags, route migration, ExpenseAnalytics stub, nav links)"
 progress:
   total_phases: 10
-  completed_phases: 7
-  total_plans: 12
-  completed_plans: 12
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 47-02-PLAN.md (payroll frontend)
-last_updated: "2026-03-14T02:02:08Z"
-last_activity: "2026-03-14 -- Completed 47-02-PLAN.md (payroll frontend: hooks, PayrollManager page, route, header nav)"
-progress:
-  total_phases: 10
-  completed_phases: 7
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 8
+  total_plans: 13
+  completed_plans: 13
 ---
 
 # Project State
@@ -33,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 47 complete (payroll backend + frontend)
+**Current focus:** v1.7 Expense & Accounting -- Phase 48 complete (frontend permissions & routes)
 
 ## Current Position
 
-Phase: 47 of 50 (Payroll)
-Plan: 2 of 2 (PHASE COMPLETE)
-Status: Phase 47 complete (payroll backend + frontend)
-Last activity: 2026-03-14 -- Completed 47-02-PLAN.md (payroll frontend: hooks, PayrollManager page, route, header nav)
+Phase: 48 of 50 (Frontend Permissions & Routes)
+Plan: 1 of 1 (PHASE COMPLETE)
+Status: Phase 48 complete (permission flags, route migration, ExpenseAnalytics stub, nav links)
+Last activity: 2026-03-14 -- Completed 48-01-PLAN.md (4 permission flags, route migration, ExpenseAnalytics stub, nav links)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -100,6 +85,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 47-02: JE preview uses AlertDialog (not Dialog) for confirm/cancel UX consistency
 - 47-02: Employee type filter uses button group matching ReimbursementManager pattern
 - 47-02: canAccessUsers permission for payroll nav item (canManagePayroll deferred to Phase 48)
+- 48-01: canManageReimbursements used for /reimbursements, /bank-accounts, /payroll, /accounts (all admin-only, semantically correct)
+- 48-01: Expenses nav link in mainNavItems after Financials (high-frequency for all roles)
+- 48-01: Admin dropdown items migrated from canAccessUsers to canManageReimbursements for semantic correctness
 
 ### Research Findings (v1.7)
 
@@ -126,6 +114,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-14
-Stopped at: Completed 47-02-PLAN.md (payroll frontend)
-Resume notes: Phase 47 complete (2/2). Payroll frontend: usePayroll hooks (5 hooks + 2 types), PayrollManager page with create form (JE preview confirmation) + filterable history list + void dialog, /payroll route with admin ProtectedRoute, header admin dropdown entry. 822 tests passing, build clean. Phase 47 fully done -- ready for merge to main.
+Last session: 2026-03-14T11:44:48.225Z
+Stopped at: Completed 48-01-PLAN.md
+Resume notes: Phase 48 complete (1/1). Added 4 permission flags (canSubmitExpenses, canApproveExpenses, canManageReimbursements, canAccessExpenseAnalytics) to ROLE_PERMISSIONS. Migrated all 7 finance routes from allowedRoles/bare to requiredPermission. Created ExpenseAnalytics stub page. Added expense nav links to Header and MobileBottomNav. 838 tests passing, build clean. Phase 48 fully done -- ready for merge to main or next phase.

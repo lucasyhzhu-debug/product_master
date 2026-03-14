@@ -85,10 +85,10 @@
 - [ ] **XANL-06**: Manager/Admin can view active fraud flags (split detection, approver concentration, unfamiliar vendor)
 
 ## Access Control
-- [ ] **PERM-01**: All roles can submit expenses and view their own expense history
-- [ ] **PERM-02**: Manager and Admin can approve expenses (within DoA thresholds)
-- [ ] **PERM-03**: Admin-only access to Reimbursement Manager, bank accounts, payroll entries, and All Expenses audit view
-- [ ] **PERM-04**: Manager and Admin can access Expense Analytics dashboard
+- [x] **PERM-01**: All roles can submit expenses and view their own expense history
+- [x] **PERM-02**: Manager and Admin can approve expenses (within DoA thresholds)
+- [x] **PERM-03**: Admin-only access to Reimbursement Manager, bank accounts, payroll entries, and All Expenses audit view
+- [x] **PERM-04**: Manager and Admin can access Expense Analytics dashboard
 
 ## Future Requirements (Deferred)
 - Monthly budget caps per GL category — Requires budget input system
@@ -176,7 +176,7 @@
 | XANL-04 | Phase 50 | Pending |
 | XANL-05 | Phase 50 | Pending |
 | XANL-06 | Phase 50 | Pending |
-| PERM-01 | Phase 48 | Pending |
-| PERM-02 | Phase 48 | Pending |
-| PERM-03 | Phase 48 | Pending |
-| PERM-04 | Phase 48 | Pending |
+| PERM-01 | Phase 48 | Complete |
+| PERM-02 | Phase 48 | Complete |
+| PERM-03 | Phase 48 | Complete |
+| PERM-04 | Phase 48 | Complete |
