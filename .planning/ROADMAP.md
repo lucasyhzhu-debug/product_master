@@ -132,8 +132,8 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
 - [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
 - [x] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management (completed 2026-03-13)
-- [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
-- [ ] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration
+- [x] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support (completed 2026-03-14)
+- [x] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration (completed 2026-03-14)
 - [ ] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income
 - [ ] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring
 
@@ -254,7 +254,10 @@ Plans:
   2. Manager and Admin can access the approval queue and approve expenses within their DoA thresholds
   3. Admin-only pages (Reimbursement Manager, bank accounts, payroll entries, All Expenses audit view) are blocked for non-admin roles
   4. Manager and Admin can access the Expense Analytics dashboard; Finance hub card on HubPage links to all accounting sub-pages
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
 
 ### Phase 49: P&L Integration
 **Goal**: The income statement extends below Gross Profit to show OpEx breakdown, EBIT, and Net Income sourced from journal entries
@@ -265,7 +268,10 @@ Plans:
   2. EBIT (Operating Profit) = Gross Profit - Total OpEx is displayed with EBIT margin percentage
   3. Other Income/Expense section (7xxx accounts) and Net Income with net margin percentage are displayed below EBIT
   4. OpEx data is sourced from a single indexed query on journalEntryLines by entryDate (business date, not _creationTime), with in-memory grouping by accountId -- no N+1 pattern
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
 
 ### Phase 50: Expense Analytics
 **Goal**: Managers and admins can monitor OpEx trends, spend distribution, and fraud flags from a dedicated analytics dashboard
@@ -276,7 +282,10 @@ Plans:
   2. Monthly spend trend is displayed as a 6-month line chart showing OpEx trajectory
   3. Pending reimbursement total and average approval time are displayed as summary metrics
   4. Active fraud flags are surfaced: split detection (same employee + same GL + multiple expenses within 48hrs summing > Rp 500K), approver concentration (> 80% of one employee's expenses approved by same person in 30 days), and unfamiliar vendor (vendor not seen in 90 days)
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
 
 ## Progress
 

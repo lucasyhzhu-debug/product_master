@@ -1775,10 +1775,12 @@ export default defineSchema({
 
   // Payroll entries — contractor and staff salary records
   payrollEntries: defineTable({
+    payrollNumber: v.string(),
     employeeType: v.union(
       v.literal("contractor"),
       v.literal("staff")
     ),
+    recipientName: v.string(),
     frequency: v.union(
       v.literal("weekly"),
       v.literal("monthly")
@@ -1788,10 +1790,10 @@ export default defineSchema({
     periodEnd: v.number(),
     description: v.string(),
     attachmentFileId: v.optional(v.id("_storage")),
-    status: v.optional(v.union(
+    status: v.union(
       v.literal("active"),
       v.literal("voided")
-    )),
+    ),
     voidedBy: v.optional(v.id("users")),
     voidedAt: v.optional(v.number()),
     voidReason: v.optional(v.string()),
@@ -1800,7 +1802,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_period", ["periodStart"])
-    .index("by_employee_type", ["employeeType"]),
+    .index("by_employee_type", ["employeeType"])
+    .index("by_status", ["status"]),
 
   // Atomic daily counters for sequential ID generation (EXP-MMDD-NNN, RMB-MMDD-NNN, JE-MMDD-NNN)
   counters: defineTable({

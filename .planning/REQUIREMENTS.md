@@ -56,10 +56,10 @@
 - [x] **RMB-08**: Users can optionally store their bank account details on their profile for reimbursement
 
 ## Payroll
-- [ ] **PAY-01**: Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
-- [ ] **PAY-02**: Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
-- [ ] **PAY-03**: Admin can void a payroll entry, generating a reversing journal entry
-- [ ] **PAY-04**: Payroll entries are viewable by period and employee type
+- [x] **PAY-01**: Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
+- [x] **PAY-02**: Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
+- [x] **PAY-03**: Admin can void a payroll entry, generating a reversing journal entry
+- [x] **PAY-04**: Payroll entries are viewable by period and employee type
 
 ## Journal Entries
 - [x] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
@@ -85,10 +85,10 @@
 - [ ] **XANL-06**: Manager/Admin can view active fraud flags (split detection, approver concentration, unfamiliar vendor)
 
 ## Access Control
-- [ ] **PERM-01**: All roles can submit expenses and view their own expense history
-- [ ] **PERM-02**: Manager and Admin can approve expenses (within DoA thresholds)
-- [ ] **PERM-03**: Admin-only access to Reimbursement Manager, bank accounts, payroll entries, and All Expenses audit view
-- [ ] **PERM-04**: Manager and Admin can access Expense Analytics dashboard
+- [x] **PERM-01**: All roles can submit expenses and view their own expense history
+- [x] **PERM-02**: Manager and Admin can approve expenses (within DoA thresholds)
+- [x] **PERM-03**: Admin-only access to Reimbursement Manager, bank accounts, payroll entries, and All Expenses audit view
+- [x] **PERM-04**: Manager and Admin can access Expense Analytics dashboard
 
 ## Future Requirements (Deferred)
 - Monthly budget caps per GL category — Requires budget input system
@@ -155,10 +155,10 @@
 | RMB-06 | Phase 46 | Complete |
 | RMB-07 | Phase 46 | Complete |
 | RMB-08 | Phase 46 | Complete |
-| PAY-01 | Phase 47 | Pending |
-| PAY-02 | Phase 47 | Pending |
-| PAY-03 | Phase 47 | Pending |
-| PAY-04 | Phase 47 | Pending |
+| PAY-01 | Phase 47 | Complete |
+| PAY-02 | Phase 47 | Complete |
+| PAY-03 | Phase 47 | Complete |
+| PAY-04 | Phase 47 | Complete |
 | JE-01 | Phase 42 | Complete |
 | JE-02 | Phase 42 | Complete |
 | JE-03 | Phase 42 | Complete |
@@ -176,7 +176,7 @@
 | XANL-04 | Phase 50 | Pending |
 | XANL-05 | Phase 50 | Pending |
 | XANL-06 | Phase 50 | Pending |
-| PERM-01 | Phase 48 | Pending |
-| PERM-02 | Phase 48 | Pending |
-| PERM-03 | Phase 48 | Pending |
-| PERM-04 | Phase 48 | Pending |
+| PERM-01 | Phase 48 | Complete |
+| PERM-02 | Phase 48 | Complete |
+| PERM-03 | Phase 48 | Complete |
+| PERM-04 | Phase 48 | Complete |

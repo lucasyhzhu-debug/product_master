@@ -721,6 +721,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canCreateOverrideVoucher: boolean;  // Manager override during checkout (manager + admin)
   canAccessInventory: boolean;  // Inventory Manager (manager + admin)
   canAccessSalesAnalytics: boolean;  // Sales Analytics (manager + admin)
+  canSubmitExpenses: boolean;  // Expense submission (all roles)
+  canApproveExpenses: boolean;  // Expense approval (manager + admin)
+  canManageReimbursements: boolean;  // Reimbursements, bank accounts, payroll (admin only)
+  canAccessExpenseAnalytics: boolean;  // Expense analytics dashboard (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -737,6 +741,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canCreateOverrideVoucher: false,
     canAccessInventory: false,
     canAccessSalesAnalytics: false,
+    canSubmitExpenses: true,
+    canApproveExpenses: false,
+    canManageReimbursements: false,
+    canAccessExpenseAnalytics: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -753,6 +761,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canCreateOverrideVoucher: false,
     canAccessInventory: false,
     canAccessSalesAnalytics: false,
+    canSubmitExpenses: true,
+    canApproveExpenses: false,
+    canManageReimbursements: false,
+    canAccessExpenseAnalytics: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -769,6 +781,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canCreateOverrideVoucher: true,  // Manager can create override during checkout
     canAccessInventory: true,  // Manager can access inventory
     canAccessSalesAnalytics: true,  // Manager can access sales analytics
+    canSubmitExpenses: true,
+    canApproveExpenses: true,
+    canManageReimbursements: false,
+    canAccessExpenseAnalytics: true,
   },
   admin: {
     canAccessDashboard: true,
@@ -785,6 +801,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canCreateOverrideVoucher: true,  // Admin can create override during checkout
     canAccessInventory: true,  // Admin can access inventory
     canAccessSalesAnalytics: true,  // Admin can access sales analytics
+    canSubmitExpenses: true,
+    canApproveExpenses: true,
+    canManageReimbursements: true,
+    canAccessExpenseAnalytics: true,
   },
 };
 

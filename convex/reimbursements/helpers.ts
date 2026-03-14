@@ -25,8 +25,6 @@ export function validateTransferDate(date: number): void {
 /**
  * Validate that a void reason is non-empty.
  */
-export function validateVoidReason(reason: string): void {
-  if (!reason.trim()) {
-    throw new Error("Void reason is required");
-  }
-}
+// Re-export from shared validation -- backward compatible alias
+import { validateRequiredReason } from "../lib/validation";
+export const validateVoidReason = validateRequiredReason;

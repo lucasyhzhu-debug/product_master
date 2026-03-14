@@ -21,11 +21,9 @@ export function requiresReceipt(amount: number): boolean {
 }
 
 /** Validates that amount is a positive integer (IDR has no fractional component) */
-export function validateExpenseAmount(amount: number): void {
-  if (!Number.isInteger(amount) || amount <= 0) {
-    throw new Error("Amount must be a positive integer (IDR)");
-  }
-}
+// Re-export from shared validation -- backward compatible alias
+import { validatePositiveIntegerAmount } from "../lib/validation";
+export const validateExpenseAmount = validatePositiveIntegerAmount;
 
 /** Returns true if expense is submitted more than 14 days after expense date */
 export function isLateSubmission(expenseDate: number, submittedAt: number): boolean {

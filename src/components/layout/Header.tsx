@@ -30,6 +30,9 @@ import {
   FileText,
   Receipt,
   Landmark,
+  DollarSign,
+  BarChart3,
+  HandCoins,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -85,6 +88,8 @@ const mainNavItems: NavItem[] = [
   { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard', preload: _prefetchHome },
   { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
   { path: '/financials', label: 'Financials', icon: FileText, permission: 'canAccessDashboard' },
+  { path: '/expenses', label: 'Expenses', icon: Receipt, permission: 'canSubmitExpenses' },
+  { path: '/expense-analytics', label: 'Exp. Analytics', icon: BarChart3, permission: 'canAccessExpenseAnalytics' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
@@ -111,8 +116,9 @@ const configItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
-  { path: '/reimbursements', label: 'Reimburse', icon: Receipt, permission: 'canAccessUsers' },
-  { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canAccessUsers' },
+  { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
+  { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canManageReimbursements' },
+  { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
 ];
 
