@@ -79,16 +79,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 50 Plan 01 complete (analytics backend)
+**Current focus:** v1.7 Expense & Accounting -- Phase 50 complete (analytics backend + frontend dashboard)
 
 ## Current Position
 
 Phase: 50 of 51 (Expense Analytics)
-Plan: 1 of 2
-Status: Plan 01 complete (fraud helpers + analytics queries). Plan 02 next (frontend dashboard).
-Last activity: 2026-03-14 -- Completed 50-01-PLAN.md (fraud detection helpers TDD, 3 analytics protectedQuery endpoints)
+Plan: 2 of 2
+Status: Phase 50 complete. All plans delivered. Ready for Phase 51.
+Last activity: 2026-03-14 -- Completed 50-02-PLAN.md (expense analytics frontend dashboard with charts and fraud flags)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -157,6 +157,11 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 50-01: YYYY-MM composite key for 6-month trend bucketing (no year-boundary collisions)
 - 50-01: MIN_EXPENSES_FOR_CONCENTRATION = 2 to suppress trivial single-expense false positives
 - 50-01: Unfamiliar vendor uses 30d recent vs 30-90d historical window (not all-time)
+- 50-02: Period math extracted to pure functions in expenseAnalyticsPeriod.ts for unit testability
+- 50-02: Month and custom mode only (no weekly) -- expense analytics is monthly granularity
+- 50-02: PieChart donut variant (innerRadius=40) for GL category breakdown
+- 50-02: FraudFlagsCard renders all 3 fraud types in one card with color-coded sections
+- 50-02: Period picker follows FinancialStatement pattern (Badge toggle + month nav arrows)
 
 ### Research Findings (v1.7)
 
@@ -188,6 +193,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-14T15:11:38Z
-Stopped at: Completed 50-01-PLAN.md
-Resume notes: Phase 50 Plan 01 complete (1/2). Built fraud detection pure helpers (detectSplits/detectApproverConcentration/detectUnfamiliarVendors) with 25 unit tests. Created 3 protectedQuery analytics endpoints (getOpExAnalytics/getExpenseMetrics/getFraudFlags). Extracted aggregateJournalLines to shared journalHelpers.ts. Added by_status_expenseDate compound index. 878 tests passing, build clean. Ready for Plan 02 (frontend dashboard).
+Last session: 2026-03-14T15:24:51Z
+Stopped at: Completed 50-02-PLAN.md
+Resume notes: Phase 50 complete (2/2). Built full expense analytics frontend dashboard replacing Phase 48 stub. 5 card/chart components (OpExSummary PieChart, SpendByEmployee bars, MonthlyTrend LineChart, PendingMetrics, FraudFlags). Period picker with month/custom mode and WIB date alignment. 20 period math unit tests. Fixed Id<"users"> type cast bug in analyticsQueries.ts. 898 tests passing, build clean. Ready for Phase 51.
