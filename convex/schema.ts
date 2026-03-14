@@ -1674,6 +1674,7 @@ export default defineSchema({
   })
     .index("by_submitter_status", ["submittedBy", "status"])
     .index("by_status", ["status"])
+    .index("by_status_expenseDate", ["status", "expenseDate"])
     .index("by_amount_date_submitter", ["amount", "expenseDate", "submittedBy"])
     .index("by_receipt_hash", ["receiptImageHash"])
     .index("by_expense_number", ["expenseNumber"])
