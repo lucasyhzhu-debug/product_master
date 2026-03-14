@@ -59,6 +59,15 @@ interface WeekData {
   grossProfit: number;
   grossMarginPercent: number | null;
   gapAnalysis: GapAnalysis;
+  // P&L below Gross Profit (Phase 49)
+  opex: Array<{ code: string; name: string; total: number }>;
+  totalOpEx: number;
+  ebit: number;
+  ebitMarginPercent: number | null;
+  otherItems: Array<{ code: string; name: string; total: number }>;
+  totalOther: number;
+  netIncome: number;
+  netMarginPercent: number | null;
 }
 
 export interface IncomeStatementData {
@@ -74,6 +83,13 @@ export interface IncomeStatementData {
     totalCogs: { amount: number; percent: number | null };
     grossProfit: { amount: number; percent: number | null };
     grossMarginPp: number | null;
+    // Phase 49: OpEx/EBIT/Other/NetIncome deltas
+    totalOpEx: { amount: number; percent: number | null };
+    ebit: { amount: number; percent: number | null };
+    ebitMarginPp: number | null;
+    totalOther: { amount: number; percent: number | null };
+    netIncome: { amount: number; percent: number | null };
+    netMarginPp: number | null;
   };
 }
 
@@ -345,6 +361,166 @@ export function generateIncomeStatementCSV(
     prevMarginStr,
     data.deltas.grossMarginPp !== null
       ? data.deltas.grossMarginPp.toFixed(1) + "pp"
+      : "",
+  ]);
+
+  // --- OPERATING EXPENSES SECTION ---
+
+  // Per OpEx account row
+  for (const item of data.current.opex) {
+    const prevItem = data.previous.opex.find((p) => p.code === item.code);
+    const prevTotal = prevItem?.total ?? 0;
+    rows.push([
+      periodStr,
+      "opex",
+      "All",
+      `${item.code} ${item.name}`,
+      String(-item.total),
+      "exact",
+      String(-prevTotal),
+      formatDeltaPct(item.total, prevTotal),
+    ]);
+  }
+
+  // Include previous-only items not in current
+  for (const prevItem of data.previous.opex) {
+    if (!data.current.opex.find((c) => c.code === prevItem.code)) {
+      rows.push([
+        periodStr,
+        "opex",
+        "All",
+        `${prevItem.code} ${prevItem.name}`,
+        String(0),
+        "exact",
+        String(-prevItem.total),
+        "",
+      ]);
+    }
+  }
+
+  // Total Operating Expenses
+  rows.push([
+    periodStr,
+    "opex",
+    "All",
+    "Total Operating Expenses",
+    String(-data.current.totalOpEx),
+    "exact",
+    String(-data.previous.totalOpEx),
+    fmtDelta(data.deltas.totalOpEx),
+  ]);
+
+  // EBIT (Operating Profit)
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBIT (Operating Profit)",
+    String(data.current.ebit),
+    "exact",
+    String(data.previous.ebit),
+    fmtDelta(data.deltas.ebit),
+  ]);
+
+  // EBIT Margin %
+  const ebitMarginStr =
+    data.current.ebitMarginPercent !== null
+      ? data.current.ebitMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  const prevEbitMarginStr =
+    data.previous.ebitMarginPercent !== null
+      ? data.previous.ebitMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBIT Margin %",
+    ebitMarginStr,
+    "",
+    prevEbitMarginStr,
+    data.deltas.ebitMarginPp !== null
+      ? data.deltas.ebitMarginPp.toFixed(1) + "pp"
+      : "",
+  ]);
+
+  // --- OTHER INCOME/EXPENSE SECTION ---
+
+  // Per Other account row
+  for (const item of data.current.otherItems) {
+    const prevItem = data.previous.otherItems.find((p) => p.code === item.code);
+    const prevTotal = prevItem?.total ?? 0;
+    rows.push([
+      periodStr,
+      "other",
+      "All",
+      `${item.code} ${item.name}`,
+      String(item.total),
+      "exact",
+      String(prevTotal),
+      formatDeltaPct(item.total, prevTotal),
+    ]);
+  }
+
+  // Include previous-only items not in current
+  for (const prevItem of data.previous.otherItems) {
+    if (!data.current.otherItems.find((c) => c.code === prevItem.code)) {
+      rows.push([
+        periodStr,
+        "other",
+        "All",
+        `${prevItem.code} ${prevItem.name}`,
+        String(0),
+        "exact",
+        String(prevItem.total),
+        "",
+      ]);
+    }
+  }
+
+  // Total Other Income / Expense
+  rows.push([
+    periodStr,
+    "other",
+    "All",
+    "Total Other Income / Expense",
+    String(data.current.totalOther),
+    "exact",
+    String(data.previous.totalOther),
+    fmtDelta(data.deltas.totalOther),
+  ]);
+
+  // NET INCOME
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "NET INCOME",
+    String(data.current.netIncome),
+    "exact",
+    String(data.previous.netIncome),
+    fmtDelta(data.deltas.netIncome),
+  ]);
+
+  // Net Margin %
+  const netMarginStr =
+    data.current.netMarginPercent !== null
+      ? data.current.netMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  const prevNetMarginStr =
+    data.previous.netMarginPercent !== null
+      ? data.previous.netMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "Net Margin %",
+    netMarginStr,
+    "",
+    prevNetMarginStr,
+    data.deltas.netMarginPp !== null
+      ? data.deltas.netMarginPp.toFixed(1) + "pp"
       : "",
   ]);
 
