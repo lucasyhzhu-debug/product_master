@@ -16,6 +16,40 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense Analytics Dashboard (Phase 50) — 2026-03-14
+
+**For the team:** Managers and admins now have a dedicated Expense Analytics dashboard showing a bird's-eye view of operating expenses. See total OpEx broken down by GL category (pie chart), which employees are spending the most, a 6-month spending trend, pending reimbursement totals, and average approval turnaround time. The dashboard also surfaces fraud warning flags: potential expense splitting, approver concentration, and unfamiliar vendors.
+
+#### Added
+- `src/pages/ExpenseAnalytics.tsx` — full dashboard replacing the Phase 48 stub, with month/custom period picker
+- `src/components/expenseAnalytics/` — 5 sub-components (OpExSummaryCard with PieChart, SpendByEmployeeCard, MonthlyTrendChart with LineChart, PendingMetricsCard, FraudFlagsCard)
+- `src/hooks/convex/useExpenseAnalytics.ts` — 3 hook wrappers (useOpExAnalytics, useExpenseMetrics, useFraudFlags)
+- `convex/expenses/analyticsQueries.ts` — 3 protectedQuery endpoints (getOpExAnalytics, getExpenseMetrics, getFraudFlags)
+- `convex/expenses/fraudHelpers.ts` — 3 pure fraud detection functions (detectSplits, detectApproverConcentration, detectUnfamiliarVendors)
+- `src/lib/expenseAnalyticsPeriod.ts` — pure period calculation helpers for WIB-aligned date math
+- `convex/schema.ts` — new `by_status_expenseDate` compound index on expenses table
+- `tests/convex/expenseAnalytics.test.ts` — 8 integration tests for analytics queries
+- `convex/expenses/__tests__/fraudHelpers.test.ts` — 25 unit tests for fraud detection
+- `src/lib/__tests__/expenseAnalyticsPeriod.test.ts` — 20 unit tests for period calculations
+
+#### Fraud Detection Rules
+- **FRAUD-06 (Split Detection):** Flags when same employee submits 2+ expenses to same GL account within 48 hours totaling > Rp 500K
+- **FRAUD-07 (Approver Concentration):** Flags when one approver handles >80% of a single employee's expenses in 30 days
+- **FRAUD-08 (Unfamiliar Vendor):** Flags vendor names not seen in the system in the last 90 days
+
+### P&L Integration — Full Income Statement (Phase 49) — 2026-03-14
+
+**For the team:** The Financial Statement page now shows a complete Profit & Loss — not just gross profit, but also operating expenses (OpEx), EBIT, other income/expenses, and the bottom-line net income. You can also export the full P&L to CSV for use in spreadsheets or reporting.
+
+#### Added
+- `convex/lib/journalHelpers.ts` — shared `aggregateJournalLines` helper (extracted from incomeStatement.ts)
+- `src/lib/csvExport.ts` — generic CSV export utility
+- `tests/convex/incomeStatement.test.ts` — 403 integration tests for income statement
+
+#### Changed
+- `convex/reports/incomeStatement.ts` — extended with OpEx breakdown by GL category, EBIT, Other Income/Expense, and Net Income sections
+- `src/pages/FinancialStatement.tsx` — expanded P&L display with collapsible OpEx/Other sections + CSV download button
+
 ### Frontend Permissions & Routes (Phase 48) — 2026-03-14
 
 **For the team:** Finance pages now use permission-based access instead of role-based. This means access can be fine-tuned per role (who can submit expenses, who can approve, who manages reimbursements, who sees analytics). Navigation menus automatically show only the pages each user has permission to access.

@@ -1552,6 +1552,6 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `receiptImageHash` | `optional string` | For duplicate detection |
 | `lateSubmission` | `boolean` | Flagged if submitted after policy window |
 
-**Indexes:** `by_submitter_status`, `by_status`, `by_amount_date_submitter`, `by_receipt_hash`, `by_expense_number`, `by_account`
+**Indexes:** `by_submitter_status`, `by_status`, `by_status_expenseDate` *(Phase 50)*, `by_amount_date_submitter`, `by_receipt_hash`, `by_expense_number`, `by_account`
 
 **Note:** Full field list in `convex/schema.ts` (includes approval/rejection/void workflow fields).

@@ -1596,6 +1596,68 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 - Returns data from `transactionType: "return"` reduce gross revenue naturally
 - Internal channel uses order-level `totalAmount`/`finalTotal`/`deliveryFee` for accurate discount calculation
 
+**Phase 49 Extensions:**
+- `totalOpex` — Operating expenses subtotal (from GL accounts with type "opex")
+- `opexItems[]` — Per-category OpEx breakdown: `{ code, name, total }`
+- `ebit` — Earnings Before Interest & Taxes (grossProfit - totalOpex)
+- `totalOther` — Other income/expense subtotal (from GL accounts with type "other")
+- `otherItems[]` — Per-category other breakdown: `{ code, name, total }`
+- `netIncome` — Bottom-line: ebit + totalOther
+- `netIncomeMarginPercent` — Net income / net revenue * 100, or `null`
+- CSV export available on frontend via download button
+
+---
+
+### Expense Analytics (Phase 50)
+
+#### `expenses.analyticsQueries.getOpExAnalytics`
+**Type:** protectedQuery (manager, admin)
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `periodStart` | `number` | Epoch ms for period start (WIB-aligned) |
+| `periodEnd` | `number` | Epoch ms for period end (exclusive) |
+
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalOpEx` | `number` | Total operating expenses for period |
+| `byCategory` | `Array<{ code, name, total }>` | GL category breakdown (sorted by total desc) |
+| `trend` | `Array<{ month, total }>` | 6-month trailing trend (always trailing from now, not period) |
+
+**Notes:** Uses `journalEntryLines` with opex-type accounts. Trend uses YYYY-MM composite keys for year-boundary safety. Near-zero amounts excluded from byCategory.
+
+#### `expenses.analyticsQueries.getExpenseMetrics`
+**Type:** protectedQuery (manager, admin)
+**Args:** `{ periodStart: number, periodEnd: number }`
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `byEmployee` | `Array<{ userId, name, total }>` | Employee spend (sorted by total desc) |
+| `pendingTotal` | `number` | Sum of ALL awaiting_payment expenses (no date filter) |
+| `avgApprovalDays` | `number \| null` | Mean approval turnaround in days, null if no data |
+
+**Notes:** Uses `by_status_expenseDate` compound index for efficient date+status filtering. Combines approved, awaiting_payment, and reimbursed expenses for employee spend.
+
+#### `expenses.analyticsQueries.getFraudFlags`
+**Type:** protectedQuery (manager, admin)
+**Args:** `{}` (no period — uses fixed time windows)
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `splits` | `SplitFlag[]` | FRAUD-06: Same employee + GL + 48hrs + >Rp 500K |
+| `concentrations` | `ConcentrationFlag[]` | FRAUD-07: Approver handles >80% of employee's expenses in 30d |
+| `unfamiliarVendors` | `string[]` | FRAUD-08: Vendor names not seen in last 90 days |
+
+**SplitFlag:** `{ employeeName, employeeId, accountId, expenseIds[], totalAmount }`
+**ConcentrationFlag:** `{ employeeName, approverName, employeeId, approverId, percent, count, totalCount }`
+
+**Notes:** Pure detection logic in `convex/expenses/fraudHelpers.ts` (no ctx). Query layer fetches data and resolves user names.
+
 ---
 
 ### Chart of Accounts (Phase 43)
