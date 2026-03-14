@@ -83,10 +83,10 @@ export const getOpExAnalytics = protectedQuery({
 
     for (let i = 5; i >= 0; i--) {
       const m = month - i;
-      // Use Date constructor to normalize year rollover (e.g., month = -2 -> previous year Oct)
-      const d = new Date(year, m, 1);
-      const normalizedYear = d.getFullYear();
-      const normalizedMonth = d.getMonth(); // 0-indexed
+      // Use Date.UTC to normalize year rollover — must match getWibComponents() which uses UTC methods
+      const d = new Date(Date.UTC(year, m, 1));
+      const normalizedYear = d.getUTCFullYear();
+      const normalizedMonth = d.getUTCMonth(); // 0-indexed
       const key = `${normalizedYear}-${String(normalizedMonth).padStart(2, "0")}`;
       trendBuckets.set(key, 0);
       trendOrder.push({ key, label: MONTH_NAMES[normalizedMonth] });

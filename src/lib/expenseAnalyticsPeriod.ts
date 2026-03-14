@@ -5,7 +5,7 @@
  * Extracted from the page component for unit testability.
  */
 
-import { WIB_OFFSET_MS } from "@/lib/financialHelpers";
+import { WIB_OFFSET_MS } from "@/lib/dateUtils";
 
 export type ExpensePeriodMode = "month" | "custom";
 
@@ -89,21 +89,5 @@ export function isCurrentOrFutureMonth(
   return year > current.year || (year === current.year && month >= current.month);
 }
 
-/**
- * Convert UTC epoch ms to YYYY-MM-DD string in WIB for <input type="date">.
- */
-export function utcToWibDateStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const y = wib.getUTCFullYear();
-  const m = String(wib.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(wib.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-/**
- * Convert YYYY-MM-DD string to WIB midnight in UTC epoch ms.
- */
-export function wibDateStrToUtc(dateStr: string): number {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return Date.UTC(y, m - 1, d, -7, 0, 0, 0);
-}
+// utcToWibDateStr and wibDateStrToUtcMs are canonical exports from @/lib/dateUtils
+// Import from there instead of duplicating here.

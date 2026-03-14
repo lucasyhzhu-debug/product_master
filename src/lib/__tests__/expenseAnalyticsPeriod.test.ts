@@ -11,12 +11,8 @@ import {
   prevMonth,
   nextMonth,
   isCurrentOrFutureMonth,
-  utcToWibDateStr,
-  wibDateStrToUtc,
 } from "../expenseAnalyticsPeriod";
-
-// WIB = UTC+7, so WIB midnight = UTC 17:00 previous day
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+import { utcToWibDateStr, wibDateStrToUtcMs } from "../dateUtils";
 
 describe("getCurrentWibMonth", () => {
   it("returns March 2026 for a timestamp in March 2026 WIB", () => {
@@ -133,13 +129,13 @@ describe("utcToWibDateStr / wibDateStrToUtc roundtrip", () => {
     const utcMs = wibMidnightToUtc(2026, 2, 15); // March 15 WIB midnight
     const dateStr = utcToWibDateStr(utcMs);
     expect(dateStr).toBe("2026-03-15");
-    expect(wibDateStrToUtc(dateStr)).toBe(utcMs);
+    expect(wibDateStrToUtcMs(dateStr)).toBe(utcMs);
   });
 
   it("roundtrips correctly for first of month", () => {
     const utcMs = wibMidnightToUtc(2026, 0, 1); // Jan 1 WIB midnight
     const dateStr = utcToWibDateStr(utcMs);
     expect(dateStr).toBe("2026-01-01");
-    expect(wibDateStrToUtc(dateStr)).toBe(utcMs);
+    expect(wibDateStrToUtcMs(dateStr)).toBe(utcMs);
   });
 });

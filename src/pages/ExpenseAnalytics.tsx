@@ -24,10 +24,9 @@ import {
   prevMonth,
   nextMonth,
   isCurrentOrFutureMonth,
-  utcToWibDateStr,
-  wibDateStrToUtc,
   wibMidnightToUtc,
 } from "@/lib/expenseAnalyticsPeriod";
+import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
 import { OpExSummaryCard } from "@/components/expenseAnalytics/OpExSummaryCard";
 import { PendingMetricsCard } from "@/components/expenseAnalytics/PendingMetricsCard";
 import { MonthlyTrendChart } from "@/components/expenseAnalytics/MonthlyTrendChart";
@@ -154,7 +153,7 @@ export function ExpenseAnalytics() {
               className="h-7 rounded-md border border-input bg-background px-2 text-xs"
               value={utcToWibDateStr(customStart)}
               onChange={(e) => {
-                if (e.target.value) setCustomStart(wibDateStrToUtc(e.target.value));
+                if (e.target.value) setCustomStart(wibDateStrToUtcMs(e.target.value));
               }}
             />
             <span className="text-xs text-muted-foreground">to</span>
@@ -163,7 +162,7 @@ export function ExpenseAnalytics() {
               className="h-7 rounded-md border border-input bg-background px-2 text-xs"
               value={utcToWibDateStr(customEnd)}
               onChange={(e) => {
-                if (e.target.value) setCustomEnd(wibDateStrToUtc(e.target.value));
+                if (e.target.value) setCustomEnd(wibDateStrToUtcMs(e.target.value));
               }}
             />
           </div>

@@ -193,7 +193,7 @@ export function detectUnfamiliarVendors(
   const unfamiliar: string[] = [];
 
   for (const vendor of recentVendors) {
-    const normalized = vendor.toLowerCase();
+    const normalized = vendor.trim().toLowerCase();
     if (seen.has(normalized)) continue;
     seen.add(normalized);
 

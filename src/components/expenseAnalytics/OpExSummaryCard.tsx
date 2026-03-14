@@ -73,7 +73,7 @@ export function OpExSummaryCard({ data }: OpExSummaryCardProps) {
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie
-                  data={data.byCategory}
+                  data={data.byCategory.filter((c) => c.total > 0)}
                   dataKey="total"
                   nameKey="name"
                   cx="50%"
