@@ -79,16 +79,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 48 complete (frontend permissions & routes)
+**Current focus:** v1.7 Expense & Accounting -- Phase 50 Plan 01 complete (analytics backend)
 
 ## Current Position
 
-Phase: 49 of 51 (P&L Integration)
-Plan: 1 of 1 (PHASE COMPLETE)
-Status: Phase 49 complete (OpEx/EBIT/Other/NetIncome added to income statement)
-Last activity: 2026-03-14 -- Completed 49-01-PLAN.md (extended P&L below Gross Profit with journal aggregation)
+Phase: 50 of 51 (Expense Analytics)
+Plan: 1 of 2
+Status: Plan 01 complete (fraud helpers + analytics queries). Plan 02 next (frontend dashboard).
+Last activity: 2026-03-14 -- Completed 50-01-PLAN.md (fraud detection helpers TDD, 3 analytics protectedQuery endpoints)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -152,6 +152,11 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 49]: by_entryDate single query per period (PNL-04) instead of N+1 by_account_entryDate
 - [Phase 49]: aggregateJournalLines computes total BEFORE filtering near-zero items (total includes all, items filtered for display)
 - [Phase 49]: unionMergeByCode shared helper for OpEx and Other sections avoids duplicated merge logic
+- 50-01: aggregateJournalLines extracted to convex/lib/journalHelpers.ts (shared between incomeStatement + analytics)
+- 50-01: by_status_expenseDate compound index for O(1) status+date queries
+- 50-01: YYYY-MM composite key for 6-month trend bucketing (no year-boundary collisions)
+- 50-01: MIN_EXPENSES_FOR_CONCENTRATION = 2 to suppress trivial single-expense false positives
+- 50-01: Unfamiliar vendor uses 30d recent vs 30-90d historical window (not all-time)
 
 ### Research Findings (v1.7)
 
@@ -183,6 +188,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-14T13:53:54.363Z
-Stopped at: Completed 49-01-PLAN.md
-Resume notes: Phase 48 complete (1/1). Added 4 permission flags (canSubmitExpenses, canApproveExpenses, canManageReimbursements, canAccessExpenseAnalytics) to ROLE_PERMISSIONS. Migrated all 7 finance routes from allowedRoles/bare to requiredPermission. Created ExpenseAnalytics stub page. Added expense nav links to Header and MobileBottomNav. 838 tests passing, build clean. Phase 48 fully done -- ready for merge to main or next phase.
+Last session: 2026-03-14T15:11:38Z
+Stopped at: Completed 50-01-PLAN.md
+Resume notes: Phase 50 Plan 01 complete (1/2). Built fraud detection pure helpers (detectSplits/detectApproverConcentration/detectUnfamiliarVendors) with 25 unit tests. Created 3 protectedQuery analytics endpoints (getOpExAnalytics/getExpenseMetrics/getFraudFlags). Extracted aggregateJournalLines to shared journalHelpers.ts. Added by_status_expenseDate compound index. 878 tests passing, build clean. Ready for Plan 02 (frontend dashboard).

@@ -39,9 +39,9 @@
 - [x] **FRAUD-05**: Approved expenses are immutable — no field edits allowed, only void + resubmit
 
 ## Fraud Controls — Should-Have
-- [ ] **FRAUD-06**: Split detection alert when same employee + same GL + multiple expenses within 48hrs sum > Rp 500K
-- [ ] **FRAUD-07**: Approver concentration alert when same approver approved >80% of one employee's expenses in rolling 30 days
-- [ ] **FRAUD-08**: Unfamiliar vendor flag when vendor name not seen in system in last 90 days
+- [x] **FRAUD-06**: Split detection alert when same employee + same GL + multiple expenses within 48hrs sum > Rp 500K
+- [x] **FRAUD-07**: Approver concentration alert when same approver approved >80% of one employee's expenses in rolling 30 days
+- [x] **FRAUD-08**: Unfamiliar vendor flag when vendor name not seen in system in last 90 days
 
 ## Reimbursement
 - [x] **RMB-01**: Admin can view approved expenses grouped by employee with bank details and running totals
@@ -77,12 +77,12 @@
 - [x] **PNL-05**: Period filtering uses entryDate (business date), not _creationTime (insertion time)
 
 ## Expense Analytics
-- [ ] **XANL-01**: Manager/Admin can view total OpEx for selected period
-- [ ] **XANL-02**: Manager/Admin can view spend breakdown by GL category (bar/pie chart)
-- [ ] **XANL-03**: Manager/Admin can view spend breakdown by employee
-- [ ] **XANL-04**: Manager/Admin can view monthly spend trend (6-month line chart)
-- [ ] **XANL-05**: Manager/Admin can view pending reimbursement total and average approval time
-- [ ] **XANL-06**: Manager/Admin can view active fraud flags (split detection, approver concentration, unfamiliar vendor)
+- [x] **XANL-01**: Manager/Admin can view total OpEx for selected period
+- [x] **XANL-02**: Manager/Admin can view spend breakdown by GL category (bar/pie chart)
+- [x] **XANL-03**: Manager/Admin can view spend breakdown by employee
+- [x] **XANL-04**: Manager/Admin can view monthly spend trend (6-month line chart)
+- [x] **XANL-05**: Manager/Admin can view pending reimbursement total and average approval time
+- [x] **XANL-06**: Manager/Admin can view active fraud flags (split detection, approver concentration, unfamiliar vendor)
 
 ## Access Control
 - [x] **PERM-01**: All roles can submit expenses and view their own expense history
@@ -144,9 +144,9 @@
 | FRAUD-03 | Phase 45 | Complete |
 | FRAUD-04 | Phase 45 | Complete |
 | FRAUD-05 | Phase 45 | Complete |
-| FRAUD-06 | Phase 50 | Pending |
-| FRAUD-07 | Phase 50 | Pending |
-| FRAUD-08 | Phase 50 | Pending |
+| FRAUD-06 | Phase 50 | Complete |
+| FRAUD-07 | Phase 50 | Complete |
+| FRAUD-08 | Phase 50 | Complete |
 | RMB-01 | Phase 46 | Complete |
 | RMB-02 | Phase 46 | Complete |
 | RMB-03 | Phase 46 | Complete |
@@ -170,12 +170,12 @@
 | PNL-03 | Phase 49 | Complete |
 | PNL-04 | Phase 49 | Complete |
 | PNL-05 | Phase 49 | Complete |
-| XANL-01 | Phase 50 | Pending |
-| XANL-02 | Phase 50 | Pending |
-| XANL-03 | Phase 50 | Pending |
-| XANL-04 | Phase 50 | Pending |
-| XANL-05 | Phase 50 | Pending |
-| XANL-06 | Phase 50 | Pending |
+| XANL-01 | Phase 50 | Complete |
+| XANL-02 | Phase 50 | Complete |
+| XANL-03 | Phase 50 | Complete |
+| XANL-04 | Phase 50 | Complete |
+| XANL-05 | Phase 50 | Complete |
+| XANL-06 | Phase 50 | Complete |
 | PERM-01 | Phase 48 | Complete |
 | PERM-02 | Phase 48 | Complete |
 | PERM-03 | Phase 48 | Complete |
