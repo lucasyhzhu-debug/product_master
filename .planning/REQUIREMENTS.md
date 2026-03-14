@@ -70,11 +70,11 @@
 - [x] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
 
 ## P&L Extension
-- [ ] **PNL-01**: Income statement extends below Gross Profit to show Operating Expenses broken down by GL account (6xxx)
-- [ ] **PNL-02**: Income statement shows EBIT (Operating Profit) = Gross Profit - Total OpEx, with EBIT margin %
-- [ ] **PNL-03**: Income statement shows Other Income/Expense (7xxx) and Net Income with net margin %
-- [ ] **PNL-04**: OpEx data sourced from journalEntryLines aggregated by accountId + entryDate using single indexed query (not N+1)
-- [ ] **PNL-05**: Period filtering uses entryDate (business date), not _creationTime (insertion time)
+- [x] **PNL-01**: Income statement extends below Gross Profit to show Operating Expenses broken down by GL account (6xxx)
+- [x] **PNL-02**: Income statement shows EBIT (Operating Profit) = Gross Profit - Total OpEx, with EBIT margin %
+- [x] **PNL-03**: Income statement shows Other Income/Expense (7xxx) and Net Income with net margin %
+- [x] **PNL-04**: OpEx data sourced from journalEntryLines aggregated by accountId + entryDate using single indexed query (not N+1)
+- [x] **PNL-05**: Period filtering uses entryDate (business date), not _creationTime (insertion time)
 
 ## Expense Analytics
 - [ ] **XANL-01**: Manager/Admin can view total OpEx for selected period
@@ -165,11 +165,11 @@
 | JE-04 | Phase 41 | Complete |
 | JE-05 | Phase 41 | Complete |
 | JE-06 | Phase 42 | Complete |
-| PNL-01 | Phase 49 | Pending |
-| PNL-02 | Phase 49 | Pending |
-| PNL-03 | Phase 49 | Pending |
-| PNL-04 | Phase 49 | Pending |
-| PNL-05 | Phase 49 | Pending |
+| PNL-01 | Phase 49 | Complete |
+| PNL-02 | Phase 49 | Complete |
+| PNL-03 | Phase 49 | Complete |
+| PNL-04 | Phase 49 | Complete |
+| PNL-05 | Phase 49 | Complete |
 | XANL-01 | Phase 50 | Pending |
 | XANL-02 | Phase 50 | Pending |
 | XANL-03 | Phase 50 | Pending |
