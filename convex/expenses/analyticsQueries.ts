@@ -10,6 +10,7 @@
  */
 
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 import { aggregateJournalLines } from "../lib/journalHelpers";
 import { getWibComponents, wibMidnightToUtc } from "../lib/periodRange";
@@ -328,7 +329,7 @@ export const getFraudFlags = protectedQuery({
     }
 
     const resolvedUsers = await Promise.all(
-      [...userIdsToResolve].map((id) => ctx.db.get(id as any))
+      [...userIdsToResolve].map((id) => ctx.db.get(id as Id<"users">))
     );
     const userNameMap = new Map<string, string>();
     for (const user of resolvedUsers) {

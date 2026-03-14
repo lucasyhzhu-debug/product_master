@@ -35,8 +35,10 @@ import type * as dispatchPlanner_helpers_weeklyPlanBuilder from "../dispatchPlan
 import type * as dispatchPlanner_mutations from "../dispatchPlanner/mutations.js";
 import type * as dispatchPlanner_queries from "../dispatchPlanner/queries.js";
 import type * as dispatchPlanner_types from "../dispatchPlanner/types.js";
+import type * as expenses_analyticsQueries from "../expenses/analyticsQueries.js";
 import type * as expenses_auditTrail from "../expenses/auditTrail.js";
 import type * as expenses_constants from "../expenses/constants.js";
+import type * as expenses_fraudHelpers from "../expenses/fraudHelpers.js";
 import type * as expenses_helpers from "../expenses/helpers.js";
 import type * as expenses_mutations from "../expenses/mutations.js";
 import type * as expenses_queries from "../expenses/queries.js";
@@ -108,6 +110,7 @@ import type * as lib_externalSource from "../lib/externalSource.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hierarchyTraversal from "../lib/hierarchyTraversal.js";
 import type * as lib_journalEngine from "../lib/journalEngine.js";
+import type * as lib_journalHelpers from "../lib/journalHelpers.js";
 import type * as lib_jwt from "../lib/jwt.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
@@ -227,8 +230,10 @@ declare const fullApi: ApiFromModules<{
   "dispatchPlanner/mutations": typeof dispatchPlanner_mutations;
   "dispatchPlanner/queries": typeof dispatchPlanner_queries;
   "dispatchPlanner/types": typeof dispatchPlanner_types;
+  "expenses/analyticsQueries": typeof expenses_analyticsQueries;
   "expenses/auditTrail": typeof expenses_auditTrail;
   "expenses/constants": typeof expenses_constants;
+  "expenses/fraudHelpers": typeof expenses_fraudHelpers;
   "expenses/helpers": typeof expenses_helpers;
   "expenses/mutations": typeof expenses_mutations;
   "expenses/queries": typeof expenses_queries;
@@ -300,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "lib/functions": typeof lib_functions;
   "lib/hierarchyTraversal": typeof lib_hierarchyTraversal;
   "lib/journalEngine": typeof lib_journalEngine;
+  "lib/journalHelpers": typeof lib_journalHelpers;
   "lib/jwt": typeof lib_jwt;
   "lib/periodRange": typeof lib_periodRange;
   "lib/queryHelpers": typeof lib_queryHelpers;

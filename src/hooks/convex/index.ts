@@ -456,6 +456,16 @@ export {
   type PayrollStatus,
 } from "./usePayroll";
 
+// Expense Analytics (Phase 50)
+export {
+  useOpExAnalytics,
+  useExpenseMetrics,
+  useFraudFlags,
+  type OpExAnalyticsData,
+  type ExpenseMetricsData,
+  type FraudFlagsData,
+} from "./useExpenseAnalytics";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
