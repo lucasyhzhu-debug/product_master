@@ -271,7 +271,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
+- [ ] 49-01-PLAN.md -- Backend query extension (single-query journal aggregation), frontend P&L sections, CSV export
 
 ### Phase 50: Expense Analytics
 **Goal**: Managers and admins can monitor OpEx trends, spend distribution, and fraud flags from a dedicated analytics dashboard
@@ -301,3 +301,13 @@ Plans:
 | v1.7 Expense & Accounting | 41-50 | TBD | In progress | - |
 
 **Total: 40 phases, 177 plans shipped across 7 milestones + 10 phases planned for v1.7**
+
+### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 50
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 51 to break down)
