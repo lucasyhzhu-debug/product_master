@@ -32,6 +32,7 @@ import {
   Landmark,
   DollarSign,
   BarChart3,
+  HandCoins,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -115,7 +116,7 @@ const configItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
-  { path: '/reimbursements', label: 'Reimburse', icon: Receipt, permission: 'canManageReimbursements' },
+  { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
