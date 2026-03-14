@@ -75,6 +75,15 @@ interface WeekData {
   grossProfit: number;
   grossMarginPercent: number | null;
   gapAnalysis: GapAnalysis;
+  // P&L below Gross Profit (Phase 49)
+  opex: Array<{ code: string; name: string; total: number }>;
+  totalOpEx: number;
+  ebit: number;
+  ebitMarginPercent: number | null;
+  otherItems: Array<{ code: string; name: string; total: number }>;
+  totalOther: number;
+  netIncome: number;
+  netMarginPercent: number | null;
 }
 
 // ─── Delta helper ───
@@ -173,6 +182,42 @@ const KNOWN_MISSING_CHANNELS = [
   { source: "grabfood", reason: "GrabFood OAuth scope pending" },
 ] as const;
 
+// ─── Pure journal line aggregation helper (no ctx) ───
+// Groups journal entry lines by accountId, computes debit-credit per account,
+// filters near-zero-balance items from display, sorts by code ascending.
+
+function aggregateJournalLines(
+  lines: Array<{ accountId: any; debitAmount: number; creditAmount: number }>,
+  targetIds: Set<string>,
+  lookup: Map<string, { code: string; name: string }>
+): { items: Array<{ code: string; name: string; total: number }>; total: number } {
+  const totals = new Map<string, number>();
+
+  for (const line of lines) {
+    const key = line.accountId as string;
+    if (!targetIds.has(key)) continue;
+    totals.set(key, (totals.get(key) ?? 0) + line.debitAmount - line.creditAmount);
+  }
+
+  // Compute total BEFORE filtering near-zero items (total includes all)
+  let total = 0;
+  for (const amount of totals.values()) {
+    total += amount;
+  }
+
+  // Build display items, filtering near-zero-balance using Math.abs < 0.01
+  const items: Array<{ code: string; name: string; total: number }> = [];
+  for (const [accountId, amount] of totals) {
+    if (Math.abs(amount) < 0.01) continue;
+    const account = lookup.get(accountId);
+    if (!account) continue;
+    items.push({ code: account.code, name: account.name, total: amount });
+  }
+
+  items.sort((a, b) => a.code.localeCompare(b.code));
+  return { items, total };
+}
+
 // ─── Pure aggregation function (no ctx, no async) ───
 
 function aggregateWeek(
@@ -184,7 +229,11 @@ function aggregateWeek(
     string,
     { totalAmount: number; finalTotal: number; deliveryFee: number }
   >,
-  allComponentTypes: Doc<"componentTypes">[]
+  allComponentTypes: Doc<"componentTypes">[],
+  journalAggregation: {
+    opex: { items: Array<{ code: string; name: string; total: number }>; total: number };
+    other: { items: Array<{ code: string; name: string; total: number }>; total: number };
+  }
 ): WeekData {
   // ── 4a: Per-channel revenue aggregation ──
 
@@ -432,6 +481,17 @@ function aggregateWeek(
   const grossMarginPercent =
     netRevenue !== 0 ? (grossProfit / netRevenue) * 100 : null;
 
+  // ── 4f: Below Gross Profit — OpEx, EBIT, Other, Net Income (Phase 49) ──
+  const { opex, other } = journalAggregation;
+  const totalOpEx = opex.total;
+  const ebit = grossProfit - totalOpEx;
+  const ebitMarginPercent =
+    netRevenue !== 0 ? (ebit / netRevenue) * 100 : null;
+  const totalOther = other.total;
+  const netIncomeValue = ebit - totalOther;
+  const netMarginPercentValue =
+    netRevenue !== 0 ? (netIncomeValue / netRevenue) * 100 : null;
+
   return {
     channels,
     totalGross,
@@ -448,6 +508,14 @@ function aggregateWeek(
     grossProfit,
     grossMarginPercent,
     gapAnalysis,
+    opex: opex.items,
+    totalOpEx,
+    ebit,
+    ebitMarginPercent,
+    otherItems: other.items,
+    totalOther,
+    netIncome: netIncomeValue,
+    netMarginPercent: netMarginPercentValue,
   };
 }
 
@@ -513,6 +581,36 @@ async function fetchAndAggregate(
     ctx.db.query("menuProductComponents").collect(),
     ctx.db.query("componentTypes").collect(),
   ]);
+
+  // Phase 1b: Fetch accounts and journal lines for OpEx/Other aggregation (parallel with Phase 2)
+  const [opexAccounts, otherAccounts] = await Promise.all([
+    ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "opex")).collect(),
+    ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "other")).collect(),
+  ]);
+
+  // Build lookup structures for journal aggregation
+  const opexIds = new Set(opexAccounts.map((a) => a._id as string));
+  const otherIds = new Set(otherAccounts.map((a) => a._id as string));
+  const accountLookup = new Map<string, { code: string; name: string }>();
+  for (const a of [...opexAccounts, ...otherAccounts]) {
+    accountLookup.set(a._id as string, { code: a.code, name: a.name });
+  }
+
+  // Single indexed query per period using by_entryDate (PNL-04: not N+1)
+  const [currentJournalLines, previousJournalLines] = await Promise.all([
+    ctx.db.query("journalEntryLines")
+      .withIndex("by_entryDate", (q) => q.gte("entryDate", currentStart).lt("entryDate", currentEnd))
+      .collect(),
+    ctx.db.query("journalEntryLines")
+      .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
+      .collect(),
+  ]);
+
+  // Aggregate journal lines per period (pure function, no ctx)
+  const currentOpex = aggregateJournalLines(currentJournalLines, opexIds, accountLookup);
+  const currentOther = aggregateJournalLines(currentJournalLines, otherIds, accountLookup);
+  const previousOpex = aggregateJournalLines(previousJournalLines, opexIds, accountLookup);
+  const previousOther = aggregateJournalLines(previousJournalLines, otherIds, accountLookup);
 
   // Phase 2: Fetch revenue items for both periods (needs revenue IDs from Phase 1)
   // Dedup IDs: consignment linkedRevenueIds may duplicate revenue record IDs.
@@ -589,7 +687,8 @@ async function fetchAndAggregate(
     revenueItemsMap,
     cogsMap,
     currentOrderDataMap,
-    allComponentTypes
+    allComponentTypes,
+    { opex: currentOpex, other: currentOther }
   );
   const previousPeriod = aggregateWeek(
     previousRevenue,
@@ -597,7 +696,8 @@ async function fetchAndAggregate(
     revenueItemsMap,
     cogsMap,
     previousOrderDataMap,
-    allComponentTypes
+    allComponentTypes,
+    { opex: previousOpex, other: previousOther }
   );
 
   // Compute deltas
@@ -622,6 +722,30 @@ async function fetchAndAggregate(
       currentPeriod.grossMarginPercent !== null &&
       previousPeriod.grossMarginPercent !== null
         ? currentPeriod.grossMarginPercent - previousPeriod.grossMarginPercent
+        : null,
+    // Phase 49: OpEx/EBIT/Other/NetIncome deltas
+    totalOpEx: computeDelta(
+      currentPeriod.totalOpEx,
+      previousPeriod.totalOpEx
+    ),
+    ebit: computeDelta(currentPeriod.ebit, previousPeriod.ebit),
+    ebitMarginPp:
+      currentPeriod.ebitMarginPercent !== null &&
+      previousPeriod.ebitMarginPercent !== null
+        ? currentPeriod.ebitMarginPercent - previousPeriod.ebitMarginPercent
+        : null,
+    totalOther: computeDelta(
+      currentPeriod.totalOther,
+      previousPeriod.totalOther
+    ),
+    netIncome: computeDelta(
+      currentPeriod.netIncome,
+      previousPeriod.netIncome
+    ),
+    netMarginPp:
+      currentPeriod.netMarginPercent !== null &&
+      previousPeriod.netMarginPercent !== null
+        ? currentPeriod.netMarginPercent - previousPeriod.netMarginPercent
         : null,
   };
 
