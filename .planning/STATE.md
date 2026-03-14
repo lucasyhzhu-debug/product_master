@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 47-01-PLAN.md (payroll backend)
-last_updated: "2026-03-14T01:53:00Z"
-last_activity: "2026-03-14 -- Completed 47-01-PLAN.md (payroll backend: schema, shared validation, mutations, queries, integration tests)"
+stopped_at: Completed 47-02-PLAN.md (payroll frontend)
+last_updated: "2026-03-14T02:02:08Z"
+last_activity: "2026-03-14 -- Completed 47-02-PLAN.md (payroll frontend: hooks, PayrollManager page, route, header nav)"
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 47 plan 01 complete (payroll backend)
+**Current focus:** v1.7 Expense & Accounting -- Phase 47 complete (payroll backend + frontend)
 
 ## Current Position
 
 Phase: 47 of 50 (Payroll)
-Plan: 1 of 2
-Status: Phase 47 plan 01 complete (payroll backend)
-Last activity: 2026-03-14 -- Completed 47-01-PLAN.md (payroll backend: schema, shared validation, mutations, queries, integration tests)
+Plan: 2 of 2 (PHASE COMPLETE)
+Status: Phase 47 complete (payroll backend + frontend)
+Last activity: 2026-03-14 -- Completed 47-02-PLAN.md (payroll frontend: hooks, PayrollManager page, route, header nav)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -82,6 +82,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 47-01: Shared validation in convex/lib/validation.ts eliminates duplication across expenses, reimbursements, and payroll
 - 47-01: Insert payroll entry first (for sourceId), then create JE, then patch with journalEntryId
 - 47-01: Explicit journalEntryId guard (no non-null assertion) in voidEntry for safety
+- 47-02: JE preview uses AlertDialog (not Dialog) for confirm/cancel UX consistency
+- 47-02: Employee type filter uses button group matching ReimbursementManager pattern
+- 47-02: canAccessUsers permission for payroll nav item (canManagePayroll deferred to Phase 48)
 
 ### Research Findings (v1.7)
 
@@ -109,5 +112,5 @@ Key staff review fixes embedded in roadmap:
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 47-01-PLAN.md (payroll backend)
-Resume notes: Phase 47 plan 01 complete (1/2). Payroll backend: schema updated (payrollNumber, recipientName, required status, by_status index), shared validation (convex/lib/validation.ts), mutations (create, voidEntry, generateUploadUrl), queries (list, getById), 18 tests passing, build clean. Next: 47-02 (payroll frontend).
+Stopped at: Completed 47-02-PLAN.md (payroll frontend)
+Resume notes: Phase 47 complete (2/2). Payroll frontend: usePayroll hooks (5 hooks + 2 types), PayrollManager page with create form (JE preview confirmation) + filterable history list + void dialog, /payroll route with admin ProtectedRoute, header admin dropdown entry. 822 tests passing, build clean. Phase 47 fully done -- ready for merge to main.

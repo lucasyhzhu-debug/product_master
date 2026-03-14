@@ -132,7 +132,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
 - [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
 - [x] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management (completed 2026-03-13)
-- [ ] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support
+- [x] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support (completed 2026-03-14)
 - [ ] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration
 - [ ] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income
 - [ ] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring
