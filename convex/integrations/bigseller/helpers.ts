@@ -142,7 +142,11 @@ export interface BigSellerOrderRow {
     returnNum: number;
     isAddition: number;
   }>;
+  // Common fields that may be absent on platform-specific endpoints
+  orderAmount?: number; // Total buyer paid (product + shipping)
   // Shopee-specific fields (from shopee/pageList.json)
+  originalPrice?: number; // Shopee: product sale price (maps to saleAmount)
+  buyerTotalAmount?: number; // Shopee: total buyer paid incl. shipping (maps to orderAmount)
   sellerTransactionFee?: number;
   orderAmsCommissionFee?: number;
   campaignFee?: number;
@@ -151,6 +155,9 @@ export interface BigSellerOrderRow {
   shippingSellerProtectionFeeAmount?: number;
   serviceFee?: number;
   // TikTok-specific fields (from tiktok/pageList.json)
+  revenueAmount?: number; // TikTok: product revenue (maps to saleAmount)
+  settlementAmount?: number; // TikTok: net settlement (maps to platformIncome)
+  customerPaidShippingFeeAmount?: number; // TikTok: buyer shipping (maps to buyerShippingFee)
   platformCommissionAmount?: number;
   transactionFeeAmount?: number;
   referralFeeAmount?: number;
@@ -163,83 +170,127 @@ export interface BigSellerOrderRow {
   codServiceFeeAmount?: number;
   feeTaxAmount?: number;
   extraCostsFee?: number;
+  // Case-variant field from platform-specific endpoints (lowercase 'f')
+  otherfee?: number;
 }
 
 /**
- * Normalize platform-specific fee fields into the common commissionFee,
- * sellerShippingFee, and otherFee fields.
+ * Check if a common field should be overwritten with platform-specific data.
  *
- * The common pageList.json endpoint returns 0 for these fields on Shopee orders.
- * Platform-specific endpoints (shopee/pageList.json, tiktok/pageList.json) return
- * the real values in platform-specific fields that need to be aggregated.
+ * Returns true when:
+ * - field is null or undefined (platform-specific endpoint didn't populate it)
+ * - field is 0 AND aggregated is non-zero (common endpoint set it to 0 because
+ *   the data was missing from its schema, but platform-specific endpoint has real data)
+ *
+ * NEVER use `!field` (treats real 0 as missing).
+ * NEVER use bare `== null` alone (misses the 0-from-common-endpoint case).
+ */
+function shouldOverwrite(field: number | undefined | null, aggregated: number): boolean {
+  return field == null || (field === 0 && aggregated !== 0);
+}
+
+/**
+ * Normalize platform-specific fields into common field names.
+ *
+ * Fixes saleAmount, platformIncome, commissionFee, sellerShippingFee,
+ * buyerShippingFee, otherFee, and orderAmount using platform-specific
+ * field mappings confirmed via HAR capture analysis.
+ *
+ * Platform-specific endpoints (shopee/pageList.json, tiktok/pageList.json)
+ * return different field names and sign conventions than the common endpoint.
+ * This function normalizes them into the common field set.
+ *
+ * IMPORTANT: The `platform` parameter must come from BIGSELLER_SHOP_PLATFORM_MAP,
+ * NOT from order.platform (which is null on platform-specific endpoints).
  *
  * Mutates the order row in place for efficiency.
  */
-export function normalizePlatformFees(order: BigSellerOrderRow): BigSellerOrderRow {
-  const platform = order.platform?.toLowerCase() || "";
+export function normalizePlatformFees(
+  order: BigSellerOrderRow,
+  platform: "shopee" | "tiktok" | "common",
+): BigSellerOrderRow {
+  // Handle otherfee/otherFee case mismatch at top of function.
+  // Platform-specific endpoints return `otherfee` (lowercase f) while
+  // the common endpoint uses `otherFee` (camelCase).
+  if (order.otherFee == null && order.otherfee != null) {
+    order.otherFee = order.otherfee;
+  }
 
   if (platform === "shopee") {
-    // Shopee commission = sellerTransactionFee + orderAmsCommissionFee + campaignFee
-    // These are typically negative values (deductions from seller)
-    const transactionFee = order.sellerTransactionFee || 0;
-    const amsCommission = order.orderAmsCommissionFee || 0;
-    const campaignFee = order.campaignFee || 0;
-    const processingFee = order.sellerOrderProcessingFee || 0;
-    const aggregatedCommission = transactionFee + amsCommission + campaignFee + processingFee;
-
-    // Shopee shipping = finalShippingFee (net cost to seller after rebates)
-    const shippingFee = order.finalShippingFee || 0;
-    const shippingProtection = order.shippingSellerProtectionFeeAmount || 0;
-    const aggregatedShipping = shippingFee + shippingProtection;
-
-    // Shopee other = serviceFee + any remaining uncategorized fees
-    const serviceFee = order.serviceFee || 0;
-    const aggregatedOther = serviceFee;
-
-    // Only override if common fields are 0 (don't double-count if API already populated them)
-    if (order.commissionFee === 0 && aggregatedCommission !== 0) {
-      order.commissionFee = aggregatedCommission;
+    // ── BUG-01: saleAmount missing — use originalPrice ──
+    if (shouldOverwrite(order.saleAmount, order.originalPrice ?? 0)) {
+      order.saleAmount = order.originalPrice ?? 0;
     }
-    if (order.sellerShippingFee === 0 && aggregatedShipping !== 0) {
-      order.sellerShippingFee = aggregatedShipping;
+
+    // ── BUG-05: Shopee fees are POSITIVE, must negate via -Math.abs() ──
+    const aggregatedCommission = (order.sellerTransactionFee ?? 0)
+      + (order.orderAmsCommissionFee ?? 0)
+      + (order.campaignFee ?? 0)
+      + (order.sellerOrderProcessingFee ?? 0);
+    if (shouldOverwrite(order.commissionFee, aggregatedCommission)) {
+      order.commissionFee = -Math.abs(aggregatedCommission);
     }
-    if (order.otherFee === 0 && aggregatedOther !== 0) {
-      order.otherFee = aggregatedOther;
+
+    const aggregatedShipping = (order.finalShippingFee ?? 0)
+      + (order.shippingSellerProtectionFeeAmount ?? 0);
+    if (shouldOverwrite(order.sellerShippingFee, aggregatedShipping)) {
+      order.sellerShippingFee = -Math.abs(aggregatedShipping);
     }
+
+    const aggregatedOther = order.serviceFee ?? 0;
+    // Use the raw otherFee value (possibly from otherfee case mismatch)
+    if (shouldOverwrite(order.otherFee, aggregatedOther)) {
+      order.otherFee = -Math.abs(aggregatedOther);
+    }
+
+    // ── ENH-ORDERAMOUNT: Shopee orderAmount from buyerTotalAmount ──
+    if (shouldOverwrite(order.orderAmount, order.buyerTotalAmount ?? 0)) {
+      order.orderAmount = order.buyerTotalAmount ?? 0;
+    }
+
   } else if (platform === "tiktok") {
-    // TikTok commission = platformCommissionAmount + transactionFeeAmount + referralFeeAmount
-    //                     + affiliateCommissionAmount + affiliatePartnerCommissionAmount + dynamicCommissionAmount
-    const platformCommission = order.platformCommissionAmount || 0;
-    const transactionFee = order.transactionFeeAmount || 0;
-    const referralFee = order.referralFeeAmount || 0;
-    const affiliateCommission = order.affiliateCommissionAmount || 0;
-    const affiliatePartner = order.affiliatePartnerCommissionAmount || 0;
-    const dynamicCommission = order.dynamicCommissionAmount || 0;
-    const aggregatedCommission = platformCommission + transactionFee + referralFee
-      + affiliateCommission + affiliatePartner + dynamicCommission;
-
-    // TikTok shipping = shippingCostAmount + actualShippingFeeAmount
-    const shippingCost = order.shippingCostAmount || 0;
-    const actualShipping = order.actualShippingFeeAmount || 0;
-    const aggregatedShipping = shippingCost + actualShipping;
-
-    // TikTok other = sfpServiceFeeAmount + codServiceFeeAmount + feeTaxAmount + extraCostsFee
-    const sfpService = order.sfpServiceFeeAmount || 0;
-    const codService = order.codServiceFeeAmount || 0;
-    const feeTax = order.feeTaxAmount || 0;
-    const extraCosts = order.extraCostsFee || 0;
-    const aggregatedOther = sfpService + codService + feeTax + extraCosts;
-
-    if (order.commissionFee === 0 && aggregatedCommission !== 0) {
-      order.commissionFee = aggregatedCommission;
+    // ── BUG-01 + BUG-03: TikTok missing common fields ──
+    if (shouldOverwrite(order.saleAmount, order.revenueAmount ?? 0)) {
+      order.saleAmount = order.revenueAmount ?? 0;
     }
-    if (order.sellerShippingFee === 0 && aggregatedShipping !== 0) {
-      order.sellerShippingFee = aggregatedShipping;
+
+    if (shouldOverwrite(order.platformIncome, order.settlementAmount ?? 0)) {
+      order.platformIncome = order.settlementAmount ?? 0;
     }
-    if (order.otherFee === 0 && aggregatedOther !== 0) {
-      order.otherFee = aggregatedOther;
+
+    if (shouldOverwrite(order.buyerShippingFee, order.customerPaidShippingFeeAmount ?? 0)) {
+      order.buyerShippingFee = order.customerPaidShippingFeeAmount ?? 0;
+    }
+
+    // TikTok commissionFee = sum of 6 platform-specific fee fields (already negative)
+    const aggregatedCommission = (order.platformCommissionAmount ?? 0)
+      + (order.dynamicCommissionAmount ?? 0)
+      + (order.transactionFeeAmount ?? 0)
+      + (order.referralFeeAmount ?? 0)
+      + (order.affiliateCommissionAmount ?? 0)
+      + (order.affiliatePartnerCommissionAmount ?? 0);
+    if (shouldOverwrite(order.commissionFee, aggregatedCommission)) {
+      order.commissionFee = aggregatedCommission; // Already negative, no abs needed
+    }
+
+    // TikTok sellerShippingFee: stays 0 (actualShippingFeeAmount is informational)
+    if (order.sellerShippingFee == null) {
+      order.sellerShippingFee = 0;
+    }
+
+    // TikTok otherFee: only extraCostsFee (already negative, HAR-confirmed)
+    const extraCosts = order.extraCostsFee ?? 0;
+    if (shouldOverwrite(order.otherFee, extraCosts)) {
+      order.otherFee = extraCosts;
+    }
+
+    // ── ENH-ORDERAMOUNT: TikTok orderAmount computed after saleAmount + buyerShippingFee ──
+    const computedOrderAmount = (order.saleAmount ?? 0) + (order.buyerShippingFee ?? 0);
+    if (shouldOverwrite(order.orderAmount, computedOrderAmount)) {
+      order.orderAmount = computedOrderAmount;
     }
   }
+  // "common" platform: no changes (return as-is)
 
   return order;
 }
