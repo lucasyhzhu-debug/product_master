@@ -26,7 +26,7 @@ export function ChannelSummary({
     label: string;
     colorClass: string;
     dotClass: string;
-    current: { gross: number; net: number; transactions: number; commission?: number; promoBurn?: number };
+    current: { gross: number; net: number; transactions: number; commission: number; promoBurn: number };
     previous: { gross: number; net: number; transactions: number };
   }[] = [
     {
@@ -113,9 +113,9 @@ export function ChannelSummary({
                 {/* Connector line */}
                 <div className="border-l border-dashed border-muted-foreground/30 ml-1 pl-2.5 space-y-2">
                   {/* Promo Discount (only for channels with promo data) */}
-                  {(seg.current.promoBurn ?? 0) > 0 && (
+                  {seg.current.promoBurn > 0 && (
                     <div className="text-xs text-orange-600 dark:text-orange-400">
-                      <span className="tabular-nums">-{formatCurrency(seg.current.promoBurn ?? 0)}</span>
+                      <span className="tabular-nums">-{formatCurrency(seg.current.promoBurn)}</span>
                       <span className="text-[10px] text-muted-foreground ml-1">Promo Discount</span>
                     </div>
                   )}

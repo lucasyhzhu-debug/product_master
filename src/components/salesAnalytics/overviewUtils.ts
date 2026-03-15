@@ -35,8 +35,8 @@ export type PeriodData = {
     gross: number;
     net: number;
     transactions: number;
-    commission?: number;
-    promoBurn?: number;
+    commission: number;
+    promoBurn: number;
   }>;
   periodLabel?: string;
   comparisonLabel?: string;

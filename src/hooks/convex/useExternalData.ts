@@ -9,7 +9,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 /** Return shape of getDashboardSummaryByPeriodInternal / fetchDashboardSummaryByPeriod. */
-export type ChannelBreakdown = { source: string; displayName: string; gross: number; net: number; transactions: number };
+export type ChannelBreakdown = { source: string; displayName: string; gross: number; net: number; transactions: number; commission: number; promoBurn: number };
 type PeriodSummary = {
   totalGross: number;
   totalNet: number;
