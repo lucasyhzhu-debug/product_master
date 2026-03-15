@@ -55,10 +55,16 @@ export const createBatch = protectedMutation({
       throw new Error("Employee not found");
     }
 
+    // Fetch all expenses in parallel
+    const expenses = await Promise.all(
+      args.expenseIds.map((id) => ctx.db.get(id))
+    );
+
     let totalAmount = 0;
 
-    for (const expenseId of args.expenseIds) {
-      const expense = await ctx.db.get(expenseId);
+    // Validate sequentially (order matters for error messages)
+    for (let i = 0; i < args.expenseIds.length; i++) {
+      const expense = expenses[i];
       if (!expense) {
         throw new Error("Expense not found");
       }
@@ -80,7 +86,7 @@ export const createBatch = protectedMutation({
       // Double-batching guard: check if expense is already in a pending batch
       const existingItems = await ctx.db
         .query("reimbursementBatchItems")
-        .withIndex("by_expense", (q) => q.eq("expenseId", expenseId))
+        .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseIds[i]))
         .collect();
 
       for (const item of existingItems) {
@@ -215,9 +221,13 @@ export const confirmBatch = protectedMutation({
       ],
     });
 
-    // Mark all linked expenses as reimbursed
-    for (const item of batchItems) {
-      const expense = await ctx.db.get(item.expenseId);
+    // Fetch all linked expenses in parallel, then write sequentially
+    const batchExpenses = await Promise.all(
+      batchItems.map((item) => ctx.db.get(item.expenseId))
+    );
+
+    for (let i = 0; i < batchItems.length; i++) {
+      const expense = batchExpenses[i];
       if (!expense) continue;
 
       // Concurrency guard
@@ -227,10 +237,10 @@ export const confirmBatch = protectedMutation({
         );
       }
 
-      await ctx.db.patch(item.expenseId, { status: "reimbursed" });
+      await ctx.db.patch(batchItems[i].expenseId, { status: "reimbursed" });
       await recordStatusChange(
         ctx,
-        item.expenseId,
+        batchItems[i].expenseId,
         "awaiting_payment",
         "reimbursed",
         ctx.user._id,
@@ -292,14 +302,18 @@ export const voidBatch = protectedMutation({
       );
     }
 
-    // Return linked expenses to awaiting_payment
-    const batchItems = await ctx.db
+    // Fetch batch items and their linked expenses in parallel, then write sequentially
+    const voidBatchItems = await ctx.db
       .query("reimbursementBatchItems")
       .withIndex("by_batch", (q) => q.eq("batchId", args.batchId))
       .collect();
 
-    for (const item of batchItems) {
-      const expense = await ctx.db.get(item.expenseId);
+    const voidExpenses = await Promise.all(
+      voidBatchItems.map((item) => ctx.db.get(item.expenseId))
+    );
+
+    for (let i = 0; i < voidBatchItems.length; i++) {
+      const expense = voidExpenses[i];
       if (!expense) continue;
 
       if (expense.status !== "reimbursed") {
@@ -308,10 +322,10 @@ export const voidBatch = protectedMutation({
         );
       }
 
-      await ctx.db.patch(item.expenseId, { status: "awaiting_payment" });
+      await ctx.db.patch(voidBatchItems[i].expenseId, { status: "awaiting_payment" });
       await recordStatusChange(
         ctx,
-        item.expenseId,
+        voidBatchItems[i].expenseId,
         "reimbursed",
         "awaiting_payment",
         ctx.user._id,

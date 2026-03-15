@@ -56,16 +56,15 @@ export const create = protectedMutation({
     // Generate payroll number
     const payrollNumber = await getNextNumber(ctx, "PAY");
 
-    // Look up accounts by code (NEVER hardcode IDs)
-    const debitAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", "6100"))
-      .unique();
-
-    const creditAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", "1100"))
-      .unique();
+    // Look up accounts by code IN PARALLEL (NEVER hardcode IDs)
+    const [debitAccount, creditAccount] = await Promise.all([
+      ctx.db.query("accounts")
+        .withIndex("by_code", (q) => q.eq("code", "6100"))
+        .unique(),
+      ctx.db.query("accounts")
+        .withIndex("by_code", (q) => q.eq("code", "1100"))
+        .unique(),
+    ]);
 
     if (!debitAccount || !creditAccount) {
       throw new Error(

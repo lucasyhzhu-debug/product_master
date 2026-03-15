@@ -55,13 +55,29 @@ export const listAwaitingPayment = protectedQuery({
       group.totalAmount += expense.amount;
     }
 
+    // Fetch all unique users in parallel
+    const uniqueUserIds = [...byEmployee.keys()];
+    const users = await Promise.all(
+      uniqueUserIds.map((id) => ctx.db.get(id as Id<"users">))
+    );
+    const userLookup = new Map<string, { name: string; bankAccountNumber: string | null; bankName: string | null }>();
+    for (const user of users) {
+      if (user) {
+        userLookup.set(user._id as string, {
+          name: user.name ?? "Unknown User",
+          bankAccountNumber: user.bankAccountNumber ?? null,
+          bankName: user.bankName ?? null,
+        });
+      }
+    }
+
     // Enrich with user details and format
     const result = [];
     for (const group of byEmployee.values()) {
-      const user = await ctx.db.get(group.userId as Id<"users">);
-      const userName = user?.name ?? "Unknown User";
-      const bankAccountNumber = user?.bankAccountNumber ?? null;
-      const bankName = user?.bankName ?? null;
+      const userInfo = userLookup.get(group.userId);
+      const userName = userInfo?.name ?? "Unknown User";
+      const bankAccountNumber = userInfo?.bankAccountNumber ?? null;
+      const bankName = userInfo?.bankName ?? null;
 
       // Sort expenses by expenseDate ascending
       const sortedExpenses = group.expenses.sort(
