@@ -65,13 +65,14 @@ describe("aggregatePeriodRevenue", () => {
   });
 
   it("should sum revenueNet correctly when it differs from recalculated value", () => {
-    // Simulate case where stored revenueNet explicitly differs from gross-commission-promoBurn
-    // This happens when the platform computes net differently than our naive formula
+    // Stored revenueNet intentionally differs from gross-commission-promoBurn.
+    // Platform may apply taxes, adjustments, or rounding that our formula doesn't capture.
+    // Recalculated: 100000 - 21090 - 24500 = 54410, but stored = 60000.
     const records = [
       mockRevenue({
         source: "gobiz",
         revenueGross: 100000,
-        revenueNet: 54410, // Correct net from platform
+        revenueNet: 60000, // Platform net differs from naive formula
         commission: 21090,
         promoBurn: 24500,
         transactionCount: 1,
@@ -80,9 +81,30 @@ describe("aggregatePeriodRevenue", () => {
 
     const result = aggregatePeriodRevenue(records, emptyOrderMap);
 
-    // If using stored revenueNet: 54410
-    // If recalculating: 100000 - 21090 - 0 - 24500 = 54410 (also matches here)
-    expect(result.totalNet).toBe(54410);
+    // MUST use stored revenueNet (60000), NOT recalculated (54410)
+    expect(result.totalNet).toBe(60000);
+  });
+
+  it("should treat revenueNet: 0 as valid zero, not fall back to revenueGross", () => {
+    // revenueNet=0 is a legitimate value (100% promo-funded order).
+    // The ?? operator correctly treats 0 as non-nullish. This test locks that behavior
+    // so a future ?? → || refactor doesn't silently regress.
+    const records = [
+      mockRevenue({
+        source: "gobiz",
+        revenueGross: 50000,
+        revenueNet: 0,
+        commission: 0,
+        promoBurn: 50000,
+        transactionCount: 1,
+      }),
+    ];
+
+    const result = aggregatePeriodRevenue(records, emptyOrderMap);
+
+    // MUST be 0, NOT 50000. If this returns 50000, someone changed ?? to ||
+    expect(result.totalNet).toBe(0);
+    expect(result.channels[0].net).toBe(0);
   });
 
   it("should fall back to revenueGross when revenueNet is undefined", () => {
