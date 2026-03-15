@@ -7,7 +7,7 @@
  *
  * Real-time: Convex auto-updates when entries are created/voided.
  */
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,13 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DollarSign, Ban, Upload, Inbox } from "lucide-react";
+import { VoidReasonDialog } from "@/components/shared";
 import { formatCurrency } from "@/lib/utils";
 import { wibDateStrToUtcMs, formatDateId } from "@/lib/dateUtils";
 import {
@@ -395,12 +389,21 @@ function PayrollHistory() {
   const [typeFilter, setTypeFilter] = useState<EmployeeTypeFilter>("all");
   const filterValue = typeFilter === "all" ? undefined : typeFilter;
   const entries = usePayrollEntries(filterValue);
+  const voidPayroll = useVoidPayroll();
 
   // Void dialog state
   const [voidTarget, setVoidTarget] = useState<{
     id: Id<"payrollEntries">;
     payrollNumber: string;
   } | null>(null);
+
+  const handleVoidPayroll = useCallback(
+    async (reason: string) => {
+      if (!voidTarget) return;
+      await voidPayroll.mutate({ payrollId: voidTarget.id, reason });
+    },
+    [voidPayroll, voidTarget],
+  );
 
   return (
     <>
@@ -477,13 +480,14 @@ function PayrollHistory() {
       </Card>
 
       {/* Void Dialog */}
-      <VoidPayrollDialog
-        payrollId={voidTarget?.id ?? null}
-        payrollNumber={voidTarget?.payrollNumber ?? ""}
+      <VoidReasonDialog
+        title={`Void Payroll Entry ${voidTarget?.payrollNumber ?? ""}`}
+        description="This will create a reversing journal entry to undo the original accounting impact."
         open={voidTarget !== null}
         onOpenChange={(open) => {
           if (!open) setVoidTarget(null);
         }}
+        onConfirm={handleVoidPayroll}
       />
     </>
   );
@@ -562,81 +566,3 @@ function PayrollRow({ entry, onVoid }: PayrollRowProps) {
   );
 }
 
-// ============================================================================
-// VoidPayrollDialog -- Void reason dialog
-// ============================================================================
-
-interface VoidPayrollDialogProps {
-  payrollId: Id<"payrollEntries"> | null;
-  payrollNumber: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-function VoidPayrollDialog({ payrollId, payrollNumber, open, onOpenChange }: VoidPayrollDialogProps) {
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const voidPayroll = useVoidPayroll();
-
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open) {
-      setReason("");
-      setSubmitting(false);
-    }
-  }, [open]);
-
-  const handleVoid = async () => {
-    if (!payrollId || !reason.trim()) return;
-    setSubmitting(true);
-    try {
-      await voidPayroll.mutate({ payrollId, reason: reason.trim() });
-      onOpenChange(false);
-    } catch {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Void Payroll Entry {payrollNumber}</DialogTitle>
-          <DialogDescription>
-            This will create a reversing journal entry to undo the original
-            accounting impact.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="voidReason">Reason for voiding</Label>
-            <Textarea
-              id="voidReason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Enter reason..."
-              rows={3}
-              autoFocus
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleVoid}
-              disabled={!reason.trim() || submitting}
-            >
-              {submitting ? "Voiding..." : "Void Entry"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}

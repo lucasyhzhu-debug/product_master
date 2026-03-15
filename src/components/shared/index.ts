@@ -7,3 +7,4 @@ export { EmptyState } from './EmptyState';
 export { HoldButton } from './HoldButton';
 export { FormBuilder } from './FormBuilder';
 export type { FormField, FormSection, FormBuilderProps, SelectOption } from './FormBuilder';
+export { VoidReasonDialog } from './VoidReasonDialog';

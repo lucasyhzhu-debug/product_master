@@ -15,15 +15,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import {
   Search,
   Inbox,
@@ -31,7 +22,15 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { useAwaitingPayment, useCreateBatch, useBatches, useVoidBatch } from "@/hooks/convex/useReimbursements";
+import {
+  useAwaitingPayment,
+  useCreateBatch,
+  useBatches,
+  useVoidBatch,
+  type AwaitingPaymentGroup,
+  type Batch,
+} from "@/hooks/convex/useReimbursements";
+import { VoidReasonDialog } from "@/components/shared";
 import { PendingExpensesGroup } from "@/components/reimbursements/PendingExpensesGroup";
 import { ConfirmBatchDialog } from "@/components/reimbursements/ConfirmBatchDialog";
 import { BatchCard } from "@/components/reimbursements/BatchCard";
@@ -82,11 +81,21 @@ export function ReimbursementManager() {
     [],
   );
 
+  const voidBatch = useVoidBatch();
+
   const handleVoidOpen = useCallback(
     (batchId: Id<"reimbursementBatches">, batchNumber: string) => {
       setVoidTarget({ batchId, batchNumber });
     },
     [],
+  );
+
+  const handleVoidBatch = useCallback(
+    async (reason: string) => {
+      if (!voidTarget) return;
+      await voidBatch.mutate({ batchId: voidTarget.batchId, reason });
+    },
+    [voidBatch, voidTarget],
   );
 
   return (
@@ -128,13 +137,15 @@ export function ReimbursementManager() {
       />
 
       {/* Void Dialog */}
-      <VoidDialog
-        batchId={voidTarget?.batchId ?? null}
-        batchNumber={voidTarget?.batchNumber ?? ""}
+      <VoidReasonDialog
+        title={`Void Batch ${voidTarget?.batchNumber ?? ""}`}
+        description="This will create a reversing journal entry and return all expenses to the awaiting payment queue."
         open={voidTarget !== null}
         onOpenChange={(open) => {
           if (!open) setVoidTarget(null);
         }}
+        onConfirm={handleVoidBatch}
+        confirmLabel="Void Batch"
       />
     </div>
   );
@@ -219,7 +230,7 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
 
       {/* Employee groups */}
       <div className="space-y-3">
-        {groups.map((group: any) => (
+        {groups.map((group: AwaitingPaymentGroup) => (
           <PendingExpensesGroup
             key={group.userId}
             group={group}
@@ -326,7 +337,7 @@ function BatchHistoryTab({ onConfirmOpen, onVoidOpen }: BatchHistoryTabProps) {
       {/* Batch cards */}
       {batches !== undefined && batches.length > 0 && (
         <div className="space-y-3">
-          {batches.map((batch: any) => (
+          {batches.map((batch: Batch) => (
             <BatchCard
               key={batch._id}
               batch={batch}
@@ -340,81 +351,3 @@ function BatchHistoryTab({ onConfirmOpen, onVoidOpen }: BatchHistoryTabProps) {
   );
 }
 
-// ============================================================================
-// VoidDialog -- Void reason dialog
-// ============================================================================
-
-interface VoidDialogProps {
-  batchId: Id<"reimbursementBatches"> | null;
-  batchNumber: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-function VoidDialog({ batchId, batchNumber, open, onOpenChange }: VoidDialogProps) {
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const voidBatch = useVoidBatch();
-
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open) {
-      setReason("");
-      setSubmitting(false);
-    }
-  }, [open]);
-
-  const handleVoid = async () => {
-    if (!batchId || !reason.trim()) return;
-    setSubmitting(true);
-    try {
-      await voidBatch.mutate({ batchId, reason: reason.trim() });
-      onOpenChange(false);
-    } catch {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Void Batch {batchNumber}</DialogTitle>
-          <DialogDescription>
-            This will create a reversing journal entry and return all
-            expenses to the awaiting payment queue.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="voidReason">Reason for voiding</Label>
-            <Textarea
-              id="voidReason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Enter reason..."
-              rows={3}
-              autoFocus
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleVoid}
-              disabled={!reason.trim() || submitting}
-            >
-              {submitting ? "Voiding..." : "Void Batch"}
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
