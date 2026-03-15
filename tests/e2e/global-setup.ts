@@ -3,13 +3,61 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 /**
- * Playwright global setup: ensures a test-friendly user exists with a known PIN.
+ * E2E test users -- one per role.
+ * Created idempotently on first run, PIN reset to TEST_PIN on subsequent runs.
+ */
+const TEST_USERS = [
+  { name: "E2E-Admin", role: "admin" as const },
+  { name: "E2E-Manager", role: "manager" as const },
+  { name: "E2E-Kitchen", role: "kitchen" as const },
+  { name: "E2E-OrderStaff", role: "order_staff" as const },
+] as const;
+
+const TEST_PIN = "999999";
+
+type UserRole = "admin" | "manager" | "kitchen" | "order_staff";
+type ActiveUser = { _id: string; name: string; role: string };
+
+/**
+ * Ensure a single test user exists with a known PIN.
+ * - If user with matching name already exists: unlock + reset PIN (no duplicate created)
+ * - If user does NOT exist: create with name, pin, role
+ */
+async function ensureTestUser(
+  client: ConvexHttpClient,
+  existingUsers: ActiveUser[],
+  name: string,
+  role: UserRole
+): Promise<void> {
+  const existing = existingUsers.find((u) => u.name === name);
+
+  if (existing) {
+    // User already exists -- unlock and reset PIN
+    const userId = existing._id as Id<"users">;
+    await client.mutation(api.auth.mutations.unlockUser, { userId });
+    await client.mutation(api.auth.mutations.resetPin, {
+      userId,
+      newPin: TEST_PIN,
+    });
+    console.log(`[E2E Setup] Reset existing user: ${name}`);
+  } else {
+    // User does not exist -- create
+    await client.mutation(api.auth.mutations.createUser, {
+      name,
+      pin: TEST_PIN,
+      role,
+    });
+    console.log(`[E2E Setup] Created new user: ${name} (${role})`);
+  }
+}
+
+/**
+ * Playwright global setup: ensures 4 E2E test users exist with known PINs.
  *
  * Strategy:
  * 1. Get active users from the Convex dev database
- * 2. Find a Manager or Admin user
- * 3. Reset their PIN to a known value ("999999")
- * 4. Unlock the account (in case it was locked from failed attempts)
+ * 2. For each test role, ensure the E2E-{Role} user exists with PIN 999999
+ * 3. Backward compat: set E2E_TEST_USER_NAME to a manager/admin for existing spec files
  *
  * This runs once before all tests, not per-test.
  */
@@ -24,8 +72,8 @@ async function globalSetup() {
     // Get active users
     const users = await client.query(api.auth.queries.getActiveUsers);
 
-    if (!users || users.length === 0) {
-      throw new Error("No active users found in database");
+    if (!users) {
+      throw new Error("Failed to query active users from database");
     }
 
     console.log(
@@ -33,47 +81,38 @@ async function globalSetup() {
       users.map((u: { name: string; role: string }) => `${u.name} (${u.role})`)
     );
 
-    // Prefer manager, then admin
+    // Ensure all 4 E2E test users exist with known PINs
+    for (const testUser of TEST_USERS) {
+      await ensureTestUser(client, users as ActiveUser[], testUser.name, testUser.role);
+    }
+
+    // Re-fetch users after potential creation (for backward compat lookup)
+    const updatedUsers = await client.query(api.auth.queries.getActiveUsers);
+
+    // Backward compat: find a manager or admin user for existing spec files
+    // that use loginAsManager (prefers E2E-Manager, then any manager, then admin)
     const targetUser =
-      users.find(
+      (updatedUsers || []).find(
+        (u: { name: string }) => u.name === "E2E-Manager"
+      ) ||
+      (updatedUsers || []).find(
         (u: { role: string }) => u.role === "manager"
       ) ||
-      users.find(
+      (updatedUsers || []).find(
         (u: { role: string }) => u.role === "admin"
       );
 
-    if (!targetUser) {
-      throw new Error(
-        "No manager or admin user found. Tests require a manager-level account."
+    if (targetUser) {
+      process.env.E2E_TEST_USER_NAME = targetUser.name;
+      process.env.E2E_TEST_USER_ROLE = targetUser.role;
+      console.log(
+        `[E2E Setup] Backward compat user: ${targetUser.name} (${targetUser.role})`
       );
     }
 
-    console.log(
-      `[E2E Setup] Using user: ${targetUser.name} (${targetUser.role})`
-    );
+    process.env.E2E_TEST_PIN = TEST_PIN;
 
-    const userId = targetUser._id as Id<"users">;
-
-    // Unlock the account (clear failed attempts and lockout)
-    await client.mutation(api.auth.mutations.unlockUser, { userId });
-    console.log(`[E2E Setup] Unlocked user ${targetUser.name}`);
-
-    // Reset PIN to known test value
-    const testPin = "999999";
-    await client.mutation(api.auth.mutations.resetPin, {
-      userId,
-      newPin: testPin,
-    });
-    console.log(
-      `[E2E Setup] Reset PIN for ${targetUser.name} to test PIN`
-    );
-
-    // Store user info for tests to use
-    process.env.E2E_TEST_USER_NAME = targetUser.name;
-    process.env.E2E_TEST_USER_ROLE = targetUser.role;
-    process.env.E2E_TEST_PIN = testPin;
-
-    console.log("[E2E Setup] Ready for testing");
+    console.log("[E2E Setup] All 4 E2E test users ready");
   } finally {
     // ConvexHttpClient doesn't need explicit cleanup
   }
