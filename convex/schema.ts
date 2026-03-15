@@ -1275,6 +1275,7 @@ export default defineSchema({
     updatedBy: v.string(),
     updatedAt: v.number(),
     // DUP-01: removed commissionRate -- unused, net/gross tracked from external APIs
+    commissionRate: v.optional(v.number()), // DATA-COMPAT: kept optional until dev DB patched
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
