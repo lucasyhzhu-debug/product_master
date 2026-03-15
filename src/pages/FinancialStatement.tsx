@@ -32,22 +32,7 @@ import {
   ErrorCard,
   type PeriodMode,
 } from "@/lib/financialHelpers";
-
-// ── Helper: convert UTC epoch ms to YYYY-MM-DD string in WIB for <input type="date"> ──
-function utcToWibDateStr(utcMs: number): string {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const y = wib.getUTCFullYear();
-  const m = String(wib.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(wib.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-// ── Helper: convert YYYY-MM-DD string to WIB midnight in UTC epoch ms ──
-function wibDateStrToUtc(dateStr: string): number {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  // WIB 00:00 = UTC previous day 17:00
-  return Date.UTC(y, m - 1, d, -7, 0, 0, 0);
-}
+import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
 
 const PERIOD_MODE_LABELS: Record<PeriodMode, string> = {
   week: "Weekly",
@@ -295,7 +280,7 @@ export function FinancialStatement() {
               type="date"
               value={utcToWibDateStr(customStart)}
               onChange={(e) => {
-                const ms = wibDateStrToUtc(e.target.value);
+                const ms = wibDateStrToUtcMs(e.target.value);
                 if (!isNaN(ms)) setCustomStart(ms);
               }}
               className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -305,7 +290,7 @@ export function FinancialStatement() {
               type="date"
               value={utcToWibDateStr(customEnd)}
               onChange={(e) => {
-                const ms = wibDateStrToUtc(e.target.value);
+                const ms = wibDateStrToUtcMs(e.target.value);
                 if (!isNaN(ms)) setCustomEnd(ms);
               }}
               className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

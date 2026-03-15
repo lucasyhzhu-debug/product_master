@@ -10,6 +10,7 @@ import {
   formatPeriodRange,
   type PeriodMode,
 } from "@/lib/financialHelpers";
+import { wibMidnightToUtc, getCurrentWibMonth } from "@/lib/dateUtils";
 
 /** Get the Monday 00:00 WIB epoch ms for the week containing `now`. */
 function getCurrentWeekStart(): number {
@@ -26,18 +27,6 @@ function getCurrentWeekStart(): number {
   const mondayWibMs = wibDate.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000;
   // Convert back to UTC epoch ms
   return mondayWibMs - WIB_OFFSET_MS;
-}
-
-/** Get the current year and 0-indexed month in WIB. */
-function getCurrentWibMonth(): { year: number; month: number } {
-  const now = Date.now();
-  const wibDate = new Date(now + WIB_OFFSET_MS);
-  return { year: wibDate.getUTCFullYear(), month: wibDate.getUTCMonth() };
-}
-
-/** Convert WIB midnight (start of day) to UTC epoch ms. WIB 00:00 = UTC previous day 17:00. */
-function wibMidnightToUtc(year: number, month: number, day: number): number {
-  return Date.UTC(year, month, day, -7, 0, 0, 0);
 }
 
 export function useFinancials() {
