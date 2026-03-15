@@ -16,6 +16,26 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense E2E Testing Suite (Phase 53) — 2026-03-15
+
+**For the team:** We now have automated end-to-end tests that verify the entire expense system works correctly — from submitting an expense, through approval and reimbursement, to showing up on the P&L. These tests also check that each user role (kitchen, order staff, manager, admin) can only access the pages they're supposed to. If anything breaks in the future, these tests will catch it automatically.
+
+#### Added
+- `tests/e2e/expense-access.spec.ts` — 36 permission guard tests across 9 expense routes × 4 roles (kitchen, order_staff, manager, admin)
+- `tests/e2e/expense-lifecycle.spec.ts` — Full expense lifecycle test: create → submit → approve → reimburse → verify P&L journal entry
+- `tests/e2e/expense-csv-import.spec.ts` — CSV import validation (rejects invalid rows, accepts valid ones) with P&L verification
+- `tests/e2e/expense-approval.spec.ts` — 5 approval edge case tests (DoA thresholds, reject/void with reason, batch approval)
+- `tests/e2e/expense-analytics.spec.ts` — 4 analytics dashboard assertion tests (charts render, filters work, fraud flags display)
+- `tests/e2e/fixtures/test-expenses.csv` — CSV fixture data for import testing
+- `tests/e2e/helpers.ts` — `loginAsRole()`, `logout()`, `fillExpenseForm()` E2E helper functions
+- `tests/e2e/global-setup.ts` — Extended with multi-role E2E test user creation (E2E-Kitchen, E2E-OrderStaff, E2E-Manager, E2E-Admin)
+
+#### Bug Fixes (found during testing)
+- Fixed receipt validation blocking expense submission for amounts under 50K IDR threshold
+- Fixed "Select all" checkbox batching stale test data from previous E2E runs
+- Fixed Radix Select overlay blocking Cancel button in ConfirmBatchDialog
+- Documented: bank account `isActive` migration needed for dev environment (BUG-04 in `53-BUG-REPORT.md`)
+
 ### Expense System Simplification (Phase 52) — 2026-03-15
 
 **For the team:** No visible changes — the expense system works exactly the same. Under the hood, we cleaned up code that was written quickly across phases 41-50: removed duplicate functions, made database queries run in parallel instead of one-at-a-time, and extracted reusable UI components. This makes the expense code faster and easier to maintain going forward.
