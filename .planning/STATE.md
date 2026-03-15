@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 54-01-PLAN.md
+last_updated: "2026-03-15T15:06:44.288Z"
+last_activity: "2026-03-15 - Completed quick task 32: Create Financials dropdown nav with Expenses, Exp Analytics, Reimburse, Bank Accounts, Payroll"
+progress:
+  total_phases: 15
+  completed_phases: 13
+  total_plans: 31
+  completed_plans: 31
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 53.1-02-PLAN.md
 last_updated: "2026-03-15T14:17:26.917Z"
 last_activity: 2026-03-15 -- Completed 53.1-02-PLAN.md (frontend promo discount display + human verify)
 progress:
-  total_phases: 15
+  [██████████] 100%
   completed_phases: 14
   total_plans: 32
   completed_plans: 30
@@ -394,6 +410,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 53.1]: revenueNet fallback uses revenueGross (not 0) for backward compat with old records
 - [Phase 53.1]: promoDiscount added to JournalMetrics interface for type-safe adapter propagation
 - [Phase 53.1]: channels array extended with commission+promoBurn (additive, non-breaking) for frontend cost breakdown
+- [Phase 54]: shouldOverwrite() uses (field == null || (field === 0 && aggregated !== 0)) for all overwrite checks
+- [Phase 54]: Shopee fees negated via -Math.abs() (defensive for both positive and negative inputs)
+- [Phase 54]: TikTok otherFee maps only to extraCostsFee (HAR-confirmed, not 4-field sum)
+- [Phase 54]: otherfee/otherFee case mismatch resolved at top of normalizePlatformFees
 
 ### Research Findings (v1.7)
 
@@ -434,9 +454,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 53 P04 | 22min | 1 tasks | 2 files |
 | Phase 53.1 P01 | 6min | 2 tasks | 5 files |
 | Phase 53.1 P02 | 3min | 2 tasks | 2 files |
+| Phase 54 P01 | 12min | 1 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T13:53:01.416Z
-Stopped at: Completed 53.1-02-PLAN.md
+Last session: 2026-03-15T15:06:44.283Z
+Stopped at: Completed 54-01-PLAN.md
 Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).
