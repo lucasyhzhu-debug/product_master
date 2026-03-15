@@ -323,6 +323,45 @@ describe("extractJournalMetrics", () => {
     const commissionRate = metrics!.commission / metrics!.gross;
     expect(commissionRate).toBeCloseTo(0.211, 2);
   });
+
+  it("should extract promoDiscount from variables.voucher_amount / 100", () => {
+    // Promo order hit: same structure as realJournalHit but with voucher_amount
+    const promoHit = {
+      ...realJournalHit,
+      amount: 14000000, // centesimal: Rp 140,000
+      transaction_share: [
+        {
+          amount: 8597400, // centesimal: Rp 85,974
+          metadata: {
+            variables: {
+              commission: 2952600, // centesimal: Rp 29,526
+              gross_amount: 14000000,
+              voucher_amount: 2450000, // centesimal: Rp 24,500
+              value_added_tax: 292600,
+              merchant_percentage_fee: 0.19,
+              vat: 0.11,
+            },
+            merchant_share: 8597400,
+            provider_share: 2952600,
+            total_fee: 2952600,
+          },
+        },
+      ],
+    };
+
+    const metrics = extractJournalMetrics(promoHit);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.promoDiscount).toBe(24500); // 2450000 / 100
+  });
+
+  it("should return promoDiscount=0 when voucher_amount is absent", () => {
+    // The existing realJournalHit has no voucher_amount
+    const metrics = extractJournalMetrics(realJournalHit);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.promoDiscount).toBe(0);
+  });
 });
 
 // ============================================
@@ -396,6 +435,68 @@ describe("aggregateJournalMetrics", () => {
     expect(result.commission).toBe(0);
     expect(result.transactionCount).toBe(0);
     expect(result.transactions).toHaveLength(0);
+  });
+
+  it("should include promoDiscount in aggregate totals", () => {
+    const promoHits = [
+      {
+        amount: 14000000,
+        time: "2026-03-15T10:00:00Z",
+        status: "success",
+        reference_id: "ref-promo-1",
+        metadata: {
+          transaction: {
+            status: "settlement",
+            payment_type: "gopay",
+            order_id: "F-PROMO-001",
+            merchant_id: "G293156297",
+          },
+        },
+        transaction_share: [
+          {
+            amount: 8597400,
+            metadata: {
+              variables: {
+                commission: 2952600,
+                voucher_amount: 2450000, // Rp 24,500
+              },
+              merchant_share: 8597400,
+            },
+          },
+        ],
+      },
+      {
+        amount: 5000000,
+        time: "2026-03-15T11:00:00Z",
+        status: "success",
+        reference_id: "ref-promo-2",
+        metadata: {
+          transaction: {
+            status: "settlement",
+            payment_type: "gopay",
+            order_id: "F-PROMO-002",
+            merchant_id: "G293156297",
+          },
+        },
+        transaction_share: [
+          {
+            amount: 2370500,
+            metadata: {
+              variables: {
+                commission: 1054500,
+                voucher_amount: 1575000, // Rp 15,750
+              },
+              merchant_share: 2370500,
+            },
+          },
+        ],
+      },
+    ];
+
+    const result = aggregateJournalMetrics(promoHits);
+
+    expect(result.transactionCount).toBe(2);
+    expect(result.promoDiscount).toBe(24500 + 15750); // 40,250
   });
 });
 
