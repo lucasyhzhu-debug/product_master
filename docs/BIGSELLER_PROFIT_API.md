@@ -1336,7 +1336,7 @@ Full field reference:
 |------|---------|
 | `saleAmount` | Gross product price paid by buyer (excl. shipping) |
 | `orderAmount` | Total buyer payment = `saleAmount + buyerShippingFee` |
-| `platformIncome` | Net amount credited to seller by platform. For Shopee this equals `saleAmount`. For TikTok, deductions (`commissionFee`, `otherFee`) reduce this. |
+| `platformIncome` | Net amount credited to seller by platform after ALL deductions (commissions, fees, taxes). For Shopee orders with no commissions, this equals `saleAmount`. For TikTok, this equals `settlementAmount`. Includes hidden deductions (e.g., `preOrderServiceFeeAmount`, `feeTaxAmount`) not visible in named fee fields. |
 | `costFee` | Cost of Goods Sold. Currently 0 for all Frollie SKUs -- requires manual entry in BigSeller. |
 | `profit` | `platformIncome - costFee + sellerShippingFee` (sellerShippingFee is negative when seller pays extra) |
 | `profitMargin` | `profit / platformIncome` -- net margin as percentage |
@@ -1428,7 +1428,7 @@ For a Convex integration:
 8. Record actual platform source per order ("shopee" or "tiktok", NOT "bigseller")
 ```
 
-### Platform-Specific Fee Endpoints (CRITICAL)
+### Platform-Specific Endpoints (CRITICAL)
 
 **The common `pageList.json` returns 0 for commission, shipping, and other fees on Shopee and TikTok orders.** You MUST use platform-specific endpoints to get real fee data:
 
@@ -1438,44 +1438,94 @@ For a Convex integration:
 | TikTok | `tiktok/pageList.json` | `"tiktok"` |
 | Other | `pageList.json` | `"common"` |
 
-**Fee Normalization:** Platform-specific endpoints return fees in platform-specific fields that must be aggregated into the common `commissionFee`, `sellerShippingFee`, and `otherFee` fields:
+#### Response Schema Differences (HAR-verified 2026-03-15)
 
-**Shopee fee mapping:**
-| Common Field | Shopee-Specific Fields |
-|-------------|----------------------|
-| `commissionFee` | `sellerTransactionFee` + `orderAmsCommissionFee` + `campaignFee` + `sellerOrderProcessingFee` |
-| `sellerShippingFee` | `finalShippingFee` + `shippingSellerProtectionFeeAmount` |
-| `otherFee` | `serviceFee` |
+**WARNING:** The platform-specific endpoints do NOT simply add extra fields to the common schema. Many common fields are **completely absent** from the response. The `platform` field is `null` in both. Revenue and fee data use different field names with different sign conventions.
 
-**TikTok fee mapping:**
-| Common Field | TikTok-Specific Fields |
-|-------------|----------------------|
-| `commissionFee` | `platformCommissionAmount` + `transactionFeeAmount` + `referralFeeAmount` + `affiliateCommissionAmount` + `affiliatePartnerCommissionAmount` + `dynamicCommissionAmount` |
-| `sellerShippingFee` | `shippingCostAmount` + `actualShippingFeeAmount` |
-| `otherFee` | `sfpServiceFeeAmount` + `codServiceFeeAmount` + `feeTaxAmount` + `extraCostsFee` |
+**Field Availability Matrix (per-row data):**
+
+| Common Field | Common Endpoint | Shopee Endpoint | TikTok Endpoint |
+|---|---|---|---|
+| `saleAmount` | present | **MISSING** | **MISSING** |
+| `orderAmount` | present | **MISSING** | **MISSING** |
+| `platformIncome` | present | present | **MISSING** |
+| `profit` | present | present | present |
+| `costFee` | present | present | present |
+| `commissionFee` | present (negative) | present but **always 0** | **MISSING** |
+| `sellerShippingFee` | present (negative) | **MISSING** | **MISSING** |
+| `buyerShippingFee` | present | **MISSING** | **MISSING** |
+| `otherFee` | present (negative) | **MISSING** (`otherfee` lowercase exists, always 0) | **MISSING** (`otherfee` lowercase exists, always 0) |
+| `platform` | `"shopee"` / `"tiktok"` | **`null`** | **`null`** |
+| `shopName` | present | present | present |
+| `shopId` | present | present | present |
+| `platformOrderId` | present | present | present |
+| `orderTime` | present | present | present |
+| `skuVoList` | present | present | present |
+
+**Revenue/Income Equivalents:**
+
+| Common Field | Shopee Equivalent | TikTok Equivalent | Verified |
+|---|---|---|---|
+| `saleAmount` (gross product price) | `originalPrice` | `revenueAmount` | 73 Shopee + 15 TikTok orders ✓ |
+| `orderAmount` (total buyer payment) | `buyerTotalAmount` | not available | ✓ |
+| `platformIncome` (net to seller) | `platformIncome` (present) | `settlementAmount` | ✓ |
+| `buyerShippingFee` | `buyerPaidShippingFee` | `customerPaidShippingFeeAmount` | ✓ |
+
+#### Fee Normalization
+
+Platform-specific endpoints return fees in platform-specific fields that must be aggregated into the common `commissionFee`, `sellerShippingFee`, and `otherFee` fields.
+
+**CRITICAL — Sign Conventions Differ by Platform:**
+- **Shopee fees are POSITIVE** (e.g., `orderAmsCommissionFee: 29970`) — must NEGATE to match common convention
+- **TikTok fees are already NEGATIVE** (e.g., `platformCommissionAmount: -53000`) — use as-is
+- **Common endpoint fees are NEGATIVE** (e.g., `commissionFee: -29970`)
+
+**Shopee fee mapping (NEGATE all aggregated values):**
+| Common Field | Shopee-Specific Fields | Sign |
+|---|---|---|
+| `commissionFee` | `sellerTransactionFee` + `orderAmsCommissionFee` + `campaignFee` + `sellerOrderProcessingFee` | negate sum |
+| `sellerShippingFee` | `finalShippingFee` + `shippingSellerProtectionFeeAmount` | negate sum |
+| `otherFee` | `serviceFee` | negate |
+
+**TikTok fee mapping (already negative, use as-is):**
+| Common Field | TikTok-Specific Fields | Sign |
+|---|---|---|
+| `commissionFee` | `platformCommissionAmount` + `transactionFeeAmount` + `referralFeeAmount` + `affiliateCommissionAmount` + `affiliatePartnerCommissionAmount` + `dynamicCommissionAmount` | as-is |
+| `sellerShippingFee` | 0 (see note below) | N/A |
+| `otherFee` | `extraCostsFee` | as-is |
+
+> **TikTok shipping note:** `actualShippingFeeAmount` appears negative in TikTok responses but is NOT reflected in the common endpoint's `sellerShippingFee` (always 0). It appears to be informational — the actual deduction is embedded in `settlementAmount`. Do NOT include it in `sellerShippingFee`.
+
+> **TikTok hidden deductions:** `feeTaxAmount` (tax on fees) and `preOrderServiceFeeAmount` are deducted from settlement but NOT categorized in any common fee field. They explain the gap between `revenueAmount - visible fees` and `settlementAmount`. Using `settlementAmount` for `platformIncome` captures these automatically.
+
+> **TikTok otherFee note:** Previous mapping included `sfpServiceFeeAmount + codServiceFeeAmount + feeTaxAmount + extraCostsFee`. HAR verification (2026-03-15) shows only `extraCostsFee` maps to common `otherFee`. `feeTaxAmount` is tax metadata already embedded in settlement, not a separate seller deduction.
 
 **Implementation:** See `convex/integrations/bigseller/helpers.ts` → `normalizePlatformFees()`
 
+**Normalization Pitfall:** Missing fields are `undefined`, not `0`. Check with `!field` or `field == null`, NOT `field === 0`.
+
 ### Field Mapping to Frollie Concepts
 
-| BigSeller Field | Frollie Concept |
-|-----------------|-----------------|
-| `platformOrderId` | External order reference |
-| `platform` | Revenue source (`"shopee"` or `"tiktok"`) |
-| `shopId` + `shopName` | Links to `externalOutlets` |
-| `saleAmount` | Revenue (gross) |
-| `platformIncome` | Revenue (net, after platform fees) |
-| `costFee` | COGS (currently 0 -- needs BigSeller setup) |
-| `profit` | Net profit per order |
-| `profitMargin` | Net margin % |
-| `buyerShippingFee` | Shipping collected |
-| `sellerShippingFee` | Shipping subsidy cost (negative = cost). **Normalized from platform-specific fields.** |
-| `commissionFee` | Platform commission (negative = cost). **Normalized from platform-specific fields.** |
-| `otherFee` | Misc platform deductions (negative = cost). **Normalized from platform-specific fields.** |
-| `sku` in `skuVoList` | Maps to `menuProducts` by SKU code |
-| `skuNum` | Units sold |
-| `orderState` | Order status for filtering |
-| `orderTime` | Order timestamp for date-based sync |
+> **NOTE:** Platform-specific endpoints use different field names. The "Source" column shows which API field to read per endpoint type.
+
+| Frollie Concept | Common Endpoint | Shopee Endpoint | TikTok Endpoint |
+|---|---|---|---|
+| Revenue (gross) | `saleAmount` | `originalPrice` | `revenueAmount` |
+| Revenue (net) | `platformIncome` | `platformIncome` | `settlementAmount` |
+| Platform | `platform` | **null** (use shop config) | **null** (use shop config) |
+| Commission (negative) | `commissionFee` | negate(`ams` + `txn` + `campaign` + `proc`) | `platComm` + `dynComm` + `txnFee` + `refFee` + `affComm` + `affPartner` |
+| Shipping cost (negative) | `sellerShippingFee` | negate(`finalShipping` + `shippingProt`) | 0 (informational only) |
+| Buyer shipping | `buyerShippingFee` | `buyerPaidShippingFee` | `customerPaidShippingFeeAmount` |
+| Other fees (negative) | `otherFee` | negate(`serviceFee`) | `extraCostsFee` |
+| COGS | `costFee` (always 0) | `costFee` (always 0) | `costFee` (always 0) |
+| Profit | `profit` | `profit` | `profit` |
+| Order reference | `platformOrderId` | `platformOrderId` | `platformOrderId` |
+| Shop | `shopId` + `shopName` | `shopId` + `shopName` | `shopId` + `shopName` |
+| SKU list | `skuVoList` | `skuVoList` | `skuVoList` |
+| Order time | `orderTime` | `orderTime` | `orderTime` |
+| Order status | `orderState` | `orderState` | `orderState` |
+
+**`profit` field usage:** BigSeller's `profit` = `platformIncome - costFee`. Since `costFee` is always 0, `profit` = `platformIncome`. Use `profit` directly for display — do NOT recalculate as `platformIncome + fees` (this double-subtracts fees already embedded in `platformIncome`).
 
 ### Currency
 
@@ -1500,3 +1550,63 @@ field in the request must be `"IDR"` to match Frollie's account configuration.
 | Order totals | `/api/v1/getOrderTotalData.json` | POST | Cookie |
 | Daily sales | `/api/v1/orderSalesStatistics.json` | POST | Cookie |
 | Shop auth health | `/api/v1/shop/checkShop/auth/invalid.json` | GET | Cookie |
+
+---
+
+## Platform-Specific Response Schema Differences (Phase 54)
+
+> **Confirmed:** 2026-03-15 via HAR capture analysis of 73 Shopee + 15 TikTok orders
+
+### Field Availability Matrix
+
+| Field | Common | Shopee | TikTok | Notes |
+|-------|--------|--------|--------|-------|
+| `saleAmount` | Present | **MISSING** (use `originalPrice`) | **MISSING** (use `revenueAmount`) | BUG-01 |
+| `orderAmount` | Present | **MISSING** (use `buyerTotalAmount`) | **MISSING** (compute: `saleAmount + buyerShippingFee`) | Enhancement |
+| `platformIncome` | Present | Present | **MISSING** (use `settlementAmount`) | BUG-03 |
+| `commissionFee` | Present | 0 (use platform fields) | **MISSING** (sum 6 fields) | BUG-03/04/05 |
+| `sellerShippingFee` | Present | 0 (use `finalShippingFee`) | 0 (stays 0) | BUG-04 |
+| `buyerShippingFee` | Present | Present | **MISSING** (use `customerPaidShippingFeeAmount`) | BUG-03 |
+| `otherFee` | Present | 0 (use `serviceFee`) | **MISSING** (use `extraCostsFee`) | BUG-04 |
+| `platform` | Present | **null** | **null** | BUG-02 |
+| `profit` | Present | Present | Present | Authoritative |
+| `otherfee` (lowercase) | N/A | May appear | May appear | CASE-01 |
+
+### Sign Conventions
+
+| Platform | Commission | Shipping | Other | Source |
+|----------|-----------|----------|-------|--------|
+| Common | Negative | Negative | Negative | Already correct |
+| Shopee | **Positive** (negate via `-Math.abs()`) | **Positive** (negate) | **Positive** (negate) | HAR-confirmed |
+| TikTok | Already negative | Already negative | Already negative | HAR-confirmed |
+
+### Revenue Semantics
+
+| Term | Field | Definition |
+|------|-------|------------|
+| **Gross Revenue** | `orderAmount` | Total amount the customer paid (product price + buyer shipping) |
+| **Net Revenue** | `platformIncome` | What Frollie actually receives after all platform deductions |
+| **Profit** | `profit` (authoritative) | `platformIncome - costFee` (BigSeller computes this) |
+
+### Normalization Mappings
+
+**Shopee:**
+- `saleAmount` <- `originalPrice`
+- `orderAmount` <- `buyerTotalAmount`
+- `commissionFee` <- `-Math.abs(sellerTransactionFee + orderAmsCommissionFee + campaignFee + sellerOrderProcessingFee)`
+- `sellerShippingFee` <- `-Math.abs(finalShippingFee + shippingSellerProtectionFeeAmount)`
+- `otherFee` <- `-Math.abs(serviceFee)`
+
+**TikTok:**
+- `saleAmount` <- `revenueAmount`
+- `platformIncome` <- `settlementAmount`
+- `buyerShippingFee` <- `customerPaidShippingFeeAmount`
+- `commissionFee` <- `platformCommissionAmount + dynamicCommissionAmount + transactionFeeAmount + referralFeeAmount + affiliateCommissionAmount + affiliatePartnerCommissionAmount`
+- `otherFee` <- `extraCostsFee`
+- `sellerShippingFee` <- 0 (informational only)
+- `orderAmount` <- computed `saleAmount + buyerShippingFee` (after field normalization)
+
+### HAR-Confirmed Test Values
+
+- **Shopee order 260307H1VR6UCW:** `originalPrice=270,000`, `orderAmsCommissionFee=29,970` (positive!), `buyerTotalAmount=285,000`
+- **TikTok order 582977241483805780:** `revenueAmount=530,000`, `settlementAmount=433,350`, `platformCommissionAmount=-53,000`, `dynamicCommissionAmount=-26,500`

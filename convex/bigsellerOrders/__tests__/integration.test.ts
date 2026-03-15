@@ -91,7 +91,7 @@ describe("BigSeller sync data flow simulation", () => {
 
   it("all orders produce valid storage rows", () => {
     for (const order of allOrders) {
-      const storage = mapOrderToStorage(order, "synclog" as any);
+      const storage = mapOrderToStorage(order, "synclog" as any, order.platform);
       // All required fields present
       expect(storage.platformOrderId).toBeTruthy();
       expect(storage.platform).toBeTruthy();
@@ -103,7 +103,7 @@ describe("BigSeller sync data flow simulation", () => {
 
   it("all orders produce valid revenue records", () => {
     for (const order of allOrders) {
-      const revenue = mapOrderToRevenue(order, "synclog" as any);
+      const revenue = mapOrderToRevenue(order, "synclog" as any, order.platform);
       // Source is never "bigseller"
       expect(revenue.source).not.toBe("bigseller");
       // Dedup key has bigseller prefix
@@ -117,7 +117,7 @@ describe("BigSeller sync data flow simulation", () => {
 
   it("no duplicate dedup keys across all orders", () => {
     const dedupKeys = allOrders.map(
-      (o) => mapOrderToRevenue(o, "sync" as any).externalTransactionId
+      (o) => mapOrderToRevenue(o, "sync" as any, o.platform).externalTransactionId
     );
     const unique = new Set(dedupKeys);
     expect(unique.size).toBe(dedupKeys.length);
@@ -125,8 +125,8 @@ describe("BigSeller sync data flow simulation", () => {
 
   it("revenue source matches storage platform for each order", () => {
     for (const order of allOrders) {
-      const revenue = mapOrderToRevenue(order, "sync" as any);
-      const storage = mapOrderToStorage(order, "sync" as any);
+      const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
+      const storage = mapOrderToStorage(order, "sync" as any, order.platform);
       expect(revenue.source).toBe(storage.platform);
     }
   });
@@ -136,7 +136,7 @@ describe("BigSeller sync data flow simulation", () => {
     let totalRevenueNet = 0;
     for (const order of allOrders) {
       totalPlatformIncome += order.platformIncome;
-      const revenue = mapOrderToRevenue(order, "sync" as any);
+      const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
       totalRevenueNet += revenue.revenueNet;
     }
     expect(totalRevenueNet).toBe(totalPlatformIncome);
@@ -185,8 +185,8 @@ describe("dedup key uniqueness", () => {
       skuVoList: [{ sku: "TEST", skuNum: 1, returnNum: 0, isAddition: 0 }],
     };
 
-    const rev1 = mapOrderToRevenue(order, "sync" as any);
-    const rev2 = mapOrderToRevenue(order, "sync" as any);
+    const rev1 = mapOrderToRevenue(order, "sync" as any, order.platform);
+    const rev2 = mapOrderToRevenue(order, "sync" as any, order.platform);
     expect(rev1.externalTransactionId).toBe(rev2.externalTransactionId);
   });
 
@@ -212,8 +212,8 @@ describe("dedup key uniqueness", () => {
     };
 
     const order2 = { ...order1, platformOrderId: "DEDUP-002" };
-    const rev1 = mapOrderToRevenue(order1, "sync" as any);
-    const rev2 = mapOrderToRevenue(order2, "sync" as any);
+    const rev1 = mapOrderToRevenue(order1, "sync" as any, "shopee");
+    const rev2 = mapOrderToRevenue(order2, "sync" as any, "shopee");
     expect(rev1.externalTransactionId).not.toBe(rev2.externalTransactionId);
   });
 });
@@ -243,7 +243,7 @@ describe("revenue linking flow (gap fix verification)", () => {
       skuVoList: [],
     };
 
-    const revenue = mapOrderToRevenue(order, "sync" as any);
+    const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
 
     // Simulate the linking logic from fetchOrders gap fix:
     // Extract platformOrderId from "bigseller:{platformOrderId}"
@@ -296,8 +296,8 @@ describe("revenue linking flow (gap fix verification)", () => {
     ];
 
     // Step 1: Create storage rows and revenue rows
-    const storageRows = orders.map((o) => mapOrderToStorage(o, "sync" as any));
-    const revenueRows = orders.map((o) => mapOrderToRevenue(o, "sync" as any));
+    const storageRows = orders.map((o) => mapOrderToStorage(o, "sync" as any, o.platform));
+    const revenueRows = orders.map((o) => mapOrderToRevenue(o, "sync" as any, o.platform));
 
     // Step 2: Simulate saveRevenue returning IDs (fake IDs for testing)
     const fakeRevenueIds = ["rev_001", "rev_002"];
@@ -392,39 +392,32 @@ describe("COGS caveat detection", () => {
 // Profit Calculation Verification
 // ============================================
 describe("profit calculation formula", () => {
-  it("calculated profit = platformIncome + commissionFee + sellerShippingFee + otherFee", () => {
-    // This is the formula used in listOrders query
+  it("calculatedProfit uses order.profit directly (BigSeller authoritative)", () => {
+    // BigSeller's profit field is authoritative: profit = platformIncome - costFee.
+    // The old formula (platformIncome + commissionFee + sellerShippingFee + otherFee)
+    // double-subtracted fees that were already accounted for in platformIncome.
     const order = {
+      profit: 63000,
       platformIncome: 85000,
       commissionFee: -15000,
       sellerShippingFee: -5000,
       otherFee: -2000,
     };
 
-    const calculatedProfit =
-      order.platformIncome +
-      order.commissionFee +
-      order.sellerShippingFee +
-      order.otherFee;
-
-    // 85000 + (-15000) + (-5000) + (-2000) = 63000
+    // calculatedProfit should use order.profit directly, not the old formula
+    const calculatedProfit = order.profit;
     expect(calculatedProfit).toBe(63000);
   });
 
-  it("calculated profit with all zero fees equals platformIncome", () => {
+  it("calculatedProfit with zero costFee equals profit (which equals platformIncome)", () => {
+    // When COGS = 0 (Frollie default), profit === platformIncome
     const order = {
+      profit: 44150,
       platformIncome: 44150,
-      commissionFee: 0,
-      sellerShippingFee: 0,
-      otherFee: 0,
+      costFee: 0,
     };
 
-    const calculatedProfit =
-      order.platformIncome +
-      order.commissionFee +
-      order.sellerShippingFee +
-      order.otherFee;
-
+    const calculatedProfit = order.profit;
     expect(calculatedProfit).toBe(44150);
   });
 });
