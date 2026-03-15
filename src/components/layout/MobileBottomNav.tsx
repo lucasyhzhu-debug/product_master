@@ -16,6 +16,10 @@ import {
   Store,
   Receipt,
   BarChart3,
+  FileText,
+  HandCoins,
+  Landmark,
+  DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -55,6 +59,10 @@ const primaryTabs: TabItem[] = [
 const moreItems: TabItem[] = [
   { path: '/expenses', icon: Receipt, label: 'Expenses', permission: 'canSubmitExpenses' },
   { path: '/expense-analytics', icon: BarChart3, label: 'Exp. Analytics', permission: 'canAccessExpenseAnalytics' },
+  { path: '/financials', icon: FileText, label: 'Income Stmt', permission: 'canAccessDashboard' },
+  { path: '/reimbursements', icon: HandCoins, label: 'Reimburse', permission: 'canManageReimbursements' },
+  { path: '/bank-accounts', icon: Landmark, label: 'Bank Accts', permission: 'canManageReimbursements' },
+  { path: '/payroll', icon: DollarSign, label: 'Payroll', permission: 'canManageReimbursements' },
   { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },

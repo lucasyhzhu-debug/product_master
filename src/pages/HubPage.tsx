@@ -18,6 +18,12 @@ import {
   UserCog,
   ChevronRight,
   Utensils,
+  FileText,
+  Receipt,
+  BarChart3,
+  HandCoins,
+  Landmark,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -90,6 +96,25 @@ const HUB_AREAS: AreaCard[] = [
     visible: (hp) => hp("canAccessDashboard"),
   },
   {
+    title: "Financials",
+    description: "Income statement, expense tracking, reimbursements, and payroll.",
+    icon: FileText,
+    color: "text-amber-500",
+    primaryPath: "/financials",
+    links: [
+      { label: "Income Statement", path: "/financials" },
+      { label: "Expenses", path: "/expenses" },
+      { label: "Exp. Analytics", path: "/expense-analytics" },
+      { label: "Reimburse", path: "/reimbursements" },
+      { label: "Bank Accounts", path: "/bank-accounts" },
+      { label: "Payroll", path: "/payroll" },
+    ],
+    visible: (hp) =>
+      hp("canAccessDashboard") ||
+      hp("canSubmitExpenses") ||
+      hp("canManageReimbursements"),
+  },
+  {
     title: "Configuration",
     description: "Production components, customers, and WhatsApp messaging.",
     icon: Circle,
@@ -142,6 +167,12 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   "Menu Products": Tag,
   Vouchers: Ticket,
   Users: UserCog,
+  "Income Statement": FileText,
+  Expenses: Receipt,
+  "Exp. Analytics": BarChart3,
+  Reimburse: HandCoins,
+  "Bank Accounts": Landmark,
+  Payroll: DollarSign,
 };
 
 // ---------------------------------------------------------------------------

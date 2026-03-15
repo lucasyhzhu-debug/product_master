@@ -16,6 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Financials Navigation Dropdown (Quick Task 32) — 2026-03-15
+
+**For the team:** The top navigation bar now has a single "Financials" dropdown that groups all money-related pages together: Income Statement, Expenses, Expense Analytics, Reimburse, Bank Accounts, and Payroll. The Home page also has a new Financials card for quick access. Previously these were scattered across different menus.
+
+#### Changed
+- `src/components/layout/Header.tsx` — Created Financials dropdown (desktop + mobile), removed items from main nav and Admin dropdown
+- `src/components/layout/MobileBottomNav.tsx` — Added all 6 financial items to the More sheet
+- `src/pages/HubPage.tsx` — Added Financials area card with links to all 6 pages
+
 ### GoFood Promo Discount Fix (Phase 53.1) — 2026-03-15
 
 **For the team:** GoFood orders with promo/campaign discounts (e.g., "Diskon 50%") were showing inflated net revenue in Sales Analytics — sometimes 29-66% higher than the real amount we received. This is now fixed. The channel breakdown cards also show a new "Promo Discount" line so you can see exactly how much GoFood subsidized on each channel.

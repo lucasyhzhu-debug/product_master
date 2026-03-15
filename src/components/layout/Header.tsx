@@ -87,13 +87,20 @@ const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 const mainNavItems: NavItem[] = [
   { path: '/home', label: 'Home', icon: Home, permission: 'canAccessDashboard', preload: _prefetchHome },
   { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
-  { path: '/financials', label: 'Financials', icon: FileText, permission: 'canAccessDashboard' },
-  { path: '/expenses', label: 'Expenses', icon: Receipt, permission: 'canSubmitExpenses' },
-  { path: '/expense-analytics', label: 'Exp. Analytics', icon: BarChart3, permission: 'canAccessExpenseAnalytics' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
   { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
+];
+
+// Financials dropdown - grouped financial pages
+const financialItems: NavItem[] = [
+  { path: '/financials', label: 'Income Statement', icon: FileText, permission: 'canAccessDashboard' },
+  { path: '/expenses', label: 'Expenses', icon: Receipt, permission: 'canSubmitExpenses' },
+  { path: '/expense-analytics', label: 'Exp. Analytics', icon: BarChart3, permission: 'canAccessExpenseAnalytics' },
+  { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
+  { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canManageReimbursements' },
+  { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
 ];
 
 // Depot Management dropdown - Manager + Admin
@@ -116,9 +123,6 @@ const configItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
-  { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
-  { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canManageReimbursements' },
-  { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
 ];
 
@@ -135,6 +139,10 @@ export function Header() {
 
   const visibleDepotItems = user
     ? depotItems.filter(item => hasPermission(item.permission))
+    : [];
+
+  const visibleFinancialItems = user
+    ? financialItems.filter(item => hasPermission(item.permission))
     : [];
 
   const visibleConfigItems = user
@@ -209,6 +217,32 @@ export function Header() {
                       </Link>
                     );
                   })}
+
+                  {/* Financials section */}
+                  {visibleFinancialItems.length > 0 && (
+                    <>
+                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                        Financials
+                      </div>
+                      {visibleFinancialItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                            <span>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
 
                   {/* Depot Management section */}
                   {visibleDepotItems.length > 0 && (
@@ -358,6 +392,43 @@ export function Header() {
                   </Link>
                 );
               })}
+
+              {/* Financials dropdown */}
+              {visibleFinancialItems.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
+                        isDropdownActive(visibleFinancialItems) ? "text-foreground" : "text-foreground/60"
+                      )}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Financials</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {visibleFinancialItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <Link
+                            to={item.path}
+                            className={cn(
+                              "flex items-center space-x-2 w-full",
+                              isActive(item.path) && "font-medium"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
               {/* Depot Management dropdown */}
               {visibleDepotItems.length > 0 && (
