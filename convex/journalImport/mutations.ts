@@ -51,6 +51,9 @@ export type AccountMap = Map<string, { id: Id<"accounts">; isActive: boolean }>;
 // Pure validation (exported for testing without MutationCtx)
 // ---------------------------------------------------------------------------
 
+/** 2020-01-01T00:00:00Z as epoch ms — reasonable lower bound for historical data */
+const MIN_DATE_MS = Date.UTC(2020, 0, 1);
+
 /**
  * Validate a single import row against the account map.
  *
@@ -60,6 +63,17 @@ export function validateImportRow(
   row: ImportRow,
   accounts: AccountMap
 ): string | null {
+  // Date: must be a positive number within a reasonable range
+  if (typeof row.date !== "number" || !isFinite(row.date) || row.date <= 0) {
+    return "Date must be a valid positive number (epoch milliseconds)";
+  }
+  if (row.date < MIN_DATE_MS) {
+    return "Date must be on or after 2020-01-01";
+  }
+  if (row.date > Date.now() + 24 * 60 * 60 * 1000) {
+    return "Date cannot be in the future";
+  }
+
   // Required field: description
   if (!row.description || row.description.trim() === "") {
     return "Missing required field: description";

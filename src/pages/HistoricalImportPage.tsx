@@ -139,6 +139,7 @@ export function HistoricalImportPage() {
   const bulkCreate = useBulkCreateJournalEntries();
 
   const [state, setState] = useState<WizardState>({ step: "upload" });
+  const [importBatchId, setImportBatchId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // -------------------------------------------------------------------------
@@ -176,7 +177,7 @@ export function HistoricalImportPage() {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (!accounts) {
+      if (!allAccounts) {
         toast.error("Accounts list not loaded yet. Please wait and try again.");
         return;
       }
@@ -186,7 +187,7 @@ export function HistoricalImportPage() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const csvText = event.target?.result as string;
-        const accountRefs: AccountRef[] = accounts.map((a) => ({
+        const accountRefs: AccountRef[] = allAccounts.map((a) => ({
           code: a.code,
           name: a.name,
           isActive: a.isActive,
@@ -204,7 +205,7 @@ export function HistoricalImportPage() {
       // Reset input so same file can be re-selected
       e.target.value = "";
     },
-    [accounts]
+    [allAccounts]
   );
 
   // -------------------------------------------------------------------------
@@ -214,7 +215,11 @@ export function HistoricalImportPage() {
   const handleConfirmImport = useCallback(
     async (validRows: ImportRow[], startFromBatch = 0) => {
       const batches = chunkArray(validRows, MAX_BATCH_SIZE);
-      const importBatchId = crypto.randomUUID();
+      // Generate batch ID once on first call; reuse on retry
+      const batchId = importBatchId ?? crypto.randomUUID();
+      if (!importBatchId) {
+        setImportBatchId(batchId);
+      }
       let completed = startFromBatch * MAX_BATCH_SIZE;
 
       setState({
@@ -228,7 +233,7 @@ export function HistoricalImportPage() {
       for (let i = startFromBatch; i < batches.length; i++) {
         try {
           await bulkCreate.mutateAsync({
-            importBatchId,
+            importBatchId: batchId,
             rows: batches[i],
           });
           completed += batches[i].length;
@@ -261,7 +266,7 @@ export function HistoricalImportPage() {
         totalAmount,
       });
     },
-    [bulkCreate]
+    [bulkCreate, importBatchId]
   );
 
   // -------------------------------------------------------------------------
@@ -404,7 +409,7 @@ export function HistoricalImportPage() {
               <Button asChild>
                 <Link to="/financials">View in P&L</Link>
               </Button>
-              <Button variant="outline" onClick={() => setState({ step: "upload" })}>
+              <Button variant="outline" onClick={() => { setImportBatchId(null); setState({ step: "upload" }); }}>
                 Import More
               </Button>
             </div>
@@ -435,7 +440,7 @@ export function HistoricalImportPage() {
               >
                 Retry from failed batch
               </Button>
-              <Button variant="outline" onClick={() => setState({ step: "upload" })}>
+              <Button variant="outline" onClick={() => { setImportBatchId(null); setState({ step: "upload" }); }}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Start Over
               </Button>

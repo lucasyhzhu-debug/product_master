@@ -42,6 +42,47 @@ describe("validateImportRow", () => {
     expect(result).toBeNull();
   });
 
+  it("returns error for date of 0", () => {
+    const result = validateImportRow(validRow({ date: 0 }), activeAccounts);
+    expect(result).not.toBeNull();
+    expect(result!.toLowerCase()).toContain("date");
+  });
+
+  it("returns error for negative date", () => {
+    const result = validateImportRow(validRow({ date: -1 }), activeAccounts);
+    expect(result).not.toBeNull();
+    expect(result!.toLowerCase()).toContain("date");
+  });
+
+  it("returns error for date before 2020-01-01", () => {
+    // 2019-12-31 UTC
+    const result = validateImportRow(
+      validRow({ date: Date.UTC(2019, 11, 31) }),
+      activeAccounts
+    );
+    expect(result).not.toBeNull();
+    expect(result!.toLowerCase()).toContain("2020");
+  });
+
+  it("returns error for far-future date", () => {
+    // 1 year from now
+    const result = validateImportRow(
+      validRow({ date: Date.now() + 365 * 24 * 60 * 60 * 1000 }),
+      activeAccounts
+    );
+    expect(result).not.toBeNull();
+    expect(result!.toLowerCase()).toContain("future");
+  });
+
+  it("returns null for a valid recent date", () => {
+    // 2024-06-15 - a valid date within range
+    const result = validateImportRow(
+      validRow({ date: Date.UTC(2024, 5, 15) }),
+      activeAccounts
+    );
+    expect(result).toBeNull();
+  });
+
   it("returns error containing 'description' for missing description", () => {
     const result = validateImportRow(
       validRow({ description: "" }),

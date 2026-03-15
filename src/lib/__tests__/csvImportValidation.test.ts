@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   parseAndValidateCsv,
-  dateToWibEpoch,
 } from "../csvImportValidation";
+import { strictWibDateStrToUtcMs } from "../dateUtils";
 import type { AccountRef, CsvParseResult } from "../csvImportValidation";
 
 // Mock accounts for testing
@@ -13,12 +13,12 @@ const mockAccounts: AccountRef[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// dateToWibEpoch
+// strictWibDateStrToUtcMs
 // ---------------------------------------------------------------------------
 
-describe("dateToWibEpoch", () => {
+describe("strictWibDateStrToUtcMs", () => {
   it("converts YYYY-MM-DD to WIB midnight (UTC hour 17 previous day)", () => {
-    const epoch = dateToWibEpoch("2026-01-15");
+    const epoch = strictWibDateStrToUtcMs("2026-01-15");
     const d = new Date(epoch);
     // WIB midnight (00:00 WIB) = 17:00 UTC previous day
     expect(d.getUTCHours()).toBe(17);
@@ -28,19 +28,19 @@ describe("dateToWibEpoch", () => {
   });
 
   it("returns NaN for 'not-a-date'", () => {
-    expect(dateToWibEpoch("not-a-date")).toBeNaN();
+    expect(strictWibDateStrToUtcMs("not-a-date")).toBeNaN();
   });
 
   it("returns NaN for empty string", () => {
-    expect(dateToWibEpoch("")).toBeNaN();
+    expect(strictWibDateStrToUtcMs("")).toBeNaN();
   });
 
   it("returns NaN for partial date like '2026-01'", () => {
-    expect(dateToWibEpoch("2026-01")).toBeNaN();
+    expect(strictWibDateStrToUtcMs("2026-01")).toBeNaN();
   });
 
   it("returns NaN for date with slashes '2026/01/15'", () => {
-    expect(dateToWibEpoch("2026/01/15")).toBeNaN();
+    expect(strictWibDateStrToUtcMs("2026/01/15")).toBeNaN();
   });
 });
 

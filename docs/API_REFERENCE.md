@@ -1727,7 +1727,7 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `date` | `string` | Expense date in YYYY-MM-DD format |
+| `date` | `number` | Epoch milliseconds (UTC midnight of the WIB date) |
 | `amount` | `number` | IDR amount (positive integer) |
 | `description` | `string` | Expense description |
 | `vendorName` | `optional string` | Vendor/payee name |

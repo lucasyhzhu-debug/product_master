@@ -22,9 +22,9 @@ After merging any code change, add a new entry with:
 
 #### Added
 - `convex/schema.ts` — `metadata` optional field on `journalEntries` table (receiptUrl support)
-- `convex/journalEngine/helpers.ts` — extended `CreateJournalEntryParams` to accept optional metadata
+- `convex/lib/journalEngine.ts` — extended `CreateJournalEntryParams` to accept optional metadata
 - `convex/journalImport/mutations.ts` — `bulkCreateJournalEntries` mutation with batched processing (50 rows/batch)
-- `convex/journalImport/csvImportValidation.ts` — server-side CSV row validation helpers
+- `src/lib/csvImportValidation.ts` — client-side CSV row validation helpers
 - `src/pages/HistoricalImportPage.tsx` — import wizard at `/import` (admin only) with 5-step flow
 - `src/hooks/convex/useJournalImport.ts` — hook for batched mutation calls
 - CSV template download with proper headers (date, amount, description, vendorName, accountCode, receiptUrl)

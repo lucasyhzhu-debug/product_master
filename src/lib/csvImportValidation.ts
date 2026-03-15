@@ -6,16 +6,7 @@
  */
 
 import Papa from "papaparse";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/** UTC+7 offset in milliseconds */
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-/** Strict YYYY-MM-DD regex */
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+import { strictWibDateStrToUtcMs } from "./dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,43 +53,6 @@ interface RawCsvRow {
   vendorName?: string;
   accountCode?: string;
   receiptUrl?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Date conversion
-// ---------------------------------------------------------------------------
-
-/**
- * Convert a YYYY-MM-DD date string to WIB midnight as UTC epoch milliseconds.
- *
- * Intentionally NOT importing wibDateStrToUtcMs from dateUtils.ts -- we need
- * strict YYYY-MM-DD validation for CSV import security (wibDateStrToUtcMs
- * accepts any Date.parse-able string).
- *
- * @returns Epoch ms, or NaN for invalid dates
- */
-export function dateToWibEpoch(dateStr: string): number {
-  if (!DATE_REGEX.test(dateStr)) {
-    return NaN;
-  }
-
-  const parts = dateStr.split("-");
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1; // 0-indexed
-  const day = parseInt(parts[2], 10);
-
-  // Validate date components are real (e.g., reject month=13, day=32)
-  const utcMs = Date.UTC(year, month, day);
-  const check = new Date(utcMs);
-  if (
-    check.getUTCFullYear() !== year ||
-    check.getUTCMonth() !== month ||
-    check.getUTCDate() !== day
-  ) {
-    return NaN;
-  }
-
-  return utcMs - WIB_OFFSET_MS;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +105,7 @@ export function parseAndValidateCsv(
       continue;
     }
 
-    const dateEpoch = dateToWibEpoch(dateStr);
+    const dateEpoch = strictWibDateStrToUtcMs(dateStr);
     if (isNaN(dateEpoch)) {
       errors.push({
         row: rowNum,
