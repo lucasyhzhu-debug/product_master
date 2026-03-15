@@ -137,8 +137,8 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
 - [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
 - [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
-- [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
-- [x] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop (completed 2026-03-15)
+- [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
+- [x] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop (completed 2026-03-15)
 
 ## Phase Details
 
@@ -339,12 +339,12 @@ Plans:
 - [ ] 52-03-PLAN.md -- Utility cleanup: wibMidnightToUtc consolidation (F10), delta formatter merge (F11), MarginRow extraction (F8), WIB init dedup (F13), useMemo (F14)
 
 ### Phase 53: Expense E2E Testing
-**Goal**: All 9 expense pages have Playwright E2E coverage with multi-role auth testing, full lifecycle flows (submit → approve → reimburse → P&L), CSV import validation, and a bug-fix loop that fixes or documents discovered issues
+**Goal**: All 9 expense pages have Playwright E2E coverage with multi-role auth testing, full lifecycle flows (submit -> approve -> reimburse -> P&L), CSV import validation, and a bug-fix loop that fixes or documents discovered issues
 **Depends on:** Phase 52
 **Requirements**: None (testing phase)
 **Success Criteria** (what must be TRUE):
   1. Multi-role test users (E2E-Admin, E2E-Manager, E2E-Kitchen, E2E-OrderStaff) created idempotently in global-setup.ts
-  2. Full expense lifecycle test passes: create expense as OrderStaff → approve as Admin → reimburse as Admin → verify amount on P&L
+  2. Full expense lifecycle test passes: create expense as OrderStaff -> approve as Admin -> reimburse as Admin -> verify amount on P&L
   3. All 9 expense routes tested for page load, basic CRUD, and permission guards
   4. CSV import test with mixed valid/invalid rows verifies validation errors and successful import through to P&L
   5. Fraud flag visibility verified in approval queue
@@ -360,11 +360,20 @@ Plans:
 - [ ] 53-05-PLAN.md -- Full suite verification, unit test check, bug report, human approval
 
 ### Phase 54: Fix BigSeller platform-specific endpoint schema mismatches
-
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: All 6 HAR-confirmed bugs in BigSeller integration are fixed: normalizePlatformFees handles platform-specific schemas correctly, platform is injected from config (not API), and calculatedProfit uses BigSeller's authoritative profit field
+**Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, BUG-05, BUG-06, CASE-01
 **Depends on:** Phase 53
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. Shopee orders have saleAmount populated from originalPrice (not 0)
+  2. TikTok orders have saleAmount from revenueAmount, platformIncome from settlementAmount, commissionFee from 6-field sum
+  3. Normalization triggers for undefined/null fields (not just === 0)
+  4. Shopee fees are negated via -Math.abs() to match negative convention
+  5. Platform is set from BIGSELLER_SHOP_PLATFORM_MAP config, not from API's null value
+  6. calculatedProfit uses order.profit (BigSeller authoritative), not double-subtracting formula
+  7. otherfee/otherFee case mismatch handled
+  8. All existing and new tests pass, npm run build succeeds
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 54 to break down)
+- [ ] 54-01-PLAN.md -- TDD: normalizePlatformFees tests + rewrite (Bugs 1, 3, 4, 5, case mismatch)
+- [ ] 54-02-PLAN.md -- Wire platform param through sync pipeline + fix profit formula (Bugs 2, 6)
