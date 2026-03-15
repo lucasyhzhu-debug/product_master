@@ -137,7 +137,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
 - [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
 - [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
-- [ ] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes)
+- [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
 - [ ] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop
 
 ## Phase Details
@@ -331,7 +331,7 @@ Plans:
 **Goal:** Refactor v1.7 expense system code (phases 41-50) based on 3-agent simplification review. Consolidate duplicated patterns, parallelize sequential DB reads, extract shared UI components, and unify scattered utility functions. Zero behavior changes -- all existing tests must pass unchanged.
 **Requirements**: F1-F14 (14 findings from SIMPLIFICATION-REPORT.md; F15-F17 deferred)
 **Depends on:** Phase 50
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 52-01-PLAN.md -- Backend consolidation: parallel fraud queries (F1), Promise.all for sequential reads (F2, F5), shared validation (F3), threshold unification (F4)
