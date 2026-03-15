@@ -299,10 +299,20 @@ export function normalizePlatformFees(
  * Map a BigSeller pageList row to externalRevenue saveRevenue args format.
  * Source = actual platform (shopee/tiktok), NOT "bigseller".
  * Commission stored as positive value (Math.abs of negative fee).
+ *
+ * Revenue semantics:
+ * - revenueGross = orderAmount (total buyer paid incl. shipping). Falls back to saleAmount.
+ * - revenueNet = platformIncome (what Frollie receives after all deductions).
+ *
+ * Uses explicit platform parameter (not order.platform which is null
+ * on platform-specific endpoints). Fixes BUG-02.
+ *
+ * Financial fields use ?? 0 (not || 0) to preserve real zero values.
  */
 export function mapOrderToRevenue(
   order: BigSellerOrderRow,
   syncLogId: Id<"externalSyncLogs"> | string,
+  platform: string,
 ): {
   source: string;
   externalTransactionId: string;
@@ -317,15 +327,14 @@ export function mapOrderToRevenue(
   transactionType: "sales";
   syncLogId: Id<"externalSyncLogs"> | undefined;
 } {
-  const platform = order.platform?.toLowerCase() || "shopee";
   const orderTimeMs = order.orderTime || Date.now();
 
   return {
-    source: platform,
+    source: platform.toLowerCase(),
     externalTransactionId: `bigseller:${order.platformOrderId}`,
-    revenueGross: order.saleAmount || 0,
-    revenueNet: order.platformIncome || 0,
-    commission: Math.abs(order.commissionFee || 0),
+    revenueGross: order.orderAmount ?? order.saleAmount ?? 0,
+    revenueNet: order.platformIncome ?? 0,
+    commission: Math.abs(order.commissionFee ?? 0),
     periodStart: orderTimeMs,
     periodEnd: orderTimeMs,
     transactionDate: orderTimeMs,
@@ -339,10 +348,16 @@ export function mapOrderToRevenue(
 /**
  * Map a BigSeller pageList row to bigsellerOrders insert format.
  * Preserves raw negative fee values (do NOT abs in storage).
+ *
+ * Uses explicit platform parameter (not order.platform which is null
+ * on platform-specific endpoints). Fixes BUG-02.
+ *
+ * Financial fields use ?? 0 (not || 0) to preserve real zero values.
  */
 export function mapOrderToStorage(
   order: BigSellerOrderRow,
   syncLogId: Id<"externalSyncLogs"> | string,
+  platform: string,
 ): {
   platformOrderId: string;
   shopId: number;
@@ -351,6 +366,7 @@ export function mapOrderToStorage(
   orderState: string;
   orderTimeMs: number;
   saleAmount: number;
+  orderAmount: number;
   platformIncome: number;
   costFee: number;
   profit: number;
@@ -373,18 +389,19 @@ export function mapOrderToStorage(
     platformOrderId: order.platformOrderId,
     shopId: order.shopId,
     shopName: order.shopName,
-    platform: order.platform?.toLowerCase() || "shopee",
+    platform: platform.toLowerCase(),
     orderState: order.orderState || "unknown",
     orderTimeMs: order.orderTime || Date.now(),
-    saleAmount: order.saleAmount || 0,
-    platformIncome: order.platformIncome || 0,
-    costFee: order.costFee || 0,
-    profit: order.profit || 0,
+    saleAmount: order.saleAmount ?? 0,
+    orderAmount: order.orderAmount ?? 0,
+    platformIncome: order.platformIncome ?? 0,
+    costFee: order.costFee ?? 0,
+    profit: order.profit ?? 0,
     profitMargin: order.profitMargin || "0%",
-    commissionFee: order.commissionFee || 0,
-    sellerShippingFee: order.sellerShippingFee || 0,
-    buyerShippingFee: order.buyerShippingFee || 0,
-    otherFee: order.otherFee || 0,
+    commissionFee: order.commissionFee ?? 0,
+    sellerShippingFee: order.sellerShippingFee ?? 0,
+    buyerShippingFee: order.buyerShippingFee ?? 0,
+    otherFee: order.otherFee ?? 0,
     allSkuNum: order.allSkuNum || 0,
     skuVoList: (order.skuVoList || []).map((item) => ({
       sku: item.sku || "",
