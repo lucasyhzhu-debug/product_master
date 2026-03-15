@@ -238,11 +238,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 53 of 53 (Expense E2E Testing)
-Plan: 2 of 5 (COMPLETE)
-Status: Plan 02 complete. Permission guard tests for 9 routes x 4 roles + analytics/admin page load tests + payroll CRUD.
-Last activity: 2026-03-15 -- Completed 53-02-PLAN.md (permission guards & admin pages E2E)
+Plan: 3 of 5 (COMPLETE)
+Status: Plan 03 complete. Expense lifecycle test (submit->approve->reimburse->P&L) and CSV import validation test created.
+Last activity: 2026-03-15 -- Completed 53-03-PLAN.md (expense lifecycle + CSV import E2E tests)
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -338,6 +338,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 53]: loginAsManager kept unchanged for backward compat; waitForAppReady exported publicly for loginAsRole and future specs
 - [Phase 53]: Data-driven route arrays for permission guard test coverage across 4 roles x 9 routes
 - [Phase 53]: Manager blocked redirect target confirmed as / (root) matching getRoleLandingPage
+- 53-03: Single large test for lifecycle (not serial describe) to match order-lifecycle.spec.ts pattern and avoid shared-state issues
+- 53-03: Unique timestamp-based amount (100000 + Date.now() % 100000) prevents P&L contamination across runs
+- 53-03: CSV import test validates error-blocking (disabled button) since wizard correctly blocks import when validation errors exist
 
 ### Research Findings (v1.7)
 
@@ -373,9 +376,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 52 P03 | 6min | 2 tasks | 7 files |
 | Phase 53 P01 | 3min | 2 tasks | 3 files |
 | Phase 53 P02 | 3min | 2 tasks | 2 files |
+| Phase 53 P03 | 8min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T05:11:13.896Z
-Stopped at: Completed 53-02-PLAN.md
-Resume notes: Phase 52 complete. All 3 plans delivered: backend consolidation (P01), frontend refactoring (P02), utility consolidation (P03). 947 tests green, type-check and build clean. wibMidnightToUtc/getCurrentWibMonth canonical in dateUtils.ts. MarginRow extracted. fmtDelta renamed to formatPrecomputedDelta. useMemo optimizations in ExpenseAnalytics and ExpenseApproval. Ready for Phase 53 (E2E testing) or merge to main.
+Last session: 2026-03-15T05:14:04Z
+Stopped at: Completed 53-03-PLAN.md
+Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).
