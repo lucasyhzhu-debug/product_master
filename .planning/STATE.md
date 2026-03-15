@@ -423,6 +423,7 @@ Key staff review fixes embedded in roadmap:
 | 29 | Add sync history entries for platform token refreshes | 2026-02-25 | 01071c3 | Verified | [29-add-sync-history-entries-for-platform-to](./quick/29-add-sync-history-entries-for-platform-to/) |
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 | 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
+| 32 | Create Financials dropdown nav with expense grouping | 2026-03-15 | 7607c08 | Verified | [32-create-financials-dropdown-nav-with-expe](./quick/32-create-financials-dropdown-nav-with-expe/) |
 | Phase 49 P01 | 9 | 2 tasks | 4 files |
 | Phase 51 P01 | 2min | 1 tasks | 2 files |
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
