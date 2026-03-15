@@ -140,36 +140,36 @@ describe("mapOrderToRevenue", () => {
   };
 
   it("uses actual platform source, not bigseller", () => {
-    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.source).toBe("shopee");
     expect(result.source).not.toBe("bigseller");
   });
 
   it("converts negative commissionFee to positive commission", () => {
-    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.commission).toBe(5850); // Math.abs(-5850)
   });
 
   it("uses externalTransactionId with bigseller prefix for dedup", () => {
-    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.externalTransactionId).toBe("bigseller:ORDER-123");
   });
 
   it("maps gross and net revenue correctly", () => {
-    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.revenueGross).toBe(50000);
     expect(result.revenueNet).toBe(44150);
   });
 
   it("handles zero revenue orders (returns/refunds)", () => {
     const zeroOrder = { ...mockOrder, saleAmount: 0, platformIncome: 0 };
-    const result = mapOrderToRevenue(zeroOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(zeroOrder, "synclog-id" as any, zeroOrder.platform);
     expect(result.revenueGross).toBe(0);
     expect(result.revenueNet).toBe(0);
   });
 
   it("uses api_revenue data origin", () => {
-    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any);
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.dataOrigin).toBe("api_revenue");
     expect(result.confidence).toBe("exact");
   });
@@ -200,25 +200,25 @@ describe("mapOrderToStorage", () => {
   };
 
   it("stores raw negative fee values (do not abs in storage)", () => {
-    const result = mapOrderToStorage(mockOrder, "synclog-id" as any);
+    const result = mapOrderToStorage(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.commissionFee).toBe(-3000);
     expect(result.sellerShippingFee).toBe(-1500);
   });
 
   it("includes skuVoList", () => {
-    const result = mapOrderToStorage(mockOrder, "synclog-id" as any);
+    const result = mapOrderToStorage(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.skuVoList).toBeDefined();
     expect(result.skuVoList.length).toBe(1);
     expect(result.skuVoList[0].sku).toBe("FROLLIE-ORI");
   });
 
   it("preserves platform as lowercase", () => {
-    const result = mapOrderToStorage(mockOrder, "synclog-id" as any);
+    const result = mapOrderToStorage(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.platform).toBe("tiktok");
   });
 
   it("includes orderTimeMs from orderTime", () => {
-    const result = mapOrderToStorage(mockOrder, "synclog-id" as any);
+    const result = mapOrderToStorage(mockOrder, "synclog-id" as any, mockOrder.platform);
     expect(result.orderTimeMs).toBe(1736985600000);
   });
 });
