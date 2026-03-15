@@ -716,7 +716,7 @@ export const fetchOrders = internalAction({
         // Collect SKU codes and platforms for product mapping
         // Use loop platform variable, not row.platform (null on platform-specific endpoints)
         for (const row of rows) {
-          totalRevenue += row.platformIncome || 0;
+          totalRevenue += row.platformIncome ?? 0;
           allPlatforms.add(platform);
           for (const sku of row.skuVoList || []) {
             if (sku.sku) allSkuCodes.add(`${platform}::${sku.sku}`);
