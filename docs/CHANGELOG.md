@@ -16,6 +16,34 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense System Simplification (Phase 52) — 2026-03-15
+
+**For the team:** No visible changes — the expense system works exactly the same. Under the hood, we cleaned up code that was written quickly across phases 41-50: removed duplicate functions, made database queries run in parallel instead of one-at-a-time, and extracted reusable UI components. This makes the expense code faster and easier to maintain going forward.
+
+#### Changed (Backend)
+- `convex/expenses/analyticsQueries.ts` — fraud flag queries consolidated from 10 sequential reads to 4 parallel reads (single `Promise.all`), with `toExpenseForFraud` helper and in-memory date slicing
+- `convex/lib/validation.ts` — `validateRequiredReason` now accepts optional `label` parameter for contextual error messages
+- `convex/expenses/helpers.ts` — unified `EXPENSE_HIGH_VALUE_THRESHOLD` (500K IDR) as single source with `DOA_ADMIN_ONLY_THRESHOLD` and `COMMENT_REQUIRED_THRESHOLD` aliases
+- `convex/expenses/mutations.ts` — `rejectExpense` and `voidExpense` use shared `validateRequiredReason`
+- `convex/payroll/mutations.ts`, `convex/payroll/queries.ts` — sequential `for...of + await` loops replaced with `Promise.all`
+- `convex/reimbursements/mutations.ts`, `convex/reimbursements/queries.ts` — sequential DB reads parallelized
+- `convex/bankAccounts/mutations.ts` — sequential account lookups parallelized
+
+#### Changed (Frontend)
+- `src/components/shared/VoidReasonDialog.tsx` — new shared component extracted from PayrollManager and ReimbursementManager (~65 lines removed from each)
+- `src/components/expenses/ApprovalActions.tsx` — 3 duplicate dialog blocks consolidated into single `ActionDialog` sub-component
+- `src/components/expenses/ExpenseCard.tsx` — `className` prop with `cn()` merging
+- `src/pages/ReimbursementManager.tsx` — eliminated `any` types with proper Convex `Doc<>` typing
+- `src/lib/dateUtils.ts` — canonical `wibMidnightToUtc` and `getCurrentWibMonth` exports (3 local copies removed)
+- `src/lib/csvExport.ts` — `fmtDelta` renamed to `formatPrecomputedDelta` for clarity
+- `src/pages/FinancialStatement.tsx` — extracted `MarginRow` component, deleted local WIB helpers
+- `src/pages/ExpenseAnalytics.tsx` — 4 redundant `getCurrentWibMonth()` calls deduplicated via `useMemo`
+- `src/pages/ExpenseApproval.tsx` — `accountMap` wrapped in `useMemo`
+- `src/hooks/convex/useFinancials.ts` — WIB month init deduplicated (single computation for 4 useState calls)
+
+#### Added
+- `convex/lib/__tests__/validation.test.ts` — 11 tests for `validateRequiredReason` custom label parameter
+
 ### Historical Expense Journal Import (Phase 51) — 2026-03-15
 
 **For the team:** You can now bulk-import historical expenses that were reimbursed before the system existed. Upload a CSV file with dates, amounts, descriptions, vendor names, and GL account codes, and the system creates proper double-entry journal entries for each row. This backfills the P&L so financial statements reflect the full picture, not just post-launch expenses.
