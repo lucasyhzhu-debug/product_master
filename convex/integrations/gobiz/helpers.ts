@@ -245,6 +245,7 @@ export interface JournalMetrics {
   gross: number;
   net: number;
   commission: number;
+  promoDiscount: number;
   paymentType: string;
   status: string;
   merchantId: string;
@@ -290,6 +291,9 @@ export function extractJournalMetrics(hit: any): JournalMetrics | null {
     share?.metadata?.provider_share ?? 0;
   const commission = commissionRaw / CENTESIMAL_DIVISOR;
 
+  const promoDiscountRaw = share?.metadata?.variables?.voucher_amount ?? 0;
+  const promoDiscount = promoDiscountRaw / CENTESIMAL_DIVISOR;
+
   return {
     orderNumber,
     referenceId,
@@ -298,6 +302,7 @@ export function extractJournalMetrics(hit: any): JournalMetrics | null {
     gross,
     net,
     commission,
+    promoDiscount,
     paymentType,
     status,
     merchantId,
@@ -311,6 +316,7 @@ export function aggregateJournalMetrics(hits: any[]): {
   gross: number;
   net: number;
   commission: number;
+  promoDiscount: number;
   transactionCount: number;
   transactions: JournalMetrics[];
 } {
@@ -318,6 +324,7 @@ export function aggregateJournalMetrics(hits: any[]): {
   let gross = 0;
   let net = 0;
   let commission = 0;
+  let promoDiscount = 0;
 
   for (const hit of hits) {
     const metrics = extractJournalMetrics(hit);
@@ -329,6 +336,7 @@ export function aggregateJournalMetrics(hits: any[]): {
       gross += metrics.gross;
       net += metrics.net;
       commission += metrics.commission;
+      promoDiscount += metrics.promoDiscount;
     }
   }
 
@@ -336,6 +344,7 @@ export function aggregateJournalMetrics(hits: any[]): {
     gross,
     net,
     commission,
+    promoDiscount,
     transactionCount: transactions.length,
     transactions,
   };

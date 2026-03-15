@@ -25,16 +25,17 @@ export function aggregatePeriodRevenue(
   }
 
   // Per-channel platform aggregation (for non-internal sources) — single pass
+  // Uses stored revenueNet (pre-calculated by platform) with fallback to revenueGross
   function aggregatePlatformChannel(channelRecords: Doc<"externalRevenue">[]) {
-    let gross = 0, commission = 0, adBurn = 0, promoBurn = 0, txns = 0;
+    let gross = 0, net = 0, commission = 0, adBurn = 0, promoBurn = 0, txns = 0;
     for (const r of channelRecords) {
       gross      += r.revenueGross    ?? 0;
+      net        += r.revenueNet      ?? (r.revenueGross ?? 0);
       commission += r.commission      ?? 0;
       adBurn     += r.adBurn          ?? 0;
       promoBurn  += r.promoBurn       ?? 0;
       txns       += r.transactionCount ?? 0;
     }
-    const net = gross - commission - adBurn - promoBurn;
     return { gross, net, txns, commission, adBurn, promoBurn };
   }
 
@@ -64,7 +65,11 @@ export function aggregatePeriodRevenue(
   }
 
   // Build dynamic channels array, accumulating totals in a single pass
-  const channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }> = [];
+  const channels: Array<{
+    source: string; displayName: string;
+    gross: number; net: number; transactions: number;
+    commission: number; promoBurn: number;
+  }> = [];
   let totalCommission = 0;
   let totalAdBurn = 0;
   let totalPromoBurn = 0;
@@ -88,6 +93,8 @@ export function aggregatePeriodRevenue(
         gross: agg.gross,
         net: agg.net,
         transactions: agg.txns,
+        commission: agg.commission,
+        promoBurn: agg.promoBurn,
       });
     }
   }
@@ -100,6 +107,8 @@ export function aggregatePeriodRevenue(
       gross: internalGross,
       net: internalNet,
       transactions: internalTxns,
+      commission: 0,
+      promoBurn: 0,
     });
   }
 
