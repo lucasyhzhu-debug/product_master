@@ -283,6 +283,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 52]: VoidReasonDialog uses promise-based onConfirm callback for reusability across PayrollManager and ReimbursementManager
 - [Phase 52]: ActionDialog is local to ApprovalActions (not shared) -- only used there, manages own comment/isSubmitting state
 - [Phase 52]: formatCurrency(COMMENT_REQUIRED_THRESHOLD) replaces hardcoded Rp 500,000 strings in ApprovalActions
+- 52-03: Import + re-export pattern in expenseAnalyticsPeriod.ts (bare re-export doesn't bind in local scope for computePeriodRange)
+- 52-03: MarginRow kept file-local in FinancialStatement.tsx (P&L-specific, not shared)
+- 52-03: Both formatPrecomputedDelta and formatDeltaPct preserved in csvExport.ts (different signatures)
+- 52-03: useMemo([], []) for init-time getCurrentWibMonth; goToCurrentMonth callback retains separate call
 
 ### Research Findings (v1.7)
 
@@ -314,9 +318,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 49 P01 | 9 | 2 tasks | 4 files |
 | Phase 51 P01 | 2min | 1 tasks | 2 files |
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
+| Phase 52 P03 | 6min | 2 tasks | 7 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T04:17:11.925Z
-Stopped at: Completed 52-02-PLAN.md
-Resume notes: Plan 51-03 complete. HistoricalImportPage wizard (5+1 states: upload, validating, review, importing, complete, error) with template/CoA downloads, row-level validation review, summary tables, sequential batched import with progress bar, and retry-from-failure. Route at /import with admin guard. Navigation from AccountsManager. Build clean, 931 tests green. Ready for Plan 04 (verification + documentation).
+Last session: 2026-03-15T04:16:00Z
+Stopped at: Completed 52-03-PLAN.md
+Resume notes: Phase 52 complete. All 3 plans delivered: backend consolidation (P01), frontend refactoring (P02), utility consolidation (P03). 947 tests green, type-check and build clean. wibMidnightToUtc/getCurrentWibMonth canonical in dateUtils.ts. MarginRow extracted. fmtDelta renamed to formatPrecomputedDelta. useMemo optimizations in ExpenseAnalytics and ExpenseApproval. Ready for Phase 53 (E2E testing) or merge to main.
