@@ -214,12 +214,19 @@ describe("mapOrderToRevenue — business rules", () => {
     expect(result.transactionDate).toBe(1736899200000);
   });
 
-  it("profit calculation: net = platformIncome, gross = orderAmount ?? saleAmount", () => {
-    // revenueGross: order.orderAmount ?? order.saleAmount (falls back to saleAmount when no orderAmount)
-    // revenueNet: order.platformIncome
+  it("profit calculation: net = platformIncome, gross = orderAmount ?? saleAmount (fallback)", () => {
+    // revenueGross falls back to saleAmount when no orderAmount
     const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.revenueGross).toBe(100000); // saleAmount (no orderAmount on this order)
     expect(result.revenueNet).toBe(85000); // platformIncome
+  });
+
+  it("revenueGross uses orderAmount when present (primary path)", () => {
+    // When orderAmount is set, it takes precedence over saleAmount
+    const orderWithAmount = { ...baseOrder, orderAmount: 115000 };
+    const result = mapOrderToRevenue(orderWithAmount, "sync" as any, orderWithAmount.platform);
+    expect(result.revenueGross).toBe(115000); // orderAmount, NOT saleAmount (100000)
+    expect(result.revenueNet).toBe(85000); // platformIncome unchanged
   });
 });
 

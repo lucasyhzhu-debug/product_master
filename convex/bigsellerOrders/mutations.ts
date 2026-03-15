@@ -16,6 +16,7 @@ export const upsertOrders = internalMutation({
         orderState: v.string(),
         orderTimeMs: v.number(),
         saleAmount: v.number(),
+        orderAmount: v.optional(v.number()),
         platformIncome: v.number(),
         costFee: v.number(),
         profit: v.number(),
