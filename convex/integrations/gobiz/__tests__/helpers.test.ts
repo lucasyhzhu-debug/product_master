@@ -497,6 +497,9 @@ describe("aggregateJournalMetrics", () => {
 
     expect(result.transactionCount).toBe(2);
     expect(result.promoDiscount).toBe(24500 + 15750); // 40,250
+    // Verify gross and net are also aggregated correctly alongside promoDiscount
+    expect(result.gross).toBeCloseTo((14000000 + 5000000) / 100, 0); // 190,000
+    expect(result.net).toBeCloseTo((8597400 + 2370500) / 100, 0); // 109,679
   });
 });
 

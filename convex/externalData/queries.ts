@@ -1241,11 +1241,7 @@ export const getRevenueTimeSeries = query({
           const od = orderDataMap.get(record.externalTransactionId);
           value = od ? od.finalTotal : (record.revenueNet ?? record.revenueGross ?? 0);
         } else {
-          const gross = record.revenueGross ?? 0;
-          const commission = record.commission ?? 0;
-          const adBurn = record.adBurn ?? 0;
-          const promoBurn = record.promoBurn ?? 0;
-          value = gross - commission - adBurn - promoBurn;
+          value = record.revenueNet ?? (record.revenueGross ?? 0);
         }
       }
 
@@ -1329,10 +1325,7 @@ export const getRevenueByOutletInternal = internalQuery({
         net = od ? od.finalTotal : (record.revenueGross ?? 0);
       } else {
         gross = record.revenueGross ?? 0;
-        const commission = record.commission ?? 0;
-        const adBurn = record.adBurn ?? 0;
-        const promoBurn = record.promoBurn ?? 0;
-        net = gross - commission - adBurn - promoBurn;
+        net = record.revenueNet ?? (record.revenueGross ?? 0);
       }
 
       outlet.gross += gross;
