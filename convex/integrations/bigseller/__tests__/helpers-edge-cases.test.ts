@@ -292,20 +292,16 @@ describe("mapOrderToStorage — data preservation", () => {
     expect(result.createdAt).toBeLessThanOrEqual(after);
   });
 
-  it("fee sign convention: profit = platformIncome + commissionFee + shipping + other", () => {
-    // Verify that stored data supports the profit formula
+  it("raw data preserved for BigSeller authoritative profit (order.profit)", () => {
+    // profit = order.profit (BigSeller authoritative, not hand-rolled formula).
+    // The old formula (platformIncome + fees) double-subtracted fees already in platformIncome.
+    // We verify raw data is preserved correctly in storage.
     const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
-    const computedProfit =
-      result.platformIncome +
-      result.commissionFee +
-      result.sellerShippingFee +
-      result.otherFee;
-    // platformIncome already has fees deducted, so this won't equal profit directly
-    // But we verify the raw data is preserved for frontend calculation
     expect(result.platformIncome).toBe(38000);
     expect(result.commissionFee).toBe(-4500);
     expect(result.sellerShippingFee).toBe(-2500);
     expect(result.otherFee).toBe(-1000);
+    expect(result.profit).toBe(32000);
   });
 });
 
@@ -364,10 +360,11 @@ describe("cross-function consistency", () => {
     expect(revenue.source).toBe(storage.platform);
   });
 
-  it("revenue uses saleAmount as gross, storage preserves it raw", () => {
+  it("revenue uses orderAmount as gross (falls back to saleAmount when absent)", () => {
     const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
     const storage = mapOrderToStorage(order, "sync" as any, order.platform);
-    expect(revenue.revenueGross).toBe(storage.saleAmount);
+    // When orderAmount is undefined, revenueGross falls back to saleAmount
+    expect(revenue.revenueGross).toBe(storage.orderAmount || storage.saleAmount);
   });
 
   it("revenue commission is abs of storage commissionFee", () => {
