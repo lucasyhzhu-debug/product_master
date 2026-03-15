@@ -11,9 +11,9 @@ export function validatePositiveIntegerAmount(amount: number): void {
 }
 
 /** Validates that a reason string is non-empty (for void, rejection, etc.) */
-export function validateRequiredReason(reason: string): void {
+export function validateRequiredReason(reason: string, label = "Void reason"): void {
   if (!reason.trim()) {
-    throw new Error("Void reason is required");
+    throw new Error(`${label} is required`);
   }
 }
 
