@@ -68,6 +68,51 @@ function unionMergeByCode(
   return result;
 }
 
+/** Margin percentage row used for Gross Margin %, EBIT Margin %, and Net Margin %. */
+function MarginRow({ label, currentPct, previousPct, deltaPp, showComparison }: {
+  label: string;
+  currentPct: number | null;
+  previousPct: number | null;
+  deltaPp: number | null;
+  showComparison: boolean;
+}) {
+  return (
+    <tr className="bg-muted/20">
+      <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
+        {label}
+      </td>
+      <td className="py-2 text-sm text-right tabular-nums font-medium">
+        {currentPct != null ? `${currentPct.toFixed(1)}%` : "N/A"}
+      </td>
+      <td
+        className={cn(
+          "py-2 text-sm text-right tabular-nums font-medium",
+          "md:table-cell",
+          !showComparison && "hidden"
+        )}
+      >
+        {previousPct != null ? `${previousPct.toFixed(1)}%` : "N/A"}
+      </td>
+      <td
+        className={cn(
+          "py-2 text-sm text-right",
+          "md:table-cell",
+          !showComparison && "hidden"
+        )}
+      >
+        <DeltaIndicator
+          delta={
+            deltaPp != null
+              ? { amount: deltaPp, percent: deltaPp }
+              : null
+          }
+          unit="pp"
+        />
+      </td>
+    </tr>
+  );
+}
+
 // ── Main page component ──
 
 export function FinancialStatement() {
@@ -524,43 +569,13 @@ export function FinancialStatement() {
               />
 
               {/* Gross Margin % row */}
-              <tr className="bg-muted/20">
-                <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
-                  Gross Margin %
-                </td>
-                <td className="py-2 text-sm text-right tabular-nums font-medium">
-                  {data.current.grossMarginPercent != null
-                    ? `${data.current.grossMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right tabular-nums font-medium",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  {data.previous.grossMarginPercent != null
-                    ? `${data.previous.grossMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  <DeltaIndicator
-                    delta={
-                      data.deltas.grossMarginPp != null
-                        ? { amount: data.deltas.grossMarginPp, percent: data.deltas.grossMarginPp }
-                        : null
-                    }
-                    unit="pp"
-                  />
-                </td>
-              </tr>
+              <MarginRow
+                label="Gross Margin %"
+                currentPct={data.current.grossMarginPercent}
+                previousPct={data.previous.grossMarginPercent}
+                deltaPp={data.deltas.grossMarginPp}
+                showComparison={showComparison}
+              />
 
               {/* -- OPERATING EXPENSES SECTION -- */}
               <SectionHeaderRow
@@ -607,43 +622,13 @@ export function FinancialStatement() {
               />
 
               {/* EBIT Margin % row */}
-              <tr className="bg-muted/20">
-                <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
-                  EBIT Margin %
-                </td>
-                <td className="py-2 text-sm text-right tabular-nums font-medium">
-                  {data.current.ebitMarginPercent != null
-                    ? `${data.current.ebitMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right tabular-nums font-medium",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  {data.previous.ebitMarginPercent != null
-                    ? `${data.previous.ebitMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  <DeltaIndicator
-                    delta={
-                      data.deltas.ebitMarginPp != null
-                        ? { amount: data.deltas.ebitMarginPp, percent: data.deltas.ebitMarginPp }
-                        : null
-                    }
-                    unit="pp"
-                  />
-                </td>
-              </tr>
+              <MarginRow
+                label="EBIT Margin %"
+                currentPct={data.current.ebitMarginPercent}
+                previousPct={data.previous.ebitMarginPercent}
+                deltaPp={data.deltas.ebitMarginPp}
+                showComparison={showComparison}
+              />
 
               {/* -- OTHER INCOME/EXPENSE SECTION -- */}
               <SectionHeaderRow
@@ -688,43 +673,13 @@ export function FinancialStatement() {
               />
 
               {/* Net Margin % row */}
-              <tr className="bg-muted/20">
-                <td className="py-2 pl-6 text-sm font-medium text-muted-foreground">
-                  Net Margin %
-                </td>
-                <td className="py-2 text-sm text-right tabular-nums font-medium">
-                  {data.current.netMarginPercent != null
-                    ? `${data.current.netMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right tabular-nums font-medium",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  {data.previous.netMarginPercent != null
-                    ? `${data.previous.netMarginPercent.toFixed(1)}%`
-                    : "N/A"}
-                </td>
-                <td
-                  className={cn(
-                    "py-2 text-sm text-right",
-                    "md:table-cell",
-                    !showComparison && "hidden"
-                  )}
-                >
-                  <DeltaIndicator
-                    delta={
-                      data.deltas.netMarginPp != null
-                        ? { amount: data.deltas.netMarginPp, percent: data.deltas.netMarginPp }
-                        : null
-                    }
-                    unit="pp"
-                  />
-                </td>
-              </tr>
+              <MarginRow
+                label="Net Margin %"
+                currentPct={data.current.netMarginPercent}
+                previousPct={data.previous.netMarginPercent}
+                deltaPp={data.deltas.netMarginPp}
+                showComparison={showComparison}
+              />
             </tbody>
           </table>
         </div>
