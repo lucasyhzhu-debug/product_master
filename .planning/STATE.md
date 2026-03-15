@@ -130,9 +130,9 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 51 of 52 (Bulk Upload of Previously Reimbursed Expenses)
-Plan: 1 of 4
-Status: Plan 51-01 complete. Journal engine metadata extension delivered. Continuing with Plan 02.
-Last activity: 2026-03-15 -- Completed 51-01-PLAN.md (metadata field on journalEntries + journal engine extension)
+Plan: 2 of 4
+Status: Plan 51-02 complete. Backend mutation and client CSV validation delivered (TDD). Continuing with Plan 03.
+Last activity: 2026-03-15 -- Completed 51-02-PLAN.md (bulkCreateJournalEntries mutation + parseAndValidateCsv helper, 33 tests)
 
 Progress: [██████████] 95%
 
@@ -209,6 +209,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 50-02: FraudFlagsCard renders all 3 fraud types in one card with color-coded sections
 - 50-02: Period picker follows FinancialStatement pattern (Badge toggle + month nav arrows)
 - [Phase 51]: 51-01: Conditional metadata spread in journal engine insert to avoid inserting undefined field on entries without metadata
+- 51-02: Separate dateToWibEpoch with strict YYYY-MM-DD regex from permissive wibDateStrToUtcMs for CSV import security
+- 51-02: Parallel ImportRow types in backend/frontend with cross-reference comments (no shared imports across Convex boundary)
+- 51-02: Duplicate CSV rows produce warnings not errors -- users may intentionally have same-date same-amount expenses
 
 ### Research Findings (v1.7)
 
@@ -242,6 +245,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-15T02:35:12.975Z
-Stopped at: Completed 51-01-PLAN.md
-Resume notes: Phase 50 complete (2/2). Built full expense analytics frontend dashboard replacing Phase 48 stub. 5 card/chart components (OpExSummary PieChart, SpendByEmployee bars, MonthlyTrend LineChart, PendingMetrics, FraudFlags). Period picker with month/custom mode and WIB date alignment. 20 period math unit tests. Fixed Id<"users"> type cast bug in analyticsQueries.ts. 898 tests passing, build clean. Ready for Phase 51.
+Last session: 2026-03-15T02:42:40Z
+Stopped at: Completed 51-02-PLAN.md
+Resume notes: Plan 51-02 complete. TDD-built bulkCreateJournalEntries mutation (fail-fast batch validation, max 50 rows, admin-only) and parseAndValidateCsv helper (Papa Parse, strict date regex, duplicate warnings). 33 new tests (11 backend + 22 frontend), 931 total suite green. Ready for Plan 03 (frontend wizard page).
