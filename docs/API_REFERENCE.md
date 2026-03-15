@@ -1711,6 +1711,46 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 
 ---
 
+### Historical Expense Import (Phase 51)
+
+#### `journalImport.mutations.bulkCreateJournalEntries`
+**Type:** Protected Mutation (admin only)
+**Location:** `convex/journalImport/mutations.ts`
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `importBatchId` | `string` | Client-generated batch identifier for grouping |
+| `rows` | `Array<ImportRow>` | Array of import rows (max 50 per call) |
+
+**ImportRow fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `date` | `number` | Epoch milliseconds (UTC midnight of the WIB date) |
+| `amount` | `number` | IDR amount (positive integer) |
+| `description` | `string` | Expense description |
+| `vendorName` | `optional string` | Vendor/payee name |
+| `accountCode` | `string` | 4-digit GL account code (must exist in accounts table) |
+| `receiptUrl` | `optional string` | Google Drive receipt link (stored in metadata) |
+
+**Returns:** `{ created: number }` -- count of journal entries created
+
+**Behavior:**
+- Validates all rows first (fail-fast: if any row invalid, entire batch rejected)
+- Creates one journal entry per row: DR expense account, CR 1100 (Cash)
+- `sourceType: "manual"` with `[Historical Import]` prefix on description
+- Batch size capped at 50 rows per call (frontend handles batching for larger imports)
+- Receipt URLs stored in `journalEntries.metadata.receiptUrl`
+
+**Frontend integration:**
+- `src/pages/HistoricalImportPage.tsx` -- wizard page at `/import`
+- `src/hooks/convex/useJournalImport.ts` -- hook wrapping the mutation
+- CSV template download and CoA reference download built into wizard
+- Client-side validation with row-level error reporting before server submission
+
+---
+
 ### Library Utilities
 
 #### `buildProductCOGSMap` (convex/lib/costCalculator.ts)

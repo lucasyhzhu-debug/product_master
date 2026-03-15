@@ -300,13 +300,13 @@ Plans:
   5. All JEs from one import share the same sourceId (importBatchId) for traceability
   6. Receipt URLs from CSV are preserved in journalEntries.metadata.receiptUrl
   7. Import handles 350+ rows via batched mutation calls (50/batch) with progress indication
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 51-01-PLAN.md -- Schema metadata field + journal engine extension
-- [ ] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
-- [ ] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
-- [ ] 51-04-PLAN.md -- Verification + documentation + smoke test
+- [x] 51-01-PLAN.md -- Schema metadata field + journal engine extension
+- [x] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
+- [x] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
+- [x] 51-04-PLAN.md -- Verification + documentation + smoke test
 
 ## Progress
 
@@ -319,6 +319,16 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-51 | TBD | In progress | - |
+| v1.7 Expense & Accounting | 41-52 | TBD | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 11 phases planned for v1.7**
+**Total: 40 phases, 177 plans shipped across 7 milestones + 12 phases planned for v1.7**
+
+### Phase 52: Expense System Simplification
+
+**Goal:** Refactor v1.7 expense system code (phases 41–50) based on 3-agent simplification review. Consolidate duplicated patterns, parallelize sequential DB reads, extract shared UI components, and unify scattered utility functions. Zero behavior changes — all existing tests must pass unchanged.
+**Requirements**: 17 findings from SIMPLIFICATION-REPORT.md (F1–F14 in scope, F15–F17 deferred)
+**Depends on:** Phase 50
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 52 to break down)

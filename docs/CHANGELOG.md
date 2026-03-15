@@ -16,6 +16,26 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Historical Expense Journal Import (Phase 51) — 2026-03-15
+
+**For the team:** You can now bulk-import historical expenses that were reimbursed before the system existed. Upload a CSV file with dates, amounts, descriptions, vendor names, and GL account codes, and the system creates proper double-entry journal entries for each row. This backfills the P&L so financial statements reflect the full picture, not just post-launch expenses.
+
+#### Added
+- `convex/schema.ts` — `metadata` optional field on `journalEntries` table (receiptUrl support)
+- `convex/lib/journalEngine.ts` — extended `CreateJournalEntryParams` to accept optional metadata
+- `convex/journalImport/mutations.ts` — `bulkCreateJournalEntries` mutation with batched processing (50 rows/batch)
+- `src/lib/csvImportValidation.ts` — client-side CSV row validation helpers
+- `src/pages/HistoricalImportPage.tsx` — import wizard at `/import` (admin only) with 5-step flow
+- `src/hooks/convex/useJournalImport.ts` — hook for batched mutation calls
+- CSV template download with proper headers (date, amount, description, vendorName, accountCode, receiptUrl)
+- Chart of Accounts reference CSV download for looking up valid account codes
+- Client-side validation with row-level error reporting and warning detection
+- Progress indicator for batched import (handles 350+ rows)
+- Navigation link from Accounts Manager page to import wizard
+
+#### Dependencies
+- `papaparse` — runtime dependency for CSV parsing
+
 ### Expense Analytics Dashboard (Phase 50) — 2026-03-14
 
 **For the team:** Managers and admins now have a dedicated Expense Analytics dashboard showing a bird's-eye view of operating expenses. See total OpEx broken down by GL category (pie chart), which employees are spending the most, a 6-month spending trend, pending reimbursement totals, and average approval turnaround time. The dashboard also surfaces fraud warning flags: potential expense splitting, approver concentration, and unfamiliar vendors.

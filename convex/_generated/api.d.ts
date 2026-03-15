@@ -89,6 +89,7 @@ import type * as inventory_fifo from "../inventory/fifo.js";
 import type * as inventory_helpers from "../inventory/helpers.js";
 import type * as inventory_mutations from "../inventory/mutations.js";
 import type * as inventory_queries from "../inventory/queries.js";
+import type * as journalImport_mutations from "../journalImport/mutations.js";
 import type * as k3martCockpit_helpers from "../k3martCockpit/helpers.js";
 import type * as k3martCockpit_mutations from "../k3martCockpit/mutations.js";
 import type * as k3martCockpit_queries from "../k3martCockpit/queries.js";
@@ -284,6 +285,7 @@ declare const fullApi: ApiFromModules<{
   "inventory/helpers": typeof inventory_helpers;
   "inventory/mutations": typeof inventory_mutations;
   "inventory/queries": typeof inventory_queries;
+  "journalImport/mutations": typeof journalImport_mutations;
   "k3martCockpit/helpers": typeof k3martCockpit_helpers;
   "k3martCockpit/mutations": typeof k3martCockpit_mutations;
   "k3martCockpit/queries": typeof k3martCockpit_queries;

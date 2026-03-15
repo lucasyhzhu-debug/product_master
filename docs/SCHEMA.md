@@ -1555,3 +1555,33 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 **Indexes:** `by_submitter_status`, `by_status`, `by_status_expenseDate` *(Phase 50)*, `by_amount_date_submitter`, `by_receipt_hash`, `by_expense_number`, `by_account`
 
 **Note:** Full field list in `convex/schema.ts` (includes approval/rejection/void workflow fields).
+
+### `journalEntries` — Double-Entry Journal Entries (Header)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entryNumber` | `string` | Sequential JE number (JE-YYYYMM-NNN) |
+| `date` | `number` | Epoch ms of business date |
+| `description` | `string` | Entry description |
+| `sourceType` | `union` | `"expense_approval"` \| `"expense_void"` \| `"reimbursement"` \| `"reimbursement_void"` \| `"payroll"` \| `"payroll_void"` \| `"manual"` |
+| `sourceId` | `optional string` | Reference to source record |
+| `isReversed` | `boolean` | Whether entry has been reversed |
+| `reversedByEntryId` | `optional id("journalEntries")` | Reversal entry reference |
+| `createdBy` | `id("users")` | User who created the entry |
+| `createdAt` | `number` | Epoch ms of creation time |
+| `metadata` | `optional object` | Optional metadata. Contains `receiptUrl: optional string` for Google Drive receipt links (used by historical import). *(Phase 51)* |
+
+**Indexes:** `by_entry_number`, `by_source` (sourceType, sourceId), `by_date`
+
+### `journalEntryLines` — Double-Entry Journal Entry Lines (Debit/Credit)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `journalEntryId` | `id("journalEntries")` | Parent journal entry |
+| `accountId` | `id("accounts")` | GL account reference |
+| `entryDate` | `number` | Denormalized from parent `journalEntries.date` (Convex indexes cannot span tables) |
+| `debitAmount` | `number` | Debit amount (IDR) |
+| `creditAmount` | `number` | Credit amount (IDR) |
+| `description` | `optional string` | Line-level description |
+
+**Indexes:** `by_journal_entry`, `by_account_entryDate` (accountId, entryDate), `by_entryDate`
