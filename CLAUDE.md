@@ -123,6 +123,7 @@ git push origin feature/{name}
 | **Customers** | `convex/customers/` | `src/pages/CustomersManager.tsx`, `src/hooks/convex/useCustomers.ts` |
 | **Sales analytics** | `convex/reports/` | `src/pages/SalesAnalytics.tsx`, `src/hooks/convex/useSalesAnalytics.ts` |
 | **Expense analytics** | `convex/expenses/analyticsQueries.ts`, `convex/expenses/fraudHelpers.ts` | `src/pages/ExpenseAnalytics.tsx`, `src/components/expenseAnalytics/`, `src/hooks/convex/useExpenseAnalytics.ts` |
+| **Journal import** | `convex/journalImport/mutations.ts` | `src/pages/HistoricalImportPage.tsx`, `src/hooks/convex/useJournalImport.ts`, `src/lib/csvImportValidation.ts` |
 | **Financial statement** | `convex/reports/incomeStatement.ts`, `convex/lib/journalHelpers.ts` | `src/pages/FinancialStatement.tsx`, `src/lib/csvExport.ts` |
 | **K3Mart cockpit** | `convex/k3martCockpit/`, `convex/k3martKitchen/` | `src/pages/K3MartCockpit.tsx`, `src/hooks/convex/useK3MartCockpit.ts` |
 | **External data (GoFood)** | `convex/externalData/`, `convex/gofoodDepot/`, `convex/integrations/` | `src/hooks/convex/useExternalData.ts` |
@@ -147,7 +148,7 @@ git push origin feature/{name}
 - `convex/orders/helpers/` -- Ctx-dependent helpers (ballDistribution, statusTransitions, usageTracking, productionRecords, voucherHandling, batchFetching, statusFetching)
 - `convex/orders/mutations/` -- Order mutations (split into orderCrud, inventoryIntegration)
 
-**Frontend (26 pages, 24 hooks):**
+**Frontend (34 pages, 35 hooks):**
 - `src/App.tsx` -- Router setup (all routes use ProtectedRoute)
 - `src/main.tsx` -- Entry point with ConvexProvider
 - `src/contexts/AuthContext.tsx` -- Auth state management
@@ -317,6 +318,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 | K3Mart Cockpit | `canAccessDashboard` | Manager, Admin |
 | Tags | `canAccessIngredients` | Manager, Admin |
 | Restock Planner | `canAccessInventory` | Manager, Admin |
+| Historical Import | `canManageReimbursements` | Admin |
 
 **Backend enforcement:** Use `requireRole(ctx, args.token, ["admin"])` from `convex/lib/auth.ts`. Add `token: v.string()` to protected mutation args.
 

@@ -9,9 +9,10 @@ export const RECEIPT_THRESHOLD = 50_000; // Rp 50,000
 export const DUPLICATE_WINDOW_DAYS = 7;
 export const LATE_SUBMISSION_DAYS = 14;
 
-// Phase 45: DoA (Delegation of Authority) constants
-export const DOA_ADMIN_ONLY_THRESHOLD = 500_000; // Rp 500,000
-export const COMMENT_REQUIRED_THRESHOLD = 500_000; // Rp 500,000
+// Phase 45: DoA (Delegation of Authority) constants -- single source of truth
+export const EXPENSE_HIGH_VALUE_THRESHOLD = 500_000; // Rp 500,000
+export const DOA_ADMIN_ONLY_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
+export const COMMENT_REQUIRED_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

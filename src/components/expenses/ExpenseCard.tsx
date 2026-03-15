@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { ExpenseStatusBadge } from "./StatusBadge";
 import { Calendar, Store, AlertTriangle, Clock } from "lucide-react";
 import type { Expense } from "@/hooks/convex";
@@ -6,9 +6,10 @@ import type { Expense } from "@/hooks/convex";
 interface ExpenseCardProps {
   expense: Expense;
   onClick: (id: string) => void;
+  className?: string;
 }
 
-export function ExpenseCard({ expense, onClick }: ExpenseCardProps) {
+export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
   const date = new Date(expense.expenseDate);
   const formattedDate = date.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -18,7 +19,7 @@ export function ExpenseCard({ expense, onClick }: ExpenseCardProps) {
 
   return (
     <div
-      className="border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+      className={cn("border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors", className)}
       onClick={() => onClick(expense._id)}
     >
       <div className="flex items-start justify-between gap-2">

@@ -136,6 +136,9 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration (completed 2026-03-14)
 - [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
 - [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
+- [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
+- [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
+- [x] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop (completed 2026-03-15)
 
 ## Phase Details
 
@@ -288,6 +291,26 @@ Plans:
 - [ ] 50-01-PLAN.md -- Backend: fraud detection helpers (TDD), analytics queries (OpEx, metrics, fraud flags)
 - [ ] 50-02-PLAN.md -- Frontend: hooks, chart/card sub-components, ExpenseAnalytics dashboard page
 
+### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
+**Goal**: Admin can bulk-import 350+ historical employee expense records as journal entries via CSV upload, backfilling OpEx in the P&L for periods before the accounting system existed
+**Depends on:** Phase 50
+**Requirements**: None (one-off import tool)
+**Success Criteria** (what must be TRUE):
+  1. Admin can download a CSV template and a Chart of Accounts reference file
+  2. Admin can upload a CSV and see row-level validation errors with clear messages
+  3. Admin can review summaries (by GL account, by period, total) before confirming
+  4. Confirming creates one JE per valid row (DR expense account, CR 1100 Cash) with sourceType "manual" and [Historical Import] prefix
+  5. All JEs from one import share the same sourceId (importBatchId) for traceability
+  6. Receipt URLs from CSV are preserved in journalEntries.metadata.receiptUrl
+  7. Import handles 350+ rows via batched mutation calls (50/batch) with progress indication
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 51-01-PLAN.md -- Schema metadata field + journal engine extension
+- [x] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
+- [x] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
+- [x] 51-04-PLAN.md -- Verification + documentation + smoke test
+
 ## Progress
 
 | Milestone | Phases | Plans | Status | Shipped |
@@ -299,16 +322,58 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-50 | TBD | In progress | - |
+| v1.7 Expense & Accounting | 41-52 | TBD | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 10 phases planned for v1.7**
+**Total: 40 phases, 177 plans shipped across 7 milestones + 12 phases planned for v1.7**
 
-### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
+### Phase 52: Expense System Simplification
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Refactor v1.7 expense system code (phases 41-50) based on 3-agent simplification review. Consolidate duplicated patterns, parallelize sequential DB reads, extract shared UI components, and unify scattered utility functions. Zero behavior changes -- all existing tests must pass unchanged.
+**Requirements**: F1-F14 (14 findings from SIMPLIFICATION-REPORT.md; F15-F17 deferred)
 **Depends on:** Phase 50
-**Plans:** 2/2 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 51 to break down)
+- [ ] 52-01-PLAN.md -- Backend consolidation: parallel fraud queries (F1), Promise.all for sequential reads (F2, F5), shared validation (F3), threshold unification (F4)
+- [ ] 52-02-PLAN.md -- Frontend component extraction: VoidReasonDialog (F6), ActionDialog (F7), ExpenseCard className (F9), fix any types (F12)
+- [ ] 52-03-PLAN.md -- Utility cleanup: wibMidnightToUtc consolidation (F10), delta formatter merge (F11), MarginRow extraction (F8), WIB init dedup (F13), useMemo (F14)
+
+### Phase 53: Expense E2E Testing
+**Goal**: All 9 expense pages have Playwright E2E coverage with multi-role auth testing, full lifecycle flows (submit -> approve -> reimburse -> P&L), CSV import validation, and a bug-fix loop that fixes or documents discovered issues
+**Depends on:** Phase 52
+**Requirements**: None (testing phase)
+**Success Criteria** (what must be TRUE):
+  1. Multi-role test users (E2E-Admin, E2E-Manager, E2E-Kitchen, E2E-OrderStaff) created idempotently in global-setup.ts
+  2. Full expense lifecycle test passes: create expense as OrderStaff -> approve as Admin -> reimburse as Admin -> verify amount on P&L
+  3. All 9 expense routes tested for page load, basic CRUD, and permission guards
+  4. CSV import test with mixed valid/invalid rows verifies validation errors and successful import through to P&L
+  5. Fraud flag visibility verified in approval queue
+  6. Bug report (53-BUG-REPORT.md) delivered with resolution status for each discovered issue
+  7. All existing 690+ unit tests remain green
+**Plans:** 5/5 plans complete
+
+Plans:
+- [ ] 53-01-PLAN.md -- E2E infrastructure (global-setup multi-user, loginAsRole helper, CSV fixture)
+- [ ] 53-02-PLAN.md -- Permission guard tests (9 routes x 4 roles) + analytics/admin page tests
+- [ ] 53-03-PLAN.md -- Expense lifecycle test (submit -> approve -> reimburse -> P&L) + CSV import test
+- [ ] 53-04-PLAN.md -- Approval edge cases (self-approval block, DoA, rejection, fraud flags)
+- [ ] 53-05-PLAN.md -- Full suite verification, unit test check, bug report, human approval
+
+### Phase 54: Fix BigSeller platform-specific endpoint schema mismatches
+**Goal**: All 6 HAR-confirmed bugs in BigSeller integration are fixed: normalizePlatformFees handles platform-specific schemas correctly, platform is injected from config (not API), and calculatedProfit uses BigSeller's authoritative profit field
+**Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, BUG-05, BUG-06, CASE-01
+**Depends on:** Phase 53
+**Success Criteria** (what must be TRUE):
+  1. Shopee orders have saleAmount populated from originalPrice (not 0)
+  2. TikTok orders have saleAmount from revenueAmount, platformIncome from settlementAmount, commissionFee from 6-field sum
+  3. Normalization triggers for undefined/null fields (not just === 0)
+  4. Shopee fees are negated via -Math.abs() to match negative convention
+  5. Platform is set from BIGSELLER_SHOP_PLATFORM_MAP config, not from API's null value
+  6. calculatedProfit uses order.profit (BigSeller authoritative), not double-subtracting formula
+  7. otherfee/otherFee case mismatch handled
+  8. All existing and new tests pass, npm run build succeeds
+**Plans:** 2 plans
+
+Plans:
+- [ ] 54-01-PLAN.md -- TDD: normalizePlatformFees tests + rewrite (Bugs 1, 3, 4, 5, case mismatch)
+- [ ] 54-02-PLAN.md -- Wire platform param through sync pipeline + fix profit formula (Bugs 2, 6)

@@ -1,0 +1,9 @@
+date,amount,description,vendorName,accountCode,receiptUrl
+2026-03-01,75000,E2E Office supplies March,Toko Alat Tulis,6500,
+2026-03-02,150000,E2E Internet bill March,Telkom Indonesia,6200,
+2026-03-03,25000,E2E Grab to meeting,Grab,6300,
+2026-03-04,350000,E2E Software subscription,Figma,6700,
+2026-03-05,45000,E2E Team lunch,Warung Makan,6900,
+invalid-date,50000,E2E Bad date row,Test Vendor,6500,
+2026-03-06,,E2E Missing amount row,Test Vendor,6500,
+2026-03-07,30000,E2E Unknown GL code,Test Vendor,9999,

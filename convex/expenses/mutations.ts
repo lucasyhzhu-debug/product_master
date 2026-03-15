@@ -25,6 +25,7 @@ import {
   getTargetStatusAfterApproval,
   isVoidableStatus,
 } from "./helpers";
+import { validateRequiredReason } from "../lib/validation";
 import { ALL_ROLES, APPROVER_ROLES } from "./constants";
 import {
   createJournalEntryWithLines,
@@ -446,18 +447,15 @@ export const rejectExpense = protectedMutation({
       throw new Error("Cannot reject your own expense");
     }
 
-    // Reason validation
-    const reason = args.reason.trim();
-    if (!reason) {
-      throw new Error("Rejection reason is required");
-    }
+    // Reason validation (shared validator with custom label)
+    validateRequiredReason(args.reason, "Rejection reason");
 
     // Patch expense
     await ctx.db.patch(args.expenseId, {
       status: "rejected",
       rejectedBy: ctx.user._id,
       rejectedAt: Date.now(),
-      rejectionReason: reason,
+      rejectionReason: args.reason.trim(),
     });
 
     // Audit trail
@@ -467,7 +465,7 @@ export const rejectExpense = protectedMutation({
       "submitted",
       "rejected",
       ctx.user._id,
-      reason
+      args.reason.trim()
     );
 
     return { success: true };
@@ -493,11 +491,8 @@ export const voidExpense = protectedMutation({
       throw new Error("Expense not found");
     }
 
-    // Reason validation
-    const reason = args.reason.trim();
-    if (!reason) {
-      throw new Error("Void reason is required");
-    }
+    // Reason validation (shared validator, default "Void reason" label)
+    validateRequiredReason(args.reason);
 
     // EXP-17: Reimbursed expenses cannot be voided directly
     if (expense.status === "reimbursed") {
@@ -530,7 +525,7 @@ export const voidExpense = protectedMutation({
       status: "voided",
       voidedBy: ctx.user._id,
       voidedAt: Date.now(),
-      voidReason: reason,
+      voidReason: args.reason.trim(),
     });
 
     // Audit trail
@@ -540,7 +535,7 @@ export const voidExpense = protectedMutation({
       previousStatus,
       "voided",
       ctx.user._id,
-      reason
+      args.reason.trim()
     );
 
     return { success: true };

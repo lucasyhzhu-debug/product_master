@@ -466,6 +466,9 @@ export {
   type FraudFlagsData,
 } from "./useExpenseAnalytics";
 
+// Journal Import (Historical Expense Import - Phase 51)
+export { useBulkCreateJournalEntries } from "./useJournalImport";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks

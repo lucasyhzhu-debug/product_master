@@ -3,9 +3,11 @@
  * Uses EntityManager generic component with factory mutation hooks.
  */
 
+import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BookOpen, Lock } from 'lucide-react';
+import { BookOpen, Lock, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { EntityManager } from '@/components/shared/EntityManager';
 import type { EntityColumn } from '@/components/shared/EntityManager';
 import {
@@ -73,6 +75,7 @@ const columns: EntityColumn<Account>[] = [
 
 export function AccountsManager() {
   useDocumentTitle('Chart of Accounts');
+  const navigate = useNavigate();
 
   const accounts = useAccounts();
   const create = useCreateAccount();
@@ -80,6 +83,13 @@ export function AccountsManager() {
   const del = useDeleteAccount();
 
   return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => navigate("/import")}>
+          <Upload className="h-4 w-4 mr-2" />
+          Import Historical Expenses
+        </Button>
+      </div>
     <EntityManager<Account>
       entityName="Account"
       entityNamePlural="Accounts"
@@ -156,5 +166,6 @@ export function AccountsManager() {
       }}
       onDelete={(id) => del.mutate({ id: id as Id<"accounts"> })}
     />
+    </div>
   );
 }

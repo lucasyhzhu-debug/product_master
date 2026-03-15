@@ -10,6 +10,7 @@ import {
   formatPeriodRange,
   type PeriodMode,
 } from "@/lib/financialHelpers";
+import { wibMidnightToUtc, getCurrentWibMonth } from "@/lib/dateUtils";
 
 /** Get the Monday 00:00 WIB epoch ms for the week containing `now`. */
 function getCurrentWeekStart(): number {
@@ -28,18 +29,6 @@ function getCurrentWeekStart(): number {
   return mondayWibMs - WIB_OFFSET_MS;
 }
 
-/** Get the current year and 0-indexed month in WIB. */
-function getCurrentWibMonth(): { year: number; month: number } {
-  const now = Date.now();
-  const wibDate = new Date(now + WIB_OFFSET_MS);
-  return { year: wibDate.getUTCFullYear(), month: wibDate.getUTCMonth() };
-}
-
-/** Convert WIB midnight (start of day) to UTC epoch ms. WIB 00:00 = UTC previous day 17:00. */
-function wibMidnightToUtc(year: number, month: number, day: number): number {
-  return Date.UTC(year, month, day, -7, 0, 0, 0);
-}
-
 export function useFinancials() {
   // ── Period mode state ──
   const [periodMode, setPeriodMode] = useState<PeriodMode>("week");
@@ -48,19 +37,19 @@ export function useFinancials() {
   const [weekStart, setWeekStart] = useState(() => getCurrentWeekStart());
 
   // ── Month mode state ──
-  const [monthYear, setMonthYear] = useState(() => getCurrentWibMonth().year);
-  const [monthIndex, setMonthIndex] = useState(() => getCurrentWibMonth().month);
+  // Compute current WIB month once for all initializers (same pattern as ExpenseAnalytics F13)
+  const [initMonth] = useState(() => getCurrentWibMonth());
+  const [monthYear, setMonthYear] = useState(initMonth.year);
+  const [monthIndex, setMonthIndex] = useState(initMonth.month);
 
   // ── Custom mode state ──
   // Default custom range: current month
-  const [customStart, setCustomStart] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month, 1);
-  });
-  const [customEnd, setCustomEnd] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month + 1, 1);
-  });
+  const [customStart, setCustomStart] = useState<number>(
+    () => wibMidnightToUtc(initMonth.year, initMonth.month, 1)
+  );
+  const [customEnd, setCustomEnd] = useState<number>(
+    () => wibMidnightToUtc(initMonth.year, initMonth.month + 1, 1)
+  );
 
   // ── Compute periodStart/periodEnd for non-week modes ──
   const monthPeriod = useMemo(() => {

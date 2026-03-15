@@ -107,6 +107,9 @@ const PayrollManager = lazyWithPreload(() =>
 const ExpenseAnalytics = lazyWithPreload(() =>
   import('./pages/ExpenseAnalytics').then(m => ({ default: m.ExpenseAnalytics }))
 );
+const HistoricalImportPage = lazyWithPreload(() =>
+  import('./pages/HistoricalImportPage').then(m => ({ default: m.HistoricalImportPage }))
+);
 
 function App() {
   return (
@@ -324,6 +327,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canManageReimbursements">
                         <AccountsManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Historical Expense Import (admin-only, Phase 51) */}
+                  <Route
+                    path="import"
+                    element={
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
+                        <HistoricalImportPage />
                       </ProtectedRoute>
                     }
                   />

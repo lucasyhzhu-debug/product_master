@@ -103,14 +103,14 @@ export const remove = protectedMutation({
     }
 
     // Check referential integrity: pending or confirmed batches using this bank account
-    const pendingBatches = await ctx.db
-      .query("reimbursementBatches")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .collect();
-    const confirmedBatches = await ctx.db
-      .query("reimbursementBatches")
-      .withIndex("by_status", (q) => q.eq("status", "confirmed"))
-      .collect();
+    const [pendingBatches, confirmedBatches] = await Promise.all([
+      ctx.db.query("reimbursementBatches")
+        .withIndex("by_status", (q) => q.eq("status", "pending"))
+        .collect(),
+      ctx.db.query("reimbursementBatches")
+        .withIndex("by_status", (q) => q.eq("status", "confirmed"))
+        .collect(),
+    ]);
 
     const activeBatches = [...pendingBatches, ...confirmedBatches].filter(
       (b) => b.bankAccountId === args.bankAccountId

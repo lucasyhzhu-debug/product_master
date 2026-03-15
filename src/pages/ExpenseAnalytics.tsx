@@ -37,19 +37,20 @@ export function ExpenseAnalytics() {
   // Period mode state
   const [periodMode, setPeriodMode] = useState<ExpensePeriodMode>("month");
 
+  // Single init computation shared across useState initializers
+  const initMonth = useMemo(() => getCurrentWibMonth(), []);
+
   // Month mode state
-  const [monthYear, setMonthYear] = useState(() => getCurrentWibMonth().year);
-  const [monthIndex, setMonthIndex] = useState(() => getCurrentWibMonth().month);
+  const [monthYear, setMonthYear] = useState(initMonth.year);
+  const [monthIndex, setMonthIndex] = useState(initMonth.month);
 
   // Custom mode state (defaults to current month range)
-  const [customStart, setCustomStart] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month, 1);
-  });
-  const [customEnd, setCustomEnd] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month + 1, 1);
-  });
+  const [customStart, setCustomStart] = useState<number>(
+    wibMidnightToUtc(initMonth.year, initMonth.month, 1)
+  );
+  const [customEnd, setCustomEnd] = useState<number>(
+    wibMidnightToUtc(initMonth.year, initMonth.month + 1, 1)
+  );
 
   // Compute period range
   const { periodStart, periodEnd } = useMemo(

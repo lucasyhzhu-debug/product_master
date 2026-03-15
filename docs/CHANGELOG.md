@@ -16,6 +16,54 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Expense System Simplification (Phase 52) — 2026-03-15
+
+**For the team:** No visible changes — the expense system works exactly the same. Under the hood, we cleaned up code that was written quickly across phases 41-50: removed duplicate functions, made database queries run in parallel instead of one-at-a-time, and extracted reusable UI components. This makes the expense code faster and easier to maintain going forward.
+
+#### Changed (Backend)
+- `convex/expenses/analyticsQueries.ts` — fraud flag queries consolidated from 10 sequential reads to 4 parallel reads (single `Promise.all`), with `toExpenseForFraud` helper and in-memory date slicing
+- `convex/lib/validation.ts` — `validateRequiredReason` now accepts optional `label` parameter for contextual error messages
+- `convex/expenses/helpers.ts` — unified `EXPENSE_HIGH_VALUE_THRESHOLD` (500K IDR) as single source with `DOA_ADMIN_ONLY_THRESHOLD` and `COMMENT_REQUIRED_THRESHOLD` aliases
+- `convex/expenses/mutations.ts` — `rejectExpense` and `voidExpense` use shared `validateRequiredReason`
+- `convex/payroll/mutations.ts`, `convex/payroll/queries.ts` — sequential `for...of + await` loops replaced with `Promise.all`
+- `convex/reimbursements/mutations.ts`, `convex/reimbursements/queries.ts` — sequential DB reads parallelized
+- `convex/bankAccounts/mutations.ts` — sequential account lookups parallelized
+
+#### Changed (Frontend)
+- `src/components/shared/VoidReasonDialog.tsx` — new shared component extracted from PayrollManager and ReimbursementManager (~65 lines removed from each)
+- `src/components/expenses/ApprovalActions.tsx` — 3 duplicate dialog blocks consolidated into single `ActionDialog` sub-component
+- `src/components/expenses/ExpenseCard.tsx` — `className` prop with `cn()` merging
+- `src/pages/ReimbursementManager.tsx` — eliminated `any` types with proper Convex `Doc<>` typing
+- `src/lib/dateUtils.ts` — canonical `wibMidnightToUtc` and `getCurrentWibMonth` exports (3 local copies removed)
+- `src/lib/csvExport.ts` — `fmtDelta` renamed to `formatPrecomputedDelta` for clarity
+- `src/pages/FinancialStatement.tsx` — extracted `MarginRow` component, deleted local WIB helpers
+- `src/pages/ExpenseAnalytics.tsx` — 4 redundant `getCurrentWibMonth()` calls deduplicated via `useMemo`
+- `src/pages/ExpenseApproval.tsx` — `accountMap` wrapped in `useMemo`
+- `src/hooks/convex/useFinancials.ts` — WIB month init deduplicated (single computation for 4 useState calls)
+
+#### Added
+- `convex/lib/__tests__/validation.test.ts` — 11 tests for `validateRequiredReason` custom label parameter
+
+### Historical Expense Journal Import (Phase 51) — 2026-03-15
+
+**For the team:** You can now bulk-import historical expenses that were reimbursed before the system existed. Upload a CSV file with dates, amounts, descriptions, vendor names, and GL account codes, and the system creates proper double-entry journal entries for each row. This backfills the P&L so financial statements reflect the full picture, not just post-launch expenses.
+
+#### Added
+- `convex/schema.ts` — `metadata` optional field on `journalEntries` table (receiptUrl support)
+- `convex/lib/journalEngine.ts` — extended `CreateJournalEntryParams` to accept optional metadata
+- `convex/journalImport/mutations.ts` — `bulkCreateJournalEntries` mutation with batched processing (50 rows/batch)
+- `src/lib/csvImportValidation.ts` — client-side CSV row validation helpers
+- `src/pages/HistoricalImportPage.tsx` — import wizard at `/import` (admin only) with 5-step flow
+- `src/hooks/convex/useJournalImport.ts` — hook for batched mutation calls
+- CSV template download with proper headers (date, amount, description, vendorName, accountCode, receiptUrl)
+- Chart of Accounts reference CSV download for looking up valid account codes
+- Client-side validation with row-level error reporting and warning detection
+- Progress indicator for batched import (handles 350+ rows)
+- Navigation link from Accounts Manager page to import wizard
+
+#### Dependencies
+- `papaparse` — runtime dependency for CSV parsing
+
 ### Expense Analytics Dashboard (Phase 50) — 2026-03-14
 
 **For the team:** Managers and admins now have a dedicated Expense Analytics dashboard showing a bird's-eye view of operating expenses. See total OpEx broken down by GL category (pie chart), which employees are spending the most, a 6-month spending trend, pending reimbursement totals, and average approval turnaround time. The dashboard also surfaces fraud warning flags: potential expense splitting, approver concentration, and unfamiliar vendors.

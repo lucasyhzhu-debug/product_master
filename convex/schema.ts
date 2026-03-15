@@ -1275,6 +1275,7 @@ export default defineSchema({
     updatedBy: v.string(),
     updatedAt: v.number(),
     // DUP-01: removed commissionRate -- unused, net/gross tracked from external APIs
+    commissionRate: v.optional(v.number()), // DATA-COMPAT: kept optional until dev DB patched
   })
     .index("by_channel", ["channelKey"])
     .index("by_priority", ["priority"]),
@@ -1744,6 +1745,9 @@ export default defineSchema({
     reversedByEntryId: v.optional(v.id("journalEntries")),
     createdBy: v.id("users"),
     createdAt: v.number(),
+    metadata: v.optional(v.object({
+      receiptUrl: v.optional(v.string()),
+    })),
   })
     .index("by_entry_number", ["entryNumber"])
     .index("by_source", ["sourceType", "sourceId"])

@@ -3,11 +3,165 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 53-04-PLAN.md
+last_updated: "2026-03-15T07:57:42.424Z"
+last_activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
+progress:
+  total_phases: 14
+  completed_phases: 13
+  total_plans: 28
+  completed_plans: 28
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 53-02-PLAN.md
+last_updated: "2026-03-15T05:11:13.900Z"
+last_activity: 2026-03-15 -- Completed 53-01-PLAN.md (E2E test infrastructure)
+progress:
+  total_phases: 14
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 25
+  percent: 89
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 53-01-PLAN.md
+last_updated: "2026-03-15T05:04:00.591Z"
+last_activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
+progress:
+  [█████████░] 89%
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 24
+  percent: 86
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 52-03-PLAN.md
+last_updated: "2026-03-15T04:43:32.627Z"
+last_activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
+progress:
+  [█████████░] 86%
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 23
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 52-02-PLAN.md
+last_updated: "2026-03-15T04:17:11.929Z"
+last_activity: 2026-03-15 -- Completed 51-04-PLAN.md (verification, docs, human smoke test approved)
+progress:
+  total_phases: 13
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 23
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 52-01-PLAN.md
+last_updated: "2026-03-15T04:15:28Z"
+last_activity: 2026-03-15 -- Completed 52-01-PLAN.md (backend consolidation -- parallel reads, shared validation, threshold unification)
+progress:
+  total_phases: 13
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 24
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 51-04-PLAN.md
+last_updated: "2026-03-15T03:20:25.654Z"
+last_activity: 2026-03-15 -- Completed 51-04-PLAN.md (verification, docs, human smoke test approved)
+progress:
+  total_phases: 12
+  completed_phases: 11
+  total_plans: 20
+  completed_plans: 20
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 51-04-PLAN.md
+last_updated: "2026-03-15T03:04:10.761Z"
+last_activity: 2026-03-15 -- Completed 51-04-PLAN.md (verification, documentation, human smoke test approved)
+progress:
+  total_phases: 12
+  completed_phases: 11
+  total_plans: 20
+  completed_plans: 20
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 51-01-PLAN.md
+last_updated: "2026-03-15T02:35:12.980Z"
+last_activity: 2026-03-15 -- Completed 51-01-PLAN.md (metadata field on journalEntries + journal engine extension)
+progress:
+  [██████████] 100%
+  completed_phases: 10
+  total_plans: 20
+  completed_plans: 17
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 50-02-PLAN.md
+last_updated: "2026-03-15T02:34:46.276Z"
+last_activity: 2026-03-14 -- Completed 50-02-PLAN.md (expense analytics frontend dashboard with charts and fraud flags)
+progress:
+  total_phases: 12
+  completed_phases: 10
+  total_plans: 20
+  completed_plans: 17
+  percent: 85
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 50-02-PLAN.md
 last_updated: "2026-03-14T15:44:14.427Z"
 last_activity: 2026-03-14 -- Completed 50-02-PLAN.md (expense analytics frontend dashboard with charts and fraud flags)
 progress:
-  total_phases: 11
+  [█████████░] 85%
   completed_phases: 10
   total_plans: 16
   completed_plans: 16
@@ -94,16 +248,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 50 complete (analytics backend + frontend dashboard)
+**Current focus:** v1.7 Expense & Accounting -- Phase 53 in progress (expense E2E testing)
 
 ## Current Position
 
-Phase: 50 of 51 (Expense Analytics)
-Plan: 2 of 2
-Status: Phase 50 complete. All plans delivered. Ready for Phase 51.
-Last activity: 2026-03-14 -- Completed 50-02-PLAN.md (expense analytics frontend dashboard with charts and fraud flags)
+Phase: 53 of 53 (Expense E2E Testing)
+Plan: 4 of 5 (COMPLETE)
+Status: Plan 04 complete. 4 approval edge case E2E tests green: self-approval block, DoA threshold, rejection flow, late fraud flag.
+Last activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
 
-Progress: [██████████] 95%
+Progress: [█████████░] 96%
 
 ## Performance Metrics
 
@@ -177,6 +331,35 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 50-02: PieChart donut variant (innerRadius=40) for GL category breakdown
 - 50-02: FraudFlagsCard renders all 3 fraud types in one card with color-coded sections
 - 50-02: Period picker follows FinancialStatement pattern (Badge toggle + month nav arrows)
+- [Phase 51]: 51-01: Conditional metadata spread in journal engine insert to avoid inserting undefined field on entries without metadata
+- 51-02: Separate dateToWibEpoch with strict YYYY-MM-DD regex from permissive wibDateStrToUtcMs for CSV import security
+- 51-02: Parallel ImportRow types in backend/frontend with cross-reference comments (no shared imports across Convex boundary)
+- 51-02: Duplicate CSV rows produce warnings not errors -- users may intentionally have same-date same-amount expenses
+- 51-03: Import button above EntityManager in AccountsManager (no action slot prop available)
+- 51-03: groupByPeriod adds WIB offset (7h) to stored epoch for correct YYYY-MM period bucketing display
+- 51-03: Convex codegen required after Plan 02 to register journalImport module in generated API types
+- [Phase 51]: Human smoke test confirmed import wizard works end-to-end
+- 52-01: toExpenseForFraud uses inline type annotation (not Doc<"expenses">) to avoid Convex generated type dependency in pure helper
+- 52-01: validateRequiredReason default label is "Void reason" for backward compatibility with payroll/reimbursement callers
+- 52-01: EXPENSE_HIGH_VALUE_THRESHOLD exported alongside aliases to preserve all existing import paths unchanged
+- [Phase 52]: VoidReasonDialog uses promise-based onConfirm callback for reusability across PayrollManager and ReimbursementManager
+- [Phase 52]: ActionDialog is local to ApprovalActions (not shared) -- only used there, manages own comment/isSubmitting state
+- [Phase 52]: formatCurrency(COMMENT_REQUIRED_THRESHOLD) replaces hardcoded Rp 500,000 strings in ApprovalActions
+- 52-03: Import + re-export pattern in expenseAnalyticsPeriod.ts (bare re-export doesn't bind in local scope for computePeriodRange)
+- 52-03: MarginRow kept file-local in FinancialStatement.tsx (P&L-specific, not shared)
+- 52-03: Both formatPrecomputedDelta and formatDeltaPct preserved in csvExport.ts (different signatures)
+- 52-03: useMemo([], []) for init-time getCurrentWibMonth; goToCurrentMonth callback retains separate call
+- [Phase 53]: ensureTestUser checks existing users by name before creating to prevent duplicates (createUser has no unique-name constraint)
+- [Phase 53]: loginAsManager kept unchanged for backward compat; waitForAppReady exported publicly for loginAsRole and future specs
+- [Phase 53]: Data-driven route arrays for permission guard test coverage across 4 roles x 9 routes
+- [Phase 53]: Manager blocked redirect target confirmed as / (root) matching getRoleLandingPage
+- 53-03: Single large test for lifecycle (not serial describe) to match order-lifecycle.spec.ts pattern and avoid shared-state issues
+- 53-03: Unique timestamp-based amount (100000 + Date.now() % 100000) prevents P&L contamination across runs
+- 53-03: CSV import test validates error-blocking (disabled button) since wizard correctly blocks import when validation errors exist
+- 53-04: Amounts <= 50K (at threshold, not above) avoid EXP-03 receipt requirement in approval tests
+- 53-04: Receipt upload uses timestamp-suffixed PNG buffer for unique SHA-256 hash per run (avoids FRAUD-02 duplicate)
+- 53-04: navigateWithRetry retries up to 2 times on Convex error boundary for intermittent connection issues
+- 53-04: dispatchChannelConfig.commissionRate re-added as optional for dev DB data compatibility
 
 ### Research Findings (v1.7)
 
@@ -189,6 +372,8 @@ Key staff review fixes embedded in roadmap:
 ### Roadmap Evolution
 
 - Phase 51 added: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
+- Phase 52 added: Expense System Simplification (refactor v1.7 code — 17 findings from 3-agent review)
+- Phase 54 added: Fix BigSeller platform-specific endpoint schema mismatches (6 bugs from HAR analysis)
 
 ### Open Blockers (carried forward)
 
@@ -205,9 +390,16 @@ Key staff review fixes embedded in roadmap:
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 | 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
 | Phase 49 P01 | 9 | 2 tasks | 4 files |
+| Phase 51 P01 | 2min | 1 tasks | 2 files |
+| Phase 52 P02 | 6min | 2 tasks | 7 files |
+| Phase 52 P03 | 6min | 2 tasks | 7 files |
+| Phase 53 P01 | 3min | 2 tasks | 3 files |
+| Phase 53 P02 | 3min | 2 tasks | 2 files |
+| Phase 53 P03 | 8min | 2 tasks | 2 files |
+| Phase 53 P04 | 22min | 1 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-14T15:24:51Z
-Stopped at: Completed 50-02-PLAN.md
-Resume notes: Phase 50 complete (2/2). Built full expense analytics frontend dashboard replacing Phase 48 stub. 5 card/chart components (OpExSummary PieChart, SpendByEmployee bars, MonthlyTrend LineChart, PendingMetrics, FraudFlags). Period picker with month/custom mode and WIB date alignment. 20 period math unit tests. Fixed Id<"users"> type cast bug in analyticsQueries.ts. 898 tests passing, build clean. Ready for Phase 51.
+Last session: 2026-03-15T05:28:30Z
+Stopped at: Completed 53-04-PLAN.md
+Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).

@@ -68,10 +68,12 @@ export const list = protectedQuery({
     }
 
     const userMap = new Map<string, string>();
-    for (const userId of userIds) {
-      const user = await ctx.db.get(userId as Id<"users">);
+    const users = await Promise.all(
+      [...userIds].map((id) => ctx.db.get(id as Id<"users">))
+    );
+    for (const user of users) {
       if (user) {
-        userMap.set(userId, user.name ?? "Unknown");
+        userMap.set(user._id as string, user.name ?? "Unknown");
       }
     }
 

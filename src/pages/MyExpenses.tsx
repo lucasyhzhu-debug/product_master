@@ -255,16 +255,12 @@ function ExpenseList({
   return (
     <div className="space-y-2 mt-4">
       {expenses.map((expense) => (
-        <div
+        <ExpenseCard
           key={expense._id}
-          className={
-            selectedExpenseId === expense._id
-              ? "ring-2 ring-primary rounded-lg"
-              : ""
-          }
-        >
-          <ExpenseCard expense={expense} onClick={onCardClick} />
-        </div>
+          expense={expense}
+          onClick={onCardClick}
+          className={selectedExpenseId === expense._id ? "ring-2 ring-primary" : undefined}
+        />
       ))}
     </div>
   );

@@ -98,7 +98,7 @@ import { computeDelta as computeDeltaObj } from "@/lib/financialHelpers";
 // ── Helpers ──
 
 /** Format delta percentage from a pre-computed delta object. */
-function fmtDelta(d: { percent: number | null } | null): string {
+function formatPrecomputedDelta(d: { percent: number | null } | null): string {
   if (!d || d.percent === null) return "";
   return d.percent.toFixed(1);
 }
@@ -143,7 +143,7 @@ export function generateIncomeStatementCSV(
     String(data.current.totalGross),
     "exact",
     String(data.previous.totalGross),
-    fmtDelta(data.deltas.grossRevenue),
+    formatPrecomputedDelta(data.deltas.grossRevenue),
   ]);
 
   // Per-channel gross revenue
@@ -286,7 +286,7 @@ export function generateIncomeStatementCSV(
     String(data.current.netRevenue),
     "exact",
     String(data.previous.netRevenue),
-    fmtDelta(data.deltas.netRevenue),
+    formatPrecomputedDelta(data.deltas.netRevenue),
   ]);
 
   // --- COGS SECTION ---
@@ -327,7 +327,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalCogs),
     "calculated",
     String(-data.previous.totalCogs),
-    fmtDelta(data.deltas.totalCogs),
+    formatPrecomputedDelta(data.deltas.totalCogs),
   ]);
 
   // --- GROSS PROFIT ---
@@ -340,7 +340,7 @@ export function generateIncomeStatementCSV(
     String(data.current.grossProfit),
     "calculated",
     String(data.previous.grossProfit),
-    fmtDelta(data.deltas.grossProfit),
+    formatPrecomputedDelta(data.deltas.grossProfit),
   ]);
 
   const marginStr =
@@ -407,7 +407,7 @@ export function generateIncomeStatementCSV(
     String(-data.current.totalOpEx),
     "exact",
     String(-data.previous.totalOpEx),
-    fmtDelta(data.deltas.totalOpEx),
+    formatPrecomputedDelta(data.deltas.totalOpEx),
   ]);
 
   // EBIT (Operating Profit)
@@ -419,7 +419,7 @@ export function generateIncomeStatementCSV(
     String(data.current.ebit),
     "exact",
     String(data.previous.ebit),
-    fmtDelta(data.deltas.ebit),
+    formatPrecomputedDelta(data.deltas.ebit),
   ]);
 
   // EBIT Margin %
@@ -487,7 +487,7 @@ export function generateIncomeStatementCSV(
     String(data.current.totalOther),
     "exact",
     String(data.previous.totalOther),
-    fmtDelta(data.deltas.totalOther),
+    formatPrecomputedDelta(data.deltas.totalOther),
   ]);
 
   // NET INCOME
@@ -499,7 +499,7 @@ export function generateIncomeStatementCSV(
     String(data.current.netIncome),
     "exact",
     String(data.previous.netIncome),
-    fmtDelta(data.deltas.netIncome),
+    formatPrecomputedDelta(data.deltas.netIncome),
   ]);
 
   // Net Margin %

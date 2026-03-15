@@ -209,6 +209,21 @@ export const getExpenseMetrics = protectedQuery({
  * Uses by_status_expenseDate index for efficient date-bounded status queries.
  * No period args -- fraud detection uses fixed time windows.
  */
+// ─── Helper: project Convex expense doc to fraud detection shape ───
+function toExpenseForFraud(e: { _id: unknown; submittedBy: unknown; accountId: unknown; amount: number; expenseDate: number; approvedBy?: unknown; approvedAt?: number; vendorName: string; status: string }): ExpenseForFraud {
+  return {
+    _id: e._id as string,
+    submittedBy: e.submittedBy as string,
+    accountId: e.accountId as string,
+    amount: e.amount,
+    expenseDate: e.expenseDate,
+    approvedBy: e.approvedBy as string | undefined,
+    approvedAt: e.approvedAt,
+    vendorName: e.vendorName,
+    status: e.status,
+  };
+}
+
 export const getFraudFlags = protectedQuery({
   roles: [...APPROVER_ROLES],
   args: {},
@@ -219,73 +234,8 @@ export const getFraudFlags = protectedQuery({
     const thirtyDaysAgo = now - 30 * MS_PER_DAY;
     const ninetyDaysAgo = now - 90 * MS_PER_DAY;
 
-    // ── Split detection (FRAUD-06): last 7 days ──
-    const [splitSubmitted, splitApproved, splitAwaiting] = await Promise.all([
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "submitted").gte("expenseDate", sevenDaysAgo)
-        ).collect(),
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "approved").gte("expenseDate", sevenDaysAgo)
-        ).collect(),
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "awaiting_payment").gte("expenseDate", sevenDaysAgo)
-        ).collect(),
-    ]);
-
-    const splitInput: ExpenseForFraud[] = [
-      ...splitSubmitted, ...splitApproved, ...splitAwaiting,
-    ].map((e) => ({
-      _id: e._id as string,
-      submittedBy: e.submittedBy as string,
-      accountId: e.accountId as string,
-      amount: e.amount,
-      expenseDate: e.expenseDate,
-      approvedBy: e.approvedBy as string | undefined,
-      approvedAt: e.approvedAt,
-      vendorName: e.vendorName,
-      status: e.status,
-    }));
-
-    const rawSplits = detectSplits(splitInput);
-
-    // ── Approver concentration (FRAUD-07): last 30 days ──
-    const [concApproved, concAwaiting, concReimbursed] = await Promise.all([
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "approved").gte("expenseDate", thirtyDaysAgo)
-        ).collect(),
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "awaiting_payment").gte("expenseDate", thirtyDaysAgo)
-        ).collect(),
-      ctx.db.query("expenses")
-        .withIndex("by_status_expenseDate", (q) =>
-          q.eq("status", "reimbursed").gte("expenseDate", thirtyDaysAgo)
-        ).collect(),
-    ]);
-
-    const concInput: ExpenseForFraud[] = [
-      ...concApproved, ...concAwaiting, ...concReimbursed,
-    ].map((e) => ({
-      _id: e._id as string,
-      submittedBy: e.submittedBy as string,
-      accountId: e.accountId as string,
-      amount: e.amount,
-      expenseDate: e.expenseDate,
-      approvedBy: e.approvedBy as string | undefined,
-      approvedAt: e.approvedAt,
-      vendorName: e.vendorName,
-      status: e.status,
-    }));
-
-    const rawConcentrations = detectApproverConcentration(concInput);
-
-    // ── Unfamiliar vendor (FRAUD-08): recent 30d vs historical 90d ──
-    // Fetch 90 day window for all non-voided/draft statuses
-    const [vendorSubmitted, vendorApproved, vendorAwaiting, vendorReimbursed] = await Promise.all([
+    // ── Single Promise.all: 4 queries (one per status) using 90-day superset ──
+    const [submitted90, approved90, awaiting90, reimbursed90] = await Promise.all([
       ctx.db.query("expenses")
         .withIndex("by_status_expenseDate", (q) =>
           q.eq("status", "submitted").gte("expenseDate", ninetyDaysAgo)
@@ -304,20 +254,36 @@ export const getFraudFlags = protectedQuery({
         ).collect(),
     ]);
 
-    const allVendorExpenses = [
-      ...vendorSubmitted, ...vendorApproved, ...vendorAwaiting, ...vendorReimbursed,
-    ];
+    // Combine all results and project to fraud shape once
+    const allFraud = [
+      ...submitted90, ...approved90, ...awaiting90, ...reimbursed90,
+    ].map(toExpenseForFraud);
 
-    // Split into recent (30d) and historical (90d) for comparison
-    const recentVendors = allVendorExpenses
+    // ── Split detection (FRAUD-06): 7d window, submitted/approved/awaiting_payment ──
+    const splitInput = allFraud.filter(
+      (e) =>
+        e.expenseDate >= sevenDaysAgo &&
+        ["submitted", "approved", "awaiting_payment"].includes(e.status)
+    );
+    const rawSplits = detectSplits(splitInput);
+
+    // ── Approver concentration (FRAUD-07): 30d window, approved/awaiting/reimbursed ──
+    const concInput = allFraud.filter(
+      (e) =>
+        e.expenseDate >= thirtyDaysAgo &&
+        ["approved", "awaiting_payment", "reimbursed"].includes(e.status)
+    );
+    const rawConcentrations = detectApproverConcentration(concInput);
+
+    // ── Unfamiliar vendor (FRAUD-08): recent 30d vs historical 30-90d ──
+    const recentVendors = allFraud
       .filter((e) => e.expenseDate >= thirtyDaysAgo)
       .map((e) => e.vendorName);
     const historicalVendors = new Set(
-      allVendorExpenses
+      allFraud
         .filter((e) => e.expenseDate < thirtyDaysAgo)
         .map((e) => e.vendorName.toLowerCase())
     );
-
     const unfamiliarVendors = detectUnfamiliarVendors(recentVendors, historicalVendors);
 
     // ── Join user names for split and concentration flags ──

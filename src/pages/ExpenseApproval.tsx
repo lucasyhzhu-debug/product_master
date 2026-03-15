@@ -5,6 +5,7 @@
  *
  * Real-time: Convex auto-updates the queue when expenses are acted on.
  */
+import { useMemo } from "react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -45,13 +46,16 @@ export function ExpenseApproval() {
   const pending = usePendingForApproval();
   const accounts = useAccounts(true);
 
-  // Build account lookup map
-  const accountMap = new Map<string, Account>();
-  if (accounts) {
-    for (const acc of accounts) {
-      accountMap.set(acc._id, acc);
+  // Build account lookup map (memoized to avoid re-creating on every render)
+  const accountMap = useMemo(() => {
+    const map = new Map<string, Account>();
+    if (accounts) {
+      for (const acc of accounts) {
+        map.set(acc._id, acc);
+      }
     }
-  }
+    return map;
+  }, [accounts]);
 
   return (
     <div className="space-y-4">
