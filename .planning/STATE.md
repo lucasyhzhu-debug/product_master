@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 53-01-PLAN.md
+last_updated: "2026-03-15T05:04:00.591Z"
+last_activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
+progress:
+  total_phases: 14
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 24
+  percent: 86
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 52-03-PLAN.md
 last_updated: "2026-03-15T04:43:32.627Z"
 last_activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
 progress:
-  total_phases: 13
+  [█████████░] 86%
   completed_phases: 12
   total_plans: 28
   completed_plans: 23
@@ -201,14 +217,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 52 complete (expense system simplification)
+**Current focus:** v1.7 Expense & Accounting -- Phase 53 in progress (expense E2E testing)
 
 ## Current Position
 
-Phase: 52 of 53 (Expense System Simplification)
-Plan: 3 of 3 (COMPLETE)
-Status: Phase 52 complete. All 3 plans delivered: backend consolidation, frontend refactoring, utility consolidation.
-Last activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
+Phase: 53 of 53 (Expense E2E Testing)
+Plan: 1 of 5 (COMPLETE)
+Status: Plan 01 complete. E2E infrastructure ready: 4 test users, loginAsRole/logout/fillExpenseForm helpers, CSV fixture.
+Last activity: 2026-03-15 -- Completed 53-01-PLAN.md (E2E test infrastructure)
 
 Progress: [█████████░] 96%
 
@@ -302,6 +318,8 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 52-03: MarginRow kept file-local in FinancialStatement.tsx (P&L-specific, not shared)
 - 52-03: Both formatPrecomputedDelta and formatDeltaPct preserved in csvExport.ts (different signatures)
 - 52-03: useMemo([], []) for init-time getCurrentWibMonth; goToCurrentMonth callback retains separate call
+- [Phase 53]: ensureTestUser checks existing users by name before creating to prevent duplicates (createUser has no unique-name constraint)
+- [Phase 53]: loginAsManager kept unchanged for backward compat; waitForAppReady exported publicly for loginAsRole and future specs
 
 ### Research Findings (v1.7)
 
@@ -315,6 +333,7 @@ Key staff review fixes embedded in roadmap:
 
 - Phase 51 added: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
 - Phase 52 added: Expense System Simplification (refactor v1.7 code — 17 findings from 3-agent review)
+- Phase 54 added: Fix BigSeller platform-specific endpoint schema mismatches (6 bugs from HAR analysis)
 
 ### Open Blockers (carried forward)
 
@@ -334,9 +353,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 51 P01 | 2min | 1 tasks | 2 files |
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
 | Phase 52 P03 | 6min | 2 tasks | 7 files |
+| Phase 53 P01 | 3min | 2 tasks | 3 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T04:16:00Z
-Stopped at: Completed 52-03-PLAN.md
+Last session: 2026-03-15T05:04:00.587Z
+Stopped at: Completed 53-01-PLAN.md
 Resume notes: Phase 52 complete. All 3 plans delivered: backend consolidation (P01), frontend refactoring (P02), utility consolidation (P03). 947 tests green, type-check and build clean. wibMidnightToUtc/getCurrentWibMonth canonical in dateUtils.ts. MarginRow extracted. fmtDelta renamed to formatPrecomputedDelta. useMemo optimizations in ExpenseAnalytics and ExpenseApproval. Ready for Phase 53 (E2E testing) or merge to main.
