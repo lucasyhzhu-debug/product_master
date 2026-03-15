@@ -183,16 +183,11 @@ export const confirmBatch = protectedMutation({
       throw new Error("Batch has no expenses");
     }
 
-    // Look up accounts by code (NEVER hardcode IDs)
-    const accrued = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", "2200"))
-      .unique();
-
-    const cash = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", "1100"))
-      .unique();
+    // Look up accounts by code in parallel (NEVER hardcode IDs)
+    const [accrued, cash] = await Promise.all([
+      ctx.db.query("accounts").withIndex("by_code", (q) => q.eq("code", "2200")).unique(),
+      ctx.db.query("accounts").withIndex("by_code", (q) => q.eq("code", "1100")).unique(),
+    ]);
 
     if (!accrued || !cash) {
       throw new Error(

@@ -37,19 +37,19 @@ export function useFinancials() {
   const [weekStart, setWeekStart] = useState(() => getCurrentWeekStart());
 
   // ── Month mode state ──
-  const [monthYear, setMonthYear] = useState(() => getCurrentWibMonth().year);
-  const [monthIndex, setMonthIndex] = useState(() => getCurrentWibMonth().month);
+  // Compute current WIB month once for all initializers (same pattern as ExpenseAnalytics F13)
+  const [initMonth] = useState(() => getCurrentWibMonth());
+  const [monthYear, setMonthYear] = useState(initMonth.year);
+  const [monthIndex, setMonthIndex] = useState(initMonth.month);
 
   // ── Custom mode state ──
   // Default custom range: current month
-  const [customStart, setCustomStart] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month, 1);
-  });
-  const [customEnd, setCustomEnd] = useState<number>(() => {
-    const { year, month } = getCurrentWibMonth();
-    return wibMidnightToUtc(year, month + 1, 1);
-  });
+  const [customStart, setCustomStart] = useState<number>(
+    () => wibMidnightToUtc(initMonth.year, initMonth.month, 1)
+  );
+  const [customEnd, setCustomEnd] = useState<number>(
+    () => wibMidnightToUtc(initMonth.year, initMonth.month + 1, 1)
+  );
 
   // ── Compute periodStart/periodEnd for non-week modes ──
   const monthPeriod = useMemo(() => {
