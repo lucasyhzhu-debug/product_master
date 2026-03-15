@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 53.1-01-PLAN.md
-last_updated: "2026-03-15T13:04:13.249Z"
+stopped_at: Completed 53.1-02-PLAN.md
+last_updated: "2026-03-15T13:53:01.420Z"
 last_activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
 progress:
   total_phases: 15
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 32
-  completed_plans: 29
+  completed_plans: 30
   percent: 91
 ---
 
@@ -264,16 +264,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-12)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 53 in progress (expense E2E testing)
+**Current focus:** v1.7 Expense & Accounting -- Phase 53.1 complete (GoBiz promo discount fix)
 
 ## Current Position
 
-Phase: 53 of 53 (Expense E2E Testing)
-Plan: 4 of 5 (COMPLETE)
-Status: Plan 04 complete. 4 approval edge case E2E tests green: self-approval block, DoA threshold, rejection flow, late fraud flag.
-Last activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
+Phase: 53.1 of 53.1 (Fix GoBiz Promo Discount Net Revenue Inflation)
+Plan: 2 of 2 (COMPLETE)
+Status: Plan 02 complete. Frontend promo discount display in ChannelSummary + human verified end-to-end.
+Last activity: 2026-03-15 -- Completed 53.1-02-PLAN.md (frontend promo discount display + human verify)
 
-Progress: [█████████░] 96%
+Progress: [█████████░] 94%
 
 ## Performance Metrics
 
@@ -417,9 +417,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 53 P03 | 8min | 2 tasks | 2 files |
 | Phase 53 P04 | 22min | 1 tasks | 2 files |
 | Phase 53.1 P01 | 6min | 2 tasks | 5 files |
+| Phase 53.1 P02 | 3min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T13:04:13.244Z
-Stopped at: Completed 53.1-01-PLAN.md
+Last session: 2026-03-15T13:53:01.416Z
+Stopped at: Completed 53.1-02-PLAN.md
 Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).
