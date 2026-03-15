@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 54-01-PLAN.md
-last_updated: "2026-03-15T15:06:44.288Z"
+stopped_at: Completed 54-02-PLAN.md
+last_updated: "2026-03-15T15:11:09.470Z"
 last_activity: "2026-03-15 - Completed quick task 32: Create Financials dropdown nav with Expenses, Exp Analytics, Reimburse, Bank Accounts, Payroll"
 progress:
   total_phases: 15
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 31
-  completed_plans: 31
+  completed_plans: 32
   percent: 100
 ---
 
@@ -414,6 +414,10 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 54]: Shopee fees negated via -Math.abs() (defensive for both positive and negative inputs)
 - [Phase 54]: TikTok otherFee maps only to extraCostsFee (HAR-confirmed, not 4-field sum)
 - [Phase 54]: otherfee/otherFee case mismatch resolved at top of normalizePlatformFees
+- [Phase 54]: orderAmount as v.optional(v.number()) for backwards compat with pre-Phase 54 data
+- [Phase 54]: calculatedProfit = order.profit (BigSeller authoritative, not hand-rolled formula)
+- [Phase 54]: revenueGross = orderAmount (total buyer paid incl. shipping), falls back to saleAmount for old data
+- [Phase 54]: Financial fields use ?? 0 (not || 0) to preserve real zero values in mapOrderToStorage/mapOrderToRevenue
 
 ### Research Findings (v1.7)
 
@@ -455,9 +459,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 53.1 P01 | 6min | 2 tasks | 5 files |
 | Phase 53.1 P02 | 3min | 2 tasks | 2 files |
 | Phase 54 P01 | 12min | 1 tasks | 5 files |
+| Phase 54 P02 | 15min | 2 tasks | 7 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T15:06:44.283Z
-Stopped at: Completed 54-01-PLAN.md
+Last session: 2026-03-15T15:11:09.465Z
+Stopped at: Completed 54-02-PLAN.md
 Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).

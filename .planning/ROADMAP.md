@@ -388,7 +388,7 @@ Plans:
   6. calculatedProfit uses order.profit (BigSeller authoritative), not double-subtracting formula
   7. otherfee/otherFee case mismatch handled
   8. All existing and new tests pass, npm run build succeeds
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 54-01-PLAN.md -- TDD: normalizePlatformFees tests + rewrite (Bugs 1, 3, 4, 5, case mismatch)
