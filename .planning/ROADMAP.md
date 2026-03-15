@@ -350,4 +350,11 @@ Plans:
   5. Fraud flag visibility verified in approval queue
   6. Bug report (53-BUG-REPORT.md) delivered with resolution status for each discovered issue
   7. All existing 690+ unit tests remain green
-**Plans:** TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] 53-01-PLAN.md -- E2E infrastructure (global-setup multi-user, loginAsRole helper, CSV fixture)
+- [ ] 53-02-PLAN.md -- Permission guard tests (9 routes x 4 roles) + analytics/admin page tests
+- [ ] 53-03-PLAN.md -- Expense lifecycle test (submit -> approve -> reimburse -> P&L) + CSV import test
+- [ ] 53-04-PLAN.md -- Approval edge cases (self-approval block, DoA, rejection, fraud flags)
+- [ ] 53-05-PLAN.md -- Full suite verification, unit test check, bug report, human approval
