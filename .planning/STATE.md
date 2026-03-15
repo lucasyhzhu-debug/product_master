@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 53-02-PLAN.md
+last_updated: "2026-03-15T05:11:13.900Z"
+last_activity: 2026-03-15 -- Completed 53-01-PLAN.md (E2E test infrastructure)
+progress:
+  total_phases: 14
+  completed_phases: 12
+  total_plans: 28
+  completed_plans: 25
+  percent: 89
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 53-01-PLAN.md
 last_updated: "2026-03-15T05:04:00.591Z"
 last_activity: 2026-03-15 -- Completed 52-03-PLAN.md (frontend utility consolidation)
 progress:
-  total_phases: 14
+  [█████████░] 89%
   completed_phases: 12
   total_plans: 28
   completed_plans: 24
@@ -222,11 +238,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 53 of 53 (Expense E2E Testing)
-Plan: 1 of 5 (COMPLETE)
-Status: Plan 01 complete. E2E infrastructure ready: 4 test users, loginAsRole/logout/fillExpenseForm helpers, CSV fixture.
-Last activity: 2026-03-15 -- Completed 53-01-PLAN.md (E2E test infrastructure)
+Plan: 2 of 5 (COMPLETE)
+Status: Plan 02 complete. Permission guard tests for 9 routes x 4 roles + analytics/admin page load tests + payroll CRUD.
+Last activity: 2026-03-15 -- Completed 53-02-PLAN.md (permission guards & admin pages E2E)
 
-Progress: [█████████░] 96%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -320,6 +336,8 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 52-03: useMemo([], []) for init-time getCurrentWibMonth; goToCurrentMonth callback retains separate call
 - [Phase 53]: ensureTestUser checks existing users by name before creating to prevent duplicates (createUser has no unique-name constraint)
 - [Phase 53]: loginAsManager kept unchanged for backward compat; waitForAppReady exported publicly for loginAsRole and future specs
+- [Phase 53]: Data-driven route arrays for permission guard test coverage across 4 roles x 9 routes
+- [Phase 53]: Manager blocked redirect target confirmed as / (root) matching getRoleLandingPage
 
 ### Research Findings (v1.7)
 
@@ -354,9 +372,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
 | Phase 52 P03 | 6min | 2 tasks | 7 files |
 | Phase 53 P01 | 3min | 2 tasks | 3 files |
+| Phase 53 P02 | 3min | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T05:04:00.587Z
-Stopped at: Completed 53-01-PLAN.md
+Last session: 2026-03-15T05:11:13.896Z
+Stopped at: Completed 53-02-PLAN.md
 Resume notes: Phase 52 complete. All 3 plans delivered: backend consolidation (P01), frontend refactoring (P02), utility consolidation (P03). 947 tests green, type-check and build clean. wibMidnightToUtc/getCurrentWibMonth canonical in dateUtils.ts. MarginRow extracted. fmtDelta renamed to formatPrecomputedDelta. useMemo optimizations in ExpenseAnalytics and ExpenseApproval. Ready for Phase 53 (E2E testing) or merge to main.
