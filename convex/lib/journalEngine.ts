@@ -52,6 +52,7 @@ export interface CreateJournalEntryParams {
   sourceId?: string; // String ID of source record (expense, batch, payroll entry)
   createdBy: Id<"users">;
   lines: JournalLine[]; // Min 2 lines, debits must equal credits
+  metadata?: { receiptUrl?: string }; // Optional metadata for receipt URLs (historical import)
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +245,7 @@ export async function createJournalEntryWithLines(
     isReversed: false,
     createdBy: params.createdBy,
     createdAt: Date.now(),
+    ...(params.metadata ? { metadata: params.metadata } : {}),
   });
 
   // Insert lines with denormalized entryDate from parent (JE-04)

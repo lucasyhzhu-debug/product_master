@@ -1744,6 +1744,9 @@ export default defineSchema({
     reversedByEntryId: v.optional(v.id("journalEntries")),
     createdBy: v.id("users"),
     createdAt: v.number(),
+    metadata: v.optional(v.object({
+      receiptUrl: v.optional(v.string()),
+    })),
   })
     .index("by_entry_number", ["entryNumber"])
     .index("by_source", ["sourceType", "sourceId"])
