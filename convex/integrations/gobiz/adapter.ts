@@ -387,6 +387,7 @@ async function saveJournalTransactions(
             revenueGross: txn.gross,
             revenueNet: txn.net,
             commission: txn.commission,
+            promoBurn: txn.promoDiscount,
             gobizOrderNumber: txn.orderNumber,
             externalTransactionId: dedupKey,
             transactionDate: txn.transactionTimeMs,
@@ -580,7 +581,8 @@ export const syncGoBizRevenue = action({
           `    ${dayMetrics.transactionCount} txns - ` +
           `Gross: Rp ${dayMetrics.gross.toLocaleString()}, ` +
           `Net: Rp ${dayMetrics.net.toLocaleString()}, ` +
-          `Commission: Rp ${dayMetrics.commission.toLocaleString()}`
+          `Commission: Rp ${dayMetrics.commission.toLocaleString()}` +
+          (dayMetrics.promoDiscount > 0 ? `, Promo: Rp ${dayMetrics.promoDiscount.toLocaleString()}` : "")
         );
 
         // Save each transaction as a revenue record
