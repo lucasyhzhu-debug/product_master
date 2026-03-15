@@ -370,7 +370,7 @@ Plans:
   4. Non-promo orders (Crystal Timur A, G347061572) show unchanged net values
   5. BigSeller channels unaffected by aggregation refactor
   6. All existing tests pass, npm run build succeeds
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 53.1-01-PLAN.md -- Backend: TDD aggregation fix (use revenueNet) + GoBiz promo extraction (voucher_amount) + adapter wiring
 - [ ] 53.1-02-PLAN.md -- Frontend: PeriodData type extension + ChannelSummary promo discount display + human verify

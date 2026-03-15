@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 53.1-01-PLAN.md
+last_updated: "2026-03-15T13:04:13.249Z"
+last_activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
+progress:
+  total_phases: 15
+  completed_phases: 13
+  total_plans: 32
+  completed_plans: 29
+  percent: 91
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 53-04-PLAN.md
 last_updated: "2026-03-15T07:57:42.424Z"
 last_activity: 2026-03-15 -- Completed 53-04-PLAN.md (approval edge case E2E tests)
 progress:
-  total_phases: 14
+  [█████████░] 91%
   completed_phases: 13
   total_plans: 28
   completed_plans: 28
@@ -360,6 +376,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 53-04: Receipt upload uses timestamp-suffixed PNG buffer for unique SHA-256 hash per run (avoids FRAUD-02 duplicate)
 - 53-04: navigateWithRetry retries up to 2 times on Convex error boundary for intermittent connection issues
 - 53-04: dispatchChannelConfig.commissionRate re-added as optional for dev DB data compatibility
+- [Phase 53.1]: revenueNet fallback uses revenueGross (not 0) for backward compat with old records
+- [Phase 53.1]: promoDiscount added to JournalMetrics interface for type-safe adapter propagation
+- [Phase 53.1]: channels array extended with commission+promoBurn (additive, non-breaking) for frontend cost breakdown
 
 ### Research Findings (v1.7)
 
@@ -397,9 +416,10 @@ Key staff review fixes embedded in roadmap:
 | Phase 53 P02 | 3min | 2 tasks | 2 files |
 | Phase 53 P03 | 8min | 2 tasks | 2 files |
 | Phase 53 P04 | 22min | 1 tasks | 2 files |
+| Phase 53.1 P01 | 6min | 2 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-03-15T05:28:30Z
-Stopped at: Completed 53-04-PLAN.md
+Last session: 2026-03-15T13:04:13.244Z
+Stopped at: Completed 53.1-01-PLAN.md
 Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).
