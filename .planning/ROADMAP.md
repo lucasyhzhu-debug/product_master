@@ -136,6 +136,9 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration (completed 2026-03-14)
 - [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
 - [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
+- [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
+- [ ] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes)
+- [ ] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop
 
 ## Phase Details
 
@@ -334,3 +337,17 @@ Plans:
 - [ ] 52-01-PLAN.md -- Backend consolidation: parallel fraud queries (F1), Promise.all for sequential reads (F2, F5), shared validation (F3), threshold unification (F4)
 - [ ] 52-02-PLAN.md -- Frontend component extraction: VoidReasonDialog (F6), ActionDialog (F7), ExpenseCard className (F9), fix any types (F12)
 - [ ] 52-03-PLAN.md -- Utility cleanup: wibMidnightToUtc consolidation (F10), delta formatter merge (F11), MarginRow extraction (F8), WIB init dedup (F13), useMemo (F14)
+
+### Phase 53: Expense E2E Testing
+**Goal**: All 9 expense pages have Playwright E2E coverage with multi-role auth testing, full lifecycle flows (submit → approve → reimburse → P&L), CSV import validation, and a bug-fix loop that fixes or documents discovered issues
+**Depends on:** Phase 52
+**Requirements**: None (testing phase)
+**Success Criteria** (what must be TRUE):
+  1. Multi-role test users (E2E-Admin, E2E-Manager, E2E-Kitchen, E2E-OrderStaff) created idempotently in global-setup.ts
+  2. Full expense lifecycle test passes: create expense as OrderStaff → approve as Admin → reimburse as Admin → verify amount on P&L
+  3. All 9 expense routes tested for page load, basic CRUD, and permission guards
+  4. CSV import test with mixed valid/invalid rows verifies validation errors and successful import through to P&L
+  5. Fraud flag visibility verified in approval queue
+  6. Bug report (53-BUG-REPORT.md) delivered with resolution status for each discovered issue
+  7. All existing 690+ unit tests remain green
+**Plans:** TBD
