@@ -359,10 +359,26 @@ Plans:
 - [ ] 53-04-PLAN.md -- Approval edge cases (self-approval block, DoA, rejection, fraud flags)
 - [ ] 53-05-PLAN.md -- Full suite verification, unit test check, bug report, human approval
 
+### Phase 53.1: Fix GoBiz Promo Discount Net Revenue Inflation
+**Goal**: Dashboard uses stored `revenueNet` instead of recalculating net, and sync extracts `variables.voucher_amount` for promo discount visibility in Sales Analytics
+**Depends on:** Phase 53
+**Requirements**: None (bug fix, HAR-verified)
+**Success Criteria** (what must be TRUE):
+  1. GOFOOD channel Net in Sales Analytics = sum of `revenueNet` from externalRevenue (not recalculated from gross - commission)
+  2. Promo discount amount extracted during GoBiz sync and stored in `externalRevenue.promoBurn`
+  3. Sales Analytics shows promo discount as separate deduction line for GoFood channels
+  4. Non-promo orders (Crystal Timur A, G347061572) show unchanged net values
+  5. BigSeller channels unaffected by aggregation refactor
+  6. All existing tests pass, npm run build succeeds
+**Plans:** 2/2 plans complete
+Plans:
+- [ ] 53.1-01-PLAN.md -- Backend: TDD aggregation fix (use revenueNet) + GoBiz promo extraction (voucher_amount) + adapter wiring
+- [ ] 53.1-02-PLAN.md -- Frontend: PeriodData type extension + ChannelSummary promo discount display + human verify
+
 ### Phase 54: Fix BigSeller platform-specific endpoint schema mismatches
 **Goal**: All 6 HAR-confirmed bugs in BigSeller integration are fixed: normalizePlatformFees handles platform-specific schemas correctly, platform is injected from config (not API), and calculatedProfit uses BigSeller's authoritative profit field
 **Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, BUG-05, BUG-06, CASE-01
-**Depends on:** Phase 53
+**Depends on:** Phase 53.1
 **Success Criteria** (what must be TRUE):
   1. Shopee orders have saleAmount populated from originalPrice (not 0)
   2. TikTok orders have saleAmount from revenueAmount, platformIncome from settlementAmount, commissionFee from 6-field sum

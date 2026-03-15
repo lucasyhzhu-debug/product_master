@@ -16,6 +16,24 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### GoFood Promo Discount Fix (Phase 53.1) — 2026-03-15
+
+**For the team:** GoFood orders with promo/campaign discounts (e.g., "Diskon 50%") were showing inflated net revenue in Sales Analytics — sometimes 29-66% higher than the real amount we received. This is now fixed. The channel breakdown cards also show a new "Promo Discount" line so you can see exactly how much GoFood subsidized on each channel.
+
+#### Fixed (Backend)
+- `convex/externalData/helpers/dashboardHelpers.ts` — Net revenue aggregation now uses the stored `revenueNet` from the platform API instead of recalculating it (which double-counted promo discounts)
+- `convex/integrations/gobiz/helpers.ts` — GoBiz journal sync now extracts `voucher_amount` as `promoDiscount` from the API response
+- `convex/integrations/gobiz/adapter.ts` — Wires extracted `promoDiscount` through to `promoBurn` field on revenue records
+
+#### Added (Frontend)
+- `src/components/salesAnalytics/ChannelSummary.tsx` — Promo discount line (orange, negative amount) shown between Gross and Net for channels with promo data
+- `src/components/salesAnalytics/overviewUtils.ts` — `PeriodData.channels` type extended with required `commission` and `promoBurn` fields
+- `src/hooks/convex/useExternalData.ts` — `ChannelBreakdown` type aligned with backend shape
+
+#### Tests
+- 8 unit tests for `aggregatePeriodRevenue` including `revenueNet: 0` edge case (prevents `??` → `||` regression)
+- 3 unit tests for GoBiz promo discount extraction from journal metrics
+
 ### Expense E2E Testing Suite (Phase 53) — 2026-03-15
 
 **For the team:** We now have automated end-to-end tests that verify the entire expense system works correctly — from submitting an expense, through approval and reimbursement, to showing up on the P&L. These tests also check that each user role (kitchen, order staff, manager, admin) can only access the pages they're supposed to. If anything breaks in the future, these tests will catch it automatically.
