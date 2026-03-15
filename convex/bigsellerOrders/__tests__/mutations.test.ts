@@ -36,7 +36,8 @@ const mockOrder = (overrides: Partial<BigSellerOrderRow> = {}): BigSellerOrderRo
 
 describe("mapOrderToStorage (pre-upsert transform)", () => {
   it("maps all required fields for bigsellerOrders schema", () => {
-    const result = mapOrderToStorage(mockOrder(), "sync-id" as any);
+    const order = mockOrder();
+    const result = mapOrderToStorage(order, "sync-id" as any, order.platform);
     expect(result.platformOrderId).toBe("ORDER-001");
     expect(result.shopId).toBe(5090946);
     expect(result.shopName).toBe("Frollie - S");
@@ -63,7 +64,7 @@ describe("mapOrderToStorage (pre-upsert transform)", () => {
         { sku: "FRO-ORI", skuNum: 2, returnNum: 1, isAddition: 1 },
       ],
     });
-    const result = mapOrderToStorage(order, "sync-id" as any);
+    const result = mapOrderToStorage(order, "sync-id" as any, order.platform);
     expect(result.skuVoList).toHaveLength(2);
     expect(result.skuVoList[0]).toEqual({
       sku: "FRO-DubChe-Reg1",
@@ -80,8 +81,10 @@ describe("mapOrderToStorage (pre-upsert transform)", () => {
   });
 
   it("produces unique platformOrderId for dedup key", () => {
-    const order1 = mapOrderToStorage(mockOrder({ platformOrderId: "A" }), "s" as any);
-    const order2 = mapOrderToStorage(mockOrder({ platformOrderId: "B" }), "s" as any);
+    const o1 = mockOrder({ platformOrderId: "A" });
+    const o2 = mockOrder({ platformOrderId: "B" });
+    const order1 = mapOrderToStorage(o1, "s" as any, o1.platform);
+    const order2 = mapOrderToStorage(o2, "s" as any, o2.platform);
     expect(order1.platformOrderId).not.toBe(order2.platformOrderId);
   });
 
@@ -93,7 +96,7 @@ describe("mapOrderToStorage (pre-upsert transform)", () => {
       commissionFee: -3000,
       otherFee: -500,
     });
-    const result = mapOrderToStorage(tiktokOrder, "sync-id" as any);
+    const result = mapOrderToStorage(tiktokOrder, "sync-id" as any, tiktokOrder.platform);
     expect(result.platform).toBe("tiktok");
     expect(result.commissionFee).toBe(-3000);
     expect(result.otherFee).toBe(-500);

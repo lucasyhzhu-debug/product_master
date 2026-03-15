@@ -160,9 +160,23 @@ export function BigSellerOrdersTable() {
               <TableHead className="text-xs">Platform</TableHead>
               <TableHead className="text-xs">Shop</TableHead>
               <TableHead className="text-xs">SKUs</TableHead>
-              <TableHead className="text-xs text-right">Revenue</TableHead>
+              <TableHead className="text-xs text-right">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">Gross Revenue</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-[200px]">
+                        Total amount the customer paid (product + shipping)
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
               <TableHead className="text-xs text-right">Commission</TableHead>
-              <TableHead className="text-xs text-right">Shipping</TableHead>
+              <TableHead className="text-xs text-right">Seller Shipping</TableHead>
+              <TableHead className="text-xs text-right">Buyer Shipping</TableHead>
               <TableHead className="text-xs text-right">Other</TableHead>
               <TableHead className="text-xs text-right">Profit</TableHead>
             </TableRow>
@@ -170,7 +184,7 @@ export function BigSellerOrdersTable() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     Loading orders...
                   </div>
@@ -178,7 +192,7 @@ export function BigSellerOrdersTable() {
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8">
+                <TableCell colSpan={10} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
                     <Package className="h-8 w-8 opacity-40" />
                     <p>No synced orders yet. Run a sync to pull BigSeller data.</p>
@@ -235,13 +249,16 @@ export function BigSellerOrdersTable() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono">
-                      {formatCurrency(order.saleAmount)}
+                      {formatCurrency(order.orderAmount ?? order.saleAmount)}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono text-[var(--color-status-error,#ef4444)]">
                       {formatCurrency(order.commissionFee)}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono text-[var(--color-status-error,#ef4444)]">
                       {formatCurrency(order.sellerShippingFee)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-mono">
+                      {formatCurrency(order.buyerShippingFee)}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono text-[var(--color-status-error,#ef4444)]">
                       {formatCurrency(order.otherFee)}

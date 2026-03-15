@@ -16,6 +16,25 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Fix BigSeller Platform-Specific Schema Mismatches (Phase 54) — 2026-03-15
+
+**For the team:** BigSeller order sync now handles the different data formats from Shopee, TikTok, Tokopedia, and Lazada correctly. Previously, fee breakdowns and profit calculations were wrong because each platform returns fields in different structures. Profit numbers in Sales Analytics now match what BigSeller shows. The orders table also shows a new "Gross Revenue" column (total buyer paid including shipping) and "Buyer Shipping" column.
+
+#### Fixed (Backend)
+- `convex/integrations/bigseller/helpers.ts` — Rewrote `normalizePlatformFees` with explicit platform parameter; handles Shopee (5 fields), TikTok (5 fields), Tokopedia (2 fields), Lazada (1 field) fee mappings with correct sign conventions
+- `convex/integrations/bigseller/sync.ts` — Platform injected from config map (`BIGSELLER_SHOP_PLATFORM_MAP`), not from API response (which is null on platform-specific endpoints)
+- `convex/bigsellerOrders/queries.ts` — Profit uses BigSeller's authoritative `order.profit` instead of recalculating (which double-subtracted fees)
+- `convex/bigsellerOrders/mutations.ts` — Added `orderAmount` to upsert validator
+
+#### Added
+- `convex/schema.ts` — `orderAmount` field on `bigsellerOrders` table
+- `convex/integrations/bigseller/__tests__/normalization.test.ts` — 22 HAR-confirmed unit tests for fee normalization
+- `src/components/salesAnalytics/BigSellerOrdersTable.tsx` — Gross Revenue and Buyer Shipping columns
+- `docs/BIGSELLER_PROFIT_API.md` — Platform-specific field availability matrix and sign conventions
+
+#### Tests
+- 981 tests passing, zero regressions
+
 ### Financials Navigation Dropdown (Quick Task 32) — 2026-03-15
 
 **For the team:** The top navigation bar now has a single "Financials" dropdown that groups all money-related pages together: Income Statement, Expenses, Expense Analytics, Reimburse, Bank Accounts, and Payroll. The Home page also has a new Financials card for quick access. Previously these were scattered across different menus.

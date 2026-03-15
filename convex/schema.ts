@@ -1473,6 +1473,7 @@ export default defineSchema({
     orderState: v.string(),
     orderTimeMs: v.number(),        // Unix ms for range queries
     saleAmount: v.number(),
+    orderAmount: v.optional(v.number()), // Total buyer paid (product + shipping). Optional for backwards compat with pre-Phase 54 data.
     platformIncome: v.number(),
     costFee: v.number(),
     profit: v.number(),

@@ -644,8 +644,9 @@ export const fetchOrders = internalAction({
         if (rows.length === 0) break;
 
         // Normalize platform-specific fee fields into common fields
+        // Pass loop platform variable -- order.platform is null on platform-specific endpoints (BUG-02)
         for (const row of rows) {
-          normalizePlatformFees(row);
+          normalizePlatformFees(row, platform as "shopee" | "tiktok" | "common");
         }
 
         // Update stage to storing
@@ -658,8 +659,8 @@ export const fetchOrders = internalAction({
           endDate: args.endDate,
         });
 
-        // Batch upsert orders
-        const storageRows = rows.map((row) => mapOrderToStorage(row, args.syncLogId));
+        // Batch upsert orders -- pass platform variable (BUG-02 fix)
+        const storageRows = rows.map((row) => mapOrderToStorage(row, args.syncLogId, platform));
         const upsertResult: { inserted: number; updated: number } = await ctx.runMutation(
           internal.bigsellerOrders.mutations.upsertOrders,
           { orders: storageRows }
@@ -667,8 +668,8 @@ export const fetchOrders = internalAction({
         totalInserted += upsertResult.inserted;
         totalUpdated += upsertResult.updated;
 
-        // Bridge to externalRevenue
-        const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId));
+        // Bridge to externalRevenue -- pass platform variable (BUG-02 fix)
+        const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId, platform));
         const revenueIds: string[] = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
           records: revenueRecords.map((r) => ({
             source: r.source as "shopee" | "tiktok",
@@ -713,12 +714,12 @@ export const fetchOrders = internalAction({
         }
 
         // Collect SKU codes and platforms for product mapping
+        // Use loop platform variable, not row.platform (null on platform-specific endpoints)
         for (const row of rows) {
-          totalRevenue += row.platformIncome || 0;
-          const rowPlatform = row.platform?.toLowerCase() || "shopee";
-          allPlatforms.add(rowPlatform);
+          totalRevenue += row.platformIncome ?? 0;
+          allPlatforms.add(platform);
           for (const sku of row.skuVoList || []) {
-            if (sku.sku) allSkuCodes.add(`${rowPlatform}::${sku.sku}`);
+            if (sku.sku) allSkuCodes.add(`${platform}::${sku.sku}`);
           }
         }
 

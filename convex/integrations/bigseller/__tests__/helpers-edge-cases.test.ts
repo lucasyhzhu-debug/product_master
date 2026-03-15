@@ -156,37 +156,37 @@ describe("mapOrderToRevenue — business rules", () => {
   };
 
   it("commission is always positive (absolute value of negative fee)", () => {
-    const result = mapOrderToRevenue(baseOrder, "sync" as any);
+    const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.commission).toBe(15000);
     expect(result.commission).toBeGreaterThanOrEqual(0);
   });
 
   it("handles already-positive commission (defensive)", () => {
     const order = { ...baseOrder, commissionFee: 500 };
-    const result = mapOrderToRevenue(order, "sync" as any);
+    const result = mapOrderToRevenue(order, "sync" as any, order.platform);
     expect(result.commission).toBe(500); // Math.abs(500) = 500
   });
 
   it("handles zero commission", () => {
     const order = { ...baseOrder, commissionFee: 0 };
-    const result = mapOrderToRevenue(order, "sync" as any);
+    const result = mapOrderToRevenue(order, "sync" as any, order.platform);
     expect(result.commission).toBe(0);
   });
 
   it("uses lowercase platform (shopee, not SHOPEE)", () => {
-    const result = mapOrderToRevenue(baseOrder, "sync" as any);
+    const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.source).toBe("shopee");
     expect(result.source).toBe(result.source.toLowerCase());
   });
 
   it("tiktok platform maps correctly", () => {
     const tiktokOrder = { ...baseOrder, platform: "tiktok" };
-    const result = mapOrderToRevenue(tiktokOrder, "sync" as any);
+    const result = mapOrderToRevenue(tiktokOrder, "sync" as any, tiktokOrder.platform);
     expect(result.source).toBe("tiktok");
   });
 
   it("dedup key format is bigseller:{platformOrderId}", () => {
-    const result = mapOrderToRevenue(baseOrder, "sync" as any);
+    const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.externalTransactionId).toMatch(/^bigseller:.+/);
     expect(result.externalTransactionId).toBe("bigseller:ORDER-789");
   });
@@ -195,32 +195,38 @@ describe("mapOrderToRevenue — business rules", () => {
     // This is a critical business rule - source must be the actual platform
     for (const platform of ["shopee", "tiktok", "tokopedia"]) {
       const order = { ...baseOrder, platform };
-      const result = mapOrderToRevenue(order, "sync" as any);
+      const result = mapOrderToRevenue(order, "sync" as any, platform);
       expect(result.source).not.toBe("bigseller");
     }
   });
 
-  it("handles missing platform (defaults to shopee)", () => {
-    const order = { ...baseOrder, platform: "" };
-    const result = mapOrderToRevenue(order, "sync" as any);
+  it("uses explicit platform parameter (not order.platform)", () => {
+    // With BUG-02 fix, platform comes from BIGSELLER_SHOP_PLATFORM_MAP, not order.platform
+    const order = { ...baseOrder, platform: "" }; // API returns null/empty
+    const result = mapOrderToRevenue(order, "sync" as any, "shopee");
     expect(result.source).toBe("shopee");
   });
 
   it("periodStart and periodEnd both use orderTime", () => {
-    const result = mapOrderToRevenue(baseOrder, "sync" as any);
+    const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.periodStart).toBe(1736899200000);
     expect(result.periodEnd).toBe(1736899200000);
     expect(result.transactionDate).toBe(1736899200000);
   });
 
-  it("profit calculation: net = platformIncome, gross = saleAmount", () => {
-    // Verify the mapping matches the locked decision:
-    // revenueGross: order.saleAmount, revenueNet: order.platformIncome
-    const result = mapOrderToRevenue(baseOrder, "sync" as any);
-    expect(result.revenueGross).toBe(100000); // saleAmount
+  it("profit calculation: net = platformIncome, gross = orderAmount ?? saleAmount (fallback)", () => {
+    // revenueGross falls back to saleAmount when no orderAmount
+    const result = mapOrderToRevenue(baseOrder, "sync" as any, baseOrder.platform);
+    expect(result.revenueGross).toBe(100000); // saleAmount (no orderAmount on this order)
     expect(result.revenueNet).toBe(85000); // platformIncome
-    // Verify the fee formula: platformIncome = saleAmount - |commissionFee| - |shipping| - |other|
-    // In this case: 100000 - 15000 = 85000 (BigSeller may compute differently)
+  });
+
+  it("revenueGross uses orderAmount when present (primary path)", () => {
+    // When orderAmount is set, it takes precedence over saleAmount
+    const orderWithAmount = { ...baseOrder, orderAmount: 115000 };
+    const result = mapOrderToRevenue(orderWithAmount, "sync" as any, orderWithAmount.platform);
+    expect(result.revenueGross).toBe(115000); // orderAmount, NOT saleAmount (100000)
+    expect(result.revenueNet).toBe(85000); // platformIncome unchanged
   });
 });
 
@@ -252,7 +258,7 @@ describe("mapOrderToStorage — data preservation", () => {
   };
 
   it("preserves ALL raw negative fee values (no abs)", () => {
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.commissionFee).toBe(-4500);
     expect(result.sellerShippingFee).toBe(-2500);
     expect(result.otherFee).toBe(-1000);
@@ -260,17 +266,17 @@ describe("mapOrderToStorage — data preservation", () => {
   });
 
   it("preserves buyer shipping fee (positive value)", () => {
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.buyerShippingFee).toBe(6000);
   });
 
   it("preserves profit margin as string percentage", () => {
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.profitMargin).toBe("84.21%");
   });
 
   it("preserves SKU details with return counts", () => {
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.skuVoList).toHaveLength(2);
     // First SKU: no returns
     expect(result.skuVoList[0].returnNum).toBe(0);
@@ -281,32 +287,28 @@ describe("mapOrderToStorage — data preservation", () => {
 
   it("handles empty skuVoList", () => {
     const order = { ...baseOrder, skuVoList: [] };
-    const result = mapOrderToStorage(order, "sync" as any);
+    const result = mapOrderToStorage(order, "sync" as any, order.platform);
     expect(result.skuVoList).toEqual([]);
   });
 
   it("has createdAt timestamp", () => {
     const before = Date.now();
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     const after = Date.now();
     expect(result.createdAt).toBeGreaterThanOrEqual(before);
     expect(result.createdAt).toBeLessThanOrEqual(after);
   });
 
-  it("fee sign convention: profit = platformIncome + commissionFee + shipping + other", () => {
-    // Verify that stored data supports the profit formula
-    const result = mapOrderToStorage(baseOrder, "sync" as any);
-    const computedProfit =
-      result.platformIncome +
-      result.commissionFee +
-      result.sellerShippingFee +
-      result.otherFee;
-    // platformIncome already has fees deducted, so this won't equal profit directly
-    // But we verify the raw data is preserved for frontend calculation
+  it("raw data preserved for BigSeller authoritative profit (order.profit)", () => {
+    // profit = order.profit (BigSeller authoritative, not hand-rolled formula).
+    // The old formula (platformIncome + fees) double-subtracted fees already in platformIncome.
+    // We verify raw data is preserved correctly in storage.
+    const result = mapOrderToStorage(baseOrder, "sync" as any, baseOrder.platform);
     expect(result.platformIncome).toBe(38000);
     expect(result.commissionFee).toBe(-4500);
     expect(result.sellerShippingFee).toBe(-2500);
     expect(result.otherFee).toBe(-1000);
+    expect(result.profit).toBe(32000);
   });
 });
 
@@ -351,8 +353,8 @@ describe("cross-function consistency", () => {
   };
 
   it("revenue and storage use same platformOrderId", () => {
-    const revenue = mapOrderToRevenue(order, "sync" as any);
-    const storage = mapOrderToStorage(order, "sync" as any);
+    const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
+    const storage = mapOrderToStorage(order, "sync" as any, order.platform);
     // Revenue uses it in the dedup key
     expect(revenue.externalTransactionId).toContain(order.platformOrderId);
     // Storage uses it directly
@@ -360,20 +362,21 @@ describe("cross-function consistency", () => {
   });
 
   it("revenue and storage use same platform value", () => {
-    const revenue = mapOrderToRevenue(order, "sync" as any);
-    const storage = mapOrderToStorage(order, "sync" as any);
+    const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
+    const storage = mapOrderToStorage(order, "sync" as any, order.platform);
     expect(revenue.source).toBe(storage.platform);
   });
 
-  it("revenue uses saleAmount as gross, storage preserves it raw", () => {
-    const revenue = mapOrderToRevenue(order, "sync" as any);
-    const storage = mapOrderToStorage(order, "sync" as any);
-    expect(revenue.revenueGross).toBe(storage.saleAmount);
+  it("revenue uses orderAmount as gross (falls back to saleAmount when absent)", () => {
+    const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
+    const storage = mapOrderToStorage(order, "sync" as any, order.platform);
+    // When orderAmount is undefined, revenueGross falls back to saleAmount
+    expect(revenue.revenueGross).toBe(storage.orderAmount || storage.saleAmount);
   });
 
   it("revenue commission is abs of storage commissionFee", () => {
-    const revenue = mapOrderToRevenue(order, "sync" as any);
-    const storage = mapOrderToStorage(order, "sync" as any);
+    const revenue = mapOrderToRevenue(order, "sync" as any, order.platform);
+    const storage = mapOrderToStorage(order, "sync" as any, order.platform);
     expect(revenue.commission).toBe(Math.abs(storage.commissionFee));
   });
 });

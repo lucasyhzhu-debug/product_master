@@ -46,15 +46,13 @@ export const listOrders = query({
     const start = (page - 1) * pageSize;
     const paged = orders.slice(start, start + pageSize);
 
-    // Add calculated profit field
+    // Use BigSeller's authoritative profit field directly.
+    // The old formula (platformIncome + commissionFee + sellerShippingFee + otherFee)
+    // double-subtracted fees that were already accounted for in platformIncome.
+    // BigSeller's profit = platformIncome - costFee (BUG-06 fix).
     const results = paged.map((order) => ({
       ...order,
-      // Fees are negative, so addition is correct: platformIncome + commissionFee + sellerShippingFee + otherFee
-      calculatedProfit:
-        order.platformIncome +
-        order.commissionFee +
-        order.sellerShippingFee +
-        order.otherFee,
+      calculatedProfit: order.profit,
     }));
 
     return {
