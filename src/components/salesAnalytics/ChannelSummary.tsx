@@ -26,7 +26,7 @@ export function ChannelSummary({
     label: string;
     colorClass: string;
     dotClass: string;
-    current: { gross: number; net: number; transactions: number };
+    current: { gross: number; net: number; transactions: number; commission?: number; promoBurn?: number };
     previous: { gross: number; net: number; transactions: number };
   }[] = [
     {
@@ -38,6 +38,8 @@ export function ChannelSummary({
         gross: currentPeriod.totalGross,
         net: currentPeriod.totalNet,
         transactions: currentPeriod.totalTransactions,
+        commission: currentPeriod.totalCommission,
+        promoBurn: currentPeriod.totalPromoBurn,
       },
       previous: {
         gross: previousPeriod.totalGross,
@@ -52,7 +54,7 @@ export function ChannelSummary({
         label: ch.displayName,
         colorClass: palette.borderTop,
         dotClass: palette.dot,
-        current: { gross: ch.gross, net: ch.net, transactions: ch.transactions },
+        current: { gross: ch.gross, net: ch.net, transactions: ch.transactions, commission: ch.commission, promoBurn: ch.promoBurn },
         previous: findPrevChannel(ch.source),
       };
     }),
@@ -110,6 +112,14 @@ export function ChannelSummary({
 
                 {/* Connector line */}
                 <div className="border-l border-dashed border-muted-foreground/30 ml-1 pl-2.5 space-y-2">
+                  {/* Promo Discount (only for channels with promo data) */}
+                  {(seg.current.promoBurn ?? 0) > 0 && (
+                    <div className="text-xs text-orange-600 dark:text-orange-400">
+                      <span className="tabular-nums">-{formatCurrency(seg.current.promoBurn ?? 0)}</span>
+                      <span className="text-[10px] text-muted-foreground ml-1">Promo Discount</span>
+                    </div>
+                  )}
+
                   {/* Net Sales */}
                   <div>
                     <div className="flex items-baseline justify-between">

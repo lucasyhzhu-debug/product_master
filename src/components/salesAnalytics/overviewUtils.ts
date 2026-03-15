@@ -29,7 +29,15 @@ export type PeriodData = {
   totalDeliveryFees: number;
   platformGross: number;
   internalGross: number;
-  channels: Array<{ source: string; displayName: string; gross: number; net: number; transactions: number }>;
+  channels: Array<{
+    source: string;
+    displayName: string;
+    gross: number;
+    net: number;
+    transactions: number;
+    commission?: number;
+    promoBurn?: number;
+  }>;
   periodLabel?: string;
   comparisonLabel?: string;
   periodStart?: number;
