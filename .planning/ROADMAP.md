@@ -138,7 +138,7 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 - [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
 - [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
 - [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
-- [ ] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop
+- [x] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop (completed 2026-03-15)
 
 ## Phase Details
 
@@ -350,7 +350,7 @@ Plans:
   5. Fraud flag visibility verified in approval queue
   6. Bug report (53-BUG-REPORT.md) delivered with resolution status for each discovered issue
   7. All existing 690+ unit tests remain green
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 53-01-PLAN.md -- E2E infrastructure (global-setup multi-user, loginAsRole helper, CSV fixture)
