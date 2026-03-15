@@ -130,9 +130,9 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 51 of 52 (Bulk Upload of Previously Reimbursed Expenses)
-Plan: 2 of 4
-Status: Plan 51-02 complete. Backend mutation and client CSV validation delivered (TDD). Continuing with Plan 03.
-Last activity: 2026-03-15 -- Completed 51-02-PLAN.md (bulkCreateJournalEntries mutation + parseAndValidateCsv helper, 33 tests)
+Plan: 3 of 4
+Status: Plan 51-03 complete. Frontend wizard page, hook, route, and navigation delivered. Continuing with Plan 04.
+Last activity: 2026-03-15 -- Completed 51-03-PLAN.md (HistoricalImportPage wizard + route + navigation)
 
 Progress: [██████████] 95%
 
@@ -212,6 +212,9 @@ All v1.0-v1.6 decisions archived in PROJECT.md Key Decisions table.
 - 51-02: Separate dateToWibEpoch with strict YYYY-MM-DD regex from permissive wibDateStrToUtcMs for CSV import security
 - 51-02: Parallel ImportRow types in backend/frontend with cross-reference comments (no shared imports across Convex boundary)
 - 51-02: Duplicate CSV rows produce warnings not errors -- users may intentionally have same-date same-amount expenses
+- 51-03: Import button above EntityManager in AccountsManager (no action slot prop available)
+- 51-03: groupByPeriod adds WIB offset (7h) to stored epoch for correct YYYY-MM period bucketing display
+- 51-03: Convex codegen required after Plan 02 to register journalImport module in generated API types
 
 ### Research Findings (v1.7)
 
@@ -245,6 +248,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-15T02:42:40Z
-Stopped at: Completed 51-02-PLAN.md
-Resume notes: Plan 51-02 complete. TDD-built bulkCreateJournalEntries mutation (fail-fast batch validation, max 50 rows, admin-only) and parseAndValidateCsv helper (Papa Parse, strict date regex, duplicate warnings). 33 new tests (11 backend + 22 frontend), 931 total suite green. Ready for Plan 03 (frontend wizard page).
+Last session: 2026-03-15T02:53:10Z
+Stopped at: Completed 51-03-PLAN.md
+Resume notes: Plan 51-03 complete. HistoricalImportPage wizard (5+1 states: upload, validating, review, importing, complete, error) with template/CoA downloads, row-level validation review, summary tables, sequential batched import with progress bar, and retry-from-failure. Route at /import with admin guard. Navigation from AccountsManager. Build clean, 931 tests green. Ready for Plan 04 (verification + documentation).

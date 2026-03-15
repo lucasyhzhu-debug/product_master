@@ -300,12 +300,12 @@ Plans:
   5. All JEs from one import share the same sourceId (importBatchId) for traceability
   6. Receipt URLs from CSV are preserved in journalEntries.metadata.receiptUrl
   7. Import handles 350+ rows via batched mutation calls (50/batch) with progress indication
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
-- [ ] 51-01-PLAN.md -- Schema metadata field + journal engine extension
-- [ ] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
-- [ ] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
+- [x] 51-01-PLAN.md -- Schema metadata field + journal engine extension
+- [x] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
+- [x] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
 - [ ] 51-04-PLAN.md -- Verification + documentation + smoke test
 
 ## Progress
