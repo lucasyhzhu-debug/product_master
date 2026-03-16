@@ -33,6 +33,7 @@ import {
   DollarSign,
   BarChart3,
   HandCoins,
+  CircleHelp,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -71,7 +72,7 @@ type NavItem = {
   path: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  permission: PermissionKey;
+  permission?: PermissionKey;
   preload?: () => void;
 };
 
@@ -91,6 +92,7 @@ const mainNavItems: NavItem[] = [
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
   { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
+  { path: '/help', label: 'Help', icon: CircleHelp },
 ];
 
 // Financials dropdown - grouped financial pages
@@ -134,23 +136,23 @@ export function Header() {
   const isVisible = useScrollDirection();
 
   const visibleMainItems = user
-    ? mainNavItems.filter(item => hasPermission(item.permission))
+    ? mainNavItems.filter(item => !item.permission || hasPermission(item.permission))
     : [];
 
   const visibleDepotItems = user
-    ? depotItems.filter(item => hasPermission(item.permission))
+    ? depotItems.filter(item => !item.permission || hasPermission(item.permission))
     : [];
 
   const visibleFinancialItems = user
-    ? financialItems.filter(item => hasPermission(item.permission))
+    ? financialItems.filter(item => !item.permission || hasPermission(item.permission))
     : [];
 
   const visibleConfigItems = user
-    ? configItems.filter(item => hasPermission(item.permission))
+    ? configItems.filter(item => !item.permission || hasPermission(item.permission))
     : [];
 
   const visibleAdminItems = user
-    ? adminItems.filter(item => hasPermission(item.permission))
+    ? adminItems.filter(item => !item.permission || hasPermission(item.permission))
     : [];
 
   const isActive = (path: string) =>

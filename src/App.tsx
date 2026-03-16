@@ -12,6 +12,10 @@ import { ChunkErrorBoundary } from '@/components/shared/ChunkErrorBoundary';
 import Login from "@/pages/Login";
 import { HubPage } from '@/pages/HubPage';
 
+// EAGER: Help Center — purely static JSX with no Convex queries
+import { HelpCenter } from '@/pages/HelpCenter';
+import { GuideRouter } from '@/pages/guides/GuideRouter';
+
 import {
   ProtectedRoute,
   PublicOnlyRoute,
@@ -164,6 +168,10 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Help Center -- All authenticated roles (auth-only, no permission restriction) */}
+                  <Route path="help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+                  <Route path="help/:guideId" element={<ProtectedRoute><GuideRouter /></ProtectedRoute>} />
 
                   {/* Packaging - All roles can access (PRD-5) */}
                   <Route
