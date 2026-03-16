@@ -20,7 +20,8 @@ Does NOT include: bank statement import/matching, multi-bank account tracking, r
 - No data migration needed — zero existing expense records in production
 - `employee_paid` = employee fronted the money, needs reimbursement (old personal_cash + personal_transfer behavior)
 - `company_paid` = company bank already debited (direct debit, linked Shopee/BCA, company card swipe), employee is just recording it
-- Frontend dropdown shows exactly 2 options with clear labels
+- Phase 59.1 will add a 3rd literal `payment_request` for prospective company payments — design the schema union to be extensible
+- Frontend dropdown shows exactly 2 options with clear labels (3rd added in Phase 59.1)
 
 ### Schema Changes
 - `paymentMethod` union: `v.literal("employee_paid")` | `v.literal("company_paid")`
@@ -119,6 +120,7 @@ Does NOT include: bank statement import/matching, multi-bank account tracking, r
 <deferred>
 ## Deferred Ideas
 
+- **Company payment request flow** (prospective: "please pay this vendor from company bank") — Phase 59.1. Employee requests payment → admin approves → someone executes bank transfer → mark as paid with transaction reference. Different from direct debit (retrospective) because money hasn't left yet at submission time.
 - Bank statement import / CSV upload for automated matching against transactionReference — future phase
 - Multi-bank account tracking (separate bank accounts instead of single 1100 Cash) — future phase
 - Reconciliation automation (match bank statement lines to recorded expenses) — future phase
