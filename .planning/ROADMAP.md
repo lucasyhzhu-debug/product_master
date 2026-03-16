@@ -420,8 +420,8 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 55-01-PLAN.md -- Guide registry (helpGuides.ts) + 5 simpler help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion) + barrel export
-- [ ] 55-02-PLAN.md -- WorkflowDiagram (SVG flowchart with animations) + GuideLayout (sidebar TOC with Intersection Observer)
+- [ ] 55-01-PLAN.md -- Guide registry + searchGuides tests + 5 help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion) + barrel export
+- [ ] 55-02-PLAN.md -- WorkflowDiagram (CSS variable SVG fills + animation) + GuideLayout (TOC + useActiveSection hook)
 - [ ] 55-03-PLAN.md -- HelpCenter landing page + GuideRouter + navigation integration (App.tsx, Header.tsx, HubPage.tsx)
 
 ### Phase 56: Expense Training Guide
