@@ -480,15 +480,25 @@ Plans:
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
 
-### Phase 59: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
-
-**Goal:** [To be planned]
-**Requirements**: TBD
+### Phase 59: Direct Debit Expense Flow
+**Goal**: Simplify payment method model from 3 literals to 2 (employee_paid, company_paid), add auto-journal-on-submission for company-paid expenses with recorded status, and update approval queue with Acknowledge/Flag actions for admin review
+**Requirements**: DEXP-01, DEXP-02, DEXP-03, DEXP-04, DEXP-05, DEXP-06, DEXP-07, DEXP-08, DEXP-09, DEXP-10, DEXP-11, DEXP-12, DEXP-13, DEXP-14
 **Depends on:** None (independent of invoice phases 57-58)
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. Schema has 2 payment method literals (employee_paid, company_paid) and recorded status
+  2. company_paid expenses auto-create JE (DR expense GL, CR 1100 Cash) on submission and transition to recorded
+  3. employee_paid expenses follow existing flow unchanged (submitted -> approved -> awaiting_payment)
+  4. Admin can acknowledge recorded expenses (transitions to approved, no new JE)
+  5. Admin can flag recorded expenses for review (sets flag fields, status stays recorded)
+  6. Receipt is always required for company_paid regardless of amount
+  7. Approval queue shows both submitted and recorded expenses with appropriate action buttons
+  8. transactionReference field stored for future bank reconciliation
+  9. npm run build succeeds
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 59 to break down)
+- [ ] 59-01-PLAN.md -- Backend: schema update (2 payment literals, recorded status, 5 new fields), helper updates, mutation updates + new mutations (acknowledge, flag), query updates
+- [ ] 59-02-PLAN.md -- Frontend: 2-option form, transactionReference field, StatusBadge recorded, ApprovalActions Acknowledge/Flag, visual verification
 
 ### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
