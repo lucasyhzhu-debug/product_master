@@ -8,23 +8,23 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.7 Expense & Accounting
+## Current Milestone: v1.8 Support & Quality of Life
 
-**Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend P&L to Net Income with OpEx breakdown.
+**Goal:** Add in-app Help Center with visual training guides for co-founders and staff, and invoice generation for B2B orders with WYSIWYG form and print view.
 
 **Target features:**
-- Chart of Accounts backbone (PSAK-aligned, 36 accounts)
-- Expense submission with receipt upload and fraud controls
-- Approval workflow with Delegation of Authority (DoA)
-- Reimbursement batching with bank transfer tracking
-- Payroll entry with auto-generated journal entries
-- P&L extension: OpEx breakdown, EBIT, Net Income
-- Expense Analytics dashboard
+- Help Center landing page with guide registry and search
+- Expense, Reimbursement & Payroll training guide (8 sections with flowcharts, step cards, FAQ)
+- Reusable help components (WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, GuideLayout)
+- Business Settings page (seller identity, logo, default bank account)
+- Invoice generation from orders (WYSIWYG form, auto-fill, draft auto-save)
+- Invoice finalization with sequential numbering (INV-YYMM-NNN)
+- Invoice print view with @media print stylesheet
 
 ## Current State
 
-**Latest milestone:** v1.6 Tech Debt & Resilience (shipped 2026-03-09)
-**Active milestone:** v1.7 Expense & Accounting
+**Latest milestone:** v1.7 Expense & Accounting (shipped 2026-03-16)
+**Active milestone:** v1.8 Support & Quality of Life
 
 ## Context
 
@@ -112,7 +112,7 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ### Active
 
-(Defining requirements for v1.7 Expense & Accounting)
+(Defining requirements for v1.8 Support & Quality of Life)
 
 ### Out of Scope
 
@@ -146,24 +146,26 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ## Context
 
-Shipped v1.6 with ~131,764 lines TypeScript across 65 Convex tables.
+Shipped v1.7 with ~135K lines TypeScript across 65 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
-Deployed via Vercel with GitHub Actions CI. 7 milestones shipped (v1.0–v1.6), 40 phases, 177 plans.
+Deployed via Vercel with GitHub Actions CI. 8 milestones shipped (v1.0–v1.7), 54 phases, 209 plans.
 
-**Current state after v1.6:**
-- Financial statements: weekly income statement with per-channel P&L, BOM COGS, confidence indicators, CSV export
-- Multi-platform integration: GoBiz (GoFood x 3 outlets), GrabFood Partner API (store control + webhooks + menu simulator), BigSeller (Shopee + Tokopedia sync), Consignment settlements
-- Sales Analytics: 8-channel unified view with dynamic discovery, lifetime totals, multi-select filter
-- Kitchen: targets from dispatch plan, EoS recording to Finished Goods, waste logging, shift history
-- Codebase: schema audited (150 indexes optimized), backend helpers extracted (-31.3% LOC), frontend files split (-74% LOC), shared WIB timezone + confidence modules
-- Schema: 65 tables, 690 unit tests passing, 3 E2E Playwright tests
-- UI: 27 pages, route-level code splitting with React.lazy
+**Current state after v1.7:**
+- Expense system: full lifecycle (submit → approve → reimburse), DoA approval workflow, receipt upload with fraud controls
+- Reimbursement batching: per-employee grouping, bank transfer tracking, batch confirm with JE
+- Payroll: staff/contractor entries with auto-generated journal entries
+- P&L: Revenue → Gross Profit → Operating Expenses → EBIT → Net Income
+- Expense Analytics: spend breakdowns, monthly trends, fraud flags (split detection, approver concentration, unfamiliar vendor)
+- Journal engine: double-entry with void/reversal, bulk CSV import for historical data
+- Financial statements: weekly + monthly income statement with per-channel P&L, BOM COGS, confidence indicators
+- Multi-platform integration: GoBiz, GrabFood Partner API, BigSeller (Shopee + Tokopedia), Consignment
+- Sales Analytics: 8-channel unified view, responsive hero cards grid, channel breakdown
+- E2E tests: 6 Playwright test suites (order lifecycle, kitchen, sales analytics, expense access, expense lifecycle, CSV import)
 
 **Known technical debt:**
 - Generic query factory not applied to all query files (only simple entities)
 - Integration adapter files large but stable (gobiz 1,207 LOC, k3mart 1,106 LOC, grabfood 829 LOC)
 - Order form components large (OrderFormPOS 1,068 LOC, OrderCreate 1,017 LOC)
-- E2E tests conditionally skip assertions when dev database lacks data
 - GrabFood orders:read OAuth2 scope not yet granted (infrastructure works, 401 handled gracefully)
 - BigSeller COGS = 0 for all Frollie orders (profit analytics meaningless until configured in BigSeller)
 
@@ -232,4 +234,4 @@ Deployed via Vercel with GitHub Actions CI. 7 milestones shipped (v1.0–v1.6), 
 | Shared dateUtils.ts for WIB timezone (v1.6) | Frontend WIB helpers consolidated into single module instead of per-component duplicates | ✓ Good — 6 exports, single source of truth |
 
 ---
-*Last updated: 2026-03-12 — v1.7 Expense & Accounting milestone started*
+*Last updated: 2026-03-16 — v1.8 Support & Quality of Life milestone started*

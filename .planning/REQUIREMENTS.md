@@ -1,182 +1,161 @@
-# Requirements: v1.7 Expense & Accounting
+# Requirements: v1.8 Support & Quality of Life
 
-## Chart of Accounts
-- [x] **COA-01**: Admin can view the full Chart of Accounts with account code, name, type, and active status
-- [x] **COA-02**: Admin can add custom GL accounts with unique codes following PSAK numbering conventions
-- [x] **COA-03**: Admin can deactivate GL accounts (hidden from new expense dropdowns, existing references preserved)
-- [x] **COA-04**: System seeds 36 default accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) on first run via `accounts:seedDefaults`
-- [x] **COA-05**: System accounts (isSystem: true) cannot be deleted by users
+**Defined:** 2026-03-16
+**Core Value:** Production reliability — single source of truth for recipes, orders, kitchen production, and inventory
 
-## Expense Submission
-- [x] **EXP-01**: Any authenticated user can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
-- [x] **EXP-02**: User can submit a draft expense for approval, triggering routing to eligible approvers
-- [x] **EXP-03**: Receipt image upload is required for expenses > Rp 50,000 and optional for ≤ Rp 50,000
-- [x] **EXP-04**: Receipt images are stored via Convex file storage with client-side SHA-256 hash for deduplication
-- [x] **EXP-05**: User can view their own expense history with status filters and timeline tracker
-- [x] **EXP-06**: Expense numbers follow EXP-MMDD-NNN format with atomic daily counter
+## v1.8 Requirements
 
-## Expense Approval
-- [x] **EXP-07**: Eligible approvers see pending expenses in their approval queue (broadcast routing — first to act wins)
-- [x] **EXP-08**: Expenses ≤ Rp 500,000 can be approved by Manager or Admin (except submitter)
-- [x] **EXP-09**: Expenses > Rp 500,000 can only be approved by Admin (except submitter)
-- [x] **EXP-10**: Self-approval is blocked at the backend level regardless of role
-- [x] **EXP-11**: Approver comment is mandatory for expenses ≥ Rp 500,000
-- [x] **EXP-12**: Approving an expense auto-generates a journal entry (DR OpEx account, CR 2200 or CR 1100 for company_card)
-- [x] **EXP-13**: Rejected expenses include a reason and can be revised and resubmitted (linked via previousExpenseId)
-- [x] **EXP-14**: Approved expenses with personal payment method auto-transition to AwaitingPayment status
-- [x] **EXP-15**: Company card expenses go directly to Approved as terminal status (no reimbursement needed)
+### Help Center
 
-## Expense Void
-- [x] **EXP-16**: Admin can void any non-terminal expense with a reason, generating a reversing journal entry
-- [x] **EXP-17**: Reimbursed expenses cannot be voided directly — the reimbursement batch must be voided instead
-- [x] **EXP-18**: Every status transition is recorded in an immutable audit trail (expenseStatusHistory)
+- [x] **HELP-01**: Any authenticated user can access the Help Center landing page at `/help`
+- [x] **HELP-02**: Landing page displays guide cards in a responsive grid (1/2/3 cols) with search functionality
+- [x] **HELP-03**: Search filters guides and FAQ questions (case-insensitive `String.includes` across titles, section headings, FAQ text)
+- [x] **HELP-04**: Guide registry (`helpGuides.ts`) allows adding new guides with one component + one registry entry
+- [x] **HELP-05**: "Coming Soon" guide cards are visually dimmed (opacity 0.5) and non-interactive
+- [x] **HELP-06**: GuideRouter renders guide by `guideId` param or shows "Guide not found" state for invalid IDs
+- [x] **HELP-07**: Help Center linked from Header nav (desktop + mobile) and HubPage card
+- [x] **HELP-08**: Staggered fade-up animation on page load (Framer Motion)
 
-## Fraud Controls — Must-Have
-- [x] **FRAUD-01**: System warns on duplicate detection (same employee + amount + date within 7 days)
-- [x] **FRAUD-02**: System hard-blocks submission of receipts with duplicate SHA-256 hash (shows reference to existing expense)
-- [x] **FRAUD-03**: Late submission flag shown to approver when expense date > 14 days before submission
-- [x] **FRAUD-04**: Rejection history with full chain shown to approver (count badge + reasons)
-- [x] **FRAUD-05**: Approved expenses are immutable — no field edits allowed, only void + resubmit
+### Help Components
 
-## Fraud Controls — Should-Have
-- [x] **FRAUD-06**: Split detection alert when same employee + same GL + multiple expenses within 48hrs sum > Rp 500K
-- [x] **FRAUD-07**: Approver concentration alert when same approver approved >80% of one employee's expenses in rolling 30 days
-- [x] **FRAUD-08**: Unfamiliar vendor flag when vendor name not seen in system in last 90 days
+- [x] **HCMP-01**: WorkflowDiagram renders fixed-layout SVG flowcharts with color-coded status nodes and directional arrows
+- [x] **HCMP-02**: StepCard renders numbered steps with icon, title, description, optional tip/warning, connected by vertical dotted line
+- [x] **HCMP-03**: CalloutBox renders styled callouts: tip (green), warning (amber), important (orange) with appropriate icons
+- [x] **HCMP-04**: FaqAccordion renders grouped collapsible Q&A sections using shadcn Accordion
+- [x] **HCMP-05**: RoleTag shows small badge for step roles: "All Staff" (gray), "Manager+" (blue), "Admin Only" (orange)
+- [x] **HCMP-06**: GuideSection provides anchor ID with scroll-margin-top for deep linking from TOC and search
+- [x] **HCMP-07**: GuideLayout provides sticky sidebar TOC on desktop, horizontal scroll tabs on mobile, active section tracking via Intersection Observer
 
-## Reimbursement
-- [x] **RMB-01**: Admin can view approved expenses grouped by employee with bank details and running totals
-- [x] **RMB-02**: Admin can create reimbursement batches (one per employee) with auto-generated RMB-MMDD-NNN number
-- [x] **RMB-03**: Admin can confirm a batch by entering BCA reference number, transfer date, and source bank account
-- [x] **RMB-04**: Confirming a batch auto-generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
-- [x] **RMB-05**: Admin can void a confirmed batch with reason, generating a reversing journal entry and returning expenses to AwaitingPayment
-- [x] **RMB-06**: Batch history is searchable by RMB code or BCA reference
+### Expense Guide
 
-## Bank Accounts
-- [x] **RMB-07**: Admin can manage company bank accounts (name, bank, account number, active status)
-- [x] **RMB-08**: Users can optionally store their bank account details on their profile for reimbursement
+- [ ] **EGUIDE-01**: Full expense/reimbursement/payroll guide at `/help/expenses` with 8 sections
+- [ ] **EGUIDE-02**: Overview section with lifecycle flowchart (Draft → Submitted → Approved → Reimbursed, with Rejected/Voided branches) and role summary table
+- [ ] **EGUIDE-03**: Submitting section with 4 step cards, 3 callout boxes, and mini FAQ (GL categories, receipts, duplicates)
+- [ ] **EGUIDE-04**: Approving section with DoA workflow diagram, 3 step cards, 3 callout boxes
+- [ ] **EGUIDE-05**: Reimbursement section with batch workflow diagram, 6 step cards, 2 callout boxes
+- [ ] **EGUIDE-06**: Payroll section with 4 step cards, 3 callout boxes, and 4 FAQ items
+- [ ] **EGUIDE-07**: Expense Analytics section with dashboard card descriptions, fraud flags explanation
+- [ ] **EGUIDE-08**: P&L connection section with journal entry diagram showing DR/CR flow to financial statement
+- [ ] **EGUIDE-09**: Full FAQ accordion covering General (4), Submission (3), Approval (3), Reimbursement (3), Payroll (3) questions
 
-## Payroll
-- [x] **PAY-01**: Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
-- [x] **PAY-02**: Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
-- [x] **PAY-03**: Admin can void a payroll entry, generating a reversing journal entry
-- [x] **PAY-04**: Payroll entries are viewable by period and employee type
+### Invoice — Business Settings
 
-## Journal Entries
-- [x] **JE-01**: All journal entries enforce double-entry integrity (total debits = total credits)
-- [x] **JE-02**: Journal entries are immutable — no update mutation exists; corrections require reversing entries
-- [x] **JE-03**: Reversal entries post to the same accounting period as the original entry (not Date.now())
-- [x] **JE-04**: Journal entry lines denormalize entryDate from parent for Convex index-based period queries
-- [x] **JE-05**: Journal entries use JE-MMDD-NNN format with atomic daily counter
-- [x] **JE-06**: All JE creation goes through a single `createJournalEntryWithLines` helper that enforces balance validation and denormalization
+- [ ] **BSET-01**: Admin can access Business Settings page at `/settings/business`
+- [ ] **BSET-02**: Admin can set business name, address, phone, email, NPWP
+- [ ] **BSET-03**: Admin can upload company logo (Convex file storage)
+- [ ] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
+- [ ] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
 
-## P&L Extension
-- [x] **PNL-01**: Income statement extends below Gross Profit to show Operating Expenses broken down by GL account (6xxx)
-- [x] **PNL-02**: Income statement shows EBIT (Operating Profit) = Gross Profit - Total OpEx, with EBIT margin %
-- [x] **PNL-03**: Income statement shows Other Income/Expense (7xxx) and Net Income with net margin %
-- [x] **PNL-04**: OpEx data sourced from journalEntryLines aggregated by accountId + entryDate using single indexed query (not N+1)
-- [x] **PNL-05**: Period filtering uses entryDate (business date), not _creationTime (insertion time)
+### Invoice — Generation
 
-## Expense Analytics
-- [x] **XANL-01**: Manager/Admin can view total OpEx for selected period
-- [x] **XANL-02**: Manager/Admin can view spend breakdown by GL category (bar/pie chart)
-- [x] **XANL-03**: Manager/Admin can view spend breakdown by employee
-- [x] **XANL-04**: Manager/Admin can view monthly spend trend (6-month line chart)
-- [x] **XANL-05**: Manager/Admin can view pending reimbursement total and average approval time
-- [x] **XANL-06**: Manager/Admin can view active fraud flags (split detection, approver concentration, unfamiliar vendor)
+- [ ] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
+- [ ] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
+- [ ] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
+- [ ] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
+- [ ] **INV-05**: Draft persists across page navigation and browser refresh
+- [ ] **INV-06**: Preview mode shows clean read-only render without finalizing
+- [ ] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
+- [ ] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
+- [ ] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
+- [ ] **INV-10**: Multiple finalized invoices allowed per order (revision pattern)
+- [ ] **INV-11**: Order Detail sidebar shows invoice card with 3 states (none/draft/final)
 
-## Access Control
-- [x] **PERM-01**: All roles can submit expenses and view their own expense history
-- [x] **PERM-02**: Manager and Admin can approve expenses (within DoA thresholds)
-- [x] **PERM-03**: Admin-only access to Reimbursement Manager, bank accounts, payroll entries, and All Expenses audit view
-- [x] **PERM-04**: Manager and Admin can access Expense Analytics dashboard
+### Invoice — Print
 
-## Future Requirements (Deferred)
-- Monthly budget caps per GL category — Requires budget input system
-- Per-role spend limits — Requires policy configuration UI
-- OCR receipt extraction — Auto-extract amount from receipt photo
-- Balance Sheet view — Query journalEntryLines by account type 1xxx-3xxx
-- Cash Flow Statement — Query entries touching account 1100
-- Bank statement import/matching — CSV parser + fuzzy matching
-- Multi-currency support — IDR-only for v1.7
-- Recurring expenses — Auto-creation for subscriptions
-- Accounting period close/lock — Prevent retroactive entries
-- Audit report PDF/Excel export — Formatted journal entry reports
-- E2E Playwright tests — Happy path, rejection flow, DoA enforcement
+- [ ] **IPRNT-01**: Print view renders finalized invoice cleanly via `window.print()`
+- [ ] **IPRNT-02**: `@media print` stylesheet hides navigation, sidebar, action buttons, colored backgrounds
+- [ ] **IPRNT-03**: Indonesian date format (e.g., "Senin, 16 Maret 2026")
+- [ ] **IPRNT-04**: Standard invoice layout: header, bill-to, order details, items table, totals, payment info, signature area, notes, footer
+
+### Invoice — Data Model
+
+- [ ] **IDAT-01**: `businessSettings` singleton table with seller identity fields
+- [ ] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
+- [ ] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
+- [ ] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
+
+## Future Requirements (v1.9+)
+
+- **HELP-F01**: Kitchen & Production guide
+- **HELP-F02**: Orders & Shipping guide
+- **HELP-F03**: Inventory & Restock guide
+- **HELP-F04**: Recipes & Products guide
+- **HELP-F05**: Sales & Analytics guide
+- **HELP-F06**: Contextual `?` buttons per page deep-linking to guide sections
+- **INV-F01**: Invoice listing/search page
+- **INV-F02**: Email/WhatsApp invoice sharing
+- **INV-F03**: Bulk invoice generation
+- **INV-F04**: PDF generation library (replace browser print)
 
 ## Out of Scope
+
 | Feature | Reason |
 |---------|--------|
-| Full GL trial balance | SME tool, not enterprise ERP — P&L view is sufficient |
-| Multi-level approval chains | 5-10 user team — single-level DoA with broadcast routing is correct |
-| Indonesian PPh 21 tax withholding | Accountant handles externally; payroll records total amounts only |
-| Accounting period close/lock | Acceptable for v1.7; add if retroactive entries become a problem |
-| Receipt OCR extraction | Nice-to-have; manual entry is sufficient at current expense volume |
+| Faktur pajak / e-Faktur integration | PKP only — Frollie is non-PKP UMKM |
+| PDF generation library | Browser print-to-PDF sufficient for v1 |
+| Invoice listing/search page | v1 accesses invoices from their order |
+| Guide versioning / CMS | Hardcoded in React components, versioned by git |
+| Print/PDF export of help guides | Web-only; browser print if needed |
+| Contextual ? help buttons | Good future enhancement, not v1 |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COA-01 | Phase 43 | Complete |
-| COA-02 | Phase 43 | Complete |
-| COA-03 | Phase 43 | Complete |
-| COA-04 | Phase 41 | Complete |
-| COA-05 | Phase 41 | Complete |
-| EXP-01 | Phase 44 | Complete |
-| EXP-02 | Phase 44 | Complete |
-| EXP-03 | Phase 44 | Complete |
-| EXP-04 | Phase 44 | Complete |
-| EXP-05 | Phase 44 | Complete |
-| EXP-06 | Phase 41 | Complete |
-| EXP-07 | Phase 45 | Complete |
-| EXP-08 | Phase 45 | Complete |
-| EXP-09 | Phase 45 | Complete |
-| EXP-10 | Phase 45 | Complete |
-| EXP-11 | Phase 45 | Complete |
-| EXP-12 | Phase 45 | Complete |
-| EXP-13 | Phase 45 | Complete |
-| EXP-14 | Phase 45 | Complete |
-| EXP-15 | Phase 45 | Complete |
-| EXP-16 | Phase 45 | Complete |
-| EXP-17 | Phase 45 | Complete |
-| EXP-18 | Phase 44 | Complete |
-| FRAUD-01 | Phase 45 | Complete |
-| FRAUD-02 | Phase 45 | Complete |
-| FRAUD-03 | Phase 45 | Complete |
-| FRAUD-04 | Phase 45 | Complete |
-| FRAUD-05 | Phase 45 | Complete |
-| FRAUD-06 | Phase 50 | Complete |
-| FRAUD-07 | Phase 50 | Complete |
-| FRAUD-08 | Phase 50 | Complete |
-| RMB-01 | Phase 46 | Complete |
-| RMB-02 | Phase 46 | Complete |
-| RMB-03 | Phase 46 | Complete |
-| RMB-04 | Phase 46 | Complete |
-| RMB-05 | Phase 46 | Complete |
-| RMB-06 | Phase 46 | Complete |
-| RMB-07 | Phase 46 | Complete |
-| RMB-08 | Phase 46 | Complete |
-| PAY-01 | Phase 47 | Complete |
-| PAY-02 | Phase 47 | Complete |
-| PAY-03 | Phase 47 | Complete |
-| PAY-04 | Phase 47 | Complete |
-| JE-01 | Phase 42 | Complete |
-| JE-02 | Phase 42 | Complete |
-| JE-03 | Phase 42 | Complete |
-| JE-04 | Phase 41 | Complete |
-| JE-05 | Phase 41 | Complete |
-| JE-06 | Phase 42 | Complete |
-| PNL-01 | Phase 49 | Complete |
-| PNL-02 | Phase 49 | Complete |
-| PNL-03 | Phase 49 | Complete |
-| PNL-04 | Phase 49 | Complete |
-| PNL-05 | Phase 49 | Complete |
-| XANL-01 | Phase 50 | Complete |
-| XANL-02 | Phase 50 | Complete |
-| XANL-03 | Phase 50 | Complete |
-| XANL-04 | Phase 50 | Complete |
-| XANL-05 | Phase 50 | Complete |
-| XANL-06 | Phase 50 | Complete |
-| PERM-01 | Phase 48 | Complete |
-| PERM-02 | Phase 48 | Complete |
-| PERM-03 | Phase 48 | Complete |
-| PERM-04 | Phase 48 | Complete |
+| HELP-01 | Phase 55 | Complete |
+| HELP-02 | Phase 55 | Complete |
+| HELP-03 | Phase 55 | Complete |
+| HELP-04 | Phase 55 | Complete |
+| HELP-05 | Phase 55 | Complete |
+| HELP-06 | Phase 55 | Complete |
+| HELP-07 | Phase 55 | Complete |
+| HELP-08 | Phase 55 | Complete |
+| HCMP-01 | Phase 55 | Complete |
+| HCMP-02 | Phase 55 | Complete |
+| HCMP-03 | Phase 55 | Complete |
+| HCMP-04 | Phase 55 | Complete |
+| HCMP-05 | Phase 55 | Complete |
+| HCMP-06 | Phase 55 | Complete |
+| HCMP-07 | Phase 55 | Complete |
+| EGUIDE-01 | Phase 56 | Pending |
+| EGUIDE-02 | Phase 56 | Pending |
+| EGUIDE-03 | Phase 56 | Pending |
+| EGUIDE-04 | Phase 56 | Pending |
+| EGUIDE-05 | Phase 56 | Pending |
+| EGUIDE-06 | Phase 56 | Pending |
+| EGUIDE-07 | Phase 56 | Pending |
+| EGUIDE-08 | Phase 56 | Pending |
+| EGUIDE-09 | Phase 56 | Pending |
+| BSET-01 | Phase 57 | Pending |
+| BSET-02 | Phase 57 | Pending |
+| BSET-03 | Phase 57 | Pending |
+| BSET-04 | Phase 57 | Pending |
+| BSET-05 | Phase 57 | Pending |
+| IDAT-01 | Phase 57 | Pending |
+| IDAT-02 | Phase 57 | Pending |
+| IDAT-03 | Phase 57 | Pending |
+| IDAT-04 | Phase 57 | Pending |
+| INV-01 | Phase 58 | Pending |
+| INV-02 | Phase 58 | Pending |
+| INV-03 | Phase 58 | Pending |
+| INV-04 | Phase 58 | Pending |
+| INV-05 | Phase 58 | Pending |
+| INV-06 | Phase 58 | Pending |
+| INV-07 | Phase 58 | Pending |
+| INV-08 | Phase 58 | Pending |
+| INV-09 | Phase 58 | Pending |
+| INV-10 | Phase 58 | Pending |
+| INV-11 | Phase 58 | Pending |
+| IPRNT-01 | Phase 58 | Pending |
+| IPRNT-02 | Phase 58 | Pending |
+| IPRNT-03 | Phase 58 | Pending |
+| IPRNT-04 | Phase 58 | Pending |
+
+**Coverage:**
+- v1.8 requirements: 39 total
+- Mapped to phases: 39
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-03-16*
+*Last updated: 2026-03-16 after initial definition*

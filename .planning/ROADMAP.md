@@ -9,7 +9,8 @@
 - ✅ **v1.4 Sales & Channel Integration** — Phases 26-31 (shipped 2026-03-01)
 - ✅ **v1.5 Financial Statements** — Phases 32-34 (shipped 2026-03-03)
 - ✅ **v1.6 Tech Debt & Resilience** — Phases 35-40 (shipped 2026-03-09)
-- **v1.7 Expense & Accounting** — Phases 41-50 (in progress)
+- ✅ **v1.7 Expense & Accounting** — Phases 41-54 (shipped 2026-03-16)
+- **v1.8 Support & Quality of Life** — Phases 55-58 (in progress)
 
 ## Phases
 
@@ -393,3 +394,83 @@ Plans:
 Plans:
 - [ ] 54-01-PLAN.md -- TDD: normalizePlatformFees tests + rewrite (Bugs 1, 3, 4, 5, case mismatch)
 - [ ] 54-02-PLAN.md -- Wire platform param through sync pipeline + fix profit formula (Bugs 2, 6)
+
+</details>
+
+### v1.8 Support & Quality of Life (Phases 55-58)
+
+**Spec documents:**
+- `docs/superpowers/specs/2026-03-16-help-center-design.md`
+- `docs/superpowers/specs/2026-03-16-invoice-generation-design.md`
+
+### Phase 55: Help Center Infrastructure & Landing Page
+**Goal**: Build the Help Center landing page, guide registry, reusable help components, and navigation integration so all authenticated users can access `/help` and browse guides
+**Requirements**: HELP-01, HELP-02, HELP-03, HELP-04, HELP-05, HELP-06, HELP-07, HELP-08, HCMP-01, HCMP-02, HCMP-03, HCMP-04, HCMP-05, HCMP-06, HCMP-07
+**Depends on:** None
+**Success Criteria** (what must be TRUE):
+  1. `/help` renders landing page with guide cards grid (responsive 1/2/3 cols)
+  2. Search bar filters guides and FAQ questions (case-insensitive)
+  3. Guide registry in `helpGuides.ts` drives landing page and router
+  4. "Coming Soon" cards are dimmed and non-clickable
+  5. GuideRouter renders component by ID or "Guide not found" state
+  6. Help link in Header nav (desktop + mobile) and HubPage card
+  7. All 7 reusable help components work: WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, RoleTag, GuideSection, GuideLayout
+  8. Staggered fade-up animation on landing page
+  9. `npm run build` succeeds
+**Plans:** 3/3 plans complete
+
+Plans:
+- [ ] 55-01-PLAN.md -- Guide registry + searchGuides tests + 5 help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion) + barrel export
+- [ ] 55-02-PLAN.md -- WorkflowDiagram (CSS variable SVG fills + animation) + GuideLayout (TOC + useActiveSection hook)
+- [ ] 55-03-PLAN.md -- HelpCenter landing page + GuideRouter + navigation integration (App.tsx, Header.tsx, HubPage.tsx)
+
+### Phase 56: Expense Training Guide
+**Goal**: Create the first live guide — a comprehensive Expense, Reimbursement & Payroll walkthrough with flowcharts, step cards, callout boxes, and FAQ covering all 8 sections
+**Requirements**: EGUIDE-01, EGUIDE-02, EGUIDE-03, EGUIDE-04, EGUIDE-05, EGUIDE-06, EGUIDE-07, EGUIDE-08, EGUIDE-09
+**Depends on:** Phase 55
+**Success Criteria** (what must be TRUE):
+  1. `/help/expenses` renders full guide with all 8 sections
+  2. Overview: lifecycle flowchart with color-coded nodes + role summary table
+  3. Submitting: 4 step cards, 3 callout boxes, mini FAQ
+  4. Approving: DoA workflow diagram, 3 step cards, 3 callout boxes
+  5. Reimbursement: batch workflow diagram, 6 step cards, 2 callout boxes
+  6. Payroll: 4 step cards, 3 callout boxes, 4 FAQ items
+  7. Analytics: dashboard card descriptions + fraud flags explanation
+  8. P&L: journal entry diagram with DR/CR flow
+  9. FAQ: full accordion with 16 questions across 5 groups
+  10. TOC sidebar tracks active section on scroll
+  11. Deep linking works (e.g., `/help/expenses#submitting`)
+  12. `npm run build` succeeds
+
+### Phase 57: Invoice Backend & Business Settings
+**Goal**: Build the invoice data model (3 new tables + customer extension), backend API, and Business Settings page so admins can configure seller identity before generating invoices
+**Requirements**: BSET-01, BSET-02, BSET-03, BSET-04, BSET-05, IDAT-01, IDAT-02, IDAT-03, IDAT-04
+**Depends on:** Phase 56
+**Success Criteria** (what must be TRUE):
+  1. Schema: `businessSettings` singleton, `invoiceCounters` with `by_prefix` index, `invoices` with 3 indexes, `customers` extended with 3 optional fields
+  2. Business Settings page at `/settings/business` (admin only)
+  3. Logo upload via Convex file storage works
+  4. Default bank account selector from `bankAccounts` table
+  5. Live invoice header preview reflects saved settings
+  6. Invoice backend API: createDraft, updateDraft, discardDraft, finalize, getByOrder, getById
+  7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
+  8. Customer write-back on finalize (company, NPWP, billing address)
+  9. `npm run build` succeeds
+
+### Phase 58: Invoice Form, Print View & Order Integration
+**Goal**: Build the WYSIWYG invoice form page, print view, and Order Detail sidebar card so managers/admins can generate, preview, finalize, and print invoices from any qualifying order
+**Requirements**: INV-01, INV-02, INV-03, INV-04, INV-05, INV-06, INV-07, INV-08, INV-09, INV-10, INV-11, IPRNT-01, IPRNT-02, IPRNT-03, IPRNT-04
+**Depends on:** Phase 57
+**Success Criteria** (what must be TRUE):
+  1. Invoice form at `/orders/:orderId/invoice` auto-fills from order + customer + business settings
+  2. Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
+  3. Draft auto-saves on field change (debounced 2s), persists across navigation
+  4. Preview mode (read-only clean render) without finalizing
+  5. Finalize: snapshot data, assign INV-YYMM-NNN, status→final, customer write-back
+  6. Multiple finalized invoices per order (revision pattern)
+  7. Print view at `/orders/:orderId/invoice/:invoiceNumber` renders cleanly
+  8. `@media print` hides navigation/controls, shows clean black-on-white
+  9. Indonesian date format (e.g., "Senin, 16 Maret 2026")
+  10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
+  11. Access control: manager + admin only, PaymentReceived+ orders only
+  12. `npm run build` succeeds
