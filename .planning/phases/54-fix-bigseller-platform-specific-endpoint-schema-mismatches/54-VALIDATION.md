@@ -47,6 +47,9 @@ created: 2026-03-15
 | 54-01-07 | 01 | 1 | BUG-06 | unit | `npm run test -- --run convex/integrations/bigseller/__tests__/normalization.test.ts` | No -- Wave 0 | ⬜ pending |
 | 54-01-08 | 01 | 1 | CASE | unit | `npm run test -- --run convex/integrations/bigseller/__tests__/normalization.test.ts` | No -- Wave 0 | ⬜ pending |
 | 54-01-09 | 01 | 2 | REGRESSION | unit | `npm run test -- --run convex/integrations/bigseller/__tests__/` | Yes | ⬜ pending |
+| 54-01-10 | 01 | 1 | ENH-ORDERAMOUNT | unit | `npm run test -- --run convex/integrations/bigseller/__tests__/normalization.test.ts` | No -- Wave 0 | ⬜ pending |
+| 54-02-01 | 02 | 2 | ENH-REVENUE-SEMANTICS | unit | `npm run test -- --run convex/integrations/bigseller/__tests__/helpers.test.ts` | Yes | ⬜ pending |
+| 54-02-02 | 02 | 2 | ENH-SHIPPING-DISPLAY | visual | Manual: verify BigSellerOrdersTable shows buyer shipping column | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -70,6 +73,9 @@ created: 2026-03-15
 | Revenue column shows non-zero values | BUG-01 | Requires live BigSeller sync | Trigger sync, verify Revenue column in Synced Orders table |
 | TikTok orders show "TikTok" badge | BUG-02 | Requires live data | Check platform badges in Synced Orders table after sync |
 | Profit column matches BigSeller value | BUG-06 | Requires live data comparison | Compare profit in Synced Orders with BigSeller dashboard |
+| Gross Revenue column shows orderAmount (incl. shipping) | ENH-ORDERAMOUNT | Requires live data | Verify Gross Revenue = product price + buyer shipping |
+| Buyer Shipping column visible | ENH-SHIPPING-DISPLAY | Visual | Check buyer shipping column appears in Synced Orders table |
+| externalRevenue.revenueGross reflects total buyer paid | ENH-REVENUE-SEMANTICS | Requires live data | After sync, check externalRevenue records have orderAmount-based revenueGross |
 
 ---
 

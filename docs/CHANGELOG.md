@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Fix Sales Analytics Responsive Layout & Demote Balls Sold — 2026-03-16
+
+**For the team:** The top-line metric cards (Gross Sales, Net Sales, etc.) on the Sales Analytics page no longer overflow or squeeze together on narrow screens. They now wrap into multiple rows automatically — just like the Channel Breakdown section already did. The "Balls Sold" metric has been moved from its own large banner card into the regular metrics grid alongside Gross Sales, Net Sales, Lifetime Revenue, and Lifetime Transactions.
+
+#### Fixed
+- Hero cards grid changed from forced 5-column layout to responsive `2 → 3 → 4` column grid (matches Channel Breakdown pattern)
+- Period filter badges now wrap on narrow screens instead of overflowing
+- Loading skeleton updated to match new grid layout (8 placeholders)
+
+#### Changed
+- Balls Sold, Lifetime Revenue, and Lifetime Transactions demoted from standalone `LifetimeHero` banner to regular metric cards in the HeroCards grid
+- `HeroCards` component now accepts optional `lifetime` prop for all-time metrics
+
+#### Removed
+- `LifetimeHero.tsx` — standalone lifetime banner component (functionality merged into HeroCards)
+
 ### Consolidate Sync Actions into Platform Health Cards (Quick Task 33) — 2026-03-16
 
 **For the team:** The Settings tab no longer has a separate "Sync Actions" section at the bottom. Instead, each platform card (K3 Mart, GoBiz, Internal Orders) now has its own expand button — click the chevron to see date filters and sync buttons right inside the platform's health card. This matches how BigSeller already worked. GoBiz shows "to today" since it only supports syncing from a start date to the current day.

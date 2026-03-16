@@ -250,6 +250,178 @@ After all waves:
 ```
 </step>
 
+<step name="triple_review">
+After all waves complete, run a 3-agent parallel code review before verification. This catches bugs, plan violations, and architectural issues while the code is fresh — fixes land before the verifier checks goal achievement.
+
+**Skip if:** config `workflow.triple_review` is `false`.
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW — PRE-VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Running 3-agent parallel review before verification...
+```
+
+Spawn the triple-review as a **sub-agent** (keeps orchestrator context lean — review gets fresh 200k context):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Triple review Phase {phase_number}",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code review for Phase {phase_number} on branch `{branch}`.
+    Follow the triple-review skill instructions exactly.
+    </objective>
+
+    <execution_context>
+    @./.claude/commands/triple-review.md
+    </execution_context>
+
+    <context>
+    Base branch: origin/main
+    Phase directory: {phase_dir}
+    Phase number: {phase_number}
+    </context>
+
+    <instructions>
+    1. Read .claude/commands/triple-review.md and follow its full process
+    2. Use origin/main as the base branch for the diff
+    3. Spawn all 3 review agents in parallel as described in the skill
+    4. Synthesize findings into severity tiers
+    5. Write staffreview report to docs/reviews/
+    6. Return the unified severity-tiered report (Critical, Important, Minor, Nitpick)
+    </instructions>
+
+    <output_format>
+    Return:
+    ## TRIPLE REVIEW COMPLETE
+
+    ### Critical ({n})
+    - [C1] {finding}
+    ...
+    ### Important ({n})
+    ...
+    ### Minor ({n})
+    ...
+    ### Nitpick ({n})
+    ...
+
+    If no findings: ## TRIPLE REVIEW COMPLETE — NO ISSUES
+    </output_format>
+  "
+)
+```
+
+**Handle results from sub-agent return:**
+- Parse severity tiers from the returned report
+- Critical + Important findings → implement fixes before proceeding to verification
+- After fixes: commit with `fix({phase_number}): apply triple-review findings`
+- Minor/Nitpick → note in aggregate results, proceed to verification
+- Staffreview report is saved to `docs/reviews/` by the sub-agent
+
+**In auto-advance mode (`--auto` or config enabled):**
+- Still run triple-review (quality gate is non-negotiable)
+- Critical/Important items pause the auto-advance chain for fixes
+- After fixes are applied, resume auto-advance to verification
+
+**If `TRIPLE_REVIEW` is `"false"`:** Skip to next step.
+</step>
+
+<step name="simplify">
+After triple-review fixes land, run a code simplification pass to catch reuse opportunities, quality patterns, and efficiency issues. This polishes the implementation before the verifier checks goal achievement — ensuring the verified code IS the final code.
+
+**Skip if:** config `workflow.simplify` is `false`.
+
+```bash
+SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
+```
+
+**If `SIMPLIFY` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► SIMPLIFY — CODE QUALITY POLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Running 3-agent code simplification review...
+```
+
+Spawn simplify as a **sub-agent** (keeps orchestrator context lean — review gets fresh 200k context):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Simplify Phase {phase_number} code",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code simplification review for Phase {phase_number}.
+    Review all changes on this branch vs origin/main for reuse, quality, and efficiency.
+    Fix any issues found directly.
+    </objective>
+
+    <execution_context>
+    Follow the /simplify skill process exactly.
+    </execution_context>
+
+    <context>
+    Branch: {branch_name}
+    Phase directory: {phase_dir}
+    Phase number: {phase_number}
+    Use `git diff origin/main...HEAD` to identify all branch changes (everything is committed at this point).
+    </context>
+
+    <instructions>
+    1. Invoke the /simplify skill (Skill tool with skill='simplify')
+    2. Use `git diff origin/main...HEAD` as the diff source (not working tree diff)
+    3. Launch all 3 review agents in parallel:
+       - Agent 1: Code Reuse Review (find existing utilities that replace new code)
+       - Agent 2: Code Quality Review (redundant state, copy-paste, leaky abstractions)
+       - Agent 3: Efficiency Review (N+1 patterns, missed concurrency, hot-path bloat)
+    4. Aggregate findings and fix each issue directly
+    5. Skip false positives — do not argue, just move on
+    6. Return summary of what was fixed
+    </instructions>
+
+    <output_format>
+    Return:
+    ## SIMPLIFY COMPLETE
+
+    ### Fixed ({n})
+    - {what was changed and why}
+    ...
+
+    ### Skipped ({n})
+    - {finding that was a false positive or not worth addressing}
+    ...
+
+    If no issues: ## SIMPLIFY COMPLETE — CODE ALREADY CLEAN
+    </output_format>
+  "
+)
+```
+
+**Handle results from sub-agent return:**
+- If fixes were applied: commit with `refactor({phase_number}): apply simplify cleanup`
+- Log summary of fixes in the aggregate results
+- Proceed to next step regardless — simplify findings are always non-blocking
+
+**In auto-advance mode (`--auto` or config enabled):**
+- Simplify runs automatically (no user interaction needed — it fixes directly)
+- No pause in the auto-advance chain
+
+**If `SIMPLIFY` is `"false"`:** Skip to next step.
+</step>
+
 <step name="close_parent_artifacts">
 **For decimal/polish phases only (X.Y pattern):** Close the feedback loop by resolving parent UAT and debug artifacts.
 
@@ -382,6 +554,75 @@ Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`.
 ```bash
 node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md {phase_dir}/*-VERIFICATION.md
 ```
+</step>
+
+<step name="document_and_merge">
+**Update documentation and merge the phase branch to main via PR.**
+
+**Skip if:** `branching_strategy` is `"none"` (no branch to merge).
+
+**1. Update CHANGELOG.md:**
+
+Read `docs/CHANGELOG.md` and add an entry under the current `[Unreleased]` section:
+
+```markdown
+### {Phase Name} (Phase {X}) — {date}
+
+**For the team:** {1-2 sentence non-technical summary of what changed and why it matters}
+
+#### {Added/Fixed/Changed}
+- {file}: {what changed}
+...
+
+#### Tests
+- {test summary if tests were added}
+```
+
+Source the details from SUMMARY.md files in the phase directory. Keep it concise — CHANGELOG is for humans.
+
+Commit:
+```bash
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs({X}): add changelog entry" --files docs/CHANGELOG.md
+```
+
+**2. Push branch and create PR:**
+
+```bash
+git push origin "${BRANCH_NAME}" -u
+```
+
+Create PR with `gh pr create`:
+```bash
+gh pr create --title "{short title under 70 chars}" --body "$(cat <<'EOF'
+## Summary
+- {2-3 bullet points from phase summaries}
+
+## Test plan
+- [x] {test evidence from execution}
+- [x] npm run build passes
+- [x] Verification: {verification status}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
+
+**3. Squash-merge PR:**
+
+```bash
+gh pr merge {PR_NUMBER} --squash --delete-branch
+```
+
+**4. Sync local main:**
+
+```bash
+git checkout main
+git pull origin main
+```
+
+If stash was used earlier, pop it: `git stash pop`
+
+Report: `PR #{N} merged. Local main synced.`
 </step>
 
 <step name="offer_next">

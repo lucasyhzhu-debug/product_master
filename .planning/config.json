@@ -1,6 +1,5 @@
 {
   "mode": "quality",
-  "depth": "comprehensive",
   "parallelization": true,
   "commit_docs": true,
   "model_profile": "quality",
@@ -12,12 +11,16 @@
     "gsd-verifier": "opus"
   },
   "workflow": {
-    "research": false,
+    "research": true,
     "plan_check": true,
     "verifier": true,
-    "auto_advance": false
+    "triple_review": true,
+    "simplify": true,
+    "auto_advance": false,
+    "_auto_chain_active": false
   },
   "git": {
     "branching_strategy": "phase"
-  }
+  },
+  "granularity": "fine"
 }

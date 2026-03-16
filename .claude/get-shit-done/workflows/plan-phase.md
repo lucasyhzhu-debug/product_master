@@ -394,7 +394,7 @@ Task(
 
 ## 11. Handle Checker Return
 
-- **`## VERIFICATION PASSED`:** Display confirmation, proceed to step 13.
+- **`## VERIFICATION PASSED`:** Display confirmation, proceed to step 12.5 (staff review).
 - **`## ISSUES FOUND`:** Display issues, check iteration count, proceed to step 12.
 
 ## 12. Revision Loop (Max 3 Iterations)
@@ -443,6 +443,91 @@ After planner returns -> spawn checker again (step 10), increment iteration_coun
 Display: `Max iterations reached. {N} issues remain:` + issue list
 
 Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
+
+## 12.5. Staff Review of Plans
+
+After the plan-checker passes, run a senior engineer review of the plans to catch architectural risks, over-engineering, and plan fidelity issues before execution begins.
+
+**Skip if:** config `workflow.triple_review` is `false`, OR `--skip-verify` flag is set.
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► STAFF REVIEW OF PLANS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Running senior engineer review of plans...
+```
+
+Spawn the staffreview as a **sub-agent** (keeps orchestrator context lean — review gets fresh 200k context):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Staff review Phase {phase_number} plans",
+  prompt="
+    <objective>
+    Perform a senior engineer review of the Phase {phase_number} implementation plans.
+    Follow the staffreview skill instructions exactly.
+    </objective>
+
+    <execution_context>
+    @./.agent/skills/staffreview/SKILL.md
+    </execution_context>
+
+    <context>
+    Phase directory: {phase_dir}
+    Plan files: {PHASE_DIR}/*-PLAN.md
+    </context>
+
+    <instructions>
+    1. Read .agent/skills/staffreview/SKILL.md and follow its full process
+    2. Read all plan files matching {PHASE_DIR}/*-PLAN.md
+    3. Gather project context (CLAUDE.md, CODE_STYLE.md, SCHEMA.md)
+    4. Perform Staff Developer review (implementation focus)
+    5. Perform Principal Developer review (architecture focus)
+    6. Generate consolidated report
+    7. Save report to docs/reviews/staffreview-{slug}-{today}.md
+    8. Return severity-tiered summary
+    </instructions>
+
+    <output_format>
+    Return:
+    ## STAFFREVIEW COMPLETE
+
+    **Overall Assessment:** {Approve / Revise / Major Rework}
+    **Critical:** {n} | **Important:** {n} | **Refinement:** {n}
+
+    ### Critical Issues
+    - {issue}
+    ...
+    ### Important Issues
+    - {issue}
+    ...
+    ### Refinements
+    - {suggestion}
+    ...
+
+    Report saved to: docs/reviews/{filename}
+    </output_format>
+  "
+)
+```
+
+**Handle results from sub-agent return:**
+- Parse the returned severity-tiered summary
+- **Critical issues** → route back to planner for revision (follows same revision loop as step 12, counts toward max 3 iterations)
+- **Important issues** → present to user: "Fix before execution?" If yes, revise. If no, note and proceed.
+- **Refinements** → note in status output, proceed to step 13
+- Staffreview report is saved to `docs/reviews/` by the sub-agent
+
+**If `TRIPLE_REVIEW` is `"false"`:** Skip to step 13.
 
 ## 13. Present Final Status
 
@@ -555,6 +640,8 @@ Verification: {Passed | Passed with override | Skipped}
 - [ ] Plans created (PLANNING COMPLETE or CHECKPOINT handled)
 - [ ] gsd-plan-checker spawned with CONTEXT.md
 - [ ] Verification passed OR user override OR max iterations with user decision
+- [ ] Staff review of plans completed (unless workflow.triple_review is false or --skip-verify)
+- [ ] Critical staffreview findings addressed before proceeding
 - [ ] User sees status between agent spawns
 - [ ] User knows next steps
 </success_criteria>

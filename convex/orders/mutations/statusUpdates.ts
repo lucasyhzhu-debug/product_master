@@ -173,13 +173,19 @@ export const updateStatus = mutation({
     // Consume ALL materials when entering BeingPrepared (production + boxing + sticker + ingredients)
     if (newStatus === "BeingPrepared" && oldStatus !== "BeingPrepared") {
       try {
-        await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
-        await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
-        await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+        const prodResult = await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
+        const boxResult = await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
+        const stickerResult = await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
         // Phase 20: Deduct ingredient inventory through production hierarchy
         const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
-        if (ingredientResult.warnings.length > 0) {
-          console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+        const allWarnings = [
+          ...prodResult.warnings,
+          ...boxResult.warnings,
+          ...stickerResult.warnings,
+          ...ingredientResult.warnings,
+        ];
+        if (allWarnings.length > 0) {
+          console.warn("Material stock warnings:", allWarnings);
         }
       } catch (error) {
         // Revert status on failure
@@ -458,13 +464,19 @@ export const moveForward = mutation({
     // Inventory integration: consume all materials on BeingPrepared (including auto-expedited)
     if ((nextStatus === "BeingPrepared" || autoExpedited) && order.status !== "BeingPrepared") {
       try {
-        await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
-        await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
-        await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+        const prodResult = await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
+        const boxResult = await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
+        const stickerResult = await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
         // Phase 20: Deduct ingredient inventory through production hierarchy
         const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
-        if (ingredientResult.warnings.length > 0) {
-          console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+        const allWarnings = [
+          ...prodResult.warnings,
+          ...boxResult.warnings,
+          ...stickerResult.warnings,
+          ...ingredientResult.warnings,
+        ];
+        if (allWarnings.length > 0) {
+          console.warn("Material stock warnings:", allWarnings);
         }
       } catch (error) {
         await ctx.db.patch(args.orderId, {
@@ -648,13 +660,19 @@ export const expediteOrder = mutation({
 
     // Consume materials on expedited entry to BeingPrepared
     try {
-      await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
-      await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
-      await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
+      const prodResult = await consumeProductionMaterialsInternal(ctx, { orderId: args.orderId });
+      const boxResult = await consumeBoxingMaterialsInternal(ctx, { orderId: args.orderId });
+      const stickerResult = await consumeStickerMaterialsInternal(ctx, { orderId: args.orderId });
       // Phase 20: Deduct ingredient inventory through production hierarchy
       const ingredientResult = await consumeIngredientMaterialsInternal(ctx, { orderId: args.orderId });
-      if (ingredientResult.warnings.length > 0) {
-        console.warn("Ingredient stock warnings:", ingredientResult.warnings);
+      const allWarnings = [
+        ...prodResult.warnings,
+        ...boxResult.warnings,
+        ...stickerResult.warnings,
+        ...ingredientResult.warnings,
+      ];
+      if (allWarnings.length > 0) {
+        console.warn("Material stock warnings:", allWarnings);
       }
     } catch (error) {
       // Revert on failure

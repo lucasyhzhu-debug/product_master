@@ -427,6 +427,106 @@ Note: For quick tasks producing multiple plans (rare), spawn executors in parall
 
 ---
 
+**Step 6.1: Triple review (only when `$FULL_MODE`)**
+
+Skip this step entirely if NOT `$FULL_MODE`.
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW — QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn triple-review sub-agent (same pattern as execute-phase):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Triple review quick task ${next_num}",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code review for quick task ${next_num}.
+    Follow the triple-review skill instructions exactly.
+    </objective>
+
+    <execution_context>
+    @./.claude/commands/triple-review.md
+    </execution_context>
+
+    <context>
+    Base branch: origin/main
+    Task directory: ${QUICK_DIR}
+    </context>
+
+    <instructions>
+    1. Read .claude/commands/triple-review.md and follow its full process
+    2. Use origin/main as the base branch for the diff
+    3. Spawn all 3 review agents in parallel
+    4. Synthesize findings into severity tiers
+    5. Write staffreview report to docs/reviews/
+    6. Return the unified severity-tiered report
+    </instructions>
+  "
+)
+```
+
+Handle results: Critical + Important findings → fix before proceeding. Minor/Nitpick → note and continue.
+
+---
+
+**Step 6.2: Simplify (only when `$FULL_MODE`)**
+
+Skip this step entirely if NOT `$FULL_MODE`.
+
+```bash
+SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
+```
+
+**If `SIMPLIFY` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► SIMPLIFY — QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn simplify sub-agent (same pattern as execute-phase):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Simplify quick task ${next_num} code",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code simplification review for quick task ${next_num}.
+    Review all changes on this branch vs origin/main for reuse, quality, and efficiency.
+    Fix any issues found directly.
+    </objective>
+
+    <execution_context>
+    Follow the /simplify skill process exactly.
+    </execution_context>
+
+    <context>
+    Task directory: ${QUICK_DIR}
+    Use `git diff origin/main...HEAD` to identify all branch changes.
+    </context>
+  "
+)
+```
+
+If fixes applied: commit with `refactor(quick-${next_num}): apply simplify cleanup`
+
+---
+
 **Step 6.5: Verification (only when `$FULL_MODE`)**
 
 Skip this step entirely if NOT `$FULL_MODE`.
@@ -582,6 +682,63 @@ Commit: ${commit_hash}
 Ready for next task: /gsd:quick
 ```
 
+---
+
+**Step 9: Document and merge (only when on a feature branch)**
+
+**Skip if:** current branch is `main` (quick tasks may run directly on main without a branch).
+
+Check current branch:
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+**If `$CURRENT_BRANCH` != `main`:**
+
+**9a. Update CHANGELOG.md:**
+
+Read `docs/CHANGELOG.md` and add entry under `[Unreleased]`:
+
+```markdown
+### Quick Task ${next_num}: ${DESCRIPTION} — ${date}
+
+**For the team:** {1-2 sentence non-technical summary}
+
+#### {Added/Fixed/Changed}
+- {key changes from SUMMARY.md}
+```
+
+Commit:
+```bash
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(quick-${next_num}): add changelog entry" --files docs/CHANGELOG.md
+```
+
+**9b. Push and create PR:**
+
+```bash
+git push origin "${CURRENT_BRANCH}" -u
+gh pr create --title "quick(${next_num}): ${DESCRIPTION}" --body "$(cat <<'EOF'
+## Summary
+- {bullet points from summary}
+
+## Test plan
+- [x] npm run build passes
+${FULL_MODE ? '- [x] Verification: ' + VERIFICATION_STATUS : ''}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
+
+**9c. Squash-merge and sync:**
+
+```bash
+gh pr merge {PR_NUMBER} --squash --delete-branch
+git checkout main && git pull origin main
+```
+
+Report: `PR #{N} merged. Local main synced.`
+
 </process>
 
 <success_criteria>
@@ -596,6 +753,9 @@ Ready for next task: /gsd:quick
 - [ ] (--full) Plan checker validates plan, revision loop capped at 2
 - [ ] `${next_num}-SUMMARY.md` created by executor
 - [ ] (--full) `${next_num}-VERIFICATION.md` created by verifier
+- [ ] (--full) Triple review run if config enabled
+- [ ] (--full) Simplify pass run if config enabled
 - [ ] STATE.md updated with quick task row (Status column when --full)
 - [ ] Artifacts committed
+- [ ] (feature branch) CHANGELOG.md updated, PR created and merged
 </success_criteria>

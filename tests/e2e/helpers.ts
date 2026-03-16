@@ -80,11 +80,16 @@ export async function loginAsRole(page: Page, role: TestRole) {
  * Enables role switching mid-test (logout -> loginAsRole with different role).
  */
 export async function logout(page: Page) {
-  // Clear all client-side auth state
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  try {
+    // Clear all client-side auth state
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  } catch {
+    // SecurityError can occur if page navigated to error/about:blank
+    // Safe to ignore -- next goto will start fresh
+  }
 
   // Navigate to login page
   await page.goto("/login", { waitUntil: "networkidle" });
@@ -200,7 +205,9 @@ export async function fillExpenseForm(page: Page, data: {
 
   if (data.paymentMethod) {
     await page.locator("#paymentMethod").click();
-    await page.locator('[role="option"]').filter({ hasText: new RegExp(data.paymentMethod, "i") }).click();
+    // Use first() to avoid strict mode violation when multiple options partially match
+    // (e.g., "personal" matches "Personal Cash" and "Personal Transfer")
+    await page.locator('[role="option"]').filter({ hasText: new RegExp(data.paymentMethod, "i") }).first().click();
   }
 }
 

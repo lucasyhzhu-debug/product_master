@@ -1,4 +1,5 @@
 import * as path from "path";
+import { fileURLToPath } from "url";
 import { test, expect } from "@playwright/test";
 import {
   loginAsRole,
@@ -6,6 +7,9 @@ import {
   waitForDataLoad,
   screenshot,
 } from "./helpers";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Phase 53-03: CSV Import E2E Test
