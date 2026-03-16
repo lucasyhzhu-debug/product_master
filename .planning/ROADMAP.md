@@ -484,6 +484,12 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
+**Plans:** 3 plans
+
+Plans:
+- [ ] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
+- [ ] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
+- [ ] 58-03-PLAN.md -- InvoiceSidebarCard (3 states) + OrderDetail integration + visual verification
 
 ### Phase 59: Expense Payment Method Overhaul
 **Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows -- retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
