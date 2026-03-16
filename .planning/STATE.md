@@ -3,6 +3,21 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Phase 59 context gathered
+last_updated: "2026-03-16T13:37:14.446Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+progress:
+  total_phases: 22
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 37
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 56-02-PLAN.md
 last_updated: "2026-03-16T12:54:33.747Z"
 last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
@@ -81,6 +96,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 - Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
 - Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+- Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 
 ### Open Blockers (carried forward)
 
@@ -97,6 +113,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16T12:28:05.491Z
-Stopped at: Completed 56-02-PLAN.md
+Last session: 2026-03-16T13:37:14.441Z
+Stopped at: Phase 59 context gathered
 Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.
