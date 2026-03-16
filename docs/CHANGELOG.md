@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Consolidate Sync Actions into Platform Health Cards (Quick Task 33) — 2026-03-16
+
+**For the team:** The Settings tab no longer has a separate "Sync Actions" section at the bottom. Instead, each platform card (K3 Mart, GoBiz, Internal Orders) now has its own expand button — click the chevron to see date filters and sync buttons right inside the platform's health card. This matches how BigSeller already worked. GoBiz shows "to today" since it only supports syncing from a start date to the current day.
+
+#### Added
+- `src/components/salesAnalytics/PlatformSyncPanel.tsx` — Reusable sync panel with date range inputs, sync button, and optional secondary action
+- K3 Mart card expands to show date range + "Sync Now" + "Refresh Stores" buttons
+- GoBiz card expands to show start date + "to today" + "Sync Now" button
+- Internal Orders card expands to show "Sync Now" button (no date filter)
+- Sync history log visible inside each expanded platform section
+
+#### Removed
+- Standalone "Sync Actions" section (4 buttons) from Settings tab bottom
+
+#### Changed
+- `IntegrationHealthCard` gains `hideExpandToggle` prop to prevent double-chevron when parent manages expansion
+
 ### Fix BigSeller Platform-Specific Schema Mismatches (Phase 54) — 2026-03-15
 
 **For the team:** BigSeller order sync now handles the different data formats from Shopee, TikTok, Tokopedia, and Lazada correctly. Previously, fee breakdowns and profit calculations were wrong because each platform returns fields in different structures. Profit numbers in Sales Analytics now match what BigSeller shows. The orders table also shows a new "Gross Revenue" column (total buyer paid including shipping) and "Buyer Shipping" column.
