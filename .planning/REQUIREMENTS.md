@@ -7,14 +7,14 @@
 
 ### Help Center
 
-- [ ] **HELP-01**: Any authenticated user can access the Help Center landing page at `/help`
-- [ ] **HELP-02**: Landing page displays guide cards in a responsive grid (1/2/3 cols) with search functionality
+- [x] **HELP-01**: Any authenticated user can access the Help Center landing page at `/help`
+- [x] **HELP-02**: Landing page displays guide cards in a responsive grid (1/2/3 cols) with search functionality
 - [x] **HELP-03**: Search filters guides and FAQ questions (case-insensitive `String.includes` across titles, section headings, FAQ text)
 - [x] **HELP-04**: Guide registry (`helpGuides.ts`) allows adding new guides with one component + one registry entry
-- [ ] **HELP-05**: "Coming Soon" guide cards are visually dimmed (opacity 0.5) and non-interactive
-- [ ] **HELP-06**: GuideRouter renders guide by `guideId` param or shows "Guide not found" state for invalid IDs
-- [ ] **HELP-07**: Help Center linked from Header nav (desktop + mobile) and HubPage card
-- [ ] **HELP-08**: Staggered fade-up animation on page load (Framer Motion)
+- [x] **HELP-05**: "Coming Soon" guide cards are visually dimmed (opacity 0.5) and non-interactive
+- [x] **HELP-06**: GuideRouter renders guide by `guideId` param or shows "Guide not found" state for invalid IDs
+- [x] **HELP-07**: Help Center linked from Header nav (desktop + mobile) and HubPage card
+- [x] **HELP-08**: Staggered fade-up animation on page load (Framer Motion)
 
 ### Help Components
 
@@ -102,14 +102,14 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HELP-01 | Phase 55 | Pending |
-| HELP-02 | Phase 55 | Pending |
+| HELP-01 | Phase 55 | Complete |
+| HELP-02 | Phase 55 | Complete |
 | HELP-03 | Phase 55 | Complete |
 | HELP-04 | Phase 55 | Complete |
-| HELP-05 | Phase 55 | Pending |
-| HELP-06 | Phase 55 | Pending |
-| HELP-07 | Phase 55 | Pending |
-| HELP-08 | Phase 55 | Pending |
+| HELP-05 | Phase 55 | Complete |
+| HELP-06 | Phase 55 | Complete |
+| HELP-07 | Phase 55 | Complete |
+| HELP-08 | Phase 55 | Complete |
 | HCMP-01 | Phase 55 | Complete |
 | HCMP-02 | Phase 55 | Complete |
 | HCMP-03 | Phase 55 | Complete |
