@@ -173,6 +173,31 @@ describe("mapOrderToRevenue", () => {
     expect(result.dataOrigin).toBe("api_revenue");
     expect(result.confidence).toBe("exact");
   });
+
+  it("sets transactionCount to 1 for each order", () => {
+    const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
+    expect(result.transactionCount).toBe(1);
+  });
+
+  it("prefers orderAmount over saleAmount for revenueGross", () => {
+    const orderWithOrderAmount = {
+      ...mockOrder,
+      saleAmount: 50000,
+      orderAmount: 65000, // includes buyer shipping
+    };
+    const result = mapOrderToRevenue(orderWithOrderAmount, "synclog-id" as any, orderWithOrderAmount.platform);
+    expect(result.revenueGross).toBe(65000); // orderAmount, not saleAmount
+  });
+
+  it("falls back to saleAmount when orderAmount is undefined", () => {
+    const orderNoOrderAmount = {
+      ...mockOrder,
+      saleAmount: 50000,
+      orderAmount: undefined,
+    };
+    const result = mapOrderToRevenue(orderNoOrderAmount, "synclog-id" as any, orderNoOrderAmount.platform);
+    expect(result.revenueGross).toBe(50000); // saleAmount fallback
+  });
 });
 
 // ============================================

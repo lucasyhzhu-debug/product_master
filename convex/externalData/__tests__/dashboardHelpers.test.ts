@@ -186,6 +186,35 @@ describe("aggregatePeriodRevenue", () => {
     expect(result.totalNet).toBe(85974 + 82000); // Sum of stored revenueNet values
   });
 
+  it("should default transactionCount to 1 when undefined (BigSeller/consignment records)", () => {
+    // BigSeller and consignment records may not have transactionCount set.
+    // Each externalRevenue record represents 1 order, so default should be 1.
+    const records = [
+      mockRevenue({
+        source: "shopee",
+        revenueGross: 196200,
+        revenueNet: 180000,
+        transactionCount: undefined,
+      }),
+      mockRevenue({
+        source: "shopee",
+        revenueGross: 250000,
+        revenueNet: 230000,
+        transactionCount: undefined,
+        externalTransactionId: "txn-2",
+      }),
+    ];
+
+    const result = aggregatePeriodRevenue(records, emptyOrderMap);
+
+    // Each record without transactionCount should count as 1 transaction
+    expect(result.totalTransactions).toBe(2);
+    const shopeeChannel = result.channels.find((c) => c.source === "shopee");
+    expect(shopeeChannel).toBeDefined();
+    expect(shopeeChannel!.transactions).toBe(2);
+    expect(shopeeChannel!.gross).toBe(196200 + 250000);
+  });
+
   it("should add commission=0 and promoBurn=0 for internal channel", () => {
     // Internal channel needs an order in orderDataMap to produce data
     const orderMap = new Map([

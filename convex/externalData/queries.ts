@@ -418,7 +418,7 @@ export const getDashboardSummary = query({
 
     const totalGross = recentRevenue.reduce((sum, r) => sum + (r.revenueGross ?? 0), 0);
     const totalNet = recentRevenue.reduce((sum, r) => sum + (r.revenueNet ?? 0), 0);
-    const totalTransactions = recentRevenue.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
+    const totalTransactions = recentRevenue.reduce((sum, r) => sum + (r.transactionCount ?? 1), 0);
     const totalCommission = recentRevenue.reduce((sum, r) => sum + (r.commission ?? 0), 0);
     const totalAdBurn = recentRevenue.reduce((sum, r) => sum + (r.adBurn ?? 0), 0);
     const totalPromoBurn = recentRevenue.reduce((sum, r) => sum + (r.promoBurn ?? 0), 0);

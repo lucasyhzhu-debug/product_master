@@ -76,7 +76,7 @@ describe("saveRevenue dedup logic", () => {
     expect(ids).toHaveLength(1);
   });
 
-  test("skips duplicate when same externalTransactionId exists", async () => {
+  test("upserts duplicate when same externalTransactionId exists", async () => {
     const t = convexTest(schema);
     const dedupKey = "07 Feb 2026|Outlet A|PROD-001|5|75000";
 
@@ -98,7 +98,7 @@ describe("saveRevenue dedup logic", () => {
     });
     expect(ids1).toHaveLength(1);
 
-    // Insert same transaction again — should be skipped
+    // Insert same transaction again — should upsert (update + return existing ID)
     const ids2 = await t.mutation(internal.externalData.mutations.saveRevenue, {
       records: [
         {
@@ -110,17 +110,19 @@ describe("saveRevenue dedup logic", () => {
           confidence: "exact",
           transactionType: "sales",
           quantitySold: 5,
-          revenueGross: 75000,
+          revenueGross: 80000, // Updated value
         },
       ],
     });
-    expect(ids2).toHaveLength(0);
+    expect(ids2).toHaveLength(1); // Returns existing ID after update
 
-    // Verify only 1 record in DB
+    // Verify only 1 record in DB (not duplicated)
     const allRevenue = await t.run(async (ctx) => {
       return await ctx.db.query("externalRevenue").collect();
     });
     expect(allRevenue).toHaveLength(1);
+    // Verify the value was updated
+    expect(allRevenue[0].revenueGross).toBe(80000);
   });
 
   test("allows different externalTransactionIds from same source", async () => {

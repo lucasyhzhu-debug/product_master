@@ -34,7 +34,7 @@ export function aggregatePeriodRevenue(
       commission += r.commission      ?? 0;
       adBurn     += r.adBurn          ?? 0;
       promoBurn  += r.promoBurn       ?? 0;
-      txns       += r.transactionCount ?? 0;
+      txns       += r.transactionCount ?? 1;
     }
     return { gross, net, txns, commission, adBurn, promoBurn };
   }
@@ -45,7 +45,7 @@ export function aggregatePeriodRevenue(
   let internalNet = 0;
   let totalDiscounts = 0;
   let totalDeliveryFees = 0;
-  const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 0), 0);
+  const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 1), 0);
 
   for (const rec of internalRecords) {
     const orderNumber = rec.externalTransactionId;

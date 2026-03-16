@@ -190,6 +190,7 @@ export const createSettlement = mutation({
       outletId: outlet.externalOutletId,
       revenueGross: args.totalRevenue,
       revenueNet: frolliePayment,
+      transactionCount: 1,
       periodStart: args.periodStart,
       periodEnd: args.periodEnd,
       dataOrigin: "manual_entry" as const,

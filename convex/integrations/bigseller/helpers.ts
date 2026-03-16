@@ -319,6 +319,7 @@ export function mapOrderToRevenue(
   revenueGross: number;
   revenueNet: number;
   commission: number;
+  transactionCount: number;
   periodStart: number;
   periodEnd: number;
   transactionDate: number;
@@ -335,6 +336,7 @@ export function mapOrderToRevenue(
     revenueGross: order.orderAmount ?? order.saleAmount ?? 0,
     revenueNet: order.platformIncome ?? 0,
     commission: Math.abs(order.commissionFee ?? 0),
+    transactionCount: 1,
     periodStart: orderTimeMs,
     periodEnd: orderTimeMs,
     transactionDate: orderTimeMs,
