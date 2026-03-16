@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, ChevronRight } from "lucide-react";
@@ -7,7 +7,6 @@ import {
   HELP_GUIDES,
   searchGuides,
   POPULAR_QUESTIONS,
-  type SearchResult,
 } from "@/lib/helpGuides";
 
 // ---------------------------------------------------------------------------
@@ -130,9 +129,11 @@ function GuideCard({
 
 export function HelpCenter() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Derive results from query — no separate state needed
+  const searchResults = useMemo(() => searchGuides(searchQuery), [searchQuery]);
 
   // Ctrl+K focus handler
   useEffect(() => {
@@ -151,9 +152,7 @@ export function HelpCenter() {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setSearchQuery(value);
-      const results = searchGuides(value);
-      setSearchResults(results);
-      setShowResults(value.trim().length > 0 && results.length > 0);
+      setShowResults(value.trim().length > 0);
     },
     []
   );
@@ -195,7 +194,7 @@ export function HelpCenter() {
           </span>
 
           {/* Search results dropdown */}
-          {showResults && (
+          {showResults && searchResults.length > 0 && (
             <div className="absolute top-full mt-1 left-0 right-0 z-20 bg-popover border rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {searchResults.map((result, i) => (
                 <Link

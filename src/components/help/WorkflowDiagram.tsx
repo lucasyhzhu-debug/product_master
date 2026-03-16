@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 export interface FlowNode {
   id: string;
   label: string;
-  color: "gray" | "blue" | "green" | "amber" | "red" | "orange";
+  color: "gray" | "blue" | "green" | "amber" | "red";
   description?: string;
 }
 
@@ -48,11 +48,6 @@ const NODE_COLORS: Record<
     fill: "var(--color-status-error-bg)",
     stroke: "var(--color-status-error)",
     text: "var(--color-status-error)",
-  },
-  orange: {
-    fill: "var(--color-status-warning-bg)",
-    stroke: "var(--color-status-warning)",
-    text: "var(--color-status-warning)",
   },
 };
 
