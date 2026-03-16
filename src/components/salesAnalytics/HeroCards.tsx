@@ -70,19 +70,10 @@ export function HeroCards({
               ? `${(((currentPeriod.totalCommission ?? 0) / currentPeriod.platformGross!) * 100).toFixed(1)}% of platform sales`
               : currentPeriod.periodLabel}
           </p>
-          {((currentPeriod.totalAdBurn ?? 0) > 0 || (currentPeriod.totalPromoBurn ?? 0) > 0) && (
-            <div className="space-y-0.5 mt-1">
-              {(currentPeriod.totalAdBurn ?? 0) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Ad burn: {formatCurrency(currentPeriod.totalAdBurn ?? 0)}
-                </p>
-              )}
-              {(currentPeriod.totalPromoBurn ?? 0) > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Promo burn: {formatCurrency(currentPeriod.totalPromoBurn ?? 0)}
-                </p>
-              )}
-            </div>
+          {(currentPeriod.totalAdBurn ?? 0) > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Ad burn: {formatCurrency(currentPeriod.totalAdBurn ?? 0)}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -104,10 +95,15 @@ export function HeroCards({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {(currentPeriod.internalGross ?? 0) > 0
-              ? `${(((currentPeriod.totalDiscounts ?? 0) / currentPeriod.internalGross!) * 100).toFixed(1)}% of local sales`
+            {(currentPeriod.totalGross ?? 0) > 0
+              ? `${(((currentPeriod.totalDiscounts ?? 0) / currentPeriod.totalGross) * 100).toFixed(1)}% of gross sales`
               : currentPeriod.periodLabel}
           </p>
+          {(currentPeriod.totalPromoBurn ?? 0) > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Promo burn: {formatCurrency(currentPeriod.totalPromoBurn ?? 0)}
+            </p>
+          )}
         </CardContent>
       </Card>
 

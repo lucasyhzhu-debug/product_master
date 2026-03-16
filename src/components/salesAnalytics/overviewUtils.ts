@@ -37,6 +37,7 @@ export type PeriodData = {
     transactions: number;
     commission: number;
     promoBurn: number;
+    deliveryFees: number;
   }>;
   periodLabel?: string;
   comparisonLabel?: string;

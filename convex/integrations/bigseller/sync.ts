@@ -677,6 +677,7 @@ export const fetchOrders = internalAction({
             revenueGross: r.revenueGross,
             revenueNet: r.revenueNet,
             commission: r.commission,
+            deliveryFees: r.deliveryFees,
             transactionCount: r.transactionCount,
             periodStart: r.periodStart,
             periodEnd: r.periodEnd,
