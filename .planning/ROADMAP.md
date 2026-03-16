@@ -441,7 +441,7 @@ Plans:
   10. TOC sidebar tracks active section on scroll
   11. Deep linking works (e.g., `/help/expenses#submitting`)
   12. `npm run build` succeeds
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 56-01-PLAN.md -- ExpenseGuide.tsx sections 1-4 (Overview, Submitting, Approving, Reimbursement) + registry wiring + test update
