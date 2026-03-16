@@ -18,13 +18,13 @@
 
 ### Help Components
 
-- [ ] **HCMP-01**: WorkflowDiagram renders fixed-layout SVG flowcharts with color-coded status nodes and directional arrows
+- [x] **HCMP-01**: WorkflowDiagram renders fixed-layout SVG flowcharts with color-coded status nodes and directional arrows
 - [x] **HCMP-02**: StepCard renders numbered steps with icon, title, description, optional tip/warning, connected by vertical dotted line
 - [x] **HCMP-03**: CalloutBox renders styled callouts: tip (green), warning (amber), important (orange) with appropriate icons
 - [x] **HCMP-04**: FaqAccordion renders grouped collapsible Q&A sections using shadcn Accordion
 - [x] **HCMP-05**: RoleTag shows small badge for step roles: "All Staff" (gray), "Manager+" (blue), "Admin Only" (orange)
 - [x] **HCMP-06**: GuideSection provides anchor ID with scroll-margin-top for deep linking from TOC and search
-- [ ] **HCMP-07**: GuideLayout provides sticky sidebar TOC on desktop, horizontal scroll tabs on mobile, active section tracking via Intersection Observer
+- [x] **HCMP-07**: GuideLayout provides sticky sidebar TOC on desktop, horizontal scroll tabs on mobile, active section tracking via Intersection Observer
 
 ### Expense Guide
 
@@ -110,13 +110,13 @@
 | HELP-06 | Phase 55 | Pending |
 | HELP-07 | Phase 55 | Pending |
 | HELP-08 | Phase 55 | Pending |
-| HCMP-01 | Phase 55 | Pending |
+| HCMP-01 | Phase 55 | Complete |
 | HCMP-02 | Phase 55 | Complete |
 | HCMP-03 | Phase 55 | Complete |
 | HCMP-04 | Phase 55 | Complete |
 | HCMP-05 | Phase 55 | Complete |
 | HCMP-06 | Phase 55 | Complete |
-| HCMP-07 | Phase 55 | Pending |
+| HCMP-07 | Phase 55 | Complete |
 | EGUIDE-01 | Phase 56 | Pending |
 | EGUIDE-02 | Phase 56 | Pending |
 | EGUIDE-03 | Phase 56 | Pending |
