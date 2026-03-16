@@ -481,15 +481,27 @@ Plans:
   12. `npm run build` succeeds
 
 ### Phase 59: Expense Payment Method Overhaul
-**Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows — retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
-**Requirements**: TBD (re-plan with merged scope from Phase 59 + 59.1)
+**Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows -- retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
+**Requirements**: DEXP-01, DEXP-02, DEXP-03, DEXP-04, DEXP-05, DEXP-06, DEXP-07, DEXP-08, DEXP-09, DEXP-10, DEXP-11, DEXP-12, DEXP-13, DEXP-14
 **Depends on:** None (independent of invoice phases 57-58)
-**Plans:** 0 plans (re-planning — run /gsd:plan-phase 59 --research)
+**Success Criteria** (what must be TRUE):
+  1. Schema has 3 payment method literals (employee_paid, company_paid, payment_request) and 2 new statuses (recorded, paid)
+  2. company_paid submit auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to recorded
+  3. employee_paid submit unchanged (status submitted, no JE)
+  4. payment_request approval creates no JE; mark-as-paid creates JE and transitions to paid
+  5. acknowledgeExpense transitions recorded to approved; flagExpense sets flag without status change
+  6. Approval queue shows all 3 types with correct action buttons per payment method and status
+  7. Receipt always required for company_paid and payment_request regardless of amount
+  8. All existing tests pass, npm run build succeeds
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 59 --research to break down)
+- [ ] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
+- [ ] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
+- [ ] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
+- [ ] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
 
-### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
 **Goal:** [To be planned]
 **Requirements**: TBD
@@ -499,7 +511,7 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 60 to break down)
 
-### Phase 61: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
+### Phase 61: Help File Indexing Architecture -- Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 
 **Goal:** [To be planned]
 **Requirements**: TBD
@@ -509,7 +521,7 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 61 to break down)
 
-### Phase 62: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
+### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
 
 **Goal:** [To be planned]
 **Requirements**: TBD
