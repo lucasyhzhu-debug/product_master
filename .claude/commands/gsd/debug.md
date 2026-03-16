@@ -104,7 +104,7 @@ Task(
 **If `## ROOT CAUSE FOUND`:**
 - Display root cause and evidence summary
 - Offer options:
-  - "Fix now" - spawn fix subagent
+  - "Fix now" - spawn fix subagent → after fix, run quality gates (step 6) then document & merge (step 7)
   - "Plan fix" - suggest /gsd:plan-phase --gaps
   - "Manual fix" - done
 
@@ -157,6 +157,93 @@ Task(
 )
 ```
 
+## 6. Quality Gates (After Fix Applied)
+
+**Skip if:** fix was "Plan fix" or "Manual fix" (no code changes in this session).
+
+After the fix subagent completes and commits:
+
+**6a. Triple review:**
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+If `TRIPLE_REVIEW` is `"true"`:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW — DEBUG FIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn triple-review sub-agent (same pattern as execute-phase). Fix Critical + Important findings before proceeding.
+
+**6b. Simplify:**
+
+```bash
+SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
+```
+
+If `SIMPLIFY` is `"true"`:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► SIMPLIFY — DEBUG FIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn simplify sub-agent. If fixes applied, commit with `refactor: apply simplify cleanup for {slug} fix`.
+
+## 7. Document and Merge (After Quality Gates)
+
+**Skip if:** current branch is `main` (debug ran directly on main).
+
+**7a. Update CHANGELOG.md:**
+
+Add entry under `[Unreleased]`:
+
+```markdown
+### Bug Fix: {issue title} — {date}
+
+**For the team:** {1-2 sentence non-technical summary of what was broken and how it's fixed}
+
+#### Fixed
+- {root cause and fix summary from debug session}
+
+#### Tests
+- {test evidence}
+```
+
+Commit: `docs: add changelog entry for {slug} fix`
+
+**7b. Push and create PR:**
+
+```bash
+git push origin "$(git branch --show-current)" -u
+gh pr create --title "fix: {short description}" --body "$(cat <<'EOF'
+## Summary
+- **Root cause:** {from debug session}
+- **Fix:** {what was changed}
+
+## Test plan
+- [x] {test evidence}
+- [x] npm run build passes
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
+
+**7c. Squash-merge and sync:**
+
+```bash
+gh pr merge {PR_NUMBER} --squash --delete-branch
+git checkout main && git pull origin main
+```
+
+Report: `PR #{N} merged. Local main synced.`
+
 </process>
 
 <success_criteria>
@@ -165,4 +252,7 @@ Task(
 - [ ] gsd-debugger spawned with context
 - [ ] Checkpoints handled correctly
 - [ ] Root cause confirmed before fixing
+- [ ] (fix applied) Triple review run if config enabled
+- [ ] (fix applied) Simplify pass run if config enabled
+- [ ] (feature branch) CHANGELOG.md updated, PR created and merged
 </success_criteria>

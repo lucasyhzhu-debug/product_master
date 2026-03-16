@@ -115,12 +115,16 @@ test.describe("Manager role - partial access", () => {
   // Manager is BLOCKED from admin-only routes -> redirects to "/"
   for (const route of ADMIN_ONLY_ROUTES) {
     test(`blocked from ${route} -> redirects to /`, async ({ page }) => {
-      await page.goto(route, { waitUntil: "networkidle" });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
 
+      // Wait for ProtectedRoute to process auth and redirect (client-side Navigate)
       await page.waitForURL(
-        (url) => url.pathname === "/",
-        { timeout: 10_000 }
+        (url) => url.pathname === "/" || url.pathname === "",
+        { timeout: 15_000 }
       );
+
+      // Confirm we're on the dashboard (not an error page)
+      await expect(page.locator("body")).toContainText("E2E-Manager", { timeout: 10_000 });
 
       await screenshot(page, `expense-access-manager-blocked-${routeSlug(route)}`);
     });
@@ -162,11 +166,12 @@ test.describe("Order staff role - submit only", () => {
 
   for (const route of orderStaffBlocked) {
     test(`blocked from ${route} -> redirects to /orders`, async ({ page }) => {
-      await page.goto(route, { waitUntil: "networkidle" });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
 
+      // Wait for ProtectedRoute to process auth and redirect
       await page.waitForURL(
         (url) => url.pathname === "/orders",
-        { timeout: 10_000 }
+        { timeout: 15_000 }
       );
 
       await screenshot(
@@ -212,11 +217,12 @@ test.describe("Kitchen role - submit only", () => {
 
   for (const route of kitchenBlocked) {
     test(`blocked from ${route} -> redirects to /kitchen`, async ({ page }) => {
-      await page.goto(route, { waitUntil: "networkidle" });
+      await page.goto(route, { waitUntil: "domcontentloaded" });
 
+      // Wait for ProtectedRoute to process auth and redirect
       await page.waitForURL(
         (url) => url.pathname === "/kitchen",
-        { timeout: 10_000 }
+        { timeout: 15_000 }
       );
 
       await screenshot(

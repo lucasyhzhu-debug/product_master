@@ -3,7 +3,7 @@
 > Single reference document for all external API integrations in Frollie Recipe Master.
 > Covers endpoints, authentication, sync flows, cron schedules, and troubleshooting SOPs.
 >
-> Last updated: 2026-02-15
+> Last updated: 2026-03-15
 
 ---
 
@@ -340,6 +340,92 @@ Response values are in `responses[i].aggregations["2"].buckets[0]["1"].value`.
 - `status` = `hit.metadata.transaction.status`
 - `paymentType` = `hit.metadata.transaction.payment_type`
 
+**Promo Discount Structure (HAR-verified 2026-03-15, 13 orders across 2 outlets):**
+
+The `variables.commission` field contains ONLY the GoFood delivery service fee — it does NOT include platform promo discounts. Promo discounts are in `variables.voucher_amount` (centesimal IDR).
+
+```
+Formula (verified 100% across 13 orders):
+  net = gross - commission - voucher_amount
+
+Example (Legato Gelato order F-3159434616, gross 140,000 IDR):
+  gross          = hit.amount / 100                         = 140,000
+  commission     = variables.commission / 100                =  29,526  ← service fee only
+  voucher_amount = variables.voucher_amount / 100            =  24,500  ← merchant's promo cost
+  net            = transaction_share[0].amount / 100         =  85,974  ← actual take-home
+  CHECK: 140,000 - 29,526 - 24,500 = 85,974 ✓
+```
+
+**Full `transaction_share[0].metadata.variables` schema:**
+
+| Field | Type | Description | Promo Order | Non-Promo |
+|-------|------|-------------|-------------|-----------|
+| `commission` | number | GoFood service fee (centesimal, includes VAT) | 2,952,600 | 2,530,800 |
+| `voucher_amount` | number | Merchant's share of campaign discount (centesimal) | 2,450,000 | 0 |
+| `voucher_commission` | number | Always 0 in observed data | 0 | 0 |
+| `gross_amount` | number | Same as `hit.amount` | 14,000,000 | 12,000,000 |
+| `merchant_percentage_fee` | number | Base commission rate | 0.19 | 0.19 |
+| `vat` | number | VAT rate on commission | 0.11 | 0.11 |
+| `value_added_tax` | number | VAT amount on commission (centesimal) | 292,600 | 250,800 |
+| `exclude_vat` | number | VAT exclusion flag | 1 | 1 |
+| `extra_commission_percentage` | number | Additional commission % | 0 | 0 |
+| `extra_commission_amount` | number | Additional commission amount | 0 | 0 |
+| `dynamic_commission_amount` | number | Dynamic commission | 0 | 0 |
+| `merchant_fixed_fee` | number | Fixed fee | 0 | 0 |
+| `service_charge` | number | Service charge | 0 | 0 |
+| `restaurant_tax` | number | Restaurant tax | 0 | 0 |
+| `withholding_tax` | number | WHT amount | 0 | 0 |
+| `withholding_tax_new` | number | New WHT | 0 | 0 |
+| `wht` | number | WHT flag | 0 | 0 |
+| `tax` | number | General tax | 0 | 0 |
+| `sharing_percentage` | number | Revenue share % | 0 | 0 |
+| `sku_commission_offset_amount` | number | SKU offset | 0 | 0 |
+| `mdr_profile_id` | number | MDR profile | 0 | 0 |
+| `withdrawal_fee_discount` | number | Withdrawal fee discount | 0 | 0 |
+| `comfee_exclude_mfp` | number | Commission fee exclusion | 0 | 0 |
+| `X_PARTNER_FEE_AKAB` | number | Partner fee (= commission) | 2,952,600 | 2,530,800 |
+
+**Other `transaction_share[0].metadata` fields:**
+
+| Field | Description | Promo Order | Non-Promo |
+|-------|-------------|-------------|-----------|
+| `total_fee` | = commission (does NOT include voucher) | 2,952,600 | 2,530,800 |
+| `provider_share` | = commission (does NOT include voucher) | 2,952,600 | 2,530,800 |
+| `merchant_share` | = net = `transaction_share[0].amount` | 8,597,400 | 9,469,200 |
+| `gross_amount` | = `hit.amount` | 14,000,000 | 12,000,000 |
+
+**Promo-only `metadata.transaction.metadata.transaction_metadata`:**
+
+Only present on promo orders. Absent (undefined) for non-promo.
+
+```javascript
+{
+  voucher_deduction: {
+    voucher_desc: "",
+    voucher_commission: 0,
+    voucher_amount: 24500            // in IDR (NOT centesimal!) — note different scale from variables
+  },
+  discounts: [{
+    type: "markdown",                // discount type
+    id: "596f5dc6-...",              // campaign ID (matches cosmo campaign_id)
+    description: "",
+    commission: 0,
+    amount: 24500                    // in IDR (NOT centesimal!)
+  }]
+}
+```
+
+**Two types of customer discounts (from cosmo `orders/search` cross-reference):**
+
+| Type | Source | Deducted from merchant? | Journal field | Example |
+|------|--------|-------------------------|---------------|---------|
+| Campaign discount | `goresto.campaign_discounts[]` | YES — `discount_amount × merchant_budget_share_percent / 100` | `variables.voucher_amount` | Rp 35K discount, 70% merchant share = Rp 24.5K |
+| Customer voucher | `goresto.voucher_redeemed_value` | NO — GoFood funded | Not in journal | Rp 20K voucher, Rp 0 merchant cost |
+
+An order can have both simultaneously (e.g., F-3159231219: campaign discount 35K + customer voucher 6K).
+
+**IMPORTANT:** The dashboard aggregation (`dashboardHelpers.ts`) currently recalculates `net = gross - commission`, which DROPS the promo discount. It should use the stored `revenueNet` from `externalRevenue` instead. See `.planning/debug/gobiz-invisible-promo-discount.md` for the full bug report.
+
 ### 3.9 Order API Request/Response
 
 **Request body** (from `buildOrderSearchBody()`):
@@ -353,27 +439,71 @@ Response values are in `responses[i].aggregations["2"].buckets[0]["1"].value`.
 }
 ```
 
-**Response structure** (validated 2026-02-09):
+**Response structure** (validated 2026-02-09, expanded 2026-03-15 with campaign discount fields):
 ```json
 {
   "status": "success",
   "data": {
     "hits": [{
+      "analytic_temp": {
+        "merchant_name": "Frollie Dubai Chewy Cookie, Legato Gelato",
+        "acceptance_time": 8,
+        "delivery_time": 2245,
+        "food_prepare_time": 3683
+      },
+      "currency": "IDR",
+      "gross_amount": 140000,
+      "merchant_id": "G293156297",
+      "order_number": "F-3159434616",
+      "ordered_at": "2026-03-15T10:09:58Z",
+      "source": "GORESTO",
+      "status": { "goresto": "COMPLETED" },
       "items": [
         {
           "id": "item-uuid",
-          "name": "Product Name",
-          "price": 45000,
+          "name": "Dubai chewy cookie paket (isi 3)",
+          "price": 140000,
           "quantity": 1,
           "variants": []
         }
       ],
-      "gross_amount": 45000
+      "product_specific": {
+        "goresto": {
+          "shopping_price": 140000,
+          "driver_entered_price": 140000,
+          "sub_status": "COMPLETED",
+          "auto_acceptance_enabled": true,
+          "has_promo": false,
+          "campaign_discounts": [
+            {
+              "campaign_discount_scope": "ShoppingAmount",
+              "campaign_id": "596f5dc6-5280-4385-aa19-5711c9c8b54f",
+              "discount_amount": 35000,
+              "merchant_budget_share_percent": 70,
+              "redeemed_amount": 35000,
+              "subscription_id": ""
+            }
+          ],
+          "voucher_batch_id": "",
+          "voucher_commission": 0,
+          "voucher_id": "",
+          "voucher_redeemed_value": 0,
+          "voucher_title": "",
+          "commission_price": 0,
+          "convenience_fee": 0,
+          "withholding_income_tax": 0
+        }
+      }
     }],
     "total": 1
   }
 }
 ```
+
+**Campaign discount vs customer voucher (HAR-verified 2026-03-15):**
+- `campaign_discounts[]`: Merchant co-funded promo. `merchant_budget_share_percent` determines merchant's cost. Matches `variables.voucher_amount` in journal API.
+- `voucher_redeemed_value`: GoFood-funded customer voucher. Does NOT reduce merchant settlement. Does NOT appear in journal API.
+- `has_promo`: Always `false` in observed data — do not rely on this field for promo detection.
 
 Note: Order API amounts are in raw IDR (no centesimal conversion needed).
 

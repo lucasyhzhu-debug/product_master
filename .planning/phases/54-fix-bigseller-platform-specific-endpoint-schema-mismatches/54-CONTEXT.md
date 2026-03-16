@@ -9,6 +9,11 @@
 
 Fix 6 confirmed bugs in the BigSeller integration caused by switching from the common `pageList.json` endpoint to platform-specific endpoints (`shopee/pageList.json`, `tiktok/pageList.json`). The platform-specific endpoints have fundamentally different response schemas — many "common" fields are absent, revenue data is in different fields, Shopee fee signs are inverted, and the `platform` field is null.
 
+Additionally, add `orderAmount` field mapping and correct the revenue semantics:
+- **Gross revenue** = total amount the customer paid (product price + buyer shipping) — maps to `orderAmount` (common), `buyerTotalAmount` (Shopee), or computed `saleAmount + buyerShippingFee` (TikTok)
+- **Net revenue** = what Frollie actually receives after commission and shipping deductions — maps to `platformIncome`
+- Surface buyer shipping cost in the BigSeller orders table
+
 HAR capture analysis (2026-03-15) confirmed ALL findings against real Frollie production data across 73 Shopee orders and 15 TikTok orders.
 
 </domain>
@@ -57,11 +62,22 @@ HAR capture analysis (2026-03-15) confirmed ALL findings against real Frollie pr
 - Platform-specific endpoints return `otherfee` (lowercase f) vs common `otherFee` (camelCase)
 - JavaScript property access is case-sensitive — must handle both
 
+### Enhancement: orderAmount mapping + revised revenue semantics
+- `orderAmount` = `saleAmount + buyerShippingFee` (total buyer paid including shipping)
+- Platform-specific endpoints don't return `orderAmount`. Shopee returns `buyerTotalAmount`. TikTok has no direct equivalent — compute as `saleAmount + buyerShippingFee` after normalization.
+- Add `orderAmount` and `buyerTotalAmount` to `BigSellerOrderRow` interface
+- In `normalizePlatformFees`: populate `orderAmount` from `buyerTotalAmount` (Shopee) or compute from normalized fields (TikTok)
+- **Gross revenue redefinition**: `revenueGross` in `mapOrderToRevenue` should use `orderAmount` (total buyer paid) instead of `saleAmount` (product price only). This means gross revenue = what the customer actually paid.
+- **Net revenue stays**: `revenueNet` = `platformIncome` (what Frollie receives net of all deductions) — unchanged.
+- Add `orderAmount` to `bigsellerOrders` schema and `mapOrderToStorage` output
+- Surface `buyerShippingFee` column in BigSellerOrdersTable (already has "Shipping" column for `sellerShippingFee` — add buyer shipping too, or rename column to clarify)
+
 ### Claude's Discretion
 - Order of operations for normalization (which fields to check first)
 - Whether to add defensive logging for unexpected field shapes
 - Test strategy (unit tests for normalization logic vs integration)
 - Whether to update summary/totals normalization alongside order normalization
+- How to label the shipping columns in BigSellerOrdersTable (one column showing both, or separate buyer/seller columns)
 
 </decisions>
 
@@ -75,7 +91,7 @@ HAR capture analysis (2026-03-15) confirmed ALL findings against real Frollie pr
 - `convex/bigsellerOrders/queries.ts` — Replace `calculatedProfit` with `order.profit` or `platformIncome - costFee`
 
 **Frontend:**
-- `src/components/salesAnalytics/BigSellerOrdersTable.tsx` — Use `order.profit` instead of `order.calculatedProfit`
+- `src/components/salesAnalytics/BigSellerOrdersTable.tsx` — Use `order.profit` instead of `order.calculatedProfit`. Change Revenue column to show `orderAmount` (gross incl. shipping). Add buyer shipping column or clarify existing shipping column.
 
 **Documentation:**
 - `docs/BIGSELLER_PROFIT_API.md` — Add platform-specific schema differences section
@@ -90,7 +106,6 @@ HAR capture analysis (2026-03-15) confirmed ALL findings against real Frollie pr
 ## Deferred Ideas
 
 - Summary totals normalization (top-level `totalSaleAmount`, `totalOriginalPrice` etc.) — different fields per endpoint but not currently displayed
-- `orderAmount` field mapping (Shopee: `buyerTotalAmount`) — not used in current columns
 - Shopee `costOfGoodsSold` field — NOT actual COGS, just product cost basis
 - BigSeller COGS configuration (all Frollie orders show COGS = 0) — requires manual BigSeller dashboard setup, not a code fix
 

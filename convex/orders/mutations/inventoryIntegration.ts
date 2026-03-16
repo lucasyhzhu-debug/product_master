@@ -384,12 +384,18 @@ export const reserveStockForOrder = mutation({
 /**
  * Internal helper: Consume materials by stage.
  * Parameterized to eliminate duplication between stage consumption.
+ *
+ * Handles insufficient stock gracefully when reservations were created via
+ * stock override (skipStockCheck). Consumes what's available via FIFO, creates
+ * negative adjustment transactions for any shortfall, and logs warnings instead
+ * of throwing. This matches the soft-fail pattern used by
+ * consumeIngredientMaterialsInternal.
  */
 async function consumeMaterialsByStageInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> },
   stage: "production" | "boxing" | "labeling"
-): Promise<{ consumed: number }> {
+): Promise<{ consumed: number; warnings: string[] }> {
   const order = await ctx.db.get(args.orderId);
   if (!order) {
     throw new Error("Order not found");
@@ -402,10 +408,12 @@ async function consumeMaterialsByStageInternal(
     .collect();
 
   if (reservations.length === 0) {
-    return { consumed: 0 };
+    return { consumed: 0, warnings: [] };
   }
 
   let consumedCount = 0;
+  const warnings: string[] = [];
+  const now = Date.now();
 
   for (const reservation of reservations) {
     const componentType = await ctx.db.get(reservation.componentTypeId);
@@ -419,30 +427,88 @@ async function consumeMaterialsByStageInternal(
       continue;
     }
 
-    // Consume using FIFO
-    const fifoResult = await consumeFromFIFO(
-      ctx,
-      reservation.componentTypeId,
-      reservation.locationId,
-      reservation.quantityReserved
-    );
+    // Consume using FIFO — handle insufficient stock gracefully
+    // This can fail when reservations were created via stock override (skipStockCheck)
+    // with no physical stock backing them.
+    try {
+      const fifoResult = await consumeFromFIFO(
+        ctx,
+        reservation.componentTypeId,
+        reservation.locationId,
+        reservation.quantityReserved
+      );
 
-    // Apply consumption to batches and create transactions
-    await applyFIFOConsumption(
-      ctx,
-      fifoResult,
-      reservation.componentTypeId,
-      reservation.locationId,
-      args.orderId,
-      `Consumed for ${stage} order ${order.orderNumber}`,
-      "system"
-    );
+      // Apply consumption to batches and create transactions
+      await applyFIFOConsumption(
+        ctx,
+        fifoResult,
+        reservation.componentTypeId,
+        reservation.locationId,
+        args.orderId,
+        `Consumed for ${stage} order ${order.orderNumber}`,
+        "system"
+      );
+    } catch {
+      // Insufficient physical stock — consume what's available, adjust the rest
+      warnings.push(
+        `Insufficient stock for ${componentType.name} (${stage}): needed ${reservation.quantityReserved}, stock override in effect`
+      );
+
+      // Get current available physical stock
+      const stockRecord = await ctx.db
+        .query("componentStock")
+        .withIndex("by_component_location", (q) =>
+          q.eq("componentTypeId", reservation.componentTypeId).eq("locationId", reservation.locationId)
+        )
+        .first();
+
+      const physicalAvailable = stockRecord ? Math.max(0, stockRecord.totalStock - stockRecord.totalReserved) : 0;
+
+      // Consume whatever is physically available via FIFO
+      if (physicalAvailable > 0) {
+        try {
+          const partialResult = await consumeFromFIFO(
+            ctx,
+            reservation.componentTypeId,
+            reservation.locationId,
+            physicalAvailable
+          );
+          await applyFIFOConsumption(
+            ctx,
+            partialResult,
+            reservation.componentTypeId,
+            reservation.locationId,
+            args.orderId,
+            `Partial consumption for ${stage} order ${order.orderNumber} (stock override)`,
+            "system"
+          );
+        } catch {
+          // Even partial consumption failed (e.g., batches changed), skip
+        }
+      }
+
+      // Create a negative adjustment transaction for the shortfall
+      const shortfall = reservation.quantityReserved - physicalAvailable;
+      if (shortfall > 0) {
+        await ctx.db.insert("componentTransactions", {
+          componentTypeId: reservation.componentTypeId,
+          locationId: reservation.locationId,
+          transactionType: "adjust",
+          quantity: -shortfall,
+          unitCostAtTime: componentType.unitCostIdr,
+          orderId: args.orderId,
+          referenceNote: `Negative adjustment: stock override for ${stage} order ${order.orderNumber}`,
+          createdBy: "system",
+          createdAt: now,
+        });
+      }
+    }
 
     // Update reservation status
     await ctx.db.patch(reservation._id, {
       quantityConsumed: reservation.quantityReserved,
       status: "consumed",
-      consumedAt: Date.now(),
+      consumedAt: now,
     });
 
     // Update component stock aggregates
@@ -455,7 +521,7 @@ async function consumeMaterialsByStageInternal(
     consumedCount++;
   }
 
-  return { consumed: consumedCount };
+  return { consumed: consumedCount, warnings };
 }
 
 /**
@@ -464,7 +530,7 @@ async function consumeMaterialsByStageInternal(
 export async function consumeProductionMaterialsInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> }
-): Promise<{ consumed: number }> {
+): Promise<{ consumed: number; warnings: string[] }> {
   return await consumeMaterialsByStageInternal(ctx, args, "production");
 }
 
@@ -474,7 +540,7 @@ export async function consumeProductionMaterialsInternal(
 export async function consumeBoxingMaterialsInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> }
-): Promise<{ consumed: number }> {
+): Promise<{ consumed: number; warnings: string[] }> {
   return await consumeMaterialsByStageInternal(ctx, args, "boxing");
 }
 
@@ -496,7 +562,7 @@ export const consumeBoxingMaterials = mutation({
 export async function consumeStickerMaterialsInternal(
   ctx: MutationCtx,
   args: { orderId: Id<"orders"> }
-): Promise<{ consumed: number }> {
+): Promise<{ consumed: number; warnings: string[] }> {
   return await consumeMaterialsByStageInternal(ctx, args, "labeling");
 }
 

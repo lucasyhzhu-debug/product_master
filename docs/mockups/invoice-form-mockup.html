@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Form Mockup — Frollie Recipe Master</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1e293b; }
+
+  /* Layout */
+  .page { max-width: 900px; margin: 40px auto; }
+  .legend-bar { display: flex; gap: 24px; align-items: center; margin-bottom: 20px; padding: 12px 20px; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: 13px; }
+  .legend-swatch { width: 16px; height: 16px; border-radius: 4px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .legend-auto { background: #e0f2fe; border: 1.5px solid #7dd3fc; }
+  .legend-new  { background: #fef9c3; border: 1.5px solid #fcd34d; }
+  .legend-user { background: #fff; border: 1.5px solid #cbd5e1; }
+
+  /* Invoice "paper" */
+  .invoice { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.1); padding: 48px 56px; position: relative; }
+  .invoice::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #f97316, #fb923c); border-radius: 12px 12px 0 0; }
+
+  /* Header */
+  .inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 36px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-logo { width: 52px; height: 52px; background: linear-gradient(135deg, #f97316, #ea580c); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 20px; }
+  .brand-name { font-size: 22px; font-weight: 700; color: #0f172a; }
+  .brand-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .inv-title { text-align: right; }
+  .inv-title h1 { font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+  .inv-number { font-size: 13px; color: #64748b; margin-top: 4px; }
+
+  /* Two-column meta */
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
+  .meta-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; font-weight: 600; }
+
+  /* Form field styles */
+  .field { margin-bottom: 8px; display: flex; align-items: baseline; gap: 4px; }
+  .field-label { font-size: 11px; color: #94a3b8; min-width: 90px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field-value { font-size: 14px; padding: 4px 8px; border-radius: 6px; border: 1.5px solid transparent; min-width: 180px; outline: none; transition: all .15s; }
+  .field-value:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+
+  /* Auto-filled: blue tint */
+  .auto { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
+  .auto::placeholder { color: #7dd3fc; }
+
+  /* Needs input: yellow highlight */
+  .new { background: #fef9c3; border-color: #fcd34d; color: #92400e; }
+  .new::placeholder { color: #d97706; font-style: italic; }
+
+  /* User-edited */
+  .edited { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+
+  /* Items table */
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .items-table thead th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; font-weight: 600; padding: 8px 12px; border-bottom: 2px solid #e2e8f0; text-align: left; }
+  .items-table thead th:nth-child(3),
+  .items-table thead th:nth-child(4),
+  .items-table thead th:nth-child(5) { text-align: right; }
+  .items-table tbody td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .items-table tbody td:nth-child(3),
+  .items-table tbody td:nth-child(4),
+  .items-table tbody td:nth-child(5) { text-align: right; font-variant-numeric: tabular-nums; }
+  .items-table tbody tr:hover { background: #f8fafc; }
+
+  /* Totals */
+  .totals { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+  .totals-box { width: 300px; }
+  .total-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+  .total-row.discount { color: #dc2626; }
+  .total-row.grand { border-top: 2px solid #0f172a; margin-top: 8px; padding-top: 12px; font-size: 18px; font-weight: 700; }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px dashed #e2e8f0; margin: 28px 0; }
+
+  /* Footer sections */
+  .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 24px; }
+  .payment-box { background: #f8fafc; border-radius: 8px; padding: 16px; }
+  .payment-box h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; font-weight: 600; }
+  .bank-detail { font-size: 13px; color: #475569; line-height: 1.6; }
+  .bank-detail strong { color: #0f172a; }
+
+  .stamp-area { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px dashed #e2e8f0; border-radius: 8px; padding: 24px; min-height: 120px; }
+  .stamp-text { font-size: 12px; color: #94a3b8; }
+  .stamp-circle { width: 64px; height: 64px; border: 2px dashed #cbd5e1; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .stamp-circle span { font-size: 10px; color: #94a3b8; text-align: center; }
+
+  /* Notes */
+  .notes-area { background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+  .notes-area h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; font-weight: 600; }
+  .notes-field { width: 100%; border: 1.5px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 48px; color: #475569; background: #fff; }
+
+  /* Action bar */
+  .action-bar { display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+  .btn { padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+  .btn-secondary { background: #f1f5f9; color: #475569; }
+  .btn-secondary:hover { background: #e2e8f0; }
+  .btn-primary { background: #f97316; color: #fff; }
+  .btn-primary:hover { background: #ea580c; }
+
+  /* Annotation callouts */
+  .callout { position: relative; margin: 20px 0; padding: 14px 18px; background: #fefce8; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; font-size: 13px; color: #92400e; }
+  .callout strong { display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Step indicator */
+  .steps { display: flex; gap: 0; margin-bottom: 32px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .step { flex: 1; padding: 14px 16px; text-align: center; font-size: 13px; font-weight: 600; position: relative; }
+  .step.active { background: #fff7ed; color: #ea580c; }
+  .step.done { background: #f0fdf4; color: #16a34a; }
+  .step.upcoming { color: #94a3b8; }
+  .step-num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; font-size: 11px; margin-right: 6px; }
+  .step.active .step-num { background: #f97316; color: #fff; }
+  .step.done .step-num { background: #16a34a; color: #fff; }
+  .step.upcoming .step-num { background: #e2e8f0; color: #94a3b8; }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .invoice { padding: 24px 20px; }
+    .meta-grid, .footer-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Annotation arrows */
+  .annotation { position: absolute; font-size: 11px; color: #dc2626; font-weight: 600; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Workflow steps -->
+  <div class="steps">
+    <div class="step done">
+      <span class="step-num">&#10003;</span> Select Order
+    </div>
+    <div class="step active">
+      <span class="step-num">2</span> Fill Invoice Details
+    </div>
+    <div class="step upcoming">
+      <span class="step-num">3</span> Preview &amp; Print
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend-bar">
+    <span><span class="legend-swatch legend-auto"></span> Auto-filled from order/customer</span>
+    <span><span class="legend-swatch legend-new"></span> Needs your input</span>
+    <span><span class="legend-swatch legend-user"></span> Edited by you</span>
+  </div>
+
+  <div class="callout">
+    <strong>How this works</strong>
+    This form IS the invoice. Fields pulled from the order appear in <span style="color:#0369a1;font-weight:600;">blue</span>.
+    New fields the customer needs for their records appear in <span style="color:#d97706;font-weight:600;">yellow</span>.
+    Fill them in, hit Generate, and the yellow fields get saved to the customer's profile for next time.
+  </div>
+
+  <!-- Invoice paper -->
+  <div class="invoice">
+
+    <!-- Header -->
+    <div class="inv-header">
+      <div class="brand">
+        <div class="brand-logo">F</div>
+        <div>
+          <div class="brand-name">Frollie</div>
+          <div class="brand-sub">Jl. Contoh No. 123, Jakarta &bull; (021) 555-0123</div>
+        </div>
+      </div>
+      <div class="inv-title">
+        <h1>INVOICE</h1>
+        <div class="inv-number">
+          <div class="field" style="justify-content:flex-end;">
+            <span class="field-label">No.</span>
+            <input class="field-value auto" value="INV-0316-001" readonly style="width:140px;text-align:right;">
+          </div>
+          <div class="field" style="justify-content:flex-end;">
+            <span class="field-label">Date</span>
+            <input class="field-value auto" value="16 Maret 2026" readonly style="width:140px;text-align:right;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta: Bill To + Order Info -->
+    <div class="meta-grid">
+      <div class="meta-section">
+        <h3>Bill To</h3>
+        <div class="field">
+          <span class="field-label">Name</span>
+          <input class="field-value auto" value="Bu Sarah" readonly>
+        </div>
+        <div class="field">
+          <span class="field-label">Company</span>
+          <input class="field-value new" placeholder="e.g. PT Maju Jaya">
+        </div>
+        <div class="field">
+          <span class="field-label">NPWP</span>
+          <input class="field-value new" placeholder="e.g. 01.234.567.8-901.000">
+        </div>
+        <div class="field">
+          <span class="field-label">Address</span>
+          <input class="field-value new" placeholder="Billing address">
+        </div>
+        <div class="field">
+          <span class="field-label">Phone</span>
+          <input class="field-value auto" value="0812-3456-7890" readonly>
+        </div>
+      </div>
+      <div class="meta-section">
+        <h3>Order Details</h3>
+        <div class="field">
+          <span class="field-label">Order #</span>
+          <input class="field-value auto" value="0316-001" readonly>
+        </div>
+        <div class="field">
+          <span class="field-label">Order Date</span>
+          <input class="field-value auto" value="15 Maret 2026" readonly>
+        </div>
+        <div class="field">
+          <span class="field-label">Due Date</span>
+          <input class="field-value auto" value="16 Maret 2026" readonly>
+        </div>
+        <div class="field">
+          <span class="field-label">Channel</span>
+          <input class="field-value auto" value="WhatsApp" readonly>
+        </div>
+        <div class="field">
+          <span class="field-label">PO Number</span>
+          <input class="field-value new" placeholder="Optional PO reference">
+        </div>
+      </div>
+    </div>
+
+    <!-- Items table -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Product</th>
+          <th>Qty</th>
+          <th>Unit Price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:#94a3b8">1</td>
+          <td>
+            <div style="font-weight:600">Original (80g)</div>
+            <div style="font-size:12px;color:#94a3b8">Jumbo Ball</div>
+          </td>
+          <td style="text-align:right">10</td>
+          <td style="text-align:right">Rp 35.000</td>
+          <td style="text-align:right;font-weight:600">Rp 350.000</td>
+        </tr>
+        <tr>
+          <td style="color:#94a3b8">2</td>
+          <td>
+            <div style="font-weight:600">Bite Triple (135g)</div>
+            <div style="font-size:12px;color:#94a3b8">3x Mid Ball</div>
+          </td>
+          <td style="text-align:right">5</td>
+          <td style="text-align:right">Rp 55.000</td>
+          <td style="text-align:right;font-weight:600">Rp 275.000</td>
+        </tr>
+        <tr>
+          <td style="color:#94a3b8">3</td>
+          <td>
+            <div style="font-weight:600">Original Triple (135g)</div>
+            <div style="font-size:12px;color:#94a3b8">1x Big + 2x Mid Ball</div>
+          </td>
+          <td style="text-align:right">3</td>
+          <td style="text-align:right">Rp 65.000</td>
+          <td style="text-align:right;font-weight:600">Rp 195.000</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div class="totals">
+      <div class="totals-box">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span>Rp 820.000</span>
+        </div>
+        <div class="total-row discount">
+          <span>Discount (10%)</span>
+          <span>- Rp 82.000</span>
+        </div>
+        <div class="total-row">
+          <span>Delivery Fee</span>
+          <span>Rp 15.000</span>
+        </div>
+        <div class="total-row grand">
+          <span>Total</span>
+          <span>Rp 753.000</span>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Footer: Payment + Stamp -->
+    <div class="footer-grid">
+      <div class="payment-box">
+        <h3>Payment Information</h3>
+        <div class="bank-detail">
+          <strong>Bank BCA</strong><br>
+          Account: 123-456-7890<br>
+          Name: Frollie<br><br>
+          <span style="display:inline-flex;align-items:center;gap:4px;">
+            Status:
+            <span style="background:#dcfce7;color:#16a34a;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;">PAID</span>
+          </span><br>
+          Method: Bank Transfer
+        </div>
+      </div>
+      <div class="stamp-area">
+        <div class="stamp-circle">
+          <span>Stamp /<br>TTD</span>
+        </div>
+        <div class="stamp-text">Authorized Signature</div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="notes-area">
+      <h3>Notes</h3>
+      <textarea class="notes-field" placeholder="Additional notes for this invoice...">Terima kasih atas pesanan Anda. Semoga menikmati!</textarea>
+    </div>
+
+    <!-- Actions (shown in form mode, hidden on print) -->
+    <div class="action-bar">
+      <button class="btn btn-secondary">Cancel</button>
+      <button class="btn btn-secondary">Preview</button>
+      <button class="btn btn-primary">&#x1f4c4; Generate Invoice</button>
+    </div>
+
+  </div>
+
+  <!-- Post-generate note -->
+  <div class="callout" style="margin-top: 24px; background: #f0fdf4; border-left-color: #16a34a; color: #166534;">
+    <strong>After Generate</strong>
+    Yellow fields (Company, NPWP, Billing Address) are saved back to the customer record.
+    Next time Bu Sarah orders, those fields will auto-fill in blue.
+    The invoice opens in a clean print view (no form controls, no colors) ready for Ctrl+P or "Download PDF".
+  </div>
+
+</div>
+
+</body>
+</html>
