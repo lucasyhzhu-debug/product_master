@@ -1,32 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: "Checkpoint: 56-02 Task 2 (human-verify)"
-last_updated: "2026-03-16T12:07:37.579Z"
-last_activity: 2026-03-16 - Completed Plan 56-01 (ExpenseGuide sections 1-4 + registry wiring)
-progress:
-  total_phases: 19
-  completed_phases: 16
-  total_plans: 36
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: in_progress
-stopped_at: Completed 56-01-PLAN.md
-last_updated: "2026-03-16T11:58:23Z"
-last_activity: "2026-03-16 - Completed Plan 56-01 (ExpenseGuide sections 1-4 + registry wiring)"
+stopped_at: "Completed 56-02-PLAN.md"
+last_updated: "2026-03-16T12:28:05Z"
+last_activity: "2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -34,16 +19,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide) COMPLETE
 
 ## Current Position
 
-Phase: 56-expense-training-guide (Plan 1 of 2 complete)
-Plan: 56-01 (complete)
-Status: Plan 56-01 complete, ready for 56-02
-Last activity: 2026-03-16 - Completed Plan 56-01 (ExpenseGuide sections 1-4 + registry wiring)
+Phase: 56-expense-training-guide (Plan 2 of 2 complete)
+Plan: 56-02 (complete)
+Status: Phase 56 complete, all plans done
+Last activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -58,6 +43,7 @@ Progress: [████████░░] 80%
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
+| 56-expense-training-guide | 02 | 4min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -76,6 +62,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
 
+### Roadmap Evolution
+
+- Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
+
 ### Open Blockers (carried forward)
 
 - GrabFood `orders:read` OAuth2 scope not yet granted -- infrastructure works, 401 handled gracefully
@@ -91,6 +81,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16T12:07:29.056Z
-Stopped at: Checkpoint: 56-02 Task 2 (human-verify)
-Resume notes: Plan 56-01 complete. ExpenseGuide.tsx created with 4 complete sections (Overview, Submitting, Approving, Reimbursement) and 4 placeholder sections. Expenses guide wired as "live" in registry. Tests updated and passing. Ready for Plan 56-02 (sections 5-8).
+Last session: 2026-03-16T12:28:05.491Z
+Stopped at: Completed 56-02-PLAN.md
+Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.

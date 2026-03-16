@@ -479,3 +479,13 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
+
+### Phase 59: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** None (independent of invoice phases 57-58)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 59 to break down)
