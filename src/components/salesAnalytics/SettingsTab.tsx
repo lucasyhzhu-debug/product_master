@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle } from "lucide-react";
+import { formatRelativeTime } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import {
   useExternalOutlets,
   useDiscoverK3MartOutlets,
@@ -23,8 +25,53 @@ import { GrabFoodCredentialsDialog } from "./GrabFoodCredentialsDialog";
 import { IntegrationHealthCard } from "./IntegrationHealthCard";
 import { BigSellerSyncPanel } from "./BigSellerSyncPanel";
 import { BigSellerOrdersTable } from "./BigSellerOrdersTable";
+import { PlatformSyncPanel } from "./PlatformSyncPanel";
 import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
+
+const EXPANDABLE_PLATFORMS = new Set(["bigseller", "k3mart", "gobiz", "internal"]);
+
+/** Inline sync history log for expanded platform sections */
+function SyncHistoryLog({ syncHistory }: { syncHistory: PlatformHealthStatus["syncHistory"] }) {
+  if (!syncHistory || syncHistory.length === 0) return null;
+  return (
+    <div className="border-t pt-2">
+      <p className="text-xs font-medium text-muted-foreground mb-1.5">Sync History</p>
+      <div className="space-y-1">
+        {syncHistory.map((entry, i) => (
+          <div key={i} className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              {entry.status === "success" ? (
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+              ) : entry.status === "error" ? (
+                <XCircle className="h-3 w-3 text-red-500" />
+              ) : (
+                <Clock className="h-3 w-3 text-amber-500" />
+              )}
+              <span className="text-muted-foreground">{formatRelativeTime(entry.timestamp)}</span>
+              <span className={cn(
+                "text-[10px] px-1 py-0.5 rounded",
+                entry.syncType === "token_refresh"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+              )}>
+                {entry.syncType === "token_refresh" ? "Token" : "Sync"}
+              </span>
+              {entry.errorMessage && (
+                <span className="text-red-500 truncate max-w-[200px]" title={entry.errorMessage}>
+                  {entry.errorMessage}
+                </span>
+              )}
+            </div>
+            {entry.syncType !== "token_refresh" && entry.productsCount !== undefined && (
+              <span className="text-muted-foreground">{entry.productsCount} records</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function SettingsTab() {
   const { user } = useAuth();
@@ -36,7 +83,14 @@ export function SettingsTab() {
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
   const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
   const [grabfoodDialogOpen, setGrabfoodDialogOpen] = useState(false);
-  const [bigsellerExpanded, setBigsellerExpanded] = useState(false);
+  const [expandedPlatforms, setExpandedPlatforms] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -80,10 +134,14 @@ export function SettingsTab() {
     }
   };
 
-  const handleSyncK3MartSales = async () => {
+  const handleSyncK3MartSales = async (params?: { fromDate?: string; toDate?: string }) => {
     setSyncingK3MartSales(true);
     try {
-      const result = await syncK3MartSales({ triggeredBy: "settings" });
+      const result = await syncK3MartSales({
+        triggeredBy: "settings",
+        fromDate: params?.fromDate,
+        toDate: params?.toDate,
+      });
       if (result.success) {
         toast.success(`Synced ${result.newTransactions} new transactions (${result.skippedDuplicates} duplicates skipped)`);
       } else {
@@ -99,10 +157,16 @@ export function SettingsTab() {
     }
   };
 
-  const handleSyncGoBiz = async () => {
+  const handleSyncGoBiz = async (params?: { fromDate?: string; toDate?: string }) => {
     setSyncingGoBiz(true);
     try {
-      await syncGoBiz({ triggeredBy: "settings" });
+      const syncArgs: { triggeredBy: string; daysBack?: number } = { triggeredBy: "settings" };
+      if (params?.fromDate) {
+        syncArgs.daysBack = Math.ceil(
+          (Date.now() - new Date(params.fromDate).getTime()) / (24 * 60 * 60 * 1000)
+        );
+      }
+      await syncGoBiz(syncArgs);
       toast.success("GoBiz sync completed");
     } catch (error) {
       console.error("GoBiz sync failed:", error);
@@ -192,7 +256,11 @@ export function SettingsTab() {
             </div>
           ) : (
             <div className="space-y-2 rounded-lg border overflow-hidden">
-              {(healthData as PlatformHealthStatus[]).map((health) => (
+              {(healthData as PlatformHealthStatus[]).map((health) => {
+                const isExpandable = EXPANDABLE_PLATFORMS.has(health.platformId);
+                const isCurrentExpanded = expandedPlatforms.has(health.platformId);
+
+                return (
                 <div key={health.platformId}>
                   <div className="flex items-center">
                     <div className="flex-1">
@@ -200,12 +268,14 @@ export function SettingsTab() {
                         health={health}
                         onAction={() => handleAction(health.platformId, health.authStrategy)}
                         isAdmin={isAdmin}
+                        hideExpandToggle={isExpandable}
                       />
                     </div>
-                    {/* BigSeller: unmapped SKU badge + expand toggle */}
-                    {health.platformId === "bigseller" && (
+                    {/* Expand toggle for expandable platforms */}
+                    {isExpandable && (
                       <div className="flex items-center gap-1.5 pr-2">
-                        {unmappedSkuCount > 0 && (
+                        {/* BigSeller: unmapped SKU badge */}
+                        {health.platformId === "bigseller" && unmappedSkuCount > 0 && (
                           <Badge
                             variant="outline"
                             className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 dark:text-amber-400"
@@ -217,10 +287,10 @@ export function SettingsTab() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={() => setBigsellerExpanded(!bigsellerExpanded)}
-                          aria-label={bigsellerExpanded ? "Collapse BigSeller" : "Expand BigSeller"}
+                          onClick={() => toggleExpanded(health.platformId)}
+                          aria-label={isCurrentExpanded ? `Collapse ${health.platformName}` : `Expand ${health.platformName}`}
                         >
-                          {bigsellerExpanded ? (
+                          {isCurrentExpanded ? (
                             <ChevronUp className="h-3.5 w-3.5" />
                           ) : (
                             <ChevronDown className="h-3.5 w-3.5" />
@@ -229,8 +299,9 @@ export function SettingsTab() {
                       </div>
                     )}
                   </div>
+
                   {/* BigSeller expanded section */}
-                  {health.platformId === "bigseller" && bigsellerExpanded && (
+                  {health.platformId === "bigseller" && isCurrentExpanded && (
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <BigSellerSyncPanel
                         tokenExpired={bigsellerTokenExpired}
@@ -244,47 +315,52 @@ export function SettingsTab() {
                       </div>
                     </div>
                   )}
+
+                  {/* K3Mart expanded section */}
+                  {health.platformId === "k3mart" && isCurrentExpanded && (
+                    <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
+                      <PlatformSyncPanel
+                        showDateRange={true}
+                        onSync={(params) => handleSyncK3MartSales(params)}
+                        secondaryAction={{
+                          label: "Refresh Stores",
+                          loadingLabel: "Discovering...",
+                          onAction: handleDiscoverK3MartOutlets,
+                        }}
+                        isSyncing={syncingK3MartSales || discoveringK3Mart}
+                      />
+                      <SyncHistoryLog syncHistory={health.syncHistory} />
+                    </div>
+                  )}
+
+                  {/* GoBiz expanded section */}
+                  {health.platformId === "gobiz" && isCurrentExpanded && (
+                    <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
+                      <PlatformSyncPanel
+                        showDateRange={true}
+                        hideEndDate={true}
+                        onSync={(params) => handleSyncGoBiz(params)}
+                        isSyncing={syncingGoBiz}
+                      />
+                      <SyncHistoryLog syncHistory={health.syncHistory} />
+                    </div>
+                  )}
+
+                  {/* Internal expanded section */}
+                  {health.platformId === "internal" && isCurrentExpanded && (
+                    <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
+                      <PlatformSyncPanel
+                        showDateRange={false}
+                        onSync={() => handleSyncInternal()}
+                        isSyncing={syncingInternal}
+                      />
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Sync actions section (K3Mart, GoBiz, Internal) */}
-      {canViewHealth && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Sync Actions</h3>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleSyncK3MartSales}
-              disabled={syncingK3MartSales || discoveringK3Mart}
-              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
-            >
-              {syncingK3MartSales ? "Syncing K3 Mart..." : "Sync K3 Mart Sales"}
-            </button>
-            <button
-              onClick={handleDiscoverK3MartOutlets}
-              disabled={discoveringK3Mart || syncingK3MartSales}
-              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
-            >
-              {discoveringK3Mart ? "Discovering..." : "Refresh K3 Mart Stores"}
-            </button>
-            <button
-              onClick={handleSyncGoBiz}
-              disabled={syncingGoBiz}
-              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
-            >
-              {syncingGoBiz ? "Syncing GoBiz..." : "Sync GoBiz Journals"}
-            </button>
-            <button
-              onClick={handleSyncInternal}
-              disabled={syncingInternal}
-              className="text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
-            >
-              {syncingInternal ? "Syncing..." : "Sync Internal Orders"}
-            </button>
-          </div>
         </div>
       )}
 
