@@ -39,11 +39,13 @@ export const backfillBigSellerRevenue = internalMutation({
       const correctedGross = order.orderAmount ?? order.saleAmount;
       const correctedNet = order.platformIncome;
       const correctedCommission = Math.abs(order.commissionFee);
+      const correctedDeliveryFees = Math.abs(order.sellerShippingFee) + Math.abs(order.buyerShippingFee);
 
       await ctx.db.patch(revenue._id, {
         revenueGross: correctedGross,
         revenueNet: correctedNet,
         commission: correctedCommission,
+        deliveryFees: correctedDeliveryFees,
         transactionCount: 1,
         // Fix source if it was misclassified as "shopee" for TikTok orders (BUG-02)
         source: order.platform as "shopee" | "tiktok",

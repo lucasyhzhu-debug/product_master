@@ -27,24 +27,25 @@ export function aggregatePeriodRevenue(
   // Per-channel platform aggregation (for non-internal sources) — single pass
   // Uses stored revenueNet (pre-calculated by platform) with fallback to revenueGross
   function aggregatePlatformChannel(channelRecords: Doc<"externalRevenue">[]) {
-    let gross = 0, net = 0, commission = 0, adBurn = 0, promoBurn = 0, txns = 0;
+    let gross = 0, net = 0, commission = 0, adBurn = 0, promoBurn = 0, deliveryFees = 0, txns = 0;
     for (const r of channelRecords) {
-      gross      += r.revenueGross    ?? 0;
-      net        += r.revenueNet      ?? (r.revenueGross ?? 0);
-      commission += r.commission      ?? 0;
-      adBurn     += r.adBurn          ?? 0;
-      promoBurn  += r.promoBurn       ?? 0;
-      txns       += r.transactionCount ?? 1;
+      gross        += r.revenueGross    ?? 0;
+      net          += r.revenueNet      ?? (r.revenueGross ?? 0);
+      commission   += r.commission      ?? 0;
+      adBurn       += r.adBurn          ?? 0;
+      promoBurn    += r.promoBurn       ?? 0;
+      deliveryFees += r.deliveryFees    ?? 0;
+      txns         += r.transactionCount ?? 1;
     }
-    return { gross, net, txns, commission, adBurn, promoBurn };
+    return { gross, net, txns, commission, adBurn, promoBurn, deliveryFees };
   }
 
   // Internal orders: special handling — look up real orders for pre-discount totals
   const internalRecords = bySource.get("internal") ?? [];
   let internalGross = 0;
   let internalNet = 0;
-  let totalDiscounts = 0;
-  let totalDeliveryFees = 0;
+  let internalDiscounts = 0;
+  let internalDeliveryFees = 0;
   const internalTxns = internalRecords.reduce((sum, r) => sum + (r.transactionCount ?? 1), 0);
 
   for (const rec of internalRecords) {
@@ -55,8 +56,8 @@ export function aggregatePeriodRevenue(
       const netProduct = od.finalTotal - od.deliveryFee;
       internalGross += od.totalAmount;
       internalNet += netProduct;
-      totalDiscounts += od.totalAmount - netProduct;
-      totalDeliveryFees += od.deliveryFee;
+      internalDiscounts += od.totalAmount - netProduct;
+      internalDeliveryFees += od.deliveryFee;
     } else {
       // Fallback to revenue record data if order deleted
       internalGross += rec.revenueGross ?? 0;
@@ -68,11 +69,12 @@ export function aggregatePeriodRevenue(
   const channels: Array<{
     source: string; displayName: string;
     gross: number; net: number; transactions: number;
-    commission: number; promoBurn: number;
+    commission: number; promoBurn: number; deliveryFees: number;
   }> = [];
   let totalCommission = 0;
   let totalAdBurn = 0;
   let totalPromoBurn = 0;
+  let platformDeliveryFees = 0;
   let platformGross = 0;
   let totalNet = internalNet;
   let totalTransactions = internalTxns;
@@ -83,6 +85,7 @@ export function aggregatePeriodRevenue(
     totalCommission += agg.commission;
     totalAdBurn += agg.adBurn;
     totalPromoBurn += agg.promoBurn;
+    platformDeliveryFees += agg.deliveryFees;
     platformGross += agg.gross;
     totalNet += agg.net;
     totalTransactions += agg.txns;
@@ -95,6 +98,7 @@ export function aggregatePeriodRevenue(
         transactions: agg.txns,
         commission: agg.commission,
         promoBurn: agg.promoBurn,
+        deliveryFees: agg.deliveryFees,
       });
     }
   }
@@ -109,11 +113,17 @@ export function aggregatePeriodRevenue(
       transactions: internalTxns,
       commission: 0,
       promoBurn: 0,
+      deliveryFees: internalDeliveryFees,
     });
   }
 
   // Sort channels by gross revenue descending (biggest first)
   channels.sort((a, b) => b.gross - a.gross);
+
+  // Discounts = internal order discounts + platform promo burn (GoFood promos, etc.)
+  const totalDiscounts = internalDiscounts + totalPromoBurn;
+  // Delivery fees = internal order delivery + platform shipping (Shopee/TikTok)
+  const totalDeliveryFees = internalDeliveryFees + platformDeliveryFees;
 
   return {
     totalGross: platformGross + internalGross,

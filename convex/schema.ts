@@ -1080,6 +1080,7 @@ export default defineSchema({
     commission: v.optional(v.number()),
     adBurn: v.optional(v.number()),
     promoBurn: v.optional(v.number()),
+    deliveryFees: v.optional(v.number()),
     gobizOrderNumber: v.optional(v.string()),
   })
     .index("by_source", ["source"])
