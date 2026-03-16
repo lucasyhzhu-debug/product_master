@@ -81,6 +81,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | 1f26cba | Done | .planning/quick/34-fix-gl-codes-missing-in-expense-form-and/ |
 
 ## Session Continuity
 
