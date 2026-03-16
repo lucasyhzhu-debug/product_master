@@ -22,6 +22,9 @@ Does NOT include: bank statement import/matching, multi-bank account tracking, r
 - `company_paid` = company bank already debited (direct debit, linked Shopee/BCA, company card swipe), employee is just recording it
 - Phase 59.1 will add a 3rd literal `payment_request` for prospective company payments — design the schema union to be extensible
 - Frontend dropdown shows exactly 2 options with clear labels (3rd added in Phase 59.1)
+- Each payment method option has an inline tooltip/helper text explaining what it means for the employee:
+  - **Reimburse Employee**: "I paid for this myself and need the company to pay me back"
+  - **Paid by Company**: "The company bank account was already charged (e.g., direct debit, linked Shopee/BCA)"
 
 ### Schema Changes
 - `paymentMethod` union: `v.literal("employee_paid")` | `v.literal("company_paid")`
