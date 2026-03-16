@@ -323,14 +323,13 @@ Task(
 
 **Handle results from sub-agent return:**
 - Parse severity tiers from the returned report
-- Critical + Important findings → implement fixes before proceeding to verification
+- **ALL findings (Critical + Important + Minor + Nitpick)** → implement fixes before proceeding to verification. Include the complete tiered list so all items are addressed.
 - After fixes: commit with `fix({phase_number}): apply triple-review findings`
-- Minor/Nitpick → note in aggregate results, proceed to verification
 - Staffreview report is saved to `docs/reviews/` by the sub-agent
 
 **In auto-advance mode (`--auto` or config enabled):**
 - Still run triple-review (quality gate is non-negotiable)
-- Critical/Important items pause the auto-advance chain for fixes
+- All review findings pause the auto-advance chain for fixes
 - After fixes are applied, resume auto-advance to verification
 
 **If `TRIPLE_REVIEW` is `"false"`:** Skip to next step.

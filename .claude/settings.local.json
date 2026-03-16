@@ -5,7 +5,9 @@
       "Skill(gsd:update)",
       "Skill(gsd:progress)",
       "Skill(gsd:progress:*)",
-      "Skill(gsd:audit-milestone)"
+      "Skill(gsd:audit-milestone)",
+      "Skill(gsd:add-phase)",
+      "Skill(gsd:insert-phase)"
     ],
     "deny": [
       "Bash(rm -rf *)",

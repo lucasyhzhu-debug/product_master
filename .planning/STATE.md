@@ -97,6 +97,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
 - Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 - Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
+- Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
+- Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
 
 ### Open Blockers (carried forward)
 

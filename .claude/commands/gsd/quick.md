@@ -1,7 +1,7 @@
 ---
 name: gsd:quick
-description: Execute a quick task with GSD guarantees (atomic commits, state tracking) but skip optional agents
-argument-hint: "[--full] [--discuss]"
+description: Execute a quick task with GSD guarantees (atomic commits, state tracking) with full quality gates by default
+argument-hint: "[--quick] [--discuss]"
 allowed-tools:
   - Read
   - Write
@@ -24,9 +24,9 @@ Quick mode is the same system with a shorter path:
 
 **`--discuss` flag:** Lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md. Use when the task has ambiguity worth resolving upfront.
 
-**`--full` flag:** Enables plan-checking (max 2 iterations) and post-execution verification. Use when you want quality guarantees without full milestone ceremony.
+**`--quick` flag:** Disables plan-checking, verification, triple-review, and simplify for fast execution without quality gates. Use when you know exactly what to do and want speed over thoroughness.
 
-Flags are composable: `--discuss --full` gives discussion + plan-checking + verification.
+Flags are composable: `--discuss --quick` gives discussion but skips quality gates.
 </objective>
 
 <execution_context>

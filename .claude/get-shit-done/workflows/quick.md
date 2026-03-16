@@ -3,9 +3,9 @@ Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracki
 
 With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md so the planner treats them as locked.
 
-With `--full` flag: enables plan-checking (max 2 iterations) and post-execution verification for quality guarantees without full milestone ceremony.
+With `--quick` flag: disables plan-checking, verification, triple-review, and simplify for fast execution without quality gates.
 
-Flags are composable: `--discuss --full` gives discussion + plan-checking + verification.
+By default (no flags), plan-checking + verification + triple-review + simplify are enabled. Flags are composable: `--discuss --quick` gives discussion but skips quality gates.
 </purpose>
 
 <required_reading>
@@ -16,9 +16,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Step 1: Parse arguments and get task description**
 
 Parse `$ARGUMENTS` for:
-- `--full` flag → store as `$FULL_MODE` (true/false)
+- `--quick` flag → store as `$QUICK_MODE` (true/false)
 - `--discuss` flag → store as `$DISCUSS_MODE` (true/false)
 - Remaining text → use as `$DESCRIPTION` if non-empty
+
+Derive: `$FULL_MODE = NOT $QUICK_MODE` (full mode is the default)
 
 If `$DESCRIPTION` is empty after parsing, prompt user interactively:
 
@@ -36,31 +38,40 @@ If still empty, re-prompt: "Please provide a task description."
 
 Display banner based on active flags:
 
-If `$DISCUSS_MODE` and `$FULL_MODE`:
+If `$DISCUSS_MODE` and `$QUICK_MODE`:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (DISCUSS + FULL)
+ GSD ► QUICK TASK (DISCUSS + QUICK)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Discussion + plan checking + verification enabled
+◆ Discussion enabled, quality gates skipped
 ```
 
-If `$DISCUSS_MODE` only:
+If `$DISCUSS_MODE` only (full mode default):
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► QUICK TASK (DISCUSS)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Discussion phase enabled — surfacing gray areas before planning
+◆ Discussion + plan checking + verification enabled
 ```
 
-If `$FULL_MODE` only:
+If `$QUICK_MODE` only:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (FULL MODE)
+ GSD ► QUICK TASK (QUICK MODE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Plan checking + verification enabled
+◆ Quality gates skipped — fast execution
+```
+
+If neither flag (default — full mode):
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Plan checking + verification enabled (default)
 ```
 
 ---
@@ -477,7 +488,7 @@ Task(
 )
 ```
 
-Handle results: Critical + Important findings → fix before proceeding. Minor/Nitpick → note and continue.
+Handle results: **ALL findings (Critical + Important + Minor + Nitpick)** → fix before proceeding. Include the complete tiered list so all items are addressed.
 
 ---
 
@@ -600,7 +611,7 @@ Insert after `### Blockers/Concerns` section:
 |---|-------------|------|--------|-----------|
 ```
 
-**Note:** If the table already exists, match its existing column format. If adding `--full` to a project that already has quick tasks without a Status column, add the Status column to the header and separator rows, and leave Status empty for the new row's predecessors.
+**Note:** If the table already exists, match its existing column format. If the table lacks a Status column (legacy from pre-default-full era), add the Status column to the header and separator rows, and leave Status empty for the existing rows.
 
 **7c. Append new row to table:**
 
@@ -744,18 +755,18 @@ Report: `PR #{N} merged. Local main synced.`
 <success_criteria>
 - [ ] ROADMAP.md validation passes
 - [ ] User provides task description
-- [ ] `--full` and `--discuss` flags parsed from arguments when present
+- [ ] `--quick` and `--discuss` flags parsed from arguments when present; `$FULL_MODE` derived as `NOT $QUICK_MODE`
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Next number calculated (001, 002, 003...)
 - [ ] Directory created at `.planning/quick/NNN-slug/`
 - [ ] (--discuss) Gray areas identified and presented, decisions captured in `${next_num}-CONTEXT.md`
 - [ ] `${next_num}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss)
-- [ ] (--full) Plan checker validates plan, revision loop capped at 2
+- [ ] (default, skip with --quick) Plan checker validates plan, revision loop capped at 2
 - [ ] `${next_num}-SUMMARY.md` created by executor
-- [ ] (--full) `${next_num}-VERIFICATION.md` created by verifier
-- [ ] (--full) Triple review run if config enabled
-- [ ] (--full) Simplify pass run if config enabled
-- [ ] STATE.md updated with quick task row (Status column when --full)
+- [ ] (default, skip with --quick) `${next_num}-VERIFICATION.md` created by verifier
+- [ ] (default, skip with --quick) Triple review run if config enabled
+- [ ] (default, skip with --quick) Simplify pass run if config enabled
+- [ ] STATE.md updated with quick task row (Status column by default, omitted with --quick)
 - [ ] Artifacts committed
 - [ ] (feature branch) CHANGELOG.md updated, PR created and merged
 </success_criteria>

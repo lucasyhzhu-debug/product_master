@@ -69,6 +69,18 @@ Based on `USER_INTENT`, identify which GSD files are likely candidates.
 
 When keywords are ambiguous or multiple files match, list all candidates.
 
+**Parameter consistency rule — ALWAYS check both layers when changing flags/parameters:**
+
+Claude Code slash commands have two layers:
+- **Command file** (`.claude/commands/gsd/*.md`) — controls `argument-hint` (autocomplete), `description`, and `<objective>` text shown to users
+- **Workflow file** (`.claude/get-shit-done/workflows/*.md`) — contains actual execution logic, argument parsing, and conditional behavior
+
+When a change involves flags, parameters, or argument names, ALWAYS include BOTH the command file AND the workflow file in the candidate list. A workflow change without a matching command file update leaves stale autocomplete hints.
+
+**Help file rule — ALWAYS check `/gsd:help` documentation:**
+
+When a change modifies a command's behavior, flags, or description, also check `.claude/get-shit-done/workflows/help.md` for a stale description of that command. If the help text doesn't match the new behavior, include it in the candidate list.
+
 **Read each identified file** to understand current structure before proposing changes. Look for:
 - Existing step names (`## Step N:` or `<step name="...">`)
 - Section headers that serve as stable anchor points
@@ -200,6 +212,16 @@ Evaluate result:
 - Count = 0: `✗ Not found — edit may have failed`
 
 If any verification fails, re-read the file to diagnose and retry the edit.
+
+**Parameter consistency verification (when flags/parameters were changed):**
+
+For each command affected by the change, verify all three layers are consistent:
+
+1. **Command file** — grep `argument-hint` for old flag names (should be 0 matches) and new flag names (should be >= 1)
+2. **Workflow file** — grep for old flag names in argument parsing / purpose section (should be 0) and new flag names (should be >= 1)
+3. **Help file** — grep `.claude/get-shit-done/workflows/help.md` for the command name, verify the surrounding description matches the new behavior
+
+If any layer has stale references, fix before proceeding to Step 7.
 
 ---
 
