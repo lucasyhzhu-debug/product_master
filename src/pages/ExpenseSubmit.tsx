@@ -63,7 +63,7 @@ const RECEIPT_WARNING_THRESHOLD = 50_000;
 interface FormState {
   description: string;
   amount: string;
-  expenseType: string;
+  expenseType: "cogs" | "opex" | "other" | "";
   accountId: string;
   expenseDate: string;
   vendorName: string;
@@ -96,8 +96,9 @@ export function ExpenseSubmit() {
 
   // Data queries — filter to expense-relevant account types (opex, cogs, other)
   const allAccounts = useAccounts(true);
-  const accounts = allAccounts?.filter((a) =>
-    ["opex", "cogs", "other"].includes(a.type)
+  const accounts = useMemo(
+    () => allAccounts?.filter((a) => ["opex", "cogs", "other"].includes(a.type)),
+    [allAccounts]
   );
   const existingExpense = useExpense(editId ?? undefined);
   const generateUploadUrl = useExpenseUploadUrl();
@@ -133,7 +134,7 @@ export function ExpenseSubmit() {
       setForm({
         description: existingExpense.description,
         amount: String(existingExpense.amount),
-        expenseType: matchedAccount?.type ?? "",
+        expenseType: (matchedAccount?.type as FormState["expenseType"]) ?? "",
         accountId: existingExpense.accountId,
         expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
@@ -371,10 +372,10 @@ export function ExpenseSubmit() {
               <Label htmlFor="expenseType">Expense Type *</Label>
               <Select
                 value={form.expenseType}
-                onValueChange={(v) => {
+                onValueChange={(v: string) => {
                   setForm((prev) => ({
                     ...prev,
-                    expenseType: v,
+                    expenseType: v as FormState["expenseType"],
                     accountId: "",
                   }));
                 }}
