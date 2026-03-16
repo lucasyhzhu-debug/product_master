@@ -6,7 +6,7 @@
  *   /expenses/new       -- create new expense
  *   /expenses/new?edit=ID -- edit existing draft
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -50,12 +50,20 @@ const PAYMENT_METHODS = [
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
 
+// Tier 1 expense type options for cascading GL account selection
+const EXPENSE_TYPE_OPTIONS = [
+  { value: "cogs", label: "Cost of Goods Sold" },
+  { value: "opex", label: "Operating Expenses" },
+  { value: "other", label: "Other Income/Expense" },
+] as const;
+
 // Minimum amount that requires receipt (EXP-03)
 const RECEIPT_WARNING_THRESHOLD = 50_000;
 
 interface FormState {
   description: string;
   amount: string;
+  expenseType: string;
   accountId: string;
   expenseDate: string;
   vendorName: string;
@@ -71,6 +79,7 @@ function getDefaultDate(): string {
 const INITIAL_FORM: FormState = {
   description: "",
   amount: "",
+  expenseType: "",
   accountId: "",
   expenseDate: getDefaultDate(),
   vendorName: "",
@@ -106,9 +115,9 @@ export function ExpenseSubmit() {
   const [submitting, setSubmitting] = useState(false);
   const formLoadedRef = useRef(!isEditing);
 
-  // Pre-fill form when editing
+  // Pre-fill form when editing (wait for both existingExpense AND accounts to load)
   useEffect(() => {
-    if (isEditing && existingExpense && !formLoadedRef.current) {
+    if (isEditing && existingExpense && accounts && !formLoadedRef.current) {
       // Verify it's a draft
       if (existingExpense.status !== "draft") {
         toast.error("Only draft expenses can be edited");
@@ -116,9 +125,15 @@ export function ExpenseSubmit() {
         return;
       }
 
+      // Derive Tier 1 expenseType from the account's type field
+      const matchedAccount = accounts.find(
+        (a) => a._id === existingExpense.accountId
+      );
+
       setForm({
         description: existingExpense.description,
         amount: String(existingExpense.amount),
+        expenseType: matchedAccount?.type ?? "",
         accountId: existingExpense.accountId,
         expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
@@ -132,7 +147,7 @@ export function ExpenseSubmit() {
       }
       formLoadedRef.current = true;
     }
-  }, [isEditing, existingExpense, navigate]);
+  }, [isEditing, existingExpense, accounts, navigate]);
 
   const updateField = useCallback(
     <K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -141,13 +156,23 @@ export function ExpenseSubmit() {
     []
   );
 
+  // Tier 2 accounts filtered by selected Tier 1 expense type
+  const filteredAccounts = useMemo(
+    () =>
+      form.expenseType
+        ? (accounts ?? []).filter((a) => a.type === form.expenseType)
+        : [],
+    [accounts, form.expenseType]
+  );
+
   // Validate form before save
   const validateForm = useCallback((): string | null => {
     if (!form.description.trim()) return "Description is required";
     if (!form.amount || Number(form.amount) <= 0) return "Amount must be positive";
     if (!Number.isInteger(Number(form.amount)))
       return "Amount must be a whole number (IDR, no decimals)";
-    if (!form.accountId) return "GL Category is required";
+    if (!form.expenseType) return "Expense Type is required";
+    if (!form.accountId) return "GL Account is required";
     if (!form.expenseDate) return "Expense date is required";
     if (!form.vendorName.trim()) return "Vendor name is required";
     return null;
@@ -340,25 +365,52 @@ export function ExpenseSubmit() {
             </div>
           </div>
 
-          {/* GL Category */}
-          <div className="space-y-2">
-            <Label htmlFor="accountId">GL Category *</Label>
-            <Select
-              value={form.accountId}
-              onValueChange={(v) => updateField("accountId", v)}
-              disabled={isProcessing}
-            >
-              <SelectTrigger id="accountId">
-                <SelectValue placeholder="Select category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts?.map((account) => (
-                  <SelectItem key={account._id} value={account._id}>
-                    {account.code} - {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Expense Type (Tier 1) + GL Account (Tier 2) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="expenseType">Expense Type *</Label>
+              <Select
+                value={form.expenseType}
+                onValueChange={(v) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    expenseType: v,
+                    accountId: "",
+                  }));
+                }}
+                disabled={isProcessing}
+              >
+                <SelectTrigger id="expenseType">
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPENSE_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="accountId">GL Account *</Label>
+              <Select
+                value={form.accountId}
+                onValueChange={(v) => updateField("accountId", v)}
+                disabled={isProcessing || !form.expenseType}
+              >
+                <SelectTrigger id="accountId">
+                  <SelectValue placeholder="Select account..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredAccounts.map((account) => (
+                    <SelectItem key={account._id} value={account._id}>
+                      {account.code} - {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Vendor + Payment Method row */}
