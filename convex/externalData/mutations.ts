@@ -101,6 +101,8 @@ export const saveRevenue = internalMutation({
             revenueGross: record.revenueGross,
             revenueNet: record.revenueNet,
             commission: record.commission,
+            adBurn: record.adBurn,
+            promoBurn: record.promoBurn,
             deliveryFees: record.deliveryFees,
             transactionCount: record.transactionCount,
             periodStart: record.periodStart,
