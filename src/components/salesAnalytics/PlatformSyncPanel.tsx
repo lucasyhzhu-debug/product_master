@@ -5,7 +5,6 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface PlatformSyncPanelProps {
-  platformId: "k3mart" | "gobiz" | "internal";
   /** Whether to show date range inputs (K3Mart and GoBiz use dates, Internal does not) */
   showDateRange: boolean;
   /** Optional secondary action button (e.g., K3Mart "Refresh Stores") */

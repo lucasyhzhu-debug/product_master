@@ -27,6 +27,8 @@ import { PlatformSyncPanel } from "./PlatformSyncPanel";
 import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
 
+const EXPANDABLE_PLATFORMS = new Set(["bigseller", "k3mart", "gobiz", "internal"]);
+
 export function SettingsTab() {
   const { user } = useAuth();
   const [discoveringK3Mart, setDiscoveringK3Mart] = useState(false);
@@ -37,10 +39,14 @@ export function SettingsTab() {
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
   const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
   const [grabfoodDialogOpen, setGrabfoodDialogOpen] = useState(false);
-  const [bigsellerExpanded, setBigsellerExpanded] = useState(false);
-  const [k3martExpanded, setK3martExpanded] = useState(false);
-  const [gobizExpanded, setGobizExpanded] = useState(false);
-  const [internalExpanded, setInternalExpanded] = useState(false);
+  const [expandedPlatforms, setExpandedPlatforms] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -207,21 +213,8 @@ export function SettingsTab() {
           ) : (
             <div className="space-y-2 rounded-lg border overflow-hidden">
               {(healthData as PlatformHealthStatus[]).map((health) => {
-                const expandablePlatforms = ["bigseller", "k3mart", "gobiz", "internal"];
-                const isExpandable = expandablePlatforms.includes(health.platformId);
-                const expandedMap: Record<string, boolean> = {
-                  bigseller: bigsellerExpanded,
-                  k3mart: k3martExpanded,
-                  gobiz: gobizExpanded,
-                  internal: internalExpanded,
-                };
-                const toggleMap: Record<string, () => void> = {
-                  bigseller: () => setBigsellerExpanded(!bigsellerExpanded),
-                  k3mart: () => setK3martExpanded(!k3martExpanded),
-                  gobiz: () => setGobizExpanded(!gobizExpanded),
-                  internal: () => setInternalExpanded(!internalExpanded),
-                };
-                const isCurrentExpanded = expandedMap[health.platformId] ?? false;
+                const isExpandable = EXPANDABLE_PLATFORMS.has(health.platformId);
+                const isCurrentExpanded = expandedPlatforms.has(health.platformId);
 
                 return (
                 <div key={health.platformId}>
@@ -249,7 +242,7 @@ export function SettingsTab() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={toggleMap[health.platformId]}
+                          onClick={() => toggleExpanded(health.platformId)}
                           aria-label={isCurrentExpanded ? `Collapse ${health.platformName}` : `Expand ${health.platformName}`}
                         >
                           {isCurrentExpanded ? (
@@ -263,7 +256,7 @@ export function SettingsTab() {
                   </div>
 
                   {/* BigSeller expanded section */}
-                  {health.platformId === "bigseller" && bigsellerExpanded && (
+                  {health.platformId === "bigseller" && isCurrentExpanded && (
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <BigSellerSyncPanel
                         tokenExpired={bigsellerTokenExpired}
@@ -279,10 +272,9 @@ export function SettingsTab() {
                   )}
 
                   {/* K3Mart expanded section */}
-                  {health.platformId === "k3mart" && k3martExpanded && (
+                  {health.platformId === "k3mart" && isCurrentExpanded && (
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <PlatformSyncPanel
-                        platformId="k3mart"
                         showDateRange={true}
                         onSync={(params) => handleSyncK3MartSales(params)}
                         secondaryAction={{
@@ -296,10 +288,9 @@ export function SettingsTab() {
                   )}
 
                   {/* GoBiz expanded section */}
-                  {health.platformId === "gobiz" && gobizExpanded && (
+                  {health.platformId === "gobiz" && isCurrentExpanded && (
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <PlatformSyncPanel
-                        platformId="gobiz"
                         showDateRange={true}
                         onSync={(params) => handleSyncGoBiz(params)}
                         isSyncing={syncingGoBiz}
@@ -308,10 +299,9 @@ export function SettingsTab() {
                   )}
 
                   {/* Internal expanded section */}
-                  {health.platformId === "internal" && internalExpanded && (
+                  {health.platformId === "internal" && isCurrentExpanded && (
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <PlatformSyncPanel
-                        platformId="internal"
                         showDateRange={false}
                         onSync={() => handleSyncInternal()}
                         isSyncing={syncingInternal}
