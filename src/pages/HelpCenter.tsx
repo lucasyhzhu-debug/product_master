@@ -61,6 +61,70 @@ const TYPE_BADGE: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// GuideCard (extracted to deduplicate coming-soon vs live rendering)
+// ---------------------------------------------------------------------------
+
+function GuideCard({
+  guide,
+  isComingSoon,
+}: {
+  guide: (typeof HELP_GUIDES)[number];
+  isComingSoon: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg overflow-hidden",
+        isComingSoon
+          ? "opacity-50 cursor-default select-none"
+          : "group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+      )}
+    >
+      {/* Accent bar */}
+      <div
+        className={cn("h-1 rounded-t-lg", ACCENT_BG[guide.accentColor])}
+      />
+
+      {/* Card body */}
+      <div className="bg-card border border-t-0 rounded-b-lg p-5">
+        <div className="flex items-start justify-between gap-3">
+          <guide.icon
+            className={cn(
+              "h-8 w-8 shrink-0",
+              ACCENT_TEXT[guide.accentColor]
+            )}
+          />
+          <div className="flex gap-1.5">
+            {guide.isNew && (
+              <span className="text-[10px] font-bold uppercase bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded px-1.5 py-0.5">
+                NEW
+              </span>
+            )}
+            {isComingSoon && (
+              <span className="text-[10px] font-bold uppercase bg-muted text-muted-foreground rounded px-1.5 py-0.5">
+                COMING SOON
+              </span>
+            )}
+          </div>
+        </div>
+
+        <h3 className="font-semibold mt-3">{guide.title}</h3>
+        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+          {guide.description}
+        </p>
+
+        {guide.sections.length > 0 && guide.readTimeMinutes > 0 && (
+          <p className="text-xs text-muted-foreground mt-3">
+            {guide.sections.length} sections &middot;{" "}
+            {guide.readTimeMinutes} min read
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // HelpCenter
 // ---------------------------------------------------------------------------
 
@@ -174,113 +238,22 @@ export function HelpCenter() {
         >
           {HELP_GUIDES.map((guide) => {
             const isComingSoon = guide.status === "coming-soon";
-            const card = (
-              <motion.div key={guide.id} variants={cardVariants}>
-                <div
-                  className={cn(
-                    "rounded-lg overflow-hidden",
-                    isComingSoon
-                      ? "opacity-50 cursor-default select-none"
-                      : "group hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-                  )}
-                >
-                  {/* Accent bar */}
-                  <div
-                    className={cn(
-                      "h-1 rounded-t-lg",
-                      ACCENT_BG[guide.accentColor]
-                    )}
-                  />
-
-                  {/* Card body */}
-                  <div className="bg-card border border-t-0 rounded-b-lg p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <guide.icon
-                        className={cn(
-                          "h-8 w-8 shrink-0",
-                          ACCENT_TEXT[guide.accentColor]
-                        )}
-                      />
-                      <div className="flex gap-1.5">
-                        {guide.isNew && (
-                          <span className="text-[10px] font-bold uppercase bg-green-100 text-green-700 rounded px-1.5 py-0.5">
-                            NEW
-                          </span>
-                        )}
-                        {isComingSoon && (
-                          <span className="text-[10px] font-bold uppercase bg-muted text-muted-foreground rounded px-1.5 py-0.5">
-                            COMING SOON
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <h3 className="font-semibold mt-3">{guide.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                      {guide.description}
-                    </p>
-
-                    {guide.sections.length > 0 &&
-                      guide.readTimeMinutes > 0 && (
-                        <p className="text-xs text-muted-foreground mt-3">
-                          {guide.sections.length} sections &middot;{" "}
-                          {guide.readTimeMinutes} min read
-                        </p>
-                      )}
-                  </div>
-                </div>
-              </motion.div>
-            );
 
             if (isComingSoon) {
-              return card;
+              return (
+                <motion.div key={guide.id} variants={cardVariants}>
+                  <GuideCard guide={guide} isComingSoon />
+                </motion.div>
+              );
             }
 
             return (
               <motion.div key={guide.id} variants={cardVariants}>
                 <Link
                   to={"/help/" + guide.id}
-                  className="group block rounded-lg overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  className="block"
                 >
-                  {/* Accent bar */}
-                  <div
-                    className={cn(
-                      "h-1 rounded-t-lg",
-                      ACCENT_BG[guide.accentColor]
-                    )}
-                  />
-
-                  {/* Card body */}
-                  <div className="bg-card border border-t-0 rounded-b-lg p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <guide.icon
-                        className={cn(
-                          "h-8 w-8 shrink-0",
-                          ACCENT_TEXT[guide.accentColor]
-                        )}
-                      />
-                      <div className="flex gap-1.5">
-                        {guide.isNew && (
-                          <span className="text-[10px] font-bold uppercase bg-green-100 text-green-700 rounded px-1.5 py-0.5">
-                            NEW
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <h3 className="font-semibold mt-3">{guide.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                      {guide.description}
-                    </p>
-
-                    {guide.sections.length > 0 &&
-                      guide.readTimeMinutes > 0 && (
-                        <p className="text-xs text-muted-foreground mt-3">
-                          {guide.sections.length} sections &middot;{" "}
-                          {guide.readTimeMinutes} min read
-                        </p>
-                      )}
-                  </div>
+                  <GuideCard guide={guide} isComingSoon={false} />
                 </Link>
               </motion.div>
             );
