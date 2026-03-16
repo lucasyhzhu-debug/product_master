@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Phase 58 context gathered
-last_updated: "2026-03-16T19:38:35.636Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+stopped_at: Completed 57-01-PLAN.md
+last_updated: "2026-03-17T19:53:42Z"
+last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
 progress:
   total_phases: 23
   completed_phases: 17
   total_plans: 43
-  completed_plans: 37
+  completed_plans: 38
 ---
 
 ---
@@ -64,16 +64,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide) COMPLETE
+**Current focus:** v1.7 Expense & Accounting -- Phase 57 (Invoice Backend & Business Settings) Plan 01 COMPLETE
 
 ## Current Position
 
-Phase: 56-expense-training-guide (Plan 2 of 2 complete)
-Plan: 56-02 (complete)
-Status: Phase 56 complete, all plans done
-Last activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+Phase: 57-invoice-backend-business-settings (Plan 1 of 2 complete)
+Plan: 57-01 (complete)
+Status: Plan 57-01 complete, Plan 57-02 next
+Last activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
 
-Progress: [██████████] 100%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -89,6 +89,7 @@ Progress: [██████████] 100%
 |-------|------|----------|-------|-------|
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
+| 57-invoice-backend-business-settings | 01 | 11min | 4 | 8 |
 
 ## Accumulated Context
 
@@ -106,6 +107,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
 - [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
+- [57-01] Extracted 5 pure helpers from invoice mutations for testability (project convention: pure function tests over convex-test runtime)
+- [57-01] Used .first() not .unique() for invoiceCounters lookup (gracefully handles duplicate rows)
+- [57-01] INVOICEABLE_STATUSES allowlist pattern for forward-compatible status validation
+- [57-01] paymentStatus/paymentMethod snapshotted at draft creation, excluded from updateDraft
 
 ### Roadmap Evolution
 
@@ -130,6 +135,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:38:35.631Z
-Stopped at: Phase 58 context gathered
-Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.
+Last session: 2026-03-17T19:53:42Z
+Stopped at: Completed 57-01-PLAN.md
+Resume notes: Plan 57-01 complete. 3 new tables (businessSettings, invoiceCounters, invoices) + customer extension deployed. 9 Convex functions created. 51 unit tests passing. Ready for Plan 57-02 (Business Settings UI).

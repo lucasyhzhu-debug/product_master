@@ -461,7 +461,7 @@ Plans:
   7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
   8. Customer write-back on finalize (company, NPWP, billing address)
   9. `npm run build` succeeds
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API

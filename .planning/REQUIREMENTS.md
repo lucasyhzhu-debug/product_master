@@ -69,10 +69,10 @@
 
 ### Invoice — Data Model
 
-- [ ] **IDAT-01**: `businessSettings` singleton table with seller identity fields
-- [ ] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
-- [ ] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
-- [ ] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
+- [x] **IDAT-01**: `businessSettings` singleton table with seller identity fields
+- [x] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
+- [x] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
+- [x] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
 
 ### Direct Debit Expense Flow (Phase 59)
 
@@ -151,10 +151,10 @@
 | BSET-03 | Phase 57 | Pending |
 | BSET-04 | Phase 57 | Pending |
 | BSET-05 | Phase 57 | Pending |
-| IDAT-01 | Phase 57 | Pending |
-| IDAT-02 | Phase 57 | Pending |
-| IDAT-03 | Phase 57 | Pending |
-| IDAT-04 | Phase 57 | Pending |
+| IDAT-01 | Phase 57 | Complete |
+| IDAT-02 | Phase 57 | Complete |
+| IDAT-03 | Phase 57 | Complete |
+| IDAT-04 | Phase 57 | Complete |
 | INV-01 | Phase 58 | Pending |
 | INV-02 | Phase 58 | Pending |
 | INV-03 | Phase 58 | Pending |
