@@ -469,6 +469,25 @@ export {
 // Journal Import (Historical Expense Import - Phase 51)
 export { useBulkCreateJournalEntries } from "./useJournalImport";
 
+// Business Settings (Invoice Backend - Phase 57)
+export {
+  useBusinessSettings,
+  useUpsertBusinessSettings,
+  useBusinessSettingsUploadUrl,
+  type BusinessSettings,
+} from "./useBusinessSettings";
+
+// Invoices (Invoice Backend - Phase 57)
+export {
+  useInvoicesByOrder,
+  useInvoice,
+  useCreateInvoiceDraft,
+  useUpdateInvoiceDraft,
+  useDiscardInvoiceDraft,
+  useFinalizeInvoice,
+  type Invoice,
+} from "./useInvoice";
+
 // Dispatch Planner (Unified Dispatch Planner)
 export {
   // Query hooks
