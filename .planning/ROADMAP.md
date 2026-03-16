@@ -489,3 +489,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 59 to break down)
+
+### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 59
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 60 to break down)

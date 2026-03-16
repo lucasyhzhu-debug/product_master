@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 56-02-PLAN.md
+last_updated: "2026-03-16T12:54:33.747Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+progress:
+  total_phases: 21
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 37
+---
+
+---
+gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: in_progress
@@ -65,6 +80,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 ### Roadmap Evolution
 
 - Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
+- Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
 ### Open Blockers (carried forward)
 
