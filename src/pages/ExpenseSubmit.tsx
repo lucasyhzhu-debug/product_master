@@ -372,10 +372,10 @@ export function ExpenseSubmit() {
               <Label htmlFor="expenseType">Expense Type *</Label>
               <Select
                 value={form.expenseType}
-                onValueChange={(v: string) => {
+                onValueChange={(v) => {
                   setForm((prev) => ({
                     ...prev,
-                    expenseType: v as FormState["expenseType"],
+                    expenseType: v as "cogs" | "opex" | "other",
                     accountId: "",
                   }));
                 }}
