@@ -480,25 +480,14 @@ Plans:
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
 
-### Phase 59: Direct Debit Expense Flow
-**Goal**: Simplify payment method model from 3 literals to 2 (employee_paid, company_paid), add auto-journal-on-submission for company-paid expenses with recorded status, and update approval queue with Acknowledge/Flag actions for admin review
-**Requirements**: DEXP-01, DEXP-02, DEXP-03, DEXP-04, DEXP-05, DEXP-06, DEXP-07, DEXP-08, DEXP-09, DEXP-10, DEXP-11, DEXP-12, DEXP-13, DEXP-14
+### Phase 59: Expense Payment Method Overhaul
+**Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows — retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
+**Requirements**: TBD (re-plan with merged scope from Phase 59 + 59.1)
 **Depends on:** None (independent of invoice phases 57-58)
-**Success Criteria** (what must be TRUE):
-  1. Schema has 2 payment method literals (employee_paid, company_paid) and recorded status
-  2. company_paid expenses auto-create JE (DR expense GL, CR 1100 Cash) on submission and transition to recorded
-  3. employee_paid expenses follow existing flow unchanged (submitted -> approved -> awaiting_payment)
-  4. Admin can acknowledge recorded expenses (transitions to approved, no new JE)
-  5. Admin can flag recorded expenses for review (sets flag fields, status stays recorded)
-  6. Receipt is always required for company_paid regardless of amount
-  7. Approval queue shows both submitted and recorded expenses with appropriate action buttons
-  8. transactionReference field stored for future bank reconciliation
-  9. npm run build succeeds
-**Plans:** 2 plans
+**Plans:** 0 plans (re-planning — run /gsd:plan-phase 59 --research)
 
 Plans:
-- [ ] 59-01-PLAN.md -- Backend: schema update (2 payment literals, recorded status, 5 new fields), helper updates, mutation updates + new mutations (acknowledge, flag), query updates
-- [ ] 59-02-PLAN.md -- Frontend: 2-option form, transactionReference field, StatusBadge recorded, ApprovalActions Acknowledge/Flag, visual verification
+- [ ] TBD (run /gsd:plan-phase 59 --research to break down)
 
 ### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
@@ -519,3 +508,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 61 to break down)
+
+### Phase 62: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 61
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 62 to break down)
