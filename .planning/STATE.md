@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 55-03-PLAN.md
-last_updated: "2026-03-16T11:07:49.260Z"
-last_activity: 2026-03-16 - Completed Plan 55-03
+stopped_at: Completed 56-02-PLAN.md
+last_updated: "2026-03-16T12:54:33.747Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
 progress:
-  total_phases: 19
-  completed_phases: 15
-  total_plans: 34
-  completed_plans: 35
+  total_phases: 21
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 37
 ---
 
 ---
@@ -18,15 +18,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: in_progress
-stopped_at: Completed 55-03-PLAN.md
-last_updated: "2026-03-16T10:42:11Z"
-last_activity: "2026-03-16 - Completed Plan 55-03 (HelpCenter pages + navigation integration)"
+stopped_at: "Completed 56-02-PLAN.md"
+last_updated: "2026-03-16T12:28:05Z"
+last_activity: "2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 25
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -34,16 +34,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 55 (Help Center Infrastructure)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide) COMPLETE
 
 ## Current Position
 
-Phase: 55-help-center-infrastructure (Plan 3 of 3 complete -- PHASE COMPLETE)
-Plan: 55-03 (complete)
-Status: Phase 55 complete, ready for next phase
-Last activity: 2026-03-16 - Completed quick task 34: Fix GL codes missing + cascading dropdowns
+Phase: 56-expense-training-guide (Plan 2 of 2 complete)
+Plan: 56-02 (complete)
+Status: Phase 56 complete, all plans done
+Last activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
 
-Progress: [██▓░░░░░░░] 25%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -54,6 +54,11 @@ Progress: [██▓░░░░░░░] 25%
 **Velocity (v1.5):** 9 plans across 3 phases in 2 days
 **Velocity (v1.6):** 16 plans across 6 phases in 7 days
 **Velocity (v1.7):** 32 plans across 15 phases in 7 days
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 56-expense-training-guide | 01 | 5min | 1 | 3 |
+| 56-expense-training-guide | 02 | 4min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -69,6 +74,13 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [55-03] Made NavItem.permission optional (non-breaking) so Help nav item needs no permission prop
 - [55-03] Eager imports for HelpCenter and GuideRouter (static JSX, no Convex queries)
 - [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
+- [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
+- [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
+
+### Roadmap Evolution
+
+- Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
+- Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
 ### Open Blockers (carried forward)
 
@@ -85,6 +97,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Completed 55-03-PLAN.md
-Resume notes: Phase 55 (Help Center Infrastructure) fully complete -- all 3 plans done. HelpCenter landing page, GuideRouter, 7 reusable components, guide registry, navigation integration all shipped. Ready for next phase or merge to main.
+Last session: 2026-03-16T12:28:05.491Z
+Stopped at: Completed 56-02-PLAN.md
+Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.

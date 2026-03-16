@@ -28,15 +28,15 @@
 
 ### Expense Guide
 
-- [ ] **EGUIDE-01**: Full expense/reimbursement/payroll guide at `/help/expenses` with 8 sections
-- [ ] **EGUIDE-02**: Overview section with lifecycle flowchart (Draft → Submitted → Approved → Reimbursed, with Rejected/Voided branches) and role summary table
-- [ ] **EGUIDE-03**: Submitting section with 4 step cards, 3 callout boxes, and mini FAQ (GL categories, receipts, duplicates)
-- [ ] **EGUIDE-04**: Approving section with DoA workflow diagram, 3 step cards, 3 callout boxes
-- [ ] **EGUIDE-05**: Reimbursement section with batch workflow diagram, 6 step cards, 2 callout boxes
-- [ ] **EGUIDE-06**: Payroll section with 4 step cards, 3 callout boxes, and 4 FAQ items
-- [ ] **EGUIDE-07**: Expense Analytics section with dashboard card descriptions, fraud flags explanation
-- [ ] **EGUIDE-08**: P&L connection section with journal entry diagram showing DR/CR flow to financial statement
-- [ ] **EGUIDE-09**: Full FAQ accordion covering General (4), Submission (3), Approval (3), Reimbursement (3), Payroll (3) questions
+- [x] **EGUIDE-01**: Full expense/reimbursement/payroll guide at `/help/expenses` with 8 sections
+- [x] **EGUIDE-02**: Overview section with lifecycle flowchart (Draft → Submitted → Approved → Reimbursed, with Rejected/Voided branches) and role summary table
+- [x] **EGUIDE-03**: Submitting section with 4 step cards, 3 callout boxes, and mini FAQ (GL categories, receipts, duplicates)
+- [x] **EGUIDE-04**: Approving section with DoA workflow diagram, 3 step cards, 3 callout boxes
+- [x] **EGUIDE-05**: Reimbursement section with batch workflow diagram, 6 step cards, 2 callout boxes
+- [x] **EGUIDE-06**: Payroll section with 4 step cards, 3 callout boxes, and 4 FAQ items
+- [x] **EGUIDE-07**: Expense Analytics section with dashboard card descriptions, fraud flags explanation
+- [x] **EGUIDE-08**: P&L connection section with journal entry diagram showing DR/CR flow to financial statement
+- [x] **EGUIDE-09**: Full FAQ accordion covering General (4), Submission (3), Approval (3), Reimbursement (3), Payroll (3) questions
 
 ### Invoice — Business Settings
 
@@ -117,15 +117,15 @@
 | HCMP-05 | Phase 55 | Complete |
 | HCMP-06 | Phase 55 | Complete |
 | HCMP-07 | Phase 55 | Complete |
-| EGUIDE-01 | Phase 56 | Pending |
-| EGUIDE-02 | Phase 56 | Pending |
-| EGUIDE-03 | Phase 56 | Pending |
-| EGUIDE-04 | Phase 56 | Pending |
-| EGUIDE-05 | Phase 56 | Pending |
-| EGUIDE-06 | Phase 56 | Pending |
-| EGUIDE-07 | Phase 56 | Pending |
-| EGUIDE-08 | Phase 56 | Pending |
-| EGUIDE-09 | Phase 56 | Pending |
+| EGUIDE-01 | Phase 56 | Complete |
+| EGUIDE-02 | Phase 56 | Complete |
+| EGUIDE-03 | Phase 56 | Complete |
+| EGUIDE-04 | Phase 56 | Complete |
+| EGUIDE-05 | Phase 56 | Complete |
+| EGUIDE-06 | Phase 56 | Complete |
+| EGUIDE-07 | Phase 56 | Complete |
+| EGUIDE-08 | Phase 56 | Complete |
+| EGUIDE-09 | Phase 56 | Complete |
 | BSET-01 | Phase 57 | Pending |
 | BSET-02 | Phase 57 | Pending |
 | BSET-03 | Phase 57 | Pending |

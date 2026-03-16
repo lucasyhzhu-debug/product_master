@@ -14,6 +14,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] - v1.8 Support & Quality of Life
+
+### Expense Training Guide (Phase 56) — 2026-03-16
+
+**For the team:** The Help Center now has its first live guide! Navigate to `/help/expenses` to find a complete walkthrough of the expense, reimbursement, and payroll systems. It covers all 8 topics -- from submitting your first expense to understanding how it shows up on the P&L -- with visual flowcharts, numbered step cards, callout tips, and a 16-question FAQ.
+
+#### Added
+- `src/pages/guides/ExpenseGuide.tsx`: Complete 8-section expense guide with 4 workflow diagrams (lifecycle, DoA, reimbursement batch, P&L journal flow), ~25 step cards, ~14 callout boxes, and 2 mini FAQs + 1 full FAQ (5 groups, 16 questions)
+
+#### Changed
+- `src/lib/helpGuides.ts`: Expenses guide status set to "live" with component wired
+- `src/lib/__tests__/helpGuides.test.ts`: Updated registry tests for live status
+
 ## [Unreleased] - v1.7 Expense & Accounting
 
 ### Quick Task 34: Fix GL Codes & Cascading Expense Dropdowns — 2026-03-16

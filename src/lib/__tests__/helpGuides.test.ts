@@ -81,8 +81,16 @@ describe("HELP_GUIDES registry", () => {
     expect(HELP_GUIDES).toHaveLength(6);
   });
 
-  it("all entries are coming-soon", () => {
-    for (const guide of HELP_GUIDES) {
+  it("expenses entry is live with component", () => {
+    const expenses = HELP_GUIDES.find((g) => g.id === "expenses");
+    expect(expenses).toBeDefined();
+    expect(expenses!.status).toBe("live");
+    expect(typeof expenses!.component).toBe("function");
+  });
+
+  it("all non-expenses entries are coming-soon", () => {
+    const others = HELP_GUIDES.filter((g) => g.id !== "expenses");
+    for (const guide of others) {
       expect(guide.status).toBe("coming-soon");
     }
   });

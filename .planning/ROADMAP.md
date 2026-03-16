@@ -441,7 +441,7 @@ Plans:
   10. TOC sidebar tracks active section on scroll
   11. Deep linking works (e.g., `/help/expenses#submitting`)
   12. `npm run build` succeeds
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 56-01-PLAN.md -- ExpenseGuide.tsx sections 1-4 (Overview, Submitting, Approving, Reimbursement) + registry wiring + test update
@@ -479,3 +479,23 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
+
+### Phase 59: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** None (independent of invoice phases 57-58)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 59 to break down)
+
+### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 59
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 60 to break down)
