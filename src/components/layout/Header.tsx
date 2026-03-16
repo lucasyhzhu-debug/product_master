@@ -126,6 +126,7 @@ const adminItems: NavItem[] = [
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
+  { path: '/settings/business', label: 'Settings', icon: Settings, permission: 'canAccessBusinessSettings' },
 ];
 
 export function Header() {
