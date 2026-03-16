@@ -302,7 +302,7 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 Phase: 53.1 of 53.1 (Fix GoBiz Promo Discount Net Revenue Inflation)
 Plan: 2 of 2 (COMPLETE)
 Status: Plan 02 complete. Frontend promo discount display in ChannelSummary + human verified end-to-end.
-Last activity: 2026-03-15 - Completed quick task 32: Create Financials dropdown nav with Expenses, Exp Analytics, Reimburse, Bank Accounts, Payroll
+Last activity: 2026-03-16 - Completed quick task 33: Combine sync actions into platform health cards
 
 Progress: [█████████░] 94%
 
@@ -448,6 +448,7 @@ Key staff review fixes embedded in roadmap:
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 | 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
 | 32 | Create Financials dropdown nav with expense grouping | 2026-03-15 | 7607c08 | Verified | [32-create-financials-dropdown-nav-with-expe](./quick/32-create-financials-dropdown-nav-with-expe/) |
+| 33 | Combine sync actions into platform health cards | 2026-03-16 | ea24079 | Verified | [33-combine-sync-actions-into-platform-healt](./quick/33-combine-sync-actions-into-platform-healt/) |
 | Phase 49 P01 | 9 | 2 tasks | 4 files |
 | Phase 51 P01 | 2min | 1 tasks | 2 files |
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
@@ -463,6 +464,6 @@ Key staff review fixes embedded in roadmap:
 
 ## Session Continuity
 
-Last session: 2026-03-15T15:11:09.465Z
-Stopped at: Completed 54-02-PLAN.md
-Resume notes: Plan 03 complete. Two E2E test files created: expense-lifecycle.spec.ts (404 lines, full lifecycle submit->approve->reimburse->P&L) and expense-csv-import.spec.ts (253 lines, CSV import validation + download buttons). Tests require running dev stack to execute. Build passes. Ready for Plan 04 (approval edge cases) or Plan 05 (full suite verification).
+Last session: 2026-03-16T04:03:25Z
+Stopped at: Completed quick task 33
+Resume notes: Sync controls consolidated into platform health cards. PlatformSyncPanel created as reusable component. Standalone Sync Actions section removed from SettingsTab.
