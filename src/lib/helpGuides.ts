@@ -7,6 +7,7 @@ import {
   UtensilsCrossed,
   BarChart3,
 } from "lucide-react";
+import { ExpenseGuide } from "@/pages/guides/ExpenseGuide";
 
 // ---------------------------------------------------------------------------
 // Guide section definition
@@ -37,8 +38,6 @@ export interface GuideConfig {
 
 // ---------------------------------------------------------------------------
 // Help guides registry
-// All guides are "coming-soon" in Phase 55.
-// Phase 56 sets expenses to "live" and wires ExpenseGuide component.
 // ---------------------------------------------------------------------------
 
 export const HELP_GUIDES: GuideConfig[] = [
@@ -60,9 +59,9 @@ export const HELP_GUIDES: GuideConfig[] = [
       { id: "faq", title: "FAQ" },
     ],
     readTimeMinutes: 15,
-    status: "coming-soon",
+    status: "live",
     isNew: true,
-    // Phase 56 sets status to "live" and wires ExpenseGuide component
+    component: ExpenseGuide,
   },
   {
     id: "kitchen",
