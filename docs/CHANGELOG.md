@@ -16,6 +16,25 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Help Center Infrastructure & Landing Page (Phase 55) — 2026-03-16
+
+**For the team:** There's now a Help Center at `/help` accessible from the top navigation bar. It has a search bar (Ctrl+K shortcut), guide cards organized by workflow, and a Popular Questions section with quick links. All 6 guides show "Coming Soon" for now — the Expenses guide goes live in the next update.
+
+#### Added
+- `src/lib/helpGuides.ts`: Guide data registry with 6 guides, section metadata, and `searchGuides()` function
+- `src/components/help/`: 7 reusable help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion, WorkflowDiagram, GuideLayout)
+- `src/hooks/useActiveSection.ts`: Intersection Observer hook for scroll-aware sidebar TOC
+- `src/pages/HelpCenter.tsx`: Landing page with search, category grid, and Popular Questions
+- `src/pages/guides/GuideRouter.tsx`: Dynamic guide routing at `/help/:guideId`
+
+#### Changed
+- `src/App.tsx`: Added `/help` and `/help/:guideId` routes (auth-only, no permission restriction)
+- `src/components/layout/Header.tsx`: "Help" link added to main navigation (all authenticated users)
+- `src/pages/HubPage.tsx`: "Help & Training" card with links to Help Center
+
+#### Tests
+- 13 new unit tests for `searchGuides()` (query matching, empty input, FAQ results, case insensitivity)
+
 ### Fix Sales Analytics Responsive Layout & Demote Balls Sold — 2026-03-16
 
 **For the team:** The top-line metric cards (Gross Sales, Net Sales, etc.) on the Sales Analytics page no longer overflow or squeeze together on narrow screens. They now wrap into multiple rows automatically — just like the Channel Breakdown section already did. The "Balls Sold" metric has been moved from its own large banner card into the regular metrics grid alongside Gross Sales, Net Sales, Lifetime Revenue, and Lifetime Transactions.
