@@ -16,6 +16,19 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.7 Expense & Accounting
 
+### Quick Task 34: Fix GL Codes & Cascading Expense Dropdowns — 2026-03-16
+
+**For the team:** The GL Category dropdown on the New Expense form was empty because accounts hadn't been seeded yet. After seeding, the flat list of 18 GL codes has been replaced with two easy-to-use cascading dropdowns — first pick the expense type (COGS, Operating Expenses, or Other), then pick the specific GL account. Much easier than memorizing GL codes!
+
+#### Fixed
+- GL Category dropdown now shows accounts after running `accounts:seedDefaults` from Convex dashboard
+
+#### Changed
+- Replaced single flat GL Category dropdown with cascading Tier 1 (Expense Type) → Tier 2 (GL Account) selects
+- GL Account dropdown filters by selected expense type and resets when type changes
+- Edit mode correctly pre-fills both dropdowns from the existing account
+- `expenseType` field uses strict TypeScript union type for compile-time safety
+
 ### Help Center Infrastructure & Landing Page (Phase 55) — 2026-03-16
 
 **For the team:** There's now a Help Center at `/help` accessible from the top navigation bar. It has a search bar (Ctrl+K shortcut), guide cards organized by workflow, and a Popular Questions section with quick links. All 6 guides show "Coming Soon" for now — the Expenses guide goes live in the next update.
