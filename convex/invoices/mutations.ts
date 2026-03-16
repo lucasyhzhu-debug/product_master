@@ -16,12 +16,79 @@ import type { MutationCtx } from "../_generated/server";
 
 /** Order statuses that allow invoice creation. Allowlist (not blocklist) to prevent
  *  silently allowing future status additions. */
-const INVOICEABLE_STATUSES = new Set([
+export const INVOICEABLE_STATUSES = new Set([
   "PaymentReceived",
   "BeingPrepared",
   "AwaitingDelivery",
   "Complete",
 ] as const);
+
+/**
+ * Check if an order status is invoiceable.
+ * Pure function exported for testing.
+ */
+export function isInvoiceableStatus(status: string): boolean {
+  return INVOICEABLE_STATUSES.has(status as any);
+}
+
+/**
+ * Build the YYMM prefix for invoice numbering from a UTC timestamp.
+ * Uses WIB timezone (UTC+7) for the month boundary.
+ * Pure function exported for testing.
+ */
+export function buildInvoicePrefix(utcMs: number): string {
+  const { year, month } = getWibComponents(utcMs);
+  return `${String(year).slice(-2)}${String(month + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Format an invoice number from prefix and sequence.
+ * Pure function exported for testing.
+ */
+export function formatInvoiceNumber(prefix: string, sequence: number): string {
+  return `INV-${prefix}-${String(sequence).padStart(3, "0")}`;
+}
+
+/**
+ * Compute discount amount and label from order-level discount fields.
+ * Pure function exported for testing.
+ */
+export function computeDiscount(
+  subtotal: number,
+  discountValue: number | undefined,
+  discountType: "amount" | "percentage" | undefined,
+): { discountAmount?: number; discountLabel?: string } {
+  if (!discountValue || discountValue <= 0) return {};
+  if (discountType === "percentage") {
+    return {
+      discountAmount: Math.round(subtotal * (discountValue / 100)),
+      discountLabel: `${discountValue}%`,
+    };
+  }
+  return { discountAmount: discountValue };
+}
+
+/**
+ * Compute the customer write-back patch for finalize.
+ * Returns only fields that differ from the current customer record.
+ * Pure function exported for testing.
+ */
+export function computeCustomerWriteBack(
+  invoice: { buyerCompany?: string; buyerNpwp?: string; buyerAddress?: string },
+  customer: { companyName?: string; npwp?: string; billingAddress?: string },
+): Record<string, string> {
+  const patch: Record<string, string> = {};
+  if (invoice.buyerCompany && invoice.buyerCompany !== customer.companyName) {
+    patch.companyName = invoice.buyerCompany;
+  }
+  if (invoice.buyerNpwp && invoice.buyerNpwp !== customer.npwp) {
+    patch.npwp = invoice.buyerNpwp;
+  }
+  if (invoice.buyerAddress && invoice.buyerAddress !== customer.billingAddress) {
+    patch.billingAddress = invoice.buyerAddress;
+  }
+  return patch;
+}
 
 /**
  * Generate the next sequential invoice number for the current WIB month.
@@ -30,8 +97,7 @@ const INVOICEABLE_STATUSES = new Set([
  * Uses invoiceCounters table with OCC-safe read-increment-write.
  */
 async function getNextInvoiceNumber(ctx: MutationCtx): Promise<string> {
-  const { year, month } = getWibComponents(Date.now());
-  const prefix = `${String(year).slice(-2)}${String(month + 1).padStart(2, "0")}`;
+  const prefix = buildInvoicePrefix(Date.now());
 
   // Use .first() instead of .unique() for safety (gracefully handles duplicates)
   const counter = await ctx.db
@@ -48,7 +114,7 @@ async function getNextInvoiceNumber(ctx: MutationCtx): Promise<string> {
     await ctx.db.insert("invoiceCounters", { prefix, lastNumber: 1 });
   }
 
-  return `INV-${prefix}-${String(sequence).padStart(3, "0")}`;
+  return formatInvoiceNumber(prefix, sequence);
 }
 
 /**
@@ -142,17 +208,11 @@ export const createDraft = protectedMutation({
     // 8. Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
-    let discountAmount: number | undefined;
-    let discountLabel: string | undefined;
-    if (order.orderLevelDiscount && order.orderLevelDiscount > 0) {
-      if (order.orderLevelDiscountType === "percentage") {
-        discountAmount = Math.round(subtotal * (order.orderLevelDiscount / 100));
-        discountLabel = `${order.orderLevelDiscount}%`;
-      } else {
-        discountAmount = order.orderLevelDiscount;
-        // No label for flat amount discounts
-      }
-    }
+    const { discountAmount, discountLabel } = computeDiscount(
+      subtotal,
+      order.orderLevelDiscount,
+      order.orderLevelDiscountType,
+    );
 
     // 9. Snapshot payment info from order
     const paymentStatus = order.paymentStatus;
@@ -322,16 +382,7 @@ export const finalize = protectedMutation({
     if (order) {
       const customer = await ctx.db.get(order.customerId);
       if (customer) {
-        const patch: Record<string, string> = {};
-        if (invoice.buyerCompany && invoice.buyerCompany !== customer.companyName) {
-          patch.companyName = invoice.buyerCompany;
-        }
-        if (invoice.buyerNpwp && invoice.buyerNpwp !== customer.npwp) {
-          patch.npwp = invoice.buyerNpwp;
-        }
-        if (invoice.buyerAddress && invoice.buyerAddress !== customer.billingAddress) {
-          patch.billingAddress = invoice.buyerAddress;
-        }
+        const patch = computeCustomerWriteBack(invoice, customer);
         if (Object.keys(patch).length > 0) {
           await ctx.db.patch(customer._id, patch);
         }
