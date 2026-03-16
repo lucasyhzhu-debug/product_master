@@ -24,6 +24,8 @@ import {
   HandCoins,
   Landmark,
   DollarSign,
+  BookOpen,
+  CreditCard,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,6 +148,18 @@ const HUB_AREAS: AreaCard[] = [
       hp("canAccessVouchers") ||
       hp("canAccessUsers"),
   },
+  {
+    title: "Help & Training",
+    description: "Step-by-step guides and FAQs for using Frollie.",
+    icon: BookOpen,
+    color: "text-sky-500",
+    primaryPath: "/help",
+    links: [
+      { label: "All Guides", path: "/help" },
+      { label: "Expenses Guide", path: "/help/expenses" },
+    ],
+    visible: () => true,
+  },
 ];
 
 // Map area titles to icon sets for the link pills (optional extra icons)
@@ -173,6 +187,8 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Reimburse: HandCoins,
   "Bank Accounts": Landmark,
   Payroll: DollarSign,
+  "All Guides": BookOpen,
+  "Expenses Guide": CreditCard,
 };
 
 // ---------------------------------------------------------------------------
