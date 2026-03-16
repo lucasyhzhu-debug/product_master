@@ -1,4 +1,28 @@
 # Milestones
+
+## v1.7 Expense & Accounting (Shipped: 2026-03-16)
+
+**Phases completed:** 15 phases (41-54, including 53.1), 32 plans
+**Timeline:** 7 days (2026-03-12 to 2026-03-16)
+**Codebase:** ~135K lines TypeScript (65 Convex tables)
+**Requirements:** All satisfied | **Tests:** 690+ passing, 6 E2E test suites
+
+**Key accomplishments:**
+1. Chart of Accounts backbone: 39 PSAK-aligned accounts with upsert seed pattern
+2. Expense submission: full lifecycle (Draft → Submitted → Approved → Reimbursed/Voided), receipt upload with SHA-256 hashing, fraud controls (split detection, approver concentration, unfamiliar vendor)
+3. Approval workflow: Delegation of Authority (≤500K manager, >500K admin), self-approval blocked, rejection/resubmit chain, comment requirements for high-value approvals
+4. Reimbursement batching: per-employee grouping, bank transfer tracking with RMB codes, batch confirm/void with reversing journal entries
+5. Payroll entry: staff/contractor classification, auto-generated double-entry journal entries (DR 6100, CR 1100)
+6. P&L extension: Operating Expenses → EBIT → Net Income with journal-based aggregation
+7. Expense Analytics: spend breakdowns by GL category, monthly trends, fraud flag monitoring
+8. Journal engine: double-entry with void/reversal, bulk CSV import for 350+ historical expense records
+9. E2E tests: 4 new Playwright test suites (expense access, expense lifecycle, CSV import, approval edge cases)
+10. Bug fixes: GoBiz promo discount net revenue inflation, BigSeller platform-specific schema mismatches (6 HAR-confirmed bugs)
+
+**Delivered:** Complete expense management system with approval workflows, reimbursement batching, payroll recording, journal engine with bulk import, and full P&L extension from Gross Profit through Net Income. Plus responsive Sales Analytics hero cards fix and sync action consolidation.
+
+---
+
 ## v1.6 Tech Debt & Resilience (Shipped: 2026-03-09)
 
 **Phases completed:** 6 phases (35-40), 16 plans
