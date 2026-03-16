@@ -84,7 +84,7 @@ export const saveRevenue = internalMutation({
   handler: async (ctx, args) => {
     const ids = [];
     for (const record of args.records) {
-      // Dedup: skip if transaction already exists
+      // Upsert: update if transaction already exists, insert if new
       if (record.externalTransactionId) {
         const existing = await ctx.db
           .query("externalRevenue")
@@ -93,7 +93,22 @@ export const saveRevenue = internalMutation({
              .eq("externalTransactionId", record.externalTransactionId)
           )
           .unique();
-        if (existing) continue;
+        if (existing) {
+          // Update revenue fields from re-sync (e.g. corrected gross/net/commission)
+          // Preserve linkedMenuProductId and outletId from existing record
+          await ctx.db.patch(existing._id, {
+            revenueGross: record.revenueGross,
+            revenueNet: record.revenueNet,
+            commission: record.commission,
+            transactionCount: record.transactionCount,
+            periodStart: record.periodStart,
+            periodEnd: record.periodEnd,
+            transactionDate: record.transactionDate,
+            syncLogId: record.syncLogId,
+          });
+          ids.push(existing._id);
+          continue;
+        }
       }
       const id = await ctx.db.insert("externalRevenue", record);
       ids.push(id);

@@ -123,6 +123,7 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as migrations_bigsellerRevenueBackfill from "../migrations/bigsellerRevenueBackfill.js";
 import type * as migrations_bomBackfill from "../migrations/bomBackfill.js";
 import type * as migrations_bomRefactorV2 from "../migrations/bomRefactorV2.js";
 import type * as migrations_bomVerification from "../migrations/bomVerification.js";
@@ -319,6 +320,7 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "migrations/bigsellerRevenueBackfill": typeof migrations_bigsellerRevenueBackfill;
   "migrations/bomBackfill": typeof migrations_bomBackfill;
   "migrations/bomRefactorV2": typeof migrations_bomRefactorV2;
   "migrations/bomVerification": typeof migrations_bomVerification;
