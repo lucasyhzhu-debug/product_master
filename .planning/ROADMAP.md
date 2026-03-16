@@ -417,6 +417,12 @@ Plans:
   7. All 7 reusable help components work: WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, RoleTag, GuideSection, GuideLayout
   8. Staggered fade-up animation on landing page
   9. `npm run build` succeeds
+**Plans:** 3 plans
+
+Plans:
+- [ ] 55-01-PLAN.md -- Guide registry (helpGuides.ts) + 5 simpler help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion) + barrel export
+- [ ] 55-02-PLAN.md -- WorkflowDiagram (SVG flowchart with animations) + GuideLayout (sidebar TOC with Intersection Observer)
+- [ ] 55-03-PLAN.md -- HelpCenter landing page + GuideRouter + navigation integration (App.tsx, Header.tsx, HubPage.tsx)
 
 ### Phase 56: Expense Training Guide
 **Goal**: Create the first live guide — a comprehensive Expense, Reimbursement & Payroll walkthrough with flowcharts, step cards, callout boxes, and FAQ covering all 8 sections
