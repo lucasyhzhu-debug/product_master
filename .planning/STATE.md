@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 Phase: 55-help-center-infrastructure (Plan 3 of 3 complete -- PHASE COMPLETE)
 Plan: 55-03 (complete)
 Status: Phase 55 complete, ready for next phase
-Last activity: 2026-03-16 - Completed Plan 55-03
+Last activity: 2026-03-16 - Completed quick task 34: Fix GL codes missing + cascading dropdowns
 
 Progress: [██▓░░░░░░░] 25%
 
@@ -81,6 +81,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
+| 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
 
 ## Session Continuity
 

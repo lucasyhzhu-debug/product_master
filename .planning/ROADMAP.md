@@ -441,6 +441,11 @@ Plans:
   10. TOC sidebar tracks active section on scroll
   11. Deep linking works (e.g., `/help/expenses#submitting`)
   12. `npm run build` succeeds
+**Plans:** 2 plans
+
+Plans:
+- [ ] 56-01-PLAN.md -- ExpenseGuide.tsx sections 1-4 (Overview, Submitting, Approving, Reimbursement) + registry wiring + test update
+- [ ] 56-02-PLAN.md -- ExpenseGuide.tsx sections 5-8 (Payroll, Analytics, P&L, FAQ) + visual verification
 
 ### Phase 57: Invoice Backend & Business Settings
 **Goal**: Build the invoice data model (3 new tables + customer extension), backend API, and Business Settings page so admins can configure seller identity before generating invoices
