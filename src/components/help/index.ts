@@ -4,4 +4,6 @@ export { StepCard } from "./StepCard";
 export { GuideSection } from "./GuideSection";
 export { FaqAccordion } from "./FaqAccordion";
 export type { FaqItem, FaqGroup } from "./FaqAccordion";
-// WorkflowDiagram and GuideLayout added in Plan 02
+export { WorkflowDiagram } from "./WorkflowDiagram";
+export { GuideLayout } from "./GuideLayout";
+export type { FlowNode, FlowEdge } from "./WorkflowDiagram";
