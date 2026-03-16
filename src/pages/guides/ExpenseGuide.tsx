@@ -9,25 +9,7 @@ import {
   type FlowEdge,
   type FaqGroup,
 } from "@/components/help";
-
-// ---------------------------------------------------------------------------
-// Guide metadata (mirrors registry entry to avoid circular import)
-// ---------------------------------------------------------------------------
-
-const GUIDE_TITLE = "Expenses & Reimbursement";
-const GUIDE_DESCRIPTION =
-  "Submit expenses, approve reimbursements, understand payroll integration and P&L impact.";
-const GUIDE_READ_TIME = 15;
-const GUIDE_SECTIONS = [
-  { id: "overview", title: "Overview" },
-  { id: "submitting", title: "Submitting Expenses" },
-  { id: "approving", title: "Approving Expenses" },
-  { id: "reimbursement", title: "Reimbursement Workflow" },
-  { id: "payroll", title: "Payroll Integration" },
-  { id: "analytics", title: "Expense Analytics" },
-  { id: "pnl", title: "P&L Impact" },
-  { id: "faq", title: "FAQ" },
-];
+import type { GuideProps } from "@/lib/helpGuides";
 
 // ---------------------------------------------------------------------------
 // Section 1: Overview -- Lifecycle flowchart data
@@ -321,13 +303,18 @@ const FULL_FAQ: FaqGroup[] = [
 // Component
 // ---------------------------------------------------------------------------
 
-export function ExpenseGuide() {
+export function ExpenseGuide({
+  title,
+  description,
+  sections,
+  readTimeMinutes,
+}: GuideProps) {
   return (
     <GuideLayout
-      title={GUIDE_TITLE}
-      description={GUIDE_DESCRIPTION}
-      sections={GUIDE_SECTIONS}
-      readTimeMinutes={GUIDE_READ_TIME}
+      title={title}
+      description={description}
+      sections={sections}
+      readTimeMinutes={readTimeMinutes}
     >
       {/* ================================================================= */}
       {/* Section 1: Overview                                               */}

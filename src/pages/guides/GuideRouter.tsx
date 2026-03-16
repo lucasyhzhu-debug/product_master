@@ -10,7 +10,14 @@ export function GuideRouter() {
   // Render guide component if found, live, and has a component
   if (guide && guide.status === "live" && guide.component) {
     const GuideComponent = guide.component;
-    return <GuideComponent />;
+    return (
+      <GuideComponent
+        title={guide.title}
+        description={guide.description}
+        sections={guide.sections}
+        readTimeMinutes={guide.readTimeMinutes}
+      />
+    );
   }
 
   // Guide not found / coming-soon / no component

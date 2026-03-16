@@ -23,6 +23,14 @@ export interface GuideSection {
 // Guide configuration
 // ---------------------------------------------------------------------------
 
+/** Props passed from GuideRouter to every guide component */
+export interface GuideProps {
+  title: string;
+  description: string;
+  sections: { id: string; title: string }[];
+  readTimeMinutes: number;
+}
+
 export interface GuideConfig {
   id: string;
   title: string;
@@ -33,7 +41,7 @@ export interface GuideConfig {
   readTimeMinutes: number;
   status: "live" | "coming-soon";
   isNew?: boolean;
-  component?: ComponentType; // eagerly imported, undefined for coming-soon
+  component?: ComponentType<GuideProps>; // eagerly imported, undefined for coming-soon
 }
 
 // ---------------------------------------------------------------------------
