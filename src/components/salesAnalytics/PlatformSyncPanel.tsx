@@ -7,6 +7,8 @@ import { toast } from "sonner";
 interface PlatformSyncPanelProps {
   /** Whether to show date range inputs (K3Mart and GoBiz use dates, Internal does not) */
   showDateRange: boolean;
+  /** When true, hides the end date input and shows "to today" hint (e.g., GoBiz only supports daysBack) */
+  hideEndDate?: boolean;
   /** Optional secondary action button (e.g., K3Mart "Refresh Stores") */
   secondaryAction?: {
     label: string;
@@ -21,6 +23,7 @@ interface PlatformSyncPanelProps {
 
 export function PlatformSyncPanel({
   showDateRange,
+  hideEndDate = false,
   secondaryAction,
   onSync,
   isSyncing,
@@ -36,8 +39,9 @@ export function PlatformSyncPanel({
 
   const handleSync = async () => {
     if (showDateRange) {
+      const effectiveEndDate = hideEndDate ? today : endDate;
       const diffMs =
-        new Date(endDate).getTime() - new Date(startDate).getTime();
+        new Date(effectiveEndDate).getTime() - new Date(startDate).getTime();
       const diffDays = diffMs / (24 * 60 * 60 * 1000);
       if (diffDays > 31) {
         toast.error("Date range cannot exceed 31 days");
@@ -47,7 +51,7 @@ export function PlatformSyncPanel({
         toast.error("Start date must be before end date");
         return;
       }
-      await onSync({ fromDate: startDate, toDate: endDate });
+      await onSync({ fromDate: startDate, toDate: effectiveEndDate });
     } else {
       await onSync({});
     }
@@ -80,18 +84,22 @@ export function PlatformSyncPanel({
                 disabled={isSyncing}
               />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                End Date
-              </label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-8 text-xs w-[130px]"
-                disabled={isSyncing}
-              />
-            </div>
+            {hideEndDate ? (
+              <span className="text-xs text-muted-foreground self-end pb-1.5">to today</span>
+            ) : (
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">
+                  End Date
+                </label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-8 text-xs w-[130px]"
+                  disabled={isSyncing}
+                />
+              </div>
+            )}
           </div>
         )}
         <Button

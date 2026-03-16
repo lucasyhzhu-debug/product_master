@@ -32,6 +32,8 @@ interface IntegrationHealthCardProps {
   health: PlatformHealthStatus;
   onAction?: () => void; // Primary action handler (refresh, paste, configure)
   isAdmin?: boolean;
+  /** When true, hides the internal expand toggle (parent manages expansion externally) */
+  hideExpandToggle?: boolean;
 }
 
 // Map status to badge styles
@@ -119,6 +121,7 @@ export function IntegrationHealthCard({
   health,
   onAction,
   isAdmin = false,
+  hideExpandToggle = false,
 }: IntegrationHealthCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -129,6 +132,7 @@ export function IntegrationHealthCard({
   const ActionIcon = getActionIcon(health.authStrategy);
   const syncHistory = health.syncHistory ?? [];
   const hasSyncHistory = syncHistory.length > 0;
+  const showInternalExpand = hasSyncHistory && !hideExpandToggle;
 
   return (
     <div className="rounded-lg border bg-card">
@@ -204,8 +208,8 @@ export function IntegrationHealthCard({
             </Button>
           )}
 
-          {/* Expand toggle (only for last_sync platforms with history) */}
-          {hasSyncHistory && (
+          {/* Expand toggle (only for last_sync platforms with history, hidden when parent manages expand) */}
+          {showInternalExpand && (
             <Button
               variant="ghost"
               size="sm"
@@ -223,8 +227,8 @@ export function IntegrationHealthCard({
         </div>
       </div>
 
-      {/* Sync history log (collapsible) */}
-      {isExpanded && hasSyncHistory && (
+      {/* Sync history log (collapsible, hidden when parent manages expand) */}
+      {isExpanded && showInternalExpand && (
         <div className="mt-0 px-4 pb-3 border-t pt-2">
           <p className="text-xs font-medium text-muted-foreground mb-1.5">Sync History</p>
           <div className="space-y-1">

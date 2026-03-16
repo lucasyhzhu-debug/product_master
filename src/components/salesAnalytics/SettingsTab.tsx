@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle } from "lucide-react";
+import { formatRelativeTime } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
 import {
   useExternalOutlets,
   useDiscoverK3MartOutlets,
@@ -28,6 +30,48 @@ import type { PlatformHealthStatus } from "../../../convex/platformCredentials/q
 import type { Id } from "../../../convex/_generated/dataModel";
 
 const EXPANDABLE_PLATFORMS = new Set(["bigseller", "k3mart", "gobiz", "internal"]);
+
+/** Inline sync history log for expanded platform sections */
+function SyncHistoryLog({ syncHistory }: { syncHistory: PlatformHealthStatus["syncHistory"] }) {
+  if (!syncHistory || syncHistory.length === 0) return null;
+  return (
+    <div className="border-t pt-2">
+      <p className="text-xs font-medium text-muted-foreground mb-1.5">Sync History</p>
+      <div className="space-y-1">
+        {syncHistory.map((entry, i) => (
+          <div key={i} className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              {entry.status === "success" ? (
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+              ) : entry.status === "error" ? (
+                <XCircle className="h-3 w-3 text-red-500" />
+              ) : (
+                <Clock className="h-3 w-3 text-amber-500" />
+              )}
+              <span className="text-muted-foreground">{formatRelativeTime(entry.timestamp)}</span>
+              <span className={cn(
+                "text-[10px] px-1 py-0.5 rounded",
+                entry.syncType === "token_refresh"
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+              )}>
+                {entry.syncType === "token_refresh" ? "Token" : "Sync"}
+              </span>
+              {entry.errorMessage && (
+                <span className="text-red-500 truncate max-w-[200px]" title={entry.errorMessage}>
+                  {entry.errorMessage}
+                </span>
+              )}
+            </div>
+            {entry.syncType !== "token_refresh" && entry.productsCount !== undefined && (
+              <span className="text-muted-foreground">{entry.productsCount} records</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function SettingsTab() {
   const { user } = useAuth();
@@ -224,6 +268,7 @@ export function SettingsTab() {
                         health={health}
                         onAction={() => handleAction(health.platformId, health.authStrategy)}
                         isAdmin={isAdmin}
+                        hideExpandToggle={isExpandable}
                       />
                     </div>
                     {/* Expand toggle for expandable platforms */}
@@ -284,6 +329,7 @@ export function SettingsTab() {
                         }}
                         isSyncing={syncingK3MartSales || discoveringK3Mart}
                       />
+                      <SyncHistoryLog syncHistory={health.syncHistory} />
                     </div>
                   )}
 
@@ -292,9 +338,11 @@ export function SettingsTab() {
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <PlatformSyncPanel
                         showDateRange={true}
+                        hideEndDate={true}
                         onSync={(params) => handleSyncGoBiz(params)}
                         isSyncing={syncingGoBiz}
                       />
+                      <SyncHistoryLog syncHistory={health.syncHistory} />
                     </div>
                   )}
 
