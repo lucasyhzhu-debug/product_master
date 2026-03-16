@@ -1,18 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, Percent, TagIcon, Truck } from "lucide-react";
+import { DollarSign, TrendingUp, Percent, TagIcon, Truck, CircleDot, Receipt, ShoppingCart } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { GrowthIndicator } from "./GrowthIndicator";
 import type { PeriodData } from "./overviewUtils";
+import type { LifetimeTotals } from "@/hooks/convex/useExternalData";
 
 export function HeroCards({
   currentPeriod,
   previousPeriod,
+  lifetime,
 }: {
   currentPeriod: PeriodData;
   previousPeriod: PeriodData;
+  lifetime?: LifetimeTotals;
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Gross Sales</CardTitle>
@@ -127,6 +130,56 @@ export function HeroCards({
           </p>
         </CardContent>
       </Card>
+
+      {/* Lifetime metrics — always show all-time data regardless of period filter */}
+      {lifetime && (
+        <>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Balls Sold</CardTitle>
+              <CircleDot className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {lifetime.totalBalls.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Est. at {formatCurrency(lifetime.avgRevenuePerBall)}/ball
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lifetime Revenue</CardTitle>
+              <Receipt className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(lifetime.lifetimeRevenue)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All time
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lifetime Transactions</CardTitle>
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {lifetime.lifetimeTransactions.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All time
+              </p>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

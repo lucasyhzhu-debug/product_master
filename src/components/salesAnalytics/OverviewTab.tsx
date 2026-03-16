@@ -17,10 +17,10 @@ import {
   useSyncGoBiz,
   useSyncInternalOrders,
   useBigSellerOrderStats,
+  useLifetimeTotals,
   type PeriodPreset,
 } from "@/hooks/convex";
 import { PERIOD_PRESETS, DEFAULT_PERIOD, PERIOD_STORAGE_KEY } from "./overviewUtils";
-import { LifetimeHero } from "./LifetimeHero";
 import { HeroCards } from "./HeroCards";
 import { ChannelSummary } from "./ChannelSummary";
 import { PlatformHierarchy } from "./PlatformHierarchy";
@@ -31,6 +31,7 @@ export function OverviewTab() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const { data: bigSellerStats } = useBigSellerOrderStats();
+  const { data: lifetime } = useLifetimeTotals();
 
   // Period preset from URL, then localStorage, then default
   const savedPeriod = localStorage.getItem(PERIOD_STORAGE_KEY) as PeriodPreset | null;
@@ -89,8 +90,8 @@ export function OverviewTab() {
   if (loadingSummary || summary === undefined) {
     return (
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <Card key={i}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <Skeleton className="h-4 w-24" />
@@ -120,12 +121,9 @@ export function OverviewTab() {
 
   return (
     <div className="space-y-6">
-      {/* Lifetime Hero -- always shows all-time data, unaffected by period selector */}
-      <LifetimeHero />
-
       {/* Period Filter Bar + Refresh Button */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {PERIOD_PRESETS.map((p) => (
             <Badge
               key={p.value}
@@ -149,10 +147,14 @@ export function OverviewTab() {
         </Button>
       </div>
 
-      {/* Row 1: Gross Sales, Net Sales, Commissions Paid, Discounts Given, Delivery Fees */}
-      <HeroCards currentPeriod={currentPeriod} previousPeriod={previousPeriod} />
+      {/* Top-line metrics: period-based + lifetime (all in one responsive grid) */}
+      <HeroCards
+        currentPeriod={currentPeriod}
+        previousPeriod={previousPeriod}
+        lifetime={lifetime ?? undefined}
+      />
 
-      {/* Row 2: Channel Summary (driver tree) */}
+      {/* Channel Summary (driver tree) */}
       <ChannelSummary
         currentPeriod={currentPeriod}
         previousPeriod={previousPeriod}
