@@ -448,7 +448,7 @@ Key staff review fixes embedded in roadmap:
 | 30 | Add monthly view and custom date filter to income statement | 2026-03-05 | e107f19 | Verified | [30-add-monthly-view-and-custom-date-filter-](./quick/30-add-monthly-view-and-custom-date-filter-/) |
 | 31 | Remove Sales Details table from Sales Analytics Overview | 2026-03-07 | e769b4f | Verified | [31-remove-detailed-transactions-table-from-](./quick/31-remove-detailed-transactions-table-from-/) |
 | 32 | Create Financials dropdown nav with expense grouping | 2026-03-15 | 7607c08 | Verified | [32-create-financials-dropdown-nav-with-expe](./quick/32-create-financials-dropdown-nav-with-expe/) |
-| 33 | Combine sync actions into platform health cards | 2026-03-16 | ea24079 | Verified | [33-combine-sync-actions-into-platform-healt](./quick/33-combine-sync-actions-into-platform-healt/) |
+| 33 | Combine sync actions into platform health cards | 2026-03-16 | 2ce483c | Verified | [33-combine-sync-actions-into-platform-healt](./quick/33-combine-sync-actions-into-platform-healt/) |
 | Phase 49 P01 | 9 | 2 tasks | 4 files |
 | Phase 51 P01 | 2min | 1 tasks | 2 files |
 | Phase 52 P02 | 6min | 2 tasks | 7 files |
