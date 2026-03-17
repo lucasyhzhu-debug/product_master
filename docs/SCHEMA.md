@@ -1569,7 +1569,7 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `reversedByEntryId` | `optional id("journalEntries")` | Reversal entry reference |
 | `createdBy` | `id("users")` | User who created the entry |
 | `createdAt` | `number` | Epoch ms of creation time |
-| `metadata` | `optional object` | Optional metadata. Contains `receiptUrl: optional string` for Google Drive receipt links (used by historical import). *(Phase 51)* |
+| `metadata` | `optional object` | Optional metadata. Contains `receiptUrl: optional string` for Google Drive receipt links (used by historical import, Phase 51) and `templateType: optional string` for template-based manual journal entries (Phase 62). Values: `"equipment_purchase"`, `"loan_repayment"`, `"dividend_payment"`, `"capital_injection"`, `"receive_loan"`, `"tax_payment"`. |
 
 **Indexes:** `by_entry_number`, `by_source` (sourceType, sourceId), `by_date`
 

@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Manual Journal Entry (Phase 62) — 2026-03-18
+
+**For the team:** You can now record balance sheet transactions like equipment purchases, loan repayments, dividend payments, capital injections, received loans, and tax payments through 6 pre-wired templates. No more asking the accountant to create manual journal entries via CSV import.
+
+#### Added
+- `convex/manualJournal/mutations.ts`: Template-based create mutation with 6 pre-wired templates (equipment purchase, loan repayment, dividend payment, capital injection, receive loan, tax payment)
+- `convex/manualJournal/queries.ts`: Period-filtered list query using `by_date` index with range bounds
+- `src/hooks/convex/useManualJournal.ts`: Frontend hooks for query + mutation
+- `templateType` field added to `journalEntries.metadata` schema object
+- New route: `/journal` (admin + manager access)
+- Hub navigation restructured: Financials + Accounting sections
+
 ### Help File Indexing Architecture (Phase 61) — 2026-03-18
 
 **For the team:** Tutorial guides can now be checked for staleness automatically. When source code changes, two new commands (`/gsd:check-docs` and `/gsd:update-docs`) detect which tutorial sections need updating and help fix them — no more outdated help pages.
