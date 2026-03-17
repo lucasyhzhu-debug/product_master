@@ -84,14 +84,16 @@ sourceType: v.union(
   v.literal("payroll_void"),
   v.literal("depreciation"),        // NEW
   v.literal("depreciation_void"),   // NEW
+  v.literal("asset_disposal"),      // NEW
+  v.literal("asset_disposal_void"), // NEW
   v.literal("manual")
 ),
 ```
 
 ### 2.3 GL Account Changes
 
-**Remove:**
-- `1600 Accumulated Depreciation` (replaced by per-category sub-accounts)
+**Deactivate (not delete — may be referenced by existing JEs):**
+- `1600 Accumulated Depreciation` → set `isActive: false` in seedDefaults. Replaced by per-category sub-accounts below.
 
 **Add to seedDefaults:**
 
@@ -201,6 +203,8 @@ export type AssetCategory = keyof typeof ASSET_CATEGORIES;
 
 No batch tracking table. Each asset stores `lastDepreciationMonth`. The system computes what's missing at query time and posts JEs on demand.
 
+**Proration policy:** Full-month from acquisition month. An asset acquired on any day in March gets full March depreciation. PSAK allows this convention for SMEs.
+
 ### 4.2 Preview Query: `getDepreciationPreview`
 
 ```typescript
@@ -257,7 +261,8 @@ export const getDepreciationPreview = protectedQuery({
 export const runDepreciation = protectedMutation({
   roles: ["admin"],
   args: {},
-  handler: async (ctx, _args, userId) => {
+  handler: async (ctx) => {
+    const userId = ctx.user._id; // protectedMutation provides ctx.user
     const currentMonth = getCurrentWibMonth();
     const expenseAccount = await getAccountByCode(ctx, "6150");
     const activeAssets = await ctx.db
@@ -326,7 +331,8 @@ export const runDepreciation = protectedMutation({
 export const voidMonthDepreciation = protectedMutation({
   roles: ["admin"],
   args: { targetMonth: v.string() }, // "2026-03"
-  handler: async (ctx, args, userId) => {
+  handler: async (ctx, args) => {
+    const userId = ctx.user._id; // protectedMutation provides ctx.user
     const monthStart = firstDayOfMonth(args.targetMonth);
     const monthEnd = lastDayOfMonth(args.targetMonth);
 
@@ -378,7 +384,8 @@ export const disposeAsset = protectedMutation({
     disposalDate: v.number(),
     saleProceeds: v.optional(v.number()), // default 0
   },
-  handler: async (ctx, args, userId) => {
+  handler: async (ctx, args) => {
+    const userId = ctx.user._id; // protectedMutation provides ctx.user
     const asset = await ctx.db.get(args.assetId);
     if (!asset) throw new Error("Asset not found");
     if (asset.status === "disposed") throw new Error("Asset already disposed");
@@ -419,7 +426,7 @@ export const disposeAsset = protectedMutation({
     const jeId = await createJournalEntryWithLines(ctx, {
       date: args.disposalDate,
       description: `Asset disposal (${args.disposalType}): ${asset.name} (${asset.assetNumber})`,
-      sourceType: "depreciation", // reuse — disposal is a depreciation-domain event
+      sourceType: "asset_disposal", // distinct from "depreciation" to avoid voidMonthDepreciation picking it up
       sourceId: asset._id,
       createdBy: userId,
       lines,
@@ -452,25 +459,39 @@ export type JournalSourceType =
   | "payroll_void"
   | "depreciation"          // NEW
   | "depreciation_void"     // NEW
+  | "asset_disposal"        // NEW — distinct from depreciation to avoid void conflicts
+  | "asset_disposal_void"   // NEW
   | "manual";
 
 export type VoidSourceType =
   | "expense_void"
   | "reimbursement_void"
   | "payroll_void"
-  | "depreciation_void";   // NEW
+  | "depreciation_void"     // NEW
+  | "asset_disposal_void";  // NEW
 
 export type ReversibleSourceType =
   | "expense_approval"
   | "reimbursement"
   | "payroll"
-  | "depreciation";        // NEW
+  | "depreciation"          // NEW
+  | "asset_disposal";       // NEW
+
+const NON_REVERSIBLE_TYPES: readonly string[] = [
+  "manual",
+  "expense_void",
+  "reimbursement_void",
+  "payroll_void",
+  "depreciation_void",       // NEW — prevent double-void
+  "asset_disposal_void",     // NEW — prevent double-void
+];
 
 const VALID_VOID_PAIRS: Record<string, VoidSourceType> = {
   expense_approval: "expense_void",
   reimbursement: "reimbursement_void",
   payroll: "payroll_void",
-  depreciation: "depreciation_void",  // NEW
+  depreciation: "depreciation_void",      // NEW
+  asset_disposal: "asset_disposal_void",  // NEW
 };
 ```
 
@@ -480,7 +501,8 @@ const VALID_VOID_PAIRS: Record<string, VoidSourceType> = {
 
 ```typescript
 // convex/fixedAssets/queries.ts
-export const getDepreciationStatus = query({
+export const getDepreciationStatus = protectedQuery({
+  roles: ["manager", "admin"], // matches FinancialStatement access (canAccessDashboard)
   args: {},
   handler: async (ctx) => {
     const currentMonth = getCurrentWibMonth();
@@ -599,9 +621,9 @@ Grouped by month, sorted by asset number within each month. Shows total entry co
 - Name (required)
 - Category (dropdown, required) — selecting category auto-fills useful life, salvage value, monthly depreciation
 - Acquisition Date (date picker, required)
-- Acquisition Cost (number, required, IDR)
-- Useful Life (months, auto-filled from category, editable, PSAK tooltip)
-- Salvage Value (IDR, auto-calculated from category salvagePercent, editable, PSAK tooltip)
+- Acquisition Cost (number, required, IDR) — **disabled after depreciation starts** (`lastDepreciationMonth` is set)
+- Useful Life (months, auto-filled from category, editable, PSAK tooltip) — **disabled after depreciation starts**
+- Salvage Value (IDR, auto-calculated from category salvagePercent, editable, PSAK tooltip) — **disabled after depreciation starts**
 - Location (optional text)
 - Characteristics (key-value editor + CSV paste)
 - Attachments (file upload)
@@ -635,7 +657,7 @@ Triggered by "Dispose" button on asset detail (admin only).
 | `list` | Manager, Admin | List all assets with optional category/status filters |
 | `getById` | Manager, Admin | Get single asset with full details |
 | `getDepreciationPreview` | Admin | Compute catch-up preview (missing months per asset) |
-| `getDepreciationStatus` | Public (no auth) | Check if current month has unposted depreciation (for Income Statement reminder) |
+| `getDepreciationStatus` | Manager, Admin | Check if current month has unposted depreciation (for Income Statement reminder) |
 | `getDepreciationHistory` | Manager, Admin | Get depreciation JE history for a single asset |
 
 ### Mutations (convex/fixedAssets/mutations.ts)
@@ -643,7 +665,7 @@ Triggered by "Dispose" button on asset detail (admin only).
 | Mutation | Access | Description |
 |----------|--------|-------------|
 | `create` | Manager, Admin | Create new fixed asset with auto-numbering |
-| `update` | Manager, Admin | Update asset details (not cost/category after depreciation started) |
+| `update` | Manager, Admin | Update asset details. Guards: cost/category/usefulLife/salvageValue are immutable after `lastDepreciationMonth` is set (depreciation has started). Name, location, characteristics, attachments remain editable. |
 | `generateUploadUrl` | Manager, Admin | Get signed upload URL for attachments |
 | `runDepreciation` | Admin | Post depreciation JEs for all assets with missing months |
 | `voidMonthDepreciation` | Admin | Reverse all depreciation JEs for a target month |
@@ -652,7 +674,7 @@ Triggered by "Dispose" button on asset detail (admin only).
 ### Seed Extension (convex/accounts/mutations.ts)
 
 Update `DEFAULT_ACCOUNTS` to:
-- Remove `1600 Accumulated Depreciation`
+- Keep `1600 Accumulated Depreciation` in seed array but set `isActive: false` (existing environments get it deactivated on next seed run; new environments seed it as inactive)
 - Add `1610`-`1670` per-category accumulated depreciation accounts
 - Add `6150 Depreciation Expense`
 - Add `7300 Gain on Asset Disposal`
@@ -712,9 +734,22 @@ toYearMonth(timestamp: number): string  // timestamp → "2026-03"
 nextMonth(ym: string): string       // "2026-03" → "2026-04"
 prevMonth(ym: string): string       // "2026-03" → "2026-02"
 getMonthRange(start: string, end: string): string[]  // inclusive range
-lastDayOfMonth(ym: string): number  // "2026-03" → timestamp for Mar 31
-firstDayOfMonth(ym: string): number // "2026-03" → timestamp for Mar 1
+lastDayOfMonth(ym: string): number  // "2026-03" → timestamp for Mar 31 23:59:59 WIB (end of day, inclusive for range queries)
+firstDayOfMonth(ym: string): number // "2026-03" → timestamp for Mar 1 00:00:00 WIB (start of day)
 formatMonth(ym: string): string     // "2026-03" → "Mar 2026"
+```
+
+### Asset Numbering (convex/fixedAssets/helpers.ts)
+
+```typescript
+/**
+ * Generate next asset number: FA-{prefix}-YYMM-NNN
+ *
+ * Unlike getNextNumber (which uses MMDD format for daily counters),
+ * asset numbering uses YYMM (year-month) since assets are acquired monthly, not daily.
+ * Uses the counters table with composite prefix "FA-{categoryPrefix}" and date string "YYMM".
+ */
+getNextAssetNumber(ctx: MutationCtx, category: AssetCategory): Promise<string>
 ```
 
 ### Account Lookup (convex/fixedAssets/helpers.ts)
