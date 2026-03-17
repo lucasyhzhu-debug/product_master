@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "description": "Maps source file globs to tutorial section files for documentation drift detection",
+  "guides": {
+    "expenses": {
+      "sections": ["overview", "submitting", "approving", "reimbursement", "payroll", "analytics", "pnl", "faq"]
+    }
+  },
+  "mappings": [
+    {
+      "id": "expenses-overview",
+      "sourceGlobs": ["convex/expenses/*.ts", "convex/lib/auth.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/OverviewSection.tsx",
+      "guide": "expenses",
+      "section": "overview",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-submitting",
+      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/helpers.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/SubmittingSection.tsx",
+      "guide": "expenses",
+      "section": "submitting",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-approving",
+      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/fraudHelpers.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/ApprovingSection.tsx",
+      "guide": "expenses",
+      "section": "approving",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-reimbursement",
+      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/queries.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/ReimbursementSection.tsx",
+      "guide": "expenses",
+      "section": "reimbursement",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-payroll",
+      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/queries.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/PayrollSection.tsx",
+      "guide": "expenses",
+      "section": "payroll",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-analytics",
+      "sourceGlobs": ["convex/expenses/analyticsQueries.ts", "convex/expenses/fraudHelpers.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/AnalyticsSection.tsx",
+      "guide": "expenses",
+      "section": "analytics",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-pnl",
+      "sourceGlobs": ["convex/reports/incomeStatement.ts", "convex/lib/journalHelpers.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/PnlSection.tsx",
+      "guide": "expenses",
+      "section": "pnl",
+      "lastReviewedCommit": "1a7d177b"
+    },
+    {
+      "id": "expenses-faq",
+      "sourceGlobs": ["convex/expenses/*.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/FaqSection.tsx",
+      "guide": "expenses",
+      "section": "faq",
+      "lastReviewedCommit": "1a7d177b"
+    }
+  ]
+}
