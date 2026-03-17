@@ -535,11 +535,11 @@ Plans:
   4. /gsd:check-docs skill detects stale sections via git log against lastReviewedCommit
   5. /gsd:update-docs skill reads stale section + git diff, proposes edits, supports --ack flag
   6. npm run build succeeds after all changes
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 8 section files
-- [ ] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
+- [x] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 6 section files
+- [x] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
 
 ### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
 
