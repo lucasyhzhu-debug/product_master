@@ -1780,6 +1780,7 @@ export default defineSchema({
     createdAt: v.number(),
     metadata: v.optional(v.object({
       receiptUrl: v.optional(v.string()),
+      templateType: v.optional(v.string()),
     })),
   })
     .index("by_entry_number", ["entryNumber"])

@@ -52,7 +52,7 @@ export interface CreateJournalEntryParams {
   sourceId?: string; // String ID of source record (expense, batch, payroll entry)
   createdBy: Id<"users">;
   lines: JournalLine[]; // Min 2 lines, debits must equal credits
-  metadata?: { receiptUrl?: string }; // Optional metadata for receipt URLs (historical import)
+  metadata?: { receiptUrl?: string; templateType?: string }; // Optional metadata for receipt URLs (historical import) or template type (manual journal)
 }
 
 // ---------------------------------------------------------------------------
