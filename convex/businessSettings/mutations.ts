@@ -10,6 +10,26 @@ import { v } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 
 /**
+ * Determine the upsert action for the singleton pattern.
+ * Pure function exported for testing.
+ */
+export function computeUpsertAction(
+  existing: { logoStorageId?: string } | null,
+  newLogoStorageId: string | undefined,
+): { action: "insert" | "patch"; oldLogoToDelete: string | null } {
+  if (!existing) {
+    return { action: "insert", oldLogoToDelete: null };
+  }
+
+  const oldLogoToDelete =
+    existing.logoStorageId && existing.logoStorageId !== newLogoStorageId
+      ? existing.logoStorageId
+      : null;
+
+  return { action: "patch", oldLogoToDelete };
+}
+
+/**
  * Create or update the business settings singleton.
  *
  * If a logo is being replaced (different logoStorageId from existing),
@@ -29,13 +49,14 @@ export const upsert = protectedMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("businessSettings").first();
 
+    const { action, oldLogoToDelete } = computeUpsertAction(
+      existing as { logoStorageId?: string } | null,
+      args.logoStorageId as string | undefined,
+    );
+
     // Clean up old logo if it's being replaced
-    if (
-      existing &&
-      existing.logoStorageId &&
-      existing.logoStorageId !== args.logoStorageId
-    ) {
-      await ctx.storage.delete(existing.logoStorageId);
+    if (oldLogoToDelete) {
+      await ctx.storage.delete(oldLogoToDelete as any);
     }
 
     const data = {
@@ -44,7 +65,7 @@ export const upsert = protectedMutation({
       updatedAt: Date.now(),
     };
 
-    if (existing) {
+    if (action === "patch" && existing) {
       await ctx.db.patch(existing._id, data);
       return existing._id;
     } else {

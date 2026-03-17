@@ -1848,7 +1848,11 @@ export default defineSchema({
     discountLabel: v.optional(v.string()),
     deliveryFee: v.optional(v.number()),
     finalTotal: v.number(),
-    paymentStatus: v.string(),
+    paymentStatus: v.union(
+      v.literal("Unpaid"),
+      v.literal("Partial"),
+      v.literal("Paid")
+    ),
     paymentMethod: v.optional(v.string()),
     notes: v.optional(v.string()),
   })

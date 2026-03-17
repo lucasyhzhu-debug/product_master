@@ -15,20 +15,34 @@ import { getWibComponents } from "../lib/periodRange";
 import type { MutationCtx } from "../_generated/server";
 
 /** Order statuses that allow invoice creation. Allowlist (not blocklist) to prevent
- *  silently allowing future status additions. */
+ *  silently allowing future status additions.
+ *  Includes legacy statuses still present on unmigrated documents representing
+ *  paid orders that should be invoiceable. */
 export const INVOICEABLE_STATUSES = new Set([
+  // Modern statuses
   "PaymentReceived",
   "BeingPrepared",
   "AwaitingDelivery",
   "Complete",
+  // Legacy statuses (unmigrated documents)
+  "Confirmed",
+  "InProduction",
+  "Boxed",
+  "Labeled",
+  "Packaging",
+  "WaitingShipment",
+  "WaitingPickup",
+  "CompleteShipped",
+  "PickedUp",
 ] as const);
 
 /**
  * Check if an order status is invoiceable.
+ * Type guard that checks against the INVOICEABLE_STATUSES set.
  * Pure function exported for testing.
  */
 export function isInvoiceableStatus(status: string): boolean {
-  return INVOICEABLE_STATUSES.has(status as any);
+  return (INVOICEABLE_STATUSES as Set<string>).has(status);
 }
 
 /**
@@ -59,6 +73,7 @@ export function computeDiscount(
   discountType: "amount" | "percentage" | undefined,
 ): { discountAmount?: number; discountLabel?: string } {
   if (!discountValue || discountValue <= 0) return {};
+  if (!discountType) return {}; // No discount type = no discount applied
   if (discountType === "percentage") {
     return {
       discountAmount: Math.round(subtotal * (discountValue / 100)),
@@ -138,7 +153,7 @@ export const createDraft = protectedMutation({
     }
 
     // 2. Validate order status via allowlist
-    if (!INVOICEABLE_STATUSES.has(order.status as any)) {
+    if (!isInvoiceableStatus(order.status)) {
       throw new ConvexError(
         `Cannot create invoice for order with status '${order.status}'. Order must be PaymentReceived or later.`,
       );

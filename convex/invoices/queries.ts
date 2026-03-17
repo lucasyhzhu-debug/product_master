@@ -21,10 +21,11 @@ export const getByOrder = protectedQuery({
     const invoices = await ctx.db
       .query("invoices")
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .order("desc")
       .collect();
 
-    // Resolve logo URLs and sort by creation time desc
-    const resolved = await Promise.all(
+    // Resolve logo URLs (already sorted by creation time desc via .order("desc"))
+    return await Promise.all(
       invoices.map(async (inv) => {
         const sellerLogoUrl = inv.sellerLogoStorageId
           ? await ctx.storage.getUrl(inv.sellerLogoStorageId)
@@ -32,8 +33,6 @@ export const getByOrder = protectedQuery({
         return { ...inv, sellerLogoUrl };
       }),
     );
-
-    return resolved.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
 

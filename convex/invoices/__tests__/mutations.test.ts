@@ -27,24 +27,27 @@ import {
 // Status Allowlist Validation
 // ============================================
 describe("INVOICEABLE_STATUSES allowlist", () => {
-  it("contains exactly 4 statuses", () => {
-    expect(INVOICEABLE_STATUSES.size).toBe(4);
+  it("contains 13 statuses (4 modern + 9 legacy)", () => {
+    expect(INVOICEABLE_STATUSES.size).toBe(13);
   });
 
-  it("includes PaymentReceived", () => {
+  it("includes modern statuses", () => {
     expect(INVOICEABLE_STATUSES.has("PaymentReceived")).toBe(true);
-  });
-
-  it("includes BeingPrepared", () => {
     expect(INVOICEABLE_STATUSES.has("BeingPrepared")).toBe(true);
-  });
-
-  it("includes AwaitingDelivery", () => {
     expect(INVOICEABLE_STATUSES.has("AwaitingDelivery")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("Complete")).toBe(true);
   });
 
-  it("includes Complete", () => {
-    expect(INVOICEABLE_STATUSES.has("Complete")).toBe(true);
+  it("includes legacy statuses for unmigrated documents", () => {
+    expect(INVOICEABLE_STATUSES.has("Confirmed")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("InProduction")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("Boxed")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("Labeled")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("Packaging")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("WaitingShipment")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("WaitingPickup")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("CompleteShipped")).toBe(true);
+    expect(INVOICEABLE_STATUSES.has("PickedUp")).toBe(true);
   });
 
   it("does NOT include Draft", () => {
@@ -89,9 +92,16 @@ describe("isInvoiceableStatus", () => {
     expect(isInvoiceableStatus("Cancelled")).toBe(false);
   });
 
-  it("returns false for legacy statuses (Confirmed, InProduction)", () => {
-    expect(isInvoiceableStatus("Confirmed")).toBe(false);
-    expect(isInvoiceableStatus("InProduction")).toBe(false);
+  it("returns true for legacy statuses (Confirmed, InProduction, etc.)", () => {
+    expect(isInvoiceableStatus("Confirmed")).toBe(true);
+    expect(isInvoiceableStatus("InProduction")).toBe(true);
+    expect(isInvoiceableStatus("Boxed")).toBe(true);
+    expect(isInvoiceableStatus("Labeled")).toBe(true);
+    expect(isInvoiceableStatus("Packaging")).toBe(true);
+    expect(isInvoiceableStatus("WaitingShipment")).toBe(true);
+    expect(isInvoiceableStatus("WaitingPickup")).toBe(true);
+    expect(isInvoiceableStatus("CompleteShipped")).toBe(true);
+    expect(isInvoiceableStatus("PickedUp")).toBe(true);
   });
 
   it("returns false for unknown status", () => {
@@ -208,10 +218,9 @@ describe("computeDiscount", () => {
     expect(result.discountLabel).toBe("100%");
   });
 
-  it("computes flat discount without type (defaults to flat)", () => {
+  it("returns empty when discountType is undefined (no implicit fallthrough)", () => {
     const result = computeDiscount(100000, 5000, undefined);
-    expect(result.discountAmount).toBe(5000);
-    expect(result.discountLabel).toBeUndefined();
+    expect(result).toEqual({});
   });
 });
 

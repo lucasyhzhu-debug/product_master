@@ -4,7 +4,7 @@
  * Uses Convex file storage: generates a presigned URL, POSTs the file,
  * then returns the storageId to the parent for saving.
  */
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Building2, Upload, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 
 interface LogoUploaderProps {
   logoUrl: string | null;
-  logoStorageId: string | null;
   onUpload: (storageId: Id<"_storage"> | undefined) => void;
   generateUploadUrl: () => Promise<string>;
 }
@@ -26,7 +25,24 @@ export function LogoUploader({
   generateUploadUrl,
 }: LogoUploaderProps) {
   const [uploading, setUploading] = useState(false);
+  // Local preview URL generated from the uploaded file blob for immediate display
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Revoke local object URL on unmount or when no longer needed
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+    };
+  }, [localPreviewUrl]);
+
+  // Clear local preview when remote URL updates (save + re-fetch completed)
+  useEffect(() => {
+    if (logoUrl && localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+      setLocalPreviewUrl(null);
+    }
+  }, [logoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFileSelect(file: File) {
     if (file.size > MAX_FILE_SIZE) {
@@ -48,6 +64,11 @@ export function LogoUploader({
       }
 
       const { storageId } = await response.json();
+
+      // Show immediate preview from local file blob
+      if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+      setLocalPreviewUrl(URL.createObjectURL(file));
+
       onUpload(storageId as Id<"_storage">);
     } catch {
       toast.error("Failed to upload logo");
@@ -58,13 +79,15 @@ export function LogoUploader({
     }
   }
 
+  const previewUrl = localPreviewUrl ?? logoUrl;
+
   return (
     <div className="flex items-center gap-4">
       {/* Logo preview or placeholder */}
       <div className="flex items-center justify-center w-16 h-16 rounded-lg border bg-muted/50 overflow-hidden shrink-0">
-        {logoUrl ? (
+        {previewUrl ? (
           <img
-            src={logoUrl}
+            src={previewUrl}
             alt="Company logo"
             className="h-16 w-auto object-contain"
           />
@@ -87,17 +110,23 @@ export function LogoUploader({
           ) : (
             <Upload className="h-4 w-4 mr-2" />
           )}
-          {logoUrl ? "Change Logo" : "Upload Logo"}
+          {previewUrl ? "Change Logo" : "Upload Logo"}
         </Button>
 
-        {logoUrl && (
+        {previewUrl && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
             disabled={uploading}
-            onClick={() => onUpload(undefined)}
+            onClick={() => {
+              if (localPreviewUrl) {
+                URL.revokeObjectURL(localPreviewUrl);
+                setLocalPreviewUrl(null);
+              }
+              onUpload(undefined);
+            }}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Remove Logo

@@ -1,5 +1,5 @@
 import { protectedMutation } from "../lib/functions";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 
 /**
  * Create a new customer.
@@ -49,7 +49,7 @@ export const update = protectedMutation({
 
     const current = await ctx.db.get(id);
     if (!current) {
-      throw new Error("Customer not found");
+      throw new ConvexError("Customer not found");
     }
 
     const patchData: Record<string, unknown> = {};

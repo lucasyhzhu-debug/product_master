@@ -23,6 +23,7 @@ import {
   useBusinessSettingsUploadUrl,
   useBankAccounts,
 } from "@/hooks/convex";
+import type { BankAccount } from "@/hooks/convex/useBankAccounts";
 import { LogoUploader } from "@/components/settings/LogoUploader";
 import { BankAccountSelector } from "@/components/settings/BankAccountSelector";
 import { InvoiceHeaderPreview } from "@/components/settings/InvoiceHeaderPreview";
@@ -96,12 +97,14 @@ export function BusinessSettings() {
     try {
       await upsert({
         businessName: form.businessName.trim(),
-        ...(form.address ? { address: form.address.trim() } : {}),
-        ...(form.phone ? { phone: form.phone.trim() } : {}),
-        ...(form.email ? { email: form.email.trim() } : {}),
-        ...(form.npwp ? { npwp: form.npwp.trim() } : {}),
-        ...(form.logoStorageId ? { logoStorageId: form.logoStorageId } : {}),
-        ...(form.defaultBankAccountId ? { defaultBankAccountId: form.defaultBankAccountId } : {}),
+        // Always include optional fields so clearing them persists via ctx.db.patch
+        // (Convex removes fields set to undefined)
+        address: form.address.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        email: form.email.trim() || undefined,
+        npwp: form.npwp.trim() || undefined,
+        logoStorageId: form.logoStorageId ?? undefined,
+        defaultBankAccountId: form.defaultBankAccountId ?? undefined,
       });
       setIsDirty(false);
     } finally {
@@ -148,7 +151,6 @@ export function BusinessSettings() {
             <Label>Company Logo</Label>
             <LogoUploader
               logoUrl={form.logoUrl}
-              logoStorageId={form.logoStorageId ? String(form.logoStorageId) : null}
               onUpload={(storageId) => {
                 updateField("logoStorageId", storageId);
                 // Clear the URL preview immediately when removing; new URL will come from next query
@@ -234,7 +236,7 @@ export function BusinessSettings() {
         </CardHeader>
         <CardContent>
           <BankAccountSelector
-            bankAccounts={bankAccounts as Array<{ _id: Id<"bankAccounts">; bankName: string; accountNumber: string; name: string }>}
+            bankAccounts={bankAccounts as BankAccount[]}
             selectedId={form.defaultBankAccountId}
             onSelect={(id) => updateField("defaultBankAccountId", id)}
           />
