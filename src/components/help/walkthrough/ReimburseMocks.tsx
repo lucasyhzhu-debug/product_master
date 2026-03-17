@@ -1,11 +1,13 @@
 import { Check } from "lucide-react";
 import {
+  HIGHLIGHT_CLASSES,
   MockFrame,
   MockNavDropdown,
   MockButton,
   MockInput,
   MockSelect,
 } from "./MockElements";
+import { cn } from "@/lib/utils";
 import type { MockPanelProps } from "./types";
 
 export function ReimburseMock({ currentStep, breadcrumb }: MockPanelProps) {
@@ -26,14 +28,14 @@ export function ReimburseMock({ currentStep, breadcrumb }: MockPanelProps) {
     return (
       <MockFrame breadcrumb={breadcrumb} aria-label="Review pending expenses">
         <div className="space-y-3">
-          <div className="rounded-lg border p-3 border-2 border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]">
+          <div className={cn("rounded-lg border p-3", HIGHLIGHT_CLASSES)}>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Sari</span>
               <span className="text-sm">Rp 450,000</span>
             </div>
             <span className="text-xs text-muted-foreground">3 expenses</span>
           </div>
-          <div className="rounded-lg border p-3 border-2 border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]">
+          <div className={cn("rounded-lg border p-3", HIGHLIGHT_CLASSES)}>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Budi</span>
               <span className="text-sm">Rp 150,000</span>
@@ -55,18 +57,15 @@ export function ReimburseMock({ currentStep, breadcrumb }: MockPanelProps) {
           </div>
           {["Office supplies - Rp 150,000", "Transport - Rp 200,000", "Printing - Rp 100,000"].map(
             (item) => (
-              <label
+              <div
                 key={item}
                 className="flex items-center gap-2 text-xs p-2 rounded border"
               >
-                <input
-                  type="checkbox"
-                  checked
-                  readOnly
-                  className="rounded"
-                />
+                <div className="w-4 h-4 rounded border bg-primary flex items-center justify-center">
+                  <Check className="h-3 w-3 text-primary-foreground" />
+                </div>
                 {item}
-              </label>
+              </div>
             )
           )}
           <div className="mt-3 flex items-center justify-between">
@@ -93,7 +92,7 @@ export function ReimburseMock({ currentStep, breadcrumb }: MockPanelProps) {
               Total: Rp 450,000
             </div>
           </div>
-          <div className="rounded-lg border p-3 border-2 border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]">
+          <div className={cn("rounded-lg border p-3", HIGHLIGHT_CLASSES)}>
             <div className="text-xs font-medium mb-1">Transfer Instructions</div>
             <p className="text-xs text-muted-foreground">
               Open BCA Mobile, transfer Rp 450,000 with reference RMB-0315-001
@@ -124,7 +123,7 @@ export function ReimburseMock({ currentStep, breadcrumb }: MockPanelProps) {
   // Step 5: Done
   return (
     <MockFrame breadcrumb={breadcrumb} aria-label="Reimbursement complete">
-      <div className="rounded-lg border p-4 border-2 border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]">
+      <div className={cn("rounded-lg border p-4", HIGHLIGHT_CLASSES)}>
         <div className="flex flex-col items-center gap-3 py-4">
           <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
             <Check className="h-6 w-6 text-green-600 dark:text-green-400" />

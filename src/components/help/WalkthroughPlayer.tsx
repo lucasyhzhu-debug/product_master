@@ -34,7 +34,7 @@ export function WalkthroughPlayer({
   // Keyboard navigation
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || steps.length === 0) return;
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowRight") {
@@ -60,7 +60,9 @@ export function WalkthroughPlayer({
           <button
             key={w.id}
             role="tab"
+            id={`walkthrough-tab-${w.id}`}
             aria-selected={w.id === activeWorkflowId}
+            aria-controls={`walkthrough-panel-${w.id}`}
             onClick={() => {
               setActiveWorkflowId(w.id);
               setActiveStep(0);
@@ -96,7 +98,12 @@ export function WalkthroughPlayer({
       </div>
 
       {/* Main content: step nav + mock panel */}
-      <div className="flex gap-6">
+      <div
+        role="tabpanel"
+        id={`walkthrough-panel-${activeWorkflowId}`}
+        aria-labelledby={`walkthrough-tab-${activeWorkflowId}`}
+        className="flex gap-6"
+      >
         {/* Desktop step sidebar */}
         <nav
           aria-label="Steps"
@@ -128,7 +135,7 @@ export function WalkthroughPlayer({
         {/* Mock panel + annotation */}
         <div className="flex-1 min-w-0">
           {/* Mock panel viewport */}
-          <div role="region" aria-live="polite">
+          <div role="region">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activeWorkflowId}-${activeStep}`}

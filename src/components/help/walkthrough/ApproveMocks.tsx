@@ -1,9 +1,12 @@
 import {
+  HIGHLIGHT_CLASSES,
   MockFrame,
   MockTable,
   MockBadge,
   MockButton,
+  MockRow,
 } from "./MockElements";
+import { cn } from "@/lib/utils";
 import type { MockPanelProps } from "./types";
 
 export function ApproveExpenseMock({
@@ -19,7 +22,7 @@ export function ApproveExpenseMock({
           <div className="px-3 py-1.5 rounded-md text-sm text-muted-foreground">
             My Expenses
           </div>
-          <div className="px-3 py-1.5 rounded-md text-sm bg-primary/10 text-primary font-medium border-2 border-indigo-400">
+          <div className={cn("px-3 py-1.5 rounded-md text-sm bg-primary/10 text-primary font-medium", HIGHLIGHT_CLASSES)}>
             Approval
           </div>
         </div>
@@ -46,25 +49,27 @@ export function ApproveExpenseMock({
   if (currentStep === 1) {
     return (
       <MockFrame breadcrumb={breadcrumb} aria-label="Review expense detail">
-        <div className="rounded-lg border p-4 border-2 border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15)]">
+        <div className={cn("rounded-lg border p-4", HIGHLIGHT_CLASSES)}>
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-sm">Office supplies</h4>
             <MockBadge variant="warning">Late Submission</MockBadge>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div>
+          <MockRow>
+            <div className="text-xs">
               <span className="text-muted-foreground">Employee:</span> Sari
             </div>
-            <div>
+            <div className="text-xs">
               <span className="text-muted-foreground">Amount:</span> Rp 150,000
             </div>
-            <div>
+          </MockRow>
+          <MockRow>
+            <div className="text-xs">
               <span className="text-muted-foreground">GL Category:</span> 6500
             </div>
-            <div>
+            <div className="text-xs">
               <span className="text-muted-foreground">Vendor:</span> Toko Sukses
             </div>
-          </div>
+          </MockRow>
           <div className="mt-3 flex items-center gap-2">
             <div className="w-10 h-10 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground">
               IMG
