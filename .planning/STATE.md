@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 59-01-PLAN.md
-last_updated: "2026-03-17T00:28:16Z"
-last_activity: 2026-03-17 - Completed Plan 59-01 (Schema & helpers foundation for expense payment method overhaul)
+stopped_at: Completed 59-02-PLAN.md
+last_updated: "2026-03-17T00:38:32Z"
+last_activity: 2026-03-17 - Completed Plan 59-02 (Mutations & queries for expense payment method overhaul)
 progress:
   total_phases: 23
   completed_phases: 17
   total_plans: 43
-  completed_plans: 38
+  completed_plans: 39
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 01 COMPLETE
+**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 02 COMPLETE
 
 ## Current Position
 
-Phase: 59-direct-debit-expense-flow (Plan 1 of 4 complete)
-Plan: 59-02 (next)
-Status: Plan 59-01 complete, schema & helpers foundation done
-Last activity: 2026-03-17 - Completed Plan 59-01 (Schema & helpers foundation for expense payment method overhaul)
+Phase: 59-direct-debit-expense-flow (Plan 2 of 4 complete)
+Plan: 59-03 (next)
+Status: Plan 59-02 complete, mutations & queries updated for all 3 payment flows
+Last activity: 2026-03-17 - Completed Plan 59-02 (Mutations & queries for expense payment method overhaul)
 
-Progress: [████████░░] 88%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Progress: [████████░░] 88%
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
 | 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
+| 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
 - [59-01] Extended requiresReceipt with optional paymentMethod param for backward compatibility
 - [59-01] Updated mutations.ts and frontend files inline to prevent type errors from schema literal changes (Rule 3)
+- [59-02] company_paid guard placed BEFORE status check in approveExpense for helpful error messages
+- [59-02] DoA does NOT apply to acknowledge flow -- money already left bank, review not authorization
+- [59-02] Self-exclusion applies ONLY to submitted items in approval queue
 
 ### Roadmap Evolution
 
@@ -87,6 +91,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:28:16Z
-Stopped at: Completed 59-01-PLAN.md
-Resume notes: Plan 59-01 complete. Schema has new payment method literals (employee_paid, company_paid, payment_request), new statuses (recorded, paid), and 7 new optional fields. Helpers updated and tested. Ready for Plan 59-02 (mutations).
+Last session: 2026-03-17T00:38:32Z
+Stopped at: Completed 59-02-PLAN.md
+Resume notes: Plan 59-02 complete. All 3 payment flows implemented in mutations (submitExpense branching, approveExpense guards, acknowledgeExpense, flagExpense, markAsPaid). Approval queue unified. Analytics updated. Ready for Plan 59-03 (frontend).
