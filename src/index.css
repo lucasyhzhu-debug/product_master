@@ -384,3 +384,65 @@ body {
     transform: translateX(-50%) translateY(-8px);
   }
 }
+
+/* ============================================
+   Invoice Field Source Tokens
+   Semantic color tokens for invoice field states.
+   These are invoice-specific (light-mode only, deliberate choice
+   since invoices are a print-oriented feature).
+   ============================================ */
+
+:root {
+  --invoice-field-auto: #eff6ff;          /* blue-50 equivalent */
+  --invoice-field-auto-border: #bfdbfe;   /* blue-200 equivalent */
+  --invoice-field-input: #fffbeb;         /* amber-50 equivalent */
+  --invoice-field-input-border: #fde68a;  /* amber-200 equivalent */
+}
+
+/* ============================================
+   Print Styles (Invoice)
+   ============================================ */
+
+@media print {
+  /* Hide app chrome */
+  header, footer, nav,
+  .mobile-bottom-nav,
+  .feedback-panel-toggle,
+  .no-print,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  /* Reset page layout */
+  body, #root {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Remove shadows and borders from print content */
+  .invoice-print-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+  }
+
+  /* Force brand accent bar to print in color */
+  .invoice-brand-bar {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure page breaks are clean */
+  .invoice-print-area {
+    page-break-inside: avoid;
+  }
+
+  /* Hide the main padding from Layout */
+  main {
+    padding: 0 !important;
+  }
+}
