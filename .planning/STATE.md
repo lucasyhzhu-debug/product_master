@@ -3,60 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Phase 58 context gathered
-last_updated: "2026-03-16T19:38:35.636Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+stopped_at: Completed 59-01-PLAN.md
+last_updated: "2026-03-17T00:28:16Z"
+last_activity: 2026-03-17 - Completed Plan 59-01 (Schema & helpers foundation for expense payment method overhaul)
 progress:
   total_phases: 23
   completed_phases: 17
   total_plans: 43
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Phase 59 context gathered
-last_updated: "2026-03-16T13:37:14.446Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 22
-  completed_phases: 16
-  total_plans: 36
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 56-02-PLAN.md
-last_updated: "2026-03-16T12:54:33.747Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 21
-  completed_phases: 16
-  total_plans: 36
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: "Completed 56-02-PLAN.md"
-last_updated: "2026-03-16T12:28:05Z"
-last_activity: "2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)"
-progress:
-  total_phases: 4
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  completed_plans: 38
 ---
 
 # Project State
@@ -64,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide) COMPLETE
+**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 01 COMPLETE
 
 ## Current Position
 
-Phase: 56-expense-training-guide (Plan 2 of 2 complete)
-Plan: 56-02 (complete)
-Status: Phase 56 complete, all plans done
-Last activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+Phase: 59-direct-debit-expense-flow (Plan 1 of 4 complete)
+Plan: 59-02 (next)
+Status: Plan 59-01 complete, schema & helpers foundation done
+Last activity: 2026-03-17 - Completed Plan 59-01 (Schema & helpers foundation for expense payment method overhaul)
 
-Progress: [██████████] 100%
+Progress: [████████░░] 88%
 
 ## Performance Metrics
 
@@ -89,6 +43,7 @@ Progress: [██████████] 100%
 |-------|------|----------|-------|-------|
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
+| 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
 
 ## Accumulated Context
 
@@ -106,6 +61,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
 - [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
+- [59-01] Extended requiresReceipt with optional paymentMethod param for backward compatibility
+- [59-01] Updated mutations.ts and frontend files inline to prevent type errors from schema literal changes (Rule 3)
 
 ### Roadmap Evolution
 
@@ -130,6 +87,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16T19:38:35.631Z
-Stopped at: Phase 58 context gathered
-Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.
+Last session: 2026-03-17T00:28:16Z
+Stopped at: Completed 59-01-PLAN.md
+Resume notes: Plan 59-01 complete. Schema has new payment method literals (employee_paid, company_paid, payment_request), new statuses (recorded, paid), and 7 new optional fields. Helpers updated and tested. Ready for Plan 59-02 (mutations).
