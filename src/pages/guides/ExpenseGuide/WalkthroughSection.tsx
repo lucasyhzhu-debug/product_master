@@ -1,8 +1,8 @@
 import {
   GuideSection,
   WalkthroughPlayer,
+  type WalkthroughWorkflow,
 } from "@/components/help";
-import type { WalkthroughWorkflow } from "@/components/help/walkthrough/types";
 import { SubmitExpenseMock } from "@/components/help/walkthrough/SubmitMocks";
 import { ApproveExpenseMock } from "@/components/help/walkthrough/ApproveMocks";
 import { ReimburseMock } from "@/components/help/walkthrough/ReimburseMocks";
