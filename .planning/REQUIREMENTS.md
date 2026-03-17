@@ -48,24 +48,24 @@
 
 ### Invoice — Generation
 
-- [ ] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
-- [ ] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
-- [ ] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
-- [ ] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
-- [ ] **INV-05**: Draft persists across page navigation and browser refresh
-- [ ] **INV-06**: Preview mode shows clean read-only render without finalizing
-- [ ] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
-- [ ] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
-- [ ] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
-- [ ] **INV-10**: Multiple finalized invoices allowed per order (revision pattern)
+- [x] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
+- [x] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
+- [x] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
+- [x] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
+- [x] **INV-05**: Draft persists across page navigation and browser refresh
+- [x] **INV-06**: Preview mode shows clean read-only render without finalizing
+- [x] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
+- [x] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
+- [x] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
+- [x] **INV-10**: Multiple finalized invoices allowed per order (revision pattern)
 - [ ] **INV-11**: Order Detail sidebar shows invoice card with 3 states (none/draft/final)
 
 ### Invoice — Print
 
-- [ ] **IPRNT-01**: Print view renders finalized invoice cleanly via `window.print()`
-- [ ] **IPRNT-02**: `@media print` stylesheet hides navigation, sidebar, action buttons, colored backgrounds
-- [ ] **IPRNT-03**: Indonesian date format (e.g., "Senin, 16 Maret 2026")
-- [ ] **IPRNT-04**: Standard invoice layout: header, bill-to, order details, items table, totals, payment info, signature area, notes, footer
+- [x] **IPRNT-01**: Print view renders finalized invoice cleanly via `window.print()`
+- [x] **IPRNT-02**: `@media print` stylesheet hides navigation, sidebar, action buttons, colored backgrounds
+- [x] **IPRNT-03**: Indonesian date format (e.g., "Senin, 16 Maret 2026")
+- [x] **IPRNT-04**: Standard invoice layout: header, bill-to, order details, items table, totals, payment info, signature area, notes, footer
 
 ### Invoice — Data Model
 
@@ -90,6 +90,19 @@
 - [x] **DEXP-12**: Approval queue shows Company Paid badge and Acknowledge/Flag buttons for recorded expenses
 - [x] **DEXP-13**: Flagged expenses display warning badge in approval list
 - [x] **DEXP-14**: Recorded status badge renders in StatusBadge component
+
+### Interactive Visual Expense Tutorials (Phase 63)
+
+- [ ] **VWT-01**: Generic WalkthroughPlayer component renders workflow tabs (`role="tablist"`) with free step navigation and tab switching resets step to 0
+- [ ] **VWT-02**: 11 mock UI primitives (MockFrame, MockLabel, MockInput, MockSelect, MockButton, MockField, MockRow, MockTable, MockBadge, MockUploadZone, MockNavDropdown) with shared `HIGHLIGHT_CLASSES` indigo glow styling
+- [ ] **VWT-03**: Submit Expense walkthrough renders 4 steps with mock form (sample data), receipt upload zone, and Save/Submit action buttons
+- [ ] **VWT-04**: Approve Expense walkthrough renders 3 steps with approval queue table (fraud badges), expense detail card, and Approve/Reject action buttons
+- [ ] **VWT-05**: Reimburse walkthrough renders 6 steps from opening Reimbursement Manager through green success checkmark state
+- [ ] **VWT-06**: ExpenseGuide sections consolidated from 8 to 6 (submitting+approving+reimbursement replaced by single walkthrough section with no role restriction)
+- [ ] **VWT-07**: helpGuides.ts registry updated (6 sections, readTimeMinutes=10), POPULAR_QUESTIONS anchors point to "walkthrough", helpGuides.test.ts tests updated and passing
+- [ ] **VWT-08**: Documentation updated: help center spec (WalkthroughPlayer API), UI brand ref (tutorial patterns), CODE_STYLE.md (mock element convention), CLAUDE.md (Quick File Finder row), CHANGELOG.md (Phase 63 entry)
+- [ ] **VWT-09**: AnimatePresence crossfade (150ms opacity) on step change using composite key, ArrowLeft/ArrowRight keyboard navigation, ARIA attributes (tablist/tab, list/listitem, aria-current=step, aria-live=polite)
+- [ ] **VWT-10**: Mobile responsive layout: horizontal scrollable pill bar for steps below 768px, full-width mock panel, annotation below mock at all breakpoints
 
 ## Future Requirements (v1.9+)
 
@@ -155,21 +168,21 @@
 | IDAT-02 | Phase 57 | Complete |
 | IDAT-03 | Phase 57 | Complete |
 | IDAT-04 | Phase 57 | Complete |
-| INV-01 | Phase 58 | Pending |
-| INV-02 | Phase 58 | Pending |
-| INV-03 | Phase 58 | Pending |
-| INV-04 | Phase 58 | Pending |
-| INV-05 | Phase 58 | Pending |
-| INV-06 | Phase 58 | Pending |
-| INV-07 | Phase 58 | Pending |
-| INV-08 | Phase 58 | Pending |
-| INV-09 | Phase 58 | Pending |
-| INV-10 | Phase 58 | Pending |
+| INV-01 | Phase 58 | Complete |
+| INV-02 | Phase 58 | Complete |
+| INV-03 | Phase 58 | Complete |
+| INV-04 | Phase 58 | Complete |
+| INV-05 | Phase 58 | Complete |
+| INV-06 | Phase 58 | Complete |
+| INV-07 | Phase 58 | Complete |
+| INV-08 | Phase 58 | Complete |
+| INV-09 | Phase 58 | Complete |
+| INV-10 | Phase 58 | Complete |
 | INV-11 | Phase 58 | Pending |
-| IPRNT-01 | Phase 58 | Pending |
-| IPRNT-02 | Phase 58 | Pending |
-| IPRNT-03 | Phase 58 | Pending |
-| IPRNT-04 | Phase 58 | Pending |
+| IPRNT-01 | Phase 58 | Complete |
+| IPRNT-02 | Phase 58 | Complete |
+| IPRNT-03 | Phase 58 | Complete |
+| IPRNT-04 | Phase 58 | Complete |
 | DEXP-01 | Phase 59 | Complete |
 | DEXP-02 | Phase 59 | Complete |
 | DEXP-03 | Phase 59 | Complete |
@@ -184,12 +197,22 @@
 | DEXP-12 | Phase 59 | Complete |
 | DEXP-13 | Phase 59 | Complete |
 | DEXP-14 | Phase 59 | Complete |
+| VWT-01 | Phase 63 | Pending |
+| VWT-02 | Phase 63 | Pending |
+| VWT-03 | Phase 63 | Pending |
+| VWT-04 | Phase 63 | Pending |
+| VWT-05 | Phase 63 | Pending |
+| VWT-06 | Phase 63 | Pending |
+| VWT-07 | Phase 63 | Pending |
+| VWT-08 | Phase 63 | Pending |
+| VWT-09 | Phase 63 | Pending |
+| VWT-10 | Phase 63 | Pending |
 
 **Coverage:**
-- v1.8 requirements: 53 total (39 original + 14 Phase 59)
-- Mapped to phases: 53
+- v1.8 requirements: 63 total (39 original + 14 Phase 59 + 10 Phase 63)
+- Mapped to phases: 63
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after Phase 59 planning*
+*Last updated: 2026-03-17 after Phase 63 planning*

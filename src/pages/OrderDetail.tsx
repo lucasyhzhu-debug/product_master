@@ -21,6 +21,7 @@ import {
 import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
 import { AuditTrail } from '@/components/orders/AuditTrail';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
+import { InvoiceSidebarCard } from '@/components/invoice/InvoiceSidebarCard';
 import type { CancellationImpact } from '@/components/orders/EnhancedCancellationDialog';
 
 import {
@@ -443,6 +444,14 @@ export function OrderDetail() {
               orderId={orderId}
               orderStatus={order.status}
               token={user?.token ?? ''}
+            />
+          )}
+
+          {/* Invoice Sidebar Card (manager/admin, PaymentReceived+ orders) */}
+          {isManagerOrAdmin && orderId && (
+            <InvoiceSidebarCard
+              orderId={orderId}
+              orderStatus={order.status}
             />
           )}
 

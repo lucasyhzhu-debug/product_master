@@ -16,6 +16,20 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Invoice Form, Print View & Order Integration (Phase 58) — 2026-03-17
+
+**For the team:** You can now generate invoices directly from any order! On the Order Detail page, managers and admins will see an Invoice card in the right sidebar. Click "Generate Invoice" to open a WYSIWYG form that auto-fills seller info, buyer details, and order items. Edit any field, preview the invoice, then finalize to assign an official INV-YYMM-NNN number. Print it clean from the browser -- no extra software needed.
+
+#### Added
+- `src/components/invoice/InvoiceForm.tsx`: WYSIWYG invoice form with 9-section layout, field color coding (blue=auto-filled, yellow=needs-input, white=edited), and debounced 2-second auto-save
+- `src/components/invoice/InvoiceSidebarCard.tsx`: 3-state sidebar card (no invoice, draft, finalized) with role/status gating
+- `src/pages/InvoicePage.tsx`: Route handler for form, preview, and print view modes with orderId validation and browser tab title
+- `src/components/invoice/__tests__/InvoiceForm.test.ts`: 5 debounce auto-save unit tests
+
+#### Changed
+- `src/App.tsx`: 2 new lazy-loaded routes (`/orders/:orderId/invoice`, `/orders/:orderId/invoice/:invoiceNumber`) with `canAccessInvoices` guard
+- `src/pages/OrderDetail.tsx`: InvoiceSidebarCard inserted in right sidebar above OrderItems
+
 ### Expense Training Guide (Phase 56) — 2026-03-16
 
 **For the team:** The Help Center now has its first live guide! Navigate to `/help/expenses` to find a complete walkthrough of the expense, reimbursement, and payroll systems. It covers all 8 topics -- from submitting your first expense to understanding how it shows up on the P&L -- with visual flowcharts, numbered step cards, callout tips, and a 16-question FAQ.

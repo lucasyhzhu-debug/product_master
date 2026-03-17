@@ -117,6 +117,9 @@ const HistoricalImportPage = lazyWithPreload(() =>
 const BusinessSettings = lazyWithPreload(() =>
   import('./pages/BusinessSettings').then(m => ({ default: m.BusinessSettings }))
 );
+const InvoicePage = lazyWithPreload(() =>
+  import('./pages/InvoicePage').then(m => ({ default: m.InvoicePage }))
+);
 
 function App() {
   return (
@@ -204,6 +207,26 @@ function App() {
                         allowedRoles={["order_staff", "manager", "admin", "kitchen"]}
                       >
                         <OrderDetail />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Invoice Form + Preview (Phase 58) */}
+                  <Route
+                    path="orders/:orderId/invoice"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessInvoices">
+                        <InvoicePage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Invoice Print View - finalized (Phase 58) */}
+                  <Route
+                    path="orders/:orderId/invoice/:invoiceNumber"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessInvoices">
+                        <InvoicePage />
                       </ProtectedRoute>
                     }
                   />

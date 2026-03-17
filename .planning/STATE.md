@@ -1,109 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: Completed 59-04-PLAN.md (checkpoint approved)
-last_updated: "2026-03-17T01:34:03.913Z"
-last_activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
-progress:
-  total_phases: 23
-  completed_phases: 18
-  total_plans: 46
-  completed_plans: 42
-  percent: 98
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: Completed 59-04-PLAN.md (checkpoint approved)
-last_updated: "2026-03-17T01:10:00Z"
-last_activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
-progress:
-  total_phases: 23
-  completed_phases: 18
-  total_plans: 43
-  completed_plans: 42
-  percent: 98
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: Completed 57-02-PLAN.md
-last_updated: "2026-03-17T20:10:00Z"
-last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
-progress:
-  total_phases: 23
-  completed_phases: 18
-  total_plans: 46
-  completed_plans: 39
-  percent: 85
----
-
----
-gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
-last_updated: "2026-03-17T00:47:46.270Z"
-last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+status: completed
+stopped_at: Phase 60 context gathered
+last_updated: "2026-03-17T04:29:23.666Z"
+last_activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
 progress:
   total_phases: 24
-  completed_phases: 18
-  total_plans: 46
-  completed_plans: 39
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 57-01-PLAN.md
-last_updated: "2026-03-17T19:53:42Z"
-last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
-progress:
-  [█████████░] 85%
-  completed_phases: 17
-  total_plans: 43
-  completed_plans: 38
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Phase 59 context gathered
-last_updated: "2026-03-16T13:37:14.446Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 22
-  completed_phases: 16
-  total_plans: 36
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 56-02-PLAN.md
-last_updated: "2026-03-16T12:54:33.747Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 23
-  completed_phases: 17
-  total_plans: 42
-  completed_plans: 41
+  completed_phases: 20
+  total_plans: 50
+  completed_plans: 46
+  percent: 98
 ---
 
 # Project State
@@ -111,14 +19,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 59 COMPLETE (all 4 plans), Phase 57 COMPLETE
+**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (2/3 plans)
 
 ## Current Position
 
-Phase: 59-direct-debit-expense-flow (4/4 plans COMPLETE)
-Plan: 59-04 complete (checkpoint approved)
-Status: Phase 59 complete. Expense payment method overhaul shipped with 3 payment types, multi-action approval queue, and visual verification approved. Phase 57 (Invoice Backend & Business Settings) also complete.
-Last activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
+Phase: 58-invoice-form-print-view-order-integration (2/3 plans)
+Plan: 58-02 complete
+Status: Plan 58-02 complete. InvoiceForm WYSIWYG with auto-save, InvoicePage 3-mode handler, 2 routes in App.tsx. Plan 58-03 (InvoiceSidebarCard) ready.
+Last activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
 
 Progress: [██████████] 98%
 
@@ -142,6 +50,8 @@ Progress: [██████████] 98%
 | 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
 | 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
 | 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
+| 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
+| 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -177,6 +87,13 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [59-04] DoA comment threshold reused for acknowledge dialog visibility only, not authorization
 - [59-04] Mark as Paid uses Input (not Textarea) for transaction reference -- short reference number
 - [59-04] No redundant .catch() on markAsPaid -- createMutationHook handles errors via toast
+- [58-01] InvoicePrintData uses Pick<Doc<"invoices">> & { sellerLogoUrl } since query enriches storage ID to URL
+- [58-01] Invoice field tokens defined as CSS custom properties in :root (light-mode only, print-oriented)
+- [58-01] Brand bar uses h-1 (4px) with print-color-adjust: exact for print fidelity
+- [58-02] Used useDocumentTitle hook (existing project convention) instead of raw useEffect for browser tab title
+- [58-02] Extracted useAutoSave as testable hook with scheduleChange/markInitialized API, tested via renderHook
+- [58-02] toInvoicePrintData adapter function converts Invoice to InvoicePrintData (Pick<Doc> type) to bridge query layer and print view
+- [58-02] Save status "Saving..." fires inside setTimeout callback, not on keypress -- confirmed by test 5
 
 ### Roadmap Evolution
 
@@ -185,7 +102,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 - Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
 - Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
-- Phase 63 added: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+- Phase 63 added: Interactive Visual Expense Tutorials — click-through walkthroughs with mock UI panels replacing text-only guides
 
 ### Open Blockers (carried forward)
 
@@ -202,6 +119,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:07:44.795Z
-Stopped at: Completed 59-04-PLAN.md (checkpoint approved)
-Resume notes: Phase 59 complete. All 4 plans executed. Checkpoint approved via automated code-level verification (31/31 checks passed, build passing, 1006 tests passing). Phase 57 also complete (merged from main). Ready for merge to main.
+Last session: 2026-03-17T04:25:16.075Z
+Stopped at: Phase 60 context gathered
+Resume notes: Plan 58-02 complete (InvoiceForm + InvoicePage + routes). Plan 58-03 (InvoiceSidebarCard + OrderDetail integration) ready to execute.
