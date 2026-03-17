@@ -323,9 +323,9 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-52 | TBD | In progress | - |
+| v1.7 Expense & Accounting | 41-63 | 50 | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 12 phases planned for v1.7**
+**Total: 40 phases, 177 plans shipped across 7 milestones + 24 phases in v1.7 (21 complete, 3 remaining)**
 
 ### Phase 52: Expense System Simplification
 
@@ -535,7 +535,7 @@ Plans:
   4. /gsd:check-docs skill detects stale sections via git log against lastReviewedCommit
   5. /gsd:update-docs skill reads stale section + git diff, proposes edits, supports --ack flag
   6. npm run build succeeds after all changes
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 8 section files
@@ -571,5 +571,5 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
-- [ ] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification
+- [x] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
+- [x] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification
