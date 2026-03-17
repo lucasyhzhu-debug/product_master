@@ -32,6 +32,7 @@ describe("constants", () => {
 });
 
 describe("requiresReceipt", () => {
+  // Existing 1-arg backward-compat tests (must keep working)
   it("returns true for amount 50001 (above threshold)", () => {
     expect(requiresReceipt(50001)).toBe(true);
   });
@@ -46,6 +47,27 @@ describe("requiresReceipt", () => {
 
   it("returns false for amount 1 (small amount)", () => {
     expect(requiresReceipt(1)).toBe(false);
+  });
+
+  // New 2-arg tests for payment-method-aware behavior
+  it("returns true for company_paid regardless of amount (even 1000)", () => {
+    expect(requiresReceipt(1000, "company_paid")).toBe(true);
+  });
+
+  it("returns true for payment_request regardless of amount (even 1000)", () => {
+    expect(requiresReceipt(1000, "payment_request")).toBe(true);
+  });
+
+  it("returns false for employee_paid below threshold", () => {
+    expect(requiresReceipt(49999, "employee_paid")).toBe(false);
+  });
+
+  it("returns true for employee_paid above threshold", () => {
+    expect(requiresReceipt(50001, "employee_paid")).toBe(true);
+  });
+
+  it("backward compat: returns false for no payment method below threshold", () => {
+    expect(requiresReceipt(49999)).toBe(false);
   });
 });
 
@@ -246,16 +268,16 @@ describe("requiresApproverComment", () => {
 });
 
 describe("getTargetStatusAfterApproval", () => {
-  it("company_card -> approved (terminal)", () => {
-    expect(getTargetStatusAfterApproval("company_card")).toBe("approved");
+  it("employee_paid -> awaiting_payment", () => {
+    expect(getTargetStatusAfterApproval("employee_paid")).toBe("awaiting_payment");
   });
 
-  it("personal_cash -> awaiting_payment", () => {
-    expect(getTargetStatusAfterApproval("personal_cash")).toBe("awaiting_payment");
+  it("payment_request -> approved", () => {
+    expect(getTargetStatusAfterApproval("payment_request")).toBe("approved");
   });
 
-  it("personal_transfer -> awaiting_payment", () => {
-    expect(getTargetStatusAfterApproval("personal_transfer")).toBe("awaiting_payment");
+  it("company_paid -> approved (edge case)", () => {
+    expect(getTargetStatusAfterApproval("company_paid")).toBe("approved");
   });
 });
 
@@ -274,6 +296,14 @@ describe("isVoidableStatus", () => {
 
   it("rejected is voidable", () => {
     expect(isVoidableStatus("rejected")).toBe(true);
+  });
+
+  it("recorded is voidable", () => {
+    expect(isVoidableStatus("recorded")).toBe(true);
+  });
+
+  it("paid is voidable", () => {
+    expect(isVoidableStatus("paid")).toBe(true);
   });
 
   it("reimbursed is NOT voidable", () => {

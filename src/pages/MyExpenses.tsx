@@ -38,8 +38,13 @@ const TABS = [
   { value: "all", label: "All" },
   { value: "draft", label: "Drafts" },
   { value: "submitted", label: "Pending" },
+  { value: "recorded", label: "Recorded" },
   { value: "approved", label: "Approved" },
+  { value: "awaiting_payment", label: "Awaiting Payment" },
+  { value: "paid", label: "Paid" },
+  { value: "reimbursed", label: "Reimbursed" },
   { value: "rejected", label: "Rejected" },
+  { value: "voided", label: "Voided" },
 ] as const;
 
 export function MyExpenses() {

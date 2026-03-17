@@ -76,20 +76,20 @@
 
 ### Direct Debit Expense Flow (Phase 59)
 
-- [ ] **DEXP-01**: Schema has 2 payment method literals (`employee_paid`, `company_paid`) replacing 3 old literals
-- [ ] **DEXP-02**: Schema has `recorded` status in expenses status union
-- [ ] **DEXP-03**: Schema has `transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason` optional fields
-- [ ] **DEXP-04**: `requiresReceipt` returns true for all company_paid expenses regardless of amount
-- [ ] **DEXP-05**: `getTargetStatusAfterApproval` and `isVoidableStatus` updated for new literals and recorded status
-- [ ] **DEXP-06**: company_paid `submitExpense` auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to `recorded`
-- [ ] **DEXP-07**: employee_paid `submitExpense` unchanged (status `submitted`, no JE)
-- [ ] **DEXP-08**: `acknowledgeExpense` mutation transitions recorded expenses to approved (no new JE)
-- [ ] **DEXP-09**: `flagExpense` mutation sets flag fields on recorded expenses without status change
-- [ ] **DEXP-10**: Expense form shows exactly 2 payment options with clear labels
-- [ ] **DEXP-11**: Transaction reference field appears only when company_paid is selected
-- [ ] **DEXP-12**: Approval queue shows Company Paid badge and Acknowledge/Flag buttons for recorded expenses
-- [ ] **DEXP-13**: Flagged expenses display warning badge in approval list
-- [ ] **DEXP-14**: Recorded status badge renders in StatusBadge component
+- [x] **DEXP-01**: Schema has 2 payment method literals (`employee_paid`, `company_paid`) replacing 3 old literals
+- [x] **DEXP-02**: Schema has `recorded` status in expenses status union
+- [x] **DEXP-03**: Schema has `transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason` optional fields
+- [x] **DEXP-04**: `requiresReceipt` returns true for all company_paid expenses regardless of amount
+- [x] **DEXP-05**: `getTargetStatusAfterApproval` and `isVoidableStatus` updated for new literals and recorded status
+- [x] **DEXP-06**: company_paid `submitExpense` auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to `recorded`
+- [x] **DEXP-07**: employee_paid `submitExpense` unchanged (status `submitted`, no JE)
+- [x] **DEXP-08**: `acknowledgeExpense` mutation transitions recorded expenses to approved (no new JE)
+- [x] **DEXP-09**: `flagExpense` mutation sets flag fields on recorded expenses without status change
+- [x] **DEXP-10**: Expense form shows exactly 2 payment options with clear labels
+- [x] **DEXP-11**: Transaction reference field appears only when company_paid is selected
+- [x] **DEXP-12**: Approval queue shows Company Paid badge and Acknowledge/Flag buttons for recorded expenses
+- [x] **DEXP-13**: Flagged expenses display warning badge in approval list
+- [x] **DEXP-14**: Recorded status badge renders in StatusBadge component
 
 ## Future Requirements (v1.9+)
 
@@ -170,20 +170,20 @@
 | IPRNT-02 | Phase 58 | Pending |
 | IPRNT-03 | Phase 58 | Pending |
 | IPRNT-04 | Phase 58 | Pending |
-| DEXP-01 | Phase 59 | Pending |
-| DEXP-02 | Phase 59 | Pending |
-| DEXP-03 | Phase 59 | Pending |
-| DEXP-04 | Phase 59 | Pending |
-| DEXP-05 | Phase 59 | Pending |
-| DEXP-06 | Phase 59 | Pending |
-| DEXP-07 | Phase 59 | Pending |
-| DEXP-08 | Phase 59 | Pending |
-| DEXP-09 | Phase 59 | Pending |
-| DEXP-10 | Phase 59 | Pending |
-| DEXP-11 | Phase 59 | Pending |
-| DEXP-12 | Phase 59 | Pending |
-| DEXP-13 | Phase 59 | Pending |
-| DEXP-14 | Phase 59 | Pending |
+| DEXP-01 | Phase 59 | Complete |
+| DEXP-02 | Phase 59 | Complete |
+| DEXP-03 | Phase 59 | Complete |
+| DEXP-04 | Phase 59 | Complete |
+| DEXP-05 | Phase 59 | Complete |
+| DEXP-06 | Phase 59 | Complete |
+| DEXP-07 | Phase 59 | Complete |
+| DEXP-08 | Phase 59 | Complete |
+| DEXP-09 | Phase 59 | Complete |
+| DEXP-10 | Phase 59 | Complete |
+| DEXP-11 | Phase 59 | Complete |
+| DEXP-12 | Phase 59 | Complete |
+| DEXP-13 | Phase 59 | Complete |
+| DEXP-14 | Phase 59 | Complete |
 
 **Coverage:**
 - v1.8 requirements: 53 total (39 original + 14 Phase 59)

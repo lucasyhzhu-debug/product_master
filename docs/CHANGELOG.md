@@ -49,6 +49,28 @@ After merging any code change, add a new entry with:
 #### Tests
 - 51 unit tests (44 invoice mutations + 7 business settings) — all green
 
+### Expense Payment Method Overhaul (Phase 59) — 2026-03-17
+
+**For the team:** Expenses now support 3 payment methods instead of the old system. When submitting an expense, choose "Reimburse Employee" (you paid, company pays you back), "Paid by Company" (company bank was already charged, e.g. direct debit or linked Shopee/BCA), or "Payment Request" (you need the company to pay a vendor). Each flow has its own approval path — company-paid expenses get acknowledged instead of approved, and payment requests need a "Mark as Paid" step with a bank reference number.
+
+#### Added
+- `convex/expenses/mutations.ts`: 3 new mutations — `acknowledgeExpense`, `flagExpense`, `markAsPaid`
+- `src/components/expenses/ApprovalActions.tsx`: Context-aware action buttons per payment type
+- `src/components/expenses/FraudFlags.tsx`: Flagged-for-review badge
+- `src/components/expenses/ExpenseCard.tsx`: Payment type badges (Company Paid, Payment Request)
+
+#### Changed
+- `convex/schema.ts`: Expenses table — 3 new payment literals, 2 new statuses (recorded, paid), 7 new fields
+- `convex/expenses/mutations.ts`: `submitExpense` auto-creates JE for company_paid; `approveExpense` skips JE for payment_request
+- `convex/expenses/queries.ts`: Approval queue unified — submitted + recorded + approved-payment_request
+- `convex/expenses/helpers.ts`: `requiresReceipt` now payment-method-aware
+- `src/pages/ExpenseSubmit.tsx`: 3-option payment dropdown with descriptions, conditional transaction reference field
+- `src/pages/MyExpenses.tsx`: Filter tabs expanded to 10 statuses
+- `src/pages/ExpenseApproval.tsx`: Payment type badges and multi-action support
+
+#### Tests
+- 53 helper tests covering all payment method semantics; 1006 total tests passing
+
 ## [Unreleased] - v1.7 Expense & Accounting
 
 ### Quick Task 34: Fix GL Codes & Cascading Expense Dropdowns — 2026-03-16

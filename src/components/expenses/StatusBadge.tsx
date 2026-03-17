@@ -30,6 +30,14 @@ const STATUS_CONFIG: Record<ExpenseStatus, { label: string; className: string }>
     label: "Voided",
     className: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 line-through",
   },
+  recorded: {
+    label: "Recorded",
+    className: "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200",
+  },
+  paid: {
+    label: "Paid",
+    className: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+  },
 };
 
 export function ExpenseStatusBadge({ status }: { status: ExpenseStatus | string }) {

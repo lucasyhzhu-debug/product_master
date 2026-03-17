@@ -192,7 +192,7 @@ export async function fillExpenseForm(page: Page, data: {
   amount: string;
   vendorName: string;
   glCategory?: string; // text to match in select, e.g., "Office & Supplies"
-  paymentMethod?: string; // "personal" or "company_card"
+  paymentMethod?: string; // "employee_paid", "company_paid", or "payment_request"
 }) {
   await page.locator("#description").fill(data.description);
   await page.locator("#amount").fill(data.amount);

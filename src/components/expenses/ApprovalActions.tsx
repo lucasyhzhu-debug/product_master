@@ -1,13 +1,18 @@
 /**
- * ApprovalActions -- approve/reject/void button group for expense approval queue.
- * Shows appropriate dialogs with comment/reason fields based on action type.
- * DoA enforcement is at the backend; frontend shows/hides and requires comments.
+ * ApprovalActions -- context-aware action button group for expense approval queue.
+ * Renders different button sets based on paymentMethod + status:
+ *   - submitted employee_paid/payment_request: Approve / Reject
+ *   - recorded company_paid: Acknowledge / Flag for Review
+ *   - approved payment_request: Mark as Paid (with transaction reference)
+ *   - Void is always available for admins
  *
  * Uses ActionDialog sub-component to eliminate duplicated Dialog JSX (F7).
  * Uses formatCurrency(COMMENT_REQUIRED_THRESHOLD) instead of hardcoded strings (F4).
  */
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -18,9 +23,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApproveExpense, useRejectExpense, useVoidExpense } from "@/hooks/convex/useExpenses";
+import {
+  useApproveExpense,
+  useRejectExpense,
+  useVoidExpense,
+  useAcknowledgeExpense,
+  useFlagExpense,
+  useMarkAsPaid,
+} from "@/hooks/convex/useExpenses";
 import { formatCurrency } from "@/lib/utils";
-import { Check, X, Ban } from "lucide-react";
+import { Check, X, Ban, AlertTriangle, Banknote } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { COMMENT_REQUIRED_THRESHOLD } from "../../../convex/expenses/helpers";
 
@@ -110,23 +122,31 @@ function ActionDialog({
 interface ApprovalActionsProps {
   expenseId: Id<"expenses">;
   amount: number;
+  paymentMethod: string;
+  status: string;
   onActionComplete?: () => void;
 }
 
-type DialogType = "approve" | "reject" | "void" | null;
+type DialogType = "approve" | "reject" | "void" | "acknowledge" | "flag" | "markAsPaid" | null;
 
 export function ApprovalActions({
   expenseId,
   amount,
+  paymentMethod,
+  status,
   onActionComplete,
 }: ApprovalActionsProps) {
   const { user } = useAuth();
   const { mutate: approve } = useApproveExpense();
   const { mutate: reject } = useRejectExpense();
   const { mutate: voidExpense } = useVoidExpense();
+  const { mutate: acknowledge } = useAcknowledgeExpense();
+  const { mutate: flag } = useFlagExpense();
+  const { mutate: markPaid } = useMarkAsPaid();
 
   const [activeDialog, setActiveDialog] = useState<DialogType>(null);
   const [isDirectSubmitting, setIsDirectSubmitting] = useState(false);
+  const [transactionRef, setTransactionRef] = useState("");
 
   const commentRequired = amount >= COMMENT_REQUIRED_THRESHOLD;
   const thresholdStr = formatCurrency(COMMENT_REQUIRED_THRESHOLD);
@@ -159,40 +179,117 @@ export function ApprovalActions({
     onActionComplete?.();
   }, [voidExpense, expenseId, onActionComplete]);
 
+  const handleAcknowledgeSubmit = useCallback(async (comment: string) => {
+    await acknowledge({ expenseId, ...(comment ? { comment } : {}) });
+    onActionComplete?.();
+  }, [acknowledge, expenseId, onActionComplete]);
+
+  const handleFlagSubmit = useCallback(async (comment: string) => {
+    await flag({ expenseId, reason: comment });
+    onActionComplete?.();
+  }, [flag, expenseId, onActionComplete]);
+
+  const handleMarkAsPaidSubmit = useCallback(async () => {
+    if (!transactionRef.trim()) return;
+    await markPaid({ expenseId, transactionReference: transactionRef.trim() });
+    setTransactionRef("");
+    onActionComplete?.();
+  }, [markPaid, expenseId, transactionRef, onActionComplete]);
+
   const closeDialog = useCallback(() => {
     setActiveDialog(null);
   }, []);
 
   const isAdmin = user?.role === "admin";
-  const isSubmitting = isDirectSubmitting;
+
+  // Determine which action set to show
+  const isRecordedCompanyPaid = paymentMethod === "company_paid" && status === "recorded";
+  const isSubmittedForApproval = status === "submitted" && (paymentMethod === "employee_paid" || paymentMethod === "payment_request");
+  const isApprovedPaymentRequest = paymentMethod === "payment_request" && status === "approved";
 
   return (
     <>
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={handleApproveClick}
-          disabled={isSubmitting}
-        >
-          <Check className="h-3.5 w-3.5 mr-1" />
-          Approve
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setActiveDialog("reject")}
-          disabled={isSubmitting}
-        >
-          <X className="h-3.5 w-3.5 mr-1" />
-          Reject
-        </Button>
+        {/* Standard approval actions: submitted employee_paid or payment_request */}
+        {isSubmittedForApproval && (
+          <>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleApproveClick}
+              disabled={isDirectSubmitting}
+            >
+              <Check className="h-3.5 w-3.5 mr-1" />
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setActiveDialog("reject")}
+              disabled={isDirectSubmitting}
+            >
+              <X className="h-3.5 w-3.5 mr-1" />
+              Reject
+            </Button>
+          </>
+        )}
+
+        {/* Acknowledge/Flag actions: recorded company_paid */}
+        {isRecordedCompanyPaid && (
+          <>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => {
+                // NOTE: commentRequired uses the existing COMMENT_REQUIRED_THRESHOLD logic
+                // (>= Rp 500K). For acknowledge this controls whether a dialog is shown,
+                // NOT whether the action is allowed. DoA does not apply to acknowledgment
+                // (the money already left the bank -- this is confirmation, not authorization).
+                if (commentRequired) {
+                  setActiveDialog("acknowledge");
+                } else {
+                  setIsDirectSubmitting(true);
+                  handleAcknowledgeSubmit("").finally(() => setIsDirectSubmitting(false));
+                }
+              }}
+              disabled={isDirectSubmitting}
+            >
+              <Check className="h-3.5 w-3.5 mr-1" />
+              Acknowledge
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-amber-600 border-amber-300"
+              onClick={() => setActiveDialog("flag")}
+              disabled={isDirectSubmitting}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+              Flag for Review
+            </Button>
+          </>
+        )}
+
+        {/* Mark as Paid action: approved payment_request */}
+        {isApprovedPaymentRequest && (
+          <Button
+            size="sm"
+            className="bg-teal-600 hover:bg-teal-700 text-white"
+            onClick={() => setActiveDialog("markAsPaid")}
+            disabled={isDirectSubmitting}
+          >
+            <Banknote className="h-3.5 w-3.5 mr-1" />
+            Mark as Paid
+          </Button>
+        )}
+
+        {/* Void is always available for admin */}
         {isAdmin && (
           <Button
             size="sm"
             variant="outline"
             onClick={() => setActiveDialog("void")}
-            disabled={isSubmitting}
+            disabled={isDirectSubmitting}
           >
             <Ban className="h-3.5 w-3.5 mr-1" />
             Void
@@ -238,6 +335,55 @@ export function ApprovalActions({
         open={activeDialog === "void"}
         onOpenChange={(open) => !open && closeDialog()}
       />
+
+      {/* Acknowledge Dialog */}
+      <ActionDialog
+        title="Acknowledge Company Expense"
+        description={`Confirm this company-paid expense (${formatCurrency(amount)}) has been reviewed and is correct.`}
+        placeholder={commentRequired ? `Comment required for expenses >= ${thresholdStr}` : "Optional comment..."}
+        submitLabel="Confirm Acknowledge"
+        submitVariant="default"
+        onSubmit={handleAcknowledgeSubmit}
+        requireComment={commentRequired}
+        open={activeDialog === "acknowledge"}
+        onOpenChange={(open) => !open && closeDialog()}
+      />
+
+      {/* Flag for Review Dialog */}
+      <ActionDialog
+        title="Flag for Review"
+        description={`Flag this company-paid expense (${formatCurrency(amount)}) for further investigation. The journal entry will not be reversed.`}
+        placeholder="Reason for flagging (required)"
+        submitLabel="Submit Flag"
+        submitVariant="destructive"
+        onSubmit={handleFlagSubmit}
+        requireComment
+        open={activeDialog === "flag"}
+        onOpenChange={(open) => !open && closeDialog()}
+      />
+
+      {/* Mark as Paid Dialog -- custom dialog with text input for transaction reference */}
+      <Dialog open={activeDialog === "markAsPaid"} onOpenChange={(open) => { if (!open) { setTransactionRef(""); closeDialog(); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Paid</DialogTitle>
+            <DialogDescription>
+              Confirm that the bank transfer for this payment request ({formatCurrency(amount)}) has been executed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="txRef">Transaction Reference</Label>
+            <Input id="txRef" placeholder="Bank reference number (required)" value={transactionRef} onChange={(e) => setTransactionRef(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Enter the bank transfer reference or confirmation number</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTransactionRef(""); closeDialog(); }}>Cancel</Button>
+            <Button className="bg-teal-600 hover:bg-teal-700 text-white" onClick={handleMarkAsPaidSubmit} disabled={!transactionRef.trim()}>
+              Confirm Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

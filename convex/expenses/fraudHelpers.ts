@@ -15,7 +15,7 @@ export const CONCENTRATION_THRESHOLD = 0.80;
 export const MIN_EXPENSES_FOR_CONCENTRATION = 2;
 
 /** Statuses considered "approved" for concentration analysis */
-const APPROVED_STATUSES = new Set(["approved", "awaiting_payment", "reimbursed"]);
+const APPROVED_STATUSES = new Set(["approved", "awaiting_payment", "reimbursed", "recorded", "paid"]);
 
 // ─── Types ───
 

@@ -1,5 +1,6 @@
 import { formatCurrency, cn } from "@/lib/utils";
 import { ExpenseStatusBadge } from "./StatusBadge";
+import { Badge } from "@/components/ui/badge";
 import { Calendar, Store, AlertTriangle, Clock } from "lucide-react";
 import type { Expense } from "@/hooks/convex";
 
@@ -29,6 +30,16 @@ export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
               {expense.expenseNumber}
             </span>
             <ExpenseStatusBadge status={expense.status} />
+            {expense.paymentMethod === "company_paid" && (
+              <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-xs">
+                Company Paid
+              </Badge>
+            )}
+            {expense.paymentMethod === "payment_request" && (
+              <Badge variant="outline" className="bg-violet-50 text-violet-700 border-violet-200 text-xs">
+                Payment Request
+              </Badge>
+            )}
             {expense.lateSubmission && (
               <Clock
                 className="h-3.5 w-3.5 text-amber-500"
@@ -52,6 +63,11 @@ export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
               <Calendar className="h-3 w-3" />
               {formattedDate}
             </span>
+            {expense.transactionReference && (
+              <span className="text-xs text-muted-foreground">
+                Ref: {expense.transactionReference}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">

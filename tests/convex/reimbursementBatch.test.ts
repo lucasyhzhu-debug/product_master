@@ -82,7 +82,7 @@ async function createTestExpense(
       expenseDate: Date.now(),
       description: "Test expense",
       vendorName: "Test Vendor",
-      paymentMethod: "personal_cash",
+      paymentMethod: "employee_paid",
       status: (overrides?.status as never) ?? "awaiting_payment",
       lateSubmission: false,
       createdAt: Date.now(),
