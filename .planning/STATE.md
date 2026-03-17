@@ -3,30 +3,30 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: completed
-stopped_at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
-last_updated: "2026-03-17T06:09:11.479Z"
-last_activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
+stopped_at: Completed 61-02-PLAN.md
+last_updated: "2026-03-17T17:57:25.838Z"
+last_activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
 progress:
   total_phases: 24
-  completed_phases: 21
-  total_plans: 50
-  completed_plans: 48
+  completed_phases: 22
+  total_plans: 52
+  completed_plans: 50
 ---
 
 ---
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
-last_updated: "2026-03-17T05:36:00Z"
-last_activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
+status: Phase 61 complete -- help file indexing architecture with docs-manifest, validation, section files, and 2 GSD skills
+stopped_at: Completed 61-02-PLAN.md
+last_updated: "2026-03-17T17:26:09.000Z"
+last_activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
 progress:
   total_phases: 24
-  completed_phases: 20
+  completed_phases: 22
   total_plans: 50
-  completed_plans: 47
-  percent: 98
+  completed_plans: 50
+  percent: 100
 ---
 
 # Project State
@@ -34,16 +34,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 63 in progress (2/2 plans, awaiting visual verification)
+**Current focus:** v1.7 Expense & Accounting — Phase 61 complete (2/2 plans), all phases complete
 
 ## Current Position
 
-Phase: 63-interactive-visual-expense-tutorials (2/2 plans)
-Plan: 63-02 complete (awaiting visual verification checkpoint)
-Status: Plan 63-02 code complete. 3 workflow mock components (13 steps), ExpenseGuide consolidated to 6 sections with WalkthroughPlayer, redirect anchors, 5 doc files updated. Task 3 (human-verify) pending.
-Last activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
+Phase: 61-help-file-indexing-architecture (2/2 plans)
+Plan: 02 complete (phase complete)
+Status: Phase 61 complete -- help file indexing architecture with docs-manifest, validation, section files, and 2 GSD skills
+Last activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
 
-Progress: [██████████] 98%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -69,6 +69,8 @@ Progress: [██████████] 98%
 | 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
 | 63-interactive-visual-expense-tutorials | 01 | 8min | 2 | 6 |
 | 63-interactive-visual-expense-tutorials | 02 | 16min | 2 | 14 |
+| 61-help-file-indexing-architecture | 01 | 11min | 2 | 10 |
+| 61-help-file-indexing-architecture | 02 | 4min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -118,6 +120,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [63-02] Old deep link anchors preserved as sr-only hidden divs for backward compatibility
 - [63-02] readTimeMinutes reduced 15->10 to reflect faster interactive format
 - [63-02] Walkthrough section has no role field (visible to all users)
+- [Phase 61]: Adapted plan from 8 to 6 section files -- Phase 63 merged submitting/approving/reimbursement into walkthrough
+- [Phase 61-02]: Both GSD skills use single quotes for commit messages containing # (guide#section format)
 
 ### Roadmap Evolution
 
@@ -143,6 +147,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T05:36:00Z
-Stopped at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
-Resume notes: Plan 63-02 tasks 1-2 complete. Task 3 is a visual verification checkpoint. Run `npm run dev` and verify walkthroughs at /help/expenses#walkthrough. After verification, phase 63 is complete.
+Last session: 2026-03-17T17:26:09.000Z
+Stopped at: Completed 61-02-PLAN.md
+Resume notes: Phase 61 (Help File Indexing Architecture) is fully complete (2/2 plans). All v1.7 phases done. Next step: merge branch to main or complete milestone.
