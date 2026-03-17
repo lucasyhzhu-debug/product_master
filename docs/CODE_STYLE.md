@@ -1204,3 +1204,14 @@ export const getMessage = query({
   // ...
 });
 ```
+
+### Mock Element Convention (Tutorial Walkthroughs)
+
+Mock elements in walkthrough components (`src/components/help/walkthrough/MockElements.tsx`) use styled divs with Tailwind classes, **NOT** real shadcn/ui component imports. This keeps tutorial mock UIs decoupled from the actual application UI.
+
+When creating new mock elements:
+- Always use the existing `HIGHLIGHT_CLASSES` constant for highlight styling (indigo glow)
+- Use CSS variable-based semantic classes (`bg-card`, `text-foreground`, `border-input`, etc.) for automatic dark mode
+- Import `cn` from `@/lib/utils` for conditional class merging
+- Mock components implement `MockPanelProps` (`currentStep: number`, `breadcrumb: string`)
+- Import mock primitives directly from `./MockElements` (not from barrel) to avoid circular imports

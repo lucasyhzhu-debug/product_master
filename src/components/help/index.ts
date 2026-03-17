@@ -7,3 +7,5 @@ export type { FaqItem, FaqGroup } from "./FaqAccordion";
 export { WorkflowDiagram } from "./WorkflowDiagram";
 export { GuideLayout } from "./GuideLayout";
 export type { FlowNode, FlowEdge } from "./WorkflowDiagram";
+export { WalkthroughPlayer } from "./WalkthroughPlayer";
+export type { WalkthroughStep, WalkthroughWorkflow, MockPanelProps } from "./walkthrough/types";
