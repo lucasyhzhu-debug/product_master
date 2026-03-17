@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Loader2, Save, Send } from "lucide-react";
+import { AlertTriangle, Copy, Loader2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAccounts } from "@/hooks/convex/useAccounts";
 import {
@@ -36,6 +36,7 @@ import {
   useUpdateExpenseDraft,
   useSubmitExpense,
   useExpenseUploadUrl,
+  useCheckReceiptHash,
 } from "@/hooks/convex/useExpenses";
 import { ReceiptUpload } from "@/components/expenses/ReceiptUpload";
 import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
@@ -81,6 +82,7 @@ interface FormState {
   transactionReference: string;
   receiptFileId?: Id<"_storage">;
   receiptImageHash?: string;
+  sharedReceiptAcknowledged?: boolean;
 }
 
 function getDefaultDate(): string {
@@ -128,6 +130,12 @@ export function ExpenseSubmit() {
   const [submitting, setSubmitting] = useState(false);
   const formLoadedRef = useRef(!isEditing);
 
+  // Duplicate receipt detection -- reactive query triggers when hash changes
+  const duplicateReceipt = useCheckReceiptHash(
+    form.receiptImageHash,
+    draftId ?? undefined
+  );
+
   // Pre-fill form when editing (wait for both existingExpense AND accounts to load)
   useEffect(() => {
     if (isEditing && existingExpense && accounts && !formLoadedRef.current) {
@@ -154,6 +162,7 @@ export function ExpenseSubmit() {
         transactionReference: existingExpense.transactionReference ?? "",
         receiptFileId: existingExpense.receiptFileId,
         receiptImageHash: existingExpense.receiptImageHash,
+        sharedReceiptAcknowledged: existingExpense.sharedReceiptAcknowledged ?? undefined,
       });
       setDraftId(existingExpense._id);
       if (existingExpense.duplicateWarning) {
@@ -211,6 +220,7 @@ export function ExpenseSubmit() {
       ...(form.transactionReference.trim() && { transactionReference: form.transactionReference.trim() }),
       ...(form.receiptFileId && { receiptFileId: form.receiptFileId }),
       ...(form.receiptImageHash && { receiptImageHash: form.receiptImageHash }),
+      ...(form.sharedReceiptAcknowledged && { sharedReceiptAcknowledged: true }),
     };
   }, [form]);
 
@@ -290,6 +300,7 @@ export function ExpenseSubmit() {
         ...prev,
         receiptFileId: result.storageId,
         receiptImageHash: result.hash,
+        sharedReceiptAcknowledged: undefined, // Reset acknowledgment for new receipt
       }));
     },
     []
@@ -300,6 +311,15 @@ export function ExpenseSubmit() {
       ...prev,
       receiptFileId: undefined,
       receiptImageHash: undefined,
+      sharedReceiptAcknowledged: undefined,
+    }));
+  }, []);
+
+  // Handle user acknowledging shared receipt reuse
+  const handleAcknowledgeSharedReceipt = useCallback(() => {
+    setForm((prev) => ({
+      ...prev,
+      sharedReceiptAcknowledged: true,
     }));
   }, []);
 
@@ -517,6 +537,37 @@ export function ExpenseSubmit() {
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Receipt is required for expenses over Rp 50,000
+              </p>
+            )}
+            {/* Duplicate receipt warning with confirmation */}
+            {duplicateReceipt && !form.sharedReceiptAcknowledged && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 space-y-2">
+                <div className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200">
+                  <Copy className="h-4 w-4 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">This receipt is already used</p>
+                    <p className="text-xs mt-0.5">
+                      This receipt photo is attached to expense{" "}
+                      <span className="font-mono font-medium">{duplicateReceipt.expenseNumber}</span>
+                      {duplicateReceipt.description && (
+                        <span> ({duplicateReceipt.description})</span>
+                      )}
+                      . If this receipt covers multiple line items for different expense categories, you can confirm reuse below.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-amber-700 dark:text-amber-300 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+                  onClick={handleAcknowledgeSharedReceipt}
+                >
+                  Yes, I confirm this receipt covers multiple expenses
+                </button>
+              </div>
+            )}
+            {duplicateReceipt && form.sharedReceiptAcknowledged && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                Shared receipt confirmed -- same receipt as {duplicateReceipt.expenseNumber}. Approver will be notified.
               </p>
             )}
           </div>

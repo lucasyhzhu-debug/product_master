@@ -32,6 +32,12 @@ import {
   useMarkAsPaid,
 } from "@/hooks/convex/useExpenses";
 import { formatCurrency } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Check, X, Ban, AlertTriangle, Banknote } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { COMMENT_REQUIRED_THRESHOLD } from "../../../convex/expenses/helpers";
@@ -285,15 +291,24 @@ export function ApprovalActions({
 
         {/* Void is always available for admin */}
         {isAdmin && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setActiveDialog("void")}
-            disabled={isDirectSubmitting}
-          >
-            <Ban className="h-3.5 w-3.5 mr-1" />
-            Void
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setActiveDialog("void")}
+                  disabled={isDirectSubmitting}
+                >
+                  <Ban className="h-3.5 w-3.5 mr-1" />
+                  Void
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] text-center">
+                <p>Permanently cancel this expense and reverse any journal entries. Cannot be resubmitted.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
 
@@ -313,8 +328,8 @@ export function ApprovalActions({
       {/* Reject Dialog */}
       <ActionDialog
         title="Reject Expense"
-        description={`Please provide a reason for rejecting this expense (${formatCurrency(amount)}).`}
-        placeholder="Rejection reason (required)"
+        description={`Reject this expense (${formatCurrency(amount)}) so the submitter can correct and resubmit. They will see the rejection reason on their expenses page.`}
+        placeholder="What needs to be corrected? (required)"
         submitLabel="Confirm Reject"
         submitVariant="destructive"
         onSubmit={handleRejectSubmit}
@@ -326,8 +341,8 @@ export function ApprovalActions({
       {/* Void Dialog (admin only) */}
       <ActionDialog
         title="Void Expense"
-        description={`This will void the expense (${formatCurrency(amount)}) and create a reversing journal entry if applicable.`}
-        placeholder="Void reason (required)"
+        description={`Permanently cancel this expense (${formatCurrency(amount)}). This cannot be resubmitted. Any journal entries will be reversed. Use Void when the expense should never have been created (e.g., duplicate entry, fraudulent claim, or entered in error).`}
+        placeholder="Why should this expense be permanently cancelled? (required)"
         submitLabel="Confirm Void"
         submitVariant="destructive"
         onSubmit={handleVoidSubmit}
