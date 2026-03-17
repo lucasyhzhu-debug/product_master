@@ -1703,6 +1703,7 @@ export default defineSchema({
     flagReason: v.optional(v.string()),
     paidAt: v.optional(v.number()),
     paidBy: v.optional(v.id("users")), // Who executed the bank transfer (markAsPaid)
+    sharedReceiptAcknowledged: v.optional(v.boolean()), // User confirmed intentional receipt reuse
     createdAt: v.number(),
   })
     .index("by_submitter_status", ["submittedBy", "status"])

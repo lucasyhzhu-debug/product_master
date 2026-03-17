@@ -66,6 +66,7 @@ export const createDraft = protectedMutation({
     receiptImageHash: v.optional(v.string()),
     previousExpenseId: v.optional(v.id("expenses")),
     transactionReference: v.optional(v.string()),
+    sharedReceiptAcknowledged: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Validate amount
@@ -111,6 +112,7 @@ export const createDraft = protectedMutation({
       ...(args.receiptImageHash !== undefined && { receiptImageHash: args.receiptImageHash }),
       ...(args.previousExpenseId !== undefined && { previousExpenseId: args.previousExpenseId }),
       ...(args.transactionReference !== undefined && { transactionReference: args.transactionReference }),
+      ...(args.sharedReceiptAcknowledged && { sharedReceiptAcknowledged: true }),
     });
 
     // Write audit trail
@@ -140,6 +142,7 @@ export const updateDraft = protectedMutation({
     receiptFileId: v.optional(v.id("_storage")),
     receiptImageHash: v.optional(v.string()),
     transactionReference: v.optional(v.string()),
+    sharedReceiptAcknowledged: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const expense = await ctx.db.get(args.expenseId);
@@ -173,6 +176,7 @@ export const updateDraft = protectedMutation({
     if (args.receiptFileId !== undefined) patch.receiptFileId = args.receiptFileId;
     if (args.receiptImageHash !== undefined) patch.receiptImageHash = args.receiptImageHash;
     if (args.transactionReference !== undefined) patch.transactionReference = args.transactionReference;
+    if (args.sharedReceiptAcknowledged !== undefined) patch.sharedReceiptAcknowledged = args.sharedReceiptAcknowledged;
 
     // Re-check soft duplicate if amount or expenseDate changed
     if (args.amount !== undefined || args.expenseDate !== undefined) {
@@ -250,7 +254,9 @@ export const submitExpense = protectedMutation({
       throw new Error(msg);
     }
 
-    // FRAUD-02: Receipt hash duplicate check (hard block)
+    // FRAUD-02: Receipt hash duplicate check
+    // Hard block UNLESS user explicitly acknowledged the shared receipt (e.g., one
+    // physical receipt covering multiple expense line items in different categories).
     if (expense.receiptImageHash) {
       const hashMatch = await ctx.db
         .query("expenses")
@@ -260,9 +266,12 @@ export const submitExpense = protectedMutation({
         .first();
 
       if (hashMatch && hashMatch._id !== expense._id) {
-        throw new Error(
-          `Duplicate receipt detected. This receipt was already used in expense ${hashMatch.expenseNumber}`
-        );
+        if (!expense.sharedReceiptAcknowledged) {
+          throw new Error(
+            `Duplicate receipt detected. This receipt was already used in expense ${hashMatch.expenseNumber}. If this receipt covers multiple expense items, edit the draft and confirm receipt sharing.`
+          );
+        }
+        // User acknowledged -- allow submission but flag for approver review
       }
     }
 

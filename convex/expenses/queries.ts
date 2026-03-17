@@ -85,16 +85,20 @@ export const getById = protectedQuery({
     }
 
     // Owner can always see their own expense
-    if (expense.submittedBy === ctx.user._id) {
-      return expense;
-    }
-
+    const isOwner = expense.submittedBy === ctx.user._id;
     // Manager/admin can see any expense (approval access)
-    if (ctx.user.role === "manager" || ctx.user.role === "admin") {
-      return expense;
+    const isApprover = ctx.user.role === "manager" || ctx.user.role === "admin";
+
+    if (!isOwner && !isApprover) {
+      return null;
     }
 
-    return null;
+    // Resolve receipt URL from storage
+    const receiptUrl = expense.receiptFileId
+      ? await ctx.storage.getUrl(expense.receiptFileId)
+      : null;
+
+    return { ...expense, receiptUrl };
   },
 });
 
@@ -198,10 +202,16 @@ export const listPendingForApproval = protectedQuery({
       if (user) nameMap.set(user._id, user.name);
     }
 
-    return pending.map((e) => ({
-      ...e,
-      submitterName: nameMap.get(e.submittedBy) ?? "Unknown",
-    }));
+    // Resolve receipt URLs from storage
+    return await Promise.all(
+      pending.map(async (e) => ({
+        ...e,
+        submitterName: nameMap.get(e.submittedBy) ?? "Unknown",
+        receiptUrl: e.receiptFileId
+          ? await ctx.storage.getUrl(e.receiptFileId)
+          : null,
+      }))
+    );
   },
 });
 
@@ -250,5 +260,42 @@ export const getRejectionChain = protectedQuery({
     }
 
     return chain;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// checkReceiptHash — early duplicate receipt detection for UX
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a receipt image hash is already used by another expense.
+ * Returns the matching expense number and ID if found, null otherwise.
+ * Used by the frontend to warn users BEFORE submission rather than
+ * failing at submit time with a hard error.
+ */
+export const checkReceiptHash = protectedQuery({
+  roles: [...ALL_ROLES],
+  args: {
+    hash: v.string(),
+    excludeExpenseId: v.optional(v.id("expenses")),
+  },
+  handler: async (ctx, args) => {
+    if (!args.hash) return null;
+
+    const match = await ctx.db
+      .query("expenses")
+      .withIndex("by_receipt_hash", (q) => q.eq("receiptImageHash", args.hash))
+      .first();
+
+    if (!match) return null;
+
+    // Exclude current expense (editing a draft with same receipt is fine)
+    if (args.excludeExpenseId && match._id === args.excludeExpenseId) return null;
+
+    return {
+      expenseId: match._id,
+      expenseNumber: match.expenseNumber,
+      description: match.description,
+    };
   },
 });
