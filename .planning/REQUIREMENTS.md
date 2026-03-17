@@ -93,16 +93,16 @@
 
 ### Interactive Visual Expense Tutorials (Phase 63)
 
-- [ ] **VWT-01**: Generic WalkthroughPlayer component renders workflow tabs (`role="tablist"`) with free step navigation and tab switching resets step to 0
-- [ ] **VWT-02**: 11 mock UI primitives (MockFrame, MockLabel, MockInput, MockSelect, MockButton, MockField, MockRow, MockTable, MockBadge, MockUploadZone, MockNavDropdown) with shared `HIGHLIGHT_CLASSES` indigo glow styling
+- [x] **VWT-01**: Generic WalkthroughPlayer component renders workflow tabs (`role="tablist"`) with free step navigation and tab switching resets step to 0
+- [x] **VWT-02**: 11 mock UI primitives (MockFrame, MockLabel, MockInput, MockSelect, MockButton, MockField, MockRow, MockTable, MockBadge, MockUploadZone, MockNavDropdown) with shared `HIGHLIGHT_CLASSES` indigo glow styling
 - [ ] **VWT-03**: Submit Expense walkthrough renders 4 steps with mock form (sample data), receipt upload zone, and Save/Submit action buttons
 - [ ] **VWT-04**: Approve Expense walkthrough renders 3 steps with approval queue table (fraud badges), expense detail card, and Approve/Reject action buttons
 - [ ] **VWT-05**: Reimburse walkthrough renders 6 steps from opening Reimbursement Manager through green success checkmark state
 - [ ] **VWT-06**: ExpenseGuide sections consolidated from 8 to 6 (submitting+approving+reimbursement replaced by single walkthrough section with no role restriction)
 - [ ] **VWT-07**: helpGuides.ts registry updated (6 sections, readTimeMinutes=10), POPULAR_QUESTIONS anchors point to "walkthrough", helpGuides.test.ts tests updated and passing
 - [ ] **VWT-08**: Documentation updated: help center spec (WalkthroughPlayer API), UI brand ref (tutorial patterns), CODE_STYLE.md (mock element convention), CLAUDE.md (Quick File Finder row), CHANGELOG.md (Phase 63 entry)
-- [ ] **VWT-09**: AnimatePresence crossfade (150ms opacity) on step change using composite key, ArrowLeft/ArrowRight keyboard navigation, ARIA attributes (tablist/tab, list/listitem, aria-current=step, aria-live=polite)
-- [ ] **VWT-10**: Mobile responsive layout: horizontal scrollable pill bar for steps below 768px, full-width mock panel, annotation below mock at all breakpoints
+- [x] **VWT-09**: AnimatePresence crossfade (150ms opacity) on step change using composite key, ArrowLeft/ArrowRight keyboard navigation, ARIA attributes (tablist/tab, list/listitem, aria-current=step, aria-live=polite)
+- [x] **VWT-10**: Mobile responsive layout: horizontal scrollable pill bar for steps below 768px, full-width mock panel, annotation below mock at all breakpoints
 
 ## Future Requirements (v1.9+)
 
@@ -197,16 +197,16 @@
 | DEXP-12 | Phase 59 | Complete |
 | DEXP-13 | Phase 59 | Complete |
 | DEXP-14 | Phase 59 | Complete |
-| VWT-01 | Phase 63 | Pending |
-| VWT-02 | Phase 63 | Pending |
+| VWT-01 | Phase 63 | Complete |
+| VWT-02 | Phase 63 | Complete |
 | VWT-03 | Phase 63 | Pending |
 | VWT-04 | Phase 63 | Pending |
 | VWT-05 | Phase 63 | Pending |
 | VWT-06 | Phase 63 | Pending |
 | VWT-07 | Phase 63 | Pending |
 | VWT-08 | Phase 63 | Pending |
-| VWT-09 | Phase 63 | Pending |
-| VWT-10 | Phase 63 | Pending |
+| VWT-09 | Phase 63 | Complete |
+| VWT-10 | Phase 63 | Complete |
 
 **Coverage:**
 - v1.8 requirements: 63 total (39 original + 14 Phase 59 + 10 Phase 63)

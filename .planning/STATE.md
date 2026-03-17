@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: completed
-stopped_at: Phase 60 context gathered
-last_updated: "2026-03-17T04:29:23.666Z"
-last_activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
+stopped_at: Completed 63-01-PLAN.md
+last_updated: "2026-03-17T05:27:07Z"
+last_activity: 2026-03-17 - Completed Plan 63-01 (walkthrough infrastructure)
 progress:
   total_phases: 24
   completed_phases: 20
@@ -19,14 +19,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (2/3 plans)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 63 in progress (1/2 plans)
 
 ## Current Position
 
-Phase: 58-invoice-form-print-view-order-integration (2/3 plans)
-Plan: 58-02 complete
-Status: Plan 58-02 complete. InvoiceForm WYSIWYG with auto-save, InvoicePage 3-mode handler, 2 routes in App.tsx. Plan 58-03 (InvoiceSidebarCard) ready.
-Last activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
+Phase: 63-interactive-visual-expense-tutorials (1/2 plans)
+Plan: 63-01 complete
+Status: Plan 63-01 complete. WalkthroughPlayer engine with types, 11 mock primitives, 8 unit tests, barrel exports. Plan 63-02 (workflow-specific mocks + ExpenseGuide integration) ready.
+Last activity: 2026-03-17 - Completed Plan 63-01 (walkthrough infrastructure)
 
 Progress: [██████████] 98%
 
@@ -52,6 +52,7 @@ Progress: [██████████] 98%
 | 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
 | 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
 | 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
+| 63-interactive-visual-expense-tutorials | 01 | 8min | 2 | 6 |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [58-02] Extracted useAutoSave as testable hook with scheduleChange/markInitialized API, tested via renderHook
 - [58-02] toInvoicePrintData adapter function converts Invoice to InvoicePrintData (Pick<Doc> type) to bridge query layer and print view
 - [58-02] Save status "Saving..." fires inside setTimeout callback, not on keypress -- confirmed by test 5
+- [63-01] Mock framer-motion in JSDOM tests to avoid AnimatePresence exit animation blocking
+- [63-01] Mobile step pills rendered before desktop sidebar for JSDOM test accessibility
+- [63-01] Breadcrumb derived from workflow.getBreadcrumb(step) keeping player fully generic
 
 ### Roadmap Evolution
 
@@ -119,6 +123,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T04:25:16.075Z
-Stopped at: Phase 60 context gathered
-Resume notes: Plan 58-02 complete (InvoiceForm + InvoicePage + routes). Plan 58-03 (InvoiceSidebarCard + OrderDetail integration) ready to execute.
+Last session: 2026-03-17T05:27:07Z
+Stopped at: Completed 63-01-PLAN.md
+Resume notes: Plan 63-01 complete (walkthrough infrastructure). Plan 63-02 (workflow-specific mocks + ExpenseGuide integration) ready to execute.
