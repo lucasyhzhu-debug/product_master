@@ -22,14 +22,14 @@ describe("searchGuides", () => {
   });
 
   it("matches a section title and includes anchor", () => {
-    const results = searchGuides("Submitting");
+    const results = searchGuides("Walkthrough");
     const sectionMatch = results.find(
-      (r) => r.type === "section" && r.anchor === "submitting"
+      (r) => r.type === "section" && r.anchor === "walkthrough"
     );
     expect(sectionMatch).toBeDefined();
     expect(sectionMatch!.guideId).toBe("expenses");
-    expect(sectionMatch!.label).toBe("Submitting Expenses");
-    expect(sectionMatch!.anchor).toBe("submitting");
+    expect(sectionMatch!.label).toBe("Interactive Walkthroughs");
+    expect(sectionMatch!.anchor).toBe("walkthrough");
   });
 
   it("matches a FAQ question and includes guideId and anchor", () => {
@@ -38,7 +38,7 @@ describe("searchGuides", () => {
     expect(faqMatch).toBeDefined();
     expect(faqMatch!.guideId).toBe("expenses");
     expect(faqMatch!.label).toBe("How do I submit an expense?");
-    expect(faqMatch!.anchor).toBe("submitting");
+    expect(faqMatch!.anchor).toBe("walkthrough");
   });
 
   it("is case-insensitive", () => {
@@ -62,17 +62,17 @@ describe("searchGuides", () => {
   });
 
   it("returns all matches when query spans guide, section, and FAQ", () => {
-    // "expense" appears in the guide title, section titles, and FAQ questions
+    // "expense" appears in the guide title, "Expense Analytics" section, and FAQ questions
     const results = searchGuides("expense");
     const types = new Set(results.map((r) => r.type));
-    // Should have at least guide-level and FAQ-level matches
     expect(types.has("guide")).toBe(true);
     expect(types.has("faq")).toBe(true);
-    // Sections that contain "expense" (e.g., "Submitting Expenses", "Approving Expenses", "Expense Analytics")
+    // Only "Expense Analytics" section title contains "expense" now (was 3 before Phase 63)
     const sectionMatches = results.filter((r) => r.type === "section");
-    expect(sectionMatches.length).toBeGreaterThan(0);
-    // Total matches should be more than 1
-    expect(results.length).toBeGreaterThan(3);
+    expect(sectionMatches.length).toBe(1);
+    expect(sectionMatches[0].label).toBe("Expense Analytics");
+    // 1 guide + 1 section + FAQ matches
+    expect(results.length).toBeGreaterThanOrEqual(3);
   });
 });
 

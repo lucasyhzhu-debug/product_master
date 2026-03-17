@@ -3,14 +3,29 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: completed
-stopped_at: Phase 60 context gathered
-last_updated: "2026-03-17T04:29:23.666Z"
-last_activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
+stopped_at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
+last_updated: "2026-03-17T06:09:11.479Z"
+last_activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
+progress:
+  total_phases: 24
+  completed_phases: 21
+  total_plans: 50
+  completed_plans: 48
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: completed
+stopped_at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
+last_updated: "2026-03-17T05:36:00Z"
+last_activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
 progress:
   total_phases: 24
   completed_phases: 20
   total_plans: 50
-  completed_plans: 46
+  completed_plans: 47
   percent: 98
 ---
 
@@ -19,14 +34,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (2/3 plans)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 63 in progress (2/2 plans, awaiting visual verification)
 
 ## Current Position
 
-Phase: 58-invoice-form-print-view-order-integration (2/3 plans)
-Plan: 58-02 complete
-Status: Plan 58-02 complete. InvoiceForm WYSIWYG with auto-save, InvoicePage 3-mode handler, 2 routes in App.tsx. Plan 58-03 (InvoiceSidebarCard) ready.
-Last activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
+Phase: 63-interactive-visual-expense-tutorials (2/2 plans)
+Plan: 63-02 complete (awaiting visual verification checkpoint)
+Status: Plan 63-02 code complete. 3 workflow mock components (13 steps), ExpenseGuide consolidated to 6 sections with WalkthroughPlayer, redirect anchors, 5 doc files updated. Task 3 (human-verify) pending.
+Last activity: 2026-03-17 - Completed Plan 63-02 tasks 1-2 (workflow mocks + ExpenseGuide integration)
 
 Progress: [██████████] 98%
 
@@ -52,6 +67,8 @@ Progress: [██████████] 98%
 | 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
 | 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
 | 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
+| 63-interactive-visual-expense-tutorials | 01 | 8min | 2 | 6 |
+| 63-interactive-visual-expense-tutorials | 02 | 16min | 2 | 14 |
 
 ## Accumulated Context
 
@@ -94,6 +111,13 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [58-02] Extracted useAutoSave as testable hook with scheduleChange/markInitialized API, tested via renderHook
 - [58-02] toInvoicePrintData adapter function converts Invoice to InvoicePrintData (Pick<Doc> type) to bridge query layer and print view
 - [58-02] Save status "Saving..." fires inside setTimeout callback, not on keypress -- confirmed by test 5
+- [63-01] Mock framer-motion in JSDOM tests to avoid AnimatePresence exit animation blocking
+- [63-01] Mobile step pills rendered before desktop sidebar for JSDOM test accessibility
+- [63-01] Breadcrumb derived from workflow.getBreadcrumb(step) keeping player fully generic
+- [63-02] Workflow data owns breadcrumb logic via getBreadcrumb (expense knowledge stays in ExpenseGuide, not player)
+- [63-02] Old deep link anchors preserved as sr-only hidden divs for backward compatibility
+- [63-02] readTimeMinutes reduced 15->10 to reflect faster interactive format
+- [63-02] Walkthrough section has no role field (visible to all users)
 
 ### Roadmap Evolution
 
@@ -119,6 +143,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T04:25:16.075Z
-Stopped at: Phase 60 context gathered
-Resume notes: Plan 58-02 complete (InvoiceForm + InvoicePage + routes). Plan 58-03 (InvoiceSidebarCard + OrderDetail integration) ready to execute.
+Last session: 2026-03-17T05:36:00Z
+Stopped at: Completed 63-02-PLAN.md (awaiting visual verification checkpoint)
+Resume notes: Plan 63-02 tasks 1-2 complete. Task 3 is a visual verification checkpoint. Run `npm run dev` and verify walkthroughs at /help/expenses#walkthrough. After verification, phase 63 is complete.
