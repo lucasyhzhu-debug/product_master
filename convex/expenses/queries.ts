@@ -20,7 +20,9 @@ const expenseStatusValidator = v.union(
   v.literal("rejected"),
   v.literal("awaiting_payment"),
   v.literal("reimbursed"),
-  v.literal("voided")
+  v.literal("voided"),
+  v.literal("recorded"),
+  v.literal("paid")
 );
 
 // ---------------------------------------------------------------------------
@@ -140,35 +142,55 @@ export const getStatusHistory = protectedQuery({
 // ---------------------------------------------------------------------------
 
 /**
- * List expenses pending approval for the current user.
+ * List expenses pending action for the current user.
  *
- * Returns submitted expenses excluding self-submitted ones.
- * Managers see only expenses within their DoA threshold (<= 500K).
- * Admins see all submitted expenses.
+ * Unified queue covering all 3 payment flows:
+ * - submitted: employee_paid and payment_request needing approval
+ * - recorded: company_paid needing acknowledgment
+ * - approved (payment_request only): needing mark-as-paid
+ *
+ * Self-exclusion applies ONLY to submitted items (approval decisions).
+ * DoA threshold applies ONLY to submitted items (approval decisions).
+ * Recorded (acknowledge) and approved payment_request (mark-as-paid) are
+ * administrative actions, not approval decisions.
+ *
  * Sorted by submittedAt ascending (FIFO -- oldest first).
  */
 export const listPendingForApproval = protectedQuery({
   roles: [...APPROVER_ROLES],
   args: {},
   handler: async (ctx) => {
-    // Query all submitted expenses via by_status index
-    const submitted = await ctx.db
-      .query("expenses")
-      .withIndex("by_status", (q) => q.eq("status", "submitted"))
-      .collect();
+    // Fetch submitted + recorded + approved in parallel
+    const [submitted, recorded, approvedAll] = await Promise.all([
+      ctx.db.query("expenses").withIndex("by_status", (q) => q.eq("status", "submitted")).collect(),
+      ctx.db.query("expenses").withIndex("by_status", (q) => q.eq("status", "recorded")).collect(),
+      ctx.db.query("expenses").withIndex("by_status", (q) => q.eq("status", "approved")).collect(),
+    ]);
 
-    // Filter out self-submitted
-    let pending = submitted.filter((e) => e.submittedBy !== ctx.user._id);
+    // Filter approved to only payment_request that need mark-as-paid
+    const approvedPaymentRequests = approvedAll.filter(
+      (e) => e.paymentMethod === "payment_request"
+    );
 
-    // For managers: also filter out expenses above DoA threshold
+    // Self-exclusion: only for submitted items (approval decision).
+    // Recorded items (acknowledge) and approved payment_request (mark-as-paid)
+    // are administrative actions, not approval decisions -- no self-exclusion.
+    const filteredSubmitted = submitted.filter((e) => e.submittedBy !== ctx.user._id);
+
+    // For managers: DoA threshold applies ONLY to submitted items (approve decision).
+    // Managers can always see recorded (acknowledge) and approved payment_request (mark-as-paid).
+    let pendingSubmitted = filteredSubmitted;
     if (ctx.user.role === "manager") {
-      pending = pending.filter((e) => e.amount <= DOA_ADMIN_ONLY_THRESHOLD);
+      pendingSubmitted = filteredSubmitted.filter((e) => e.amount <= DOA_ADMIN_ONLY_THRESHOLD);
     }
+
+    // Combine all 3 sets
+    const pending = [...pendingSubmitted, ...recorded, ...approvedPaymentRequests];
 
     // Sort by submittedAt ascending (FIFO -- oldest first)
     pending.sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0));
 
-    // Join submitter names for display in approval queue
+    // Join submitter names for display
     const userIds = [...new Set(pending.map((e) => e.submittedBy))];
     const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
     const nameMap = new Map<string, string>();

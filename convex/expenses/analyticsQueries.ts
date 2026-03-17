@@ -131,7 +131,7 @@ export const getExpenseMetrics = protectedQuery({
   },
   handler: async (ctx, args) => {
     // Fetch expenses for each relevant status using indexed queries IN PARALLEL
-    const [approved, awaitingPayment, reimbursed, allAwaiting] = await Promise.all([
+    const [approved, awaitingPayment, reimbursed, recorded, paid, allAwaiting] = await Promise.all([
       ctx.db.query("expenses")
         .withIndex("by_status_expenseDate", (q) =>
           q.eq("status", "approved").gte("expenseDate", args.periodStart).lt("expenseDate", args.periodEnd)
@@ -144,13 +144,21 @@ export const getExpenseMetrics = protectedQuery({
         .withIndex("by_status_expenseDate", (q) =>
           q.eq("status", "reimbursed").gte("expenseDate", args.periodStart).lt("expenseDate", args.periodEnd)
         ).collect(),
+      ctx.db.query("expenses")
+        .withIndex("by_status_expenseDate", (q) =>
+          q.eq("status", "recorded").gte("expenseDate", args.periodStart).lt("expenseDate", args.periodEnd)
+        ).collect(),
+      ctx.db.query("expenses")
+        .withIndex("by_status_expenseDate", (q) =>
+          q.eq("status", "paid").gte("expenseDate", args.periodStart).lt("expenseDate", args.periodEnd)
+        ).collect(),
       // Pending reimbursements: ALL awaiting_payment (no date filter -- shows all outstanding)
       ctx.db.query("expenses")
         .withIndex("by_status", (q) => q.eq("status", "awaiting_payment"))
         .collect(),
     ]);
 
-    const periodExpenses = [...approved, ...awaitingPayment, ...reimbursed];
+    const periodExpenses = [...approved, ...awaitingPayment, ...reimbursed, ...recorded, ...paid];
 
     // Group by submittedBy for employee spend
     const employeeSpend = new Map<string, number>();
@@ -234,8 +242,8 @@ export const getFraudFlags = protectedQuery({
     const thirtyDaysAgo = now - 30 * MS_PER_DAY;
     const ninetyDaysAgo = now - 90 * MS_PER_DAY;
 
-    // ── Single Promise.all: 4 queries (one per status) using 90-day superset ──
-    const [submitted90, approved90, awaiting90, reimbursed90] = await Promise.all([
+    // ── Single Promise.all: 6 queries (one per status) using 90-day superset ──
+    const [submitted90, approved90, awaiting90, reimbursed90, recorded90, paid90] = await Promise.all([
       ctx.db.query("expenses")
         .withIndex("by_status_expenseDate", (q) =>
           q.eq("status", "submitted").gte("expenseDate", ninetyDaysAgo)
@@ -252,26 +260,34 @@ export const getFraudFlags = protectedQuery({
         .withIndex("by_status_expenseDate", (q) =>
           q.eq("status", "reimbursed").gte("expenseDate", ninetyDaysAgo)
         ).collect(),
+      ctx.db.query("expenses")
+        .withIndex("by_status_expenseDate", (q) =>
+          q.eq("status", "recorded").gte("expenseDate", ninetyDaysAgo)
+        ).collect(),
+      ctx.db.query("expenses")
+        .withIndex("by_status_expenseDate", (q) =>
+          q.eq("status", "paid").gte("expenseDate", ninetyDaysAgo)
+        ).collect(),
     ]);
 
     // Combine all results and project to fraud shape once
     const allFraud = [
-      ...submitted90, ...approved90, ...awaiting90, ...reimbursed90,
+      ...submitted90, ...approved90, ...awaiting90, ...reimbursed90, ...recorded90, ...paid90,
     ].map(toExpenseForFraud);
 
-    // ── Split detection (FRAUD-06): 7d window, submitted/approved/awaiting_payment ──
+    // ── Split detection (FRAUD-06): 7d window, active non-draft statuses ──
     const splitInput = allFraud.filter(
       (e) =>
         e.expenseDate >= sevenDaysAgo &&
-        ["submitted", "approved", "awaiting_payment"].includes(e.status)
+        ["submitted", "approved", "awaiting_payment", "recorded", "paid"].includes(e.status)
     );
     const rawSplits = detectSplits(splitInput);
 
-    // ── Approver concentration (FRAUD-07): 30d window, approved/awaiting/reimbursed ──
+    // ── Approver concentration (FRAUD-07): 30d window, approved/awaiting/reimbursed/recorded/paid ──
     const concInput = allFraud.filter(
       (e) =>
         e.expenseDate >= thirtyDaysAgo &&
-        ["approved", "awaiting_payment", "reimbursed"].includes(e.status)
+        ["approved", "awaiting_payment", "reimbursed", "recorded", "paid"].includes(e.status)
     );
     const rawConcentrations = detectApproverConcentration(concInput);
 
