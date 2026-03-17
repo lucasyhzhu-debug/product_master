@@ -1,4 +1,3 @@
-import React from "react";
 import {
   GuideSection,
   FaqAccordion,
@@ -145,9 +144,6 @@ const FULL_FAQ: FaqGroup[] = [
     ],
   },
 ];
-
-// Suppress unused import warning -- React is needed for JSX in FULL_FAQ constant
-void React;
 
 export function FaqSection() {
   return (

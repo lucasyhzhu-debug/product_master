@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Help File Indexing Architecture (Phase 61) — 2026-03-18
+
+**For the team:** Tutorial guides can now be checked for staleness automatically. When source code changes, two new commands (`/gsd:check-docs` and `/gsd:update-docs`) detect which tutorial sections need updating and help fix them — no more outdated help pages.
+
+#### Added
+- `.planning/docs-manifest.json`: Maps source file globs to tutorial section files with `lastReviewedCommit` tracking
+- `scripts/validate-docs-manifest.cjs`: Validates manifest structure, section coverage, and file existence
+- `npm run validate:docs-manifest` script
+- `.agent/skills/check-docs/SKILL.md`: Detects stale tutorial sections via git history comparison
+- `.agent/skills/update-docs/SKILL.md`: Proposes section-level edits or acknowledges sections as reviewed (`--ack` flag)
+
+#### Changed
+- `src/pages/guides/ExpenseGuide.tsx` refactored into 6 section files in `src/pages/guides/ExpenseGuide/` directory
+- Old monolithic `ExpenseGuide.tsx` deleted
+- Deep-link backward compatibility preserved via anchor divs for old section IDs
+
 ### Expense Photo Sharing, Receipt Viewer & Approval UX — 2026-03-17
 
 **For the team:** When you have one receipt covering multiple expenses (e.g., different categories from the same store trip), you can now reuse the same photo across expenses instead of getting blocked by an error. The system will ask you to confirm it's intentional, then group those expenses together for the approver. Approvers can now actually *view* receipt photos directly in the approval queue (click "View Receipt"), and the Void vs Reject buttons now clearly explain when to use each.
