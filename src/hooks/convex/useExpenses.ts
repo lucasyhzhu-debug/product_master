@@ -67,6 +67,18 @@ export function useExpenseUploadUrl() {
 }
 
 // ============================================================================
+// RECEIPT DUPLICATE CHECK
+// ============================================================================
+
+/** Check if a receipt hash already exists on another expense (early duplicate detection) */
+export function useCheckReceiptHash(hash: string | undefined, excludeExpenseId?: Id<"expenses">) {
+  return useSessionQuery(
+    api.expenses.queries.checkReceiptHash,
+    hash ? { hash, ...(excludeExpenseId ? { excludeExpenseId } : {}) } : "skip"
+  );
+}
+
+// ============================================================================
 // APPROVAL QUERY HOOKS (Phase 45)
 // ============================================================================
 

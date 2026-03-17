@@ -16,6 +16,35 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Expense Photo Sharing, Receipt Viewer & Approval UX — 2026-03-17
+
+**For the team:** When you have one receipt covering multiple expenses (e.g., different categories from the same store trip), you can now reuse the same photo across expenses instead of getting blocked by an error. The system will ask you to confirm it's intentional, then group those expenses together for the approver. Approvers can now actually *view* receipt photos directly in the approval queue (click "View Receipt"), and the Void vs Reject buttons now clearly explain when to use each.
+
+#### Fixed
+- Duplicate receipt photo now shows a confirmation flow with the linked expense number instead of a hard error
+- FRAUD-02 check excludes voided/rejected/draft expenses, so legitimate resubmissions after a void are no longer blocked
+- Shared receipt bypass now writes `flaggedForReview: true` for approver audit trail
+- `checkReceiptHash` query masks other users' expense metadata (information disclosure fix)
+- `updateDraft` only accepts `sharedReceiptAcknowledged: true`, preventing silent revocation
+- Receipt viewer handles image/PDF gracefully with img-first + onError fallback (Convex storage URLs have no file extension)
+- Editing a draft with a previously acknowledged shared receipt restores the acknowledgment
+
+#### Added
+- `src/components/expenses/ReceiptViewer.tsx`: Clickable receipt badge that opens a lightbox dialog with the receipt photo, "Open in New Tab" button, and PDF fallback
+- `convex/expenses/queries.ts` `checkReceiptHash`: Early duplicate detection query that warns users at upload time, before form submission
+- `src/hooks/convex/useExpenses.ts` `useCheckReceiptHash`: Frontend hook for reactive duplicate detection
+- `convex/schema.ts`: `sharedReceiptAcknowledged` field on expenses table
+- Shared-receipt expenses grouped together in approval queue with sky-blue border and shared receipt viewer
+- `FraudFlags` component shows "Shared Receipt" badge for approver awareness
+- `RECEIPT_HASH_EXCLUDED_STATUSES` shared constant in `convex/expenses/helpers.ts`
+
+#### Changed
+- Reject dialog: "Reject so the submitter can correct and resubmit. They will see the rejection reason."
+- Void dialog: "Permanently cancel. Cannot be resubmitted. Journal entries reversed. Use when expense should never have existed."
+- Void button now has a tooltip explaining the action
+- `listPendingForApproval` and `getById` queries resolve receipt storage URLs via `ctx.storage.getUrl()`
+- Page header shows "N expenses in M items" when shared-receipt grouping collapses cards
+
 ### Interactive Visual Expense Tutorials (Phase 63) — 2026-03-17
 
 **For the team:** The Expense guide now has interactive click-through walkthroughs! Instead of reading walls of text, you can visually step through Submit, Approve, and Reimburse workflows with mock panels that highlight exactly where to click. Switch between the three workflows using tabs, navigate with arrow keys or by clicking any step. Works on mobile too.

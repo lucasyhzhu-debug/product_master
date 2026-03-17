@@ -1,9 +1,10 @@
 /**
  * FraudFlags -- inline fraud indicator badges for expense approval queue.
- * Displays duplicate warning, late submission, rejection count, and flagged-for-review badges.
+ * Displays duplicate warning, late submission, rejection count, shared receipt,
+ * and flagged-for-review badges.
  */
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock, Flag } from "lucide-react";
+import { AlertTriangle, Clock, Copy, Flag } from "lucide-react";
 
 interface FraudFlagsProps {
   duplicateWarning?: string;
@@ -11,6 +12,7 @@ interface FraudFlagsProps {
   rejectionCount?: number;
   flaggedForReview?: boolean;
   flagReason?: string;
+  sharedReceiptAcknowledged?: boolean;
 }
 
 export function FraudFlags({
@@ -19,9 +21,10 @@ export function FraudFlags({
   rejectionCount,
   flaggedForReview,
   flagReason,
+  sharedReceiptAcknowledged,
 }: FraudFlagsProps) {
   const hasFlags =
-    !!duplicateWarning || !!lateSubmission || (rejectionCount ?? 0) > 0 || !!flaggedForReview;
+    !!duplicateWarning || !!lateSubmission || (rejectionCount ?? 0) > 0 || !!flaggedForReview || !!sharedReceiptAcknowledged;
 
   if (!hasFlags) return null;
 
@@ -59,6 +62,16 @@ export function FraudFlags({
         >
           <Flag className="h-3 w-3 mr-1" aria-label="Flagged for review" />
           Flagged
+        </Badge>
+      )}
+      {sharedReceiptAcknowledged && (
+        <Badge
+          variant="outline"
+          className="text-sky-600 border-sky-300 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400"
+          title="This receipt is shared with another expense (submitter confirmed)"
+        >
+          <Copy className="h-3 w-3 mr-1" aria-label="Shared receipt" />
+          Shared Receipt
         </Badge>
       )}
     </div>

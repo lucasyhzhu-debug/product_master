@@ -34,6 +34,7 @@ import {
   buildCreditLine,
 } from "../lib/journalEngine";
 import { recordStatusChange } from "./auditTrail";
+import { RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)
@@ -66,6 +67,7 @@ export const createDraft = protectedMutation({
     receiptImageHash: v.optional(v.string()),
     previousExpenseId: v.optional(v.id("expenses")),
     transactionReference: v.optional(v.string()),
+    sharedReceiptAcknowledged: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Validate amount
@@ -111,6 +113,7 @@ export const createDraft = protectedMutation({
       ...(args.receiptImageHash !== undefined && { receiptImageHash: args.receiptImageHash }),
       ...(args.previousExpenseId !== undefined && { previousExpenseId: args.previousExpenseId }),
       ...(args.transactionReference !== undefined && { transactionReference: args.transactionReference }),
+      ...(args.sharedReceiptAcknowledged && { sharedReceiptAcknowledged: true }),
     });
 
     // Write audit trail
@@ -140,6 +143,7 @@ export const updateDraft = protectedMutation({
     receiptFileId: v.optional(v.id("_storage")),
     receiptImageHash: v.optional(v.string()),
     transactionReference: v.optional(v.string()),
+    sharedReceiptAcknowledged: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const expense = await ctx.db.get(args.expenseId);
@@ -173,6 +177,7 @@ export const updateDraft = protectedMutation({
     if (args.receiptFileId !== undefined) patch.receiptFileId = args.receiptFileId;
     if (args.receiptImageHash !== undefined) patch.receiptImageHash = args.receiptImageHash;
     if (args.transactionReference !== undefined) patch.transactionReference = args.transactionReference;
+    if (args.sharedReceiptAcknowledged === true) patch.sharedReceiptAcknowledged = true;
 
     // Re-check soft duplicate if amount or expenseDate changed
     if (args.amount !== undefined || args.expenseDate !== undefined) {
@@ -250,19 +255,30 @@ export const submitExpense = protectedMutation({
       throw new Error(msg);
     }
 
-    // FRAUD-02: Receipt hash duplicate check (hard block)
+    // FRAUD-02: Receipt hash duplicate check
+    // Hard block UNLESS user explicitly acknowledged the shared receipt (e.g., one
+    // physical receipt covering multiple expense line items in different categories).
+    // Exclude voided/rejected/draft expenses — they should not block legitimate resubmissions.
     if (expense.receiptImageHash) {
-      const hashMatch = await ctx.db
+      const candidates = await ctx.db
         .query("expenses")
         .withIndex("by_receipt_hash", (q) =>
           q.eq("receiptImageHash", expense.receiptImageHash)
         )
-        .first();
+        .collect();
 
-      if (hashMatch && hashMatch._id !== expense._id) {
-        throw new Error(
-          `Duplicate receipt detected. This receipt was already used in expense ${hashMatch.expenseNumber}`
-        );
+      const hashMatch = candidates.find(
+        (e) => !RECEIPT_HASH_EXCLUDED_STATUSES.has(e.status) && e._id !== expense._id
+      );
+
+      if (hashMatch) {
+        if (!expense.sharedReceiptAcknowledged) {
+          throw new Error(
+            `Duplicate receipt detected. This receipt was already used in expense ${hashMatch.expenseNumber}. If this receipt covers multiple expense items, edit the draft and confirm receipt sharing.`
+          );
+        }
+        // User acknowledged — flag for approver review
+        await ctx.db.patch(args.expenseId, { flaggedForReview: true });
       }
     }
 
