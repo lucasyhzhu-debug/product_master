@@ -39,13 +39,26 @@ import {
 } from "@/hooks/convex/useExpenses";
 import { ReceiptUpload } from "@/components/expenses/ReceiptUpload";
 import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
+import { RECEIPT_THRESHOLD } from "../../convex/expenses/helpers";
 import type { Id } from "../../convex/_generated/dataModel";
 
 // Payment method options matching schema validators
 const PAYMENT_METHODS = [
-  { value: "personal_cash", label: "Personal Cash" },
-  { value: "personal_transfer", label: "Personal Transfer" },
-  { value: "company_card", label: "Company Card" },
+  {
+    value: "employee_paid",
+    label: "Reimburse Employee",
+    description: "I paid for this myself and need the company to pay me back",
+  },
+  {
+    value: "company_paid",
+    label: "Paid by Company",
+    description: "The company bank account was already charged (e.g., direct debit, linked Shopee/BCA)",
+  },
+  {
+    value: "payment_request",
+    label: "Payment Request",
+    description: "I need the company to pay this vendor directly from the bank account",
+  },
 ] as const;
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
@@ -57,9 +70,6 @@ const EXPENSE_TYPE_OPTIONS = [
   { value: "other", label: "Other Income/Expense" },
 ] as const;
 
-// Minimum amount that requires receipt (EXP-03)
-const RECEIPT_WARNING_THRESHOLD = 50_000;
-
 interface FormState {
   description: string;
   amount: string;
@@ -68,6 +78,7 @@ interface FormState {
   expenseDate: string;
   vendorName: string;
   paymentMethod: PaymentMethod;
+  transactionReference: string;
   receiptFileId?: Id<"_storage">;
   receiptImageHash?: string;
 }
@@ -83,7 +94,8 @@ const INITIAL_FORM: FormState = {
   accountId: "",
   expenseDate: getDefaultDate(),
   vendorName: "",
-  paymentMethod: "personal_cash",
+  paymentMethod: "employee_paid",
+  transactionReference: "",
 };
 
 export function ExpenseSubmit() {
@@ -139,6 +151,7 @@ export function ExpenseSubmit() {
         expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
         paymentMethod: existingExpense.paymentMethod as PaymentMethod,
+        transactionReference: existingExpense.transactionReference ?? "",
         receiptFileId: existingExpense.receiptFileId,
         receiptImageHash: existingExpense.receiptImageHash,
       });
@@ -176,6 +189,13 @@ export function ExpenseSubmit() {
     if (!form.accountId) return "GL Account is required";
     if (!form.expenseDate) return "Expense date is required";
     if (!form.vendorName.trim()) return "Vendor name is required";
+    // Receipt required for company money (backend enforces too, but catch early)
+    if (
+      (form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") &&
+      !form.receiptFileId
+    ) {
+      return "Receipt is required for company-paid expenses";
+    }
     return null;
   }, [form]);
 
@@ -188,6 +208,7 @@ export function ExpenseSubmit() {
       expenseDate: wibDateStrToUtcMs(form.expenseDate),
       vendorName: form.vendorName.trim(),
       paymentMethod: form.paymentMethod,
+      ...(form.transactionReference.trim() && { transactionReference: form.transactionReference.trim() }),
       ...(form.receiptFileId && { receiptFileId: form.receiptFileId }),
       ...(form.receiptImageHash && { receiptImageHash: form.receiptImageHash }),
     };
@@ -303,7 +324,7 @@ export function ExpenseSubmit() {
 
   const amountNum = Number(form.amount) || 0;
   const showReceiptWarning =
-    amountNum > RECEIPT_WARNING_THRESHOLD && !form.receiptFileId;
+    amountNum > RECEIPT_THRESHOLD && !form.receiptFileId;
   const isProcessing = saving || submitting;
 
   return (
@@ -441,7 +462,10 @@ export function ExpenseSubmit() {
                 <SelectContent>
                   {PAYMENT_METHODS.map((pm) => (
                     <SelectItem key={pm.value} value={pm.value}>
-                      {pm.label}
+                      <div className="flex flex-col">
+                        <span>{pm.label}</span>
+                        <span className="text-xs text-muted-foreground">{pm.description}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -449,13 +473,32 @@ export function ExpenseSubmit() {
             </div>
           </div>
 
+          {/* Transaction Reference (visible only for company_paid) */}
+          {form.paymentMethod === "company_paid" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="transactionReference">Transaction Reference</Label>
+              <Input
+                id="transactionReference"
+                placeholder="Bank ref number, Shopee order ID, BCA transaction ID..."
+                value={form.transactionReference}
+                onChange={(e) => setForm((prev) => ({ ...prev, transactionReference: e.target.value }))}
+                disabled={isProcessing}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional: Enter the bank reference or transaction ID
+              </p>
+            </div>
+          )}
+
           {/* Receipt Upload */}
           <div className="space-y-2">
             <Label>
               Receipt{" "}
-              {amountNum > RECEIPT_WARNING_THRESHOLD
-                ? "(required for > Rp 50,000)"
-                : "(optional)"}
+              {form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request"
+                ? "(required)"
+                : amountNum > RECEIPT_THRESHOLD
+                  ? "(required for > Rp 50,000)"
+                  : "(optional)"}
             </Label>
             <ReceiptUpload
               generateUploadUrl={generateUploadUrl}
@@ -464,7 +507,13 @@ export function ExpenseSubmit() {
               currentFileId={form.receiptFileId}
               disabled={isProcessing}
             />
-            {showReceiptWarning && (
+            {(form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") && !form.receiptFileId && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Receipt is required for all company-paid expenses
+              </p>
+            )}
+            {form.paymentMethod === "employee_paid" && showReceiptWarning && (
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Receipt is required for expenses over Rp 50,000

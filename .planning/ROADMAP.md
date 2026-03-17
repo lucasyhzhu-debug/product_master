@@ -504,13 +504,14 @@ Plans:
   6. Approval queue shows all 3 types with correct action buttons per payment method and status
   7. Receipt always required for company_paid and payment_request regardless of amount
   8. All existing tests pass, npm run build succeeds
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
-- [ ] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
-- [ ] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
-- [ ] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
+- [x] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
+- [x] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
+- [x] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
+- [x] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
+
 
 ### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
@@ -541,6 +542,7 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 62 to break down)
+
 
 ### Phase 63: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
 

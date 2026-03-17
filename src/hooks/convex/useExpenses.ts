@@ -15,7 +15,9 @@ export type ExpenseStatus =
   | "rejected"
   | "awaiting_payment"
   | "reimbursed"
-  | "voided";
+  | "voided"
+  | "recorded"
+  | "paid";
 
 // ============================================================================
 // QUERY HOOKS
@@ -98,6 +100,25 @@ export const useRejectExpense = createMutationHook(
 export const useVoidExpense = createMutationHook(
   api.expenses.mutations.voidExpense,
   { successMessage: "Expense voided", errorMessage: "Failed to void expense" }
+);
+
+// ============================================================================
+// PHASE 59: New payment method mutation hooks
+// ============================================================================
+
+export const useAcknowledgeExpense = createMutationHook(
+  api.expenses.mutations.acknowledgeExpense,
+  { successMessage: "Expense acknowledged", errorMessage: "Failed to acknowledge expense" }
+);
+
+export const useFlagExpense = createMutationHook(
+  api.expenses.mutations.flagExpense,
+  { successMessage: "Expense flagged for review", errorMessage: "Failed to flag expense" }
+);
+
+export const useMarkAsPaid = createMutationHook(
+  api.expenses.mutations.markAsPaid,
+  { successMessage: "Payment recorded", errorMessage: "Failed to record payment" }
 );
 
 // ============================================================================
