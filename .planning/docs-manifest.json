@@ -3,7 +3,7 @@
   "description": "Maps source file globs to tutorial section files for documentation drift detection",
   "guides": {
     "expenses": {
-      "sections": ["overview", "submitting", "approving", "reimbursement", "payroll", "analytics", "pnl", "faq"]
+      "sections": ["overview", "walkthrough", "payroll", "analytics", "pnl", "faq"]
     }
   },
   "mappings": [
@@ -16,27 +16,11 @@
       "lastReviewedCommit": "1a7d177b"
     },
     {
-      "id": "expenses-submitting",
-      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/helpers.ts"],
-      "docFile": "src/pages/guides/ExpenseGuide/SubmittingSection.tsx",
+      "id": "expenses-walkthrough",
+      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/helpers.ts", "convex/expenses/fraudHelpers.ts", "convex/expenses/queries.ts"],
+      "docFile": "src/pages/guides/ExpenseGuide/WalkthroughSection.tsx",
       "guide": "expenses",
-      "section": "submitting",
-      "lastReviewedCommit": "1a7d177b"
-    },
-    {
-      "id": "expenses-approving",
-      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/fraudHelpers.ts"],
-      "docFile": "src/pages/guides/ExpenseGuide/ApprovingSection.tsx",
-      "guide": "expenses",
-      "section": "approving",
-      "lastReviewedCommit": "1a7d177b"
-    },
-    {
-      "id": "expenses-reimbursement",
-      "sourceGlobs": ["convex/expenses/mutations.ts", "convex/expenses/queries.ts"],
-      "docFile": "src/pages/guides/ExpenseGuide/ReimbursementSection.tsx",
-      "guide": "expenses",
-      "section": "reimbursement",
+      "section": "walkthrough",
       "lastReviewedCommit": "1a7d177b"
     },
     {
