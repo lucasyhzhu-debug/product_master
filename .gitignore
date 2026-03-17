@@ -99,3 +99,6 @@ bundlemeta.json
 
 # Visual brainstorming companion
 .superpowers/
+
+# Git worktrees
+.worktrees/
