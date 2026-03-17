@@ -323,9 +323,9 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-52 | TBD | In progress | - |
+| v1.7 Expense & Accounting | 41-63 | 50 | In progress | - |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 12 phases planned for v1.7**
+**Total: 40 phases, 177 plans shipped across 7 milestones + 24 phases in v1.7 (21 complete, 3 remaining)**
 
 ### Phase 52: Expense System Simplification
 
@@ -535,21 +535,30 @@ Plans:
   4. /gsd:check-docs skill detects stale sections via git log against lastReviewedCommit
   5. /gsd:update-docs skill reads stale section + git diff, proposes edits, supports --ack flag
   6. npm run build succeeds after all changes
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 8 section files
-- [ ] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
+- [x] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 6 section files
+- [x] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
 
 ### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: Admins and managers can record balance sheet transactions (equipment purchases, loan repayments, dividends, capital injections, loan receipts, tax payments) through 6 pre-wired templates with inline accordion form and period-filtered recent entries table, plus hub navigation restructured into Financials + Accounting sections
+**Requirements**: MJE-01, MJE-02, MJE-03, MJE-04, MJE-05, MJE-06, MJE-07
 **Depends on:** Phase 49 (P&L Integration)
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. create mutation validates 6 template types, positive integer amounts, and resolves account codes via by_code index
+  2. listByPeriod query returns only template-based manual entries (excludes CSV imports) filtered by period
+  3. /journal page renders 6 template cards with inline accordion form for Date, Amount, Description
+  4. Only one template form open at a time, save creates JE and entry appears in table immediately
+  5. Period controls (monthly/custom) filter the recent entries table
+  6. Hub page split: Financials (5 links) + Accounting (4 links including Journal Entry)
+  7. npm run build succeeds, all tests pass
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 62 to break down)
+- [ ] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
+- [ ] 62-02-PLAN.md -- ManualJournalEntry page + route registration + hub navigation restructuring + visual verification
 
 
 ### Phase 63: Interactive Visual Expense Tutorials
@@ -571,5 +580,5 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
-- [ ] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification
+- [x] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
+- [x] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification

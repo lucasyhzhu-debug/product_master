@@ -21,7 +21,8 @@
     "deploy:safe": "node scripts/deploy-check.js --deploy",
     "lint:convex": "! grep -rE \"await\\s+import\\s*\\(\" convex/ --include=\"*.ts\"",
     "migrate:bom-v2": "npx convex run migrations/bomRefactorV2:cleanSlateAndSeed",
-    "refresh-k3mart-token": "npx tsx scripts/refresh-k3mart-token.ts"
+    "refresh-k3mart-token": "npx tsx scripts/refresh-k3mart-token.ts",
+    "validate:docs-manifest": "node scripts/validate-docs-manifest.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
