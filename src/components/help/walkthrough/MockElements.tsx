@@ -145,7 +145,15 @@ export function MockButton({
 }
 
 // ---------------------------------------------------------------------------
-// 6. MockRow -- grid row
+// 6. MockField -- label + input wrapper
+// ---------------------------------------------------------------------------
+
+export function MockField({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-1">{children}</div>;
+}
+
+// ---------------------------------------------------------------------------
+// 7. MockRow -- grid row
 // ---------------------------------------------------------------------------
 
 export function MockRow({
@@ -166,7 +174,7 @@ export function MockRow({
 }
 
 // ---------------------------------------------------------------------------
-// 7. MockTable -- table with optional row highlight
+// 8. MockTable -- table with optional row highlight
 // ---------------------------------------------------------------------------
 
 export function MockTable({
@@ -213,7 +221,7 @@ export function MockTable({
 }
 
 // ---------------------------------------------------------------------------
-// 8. MockBadge -- small colored badge
+// 9. MockBadge -- small colored badge
 // ---------------------------------------------------------------------------
 
 export function MockBadge({
@@ -241,7 +249,7 @@ export function MockBadge({
 }
 
 // ---------------------------------------------------------------------------
-// 9. MockUploadZone -- dashed upload area
+// 10. MockUploadZone -- dashed upload area
 // ---------------------------------------------------------------------------
 
 export function MockUploadZone({
@@ -275,7 +283,7 @@ export function MockUploadZone({
 }
 
 // ---------------------------------------------------------------------------
-// 10. MockNavDropdown -- fake nav bar
+// 11. MockNavDropdown -- fake nav bar
 // ---------------------------------------------------------------------------
 
 export function MockNavDropdown({
