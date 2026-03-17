@@ -66,12 +66,7 @@ function toInvoicePrintData(inv: Invoice): InvoicePrintData {
     paymentStatus: inv.paymentStatus,
     paymentMethod: inv.paymentMethod,
     notes: inv.notes,
-    // sellerLogoUrl resolved by query layer (if present on the document)
-    sellerLogoUrl:
-      "sellerLogoUrl" in inv &&
-      typeof (inv as Record<string, unknown>).sellerLogoUrl === "string"
-        ? ((inv as Record<string, unknown>).sellerLogoUrl as string)
-        : undefined,
+    sellerLogoUrl: inv.sellerLogoUrl,
   };
 }
 
