@@ -142,6 +142,13 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
               <span className="text-xs font-mono text-muted-foreground">
                 {expense.expenseNumber}
               </span>
+              {/* Payment type badge */}
+              {expense.paymentMethod === "company_paid" && (
+                <Badge className="bg-sky-100 text-sky-800 text-xs">Company Paid</Badge>
+              )}
+              {expense.paymentMethod === "payment_request" && (
+                <Badge className="bg-violet-100 text-violet-800 text-xs">Payment Request</Badge>
+              )}
               <ExpenseStatusBadge status={expense.status} />
             </div>
             <p className="text-sm font-medium">{expense.description}</p>
@@ -159,6 +166,8 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
           duplicateWarning={expense.duplicateWarning}
           lateSubmission={expense.lateSubmission}
           rejectionCount={rejectionCount > 0 ? rejectionCount : undefined}
+          flaggedForReview={expense.flaggedForReview}
+          flagReason={expense.flagReason}
         />
 
         {/* Detail row: vendor, date, GL category, payment method, receipt */}
@@ -186,6 +195,12 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
               Receipt attached
             </Badge>
           )}
+          {expense.transactionReference && (
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Receipt className="h-3.5 w-3.5" />
+              <span>Ref: {expense.transactionReference}</span>
+            </div>
+          )}
         </div>
 
         {/* Rejection chain (if has previous versions) */}
@@ -198,6 +213,8 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
           <ApprovalActions
             expenseId={expense._id}
             amount={expense.amount}
+            paymentMethod={expense.paymentMethod}
+            status={expense.status}
           />
         </div>
       </CardContent>
