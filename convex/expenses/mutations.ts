@@ -65,6 +65,7 @@ export const createDraft = protectedMutation({
     receiptFileId: v.optional(v.id("_storage")),
     receiptImageHash: v.optional(v.string()),
     previousExpenseId: v.optional(v.id("expenses")),
+    transactionReference: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Validate amount
@@ -109,6 +110,7 @@ export const createDraft = protectedMutation({
       ...(args.receiptFileId !== undefined && { receiptFileId: args.receiptFileId }),
       ...(args.receiptImageHash !== undefined && { receiptImageHash: args.receiptImageHash }),
       ...(args.previousExpenseId !== undefined && { previousExpenseId: args.previousExpenseId }),
+      ...(args.transactionReference !== undefined && { transactionReference: args.transactionReference }),
     });
 
     // Write audit trail
@@ -137,6 +139,7 @@ export const updateDraft = protectedMutation({
     paymentMethod: v.optional(paymentMethodValidator),
     receiptFileId: v.optional(v.id("_storage")),
     receiptImageHash: v.optional(v.string()),
+    transactionReference: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const expense = await ctx.db.get(args.expenseId);
@@ -169,6 +172,7 @@ export const updateDraft = protectedMutation({
     if (args.paymentMethod !== undefined) patch.paymentMethod = args.paymentMethod;
     if (args.receiptFileId !== undefined) patch.receiptFileId = args.receiptFileId;
     if (args.receiptImageHash !== undefined) patch.receiptImageHash = args.receiptImageHash;
+    if (args.transactionReference !== undefined) patch.transactionReference = args.transactionReference;
 
     // Re-check soft duplicate if amount or expenseDate changed
     if (args.amount !== undefined || args.expenseDate !== undefined) {
@@ -237,9 +241,13 @@ export const submitExpense = protectedMutation({
       throw new Error("Can only submit your own expenses");
     }
 
-    // EXP-03: Receipt enforcement for amounts > Rp 50,000
-    if (requiresReceipt(expense.amount) && expense.receiptFileId === undefined) {
-      throw new Error("Receipt is required for expenses over Rp 50,000");
+    // EXP-03: Receipt enforcement: always required for company money, threshold for employee_paid
+    const receiptRequired = requiresReceipt(expense.amount, expense.paymentMethod);
+    if (receiptRequired && expense.receiptFileId === undefined) {
+      const msg = expense.paymentMethod === "employee_paid"
+        ? "Receipt is required for expenses over Rp 50,000"
+        : "Receipt is required for company-paid expenses";
+      throw new Error(msg);
     }
 
     // FRAUD-02: Receipt hash duplicate check (hard block)
@@ -284,19 +292,48 @@ export const submitExpense = protectedMutation({
       expense.expenseDate
     );
 
-    // Patch expense to submitted status
-    const patch: Record<string, unknown> = {
-      status: "submitted",
-      submittedAt: now,
-      lateSubmission,
-      // Always update: set warning or clear stale one
-      duplicateWarning: duplicateWarning ?? undefined,
-    };
+    // Branch on payment method for status transition and JE creation
+    if (expense.paymentMethod === "company_paid") {
+      // Auto-create JE: DR expense GL, CR 1100 Cash (money already left bank)
+      // createdBy = ctx.user._id (the submitter) because the submitter is recording a transaction
+      // that already happened. This differs from approveExpense where createdBy is the approver,
+      // because in that flow the approver is the one authorizing the accounting entry.
+      const cashAccount = await ctx.db
+        .query("accounts")
+        .withIndex("by_code", (q) => q.eq("code", "1100"))
+        .unique();
+      if (!cashAccount) throw new Error("Account 1100 not found. Run accounts:seedDefaults first.");
 
-    await ctx.db.patch(args.expenseId, patch);
+      const journalEntryId = await createJournalEntryWithLines(ctx, {
+        date: expense.expenseDate,
+        description: `Expense ${expense.expenseNumber} [Company Paid]: ${expense.description}`,
+        sourceType: "expense_approval",
+        sourceId: args.expenseId,
+        createdBy: ctx.user._id, // Submitter -- recording an already-occurred transaction
+        lines: [
+          buildDebitLine(expense.accountId, expense.amount, expense.description),
+          buildCreditLine(cashAccount._id, expense.amount),
+        ],
+      });
 
-    // Write audit trail
-    await recordStatusChange(ctx, args.expenseId, "draft", "submitted", ctx.user._id);
+      await ctx.db.patch(args.expenseId, {
+        status: "recorded",
+        submittedAt: now,
+        journalEntryId,
+        lateSubmission,
+        duplicateWarning: duplicateWarning ?? undefined,
+      });
+      await recordStatusChange(ctx, args.expenseId, "draft", "recorded", ctx.user._id);
+    } else {
+      // employee_paid and payment_request: standard submit to "submitted"
+      await ctx.db.patch(args.expenseId, {
+        status: "submitted",
+        submittedAt: now,
+        lateSubmission,
+        duplicateWarning: duplicateWarning ?? undefined,
+      });
+      await recordStatusChange(ctx, args.expenseId, "draft", "submitted", ctx.user._id);
+    }
 
     return { success: true };
   },
@@ -340,9 +377,17 @@ export const approveExpense = protectedMutation({
       throw new Error("Expense not found");
     }
 
+    // FIRST: company_paid expenses must use the acknowledge flow, not standard approval.
+    // This check is placed before the status check so that a company_paid expense
+    // in "recorded" status gets a helpful error ("use acknowledgeExpense") rather than
+    // the generic "Only submitted expenses can be approved" error.
+    if (expense.paymentMethod === "company_paid") {
+      throw new Error("Company-paid expenses cannot be approved via standard flow. Use acknowledgeExpense instead.");
+    }
+
     // Concurrency guard: must be in submitted status
     if (expense.status !== "submitted") {
-      throw new Error("Expense has already been processed");
+      throw new Error("Only submitted expenses can be approved");
     }
 
     // Self-approval block (FRAUD-04)
@@ -366,24 +411,41 @@ export const approveExpense = protectedMutation({
       throw new Error("Comment required for expenses >= Rp 500,000");
     }
 
-    // Determine credit account based on payment method
-    // company_paid/payment_request -> "1100" (Cash), employee_paid -> "2200" (Employee Reimbursements Payable)
-    const creditCode = expense.paymentMethod === "employee_paid" ? "2200" : "1100";
-    const creditAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", creditCode))
-      .unique();
-
-    if (!creditAccount) {
-      throw new Error(
-        `Account ${creditCode} not found. Run accounts:seedDefaults first.`
-      );
+    // payment_request: approval is authorization only, NO JE yet (JE created at markAsPaid)
+    if (expense.paymentMethod === "payment_request") {
+      const targetStatus = "approved";
+      await ctx.db.patch(args.expenseId, {
+        status: targetStatus,
+        approvedBy: ctx.user._id,
+        approvedAt: Date.now(),
+        approverComment: args.comment,
+      });
+      await recordStatusChange(ctx, args.expenseId, "submitted", targetStatus, ctx.user._id, args.comment);
+      return { success: true, targetStatus, journalEntryId: undefined };
     }
 
-    // Create journal entry (DR OpEx account, CR credit account)
+    // SAFETY: Only employee_paid should reach this point.
+    // company_paid is caught at the top (must use acknowledge flow).
+    // payment_request is caught above (approval has no JE, JE created at markAsPaid).
+    // If a new payment method is added and reaches here without handling, this assertion
+    // will catch it rather than silently creating a JE with the wrong credit account.
+    if (expense.paymentMethod !== "employee_paid") {
+      throw new Error(`Unexpected payment method '${expense.paymentMethod}' in approveExpense JE block. Add explicit handling for this payment method.`);
+    }
+
+    // employee_paid: create JE (DR OpEx, CR 2200 Employee Reimbursements Payable)
+    // createdBy = ctx.user._id (the approver) because the approver is authorizing
+    // the accounting recognition of the reimbursement obligation.
+    const creditAccount = await ctx.db
+      .query("accounts")
+      .withIndex("by_code", (q) => q.eq("code", "2200"))
+      .unique();
+    if (!creditAccount) throw new Error("Account 2200 not found. Run accounts:seedDefaults first.");
+
+    // Create journal entry (DR OpEx account, CR 2200)
     const journalEntryId = await createJournalEntryWithLines(ctx, {
       date: expense.expenseDate,
-      description: `Expense ${expense.expenseNumber}: ${expense.description}`,
+      description: `Expense ${expense.expenseNumber} [Employee Paid]: ${expense.description}`,
       sourceType: "expense_approval",
       sourceId: expense._id,
       createdBy: ctx.user._id,
@@ -539,5 +601,140 @@ export const voidExpense = protectedMutation({
     );
 
     return { success: true };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// acknowledgeExpense — manager/admin confirms a company_paid recorded expense
+// ---------------------------------------------------------------------------
+
+/**
+ * Acknowledge a company_paid expense that is in "recorded" status.
+ *
+ * Unlike standard approval, acknowledgment does NOT create a JE (already
+ * created at submit time) and does NOT enforce DoA thresholds (the money
+ * already left the bank -- this is a review confirmation, not a spend
+ * authorization).
+ */
+export const acknowledgeExpense = protectedMutation({
+  roles: [...APPROVER_ROLES],
+  args: {
+    expenseId: v.id("expenses"),
+    comment: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) throw new Error("Expense not found");
+    if (expense.status !== "recorded") throw new Error("Only recorded expenses can be acknowledged");
+    if (expense.paymentMethod !== "company_paid") throw new Error("Only company_paid expenses use acknowledge flow");
+
+    // NOTE: DoA (Delegation of Authority) does NOT apply to acknowledge.
+    // Acknowledgment is not an approval -- the money already left the bank.
+    // The admin is confirming they have reviewed it, not authorizing a spend.
+    // Any manager or admin can acknowledge regardless of amount.
+
+    await ctx.db.patch(args.expenseId, {
+      status: "approved",
+      approvedBy: ctx.user._id,
+      approvedAt: Date.now(),
+      approverComment: args.comment,
+    });
+
+    await recordStatusChange(ctx, args.expenseId, "recorded", "approved", ctx.user._id, args.comment);
+    return { success: true };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// flagExpense — flag a recorded expense for review (no status change)
+// ---------------------------------------------------------------------------
+
+/**
+ * Flag a recorded company_paid expense for additional review.
+ *
+ * Sets flag metadata fields but does NOT change status -- the expense
+ * remains in "recorded" status and still appears in the approval queue.
+ */
+export const flagExpense = protectedMutation({
+  roles: [...APPROVER_ROLES],
+  args: {
+    expenseId: v.id("expenses"),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) throw new Error("Expense not found");
+    if (expense.status !== "recorded") throw new Error("Only recorded expenses can be flagged for review");
+    validateRequiredReason(args.reason, "Flag reason");
+
+    await ctx.db.patch(args.expenseId, {
+      flaggedForReview: true,
+      flaggedBy: ctx.user._id,
+      flaggedAt: Date.now(),
+      flagReason: args.reason.trim(),
+    });
+
+    // Status does NOT change -- remains "recorded"
+    return { success: true };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// markAsPaid — complete payment_request flow with JE creation
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark an approved payment_request expense as paid.
+ *
+ * Creates the JE at this point (money leaves bank now), stores the
+ * transaction reference for audit trail, and transitions to "paid" status.
+ */
+export const markAsPaid = protectedMutation({
+  roles: [...APPROVER_ROLES],
+  args: {
+    expenseId: v.id("expenses"),
+    transactionReference: v.string(),
+    paidAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) throw new Error("Expense not found");
+    if (expense.status !== "approved") throw new Error("Only approved expenses can be marked as paid");
+    if (expense.paymentMethod !== "payment_request") throw new Error("Only payment_request expenses use mark-as-paid flow");
+    if (!args.transactionReference.trim()) throw new Error("Transaction reference is required");
+
+    const paidAt = args.paidAt ?? Date.now();
+
+    // Create JE now (money leaves bank at this point)
+    // createdBy = ctx.user._id (the person marking as paid) because they are
+    // the one confirming the bank transfer happened and triggering the accounting entry.
+    const cashAccount = await ctx.db
+      .query("accounts")
+      .withIndex("by_code", (q) => q.eq("code", "1100"))
+      .unique();
+    if (!cashAccount) throw new Error("Account 1100 not found. Run accounts:seedDefaults first.");
+
+    const journalEntryId = await createJournalEntryWithLines(ctx, {
+      date: paidAt,
+      description: `Expense ${expense.expenseNumber} [Payment Request]: ${expense.description}`,
+      sourceType: "expense_approval",
+      sourceId: expense._id,
+      createdBy: ctx.user._id, // Person who confirmed the bank transfer
+      lines: [
+        buildDebitLine(expense.accountId, expense.amount, expense.description),
+        buildCreditLine(cashAccount._id, expense.amount),
+      ],
+    });
+
+    await ctx.db.patch(args.expenseId, {
+      status: "paid",
+      journalEntryId,
+      transactionReference: args.transactionReference.trim(),
+      paidAt,
+      paidBy: ctx.user._id, // Audit: who executed the bank transfer
+    });
+
+    await recordStatusChange(ctx, args.expenseId, "approved", "paid", ctx.user._id);
+    return { success: true, journalEntryId };
   },
 });
