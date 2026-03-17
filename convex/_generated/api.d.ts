@@ -121,6 +121,8 @@ import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as manualJournal_mutations from "../manualJournal/mutations.js";
+import type * as manualJournal_queries from "../manualJournal/queries.js";
 import type * as materials_mutations from "../materials/mutations.js";
 import type * as materials_queries from "../materials/queries.js";
 import type * as menuProductComponents_mutations from "../menuProductComponents/mutations.js";
@@ -322,6 +324,8 @@ declare const fullApi: ApiFromModules<{
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
   "lib/validation": typeof lib_validation;
+  "manualJournal/mutations": typeof manualJournal_mutations;
+  "manualJournal/queries": typeof manualJournal_queries;
   "materials/mutations": typeof materials_mutations;
   "materials/queries": typeof materials_queries;
   "menuProductComponents/mutations": typeof menuProductComponents_mutations;
