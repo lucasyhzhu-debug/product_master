@@ -1,16 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
+milestone: v1.8
+milestone_name: Support & Quality of Life
 status: in_progress
 stopped_at: Completed 59-04-PLAN.md (checkpoint approved)
 last_updated: "2026-03-17T01:34:03.913Z"
 last_activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
 progress:
   total_phases: 23
-  completed_phases: 17
-  total_plans: 42
-  completed_plans: 41
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 42
+  percent: 98
 ---
 
 ---
@@ -29,18 +30,94 @@ progress:
   percent: 98
 ---
 
+---
+gsd_state_version: 1.0
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: in_progress
+stopped_at: Completed 57-02-PLAN.md
+last_updated: "2026-03-17T20:10:00Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 23
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+  percent: 85
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
+last_updated: "2026-03-17T00:47:46.270Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 24
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 57-01-PLAN.md
+last_updated: "2026-03-17T19:53:42Z"
+last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
+progress:
+  [█████████░] 85%
+  completed_phases: 17
+  total_plans: 43
+  completed_plans: 38
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Phase 59 context gathered
+last_updated: "2026-03-16T13:37:14.446Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+progress:
+  total_phases: 22
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 37
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 56-02-PLAN.md
+last_updated: "2026-03-16T12:54:33.747Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+progress:
+  total_phases: 23
+  completed_phases: 17
+  total_plans: 42
+  completed_plans: 41
+---
+
 # Project State
 
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 59 COMPLETE (all 4 plans)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 59 COMPLETE (all 4 plans), Phase 57 COMPLETE
 
 ## Current Position
 
 Phase: 59-direct-debit-expense-flow (4/4 plans COMPLETE)
 Plan: 59-04 complete (checkpoint approved)
-Status: Phase 59 complete. Expense payment method overhaul shipped with 3 payment types, multi-action approval queue, and visual verification approved.
+Status: Phase 59 complete. Expense payment method overhaul shipped with 3 payment types, multi-action approval queue, and visual verification approved. Phase 57 (Invoice Backend & Business Settings) also complete.
 Last activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
 
 Progress: [██████████] 98%
@@ -59,6 +136,8 @@ Progress: [██████████] 98%
 |-------|------|----------|-------|-------|
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
+| 57-invoice-backend-business-settings | 01 | 11min | 4 | 8 |
+| 57-invoice-backend-business-settings | 02 | 5min | 3 | 11 |
 | 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
 | 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
 | 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
@@ -80,6 +159,13 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
 - [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
+- [57-01] Extracted 5 pure helpers from invoice mutations for testability (project convention: pure function tests over convex-test runtime)
+- [57-01] Used .first() not .unique() for invoiceCounters lookup (gracefully handles duplicate rows)
+- [57-01] INVOICEABLE_STATUSES allowlist pattern for forward-compatible status validation
+- [57-01] paymentStatus/paymentMethod snapshotted at draft creation, excluded from updateDraft
+- [57-02] Empty successMessage on createDraft/updateDraft hooks (auto-save feedback deferred to Phase 58 UI)
+- [57-02] Live invoice header preview reads from local form state (no API call per keystroke)
+- [57-02] Logo upload validates 1MB max client-side before POST to Convex upload URL
 - [59-01] Extended requiresReceipt with optional paymentMethod param for backward compatibility
 - [59-01] Updated mutations.ts and frontend files inline to prevent type errors from schema literal changes (Rule 3)
 - [59-02] company_paid guard placed BEFORE status check in approveExpense for helpful error messages
@@ -99,6 +185,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 - Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
 - Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
+- Phase 63 added: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
 
 ### Open Blockers (carried forward)
 
@@ -117,4 +204,4 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 Last session: 2026-03-17T01:07:44.795Z
 Stopped at: Completed 59-04-PLAN.md (checkpoint approved)
-Resume notes: Phase 59 complete. All 4 plans executed. Checkpoint approved via automated code-level verification (31/31 checks passed, build passing, 1006 tests passing). Ready for merge to main.
+Resume notes: Phase 59 complete. All 4 plans executed. Checkpoint approved via automated code-level verification (31/31 checks passed, build passing, 1006 tests passing). Phase 57 also complete (merged from main). Ready for merge to main.

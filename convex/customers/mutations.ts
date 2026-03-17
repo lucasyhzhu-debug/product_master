@@ -1,5 +1,5 @@
 import { protectedMutation } from "../lib/functions";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 
 /**
  * Create a new customer.
@@ -39,13 +39,17 @@ export const update = protectedMutation({
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
     defaultAddress: v.optional(v.string()),
+    // Phase 57: Invoice buyer fields (write-back from invoice finalize or manual edit)
+    companyName: v.optional(v.string()),
+    npwp: v.optional(v.string()),
+    billingAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
 
     const current = await ctx.db.get(id);
     if (!current) {
-      throw new Error("Customer not found");
+      throw new ConvexError("Customer not found");
     }
 
     const patchData: Record<string, unknown> = {};
@@ -54,6 +58,9 @@ export const update = protectedMutation({
     if (updates.source !== undefined) patchData.source = updates.source;
     if (updates.notes !== undefined) patchData.notes = updates.notes;
     if (updates.defaultAddress !== undefined) patchData.defaultAddress = updates.defaultAddress;
+    if (updates.companyName !== undefined) patchData.companyName = updates.companyName;
+    if (updates.npwp !== undefined) patchData.npwp = updates.npwp;
+    if (updates.billingAddress !== undefined) patchData.billingAddress = updates.billingAddress;
 
     await ctx.db.patch(id, patchData);
     return id;

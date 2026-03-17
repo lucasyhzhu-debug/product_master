@@ -114,6 +114,9 @@ const ExpenseAnalytics = lazyWithPreload(() =>
 const HistoricalImportPage = lazyWithPreload(() =>
   import('./pages/HistoricalImportPage').then(m => ({ default: m.HistoricalImportPage }))
 );
+const BusinessSettings = lazyWithPreload(() =>
+  import('./pages/BusinessSettings').then(m => ({ default: m.BusinessSettings }))
+);
 
 function App() {
   return (
@@ -335,6 +338,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canManageReimbursements">
                         <AccountsManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Business Settings (admin-only, Phase 57) */}
+                  <Route
+                    path="settings/business"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessBusinessSettings">
+                        <BusinessSettings />
                       </ProtectedRoute>
                     }
                   />

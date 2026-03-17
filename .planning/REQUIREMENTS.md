@@ -40,11 +40,11 @@
 
 ### Invoice — Business Settings
 
-- [ ] **BSET-01**: Admin can access Business Settings page at `/settings/business`
-- [ ] **BSET-02**: Admin can set business name, address, phone, email, NPWP
-- [ ] **BSET-03**: Admin can upload company logo (Convex file storage)
-- [ ] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
-- [ ] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
+- [x] **BSET-01**: Admin can access Business Settings page at `/settings/business`
+- [x] **BSET-02**: Admin can set business name, address, phone, email, NPWP
+- [x] **BSET-03**: Admin can upload company logo (Convex file storage)
+- [x] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
+- [x] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
 
 ### Invoice — Generation
 
@@ -69,10 +69,10 @@
 
 ### Invoice — Data Model
 
-- [ ] **IDAT-01**: `businessSettings` singleton table with seller identity fields
-- [ ] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
-- [ ] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
-- [ ] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
+- [x] **IDAT-01**: `businessSettings` singleton table with seller identity fields
+- [x] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
+- [x] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
+- [x] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
 
 ### Direct Debit Expense Flow (Phase 59)
 
@@ -146,15 +146,15 @@
 | EGUIDE-07 | Phase 56 | Complete |
 | EGUIDE-08 | Phase 56 | Complete |
 | EGUIDE-09 | Phase 56 | Complete |
-| BSET-01 | Phase 57 | Pending |
-| BSET-02 | Phase 57 | Pending |
-| BSET-03 | Phase 57 | Pending |
-| BSET-04 | Phase 57 | Pending |
-| BSET-05 | Phase 57 | Pending |
-| IDAT-01 | Phase 57 | Pending |
-| IDAT-02 | Phase 57 | Pending |
-| IDAT-03 | Phase 57 | Pending |
-| IDAT-04 | Phase 57 | Pending |
+| BSET-01 | Phase 57 | Complete |
+| BSET-02 | Phase 57 | Complete |
+| BSET-03 | Phase 57 | Complete |
+| BSET-04 | Phase 57 | Complete |
+| BSET-05 | Phase 57 | Complete |
+| IDAT-01 | Phase 57 | Complete |
+| IDAT-02 | Phase 57 | Complete |
+| IDAT-03 | Phase 57 | Complete |
+| IDAT-04 | Phase 57 | Complete |
 | INV-01 | Phase 58 | Pending |
 | INV-02 | Phase 58 | Pending |
 | INV-03 | Phase 58 | Pending |

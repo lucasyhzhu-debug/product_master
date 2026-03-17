@@ -162,6 +162,10 @@ export default defineSchema({
     notes: v.optional(v.string()),
     defaultAddress: v.optional(v.string()),
     createdBy: v.string(),
+    // Phase 57: Invoice buyer fields (write-back from invoice finalize)
+    companyName: v.optional(v.string()),
+    npwp: v.optional(v.string()),
+    billingAddress: v.optional(v.string()),
   })
     // OI-03: removed by_name -- zero withIndex references
     .index("by_phone", ["phone"]),
@@ -594,6 +598,23 @@ export default defineSchema({
   })
     .index("by_agency", ["agency"])
     .index("by_usage", ["usageCount"]),
+
+  // ============================================
+  // BUSINESS SETTINGS (singleton)
+  // Company identity for invoice generation
+  // ============================================
+
+  businessSettings: defineTable({
+    businessName: v.string(),
+    logoStorageId: v.optional(v.id("_storage")),
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    npwp: v.optional(v.string()),
+    defaultBankAccountId: v.optional(v.id("bankAccounts")),
+    updatedBy: v.id("users"),
+    updatedAt: v.number(),
+  }),
 
   // ============================================
   // WHATSAPP TEMPLATE MANAGEMENT
@@ -1788,6 +1809,65 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_active", ["isActive"]),
+
+  // ============================================
+  // INVOICE SYSTEM
+  // Sequential invoice numbering + invoice records
+  // ============================================
+
+  invoiceCounters: defineTable({
+    prefix: v.string(),
+    lastNumber: v.number(),
+  }).index("by_prefix", ["prefix"]),
+
+  invoices: defineTable({
+    status: v.union(v.literal("draft"), v.literal("final")),
+    invoiceNumber: v.optional(v.string()),
+    orderId: v.id("orders"),
+    generatedAt: v.optional(v.number()),
+    generatedBy: v.id("users"),
+    updatedAt: v.number(),
+    sellerName: v.string(),
+    sellerAddress: v.optional(v.string()),
+    sellerPhone: v.optional(v.string()),
+    sellerEmail: v.optional(v.string()),
+    sellerNpwp: v.optional(v.string()),
+    sellerLogoStorageId: v.optional(v.id("_storage")),
+    bankName: v.string(),
+    bankAccountNumber: v.string(),
+    bankAccountName: v.string(),
+    buyerName: v.string(),
+    buyerCompany: v.optional(v.string()),
+    buyerNpwp: v.optional(v.string()),
+    buyerAddress: v.optional(v.string()),
+    buyerPhone: v.optional(v.string()),
+    poNumber: v.optional(v.string()),
+    orderNumber: v.string(),
+    orderDate: v.number(),
+    dueDate: v.optional(v.number()),
+    items: v.array(v.object({
+      productName: v.string(),
+      variant: v.optional(v.string()),
+      qty: v.number(),
+      unitPrice: v.number(),
+      lineTotal: v.number(),
+    })),
+    subtotal: v.number(),
+    discountAmount: v.optional(v.number()),
+    discountLabel: v.optional(v.string()),
+    deliveryFee: v.optional(v.number()),
+    finalTotal: v.number(),
+    paymentStatus: v.union(
+      v.literal("Unpaid"),
+      v.literal("Partial"),
+      v.literal("Paid")
+    ),
+    paymentMethod: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_order", ["orderId"])
+    .index("by_status_number", ["status", "invoiceNumber"])
+    .index("by_date", ["generatedAt"]),
 
   // Payroll entries — contractor and staff salary records
   payrollEntries: defineTable({

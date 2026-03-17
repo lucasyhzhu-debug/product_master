@@ -461,11 +461,11 @@ Plans:
   7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
   8. Customer write-back on finalize (company, NPWP, billing address)
   9. `npm run build` succeeds
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
-- [ ] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
+- [x] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
+- [x] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
 
 ### Phase 58: Invoice Form, Print View & Order Integration
 **Goal**: Build the WYSIWYG invoice form page, print view, and Order Detail sidebar card so managers/admins can generate, preview, finalize, and print invoices from any qualifying order
@@ -484,6 +484,12 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
+**Plans:** 3 plans
+
+Plans:
+- [ ] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
+- [ ] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
+- [ ] 58-03-PLAN.md -- InvoiceSidebarCard (3 states) + OrderDetail integration + visual verification
 
 ### Phase 59: Expense Payment Method Overhaul
 **Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows -- retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
@@ -505,6 +511,7 @@ Plans:
 - [x] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
 - [x] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
 - [x] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
+
 
 ### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
@@ -535,3 +542,14 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 62 to break down)
+
+
+### Phase 63: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 62
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 63 to break down)
