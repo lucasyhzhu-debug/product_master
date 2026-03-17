@@ -524,13 +524,21 @@ Plans:
 
 ### Phase 61: Help File Indexing Architecture -- Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: Build developer-side tooling to detect tutorial documentation drift: a feature-to-docs manifest mapping source modules to tutorial sections, validation script, ExpenseGuide refactored into section files, and two GSD skills (/gsd:check-docs, /gsd:update-docs) for detecting and fixing stale sections
+**Requirements**: HIDX-01, HIDX-02, HIDX-03, HIDX-04, HIDX-05
 **Depends on:** Phase 55 (Help Center Infrastructure)
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. docs-manifest.json maps source file globs to tutorial section files with per-mapping lastReviewedCommit
+  2. npm run validate:docs-manifest confirms every guide section has at least one source mapping
+  3. ExpenseGuide.tsx is split into 8 section files under src/pages/guides/ExpenseGuide/ with identical rendering
+  4. /gsd:check-docs skill detects stale sections via git log against lastReviewedCommit
+  5. /gsd:update-docs skill reads stale section + git diff, proposes edits, supports --ack flag
+  6. npm run build succeeds after all changes
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 61 to break down)
+- [ ] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 8 section files
+- [ ] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
 
 ### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
 
