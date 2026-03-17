@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 59-03-PLAN.md
-last_updated: "2026-03-17T00:46:01Z"
-last_activity: 2026-03-17 - Completed Plan 59-03 (Frontend hooks, form & badges for expense payment overhaul)
+stopped_at: Completed 59-04-PLAN.md (awaiting human-verify checkpoint)
+last_updated: "2026-03-17T00:55:43Z"
+last_activity: 2026-03-17 - Completed Plan 59-04 Tasks 1-2 (approval queue multi-action UI)
 progress:
   total_phases: 23
   completed_phases: 17
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 03 COMPLETE
+**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 04 COMPLETE (awaiting visual verification)
 
 ## Current Position
 
-Phase: 59-direct-debit-expense-flow (Plan 3 of 4 complete)
-Plan: 59-04 (next)
-Status: Plan 59-03 complete, frontend hooks, form, badges, and filters updated for all payment methods
-Last activity: 2026-03-17 - Completed Plan 59-03 (Frontend hooks, form & badges for expense payment overhaul)
+Phase: 59-direct-debit-expense-flow (Plan 4 of 4 complete, awaiting human-verify)
+Plan: 59-04 (checkpoint pending)
+Status: Plan 59-04 Tasks 1-2 complete, approval queue multi-action UI implemented. Awaiting visual verification.
+Last activity: 2026-03-17 - Completed Plan 59-04 Tasks 1-2 (approval queue multi-action UI)
 
 Progress: [██████████] 95%
 
@@ -46,6 +46,7 @@ Progress: [██████████] 95%
 | 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
 | 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
 | 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
+| 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [59-03] Receipt required for all company_paid and payment_request expenses regardless of amount
 - [59-03] Transaction reference field only shown for company_paid (not payment_request)
 - [59-03] MyExpenses expanded to all 10 status tabs so no status is hidden from users
+- [59-04] DoA comment threshold reused for acknowledge dialog visibility only, not authorization
+- [59-04] Mark as Paid uses Input (not Textarea) for transaction reference -- short reference number
+- [59-04] No redundant .catch() on markAsPaid -- createMutationHook handles errors via toast
 
 ### Roadmap Evolution
 
@@ -95,6 +99,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:46:01Z
-Stopped at: Completed 59-03-PLAN.md
-Resume notes: Plan 59-03 complete. Frontend hooks (useAcknowledgeExpense, useFlagExpense, useMarkAsPaid), ExpenseSubmit form (3-option dropdown, transactionReference, receipt logic), StatusBadge (recorded/paid), MyExpenses (10 tabs) all updated. Ready for Plan 59-04 (approval queue UI).
+Last session: 2026-03-17T00:55:43Z
+Stopped at: Completed 59-04-PLAN.md (awaiting human-verify checkpoint)
+Resume notes: Plan 59-04 Tasks 1-2 complete. ApprovalActions renders context-aware buttons (approve/reject, acknowledge/flag, mark-as-paid). FraudFlags shows flagged badge. ExpenseCard and ExpenseApproval show payment type badges. Build passes, all 1006 tests pass. Awaiting visual verification (Task 3 checkpoint).
