@@ -484,7 +484,7 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
@@ -554,10 +554,22 @@ Plans:
 
 ### Phase 63: Interactive Visual Expense Tutorials
 
-**Goal:** Replace text-heavy expense guide sections (Submit, Approve, Reimburse) with click-through visual walkthroughs using mock UI panels
-**Requirements**: TBD
+**Goal:** Replace text-heavy expense guide sections (Submit, Approve, Reimburse) with click-through visual walkthroughs using mock UI panels and a generic reusable WalkthroughPlayer engine
+**Requirements**: VWT-01, VWT-02, VWT-03, VWT-04, VWT-05, VWT-06, VWT-07, VWT-08, VWT-09, VWT-10
 **Depends on:** Phase 55 (Help Center Infrastructure)
-**Plans:** 1 plan
+**Success Criteria** (what must be TRUE):
+  1. Generic WalkthroughPlayer component renders workflow tabs with free step navigation and keyboard support
+  2. 11 mock UI primitives (MockFrame through MockNavDropdown) with shared indigo highlight styling
+  3. Submit Expense walkthrough: 4 steps with mock form, receipt upload, action buttons
+  4. Approve Expense walkthrough: 3 steps with approval queue table, detail card, action buttons
+  5. Reimburse walkthrough: 6 steps from opening page through success state
+  6. ExpenseGuide consolidated from 8 sections to 6 (submit+approve+reimburse merged into single walkthrough)
+  7. helpGuides.ts registry, POPULAR_QUESTIONS anchors, and tests updated for new structure
+  8. AnimatePresence crossfade (150ms) on step change, mobile horizontal pill bar
+  9. 5 documentation files updated (help center spec, UI brand ref, CODE_STYLE, CLAUDE.md, CHANGELOG)
+  10. `npm run build` succeeds, all tests pass
+**Plans:** 2 plans
 
 Plans:
-- [ ] `docs/superpowers/plans/2026-03-17-interactive-expense-walkthrough.md` — 12 tasks, 4 chunks
+- [ ] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
+- [ ] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification
