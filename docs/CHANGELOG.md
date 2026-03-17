@@ -16,6 +16,26 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Interactive Visual Expense Tutorials (Phase 63) — 2026-03-17
+
+**For the team:** The Expense guide now has interactive click-through walkthroughs! Instead of reading walls of text, you can visually step through Submit, Approve, and Reimburse workflows with mock panels that highlight exactly where to click. Switch between the three workflows using tabs, navigate with arrow keys or by clicking any step. Works on mobile too.
+
+#### Added
+- `src/components/help/WalkthroughPlayer.tsx`: Generic walkthrough engine with tabbed workflows, step navigation, mock panel viewport with crossfade animation, and annotation area
+- `src/components/help/walkthrough/types.ts`: WalkthroughStep, WalkthroughWorkflow, MockPanelProps type definitions
+- `src/components/help/walkthrough/MockElements.tsx`: 11 mock UI primitives (MockFrame, MockInput, MockSelect, MockButton, MockTable, MockBadge, MockUploadZone, MockNavDropdown, etc.) with indigo highlight styling
+- `src/components/help/walkthrough/SubmitMocks.tsx`: 4-step Submit Expense mock panels
+- `src/components/help/walkthrough/ApproveMocks.tsx`: 3-step Approve Expense mock panels
+- `src/components/help/walkthrough/ReimburseMocks.tsx`: 6-step Reimburse mock panels
+- `src/components/help/__tests__/WalkthroughPlayer.test.tsx`: 8 unit tests for the walkthrough engine
+
+#### Changed
+- `src/pages/guides/ExpenseGuide.tsx`: Replaced 3 text-heavy sections (Submit, Approve, Reimburse) with single WalkthroughPlayer section; 2 FAQ items migrated to FULL_FAQ; old deep link anchors preserved as hidden redirect divs
+- `src/lib/helpGuides.ts`: Sections reduced from 8 to 6, readTimeMinutes 15 to 10, POPULAR_QUESTIONS anchors updated to "walkthrough"
+- `src/lib/__tests__/helpGuides.test.ts`: Updated assertions for new section structure
+
+---
+
 ### Invoice Form, Print View & Order Integration (Phase 58) — 2026-03-17
 
 **For the team:** You can now generate invoices directly from any order! On the Order Detail page, managers and admins will see an Invoice card in the right sidebar. Click "Generate Invoice" to open a WYSIWYG form that auto-fills seller info, buyer details, and order items. Edit any field, preview the invoice, then finalize to assign an official INV-YYMM-NNN number. Print it clean from the browser -- no extra software needed.

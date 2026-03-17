@@ -448,5 +448,31 @@ className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)
 
 ---
 
-*Last updated: 2026-02-15*
-*Phase: 12-ui-brand-verification, Plan 01*
+---
+
+## Tutorial Walkthrough Patterns
+
+Interactive walkthrough mock panels in `src/components/help/walkthrough/` follow these visual patterns:
+
+**Highlight styling:**
+- `HIGHLIGHT_CLASSES` constant uses `border-2 border-indigo-400` with `shadow-[0_0_0_4px_rgba(99,102,241,0.15),0_0_12px_rgba(99,102,241,0.08)]`
+- Dark mode increases shadow opacity: `dark:shadow-[0_0_0_4px_rgba(99,102,241,0.25),0_0_12px_rgba(99,102,241,0.15)]`
+- Indigo is intentional (NOT brand teal) to clearly distinguish tutorial highlights from app UI
+
+**Annotation callouts:**
+- `CalloutBox type="tip"` (green) and `type="warning"` (amber) render in the annotation area below mock panels
+- Owned by `WalkthroughStep.tip` / `WalkthroughStep.warning` fields, not hardcoded
+
+**Step states:**
+- Completed (index < active): green checkmark icon + muted strikethrough text
+- Active (index === active): indigo left border + indigo background tint + `aria-current="step"`
+- Future (index > active): muted/dimmed text
+
+**Step sidebar:**
+- Uses `<nav aria-label="Steps">` with plain `<button>` elements
+- NOT `role="list"` with `role="listitem"` buttons (incorrect ARIA semantics)
+
+---
+
+*Last updated: 2026-03-17*
+*Phase: 63-interactive-visual-expense-tutorials*

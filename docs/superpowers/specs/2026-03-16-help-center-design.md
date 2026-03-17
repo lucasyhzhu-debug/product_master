@@ -677,3 +677,75 @@ The only file that grows is `helpGuides.ts` (one import + one registry entry per
 - [ ] "Coming Soon" cards are visually dimmed and not clickable
 - [ ] Mobile responsive — single column layout, horizontal TOC tabs
 - [ ] `/help/nonexistent` shows "Guide not found" state
+
+---
+
+## Interactive Walkthroughs (Phase 63)
+
+Phase 63 adds click-through visual walkthroughs that replace the text-only Step Card sections with interactive mock UI panels.
+
+### WalkthroughPlayer Component
+
+**File:** `src/components/help/WalkthroughPlayer.tsx`
+
+**Props:**
+- `workflows: WalkthroughWorkflow[]` — Array of workflow definitions with steps and mock components
+- `defaultWorkflow?: string` — ID of initial tab (defaults to first)
+
+**Layout:**
+- Tab bar (role="tablist") for workflow switching
+- Desktop: vertical step sidebar (w-56) + mock panel (flex-1)
+- Mobile: horizontal pill bar + full-width mock panel
+- Annotation area below mock panel with conditional CalloutBox (tip/warning)
+
+**Animation:** `AnimatePresence mode="wait"` with 150ms opacity crossfade using composite key `${workflowId}-${step}`.
+
+**Keyboard:** ArrowLeft/ArrowRight navigate steps, clamped at boundaries.
+
+### Workflow Data Model
+
+```typescript
+interface WalkthroughStep {
+  id: string; title: string; description: string;
+  tip?: string; warning?: string;
+}
+
+interface MockPanelProps {
+  currentStep: number; breadcrumb: string;
+}
+
+interface WalkthroughWorkflow {
+  id: string; label: string;
+  steps: WalkthroughStep[];
+  mockComponent: ComponentType<MockPanelProps>;
+  getBreadcrumb: (step: number) => string;
+}
+```
+
+Key design: `getBreadcrumb` is owned by the workflow data, not the generic player. This keeps the player reusable for future Kitchen/Orders walkthroughs.
+
+### Mock Element Primitives (11)
+
+**File:** `src/components/help/walkthrough/MockElements.tsx`
+
+All mock elements use styled divs with Tailwind classes (NOT real shadcn/ui components).
+
+| Primitive | Purpose |
+|-----------|---------|
+| MockFrame | Browser chrome wrapper with breadcrumb, aria-label |
+| MockLabel | Form field label |
+| MockInput | Fake text input with optional highlight |
+| MockSelect | Fake dropdown with chevron |
+| MockButton | Fake button (primary/ghost/destructive) |
+| MockField | Label + input wrapper |
+| MockRow | Grid row (2/3/4 columns) |
+| MockTable | Table with optional row highlight |
+| MockBadge | Small colored badge (warning/error/info) |
+| MockUploadZone | Dashed upload area with file preview |
+| MockNavDropdown | Fake nav bar with Financials menu items |
+
+**HIGHLIGHT_CLASSES:** `border-2 border-indigo-400` + indigo rgba shadow for light/dark. NOT brand teal.
+
+### Redirect Anchors
+
+Old deep links `#submitting`, `#approving`, `#reimbursement` are preserved as hidden `sr-only` div elements with those IDs, positioned just before the walkthrough GuideSection. This ensures existing bookmarks scroll to approximately the right location.
