@@ -162,6 +162,7 @@ export function ExpenseSubmit() {
         transactionReference: existingExpense.transactionReference ?? "",
         receiptFileId: existingExpense.receiptFileId,
         receiptImageHash: existingExpense.receiptImageHash,
+        sharedReceiptAcknowledged: existingExpense.sharedReceiptAcknowledged ?? undefined,
       });
       setDraftId(existingExpense._id);
       if (existingExpense.duplicateWarning) {

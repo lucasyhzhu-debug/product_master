@@ -328,7 +328,7 @@ export function ApprovalActions({
       {/* Reject Dialog */}
       <ActionDialog
         title="Reject Expense"
-        description={`Reject this expense (${formatCurrency(amount)}) and send it back to the submitter for correction. They can fix the issue and resubmit a revised version.`}
+        description={`Reject this expense (${formatCurrency(amount)}) so the submitter can correct and resubmit. They will see the rejection reason on their expenses page.`}
         placeholder="What needs to be corrected? (required)"
         submitLabel="Confirm Reject"
         submitVariant="destructive"

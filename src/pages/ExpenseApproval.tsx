@@ -121,8 +121,10 @@ export function ExpenseApproval() {
       <PageHeader
         title="Expense Approvals"
         description={
-          pending !== undefined
-            ? `${pending.length} expense${pending.length !== 1 ? "s" : ""} pending review`
+          queueEntries !== undefined && pending !== undefined
+            ? queueEntries.length === pending.length
+              ? `${pending.length} expense${pending.length !== 1 ? "s" : ""} pending review`
+              : `${pending.length} expense${pending.length !== 1 ? "s" : ""} in ${queueEntries.length} item${queueEntries.length !== 1 ? "s" : ""} pending review`
             : undefined
         }
         action={
@@ -359,6 +361,8 @@ function SharedReceiptExpenseItem({
   };
   const PaymentIcon = paymentInfo.icon;
   const hasRejectionHistory = !!expense.previousExpenseId;
+  const rejectionChain = useRejectionChain(hasRejectionHistory ? expense._id : undefined);
+  const rejectionCount = rejectionChain?.length ?? 0;
 
   return (
     <div className="rounded-md border bg-card p-3 space-y-2">
@@ -389,6 +393,7 @@ function SharedReceiptExpenseItem({
       <FraudFlags
         duplicateWarning={expense.duplicateWarning}
         lateSubmission={expense.lateSubmission}
+        rejectionCount={rejectionCount > 0 ? rejectionCount : undefined}
         flaggedForReview={expense.flaggedForReview}
         flagReason={expense.flagReason}
       />

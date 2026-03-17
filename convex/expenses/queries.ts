@@ -282,20 +282,30 @@ export const checkReceiptHash = protectedQuery({
   handler: async (ctx, args) => {
     if (!args.hash) return null;
 
-    const match = await ctx.db
+    // Exclude terminal/inactive statuses — voided expenses should not block resubmission
+    const EXCLUDED_STATUSES = new Set(["voided", "rejected", "draft"]);
+
+    const candidates = await ctx.db
       .query("expenses")
       .withIndex("by_receipt_hash", (q) => q.eq("receiptImageHash", args.hash))
-      .first();
+      .collect();
+
+    const match = candidates.find(
+      (e) =>
+        !EXCLUDED_STATUSES.has(e.status) &&
+        e._id !== (args.excludeExpenseId ?? "")
+    );
 
     if (!match) return null;
 
-    // Exclude current expense (editing a draft with same receipt is fine)
-    if (args.excludeExpenseId && match._id === args.excludeExpenseId) return null;
+    // Only reveal metadata if requester owns the expense or is an approver
+    const isOwner = match.submittedBy === ctx.user._id;
+    const isApprover = ctx.user.role === "manager" || ctx.user.role === "admin";
 
     return {
       expenseId: match._id,
-      expenseNumber: match.expenseNumber,
-      description: match.description,
+      expenseNumber: isOwner || isApprover ? match.expenseNumber : "[another expense]",
+      description: isOwner || isApprover ? match.description : undefined,
     };
   },
 });

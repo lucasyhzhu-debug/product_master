@@ -23,13 +23,18 @@ interface ReceiptViewerProps {
 
 export function ReceiptViewer({ receiptUrl, expenseNumber, className }: ReceiptViewerProps) {
   const [open, setOpen] = useState(false);
+  // Convex storage URLs are opaque (no file extension), so we try <img> first
+  // and fall back to <object> (PDF) if the image fails to load.
+  const [imgFailed, setImgFailed] = useState(false);
 
-  const handleOpen = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click from firing
-    if (receiptUrl) {
-      setOpen(true);
-    }
+  const openDialog = useCallback(() => {
+    if (receiptUrl) setOpen(true);
   }, [receiptUrl]);
+
+  const handleOpen = useCallback((e: React.SyntheticEvent) => {
+    e.stopPropagation(); // Prevent card click from firing
+    openDialog();
+  }, [openDialog]);
 
   const handleOpenInNewTab = useCallback(() => {
     if (receiptUrl) {
@@ -47,10 +52,6 @@ export function ReceiptViewer({ receiptUrl, expenseNumber, className }: ReceiptV
     );
   }
 
-  // Determine if URL points to a PDF (Convex storage URLs may not have extension,
-  // but we handle it gracefully -- try image first, PDF fallback via object tag)
-  const isPdf = receiptUrl.toLowerCase().includes(".pdf");
-
   return (
     <>
       <Badge
@@ -59,7 +60,7 @@ export function ReceiptViewer({ receiptUrl, expenseNumber, className }: ReceiptV
         onClick={handleOpen}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleOpen(e as unknown as React.MouseEvent); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); openDialog(); } }}
       >
         <Receipt className="h-3 w-3 mr-1" />
         View Receipt
@@ -74,22 +75,23 @@ export function ReceiptViewer({ receiptUrl, expenseNumber, className }: ReceiptV
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center gap-3">
-            {isPdf ? (
+            {!imgFailed ? (
+              <img
+                src={receiptUrl}
+                alt={`Receipt for ${expenseNumber}`}
+                className="max-w-full max-h-[60vh] rounded-md border object-contain"
+                onError={() => setImgFailed(true)}
+              />
+            ) : (
               <object
                 data={receiptUrl}
                 type="application/pdf"
                 className="w-full h-[60vh] rounded-md border"
               >
                 <p className="text-sm text-muted-foreground p-4">
-                  Unable to display PDF. Click below to open in a new tab.
+                  Unable to display receipt. Click below to open in a new tab.
                 </p>
               </object>
-            ) : (
-              <img
-                src={receiptUrl}
-                alt={`Receipt for ${expenseNumber}`}
-                className="max-w-full max-h-[60vh] rounded-md border object-contain"
-              />
             )}
             <Button
               variant="outline"
