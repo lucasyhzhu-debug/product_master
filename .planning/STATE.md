@@ -1,5 +1,20 @@
 ---
 gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
+last_updated: "2026-03-17T00:47:46.270Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 24
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+---
+
+---
+gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: in_progress
@@ -139,6 +154,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 - Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
 - Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
+- Phase 63 added: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
 
 ### Open Blockers (carried forward)
 

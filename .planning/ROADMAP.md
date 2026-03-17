@@ -541,3 +541,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 62 to break down)
+
+### Phase 63: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 62
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 63 to break down)
