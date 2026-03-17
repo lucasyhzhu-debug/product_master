@@ -40,11 +40,11 @@
 
 ### Invoice — Business Settings
 
-- [ ] **BSET-01**: Admin can access Business Settings page at `/settings/business`
-- [ ] **BSET-02**: Admin can set business name, address, phone, email, NPWP
-- [ ] **BSET-03**: Admin can upload company logo (Convex file storage)
-- [ ] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
-- [ ] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
+- [x] **BSET-01**: Admin can access Business Settings page at `/settings/business`
+- [x] **BSET-02**: Admin can set business name, address, phone, email, NPWP
+- [x] **BSET-03**: Admin can upload company logo (Convex file storage)
+- [x] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
+- [x] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
 
 ### Invoice — Generation
 
@@ -146,11 +146,11 @@
 | EGUIDE-07 | Phase 56 | Complete |
 | EGUIDE-08 | Phase 56 | Complete |
 | EGUIDE-09 | Phase 56 | Complete |
-| BSET-01 | Phase 57 | Pending |
-| BSET-02 | Phase 57 | Pending |
-| BSET-03 | Phase 57 | Pending |
-| BSET-04 | Phase 57 | Pending |
-| BSET-05 | Phase 57 | Pending |
+| BSET-01 | Phase 57 | Complete |
+| BSET-02 | Phase 57 | Complete |
+| BSET-03 | Phase 57 | Complete |
+| BSET-04 | Phase 57 | Complete |
+| BSET-05 | Phase 57 | Complete |
 | IDAT-01 | Phase 57 | Complete |
 | IDAT-02 | Phase 57 | Complete |
 | IDAT-03 | Phase 57 | Complete |

@@ -461,11 +461,11 @@ Plans:
   7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
   8. Customer write-back on finalize (company, NPWP, billing address)
   9. `npm run build` succeeds
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
-- [ ] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
+- [x] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
+- [x] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
 
 ### Phase 58: Invoice Form, Print View & Order Integration
 **Goal**: Build the WYSIWYG invoice form page, print view, and Order Detail sidebar card so managers/admins can generate, preview, finalize, and print invoices from any qualifying order

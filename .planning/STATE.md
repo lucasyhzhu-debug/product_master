@@ -1,5 +1,21 @@
 ---
 gsd_state_version: 1.0
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: in_progress
+stopped_at: Completed 57-02-PLAN.md
+last_updated: "2026-03-17T20:10:00Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 23
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+  percent: 85
+---
+
+---
+gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
@@ -7,7 +23,7 @@ stopped_at: Completed 57-01-PLAN.md
 last_updated: "2026-03-17T19:53:42Z"
 last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
 progress:
-  total_phases: 23
+  [█████████░] 85%
   completed_phases: 17
   total_plans: 43
   completed_plans: 38
@@ -64,16 +80,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 57 (Invoice Backend & Business Settings) Plan 01 COMPLETE
+**Current focus:** v1.8 Support & Quality of Life -- Phase 57 COMPLETE, Phase 58 next
 
 ## Current Position
 
-Phase: 57-invoice-backend-business-settings (Plan 1 of 2 complete)
-Plan: 57-01 (complete)
-Status: Plan 57-01 complete, Plan 57-02 next
-Last activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
+Phase: 57-invoice-backend-business-settings (Plan 2 of 2 complete -- PHASE COMPLETE)
+Plan: 57-02 (complete)
+Status: Phase 57 complete, Phase 58 next
+Last activity: 2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)
 
-Progress: [█████░░░░░] 50%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -90,6 +106,7 @@ Progress: [█████░░░░░] 50%
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
 | 57-invoice-backend-business-settings | 01 | 11min | 4 | 8 |
+| 57-invoice-backend-business-settings | 02 | 5min | 3 | 11 |
 
 ## Accumulated Context
 
@@ -111,6 +128,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [57-01] Used .first() not .unique() for invoiceCounters lookup (gracefully handles duplicate rows)
 - [57-01] INVOICEABLE_STATUSES allowlist pattern for forward-compatible status validation
 - [57-01] paymentStatus/paymentMethod snapshotted at draft creation, excluded from updateDraft
+- [57-02] Empty successMessage on createDraft/updateDraft hooks (auto-save feedback deferred to Phase 58 UI)
+- [57-02] Live invoice header preview reads from local form state (no API call per keystroke)
+- [57-02] Logo upload validates 1MB max client-side before POST to Convex upload URL
 
 ### Roadmap Evolution
 
@@ -135,6 +155,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T19:53:42Z
-Stopped at: Completed 57-01-PLAN.md
-Resume notes: Plan 57-01 complete. 3 new tables (businessSettings, invoiceCounters, invoices) + customer extension deployed. 9 Convex functions created. 51 unit tests passing. Ready for Plan 57-02 (Business Settings UI).
+Last session: 2026-03-17T20:10:00Z
+Stopped at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
+Resume notes: Phase 57 fully complete. Plan 01 (backend: 3 tables, 9 functions, 51 tests) + Plan 02 (UI: permissions, hooks, Business Settings page, logo upload, bank selector, live preview). All human-verified. Ready for Phase 58 (Invoice Form, Print View, Order Integration).
