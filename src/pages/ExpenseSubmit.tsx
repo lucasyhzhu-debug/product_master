@@ -43,9 +43,21 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 // Payment method options matching schema validators
 const PAYMENT_METHODS = [
-  { value: "employee_paid", label: "Employee Paid" },
-  { value: "company_paid", label: "Company Paid" },
-  { value: "payment_request", label: "Payment Request" },
+  {
+    value: "employee_paid",
+    label: "Reimburse Employee",
+    description: "I paid for this myself and need the company to pay me back",
+  },
+  {
+    value: "company_paid",
+    label: "Paid by Company",
+    description: "The company bank account was already charged (e.g., direct debit, linked Shopee/BCA)",
+  },
+  {
+    value: "payment_request",
+    label: "Payment Request",
+    description: "I need the company to pay this vendor directly from the bank account",
+  },
 ] as const;
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
@@ -68,6 +80,7 @@ interface FormState {
   expenseDate: string;
   vendorName: string;
   paymentMethod: PaymentMethod;
+  transactionReference: string;
   receiptFileId?: Id<"_storage">;
   receiptImageHash?: string;
 }
@@ -84,6 +97,7 @@ const INITIAL_FORM: FormState = {
   expenseDate: getDefaultDate(),
   vendorName: "",
   paymentMethod: "employee_paid",
+  transactionReference: "",
 };
 
 export function ExpenseSubmit() {
@@ -139,6 +153,7 @@ export function ExpenseSubmit() {
         expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
         paymentMethod: existingExpense.paymentMethod as PaymentMethod,
+        transactionReference: existingExpense.transactionReference ?? "",
         receiptFileId: existingExpense.receiptFileId,
         receiptImageHash: existingExpense.receiptImageHash,
       });
@@ -188,6 +203,7 @@ export function ExpenseSubmit() {
       expenseDate: wibDateStrToUtcMs(form.expenseDate),
       vendorName: form.vendorName.trim(),
       paymentMethod: form.paymentMethod,
+      ...(form.transactionReference.trim() && { transactionReference: form.transactionReference.trim() }),
       ...(form.receiptFileId && { receiptFileId: form.receiptFileId }),
       ...(form.receiptImageHash && { receiptImageHash: form.receiptImageHash }),
     };
@@ -441,7 +457,10 @@ export function ExpenseSubmit() {
                 <SelectContent>
                   {PAYMENT_METHODS.map((pm) => (
                     <SelectItem key={pm.value} value={pm.value}>
-                      {pm.label}
+                      <div className="flex flex-col">
+                        <span>{pm.label}</span>
+                        <span className="text-xs text-muted-foreground">{pm.description}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -449,13 +468,32 @@ export function ExpenseSubmit() {
             </div>
           </div>
 
+          {/* Transaction Reference (visible only for company_paid) */}
+          {form.paymentMethod === "company_paid" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="transactionReference">Transaction Reference</Label>
+              <Input
+                id="transactionReference"
+                placeholder="Bank ref number, Shopee order ID, BCA transaction ID..."
+                value={form.transactionReference}
+                onChange={(e) => setForm((prev) => ({ ...prev, transactionReference: e.target.value }))}
+                disabled={isProcessing}
+              />
+              <p className="text-xs text-muted-foreground">
+                Optional: Enter the bank reference or transaction ID
+              </p>
+            </div>
+          )}
+
           {/* Receipt Upload */}
           <div className="space-y-2">
             <Label>
               Receipt{" "}
-              {amountNum > RECEIPT_WARNING_THRESHOLD
-                ? "(required for > Rp 50,000)"
-                : "(optional)"}
+              {form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request"
+                ? "(required)"
+                : amountNum > RECEIPT_WARNING_THRESHOLD
+                  ? "(required for > Rp 50,000)"
+                  : "(optional)"}
             </Label>
             <ReceiptUpload
               generateUploadUrl={generateUploadUrl}
@@ -464,7 +502,13 @@ export function ExpenseSubmit() {
               currentFileId={form.receiptFileId}
               disabled={isProcessing}
             />
-            {showReceiptWarning && (
+            {(form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") && !form.receiptFileId && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Receipt is required for all company-paid expenses
+              </p>
+            )}
+            {form.paymentMethod === "employee_paid" && showReceiptWarning && (
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 Receipt is required for expenses over Rp 50,000
