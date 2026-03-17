@@ -8,11 +8,11 @@
 
 Phase 63 is an entirely frontend phase that replaces three text-heavy expense guide sections (Submit, Approve, Reimburse) with interactive click-through visual walkthroughs. The scope is well-defined: 7 new files, 4 modified files, and documentation updates. No backend changes are needed.
 
-The implementation builds on the existing Phase 55/56 help center infrastructure (`GuideLayout`, `GuideSection`, `CalloutBox`, `FaqAccordion`, `WorkflowDiagram`) and introduces a new generic `WalkthroughPlayer` component with mock UI primitives. The mock elements are styled divs using Tailwind CSS 4 classes with the project's existing dark mode approach (`@custom-variant dark`), NOT real shadcn/ui components.
+The implementation builds on the existing Phase 55/56 help center infrastructure (`GuideLayout`, `GuideSection`, `CalloutBox`, `FaqAccordion`, `WorkflowDiagram`) and introduces a new generic `WalkthroughPlayer` component with mock UI primitives. The mock elements are styled divs using Tailwind CSS 4 classes with the project's existing dark mode approach (`@custom-variant dark`), NOT real shadcn/ui components. All required libraries (React 19, Framer Motion, Tailwind CSS 4, Lucide React) are already installed in the project.
 
-**Critical Phase 59 alignment note:** The expense system was overhauled in Phase 59 and now has 3 payment methods (`employee_paid`, `company_paid`, `payment_request`), 9 expense statuses (including `recorded` and `paid`), and new fields (`transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason`). The walkthrough mock content in the PRD spec correctly uses "Personal Cash" as the sample payment method value, which maps to `employee_paid`. The spec's 2-option payment method reference in the CONTEXT.md description line is stale (spec says 2, schema has 3), but the actual PRD plan code correctly shows the payment method field. The mock panels do NOT need to demonstrate all 3 payment methods -- the walkthrough shows the most common flow (employee_paid/personal) and the annotation text already explains that "the payment method determines whether this goes through reimbursement (personal) or is recorded directly (company card)."
+**Critical Phase 59 alignment note:** The expense system was overhauled in Phase 59. The schema now has 3 payment method literals (`employee_paid`, `company_paid`, `payment_request`) and additional statuses (`recorded`, `paid`). The walkthrough mock content in the PRD spec correctly shows the most common flow (employee_paid/personal) and the annotation text accurately explains the payment method behavior. The PRD plan code is Phase-59-aligned -- no content corrections are needed.
 
-**Primary recommendation:** Follow the PRD plan structure (4 chunks, 12 tasks) closely. The spec and code are detailed and aligned with current codebase patterns. The main risk is incorrect test assertions after section count changes.
+**Primary recommendation:** Follow the PRD plan structure (4 chunks, 12 tasks) closely. The spec and code are detailed and aligned with current codebase patterns. The main risk is incorrect test assertions after section count changes. Use a single PLAN.md file since all tasks are sequential (foundation before mocks before integration before docs).
 
 <user_constraints>
 ## User Constraints (from CONTEXT.md)
@@ -58,13 +58,14 @@ The implementation builds on the existing Phase 55/56 help center infrastructure
 | React | 19.2.0 | UI framework | Project standard |
 | TypeScript | ~5.9 | Type safety | Project standard |
 | Tailwind CSS | 4.1.18 | Utility-first styling | Project standard, v4 with `@custom-variant dark` |
-| Framer Motion | 11.18.2 | AnimatePresence crossfade on step transitions | Already used extensively in project |
+| Framer Motion | 11.18.2 | AnimatePresence crossfade on step transitions | Already used extensively in project (ProductionLogPanel, OutletCardGrid, OrderStatusAccordion, FlipNumber, HelpCenter) |
 | Lucide React | (project ver) | Check icon for completed steps | Project standard icon library |
 
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `cn()` utility | local | Conditional class merging | Every component with conditional styles |
+| `cn()` utility | local (`src/lib/utils.ts`) | Conditional class merging via `clsx` + `twMerge` | Every component with conditional styles |
+| `CalloutBox` | local (`src/components/help/CalloutBox.tsx`) | Tip/warning rendering in annotations | WalkthroughPlayer annotation area |
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
@@ -86,52 +87,80 @@ src/components/help/
     ApproveMocks.tsx       # 3-step Approve Expense mock component
     ReimburseMocks.tsx     # 6-step Reimburse mock component
     index.ts              # Barrel export
-  WalkthroughPlayer.tsx   # Generic reusable walkthrough engine (lives at help/ level, not walkthrough/)
-  index.ts                # Updated barrel with WalkthroughPlayer + type exports
+  WalkthroughPlayer.tsx   # Generic reusable walkthrough engine (at help/ level, NOT walkthrough/)
+  index.ts                # Updated barrel with WalkthroughPlayer + type re-exports
 ```
 
 ### Pattern 1: Generic Player + Workflow-Specific Mocks
 **What:** A single `WalkthroughPlayer` component that receives `WalkthroughWorkflow[]` and handles all navigation, tab switching, step state, keyboard events, and animations. Each workflow has one mock component receiving `currentStep: number` that conditionally renders/highlights elements.
 **When to use:** This is the only pattern for this phase.
-**Key points:**
-- Player handles state (activeWorkflow, activeStep) and resets step to 0 on tab switch
+**Key implementation details:**
+- Player state: `activeWorkflowId: string`, `activeStep: number`
+- Tab switch resets step to 0 via `switchWorkflow` callback
 - Each mock component uses `currentStep` to conditionally highlight fields or show/hide elements
 - Breadcrumb is computed by a helper function inside the player, keyed by workflowId + step index
 - `AnimatePresence mode="wait"` with `motion.div` opacity 0->1->0 at 150ms duration
+- Keyboard handler attached to container ref via `useEffect`, scoped with `tabIndex={-1}` on container
+- Composite key `${activeWorkflowId}-${activeStep}` ensures AnimatePresence detects step changes
+
+**Breadcrumb mapping (from spec):**
+| Workflow | Step 0 Breadcrumb | Later Steps Breadcrumb |
+|----------|-------------------|----------------------|
+| submit | "Financials > Expenses" | "Financials > Expenses > New Expense" |
+| approve | "Financials > Expenses > Approval" | "Financials > Expenses > Approval > Detail" |
+| reimburse | "Financials > Reimburse" | "Financials > Reimburse > Batch RMB-0315-001" |
 
 ### Pattern 2: Mock Element Primitives with Shared Highlight Style
 **What:** 11 mock UI building blocks that mimic app UI elements (inputs, selects, buttons, tables, etc.) using only styled divs, Tailwind classes, and CSS variables. All share a single `HIGHLIGHT_CLASSES` constant for consistent indigo glow styling.
 **When to use:** Within mock workflow components.
-**Key points:**
-- `HIGHLIGHT_CLASSES` is a string of Tailwind classes: `"border-2 border-indigo-400 dark:border-indigo-400 shadow-[0_0_0_4px_rgba(99,102,241,0.15),0_0_12px_rgba(99,102,241,0.08)] dark:shadow-[0_0_0_4px_rgba(99,102,241,0.25),0_0_12px_rgba(99,102,241,0.15)]"`
-- Each element accepts optional `highlighted?: boolean` prop that applies these classes
-- Elements use `bg-card`, `bg-background`, `border-input`, `text-muted-foreground` etc. (project CSS variable tokens)
-- No CSS variable inline styles needed for these -- Tailwind `dark:` variant works because project uses `@custom-variant dark`
+**Key implementation details:**
+- `HIGHLIGHT_CLASSES` is a string of Tailwind classes exported from MockElements.tsx
+- Includes both light and dark shadow variants via Tailwind `dark:` prefix
+- Each element accepts optional `highlighted?: boolean` prop that applies these classes via `cn()`
+- Elements use semantic Tailwind classes: `bg-card`, `bg-background`, `border-input`, `text-muted-foreground`
+- CSS variable-based colors (bg-card, text-foreground, etc.) auto-switch in dark mode -- no `dark:` needed
+- Direct color values (border-indigo-400, shadow rgba values) DO need `dark:` variants
+
+**The 11 primitives:**
+1. `MockFrame` -- browser chrome (colored dots + breadcrumb + children)
+2. `MockLabel` -- form field label text
+3. `MockInput` -- fake text input with optional value + highlight
+4. `MockSelect` -- fake dropdown with value + chevron + highlight
+5. `MockButton` -- fake button (primary/ghost/destructive) + highlight
+6. `MockField` -- label + input wrapper div
+7. `MockRow` -- 2-column grid for side-by-side fields
+8. `MockTable` -- table with headers, rows, optional `highlightRow`
+9. `MockBadge` -- small colored badge (warning/error/info variants)
+10. `MockUploadZone` -- dashed upload area with optional file thumbnail + highlight
+11. `MockNavDropdown` -- fake nav with "Financials" header and menu items + highlight
 
 ### Pattern 3: Section Consolidation in ExpenseGuide
 **What:** Three existing GuideSection instances (submitting, approving, reimbursement) are replaced by a single GuideSection containing a WalkthroughPlayer. The player's tabs serve as the sub-navigation within the walkthrough section.
 **When to use:** During ExpenseGuide integration.
-**Key points:**
-- The new section has `id="walkthrough"` and `title="Interactive Walkthroughs"` with no `role` prop (visible to all)
-- Workflow data arrays (steps with titles, descriptions, tips, warnings) are defined inline in ExpenseGuide.tsx
+**Key implementation details:**
+- New section: `id="walkthrough"`, `title="Interactive Walkthroughs"`, no `role` prop (visible to all)
+- Workflow data arrays (steps with titles, descriptions, tips, warnings) defined inline in ExpenseGuide.tsx
 - Deleted constants: `SUBMITTING_FAQ`, `DOA_NODES`, `DOA_EDGES`, `BATCH_NODES`, `BATCH_EDGES`
 - Kept constants: `LIFECYCLE_NODES/EDGES`, `PAYROLL_FAQ`, `PNL_NODES/EDGES`, `FULL_FAQ`
-- 2 FAQ items migrate from removed `SUBMITTING_FAQ` to the existing `FULL_FAQ` "Submission" group
+- 2 FAQ items (GL category + receipt questions) migrate from removed `SUBMITTING_FAQ` to `FULL_FAQ` "Submission" group
+- The third `SUBMITTING_FAQ` item (duplicate handling) is covered by walkthrough annotations and does NOT migrate
 
 ### Anti-Patterns to Avoid
 - **Importing real UI components in mocks:** Mock elements are intentionally decoupled. Never import shadcn/ui Button, Input, Select, etc. in the walkthrough components.
 - **One file per step:** Do NOT create 13 separate mock files. One component per workflow (3 total), switching on `currentStep`.
-- **Hardcoded breadcrumbs in mock components:** Breadcrumbs are computed in the player via `getBreadcrumb()` helper and passed as props.
+- **Hardcoded breadcrumbs in mock components:** Breadcrumbs are computed in the player via `getBreadcrumb()` helper and passed as props to mock components.
+- **Using `mode="popLayout"` for AnimatePresence:** This phase uses `mode="wait"` for simple crossfade. `popLayout` is for layout animations (used elsewhere in the project for FlipNumber).
 
 ## Don't Hand-Roll
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Step crossfade animation | Custom CSS transition manager | Framer Motion `AnimatePresence mode="wait"` | Handles mount/unmount, already in project |
+| Step crossfade animation | Custom CSS transition manager | Framer Motion `AnimatePresence mode="wait"` | Handles mount/unmount, already used in 6+ project components |
 | Tab navigation a11y | Custom ARIA management | Standard `role="tablist"/"tab"` + `aria-selected` pattern | Well-established, no library needed |
-| Keyboard navigation | Global event listener | `useEffect` on container ref with `keydown` handler | Already scoped in PRD plan code |
-| Dark mode theming | Custom dark mode context | Tailwind `dark:` variant + CSS variable tokens | Project already has this infrastructure |
-| Callout rendering in annotations | New callout component | Existing `CalloutBox` component from Phase 55 | Already supports tip/warning/important types |
+| Keyboard navigation | Global event listener | `useEffect` on container ref with `keydown` handler | Scoped to walkthrough container, avoids conflicts |
+| Dark mode theming | Custom dark mode context | Tailwind `dark:` variant + CSS variable tokens | Project already has `@custom-variant dark` in index.css |
+| Callout rendering in annotations | New callout component | Existing `CalloutBox` component from Phase 55 | Already supports tip/warning/important types with CSS variable styling |
+| Conditional class merging | Manual string concatenation | `cn()` from `src/lib/utils.ts` | Project-wide pattern, handles Tailwind class conflicts |
 
 **Key insight:** The entire walkthrough system is a pure UI composition exercise. All infrastructure (animation, theming, help layout, callout styling) already exists in the codebase. The only new concept is the `WalkthroughPlayer` state management (workflow tabs + step index), which is straightforward React state.
 
@@ -140,23 +169,26 @@ src/components/help/
 ### Pitfall 1: Stale Mock Content After Phase 59
 **What goes wrong:** Mock panels show 2 payment methods when there are now 3 (`employee_paid`, `company_paid`, `payment_request`). Or mock panels reference outdated statuses.
 **Why it happens:** Phase 56 was built before Phase 59's expense overhaul. The PRD was written after Phase 59.
-**How to avoid:** The PRD plan content is already Phase-59-aware. The Submit mock shows "Personal Cash" (maps to `employee_paid`) and the annotation explains "the payment method determines whether this goes through reimbursement (personal) or is recorded directly (company card)." This is correct for a tutorial that shows the most common flow. The Approve mock includes "Company Paid" badge and acknowledge/flag flow references. Follow the PRD plan content exactly.
+**How to avoid:** The PRD plan content is already Phase-59-aware. The Submit mock shows "Personal Cash" (maps to `employee_paid`, the most common flow) and the annotation explains "the payment method determines whether this goes through reimbursement (personal) or is recorded directly (company card)." Follow the PRD plan content exactly.
 **Warning signs:** If any mock shows "Personal Cash/Transfer" as a payment option (old 2-option split from pre-Phase 59), that is stale.
 
 ### Pitfall 2: Test Assertion Failures After Section Changes
 **What goes wrong:** Tests that assert specific section counts, search result counts, or anchor values break after sections change from 8 to 6.
 **Why it happens:** The test file `src/lib/__tests__/helpGuides.test.ts` has assertions tied to section structure.
 **How to avoid:** Update these specific tests:
-1. Section count test -- "expenses entry" sections assertion needs to match new 6-section structure
-2. `searchGuides("Submitting")` test -- "Submitting Expenses" section no longer exists; test should look for "Interactive Walkthroughs" or be removed
-3. `searchGuides("expense")` results count -- `sectionMatches.length` changes because 3 section titles contained "expense" before, now fewer do
-4. POPULAR_QUESTIONS anchor test -- `anchor: "submitting"` and `anchor: "approving"` change to `anchor: "walkthrough"`
+1. **Section count test** (line ~80): expenses entry currently has 8 sections, needs to assert 6
+2. **`searchGuides("Submitting")` test** (line ~25-33): "Submitting Expenses" section no longer exists. The test expects `anchor: "submitting"` but this section is gone. Either update to look for "Interactive Walkthroughs" section with `anchor: "walkthrough"`, or remove this assertion
+3. **`searchGuides("expense")` results count** (line ~65-76): `sectionMatches.length` changes because previously 3 section titles contained "expense" (Submitting Expenses, Approving Expenses, Expense Analytics). After Phase 63, only 1 section title contains "expense" (Expense Analytics) since "Submitting" and "Approving" are replaced by "Interactive Walkthroughs". The assertion `expect(sectionMatches.length).toBeGreaterThan(0)` still passes, but the `expect(results.length).toBeGreaterThan(3)` may need adjustment
+4. **POPULAR_QUESTIONS anchor test**: `anchor: "submitting"` and `anchor: "approving"` change to `anchor: "walkthrough"` in the data, but the test only checks that guideIds are valid -- no anchor assertions exist in current tests, so this is not a test breakage
 **Warning signs:** `npm run test` failures in `helpGuides.test.ts`.
 
 ### Pitfall 3: Dark Mode Highlight Styling Inconsistency
 **What goes wrong:** Indigo highlights look correct in light mode but invisible or wrong in dark mode.
-**Why it happens:** Tailwind v4 `dark:` classes work via `@custom-variant dark (&:where(.dark, .dark *))`. Forgetting to include `dark:` variants for shadow or border means light-only styling.
-**How to avoid:** The `HIGHLIGHT_CLASSES` constant includes both light and dark shadow variants. Always use this constant, never manually write highlight styles.
+**Why it happens:** Existing help components use CSS variable tokens (bg-card, text-foreground) that auto-switch in dark mode. But the indigo highlight uses direct Tailwind colors (border-indigo-400, shadow rgba values) that need explicit `dark:` variants.
+**How to avoid:** The `HIGHLIGHT_CLASSES` constant includes both light and dark shadow variants. Always use this constant, never manually write highlight styles. The constant pattern is:
+```
+"border-2 border-indigo-400 dark:border-indigo-400 shadow-[...light...] dark:shadow-[...dark...]"
+```
 **Warning signs:** Visual inspection in dark mode shows no glow/border on highlighted mock elements.
 
 ### Pitfall 4: AnimatePresence Key Collisions
@@ -174,8 +206,14 @@ src/components/help/
 ### Pitfall 6: Circular Import Risk with Walkthrough Types
 **What goes wrong:** Importing from `./walkthrough/types` in WalkthroughPlayer and re-exporting from `help/index.ts` can create circular imports if ExpenseGuide also imports from `help/index.ts`.
 **Why it happens:** ExpenseGuide already imports from `@/components/help` barrel.
-**How to avoid:** WalkthroughPlayer imports types directly from `./walkthrough/types`, not from barrel. ExpenseGuide imports mock components directly from `./walkthrough/` submodules, not through the barrel. The barrel re-exports are for external consumers only.
+**How to avoid:** WalkthroughPlayer imports types directly from `./walkthrough/types`, not from barrel. ExpenseGuide imports the `WalkthroughPlayer` from `@/components/help` and imports mock components directly from `@/components/help/walkthrough/`. The barrel re-exports are for external consumers.
 **Warning signs:** Runtime "module not found" or TypeScript "cannot find module" errors.
+
+### Pitfall 7: Missing `getBreadcrumb` Helper
+**What goes wrong:** Breadcrumbs hardcoded in each mock component, creating duplication and inconsistency.
+**Why it happens:** The breadcrumb changes per step within a workflow (e.g., step 0 shows "Financials > Expenses", step 1+ shows "Financials > Expenses > New Expense").
+**How to avoid:** Implement `getBreadcrumb(workflowId, stepIndex)` as a function inside `WalkthroughPlayer.tsx`. The mapping is specified in the design spec section 6. Pass `breadcrumb` as a prop to the mock component via `MockPanelProps`.
+**Warning signs:** All steps in a workflow show the same breadcrumb, or breadcrumbs don't change on step transitions.
 
 ## Code Examples
 
@@ -183,7 +221,7 @@ Verified patterns from the existing codebase:
 
 ### AnimatePresence with mode="wait" (crossfade)
 ```typescript
-// Source: src/components/k3martCockpit/OutletCardGrid.tsx (existing pattern)
+// Source: src/components/k3martCockpit/OutletCardGrid.tsx (existing project pattern)
 // Also used in: src/components/orders/OrderStatusAccordion.tsx
 <AnimatePresence mode="wait">
   <motion.div
@@ -228,7 +266,7 @@ import { cn } from "@/lib/utils";
 ### CalloutBox usage (tip/warning in annotations)
 ```typescript
 // Source: src/components/help/CalloutBox.tsx
-// Types: "tip" (green), "warning" (amber), "important" (red/orange)
+// Types: "tip" (green via --color-status-success), "warning" (amber via --color-status-warning), "important" (red via --color-status-error)
 <CalloutBox type="tip">Use 6990 Misc OpEx if unsure about the GL category.</CalloutBox>
 <CalloutBox type="warning">Expenses over Rp 50,000 without a receipt may be rejected.</CalloutBox>
 ```
@@ -242,6 +280,23 @@ import { cn } from "@/lib/utils";
 </GuideSection>
 ```
 
+### Help barrel export pattern
+```typescript
+// Source: src/components/help/index.ts (current state)
+export { RoleTag } from "./RoleTag";
+export { CalloutBox } from "./CalloutBox";
+export { StepCard } from "./StepCard";
+export { GuideSection } from "./GuideSection";
+export { FaqAccordion } from "./FaqAccordion";
+export type { FaqItem, FaqGroup } from "./FaqAccordion";
+export { WorkflowDiagram } from "./WorkflowDiagram";
+export { GuideLayout } from "./GuideLayout";
+export type { FlowNode, FlowEdge } from "./WorkflowDiagram";
+// Phase 63 adds:
+// export { WalkthroughPlayer } from "./WalkthroughPlayer";
+// export type { WalkthroughStep, WalkthroughWorkflow, MockPanelProps } from "./walkthrough/types";
+```
+
 ## State of the Art
 
 | Old Approach (Phase 56) | Current Approach (Phase 63) | Impact |
@@ -251,45 +306,30 @@ import { cn } from "@/lib/utils";
 | 8 separate guide sections | 6 sections (3 merged into 1 walkthrough) | Faster read time (15 -> 10 min) |
 | Role-gated sections (submitting=all, approving=manager, reimburse=admin) | Single walkthrough section visible to all, tabs show all workflows | Simpler access, tab labels clarify audience |
 
-**Phase 59 expense system changes (must be reflected in mock content):**
-- Payment methods: Now 3 (`employee_paid`, `company_paid`, `payment_request`) -- was 2 before Phase 59
-- New statuses: `recorded` (company_paid auto-status), `paid` (payment_request after bank transfer)
-- New fields: `transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason`
-- Approval queue: Now shows Company Paid badge + Acknowledge/Flag buttons for recorded expenses
+**Phase 59 expense system changes (verified in schema):**
+- Payment methods: 3 literals (`employee_paid`, `company_paid`, `payment_request`) at schema.ts:1668-1670
+- Statuses include `recorded` (company_paid auto-status) and `paid` (payment_request after transfer)
+- Fields: `transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason`
+- Approval queue: Shows Company Paid badge + Acknowledge/Flag buttons for recorded expenses
 - Receipt requirement: All company_paid and payment_request expenses require receipt regardless of amount
 
-## Phase 59 Alignment Verification
-
-The walkthrough mock content must accurately reflect the **current** expense system post-Phase 59:
-
-### Submit Expense Flow (employee_paid shown in tutorial)
-- **Form fields (current):** Description, Amount (IDR), GL Category (account selector), Expense Date, Vendor Name, Payment Method (3 options: Reimburse Employee, Paid by Company, Payment Request), Transaction Reference (company_paid only), Receipt Upload
-- **Mock shows:** Personal Cash payment method (correct -- maps to `employee_paid`, the most common flow)
-- **Annotation explains:** "The payment method determines whether this goes through reimbursement (personal) or is recorded directly (company card)" -- accurate post-Phase 59
-
-### Approve Expense Flow (current)
-- **Approval queue (current):** Shows submitted employee_paid/payment_request for approve/reject, AND recorded company_paid for acknowledge/flag
-- **Mock shows:** Standard approval queue with fraud badges (Late, Duplicate) -- correct for employee_paid flow
-- **Note:** The mock does NOT need to show the company_paid acknowledge flow separately -- the tutorial covers the primary approval path
-
-### Reimburse Flow (current)
-- **Reimbursement (current):** Groups approved employee_paid expenses by employee, creates batches, admin transfers via bank
-- **Mock shows:** Standard reimbursement batch flow -- correct and unchanged by Phase 59
-- **Note:** company_paid expenses never enter reimbursement (they're recorded directly), so the reimburse mock is unaffected by Phase 59
-
-**Conclusion:** The PRD plan content is Phase-59-aligned. No content corrections needed.
+**Mock content alignment with Phase 59:** The PRD plan correctly:
+- Shows "Personal Cash" payment method (maps to `employee_paid`, most common flow)
+- Explains company card behavior in annotation text
+- Shows standard approve/reject flow (the most common path)
+- Does NOT attempt to show all 3 payment method flows (would overcomplicate tutorial)
 
 ## Open Questions
 
 1. **FAQ migration specificity**
-   - What we know: 2 items from `SUBMITTING_FAQ` migrate to `FULL_FAQ` "Submission" group. The CONTEXT.md says "2 FAQ items" but `SUBMITTING_FAQ` has 3 items (GL category, receipts, duplicates).
-   - What's unclear: Which 2 of the 3 migrate? The spec says "GL categories, receipts, duplicates covered in walkthrough annotations" and separately says "3 questions -- GL category and receipt questions migrated to FULL_FAQ Submission group."
-   - Recommendation: Migrate the GL category and receipt questions to FULL_FAQ Submission group. The duplicate handling question is covered by walkthrough annotations and does not need migration. The existing FULL_FAQ Submission group already has 3 items, so it would grow to 5.
+   - What we know: 2 items from `SUBMITTING_FAQ` migrate to `FULL_FAQ` "Submission" group. `SUBMITTING_FAQ` has 3 items: GL category (1), receipts (2), duplicates (3).
+   - What's unclear: Which 2 of 3? The spec says "GL category and receipt questions migrated to FULL_FAQ Submission group; duplicate handling covered in walkthrough annotations."
+   - Recommendation: Migrate GL category and receipt questions to FULL_FAQ Submission group (which already has 3 items, growing to 5). The duplicate handling question content is addressed by the Submit step 1 annotation and does NOT need migration.
 
 2. **`isNew` flag on expenses guide**
-   - What we know: Currently `isNew: true` on the expenses guide config.
-   - What's unclear: Should this remain after Phase 63 updates?
-   - Recommendation: Keep `isNew: true` -- the phase adds significant new interactive content that is genuinely new.
+   - What we know: Currently `isNew: true` on the expenses guide config in helpGuides.ts.
+   - What's unclear: Should this remain after Phase 63?
+   - Recommendation: Keep `isNew: true` -- the phase adds significant new interactive content.
 
 ## Validation Architecture
 
@@ -306,12 +346,12 @@ The walkthrough mock content must accurately reflect the **current** expense sys
 ### Phase Requirements -> Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| N/A (no formal IDs) | Section count changes 8->6 | unit | `npm run test -- --run src/lib/__tests__/helpGuides.test.ts` | Yes (needs update) |
+| N/A | Section count changes 8->6 | unit | `npm run test -- --run src/lib/__tests__/helpGuides.test.ts` | Yes (needs update) |
 | N/A | Search results after section rename | unit | `npm run test -- --run src/lib/__tests__/helpGuides.test.ts` | Yes (needs update) |
-| N/A | POPULAR_QUESTIONS anchors updated | unit | `npm run test -- --run src/lib/__tests__/helpGuides.test.ts` | Yes (needs update) |
+| N/A | POPULAR_QUESTIONS data unchanged (4 entries) | unit | `npm run test -- --run src/lib/__tests__/helpGuides.test.ts` | Yes (passes as-is) |
 | N/A | Type check passes | type | `npm run type-check` | N/A (built-in) |
 | N/A | Build succeeds | build | `npm run build` | N/A (built-in) |
-| N/A | Visual rendering (dark/light, mobile/desktop) | manual-only | N/A | manual-only (no visual regression tests) |
+| N/A | Visual rendering (dark/light, mobile/desktop) | manual-only | N/A | manual-only |
 
 ### Sampling Rate
 - **Per task commit:** `npm run type-check`
@@ -324,19 +364,21 @@ None -- existing test infrastructure covers all phase requirements. The `helpGui
 ## Sources
 
 ### Primary (HIGH confidence)
-- Project codebase: `convex/schema.ts` lines 1658-1714 -- current expense schema with 3 payment methods and 9 statuses (verified)
-- Project codebase: `src/pages/ExpenseSubmit.tsx` -- current 3-option payment method form (verified)
-- Project codebase: `src/components/expenses/ApprovalActions.tsx` -- current multi-action approval queue (verified)
-- Project codebase: `src/pages/guides/ExpenseGuide.tsx` -- current 8-section structure to be modified (verified)
-- Project codebase: `src/lib/helpGuides.ts` -- current section registry (verified)
-- Project codebase: `src/lib/__tests__/helpGuides.test.ts` -- current test assertions (verified)
-- Project codebase: `src/components/help/` -- existing help infrastructure components (verified)
-- Project codebase: `src/index.css` -- Tailwind v4 dark mode setup (verified)
-- PRD: `docs/superpowers/plans/2026-03-17-interactive-expense-walkthrough.md` -- full implementation plan with code
-- Design spec: `docs/superpowers/specs/2026-03-17-interactive-expense-walkthrough-design.md` -- detailed component specs
+- Project codebase: `convex/schema.ts` lines 1667-1670 -- current expense payment method literals: `employee_paid`, `company_paid`, `payment_request` (verified)
+- Project codebase: `src/pages/guides/ExpenseGuide.tsx` -- current 8-section structure, 812 lines, all data constants verified
+- Project codebase: `src/lib/helpGuides.ts` -- current 6-guide registry, 8 sections for expenses, readTimeMinutes: 15
+- Project codebase: `src/lib/__tests__/helpGuides.test.ts` -- 116 lines, 10 test cases to update
+- Project codebase: `src/components/help/index.ts` -- current 10-line barrel export
+- Project codebase: `src/components/help/CalloutBox.tsx` -- tip/warning/important types with CSS variable styling
+- Project codebase: `src/components/help/GuideLayout.tsx` -- MobileTabs horizontal scroll pill pattern
+- Project codebase: `src/components/help/GuideSection.tsx` -- section wrapper with optional role prop
+- Project codebase: `src/index.css` -- Tailwind v4 dark mode: `@custom-variant dark (&:where(.dark, .dark *))`
+- PRD plan: `docs/superpowers/plans/2026-03-17-interactive-expense-walkthrough.md` -- full implementation plan with code for all 12 tasks
+- Design spec: `docs/superpowers/specs/2026-03-17-interactive-expense-walkthrough-design.md` -- detailed component specs, layout diagrams, content per step
 
 ### Secondary (MEDIUM confidence)
-- Framer Motion `AnimatePresence mode="wait"` pattern -- verified working in project via `OutletCardGrid.tsx` and `OrderStatusAccordion.tsx`
+- Framer Motion `AnimatePresence mode="wait"` -- verified working in project via `OutletCardGrid.tsx` (line 116), `OrderStatusAccordion.tsx`, `ProductionLogPanel.tsx` (line 190)
+- Tailwind CSS 4 `dark:` variant compatibility -- verified working in project (e.g., `DueDateGroupHeader.tsx`, `K3MartSyntheticCard.tsx`)
 
 ### Tertiary (LOW confidence)
 - None
@@ -344,10 +386,10 @@ None -- existing test infrastructure covers all phase requirements. The `helpGui
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH - All libraries already in project, no new dependencies
+- Standard stack: HIGH - All libraries already in project, no new dependencies needed
 - Architecture: HIGH - PRD plan provides complete implementation code, verified against codebase patterns
-- Pitfalls: HIGH - Derived from actual codebase analysis and Phase 59 change verification
-- Phase 59 alignment: HIGH - Verified schema, form fields, and approval actions against current code
+- Pitfalls: HIGH - Derived from actual codebase analysis, test file inspection, and Phase 59 schema verification
+- Phase 59 alignment: HIGH - Verified against schema literals at convex/schema.ts:1667-1670
 
 **Research date:** 2026-03-17
 **Valid until:** 2026-04-17 (stable -- no external dependencies, purely internal codebase)
