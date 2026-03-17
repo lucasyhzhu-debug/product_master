@@ -1,23 +1,27 @@
 /**
  * FraudFlags -- inline fraud indicator badges for expense approval queue.
- * Displays duplicate warning, late submission, and rejection count badges.
+ * Displays duplicate warning, late submission, rejection count, and flagged-for-review badges.
  */
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, Flag } from "lucide-react";
 
 interface FraudFlagsProps {
   duplicateWarning?: string;
   lateSubmission?: boolean;
   rejectionCount?: number;
+  flaggedForReview?: boolean;
+  flagReason?: string;
 }
 
 export function FraudFlags({
   duplicateWarning,
   lateSubmission,
   rejectionCount,
+  flaggedForReview,
+  flagReason,
 }: FraudFlagsProps) {
   const hasFlags =
-    !!duplicateWarning || !!lateSubmission || (rejectionCount ?? 0) > 0;
+    !!duplicateWarning || !!lateSubmission || (rejectionCount ?? 0) > 0 || !!flaggedForReview;
 
   if (!hasFlags) return null;
 
@@ -45,6 +49,16 @@ export function FraudFlags({
       {(rejectionCount ?? 0) > 0 && (
         <Badge variant="destructive">
           {rejectionCount}x rejected
+        </Badge>
+      )}
+      {flaggedForReview && (
+        <Badge
+          variant="outline"
+          className="text-red-600 border-red-300 bg-red-50 dark:bg-red-900/20 dark:text-red-400"
+          title={flagReason ?? "Flagged for review"}
+        >
+          <Flag className="h-3 w-3 mr-1" aria-label="Flagged for review" />
+          Flagged
         </Badge>
       )}
     </div>
