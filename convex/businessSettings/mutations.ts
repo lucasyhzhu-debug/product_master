@@ -8,6 +8,7 @@
 
 import { v } from "convex/values";
 import { protectedMutation } from "../lib/functions";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Determine the upsert action for the singleton pattern.
@@ -56,7 +57,7 @@ export const upsert = protectedMutation({
 
     // Clean up old logo if it's being replaced
     if (oldLogoToDelete) {
-      await ctx.storage.delete(oldLogoToDelete as any);
+      await ctx.storage.delete(oldLogoToDelete as Id<"_storage">);
     }
 
     const data = {

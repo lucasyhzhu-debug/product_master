@@ -8,8 +8,7 @@
  * - finalize: Assigns race-safe INV-YYMM-NNN number and writes back buyer data to customer
  */
 
-import { v } from "convex/values";
-import { ConvexError } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { getWibComponents } from "../lib/periodRange";
 import type { MutationCtx } from "../_generated/server";
