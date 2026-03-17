@@ -50,10 +50,10 @@
 
 - [ ] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
 - [ ] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
-- [ ] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
+- [x] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
 - [ ] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
 - [ ] **INV-05**: Draft persists across page navigation and browser refresh
-- [ ] **INV-06**: Preview mode shows clean read-only render without finalizing
+- [x] **INV-06**: Preview mode shows clean read-only render without finalizing
 - [ ] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
 - [ ] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
 - [ ] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
@@ -62,10 +62,10 @@
 
 ### Invoice — Print
 
-- [ ] **IPRNT-01**: Print view renders finalized invoice cleanly via `window.print()`
-- [ ] **IPRNT-02**: `@media print` stylesheet hides navigation, sidebar, action buttons, colored backgrounds
-- [ ] **IPRNT-03**: Indonesian date format (e.g., "Senin, 16 Maret 2026")
-- [ ] **IPRNT-04**: Standard invoice layout: header, bill-to, order details, items table, totals, payment info, signature area, notes, footer
+- [x] **IPRNT-01**: Print view renders finalized invoice cleanly via `window.print()`
+- [x] **IPRNT-02**: `@media print` stylesheet hides navigation, sidebar, action buttons, colored backgrounds
+- [x] **IPRNT-03**: Indonesian date format (e.g., "Senin, 16 Maret 2026")
+- [x] **IPRNT-04**: Standard invoice layout: header, bill-to, order details, items table, totals, payment info, signature area, notes, footer
 
 ### Invoice — Data Model
 
@@ -157,19 +157,19 @@
 | IDAT-04 | Phase 57 | Complete |
 | INV-01 | Phase 58 | Pending |
 | INV-02 | Phase 58 | Pending |
-| INV-03 | Phase 58 | Pending |
+| INV-03 | Phase 58 | Complete |
 | INV-04 | Phase 58 | Pending |
 | INV-05 | Phase 58 | Pending |
-| INV-06 | Phase 58 | Pending |
+| INV-06 | Phase 58 | Complete |
 | INV-07 | Phase 58 | Pending |
 | INV-08 | Phase 58 | Pending |
 | INV-09 | Phase 58 | Pending |
 | INV-10 | Phase 58 | Pending |
 | INV-11 | Phase 58 | Pending |
-| IPRNT-01 | Phase 58 | Pending |
-| IPRNT-02 | Phase 58 | Pending |
-| IPRNT-03 | Phase 58 | Pending |
-| IPRNT-04 | Phase 58 | Pending |
+| IPRNT-01 | Phase 58 | Complete |
+| IPRNT-02 | Phase 58 | Complete |
+| IPRNT-03 | Phase 58 | Complete |
+| IPRNT-04 | Phase 58 | Complete |
 | DEXP-01 | Phase 59 | Complete |
 | DEXP-02 | Phase 59 | Complete |
 | DEXP-03 | Phase 59 | Complete |

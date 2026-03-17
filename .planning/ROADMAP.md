@@ -484,7 +484,7 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
@@ -552,12 +552,12 @@ Plans:
 - [ ] TBD (run /gsd:plan-phase 62 to break down)
 
 
-### Phase 63: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+### Phase 63: Interactive Visual Expense Tutorials
 
-**Goal:** [To be planned]
+**Goal:** Replace text-heavy expense guide sections (Submit, Approve, Reimburse) with click-through visual walkthroughs using mock UI panels
 **Requirements**: TBD
 **Depends on:** Phase 62
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 63 to break down)
+- [ ] `docs/superpowers/plans/2026-03-17-interactive-expense-walkthrough.md` — 12 tasks, 4 chunks

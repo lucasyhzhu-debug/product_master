@@ -111,14 +111,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 59 COMPLETE (all 4 plans), Phase 57 COMPLETE
+**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (1/3 plans)
 
 ## Current Position
 
-Phase: 59-direct-debit-expense-flow (4/4 plans COMPLETE)
-Plan: 59-04 complete (checkpoint approved)
-Status: Phase 59 complete. Expense payment method overhaul shipped with 3 payment types, multi-action approval queue, and visual verification approved. Phase 57 (Invoice Backend & Business Settings) also complete.
-Last activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
+Phase: 58-invoice-form-print-view-order-integration (1/3 plans)
+Plan: 58-01 complete
+Status: Plan 58-01 complete. Invoice foundation components: formatIndonesianDate, InvoiceFieldInput, InvoicePrintView, barrel export, CSS tokens, print styles.
+Last activity: 2026-03-17 - Completed Plan 58-01 (invoice foundation components)
 
 Progress: [██████████] 98%
 
@@ -142,6 +142,7 @@ Progress: [██████████] 98%
 | 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
 | 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
 | 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
+| 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
 
 ## Accumulated Context
 
@@ -177,6 +178,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [59-04] DoA comment threshold reused for acknowledge dialog visibility only, not authorization
 - [59-04] Mark as Paid uses Input (not Textarea) for transaction reference -- short reference number
 - [59-04] No redundant .catch() on markAsPaid -- createMutationHook handles errors via toast
+- [58-01] InvoicePrintData uses Pick<Doc<"invoices">> & { sellerLogoUrl } since query enriches storage ID to URL
+- [58-01] Invoice field tokens defined as CSS custom properties in :root (light-mode only, print-oriented)
+- [58-01] Brand bar uses h-1 (4px) with print-color-adjust: exact for print fidelity
 
 ### Roadmap Evolution
 
@@ -185,7 +189,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 - Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
 - Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
-- Phase 63 added: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+- Phase 63 added: Interactive Visual Expense Tutorials — click-through walkthroughs with mock UI panels replacing text-only guides
 
 ### Open Blockers (carried forward)
 
@@ -202,6 +206,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:34:03.913Z
-Stopped at: Phase 59 complete, Phase 61 context gathered
-Resume notes: Phase 59 complete (expense payment method overhaul, 4/4 plans). Phase 57 complete (invoice backend + business settings). Phase 61 context gathered. Ready for next phase.
+Last session: 2026-03-17T01:56:23Z
+Stopped at: Completed 58-01-PLAN.md
+Resume notes: Plan 58-01 complete (invoice foundation components). Plan 58-02 (InvoiceForm + InvoicePage) and Plan 58-03 (InvoiceSidebarCard) ready to execute.
