@@ -484,11 +484,11 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
-- [ ] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
+- [x] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
+- [x] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
 - [ ] 58-03-PLAN.md -- InvoiceSidebarCard (3 states) + OrderDetail integration + visual verification
 
 ### Phase 59: Expense Payment Method Overhaul
@@ -527,7 +527,7 @@ Plans:
 
 **Goal**: Build developer-side tooling to detect tutorial documentation drift: a feature-to-docs manifest mapping source modules to tutorial sections, validation script, ExpenseGuide refactored into section files, and two GSD skills (/gsd:check-docs, /gsd:update-docs) for detecting and fixing stale sections
 **Requirements**: HIDX-01, HIDX-02, HIDX-03, HIDX-04, HIDX-05
-**Depends on:** Phase 55 (Help Center Infrastructure)
+**Depends on:** Phase 63 (Interactive Visual Expense Tutorials)
 **Success Criteria** (what must be TRUE):
   1. docs-manifest.json maps source file globs to tutorial section files with per-mapping lastReviewedCommit
   2. npm run validate:docs-manifest confirms every guide section has at least one source mapping
@@ -545,7 +545,7 @@ Plans:
 
 **Goal:** [To be planned]
 **Requirements**: TBD
-**Depends on:** Phase 61
+**Depends on:** Phase 49 (P&L Integration)
 **Plans:** 0 plans
 
 Plans:
@@ -556,7 +556,7 @@ Plans:
 
 **Goal:** Replace text-heavy expense guide sections (Submit, Approve, Reimburse) with click-through visual walkthroughs using mock UI panels
 **Requirements**: TBD
-**Depends on:** Phase 62
+**Depends on:** Phase 55 (Help Center Infrastructure)
 **Plans:** 1 plan
 
 Plans:

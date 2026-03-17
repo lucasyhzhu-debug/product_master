@@ -3,107 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: in_progress
-stopped_at: Phase 59 complete, Phase 61 context gathered
-last_updated: "2026-03-17T01:34:03.913Z"
-last_activity: "2026-03-17 - Phase 59 complete (4/4 plans, checkpoint approved). Phase 57 complete. Phase 61 context gathered."
+stopped_at: Completed 58-02-PLAN.md
+last_updated: "2026-03-17T03:53:44Z"
+last_activity: "2026-03-17 - Completed Plan 58-02 (InvoiceForm WYSIWYG + InvoicePage 3-mode route handler + App.tsx routes)"
 progress:
   total_phases: 23
   completed_phases: 18
   total_plans: 46
-  completed_plans: 42
+  completed_plans: 43
   percent: 98
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: Completed 59-04-PLAN.md (checkpoint approved)
-last_updated: "2026-03-17T01:10:00Z"
-last_activity: 2026-03-17 - Phase 59 Plan 04 checkpoint approved, plan complete
-progress:
-  total_phases: 23
-  completed_phases: 18
-  total_plans: 43
-  completed_plans: 42
-  percent: 98
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: in_progress
-stopped_at: Completed 57-02-PLAN.md
-last_updated: "2026-03-17T20:10:00Z"
-last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
-progress:
-  total_phases: 23
-  completed_phases: 18
-  total_plans: 46
-  completed_plans: 39
-  percent: 85
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
-last_updated: "2026-03-17T00:47:46.270Z"
-last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
-progress:
-  total_phases: 24
-  completed_phases: 18
-  total_plans: 46
-  completed_plans: 39
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 57-01-PLAN.md
-last_updated: "2026-03-17T19:53:42Z"
-last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
-progress:
-  [█████████░] 85%
-  completed_phases: 17
-  total_plans: 43
-  completed_plans: 38
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Phase 59 context gathered
-last_updated: "2026-03-16T13:37:14.446Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 22
-  completed_phases: 16
-  total_plans: 36
-  completed_plans: 37
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: in_progress
-stopped_at: Completed 56-02-PLAN.md
-last_updated: "2026-03-16T12:54:33.747Z"
-last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
-progress:
-  total_phases: 23
-  completed_phases: 17
-  total_plans: 42
-  completed_plans: 41
 ---
 
 # Project State
@@ -111,14 +19,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (1/3 plans)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 58 in progress (2/3 plans)
 
 ## Current Position
 
-Phase: 58-invoice-form-print-view-order-integration (1/3 plans)
-Plan: 58-01 complete
-Status: Plan 58-01 complete. Invoice foundation components: formatIndonesianDate, InvoiceFieldInput, InvoicePrintView, barrel export, CSS tokens, print styles.
-Last activity: 2026-03-17 - Completed Plan 58-01 (invoice foundation components)
+Phase: 58-invoice-form-print-view-order-integration (2/3 plans)
+Plan: 58-02 complete
+Status: Plan 58-02 complete. InvoiceForm WYSIWYG with auto-save, InvoicePage 3-mode handler, 2 routes in App.tsx. Plan 58-03 (InvoiceSidebarCard) ready.
+Last activity: 2026-03-17 - Completed Plan 58-02 (InvoiceForm + InvoicePage + routes)
 
 Progress: [██████████] 98%
 
@@ -143,6 +51,7 @@ Progress: [██████████] 98%
 | 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
 | 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
 | 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
+| 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
 
 ## Accumulated Context
 
@@ -181,6 +90,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [58-01] InvoicePrintData uses Pick<Doc<"invoices">> & { sellerLogoUrl } since query enriches storage ID to URL
 - [58-01] Invoice field tokens defined as CSS custom properties in :root (light-mode only, print-oriented)
 - [58-01] Brand bar uses h-1 (4px) with print-color-adjust: exact for print fidelity
+- [58-02] Used useDocumentTitle hook (existing project convention) instead of raw useEffect for browser tab title
+- [58-02] Extracted useAutoSave as testable hook with scheduleChange/markInitialized API, tested via renderHook
+- [58-02] toInvoicePrintData adapter function converts Invoice to InvoicePrintData (Pick<Doc> type) to bridge query layer and print view
+- [58-02] Save status "Saving..." fires inside setTimeout callback, not on keypress -- confirmed by test 5
 
 ### Roadmap Evolution
 
@@ -206,6 +119,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T01:56:23Z
-Stopped at: Completed 58-01-PLAN.md
-Resume notes: Plan 58-01 complete (invoice foundation components). Plan 58-02 (InvoiceForm + InvoicePage) and Plan 58-03 (InvoiceSidebarCard) ready to execute.
+Last session: 2026-03-17T03:53:44Z
+Stopped at: Completed 58-02-PLAN.md
+Resume notes: Plan 58-02 complete (InvoiceForm + InvoicePage + routes). Plan 58-03 (InvoiceSidebarCard + OrderDetail integration) ready to execute.

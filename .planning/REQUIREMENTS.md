@@ -48,16 +48,16 @@
 
 ### Invoice — Generation
 
-- [ ] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
-- [ ] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
+- [x] **INV-01**: Manager/admin can generate an invoice from Order Detail for orders in PaymentReceived status or later
+- [x] **INV-02**: Invoice form auto-fills from order data + customer data + business settings
 - [x] **INV-03**: Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
-- [ ] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
-- [ ] **INV-05**: Draft persists across page navigation and browser refresh
+- [x] **INV-04**: Draft auto-saves on every field change (debounced 2 seconds)
+- [x] **INV-05**: Draft persists across page navigation and browser refresh
 - [x] **INV-06**: Preview mode shows clean read-only render without finalizing
-- [ ] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
-- [ ] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
-- [ ] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
-- [ ] **INV-10**: Multiple finalized invoices allowed per order (revision pattern)
+- [x] **INV-07**: Finalize assigns sequential invoice number (`INV-YYMM-NNN`) via race-safe counter
+- [x] **INV-08**: Finalize snapshots all seller/buyer/order data (immutable record)
+- [x] **INV-09**: Customer record updated with company/NPWP/billing address on finalize (write-back)
+- [x] **INV-10**: Multiple finalized invoices allowed per order (revision pattern)
 - [ ] **INV-11**: Order Detail sidebar shows invoice card with 3 states (none/draft/final)
 
 ### Invoice — Print
@@ -155,16 +155,16 @@
 | IDAT-02 | Phase 57 | Complete |
 | IDAT-03 | Phase 57 | Complete |
 | IDAT-04 | Phase 57 | Complete |
-| INV-01 | Phase 58 | Pending |
-| INV-02 | Phase 58 | Pending |
+| INV-01 | Phase 58 | Complete |
+| INV-02 | Phase 58 | Complete |
 | INV-03 | Phase 58 | Complete |
-| INV-04 | Phase 58 | Pending |
-| INV-05 | Phase 58 | Pending |
+| INV-04 | Phase 58 | Complete |
+| INV-05 | Phase 58 | Complete |
 | INV-06 | Phase 58 | Complete |
-| INV-07 | Phase 58 | Pending |
-| INV-08 | Phase 58 | Pending |
-| INV-09 | Phase 58 | Pending |
-| INV-10 | Phase 58 | Pending |
+| INV-07 | Phase 58 | Complete |
+| INV-08 | Phase 58 | Complete |
+| INV-09 | Phase 58 | Complete |
+| INV-10 | Phase 58 | Complete |
 | INV-11 | Phase 58 | Pending |
 | IPRNT-01 | Phase 58 | Complete |
 | IPRNT-02 | Phase 58 | Complete |
