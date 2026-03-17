@@ -40,9 +40,9 @@ import { recordStatusChange } from "./auditTrail";
 // ---------------------------------------------------------------------------
 
 const paymentMethodValidator = v.union(
-  v.literal("personal_cash"),
-  v.literal("personal_transfer"),
-  v.literal("company_card")
+  v.literal("employee_paid"),
+  v.literal("company_paid"),
+  v.literal("payment_request")
 );
 
 // ---------------------------------------------------------------------------
@@ -367,8 +367,8 @@ export const approveExpense = protectedMutation({
     }
 
     // Determine credit account based on payment method
-    // company_card -> "1100" (Cash), personal -> "2200" (Employee Reimbursements Payable)
-    const creditCode = expense.paymentMethod === "company_card" ? "1100" : "2200";
+    // company_paid/payment_request -> "1100" (Cash), employee_paid -> "2200" (Employee Reimbursements Payable)
+    const creditCode = expense.paymentMethod === "employee_paid" ? "2200" : "1100";
     const creditAccount = await ctx.db
       .query("accounts")
       .withIndex("by_code", (q) => q.eq("code", creditCode))

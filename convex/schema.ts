@@ -1644,9 +1644,9 @@ export default defineSchema({
     description: v.string(),
     vendorName: v.string(),
     paymentMethod: v.union(
-      v.literal("personal_cash"),
-      v.literal("personal_transfer"),
-      v.literal("company_card")
+      v.literal("employee_paid"),
+      v.literal("company_paid"),
+      v.literal("payment_request")
     ),
     receiptFileId: v.optional(v.id("_storage")),
     receiptImageHash: v.optional(v.string()),
@@ -1657,7 +1657,9 @@ export default defineSchema({
       v.literal("rejected"),
       v.literal("awaiting_payment"),
       v.literal("reimbursed"),
-      v.literal("voided")
+      v.literal("voided"),
+      v.literal("recorded"),
+      v.literal("paid")
     ),
     lateSubmission: v.boolean(),
     duplicateWarning: v.optional(v.string()),
@@ -1673,6 +1675,13 @@ export default defineSchema({
     voidedAt: v.optional(v.number()),
     voidReason: v.optional(v.string()),
     journalEntryId: v.optional(v.id("journalEntries")),
+    transactionReference: v.optional(v.string()),
+    flaggedForReview: v.optional(v.boolean()),
+    flaggedBy: v.optional(v.id("users")),
+    flaggedAt: v.optional(v.number()),
+    flagReason: v.optional(v.string()),
+    paidAt: v.optional(v.number()),
+    paidBy: v.optional(v.id("users")), // Who executed the bank transfer (markAsPaid)
     createdAt: v.number(),
   })
     .index("by_submitter_status", ["submittedBy", "status"])
