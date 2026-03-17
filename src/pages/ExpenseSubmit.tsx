@@ -43,9 +43,9 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 // Payment method options matching schema validators
 const PAYMENT_METHODS = [
-  { value: "personal_cash", label: "Personal Cash" },
-  { value: "personal_transfer", label: "Personal Transfer" },
-  { value: "company_card", label: "Company Card" },
+  { value: "employee_paid", label: "Employee Paid" },
+  { value: "company_paid", label: "Company Paid" },
+  { value: "payment_request", label: "Payment Request" },
 ] as const;
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
@@ -83,7 +83,7 @@ const INITIAL_FORM: FormState = {
   accountId: "",
   expenseDate: getDefaultDate(),
   vendorName: "",
-  paymentMethod: "personal_cash",
+  paymentMethod: "employee_paid",
 };
 
 export function ExpenseSubmit() {

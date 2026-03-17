@@ -113,7 +113,7 @@ async function seedExpense(
       expenseDate: overrides.expenseDate,
       description: "Test expense",
       vendorName: overrides.vendorName ?? "Test Vendor",
-      paymentMethod: "personal_cash",
+      paymentMethod: "employee_paid",
       status: overrides.status,
       lateSubmission: false,
       createdAt: Date.now(),

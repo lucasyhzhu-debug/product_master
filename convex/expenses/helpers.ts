@@ -16,8 +16,15 @@ export const COMMENT_REQUIRED_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/** Returns true if receipt is required for this amount (> Rp 50,000) */
-export function requiresReceipt(amount: number): boolean {
+/** Returns true if receipt is required for this expense.
+ *  company_paid and payment_request: always required (company money).
+ *  employee_paid (or unspecified): existing threshold (> Rp 50,000). */
+export function requiresReceipt(amount: number, paymentMethod?: string): boolean {
+  // Company money = always require receipt regardless of amount
+  if (paymentMethod === "company_paid" || paymentMethod === "payment_request") {
+    return true;
+  }
+  // employee_paid (or unspecified for backward compat): existing threshold
   return amount > RECEIPT_THRESHOLD;
 }
 
@@ -64,6 +71,8 @@ const VOIDABLE_STATUSES: readonly string[] = [
   "approved",
   "awaiting_payment",
   "rejected",
+  "recorded",
+  "paid",
 ];
 
 /**
@@ -113,19 +122,20 @@ export function requiresApproverComment(amount: number): boolean {
 /**
  * Determine the target status after approval based on payment method.
  *
- * - company_card: "approved" (terminal -- no reimbursement needed, EXP-14)
- * - personal_cash/personal_transfer: "awaiting_payment" (needs reimbursement, EXP-15)
+ * - employee_paid: "awaiting_payment" (needs reimbursement)
+ * - payment_request: "approved" (authorization only -- JE created later on markAsPaid)
+ * - company_paid: "approved" (edge case -- should not reach standard approval but handle gracefully)
  */
 export function getTargetStatusAfterApproval(
   paymentMethod: string
 ): "approved" | "awaiting_payment" {
-  return paymentMethod === "company_card" ? "approved" : "awaiting_payment";
+  return paymentMethod === "employee_paid" ? "awaiting_payment" : "approved";
 }
 
 /**
  * Check if an expense with this status can be voided.
  *
- * Voidable: submitted, approved, awaiting_payment, rejected
+ * Voidable: submitted, approved, awaiting_payment, rejected, recorded, paid
  * NOT voidable: draft, reimbursed, voided
  */
 export function isVoidableStatus(status: string): boolean {

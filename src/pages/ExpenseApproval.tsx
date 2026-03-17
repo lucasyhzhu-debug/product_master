@@ -35,9 +35,9 @@ import type { Account } from "@/hooks/convex/useAccounts";
 
 /** Map payment method code to display label and icon */
 const PAYMENT_METHODS: Record<string, { label: string; icon: typeof CreditCard }> = {
-  company_card: { label: "Company Card", icon: CreditCard },
-  personal_cash: { label: "Personal Cash", icon: Wallet },
-  personal_transfer: { label: "Personal Transfer", icon: Banknote },
+  employee_paid: { label: "Employee Paid", icon: Wallet },
+  company_paid: { label: "Company Paid", icon: CreditCard },
+  payment_request: { label: "Payment Request", icon: Banknote },
 };
 
 export function ExpenseApproval() {
