@@ -5,6 +5,9 @@
  * SalesAnalytics, GrabFoodManager, and other frontend modules.
  */
 
+import { format } from "date-fns";
+import { id } from "date-fns/locale/id";
+
 /** UTC+7 offset in milliseconds */
 export const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -90,4 +93,10 @@ export function formatDateId(utcMs: number): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Format date as Indonesian full date: "Senin, 16 Maret 2026" */
+export function formatIndonesianDate(date: Date | number): string {
+  const d = typeof date === "number" ? new Date(date) : date;
+  return format(d, "EEEE, d MMMM yyyy", { locale: id });
 }
