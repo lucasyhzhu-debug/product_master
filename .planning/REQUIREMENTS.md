@@ -85,11 +85,11 @@
 - [x] **DEXP-07**: employee_paid `submitExpense` unchanged (status `submitted`, no JE)
 - [x] **DEXP-08**: `acknowledgeExpense` mutation transitions recorded expenses to approved (no new JE)
 - [x] **DEXP-09**: `flagExpense` mutation sets flag fields on recorded expenses without status change
-- [ ] **DEXP-10**: Expense form shows exactly 2 payment options with clear labels
-- [ ] **DEXP-11**: Transaction reference field appears only when company_paid is selected
+- [x] **DEXP-10**: Expense form shows exactly 2 payment options with clear labels
+- [x] **DEXP-11**: Transaction reference field appears only when company_paid is selected
 - [ ] **DEXP-12**: Approval queue shows Company Paid badge and Acknowledge/Flag buttons for recorded expenses
 - [ ] **DEXP-13**: Flagged expenses display warning badge in approval list
-- [ ] **DEXP-14**: Recorded status badge renders in StatusBadge component
+- [x] **DEXP-14**: Recorded status badge renders in StatusBadge component
 
 ## Future Requirements (v1.9+)
 
@@ -179,11 +179,11 @@
 | DEXP-07 | Phase 59 | Complete |
 | DEXP-08 | Phase 59 | Complete |
 | DEXP-09 | Phase 59 | Complete |
-| DEXP-10 | Phase 59 | Pending |
-| DEXP-11 | Phase 59 | Pending |
+| DEXP-10 | Phase 59 | Complete |
+| DEXP-11 | Phase 59 | Complete |
 | DEXP-12 | Phase 59 | Pending |
 | DEXP-13 | Phase 59 | Pending |
-| DEXP-14 | Phase 59 | Pending |
+| DEXP-14 | Phase 59 | Complete |
 
 **Coverage:**
 - v1.8 requirements: 53 total (39 original + 14 Phase 59)

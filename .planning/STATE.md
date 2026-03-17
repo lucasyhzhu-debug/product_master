@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
-stopped_at: Completed 59-02-PLAN.md
-last_updated: "2026-03-17T00:38:32Z"
-last_activity: 2026-03-17 - Completed Plan 59-02 (Mutations & queries for expense payment method overhaul)
+stopped_at: Completed 59-03-PLAN.md
+last_updated: "2026-03-17T00:46:01Z"
+last_activity: 2026-03-17 - Completed Plan 59-03 (Frontend hooks, form & badges for expense payment overhaul)
 progress:
   total_phases: 23
   completed_phases: 17
   total_plans: 43
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 02 COMPLETE
+**Current focus:** v1.7 Expense & Accounting -- Phase 59 (Direct Debit Expense Flow) Plan 03 COMPLETE
 
 ## Current Position
 
-Phase: 59-direct-debit-expense-flow (Plan 2 of 4 complete)
-Plan: 59-03 (next)
-Status: Plan 59-02 complete, mutations & queries updated for all 3 payment flows
-Last activity: 2026-03-17 - Completed Plan 59-02 (Mutations & queries for expense payment method overhaul)
+Phase: 59-direct-debit-expense-flow (Plan 3 of 4 complete)
+Plan: 59-04 (next)
+Status: Plan 59-03 complete, frontend hooks, form, badges, and filters updated for all payment methods
+Last activity: 2026-03-17 - Completed Plan 59-03 (Frontend hooks, form & badges for expense payment overhaul)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [█████████░] 93%
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
 | 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
 | 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
+| 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [59-02] company_paid guard placed BEFORE status check in approveExpense for helpful error messages
 - [59-02] DoA does NOT apply to acknowledge flow -- money already left bank, review not authorization
 - [59-02] Self-exclusion applies ONLY to submitted items in approval queue
+- [59-03] Receipt required for all company_paid and payment_request expenses regardless of amount
+- [59-03] Transaction reference field only shown for company_paid (not payment_request)
+- [59-03] MyExpenses expanded to all 10 status tabs so no status is hidden from users
 
 ### Roadmap Evolution
 
@@ -91,6 +95,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:38:32Z
-Stopped at: Completed 59-02-PLAN.md
-Resume notes: Plan 59-02 complete. All 3 payment flows implemented in mutations (submitExpense branching, approveExpense guards, acknowledgeExpense, flagExpense, markAsPaid). Approval queue unified. Analytics updated. Ready for Plan 59-03 (frontend).
+Last session: 2026-03-17T00:46:01Z
+Stopped at: Completed 59-03-PLAN.md
+Resume notes: Plan 59-03 complete. Frontend hooks (useAcknowledgeExpense, useFlagExpense, useMarkAsPaid), ExpenseSubmit form (3-option dropdown, transactionReference, receipt logic), StatusBadge (recorded/paid), MyExpenses (10 tabs) all updated. Ready for Plan 59-04 (approval queue UI).

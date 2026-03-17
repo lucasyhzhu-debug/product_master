@@ -498,7 +498,7 @@ Plans:
   6. Approval queue shows all 3 types with correct action buttons per payment method and status
   7. Receipt always required for company_paid and payment_request regardless of amount
   8. All existing tests pass, npm run build succeeds
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
