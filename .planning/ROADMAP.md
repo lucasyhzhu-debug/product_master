@@ -554,7 +554,7 @@ Plans:
   5. Period controls (monthly/custom) filter the recent entries table
   6. Hub page split: Financials (5 links) + Accounting (4 links including Journal Entry)
   7. npm run build succeeds, all tests pass
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
