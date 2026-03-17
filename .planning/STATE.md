@@ -3,6 +3,67 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: in_progress
+stopped_at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
+last_updated: "2026-03-17T00:47:46.270Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 24
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: in_progress
+stopped_at: Completed 57-02-PLAN.md
+last_updated: "2026-03-17T20:10:00Z"
+last_activity: "2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)"
+progress:
+  total_phases: 23
+  completed_phases: 18
+  total_plans: 46
+  completed_plans: 39
+  percent: 85
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Completed 57-01-PLAN.md
+last_updated: "2026-03-17T19:53:42Z"
+last_activity: 2026-03-17 - Completed Plan 57-01 (Invoice backend: 3 new tables, 9 functions, 51 tests)
+progress:
+  [█████████░] 85%
+  completed_phases: 17
+  total_plans: 43
+  completed_plans: 38
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
+stopped_at: Phase 59 context gathered
+last_updated: "2026-03-16T13:37:14.446Z"
+last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+progress:
+  total_phases: 22
+  completed_phases: 16
+  total_plans: 36
+  completed_plans: 37
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: in_progress
 stopped_at: Completed 56-02-PLAN.md
 last_updated: "2026-03-16T12:54:33.747Z"
 last_activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
@@ -34,16 +95,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 56 (Expense Training Guide) COMPLETE
+**Current focus:** v1.8 Support & Quality of Life -- Phase 57 COMPLETE, Phase 58 next
 
 ## Current Position
 
-Phase: 56-expense-training-guide (Plan 2 of 2 complete)
-Plan: 56-02 (complete)
-Status: Phase 56 complete, all plans done
-Last activity: 2026-03-16 - Completed Plan 56-02 (ExpenseGuide sections 5-8, visual verification approved)
+Phase: 57-invoice-backend-business-settings (Plan 2 of 2 complete -- PHASE COMPLETE)
+Plan: 57-02 (complete)
+Status: Phase 57 complete, Phase 58 next
+Last activity: 2026-03-17 - Completed Plan 57-02 (Business Settings UI: permissions, hooks, page, logo upload, bank selector, live preview)
 
-Progress: [██████████] 100%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -59,6 +120,8 @@ Progress: [██████████] 100%
 |-------|------|----------|-------|-------|
 | 56-expense-training-guide | 01 | 5min | 1 | 3 |
 | 56-expense-training-guide | 02 | 4min | 2 | 2 |
+| 57-invoice-backend-business-settings | 01 | 11min | 4 | 8 |
+| 57-invoice-backend-business-settings | 02 | 5min | 3 | 11 |
 
 ## Accumulated Context
 
@@ -76,11 +139,22 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
 - [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
 - [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
+- [57-01] Extracted 5 pure helpers from invoice mutations for testability (project convention: pure function tests over convex-test runtime)
+- [57-01] Used .first() not .unique() for invoiceCounters lookup (gracefully handles duplicate rows)
+- [57-01] INVOICEABLE_STATUSES allowlist pattern for forward-compatible status validation
+- [57-01] paymentStatus/paymentMethod snapshotted at draft creation, excluded from updateDraft
+- [57-02] Empty successMessage on createDraft/updateDraft hooks (auto-save feedback deferred to Phase 58 UI)
+- [57-02] Live invoice header preview reads from local form state (no API call per keystroke)
+- [57-02] Logo upload validates 1MB max client-side before POST to Convex upload URL
 
 ### Roadmap Evolution
 
 - Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
 - Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+- Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
+- Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
+- Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
+- Phase 63 added: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
 
 ### Open Blockers (carried forward)
 
@@ -97,6 +171,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-16T12:28:05.491Z
-Stopped at: Completed 56-02-PLAN.md
-Resume notes: Phase 56 complete. ExpenseGuide.tsx has all 8 sections with full content. Visual verification approved. CHANGELOG updated. Ready for next phase.
+Last session: 2026-03-17T20:10:00Z
+Stopped at: Completed 57-02-PLAN.md (Phase 57 COMPLETE)
+Resume notes: Phase 57 fully complete. Plan 01 (backend: 3 tables, 9 functions, 51 tests) + Plan 02 (UI: permissions, hooks, Business Settings page, logo upload, bank selector, live preview). All human-verified. Ready for Phase 58 (Invoice Form, Print View, Order Integration).

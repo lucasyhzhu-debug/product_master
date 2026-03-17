@@ -27,6 +27,28 @@ After merging any code change, add a new entry with:
 - `src/lib/helpGuides.ts`: Expenses guide status set to "live" with component wired
 - `src/lib/__tests__/helpGuides.test.ts`: Updated registry tests for live status
 
+### Invoice Backend & Business Settings (Phase 57) — 2026-03-17
+
+**For the team:** Admins can now configure the company's seller identity (business name, logo, address, NPWP, default bank account) in a new Settings page. This is the foundation for invoice generation — the system now stores invoice data and knows who the seller is. Invoices will be available in Phase 58.
+
+#### Added
+- `convex/schema.ts`: 3 new tables (businessSettings, invoiceCounters, invoices) + customer extension (companyName, npwp, billingAddress)
+- `convex/businessSettings/`: Settings singleton with logo upload support and bank account resolution
+- `convex/invoices/`: Full invoice CRUD — createDraft, updateDraft, discardDraft, finalize with auto-incrementing numbers (INV-YYMM-NNN)
+- `src/pages/BusinessSettings.tsx`: Admin settings page with 5 sections (brand, contact, tax, bank account, live invoice header preview)
+- `src/components/settings/`: LogoUploader, BankAccountSelector, InvoiceHeaderPreview components
+- `src/hooks/convex/useBusinessSettings.ts`: 3 hook exports for settings management
+- `src/hooks/convex/useInvoice.ts`: 6 hook exports ready for Phase 58
+
+#### Changed
+- `src/App.tsx`: New `/settings/business` route with admin permission guard
+- `src/components/layout/Header.tsx`: Settings link in Admin dropdown
+- `src/lib/types.ts`: canAccessBusinessSettings + canAccessInvoices permission flags
+- `convex/customers/mutations.ts`: Extended update to accept companyName, npwp, billingAddress
+
+#### Tests
+- 51 unit tests (44 invoice mutations + 7 business settings) — all green
+
 ## [Unreleased] - v1.7 Expense & Accounting
 
 ### Quick Task 34: Fix GL Codes & Cascading Expense Dropdowns — 2026-03-16

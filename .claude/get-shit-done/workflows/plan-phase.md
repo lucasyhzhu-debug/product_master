@@ -522,9 +522,7 @@ Task(
 
 **Handle results from sub-agent return:**
 - Parse the returned severity-tiered summary
-- **Critical issues** → route back to planner for revision (follows same revision loop as step 12, counts toward max 3 iterations)
-- **Important issues** → present to user: "Fix before execution?" If yes, revise. If no, note and proceed.
-- **Refinements** → note in status output, proceed to step 13
+- **ALL findings (Critical + Important + Refinements)** → route back to planner for revision (follows same revision loop as step 12, counts toward max 3 iterations). Include the complete tiered list so the planner addresses every item.
 - Staffreview report is saved to `docs/reviews/` by the sub-agent
 
 **If `TRIPLE_REVIEW` is `"false"`:** Skip to step 13.

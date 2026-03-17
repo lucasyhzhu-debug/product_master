@@ -441,7 +441,7 @@ Plans:
   10. TOC sidebar tracks active section on scroll
   11. Deep linking works (e.g., `/help/expenses#submitting`)
   12. `npm run build` succeeds
-**Plans:** 2/2 plans complete
+**Plans:** 2 plans
 
 Plans:
 - [ ] 56-01-PLAN.md -- ExpenseGuide.tsx sections 1-4 (Overview, Submitting, Approving, Reimbursement) + registry wiring + test update
@@ -461,6 +461,11 @@ Plans:
   7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
   8. Customer write-back on finalize (company, NPWP, billing address)
   9. `npm run build` succeeds
+**Plans:** 2/2 plans complete
+
+Plans:
+- [x] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
+- [x] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
 
 ### Phase 58: Invoice Form, Print View & Order Integration
 **Goal**: Build the WYSIWYG invoice form page, print view, and Order Detail sidebar card so managers/admins can generate, preview, finalize, and print invoices from any qualifying order
@@ -479,18 +484,35 @@ Plans:
   10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
   11. Access control: manager + admin only, PaymentReceived+ orders only
   12. `npm run build` succeeds
-
-### Phase 59: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** None (independent of invoice phases 57-58)
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 59 to break down)
+- [ ] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
+- [ ] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
+- [ ] 58-03-PLAN.md -- InvoiceSidebarCard (3 states) + OrderDetail integration + visual verification
 
-### Phase 60: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
+### Phase 59: Expense Payment Method Overhaul
+**Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows -- retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
+**Requirements**: DEXP-01, DEXP-02, DEXP-03, DEXP-04, DEXP-05, DEXP-06, DEXP-07, DEXP-08, DEXP-09, DEXP-10, DEXP-11, DEXP-12, DEXP-13, DEXP-14
+**Depends on:** None (independent of invoice phases 57-58)
+**Success Criteria** (what must be TRUE):
+  1. Schema has 3 payment method literals (employee_paid, company_paid, payment_request) and 2 new statuses (recorded, paid)
+  2. company_paid submit auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to recorded
+  3. employee_paid submit unchanged (status submitted, no JE)
+  4. payment_request approval creates no JE; mark-as-paid creates JE and transitions to paid
+  5. acknowledgeExpense transitions recorded to approved; flagExpense sets flag without status change
+  6. Approval queue shows all 3 types with correct action buttons per payment method and status
+  7. Receipt always required for company_paid and payment_request regardless of amount
+  8. All existing tests pass, npm run build succeeds
+**Plans:** 4 plans
+
+Plans:
+- [ ] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
+- [ ] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
+- [ ] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
+- [ ] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
+
+### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
 **Goal:** [To be planned]
 **Requirements**: TBD
@@ -499,3 +521,33 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 60 to break down)
+
+### Phase 61: Help File Indexing Architecture -- Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 55 (Help Center Infrastructure)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 61 to break down)
+
+### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 61
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 62 to break down)
+
+### Phase 63: Interactive Visual Expense Tutorials — step-by-step walkthrough with mock UI panels and click-through navigation replacing text-only guides
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 62
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 63 to break down)

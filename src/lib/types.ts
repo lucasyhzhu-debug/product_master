@@ -725,6 +725,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canApproveExpenses: boolean;  // Expense approval (manager + admin)
   canManageReimbursements: boolean;  // Reimbursements, bank accounts, payroll (admin only)
   canAccessExpenseAnalytics: boolean;  // Expense analytics dashboard (manager + admin)
+  canAccessBusinessSettings: boolean;  // Business settings page (admin only)
+  canAccessInvoices: boolean;  // Invoice generation (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -745,6 +747,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canApproveExpenses: false,
     canManageReimbursements: false,
     canAccessExpenseAnalytics: false,
+    canAccessBusinessSettings: false,
+    canAccessInvoices: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -765,6 +769,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canApproveExpenses: false,
     canManageReimbursements: false,
     canAccessExpenseAnalytics: false,
+    canAccessBusinessSettings: false,
+    canAccessInvoices: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -785,6 +791,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canApproveExpenses: true,
     canManageReimbursements: false,
     canAccessExpenseAnalytics: true,
+    canAccessBusinessSettings: false,
+    canAccessInvoices: true,
   },
   admin: {
     canAccessDashboard: true,
@@ -805,6 +813,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canApproveExpenses: true,
     canManageReimbursements: true,
     canAccessExpenseAnalytics: true,
+    canAccessBusinessSettings: true,
+    canAccessInvoices: true,
   },
 };
 

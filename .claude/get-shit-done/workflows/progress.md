@@ -37,95 +37,139 @@ This means a milestone was completed and archived. Go to **Route F** (between mi
 If missing both ROADMAP.md and PROJECT.md: suggest `/gsd:new-project`.
 </step>
 
-<step name="load">
-**Use structured extraction from gsd-tools:**
+<step name="parallel_gather">
+**Dispatch 3 parallel sub-agents to gather all data concurrently.**
 
-Instead of reading full files, use targeted tools to get only the data needed for the report:
-- `ROADMAP=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze)`
-- `STATE=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot)`
+Launch ALL 3 agents in a SINGLE message using the Agent tool (this makes them run in parallel). Use `subagent_type: "Explore"` for each. Each agent returns structured text that the orchestrator synthesizes in the report step.
 
-This minimizes orchestrator context usage.
-</step>
+**Agent 1 — Roadmap & Phase Status Table:**
 
-<step name="analyze_roadmap">
-**Get comprehensive roadmap analysis (replaces manual parsing):**
+Prompt the agent with:
+```
+You are gathering phase status data for a progress report. Do NOT output commentary — return ONLY the structured format below.
 
-```bash
-ROADMAP=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze)
+1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze
+   Parse the JSON output to get all phases with their goals and dependencies.
+2. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" progress bar --raw
+3. For each phase from the roadmap output, check its directory in .planning/phases/:
+   - Count *-PLAN.md files (glob for *-PLAN.md)
+   - Count *-SUMMARY.md files (glob for *-SUMMARY.md)
+   - Check if *-CONTEXT.md exists (glob for *-CONTEXT.md)
+   - Determine status:
+     • "Complete" — summaries >= plans AND plans > 0
+     • "In Progress" — plans > 0 AND summaries > 0 AND summaries < plans
+     • "Planned" — plans > 0 AND summaries = 0
+     • "Discussed" — CONTEXT.md exists but no plans
+     • "Pending" — none of the above
+
+Return EXACTLY this format:
+PROGRESS_BAR: {bar string}
+PHASE_TABLE:
+| # | Phase | Status | Key Objective |
+|---|-------|--------|---------------|
+| {num} | {short name} | {status} | {goal from roadmap, max 60 chars} |
 ```
 
-This returns structured JSON with:
-- All phases with disk status (complete/partial/planned/empty/no_directory)
-- Goal and dependencies per phase
-- Plan and summary counts per phase
-- Aggregated stats: total plans, summaries, progress percent
-- Current and next phase identification
+**Agent 2 — Recent Work & State Snapshot:**
 
-Use this instead of manually reading/parsing ROADMAP.md.
+Prompt the agent with:
+```
+You are gathering recent work and project state for a progress report. Do NOT output commentary — return ONLY the structured format below.
+
+1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot
+   Parse decisions[] and blockers[] from the JSON output.
+2. Find the 3 most recent *-SUMMARY.md files across all directories in .planning/phases/ (sort by file modification time).
+   For each, run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" summary-extract {path} --fields one_liner
+3. Read .planning/config.json and extract the model profile name.
+4. Count files in .planning/todos/pending/ (if directory exists).
+5. Count active debug sessions: glob .planning/debug/*.md (exclude resolved/ subdirectory).
+
+Return EXACTLY this format:
+PROFILE: {quality|balanced|budget}
+RECENT_WORK:
+- [{phase}-{plan}]: {one_liner}
+DECISIONS:
+- {decision text}
+BLOCKERS:
+- {blocker text}
+TODO_COUNT: {N}
+DEBUG_COUNT: {N}
+```
+
+**Agent 3 — Dependency Analysis & Parallelizable Phases:**
+
+Prompt the agent with:
+```
+You are analyzing phase dependencies for a progress report. Do NOT output commentary — return ONLY the structured format below.
+
+1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze
+   Parse the JSON to get each phase's dependencies list and disk status.
+2. A phase is "complete" if its disk_status is "complete" (summaries >= plans > 0).
+3. For each NON-complete phase:
+   - If it has NO dependencies, or ALL its dependencies are complete → it is "parallelizable"
+   - Otherwise → it is "blocked" (list which dependency phases are incomplete)
+4. For each parallelizable phase, check its directory to determine available action:
+   - No *-CONTEXT.md → action is "discuss" (suggest /gsd:discuss-phase {num})
+   - *-CONTEXT.md exists but no *-PLAN.md → action is "plan" (suggest /gsd:plan-phase {num})
+   - *-PLAN.md exists but not all have matching *-SUMMARY.md → action is "execute" (suggest /gsd:execute-phase {num})
+
+Return EXACTLY this format:
+PARALLELIZABLE:
+- Phase {num}: {name} → /gsd:{action} {num}
+BLOCKED:
+- Phase {num}: {name} — waiting on Phase(s) {dep_nums}
+```
+
+**IMPORTANT:** Wait for all 3 agents to complete before proceeding to the report step. Store each agent's returned text for synthesis.
 </step>
-
-<step name="recent">
-**Gather recent work context:**
-
-- Find the 2-3 most recent SUMMARY.md files
-- Use `summary-extract` for efficient parsing:
-  ```bash
-  node "./.claude/get-shit-done/bin/gsd-tools.cjs" summary-extract <path> --fields one_liner
-  ```
-- This shows "what we've been working on"
-  </step>
-
-<step name="position">
-**Parse current position from init context and roadmap analysis:**
-
-- Use `current_phase` and `next_phase` from `$ROADMAP`
-- Note `paused_at` if work was paused (from `$STATE`)
-- Count pending todos: use `init todos` or `list-todos`
-- Check for active debug sessions: `ls .planning/debug/*.md 2>/dev/null | grep -v resolved | wc -l`
-  </step>
 
 <step name="report">
-**Generate progress bar from gsd-tools, then present rich status report:**
+**Synthesize all 3 agent results into a single enhanced progress report.**
 
-```bash
-# Get formatted progress bar
-PROGRESS_BAR=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" progress bar --raw)
-```
-
-Present:
+Combine the structured output from Agent 1, Agent 2, and Agent 3 into this format:
 
 ```
-# [Project Name]
+# [Project Name] — v{milestone_version}
 
-**Progress:** {PROGRESS_BAR}
-**Profile:** [quality/balanced/budget]
+**Progress:** {PROGRESS_BAR from Agent 1}
+**Profile:** {PROFILE from Agent 2}
+
+## Phase Overview
+
+{PHASE_TABLE from Agent 1 — full markdown table}
 
 ## Recent Work
-- [Phase X, Plan Y]: [what was accomplished - 1 line from summary-extract]
-- [Phase X, Plan Z]: [what was accomplished - 1 line from summary-extract]
+{RECENT_WORK lines from Agent 2}
 
 ## Current Position
-Phase [N] of [total]: [phase-name]
-Plan [M] of [phase-total]: [status]
-CONTEXT: [✓ if has_context | - if not]
+Phase [N] of [total]: [current phase name]
 
 ## Key Decisions Made
-- [extract from $STATE.decisions[]]
-- [e.g. jq -r '.decisions[].decision' from state-snapshot]
+{DECISIONS from Agent 2}
+(Omit section if empty)
 
 ## Blockers/Concerns
-- [extract from $STATE.blockers[]]
-- [e.g. jq -r '.blockers[].text' from state-snapshot]
+{BLOCKERS from Agent 2}
+(Omit section if empty)
 
 ## Pending Todos
-- [count] pending — /gsd:check-todos to review
+- {TODO_COUNT from Agent 2} pending — /gsd:check-todos to review
+(Omit section if count = 0)
 
 ## Active Debug Sessions
-- [count] active — /gsd:debug to continue
-(Only show this section if count > 0)
+- {DEBUG_COUNT from Agent 2} active — /gsd:debug to continue
+(Omit section if count = 0)
+
+## Ready to Work In Parallel
+These phases have no blocking dependencies — you can discuss or plan them simultaneously:
+{PARALLELIZABLE list from Agent 3, each with its /gsd: command suggestion}
+
+Blocked phases:
+{BLOCKED list from Agent 3}
+(Omit blocked sub-section if empty)
 
 ## What's Next
-[Next phase/plan objective from roadmap analyze]
+[Next action suggestion — determined by the route step below]
 ```
 
 </step>
@@ -373,6 +417,9 @@ Ready to plan the next milestone.
 
 <success_criteria>
 
+- [ ] 3 parallel agents dispatched in a SINGLE message (not sequential)
+- [ ] Phase Overview table shown with status per phase (Pending/Discussed/Planned/In Progress/Complete)
+- [ ] Parallelizable phases listed with suggested /gsd: commands
 - [ ] Rich context provided (recent work, decisions, issues)
 - [ ] Current position clear with visual progress
 - [ ] What's next clearly explained

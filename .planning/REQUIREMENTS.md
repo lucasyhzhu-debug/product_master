@@ -40,11 +40,11 @@
 
 ### Invoice — Business Settings
 
-- [ ] **BSET-01**: Admin can access Business Settings page at `/settings/business`
-- [ ] **BSET-02**: Admin can set business name, address, phone, email, NPWP
-- [ ] **BSET-03**: Admin can upload company logo (Convex file storage)
-- [ ] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
-- [ ] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
+- [x] **BSET-01**: Admin can access Business Settings page at `/settings/business`
+- [x] **BSET-02**: Admin can set business name, address, phone, email, NPWP
+- [x] **BSET-03**: Admin can upload company logo (Convex file storage)
+- [x] **BSET-04**: Admin can select default bank account for invoices (from existing `bankAccounts` table)
+- [x] **BSET-05**: Live invoice header preview shows how seller info will appear on invoices
 
 ### Invoice — Generation
 
@@ -69,10 +69,27 @@
 
 ### Invoice — Data Model
 
-- [ ] **IDAT-01**: `businessSettings` singleton table with seller identity fields
-- [ ] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
-- [ ] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
-- [ ] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
+- [x] **IDAT-01**: `businessSettings` singleton table with seller identity fields
+- [x] **IDAT-02**: `invoiceCounters` table for race-safe sequential numbering per month
+- [x] **IDAT-03**: `invoices` table with status (draft/final), seller/buyer/order snapshots, and items array
+- [x] **IDAT-04**: `customers` table extended with optional `companyName`, `npwp`, `billingAddress` fields
+
+### Direct Debit Expense Flow (Phase 59)
+
+- [ ] **DEXP-01**: Schema has 2 payment method literals (`employee_paid`, `company_paid`) replacing 3 old literals
+- [ ] **DEXP-02**: Schema has `recorded` status in expenses status union
+- [ ] **DEXP-03**: Schema has `transactionReference`, `flaggedForReview`, `flaggedBy`, `flaggedAt`, `flagReason` optional fields
+- [ ] **DEXP-04**: `requiresReceipt` returns true for all company_paid expenses regardless of amount
+- [ ] **DEXP-05**: `getTargetStatusAfterApproval` and `isVoidableStatus` updated for new literals and recorded status
+- [ ] **DEXP-06**: company_paid `submitExpense` auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to `recorded`
+- [ ] **DEXP-07**: employee_paid `submitExpense` unchanged (status `submitted`, no JE)
+- [ ] **DEXP-08**: `acknowledgeExpense` mutation transitions recorded expenses to approved (no new JE)
+- [ ] **DEXP-09**: `flagExpense` mutation sets flag fields on recorded expenses without status change
+- [ ] **DEXP-10**: Expense form shows exactly 2 payment options with clear labels
+- [ ] **DEXP-11**: Transaction reference field appears only when company_paid is selected
+- [ ] **DEXP-12**: Approval queue shows Company Paid badge and Acknowledge/Flag buttons for recorded expenses
+- [ ] **DEXP-13**: Flagged expenses display warning badge in approval list
+- [ ] **DEXP-14**: Recorded status badge renders in StatusBadge component
 
 ## Future Requirements (v1.9+)
 
@@ -97,6 +114,9 @@
 | Guide versioning / CMS | Hardcoded in React components, versioned by git |
 | Print/PDF export of help guides | Web-only; browser print if needed |
 | Contextual ? help buttons | Good future enhancement, not v1 |
+| Bank statement import/CSV matching | Future phase (deferred from Phase 59) |
+| Multi-bank account tracking | Future phase (deferred from Phase 59) |
+| Reconciliation automation | Future phase (deferred from Phase 59) |
 
 ## Traceability
 
@@ -126,15 +146,15 @@
 | EGUIDE-07 | Phase 56 | Complete |
 | EGUIDE-08 | Phase 56 | Complete |
 | EGUIDE-09 | Phase 56 | Complete |
-| BSET-01 | Phase 57 | Pending |
-| BSET-02 | Phase 57 | Pending |
-| BSET-03 | Phase 57 | Pending |
-| BSET-04 | Phase 57 | Pending |
-| BSET-05 | Phase 57 | Pending |
-| IDAT-01 | Phase 57 | Pending |
-| IDAT-02 | Phase 57 | Pending |
-| IDAT-03 | Phase 57 | Pending |
-| IDAT-04 | Phase 57 | Pending |
+| BSET-01 | Phase 57 | Complete |
+| BSET-02 | Phase 57 | Complete |
+| BSET-03 | Phase 57 | Complete |
+| BSET-04 | Phase 57 | Complete |
+| BSET-05 | Phase 57 | Complete |
+| IDAT-01 | Phase 57 | Complete |
+| IDAT-02 | Phase 57 | Complete |
+| IDAT-03 | Phase 57 | Complete |
+| IDAT-04 | Phase 57 | Complete |
 | INV-01 | Phase 58 | Pending |
 | INV-02 | Phase 58 | Pending |
 | INV-03 | Phase 58 | Pending |
@@ -150,12 +170,26 @@
 | IPRNT-02 | Phase 58 | Pending |
 | IPRNT-03 | Phase 58 | Pending |
 | IPRNT-04 | Phase 58 | Pending |
+| DEXP-01 | Phase 59 | Pending |
+| DEXP-02 | Phase 59 | Pending |
+| DEXP-03 | Phase 59 | Pending |
+| DEXP-04 | Phase 59 | Pending |
+| DEXP-05 | Phase 59 | Pending |
+| DEXP-06 | Phase 59 | Pending |
+| DEXP-07 | Phase 59 | Pending |
+| DEXP-08 | Phase 59 | Pending |
+| DEXP-09 | Phase 59 | Pending |
+| DEXP-10 | Phase 59 | Pending |
+| DEXP-11 | Phase 59 | Pending |
+| DEXP-12 | Phase 59 | Pending |
+| DEXP-13 | Phase 59 | Pending |
+| DEXP-14 | Phase 59 | Pending |
 
 **Coverage:**
-- v1.8 requirements: 39 total
-- Mapped to phases: 39
+- v1.8 requirements: 53 total (39 original + 14 Phase 59)
+- Mapped to phases: 53
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after initial definition*
+*Last updated: 2026-03-16 after Phase 59 planning*
