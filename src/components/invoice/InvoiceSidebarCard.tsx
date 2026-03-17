@@ -172,7 +172,7 @@ export function InvoiceSidebarCard({ orderId, orderStatus }: InvoiceSidebarCardP
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                {formatDateTimeId(latestFinal.generatedAt)}
+                {latestFinal.generatedAt ? formatDateTimeId(latestFinal.generatedAt) : "—"}
               </p>
               {latestFinal.buyerCompany && (
                 <p className="text-xs text-muted-foreground truncate">
@@ -274,7 +274,7 @@ export function InvoiceSidebarCard({ orderId, orderStatus }: InvoiceSidebarCardP
                       }
                     >
                       <span className="font-mono">{inv.invoiceNumber}</span>
-                      <span>{formatDateTimeId(inv.generatedAt)}</span>
+                      <span>{inv.generatedAt ? formatDateTimeId(inv.generatedAt) : "—"}</span>
                     </button>
                   ))}
                 </div>
