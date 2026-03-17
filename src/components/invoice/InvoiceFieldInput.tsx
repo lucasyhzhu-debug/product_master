@@ -26,6 +26,7 @@ interface InvoiceFieldInputProps {
   placeholder?: string;
   multiline?: boolean;
   readOnly?: boolean;
+  type?: string;
 }
 
 /**
@@ -46,6 +47,7 @@ export function InvoiceFieldInput({
   placeholder,
   multiline = false,
   readOnly = false,
+  type,
 }: InvoiceFieldInputProps) {
   const fieldClasses = cn(
     SOURCE_BG[source],
@@ -68,6 +70,7 @@ export function InvoiceFieldInput({
         />
       ) : (
         <Input
+          type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

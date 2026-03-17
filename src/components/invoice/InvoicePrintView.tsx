@@ -53,7 +53,7 @@ export function InvoicePrintView({ data }: InvoicePrintViewProps) {
   const isFinalized = !!data.invoiceNumber;
 
   return (
-    <div className="invoice-print-area bg-white text-black max-w-[210mm] mx-auto">
+    <div className="bg-white text-black max-w-[210mm] mx-auto">
       {/* Section 1: Brand Bar */}
       <div className="invoice-brand-bar h-1 bg-brand" />
 
@@ -147,7 +147,7 @@ export function InvoicePrintView({ data }: InvoicePrintViewProps) {
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <tr key={idx} className="border-b border-gray-200">
+              <tr key={`${item.productName}-${idx}`} className="border-b border-gray-200">
                 <td className="py-2">{idx + 1}</td>
                 <td className="py-2">
                   <span>{item.productName}</span>

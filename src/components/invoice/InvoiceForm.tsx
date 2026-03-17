@@ -135,7 +135,9 @@ function initField(value: string | undefined | null, defaultSource: FieldSource)
 export function InvoiceForm({ invoice, onSaveStatusChange }: InvoiceFormProps) {
   const updateDraft = useUpdateInvoiceDraft();
 
-  // Stable save function reference
+  // Stable save function reference — Convex hooks create new function refs on
+  // each render, which would reset the debounce timer via useCallback deps.
+  // Using a ref keeps the identity stable across renders.
   const saveFnRef = useRef(updateDraft.mutate);
   saveFnRef.current = updateDraft.mutate;
   const stableSaveFn = useCallback(
@@ -356,7 +358,7 @@ export function InvoiceForm({ invoice, onSaveStatusChange }: InvoiceFormProps) {
           value={f("dueDate").value}
           source={f("dueDate").source}
           onChange={(v) => handleFieldChange("dueDate", v)}
-          placeholder="YYYY-MM-DD"
+          type="date"
         />
         <InvoiceFieldInput
           label="PO Number"
@@ -381,7 +383,7 @@ export function InvoiceForm({ invoice, onSaveStatusChange }: InvoiceFormProps) {
           </thead>
           <tbody>
             {invoice.items.map((item, idx) => (
-              <tr key={idx} className="border-b border-gray-200">
+              <tr key={`${item.productName}-${idx}`} className="border-b border-gray-200">
                 <td className="py-2">{idx + 1}</td>
                 <td className="py-2">
                   <span>{item.productName}</span>

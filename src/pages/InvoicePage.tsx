@@ -66,11 +66,12 @@ function toInvoicePrintData(inv: Invoice): InvoicePrintData {
     paymentStatus: inv.paymentStatus,
     paymentMethod: inv.paymentMethod,
     notes: inv.notes,
-    // sellerLogoUrl resolved by query layer (if present)
-    sellerLogoUrl: (inv as Record<string, unknown>).sellerLogoUrl as
-      | string
-      | null
-      | undefined,
+    // sellerLogoUrl resolved by query layer (if present on the document)
+    sellerLogoUrl:
+      "sellerLogoUrl" in inv &&
+      typeof (inv as Record<string, unknown>).sellerLogoUrl === "string"
+        ? ((inv as Record<string, unknown>).sellerLogoUrl as string)
+        : undefined,
   };
 }
 
@@ -127,6 +128,7 @@ export function InvoicePage() {
   // ---------------------------------------------------------------------------
 
   const creatingRef = useRef(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId || draft || creatingRef.current || invoiceNumber) return;
@@ -134,9 +136,11 @@ export function InvoicePage() {
     if (invoices === undefined) return;
 
     creatingRef.current = true;
-    createDraft.mutate({ orderId }).catch(() => {
+    setCreateError(null);
+    createDraft.mutate({ orderId }).catch((err: Error) => {
       // Reset ref so user can retry on failure
       creatingRef.current = false;
+      setCreateError(err.message || "Failed to create invoice draft. The order may not be in an invoiceable status.");
     });
   }, [orderId, draft, invoices, invoiceNumber, createDraft]);
 
@@ -363,14 +367,28 @@ export function InvoicePage() {
   // FORM MODE: /orders/:orderId/invoice (default)
   // ---------------------------------------------------------------------------
 
-  // Draft still being created
+  // Draft still being created or creation failed
   if (!draft) {
     return (
       <div>
         <PageHeader title="Invoice" backTo={`/orders/${orderId}`} />
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Creating draft...</p>
-        </div>
+        {createError ? (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6 text-center">
+            <p className="text-destructive font-medium">{createError}</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => navigate(`/orders/${orderId}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Order
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">Creating draft...</p>
+          </div>
+        )}
       </div>
     );
   }
