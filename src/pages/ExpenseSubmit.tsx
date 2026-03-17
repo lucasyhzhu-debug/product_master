@@ -191,6 +191,13 @@ export function ExpenseSubmit() {
     if (!form.accountId) return "GL Account is required";
     if (!form.expenseDate) return "Expense date is required";
     if (!form.vendorName.trim()) return "Vendor name is required";
+    // Receipt required for company money (backend enforces too, but catch early)
+    if (
+      (form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") &&
+      !form.receiptFileId
+    ) {
+      return "Receipt is required for company-paid expenses";
+    }
     return null;
   }, [form]);
 

@@ -501,7 +501,7 @@ export const rejectExpense = protectedMutation({
 
     // Concurrency guard: must be in submitted status
     if (expense.status !== "submitted") {
-      throw new Error("Expense has already been processed");
+      throw new Error("Only submitted expenses can be rejected");
     }
 
     // Cannot reject own expense
