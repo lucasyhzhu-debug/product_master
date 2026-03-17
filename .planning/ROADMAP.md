@@ -543,13 +543,22 @@ Plans:
 
 ### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: Admins and managers can record balance sheet transactions (equipment purchases, loan repayments, dividends, capital injections, loan receipts, tax payments) through 6 pre-wired templates with inline accordion form and period-filtered recent entries table, plus hub navigation restructured into Financials + Accounting sections
+**Requirements**: MJE-01, MJE-02, MJE-03, MJE-04, MJE-05, MJE-06, MJE-07
 **Depends on:** Phase 49 (P&L Integration)
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. create mutation validates 6 template types, positive integer amounts, and resolves account codes via by_code index
+  2. listByPeriod query returns only template-based manual entries (excludes CSV imports) filtered by period
+  3. /journal page renders 6 template cards with inline accordion form for Date, Amount, Description
+  4. Only one template form open at a time, save creates JE and entry appears in table immediately
+  5. Period controls (monthly/custom) filter the recent entries table
+  6. Hub page split: Financials (5 links) + Accounting (4 links including Journal Entry)
+  7. npm run build succeeds, all tests pass
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 62 to break down)
+- [ ] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
+- [ ] 62-02-PLAN.md -- ManualJournalEntry page + route registration + hub navigation restructuring + visual verification
 
 
 ### Phase 63: Interactive Visual Expense Tutorials
