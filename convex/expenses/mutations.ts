@@ -34,6 +34,7 @@ import {
   buildCreditLine,
 } from "../lib/journalEngine";
 import { recordStatusChange } from "./auditTrail";
+import { RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)
@@ -259,7 +260,6 @@ export const submitExpense = protectedMutation({
     // physical receipt covering multiple expense line items in different categories).
     // Exclude voided/rejected/draft expenses — they should not block legitimate resubmissions.
     if (expense.receiptImageHash) {
-      const EXCLUDED_STATUSES = new Set(["voided", "rejected", "draft"]);
       const candidates = await ctx.db
         .query("expenses")
         .withIndex("by_receipt_hash", (q) =>
@@ -268,7 +268,7 @@ export const submitExpense = protectedMutation({
         .collect();
 
       const hashMatch = candidates.find(
-        (e) => !EXCLUDED_STATUSES.has(e.status) && e._id !== expense._id
+        (e) => !RECEIPT_HASH_EXCLUDED_STATUSES.has(e.status) && e._id !== expense._id
       );
 
       if (hashMatch) {

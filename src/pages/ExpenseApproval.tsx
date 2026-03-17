@@ -102,16 +102,15 @@ export function ExpenseApproval() {
       entries.push({ type: "single", expense });
     }
 
-    // Sort by earliest submittedAt in each entry (FIFO)
-    entries.sort((a, b) => {
-      const aTime = a.type === "single"
-        ? (a.expense.submittedAt ?? 0)
-        : Math.min(...a.expenses.map((e) => e.submittedAt ?? 0));
-      const bTime = b.type === "single"
-        ? (b.expense.submittedAt ?? 0)
-        : Math.min(...b.expenses.map((e) => e.submittedAt ?? 0));
-      return aTime - bTime;
-    });
+    // Sort by earliest submittedAt in each entry (FIFO).
+    // Pre-compute keys to avoid recalculating Math.min per sort comparison.
+    const sortKey = (entry: QueueEntry) =>
+      entry.type === "single"
+        ? (entry.expense.submittedAt ?? 0)
+        : Math.min(...entry.expenses.map((e) => e.submittedAt ?? 0));
+
+    const keyMap = new Map(entries.map((e) => [e, sortKey(e)]));
+    entries.sort((a, b) => (keyMap.get(a) ?? 0) - (keyMap.get(b) ?? 0));
 
     return entries;
   }, [pending]);

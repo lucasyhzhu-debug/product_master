@@ -16,6 +16,10 @@ export const COMMENT_REQUIRED_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
 
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Statuses excluded from receipt hash duplicate checks (FRAUD-02).
+ *  Voided/rejected/draft expenses should not block legitimate resubmissions. */
+export const RECEIPT_HASH_EXCLUDED_STATUSES = new Set(["voided", "rejected", "draft"]);
+
 /** Returns true if receipt is required for this expense.
  *  company_paid and payment_request: always required (company money).
  *  employee_paid (or unspecified): existing threshold (> Rp 50,000). */

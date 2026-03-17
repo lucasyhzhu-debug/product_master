@@ -66,7 +66,7 @@ export function ReceiptViewer({ receiptUrl, expenseNumber, className }: ReceiptV
         View Receipt
       </Badge>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setImgFailed(false); }}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Receipt - {expenseNumber}</DialogTitle>

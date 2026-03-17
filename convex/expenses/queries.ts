@@ -10,7 +10,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 import { ALL_ROLES, APPROVER_ROLES } from "./constants";
-import { DOA_ADMIN_ONLY_THRESHOLD } from "./helpers";
+import { DOA_ADMIN_ONLY_THRESHOLD, RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
 
 // Schema-aligned status validator for query args
 const expenseStatusValidator = v.union(
@@ -282,9 +282,6 @@ export const checkReceiptHash = protectedQuery({
   handler: async (ctx, args) => {
     if (!args.hash) return null;
 
-    // Exclude terminal/inactive statuses — voided expenses should not block resubmission
-    const EXCLUDED_STATUSES = new Set(["voided", "rejected", "draft"]);
-
     const candidates = await ctx.db
       .query("expenses")
       .withIndex("by_receipt_hash", (q) => q.eq("receiptImageHash", args.hash))
@@ -292,7 +289,7 @@ export const checkReceiptHash = protectedQuery({
 
     const match = candidates.find(
       (e) =>
-        !EXCLUDED_STATUSES.has(e.status) &&
+        !RECEIPT_HASH_EXCLUDED_STATUSES.has(e.status) &&
         e._id !== (args.excludeExpenseId ?? "")
     );
 
