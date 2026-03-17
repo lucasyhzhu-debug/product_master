@@ -201,7 +201,6 @@ export function ApprovalActions({
   }, []);
 
   const isAdmin = user?.role === "admin";
-  const isSubmitting = isDirectSubmitting;
 
   // Determine which action set to show
   const isRecordedCompanyPaid = paymentMethod === "company_paid" && status === "recorded";
@@ -218,7 +217,7 @@ export function ApprovalActions({
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
               onClick={handleApproveClick}
-              disabled={isSubmitting}
+              disabled={isDirectSubmitting}
             >
               <Check className="h-3.5 w-3.5 mr-1" />
               Approve
@@ -227,7 +226,7 @@ export function ApprovalActions({
               size="sm"
               variant="destructive"
               onClick={() => setActiveDialog("reject")}
-              disabled={isSubmitting}
+              disabled={isDirectSubmitting}
             >
               <X className="h-3.5 w-3.5 mr-1" />
               Reject
@@ -253,7 +252,7 @@ export function ApprovalActions({
                   handleAcknowledgeSubmit("").finally(() => setIsDirectSubmitting(false));
                 }
               }}
-              disabled={isSubmitting}
+              disabled={isDirectSubmitting}
             >
               <Check className="h-3.5 w-3.5 mr-1" />
               Acknowledge
@@ -263,7 +262,7 @@ export function ApprovalActions({
               variant="outline"
               className="text-amber-600 border-amber-300"
               onClick={() => setActiveDialog("flag")}
-              disabled={isSubmitting}
+              disabled={isDirectSubmitting}
             >
               <AlertTriangle className="h-3.5 w-3.5 mr-1" />
               Flag for Review
@@ -277,7 +276,7 @@ export function ApprovalActions({
             size="sm"
             className="bg-teal-600 hover:bg-teal-700 text-white"
             onClick={() => setActiveDialog("markAsPaid")}
-            disabled={isSubmitting}
+            disabled={isDirectSubmitting}
           >
             <Banknote className="h-3.5 w-3.5 mr-1" />
             Mark as Paid
@@ -290,7 +289,7 @@ export function ApprovalActions({
             size="sm"
             variant="outline"
             onClick={() => setActiveDialog("void")}
-            disabled={isSubmitting}
+            disabled={isDirectSubmitting}
           >
             <Ban className="h-3.5 w-3.5 mr-1" />
             Void

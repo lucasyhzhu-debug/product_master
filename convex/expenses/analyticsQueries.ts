@@ -15,6 +15,7 @@ import { protectedQuery } from "../lib/functions";
 import { aggregateJournalLines } from "../lib/journalHelpers";
 import { getWibComponents, wibMidnightToUtc } from "../lib/periodRange";
 import { APPROVER_ROLES } from "./constants";
+import { MS_PER_DAY } from "./helpers";
 import {
   detectSplits,
   detectApproverConcentration,
@@ -198,7 +199,6 @@ export const getExpenseMetrics = protectedQuery({
         approvalCount++;
       }
     }
-    const MS_PER_DAY = 86_400_000;
     const avgApprovalDays = approvalCount > 0
       ? totalApprovalMs / approvalCount / MS_PER_DAY
       : null;
@@ -237,7 +237,6 @@ export const getFraudFlags = protectedQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const MS_PER_DAY = 86_400_000;
     const sevenDaysAgo = now - 7 * MS_PER_DAY;
     const thirtyDaysAgo = now - 30 * MS_PER_DAY;
     const ninetyDaysAgo = now - 90 * MS_PER_DAY;

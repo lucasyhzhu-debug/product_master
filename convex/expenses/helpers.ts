@@ -14,7 +14,7 @@ export const EXPENSE_HIGH_VALUE_THRESHOLD = 500_000; // Rp 500,000
 export const DOA_ADMIN_ONLY_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
 export const COMMENT_REQUIRED_THRESHOLD = EXPENSE_HIGH_VALUE_THRESHOLD;
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Returns true if receipt is required for this expense.
  *  company_paid and payment_request: always required (company money).

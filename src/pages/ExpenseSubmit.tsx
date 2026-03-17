@@ -39,6 +39,7 @@ import {
 } from "@/hooks/convex/useExpenses";
 import { ReceiptUpload } from "@/components/expenses/ReceiptUpload";
 import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
+import { RECEIPT_THRESHOLD } from "../../convex/expenses/helpers";
 import type { Id } from "../../convex/_generated/dataModel";
 
 // Payment method options matching schema validators
@@ -68,9 +69,6 @@ const EXPENSE_TYPE_OPTIONS = [
   { value: "opex", label: "Operating Expenses" },
   { value: "other", label: "Other Income/Expense" },
 ] as const;
-
-// Minimum amount that requires receipt (EXP-03)
-const RECEIPT_WARNING_THRESHOLD = 50_000;
 
 interface FormState {
   description: string;
@@ -326,7 +324,7 @@ export function ExpenseSubmit() {
 
   const amountNum = Number(form.amount) || 0;
   const showReceiptWarning =
-    amountNum > RECEIPT_WARNING_THRESHOLD && !form.receiptFileId;
+    amountNum > RECEIPT_THRESHOLD && !form.receiptFileId;
   const isProcessing = saving || submitting;
 
   return (
@@ -498,7 +496,7 @@ export function ExpenseSubmit() {
               Receipt{" "}
               {form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request"
                 ? "(required)"
-                : amountNum > RECEIPT_WARNING_THRESHOLD
+                : amountNum > RECEIPT_THRESHOLD
                   ? "(required for > Rp 50,000)"
                   : "(optional)"}
             </Label>
