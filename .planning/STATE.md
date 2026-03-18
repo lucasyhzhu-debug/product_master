@@ -53,12 +53,12 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 
 ## Current Position
 
-Phase: 60-asset-register-depreciation (1/3 plans)
-Plan: 01 complete
-Status: Plan 01 complete -- schema, journal engine, pure helpers, GL accounts
-Last activity: 2026-03-18 - Phase 60 plan 01 complete (schema + helpers + GL seeding)
+Phase: 60-asset-register-depreciation (2/3 plans)
+Plan: 02 complete
+Status: Plan 02 complete -- backend API (6 mutations, 4 queries), 22 tests, frontend hooks
+Last activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
 
-Progress: [███-------] 33%
+Progress: [██████----] 67%
 
 ## Performance Metrics
 
@@ -90,6 +90,7 @@ Progress: [███-------] 33%
 | 62-manual-journal-entry | 02 | 5min | 3 | 3 |
 | 60-asset-register-depreciation | 01 | 10min | 2 | 7 |
 | Phase 60-asset-register-depreciation P01 | 10min | 2 tasks | 7 files |
+| Phase 60-asset-register-depreciation P02 | 11min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,9 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [Phase 60-01]: GL code 6150 for Depreciation Expense (6300 already taken by Transportation)
 - [Phase 60-01]: 1600 Accumulated Depreciation deactivated, replaced by per-category 1610-1670
 - [Phase 60-01]: YYMM format for asset numbers (year-first, distinct from counter.ts MMDD)
+- [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
+- [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
+- [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
 
 ### Roadmap Evolution
 
@@ -179,6 +183,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-18T15:00:06.664Z
-Stopped at: Completed 60-01-PLAN.md
-Resume notes: Phase 60 plan 01 complete (1/3). Schema, journal engine, helpers, GL accounts ready. Next: 60-02 (CRUD mutations, depreciation batch, disposal, void).
+Last session: 2026-03-18T15:13:30.000Z
+Stopped at: Completed 60-02-PLAN.md
+Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).
