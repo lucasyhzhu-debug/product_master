@@ -20,7 +20,7 @@ const CODE_PREFIX_TO_TYPE: Record<string, { type: AccountType; category: string 
 };
 
 // ---------------------------------------------------------------------------
-// Default Chart of Accounts — 39 PSAK-aligned GL accounts
+// Default Chart of Accounts — 49 PSAK-aligned GL accounts
 // ---------------------------------------------------------------------------
 
 /**
@@ -45,6 +45,7 @@ export const DEFAULT_ACCOUNTS = [
 
   // OpEx (6xxx)
   { code: "6100", name: "Salaries & Wages", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6150", name: "Depreciation Expense", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6200", name: "Rent & Utilities", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6300", name: "Transportation (Local)", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6350", name: "Travel & Visa", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
@@ -59,6 +60,8 @@ export const DEFAULT_ACCOUNTS = [
   // Other (7xxx)
   { code: "7100", name: "Interest Income", type: "other" as const, category: "Other Income/Expense", isSystem: true, isActive: true },
   { code: "7200", name: "Interest Expense", type: "other" as const, category: "Other Income/Expense", isSystem: true, isActive: true },
+  { code: "7300", name: "Gain on Asset Disposal", type: "other" as const, category: "Other Income/Expense", isSystem: true, isActive: true },
+  { code: "7400", name: "Loss on Asset Disposal", type: "other" as const, category: "Other Income/Expense", isSystem: true, isActive: true },
   { code: "7900", name: "Other Non-Operating", type: "other" as const, category: "Other Income/Expense", isSystem: true, isActive: true },
 
   // Assets (1xxx)
@@ -67,7 +70,14 @@ export const DEFAULT_ACCOUNTS = [
   { code: "1300", name: "Inventory (Raw Materials)", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
   { code: "1400", name: "Prepaid Expenses", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
   { code: "1500", name: "Fixed Assets", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
-  { code: "1600", name: "Accumulated Depreciation", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1600", name: "Accumulated Depreciation", type: "asset" as const, category: "Assets", isSystem: true, isActive: false },
+  { code: "1610", name: "Accum. Depr. - Buildings", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1620", name: "Accum. Depr. - Vehicles", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1630", name: "Accum. Depr. - Office Equipment", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1640", name: "Accum. Depr. - Kitchen/Production", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1650", name: "Accum. Depr. - Furniture", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1660", name: "Accum. Depr. - Tools", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1670", name: "Accum. Depr. - Leasehold Improvements", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
 
   // Liabilities (2xxx)
   { code: "2100", name: "Accounts Payable", type: "liability" as const, category: "Liabilities", isSystem: true, isActive: true },
@@ -83,7 +93,7 @@ export const DEFAULT_ACCOUNTS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// seedDefaults — upsert 39 system accounts
+// seedDefaults — upsert 49 system accounts
 // ---------------------------------------------------------------------------
 
 /**

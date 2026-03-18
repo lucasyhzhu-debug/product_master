@@ -167,6 +167,38 @@ describe("validateVoidPairing", () => {
       validateVoidPairing("expense_void", "expense_void")
     ).toThrow("Cannot reverse an expense_void entry");
   });
+
+  // --- Depreciation source type pairing tests (Phase 60) ---
+
+  it("accepts depreciation -> depreciation_void", () => {
+    expect(() =>
+      validateVoidPairing("depreciation", "depreciation_void")
+    ).not.toThrow();
+  });
+
+  it("rejects depreciation_void -> depreciation_void (no double-void)", () => {
+    expect(() =>
+      validateVoidPairing("depreciation_void" as JournalSourceType, "depreciation_void")
+    ).toThrow("Cannot reverse");
+  });
+
+  it("rejects manual -> depreciation_void (wrong pairing)", () => {
+    expect(() =>
+      validateVoidPairing("manual", "depreciation_void")
+    ).toThrow("Cannot reverse an manual entry");
+  });
+
+  it("rejects depreciation -> expense_void (mismatched void type)", () => {
+    expect(() =>
+      validateVoidPairing("depreciation", "expense_void")
+    ).toThrow("Cannot create expense_void reversal for depreciation entry");
+  });
+
+  it("depreciation is a valid JournalSourceType", () => {
+    // TypeScript compile-time check: if this compiles, depreciation is a valid JournalSourceType
+    const sourceType: JournalSourceType = "depreciation";
+    expect(sourceType).toBe("depreciation");
+  });
 });
 
 describe("buildDebitLine", () => {
