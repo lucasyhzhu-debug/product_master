@@ -131,22 +131,22 @@ export const create = protectedMutation({
     // Look up template account codes
     const template = TEMPLATES[args.templateType];
 
-    // Resolve debit account
-    const debitAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", template.debit))
-      .first();
+    // Resolve debit + credit accounts in parallel (independent reads)
+    const [debitAccount, creditAccount] = await Promise.all([
+      ctx.db
+        .query("accounts")
+        .withIndex("by_code", (q) => q.eq("code", template.debit))
+        .first(),
+      ctx.db
+        .query("accounts")
+        .withIndex("by_code", (q) => q.eq("code", template.credit))
+        .first(),
+    ]);
     if (!debitAccount) {
       throw new Error(
         `System account ${template.debit} not found. Run accounts:seedDefaults.`
       );
     }
-
-    // Resolve credit account
-    const creditAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", template.credit))
-      .first();
     if (!creditAccount) {
       throw new Error(
         `System account ${template.credit} not found. Run accounts:seedDefaults.`

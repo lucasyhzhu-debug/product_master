@@ -137,8 +137,7 @@ export function ManualJournalEntry() {
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
   // ---- Form state ----
-  const todayWib = useMemo(() => utcToWibDateStr(Date.now()), []);
-  const [formDate, setFormDate] = useState(todayWib);
+  const [formDate, setFormDate] = useState(() => utcToWibDateStr(Date.now()));
   const [formAmount, setFormAmount] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
