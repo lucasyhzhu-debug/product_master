@@ -16,6 +16,30 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Asset Register & Depreciation (Phase 60) -- 2026-03-18
+
+**For the team:** You can now track all company assets (kitchen equipment, office furniture, vehicles, etc.) in a dedicated Asset Register page. Each asset gets a proper PSAK-compliant category with automatic depreciation calculation. Click "Catch Up to Now" to generate all missing depreciation journal entries at once with a preview before posting. You can also dispose of assets (sell, scrap, or write off) and the system automatically calculates the gain or loss. The Income Statement now shows a reminder when depreciation hasn't been posted for the current month.
+
+#### Added
+- Fixed asset register with 8 PSAK-aligned categories (Tanah, Bangunan, Kendaraan, etc.)
+- Straight-line depreciation with auto-calculated monthly amounts and final-month remainder handling
+- "Catch Up to Now" batch JE generation with preview summary
+- Per-asset disposal workflow (sold/scrapped/written_off) with gain/loss JE
+- One-click void for entire month's depreciation JEs
+- Depreciation reminder on Income Statement (yellow banner + inline note when current month not posted)
+- 10 new GL accounts (6150 Depreciation Expense, 1610-1670 per-category Accum. Depr., 7300/7400 disposal gain/loss)
+- Asset number format: FA-{CATEGORY}-YYMM-NNN (e.g., FA-KIT-2603-001)
+- Table/card view toggle on asset register page
+- Photo and document attachments per asset
+- Flexible key-value characteristics with CSV paste
+- `canAccessAssets` permission (manager + admin)
+
+#### Changed
+- Extended journalEntries sourceType with "depreciation" and "depreciation_void"
+- Added by_sourceType_date compound index to journalEntries for efficient month-based queries
+- Deactivated legacy 1600 Accumulated Depreciation account (replaced by 1610-1670 per-category)
+- Income Statement shows inline "(current month not posted)" next to Depreciation Expense line when applicable
+
 ### Bug Fix: BigSeller Auth Error Detection — 2026-03-18
 
 **For the team:** BigSeller sync was failing with a confusing "API error code 401006" message instead of telling you to paste a new token. Now it correctly detects expired tokens and shows "Token expired — paste new token in Settings" so you know exactly what to do.

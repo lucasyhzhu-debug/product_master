@@ -1563,7 +1563,7 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `entryNumber` | `string` | Sequential JE number (JE-YYYYMM-NNN) |
 | `date` | `number` | Epoch ms of business date |
 | `description` | `string` | Entry description |
-| `sourceType` | `union` | `"expense_approval"` \| `"expense_void"` \| `"reimbursement"` \| `"reimbursement_void"` \| `"payroll"` \| `"payroll_void"` \| `"manual"` |
+| `sourceType` | `union` | `"expense_approval"` \| `"expense_void"` \| `"reimbursement"` \| `"reimbursement_void"` \| `"payroll"` \| `"payroll_void"` \| `"manual"` \| `"depreciation"` \| `"depreciation_void"` |
 | `sourceId` | `optional string` | Reference to source record |
 | `isReversed` | `boolean` | Whether entry has been reversed |
 | `reversedByEntryId` | `optional id("journalEntries")` | Reversal entry reference |
@@ -1571,7 +1571,7 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `createdAt` | `number` | Epoch ms of creation time |
 | `metadata` | `optional object` | Optional metadata. Contains `receiptUrl: optional string` for Google Drive receipt links (used by historical import, Phase 51) and `templateType: optional string` for template-based manual journal entries (Phase 62). Values: `"equipment_purchase"`, `"loan_repayment"`, `"dividend_payment"`, `"capital_injection"`, `"receive_loan"`, `"tax_payment"`. |
 
-**Indexes:** `by_entry_number`, `by_source` (sourceType, sourceId), `by_date`
+**Indexes:** `by_entry_number`, `by_source` (sourceType, sourceId), `by_date`, `by_sourceType_date` (sourceType, date)
 
 ### `journalEntryLines` — Double-Entry Journal Entry Lines (Debit/Credit)
 
@@ -1585,3 +1585,34 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `description` | `optional string` | Line-level description |
 
 **Indexes:** `by_journal_entry`, `by_account_entryDate` (accountId, entryDate), `by_entryDate`
+
+### `fixedAssets` -- Fixed Asset Register (Phase 60)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `assetNumber` | `string` | Unique asset number (FA-{ABBR}-YYMM-NNN) |
+| `name` | `string` | Asset name |
+| `category` | `string` | PSAK category key (e.g., "mesin_produksi", "kendaraan") |
+| `acquisitionDate` | `number` | Epoch ms of acquisition date |
+| `cost` | `number` | Original cost (IDR) |
+| `salvageValue` | `number` | Residual value (IDR) |
+| `usefulLifeMonths` | `number` | Useful life in months |
+| `monthlyDepreciation` | `number` | Calculated monthly depreciation amount (IDR) |
+| `accumulatedDepreciation` | `number` | Running total of depreciation posted (IDR) |
+| `lastDepreciationMonth` | `optional string` | Last posted month (YYYY-MM) |
+| `status` | `string` | "active" \| "fully_depreciated" \| "disposed" |
+| `location` | `optional string` | Physical location description |
+| `characteristics` | `array` | Key-value pairs [{key, value}] for serial numbers, models, etc. |
+| `attachmentIds` | `array` | Storage IDs for photos/documents |
+| `disposalType` | `optional string` | "sold" \| "scrapped" \| "written_off" |
+| `disposalDate` | `optional number` | Epoch ms of disposal |
+| `saleProceeds` | `optional number` | Proceeds from sale (IDR) |
+| `createdBy` | `id("users")` | User who registered the asset |
+
+**Indexes:** `by_status` (status), `by_category` (category), `by_asset_number` (assetNumber)
+
+**Relationships:**
+- Journal entries reference fixed assets via `sourceType="depreciation"` + `sourceId=asset._id`
+- Disposal JEs use `sourceType="manual"` to prevent accidental void by depreciation void operation
+- GL accounts: DR 6150 (Depreciation Expense), CR 1610-1670 (per-category Accumulated Depreciation)
+- Disposal gain/loss: 7300 (Gain on Asset Disposal), 7400 (Loss on Asset Disposal)
