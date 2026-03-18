@@ -515,13 +515,26 @@ Plans:
 
 ### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal**: Manager/admin can register fixed assets with PSAK-aligned categories, auto-calculated straight-line depreciation, batch "Catch Up to Now" JE generation with preview, per-asset disposal with gain/loss JE, and depreciation reminder on Income Statement
+**Requirements**: ASSET-01, ASSET-02, ASSET-03, ASSET-04, ASSET-05, ASSET-06, ASSET-07, ASSET-08, DEPR-01, DEPR-02, DEPR-03, DEPR-04, DEPR-05, DEPR-06, DEPR-07, DEPR-08, DEPR-09, DEPR-10, GL-01, DISP-01, DISP-02, DISP-03, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, REMIND-01, REMIND-02, REMIND-03
 **Depends on:** Phase 59
-**Plans:** 0 plans
+**Success Criteria** (what must be TRUE):
+  1. fixedAssets table in schema with PSAK-aligned categories, denormalized depreciation fields, and 3 indexes
+  2. journalEntries sourceType extended with "depreciation" and "depreciation_void" (synchronized across schema + journalEngine types)
+  3. 10 new GL accounts seeded: 6150 Depreciation Expense, 1610-1670 per-category Accum Depr, 7300/7400 disposal gain/loss
+  4. Pure helpers tested: calculateMonthlyDepreciation (with final-month remainder), computeMissingMonths, calculateDisposalGainLoss, parseCharacteristicsCSV
+  5. Asset CRUD with FA-{ABBR}-YYMM-NNN numbering and PSAK default auto-population
+  6. "Catch Up to Now" batch depreciation: preview → confirm → atomic JE creation for all missing months
+  7. Disposal workflow: sold/scrapped/written_off with compound gain/loss JE
+  8. Asset Register page at /assets with table/card toggle, status filters, admin-only Catch Up and Dispose
+  9. Income Statement depreciation reminder: yellow banner + inline note for unposted current month
+  10. npm run build succeeds, all tests pass
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 60 to break down)
+- [ ] 60-01-PLAN.md -- Schema + journal engine sync + pure helpers (TDD) + GL account seeding
+- [ ] 60-02-PLAN.md -- Backend mutations/queries (CRUD, depreciation batch, disposal, void) + frontend hooks
+- [ ] 60-03-PLAN.md -- Asset Register page + Income Statement reminder + navigation + visual verification
 
 ### Phase 61: Help File Indexing Architecture -- Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
 
