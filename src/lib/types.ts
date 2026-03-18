@@ -727,6 +727,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessExpenseAnalytics: boolean;  // Expense analytics dashboard (manager + admin)
   canAccessBusinessSettings: boolean;  // Business settings page (admin only)
   canAccessInvoices: boolean;  // Invoice generation (manager + admin)
+  canAccessAssets: boolean;  // Asset Register (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -749,6 +750,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessExpenseAnalytics: false,
     canAccessBusinessSettings: false,
     canAccessInvoices: false,
+    canAccessAssets: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -771,6 +773,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessExpenseAnalytics: false,
     canAccessBusinessSettings: false,
     canAccessInvoices: false,
+    canAccessAssets: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -793,6 +796,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessExpenseAnalytics: true,
     canAccessBusinessSettings: false,
     canAccessInvoices: true,
+    canAccessAssets: true,
   },
   admin: {
     canAccessDashboard: true,
@@ -815,6 +819,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessExpenseAnalytics: true,
     canAccessBusinessSettings: true,
     canAccessInvoices: true,
+    canAccessAssets: true,
   },
 };
 

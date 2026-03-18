@@ -28,6 +28,7 @@ import {
   CreditCard,
   Calculator,
   BookMarked,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -128,8 +129,9 @@ const HUB_AREAS: AreaCard[] = [
       { label: "Chart of Accounts", path: "/accounts" },
       { label: "Bank Accounts", path: "/bank-accounts" },
       { label: "Historical Import", path: "/import" },
+      { label: "Asset Register", path: "/assets" },
     ],
-    visible: (hp) => hp("canManageReimbursements"),
+    visible: (hp) => hp("canManageReimbursements") || hp("canAccessAssets"),
   },
   {
     title: "Configuration",
@@ -207,6 +209,7 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   "Historical Import": FileText,
   "All Guides": BookOpen,
   "Expenses Guide": CreditCard,
+  "Asset Register": Building2,
 };
 
 // ---------------------------------------------------------------------------
