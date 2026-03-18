@@ -37,7 +37,7 @@ export type JournalSourceType =
   | "reimbursement_void"
   | "payroll"
   | "payroll_void"
-  | "manual"; // No mutation creates manual entries in Phase 42; included to match schema
+  | "manual"; // Template-based manual entries created via manualJournal/mutations.ts (Phase 62)
 
 /** Void source types that reverse an original entry */
 export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void";

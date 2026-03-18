@@ -388,7 +388,7 @@ function App() {
                     }
                   />
 
-                  {/* Manual Journal Entry (admin-only, Phase 62) */}
+                  {/* Manual Journal Entry (admin + manager, Phase 62) */}
                   <Route
                     path="journal"
                     element={

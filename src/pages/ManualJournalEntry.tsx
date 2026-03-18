@@ -455,8 +455,9 @@ export function ManualJournalEntry() {
           </div>
         ) : entries.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
-            No manual journal entries for {monthLabel}. Use the templates above to
-            create one.
+            No manual journal entries for{" "}
+            {periodMode === "month" ? monthLabel : "the selected period"}. Use the
+            templates above to create one.
           </div>
         ) : (
           <div className="border rounded-lg overflow-x-auto">

@@ -124,6 +124,9 @@ export const create = protectedMutation({
     validateTemplateType(args.templateType);
     validateManualJournalAmount(args.amount);
     validateManualJournalDate(args.date);
+    if (!args.description.trim()) {
+      throw new Error("Description is required");
+    }
 
     // Look up template account codes
     const template = TEMPLATES[args.templateType];
