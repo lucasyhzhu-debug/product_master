@@ -37,7 +37,7 @@ export type JournalSourceType =
   | "reimbursement_void"
   | "payroll"
   | "payroll_void"
-  | "manual"; // No mutation creates manual entries in Phase 42; included to match schema
+  | "manual"; // Template-based manual entries created via manualJournal/mutations.ts (Phase 62)
 
 /** Void source types that reverse an original entry */
 export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void";
@@ -52,7 +52,7 @@ export interface CreateJournalEntryParams {
   sourceId?: string; // String ID of source record (expense, batch, payroll entry)
   createdBy: Id<"users">;
   lines: JournalLine[]; // Min 2 lines, debits must equal credits
-  metadata?: { receiptUrl?: string }; // Optional metadata for receipt URLs (historical import)
+  metadata?: { receiptUrl?: string; templateType?: string }; // Optional metadata for receipt URLs (historical import) or template type (manual journal)
 }
 
 // ---------------------------------------------------------------------------

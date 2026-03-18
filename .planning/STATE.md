@@ -3,30 +3,29 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: completed
-stopped_at: Completed 61-02-PLAN.md
-last_updated: "2026-03-17T17:57:25.838Z"
-last_activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
+stopped_at: Completed 62-02-PLAN.md
+last_updated: "2026-03-18T08:38:58.091Z"
+last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
 progress:
   total_phases: 24
-  completed_phases: 22
+  completed_phases: 23
   total_plans: 52
-  completed_plans: 50
+  completed_plans: 52
 ---
 
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: Phase 61 complete -- help file indexing architecture with docs-manifest, validation, section files, and 2 GSD skills
-stopped_at: Completed 61-02-PLAN.md
-last_updated: "2026-03-17T17:26:09.000Z"
-last_activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: Phase 62 complete -- manual journal entry page and hub navigation shipped (plan 02/02)
+stopped_at: Completed 62-02-PLAN.md
+last_updated: "2026-03-18T05:17:31.000Z"
+last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
 progress:
   total_phases: 24
-  completed_phases: 22
-  total_plans: 50
-  completed_plans: 50
-  percent: 100
+  completed_phases: 23
+  total_plans: 52
+  completed_plans: 52
 ---
 
 # Project State
@@ -34,14 +33,14 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.7 Expense & Accounting — Phase 61 complete (2/2 plans), all phases complete
+**Current focus:** v1.8 Support & Quality of Life -- Phase 62 complete (2/2 plans)
 
 ## Current Position
 
-Phase: 61-help-file-indexing-architecture (2/2 plans)
-Plan: 02 complete (phase complete)
-Status: Phase 61 complete -- help file indexing architecture with docs-manifest, validation, section files, and 2 GSD skills
-Last activity: 2026-03-17 - Phase 61 plan 02 complete (phase complete)
+Phase: 62-manual-journal-entry (2/2 plans)
+Plan: 02 complete
+Status: Phase 62 complete -- manual journal entry page and hub navigation shipped
+Last activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
 
 Progress: [██████████] 100%
 
@@ -71,6 +70,8 @@ Progress: [██████████] 100%
 | 63-interactive-visual-expense-tutorials | 02 | 16min | 2 | 14 |
 | 61-help-file-indexing-architecture | 01 | 11min | 2 | 10 |
 | 61-help-file-indexing-architecture | 02 | 4min | 2 | 2 |
+| 62-manual-journal-entry | 01 | 8min | 2 | 11 |
+| 62-manual-journal-entry | 02 | 5min | 3 | 3 |
 
 ## Accumulated Context
 
@@ -122,6 +123,12 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [63-02] Walkthrough section has no role field (visible to all users)
 - [Phase 61]: Adapted plan from 8 to 6 section files -- Phase 63 merged submitting/approving/reimbursement into walkthrough
 - [Phase 61-02]: Both GSD skills use single quotes for commit messages containing # (guide#section format)
+- [62-01] Used by_date index with range bounds for listByPeriod (scalable, avoids loading all manual entries)
+- [62-01] isTemplateEntry as pure exported function for testability and reuse in post-filter
+- [62-01] TEMPLATE_TYPES as const array with derived TemplateType union for compile-time safety
+- [62-02] Frontend TEMPLATE_CARDS config duplicates backend TEMPLATE_TYPES intentionally -- backend validates, frontend adds UI metadata
+- [62-02] Period controls JSX copied from ExpenseAnalytics -- shared component extraction is acknowledged tech debt
+- [62-02] Hub split: Financials retains reports + expense flow, Accounting gets ledger operations (journal, CoA, bank accounts, historical import)
 
 ### Roadmap Evolution
 
@@ -147,6 +154,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-17T17:26:09.000Z
-Stopped at: Completed 61-02-PLAN.md
-Resume notes: Phase 61 (Help File Indexing Architecture) is fully complete (2/2 plans). All v1.7 phases done. Next step: merge branch to main or complete milestone.
+Last session: 2026-03-18T05:17:31.000Z
+Stopped at: Completed 62-02-PLAN.md
+Resume notes: Phase 62 fully complete (both plans). Manual journal entry system operational end-to-end. Hub navigation restructured into Financials + Accounting sections.

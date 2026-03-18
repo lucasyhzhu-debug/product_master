@@ -554,11 +554,11 @@ Plans:
   5. Period controls (monthly/custom) filter the recent entries table
   6. Hub page split: Financials (5 links) + Accounting (4 links including Journal Entry)
   7. npm run build succeeds, all tests pass
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
-- [ ] 62-02-PLAN.md -- ManualJournalEntry page + route registration + hub navigation restructuring + visual verification
+- [x] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
+- [x] 62-02-PLAN.md -- ManualJournalEntry page + route registration + hub navigation restructuring + visual verification
 
 
 ### Phase 63: Interactive Visual Expense Tutorials

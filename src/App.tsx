@@ -120,6 +120,9 @@ const BusinessSettings = lazyWithPreload(() =>
 const InvoicePage = lazyWithPreload(() =>
   import('./pages/InvoicePage').then(m => ({ default: m.InvoicePage }))
 );
+const ManualJournalEntry = lazyWithPreload(() =>
+  import('./pages/ManualJournalEntry').then(m => ({ default: m.ManualJournalEntry }))
+);
 
 function App() {
   return (
@@ -381,6 +384,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canManageReimbursements">
                         <HistoricalImportPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Manual Journal Entry (admin + manager, Phase 62) */}
+                  <Route
+                    path="journal"
+                    element={
+                      <ProtectedRoute requiredPermission="canManageReimbursements">
+                        <ManualJournalEntry />
                       </ProtectedRoute>
                     }
                   />

@@ -26,6 +26,8 @@ import {
   DollarSign,
   BookOpen,
   CreditCard,
+  Calculator,
+  BookMarked,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,13 +110,26 @@ const HUB_AREAS: AreaCard[] = [
       { label: "Expenses", path: "/expenses" },
       { label: "Exp. Analytics", path: "/expense-analytics" },
       { label: "Reimburse", path: "/reimbursements" },
-      { label: "Bank Accounts", path: "/bank-accounts" },
       { label: "Payroll", path: "/payroll" },
     ],
     visible: (hp) =>
       hp("canAccessDashboard") ||
       hp("canSubmitExpenses") ||
       hp("canManageReimbursements"),
+  },
+  {
+    title: "Accounting",
+    description: "Journal entries, chart of accounts, and bank account management.",
+    icon: Calculator,
+    color: "text-teal-500",
+    primaryPath: "/journal",
+    links: [
+      { label: "Journal Entry", path: "/journal" },
+      { label: "Chart of Accounts", path: "/accounts" },
+      { label: "Bank Accounts", path: "/bank-accounts" },
+      { label: "Historical Import", path: "/import" },
+    ],
+    visible: (hp) => hp("canManageReimbursements"),
   },
   {
     title: "Configuration",
@@ -187,6 +202,9 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Reimburse: HandCoins,
   "Bank Accounts": Landmark,
   Payroll: DollarSign,
+  "Journal Entry": BookMarked,
+  "Chart of Accounts": BookOpen,
+  "Historical Import": FileText,
   "All Guides": BookOpen,
   "Expenses Guide": CreditCard,
 };

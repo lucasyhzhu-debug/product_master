@@ -508,3 +508,9 @@ export {
   useDispatchRemoveConsignmentOutlet,
   useSetKitchenDailyOverride,
 } from "./useDispatchPlanner";
+
+// Manual Journal Entry (Phase 62)
+export {
+  useManualJournalEntries,
+  useCreateManualJournalEntry,
+} from "./useManualJournal";
