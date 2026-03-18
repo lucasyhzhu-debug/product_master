@@ -67,15 +67,22 @@ export function calculateMonthlyDepreciation(
 }
 
 /**
- * Calculate the depreciation amount for the final month.
+ * Calculate the depreciation amount for a given month.
  *
- * Handles rounding remainder: returns min(monthlyAmount, remaining depreciable).
- * Prevents over-depreciation when monthly * months doesn't exactly equal depreciable.
+ * Handles rounding remainder: when the remaining depreciable amount is less
+ * than two monthly amounts (i.e., this is the last month of useful life),
+ * returns the full remaining amount. This ensures the asset reaches exactly
+ * the depreciable amount without losing IDR to rounding.
+ *
+ * Example: cost=1M, salvage=0, 3 months → monthly=333,333.
+ * After 2 months (accum=666,666), remaining=333,334.
+ * Without this fix, min(333333, 333334)=333333 → 1 IDR rounding loss.
+ * With this fix, remaining(333334) < 2*monthly(666666) → returns 333,334.
  *
  * @param monthlyAmount - Standard monthly depreciation
  * @param accumulatedDepreciation - Total depreciation posted so far
  * @param depreciableAmount - Total depreciable amount (cost - salvageValue)
- * @returns Amount to depreciate this month (may be less than monthly for final month)
+ * @returns Amount to depreciate this month (remainder for final month)
  */
 export function calculateFinalMonthAmount(
   monthlyAmount: number,
@@ -84,7 +91,10 @@ export function calculateFinalMonthAmount(
 ): number {
   const remaining = depreciableAmount - accumulatedDepreciation;
   if (remaining <= 0) return 0;
-  return Math.min(monthlyAmount, remaining);
+  // If remaining is less than 2x monthly, this is the last month — take the full remainder
+  // to avoid rounding loss (e.g., 333334 remaining vs 333333 monthly)
+  if (remaining < monthlyAmount * 2) return remaining;
+  return monthlyAmount;
 }
 
 // ---------------------------------------------------------------------------
