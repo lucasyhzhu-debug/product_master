@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   detectHtmlResponse,
+  isJsonAuthError,
   buildPageListBody,
   buildBigSellerHeaders,
   buildSyncTaskCreateBody,
@@ -54,6 +55,46 @@ describe("detectHtmlResponse — edge cases", () => {
     expect(detectHtmlResponse("")).toBe(false);
     expect(detectHtmlResponse("   ")).toBe(false);
     expect(detectHtmlResponse("\n\t")).toBe(false);
+  });
+});
+
+// ============================================
+// isJsonAuthError — JSON auth failure detection
+// ============================================
+describe("isJsonAuthError", () => {
+  it("returns true for code 401006 (token expired/invalid)", () => {
+    expect(isJsonAuthError({ code: 401006 })).toBe(true);
+    expect(isJsonAuthError({ code: 401006, msg: "Session expired" })).toBe(true);
+    expect(isJsonAuthError({ code: 401006, errorCode: 2001 })).toBe(true);
+  });
+
+  it("returns true for code 401001 (token missing/malformed)", () => {
+    expect(isJsonAuthError({ code: 401001 })).toBe(true);
+  });
+
+  it("returns true for code 401003 (account suspended)", () => {
+    expect(isJsonAuthError({ code: 401003 })).toBe(true);
+  });
+
+  it("returns true when auth code is in errorCode field", () => {
+    expect(isJsonAuthError({ code: -1, errorCode: 401006 })).toBe(true);
+    expect(isJsonAuthError({ code: 0, errorCode: 401001 })).toBe(true);
+  });
+
+  it("returns false for normal success response", () => {
+    expect(isJsonAuthError({ code: 0 })).toBe(false);
+    expect(isJsonAuthError({ code: 0, msg: "Successfully" })).toBe(false);
+  });
+
+  it("returns false for generic API errors (not auth-related)", () => {
+    expect(isJsonAuthError({ code: -1, msg: "sync task is in progress" })).toBe(false);
+    expect(isJsonAuthError({ code: -1, msg: "Failed, please try again later" })).toBe(false);
+    expect(isJsonAuthError({ code: 500, msg: "Internal error" })).toBe(false);
+  });
+
+  it("returns false when errorCode is not an auth code", () => {
+    expect(isJsonAuthError({ code: -1, errorCode: 2001 })).toBe(false);
+    expect(isJsonAuthError({ code: 0, errorCode: 3000 })).toBe(false);
   });
 });
 

@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   detectHtmlResponse,
+  isJsonAuthError,
   buildPageListBody,
   mapOrderToRevenue,
   mapOrderToStorage,
@@ -35,6 +36,23 @@ describe("detectHtmlResponse", () => {
 
   it("returns false for empty string", () => {
     expect(detectHtmlResponse("")).toBe(false);
+  });
+});
+
+// ============================================
+// isJsonAuthError() Tests
+// ============================================
+describe("isJsonAuthError", () => {
+  it("detects auth error code 401006 (reported error)", () => {
+    expect(isJsonAuthError({ code: 401006, errorCode: 2001, msg: "token expired" })).toBe(true);
+  });
+
+  it("returns false for success", () => {
+    expect(isJsonAuthError({ code: 0 })).toBe(false);
+  });
+
+  it("returns false for generic errors", () => {
+    expect(isJsonAuthError({ code: -1, msg: "error" })).toBe(false);
   });
 });
 

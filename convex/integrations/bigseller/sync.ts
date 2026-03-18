@@ -27,6 +27,7 @@ import {
   buildPageListBody,
   buildSyncTaskCreateBody,
   detectHtmlResponse,
+  isJsonAuthError,
   getPageListEndpoint,
   mapOrderToRevenue,
   mapOrderToStorage,
@@ -77,7 +78,7 @@ async function handleAuthFailure(
   await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
     logId: syncLogId,
     status: "error",
-    errorMessage: "BigSeller token expired (HTML response detected)",
+    errorMessage: "BigSeller token expired or invalid",
   });
 
   // Update platform credential health status to error
@@ -85,7 +86,7 @@ async function handleAuthFailure(
     platformId: BIGSELLER_PLATFORM_ID,
     lastRefreshAt: Date.now(),
     lastRefreshStatus: "error",
-    lastRefreshError: "Token expired (HTML response from BigSeller)",
+    lastRefreshError: "Token expired or invalid (BigSeller auth failure)",
   });
 }
 
@@ -257,7 +258,7 @@ export const triggerSync = internalAction({
       return;
     }
 
-    let parsed: { code: number; msg?: string };
+    let parsed: { code: number; msg?: string; errorCode?: number };
     try {
       parsed = JSON.parse(responseText);
     } catch {
@@ -271,6 +272,13 @@ export const triggerSync = internalAction({
         errorMessage: `Invalid JSON response from BigSeller`,
         completedAt: Date.now(),
       });
+      return;
+    }
+
+    // JSON-based auth failure (e.g., code 401006) -- treat same as HTML auth failure
+    if (isJsonAuthError(parsed)) {
+      console.error(`BigSeller JSON auth error during triggerSync: code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`);
+      await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
       return;
     }
 
@@ -372,6 +380,8 @@ export const pollSyncTask = internalAction({
 
     let parsed: {
       code: number;
+      errorCode?: number;
+      msg?: string;
       data?: {
         progressInfo?: {
           taskStatus?: string;
@@ -389,6 +399,13 @@ export const pollSyncTask = internalAction({
           { ...args, pollAttempt: args.pollAttempt + 1 }
         );
       }
+      return;
+    }
+
+    // JSON-based auth failure (e.g., code 401006) -- treat same as HTML auth failure
+    if (isJsonAuthError(parsed)) {
+      console.error(`BigSeller JSON auth error during pollSyncTask: code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`);
+      await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
       return;
     }
 
@@ -610,6 +627,8 @@ export const fetchOrders = internalAction({
 
         let parsed: {
           code: number;
+          errorCode?: number;
+          msg?: string;
           data?: {
             itemPageVo?: {
               totalPage?: number;
@@ -624,6 +643,13 @@ export const fetchOrders = internalAction({
           console.error(`BigSeller ${platform} pageList invalid JSON (page ${pageNo})`);
           pageNo++;
           continue;
+        }
+
+        // JSON-based auth failure -- abort entire fetch (same as HTML auth failure)
+        if (isJsonAuthError(parsed)) {
+          console.error(`BigSeller JSON auth error during fetchOrders (${platform} page ${pageNo}): code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`);
+          await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
+          return;
         }
 
         if (parsed.code !== 0) {

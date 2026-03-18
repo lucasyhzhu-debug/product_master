@@ -16,6 +16,17 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Bug Fix: BigSeller Auth Error Detection — 2026-03-18
+
+**For the team:** BigSeller sync was failing with a confusing "API error code 401006" message instead of telling you to paste a new token. Now it correctly detects expired tokens and shows "Token expired — paste new token in Settings" so you know exactly what to do.
+
+#### Fixed
+- BigSeller changed their expired-token response from an HTML page to a JSON error (code 401006). Our sync only recognized the old HTML format, so the new JSON format was mishandled — causing silent 8-minute timeouts and zero-data syncs instead of a clear "paste new token" prompt.
+- Added `isJsonAuthError()` detection at all 3 sync stages (trigger, poll, fetch) alongside existing HTML detection.
+
+#### Tests
+- 13 new tests covering auth error code detection (401006, 401001, 401003) and edge cases.
+
 ### Manual Journal Entry (Phase 62) — 2026-03-18
 
 **For the team:** You can now record balance sheet transactions like equipment purchases, loan repayments, dividend payments, capital injections, received loans, and tax payments through 6 pre-wired templates. No more asking the accountant to create manual journal entries via CSV import.
