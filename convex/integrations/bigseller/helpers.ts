@@ -112,6 +112,36 @@ export function detectHtmlResponse(responseText: string): boolean {
   return trimmed.startsWith("<!doctype") || trimmed.startsWith("<html");
 }
 
+/**
+ * Known BigSeller JSON error codes that indicate authentication failure.
+ * BigSeller may return JSON auth errors instead of HTML redirects.
+ *
+ * - 401006: Session/token expired or invalid (observed with errorCode 2001)
+ * - 401001: Token missing or malformed
+ * - 401003: Account suspended/locked
+ */
+const BIGSELLER_AUTH_ERROR_CODES = new Set([401006, 401001, 401003]);
+
+/**
+ * Detect JSON-based auth failure from a parsed BigSeller API response.
+ * BigSeller can return auth failures as JSON (e.g., {code: 401006, errorCode: 2001})
+ * instead of HTML login page redirects. This catches cases that detectHtmlResponse() misses.
+ *
+ * @param parsed - The parsed JSON response object
+ * @returns true if the response indicates an authentication failure
+ */
+export function isJsonAuthError(parsed: { code: number; errorCode?: number; msg?: string }): boolean {
+  // Check top-level code for known auth error codes
+  if (BIGSELLER_AUTH_ERROR_CODES.has(parsed.code)) {
+    return true;
+  }
+  // Check nested errorCode field (BigSeller sometimes uses this for auth errors)
+  if (parsed.errorCode !== undefined && BIGSELLER_AUTH_ERROR_CODES.has(parsed.errorCode)) {
+    return true;
+  }
+  return false;
+}
+
 // ─── Field Mappers ───────────────────────────────────────────────────────────
 
 /**
