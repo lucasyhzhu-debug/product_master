@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { formatDateId } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFixedAssets, useOrphanEquipmentPurchases } from "@/hooks/convex/useFixedAssets";
 import { ASSET_CATEGORIES } from "@/lib/assetHelpers";
@@ -110,14 +111,6 @@ export function AssetRegister() {
     return cat?.label ?? key;
   };
 
-  const formatDate = (ms: number) => {
-    return new Date(ms).toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   // Loading state
   if (assets === undefined) {
     return (
@@ -182,7 +175,7 @@ export function AssetRegister() {
                     <li key={je._id} className="text-xs text-amber-700 dark:text-amber-400">
                       <span className="font-mono">{je.entryNumber}</span>
                       {" — "}
-                      {new Date(je.date).toLocaleDateString("id-ID", { year: "numeric", month: "short", day: "numeric" })}
+                      {formatDateId(je.date)}
                       {" — "}
                       {je.description}
                       {" — "}
@@ -296,7 +289,7 @@ export function AssetRegister() {
                       {getCategoryLabel(asset.category)}
                     </td>
                     <td className="py-2.5 px-3 text-sm tabular-nums">
-                      {formatDate(asset.acquisitionDate)}
+                      {formatDateId(asset.acquisitionDate)}
                     </td>
                     <td className="py-2.5 px-3 text-sm tabular-nums text-right">
                       {formatCurrency(asset.cost)}
