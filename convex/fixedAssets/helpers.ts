@@ -40,6 +40,20 @@ export type AssetCategoryKey = (typeof ASSET_CATEGORIES)[number]["key"];
 export const DEPRECIATION_EXPENSE_CODE = "6150";
 
 // ---------------------------------------------------------------------------
+// Current Month Helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Get current month as "YYYY-MM" string in WIB timezone.
+ * Used by both queries and mutations for depreciation range detection.
+ */
+export function getCurrentYYYYMM(): string {
+  const now = Date.now();
+  const { year, month } = getWibComponents(now);
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
+// ---------------------------------------------------------------------------
 // Depreciation Calculation
 // ---------------------------------------------------------------------------
 

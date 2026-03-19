@@ -38,6 +38,7 @@ After merging any code change, add a new entry with:
 - Extended journalEntries sourceType with "depreciation" and "depreciation_void"
 - Added by_sourceType_date compound index to journalEntries for efficient month-based queries
 - Deactivated legacy 1600 Accumulated Depreciation account (replaced by 1610-1670 per-category)
+- Renamed GL 6600 from generic depreciation to clarify its role (now superseded by 6150 Depreciation Expense)
 - Income Statement shows inline "(current month not posted)" next to Depreciation Expense line when applicable
 
 ### Bug Fix: BigSeller Auth Error Detection — 2026-03-18

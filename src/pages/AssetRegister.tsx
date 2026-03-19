@@ -58,8 +58,10 @@ export function AssetRegister() {
   // Data
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const assets = useFixedAssets(statusFilter === "all" ? undefined : statusFilter);
-  const orphanJEs = useOrphanEquipmentPurchases();
-  const [orphanBannerDismissed, setOrphanBannerDismissed] = useState(false);
+  const [orphanBannerDismissed, setOrphanBannerDismissed] = useState(
+    () => localStorage.getItem("assetRegister.orphanBannerDismissed") === "true"
+  );
+  const orphanJEs = useOrphanEquipmentPurchases(orphanBannerDismissed ? "skip" : "run");
 
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -194,7 +196,10 @@ export function AssetRegister() {
               variant="ghost"
               size="icon"
               className="h-6 w-6 shrink-0 text-amber-600 hover:text-amber-800"
-              onClick={() => setOrphanBannerDismissed(true)}
+              onClick={() => {
+                localStorage.setItem("assetRegister.orphanBannerDismissed", "true");
+                setOrphanBannerDismissed(true);
+              }}
             >
               <X className="h-4 w-4" />
             </Button>

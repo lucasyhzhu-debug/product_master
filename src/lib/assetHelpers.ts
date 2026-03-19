@@ -9,6 +9,8 @@
 
 // ---------------------------------------------------------------------------
 // PSAK-aligned categories (mirror of convex/fixedAssets/helpers.ts ASSET_CATEGORIES)
+// IMPORTANT: Must stay in sync with convex/fixedAssets/helpers.ts ASSET_CATEGORIES.
+// If you add/remove/rename a category there, update this array to match.
 // ---------------------------------------------------------------------------
 
 export const ASSET_CATEGORIES = [

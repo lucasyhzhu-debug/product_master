@@ -35,9 +35,12 @@ export function useDepreciationReminder() {
   return useSessionQuery(api.fixedAssets.queries.getDepreciationReminder, {});
 }
 
-/** One-off: find equipment_purchase JEs without matching assets */
-export function useOrphanEquipmentPurchases() {
-  return useSessionQuery(api.fixedAssets.queries.getOrphanEquipmentPurchases, {});
+/** One-off: find equipment_purchase JEs without matching assets. Pass "skip" to disable. */
+export function useOrphanEquipmentPurchases(mode: "run" | "skip" = "run") {
+  return useSessionQuery(
+    api.fixedAssets.queries.getOrphanEquipmentPurchases,
+    mode === "skip" ? "skip" : {}
+  );
 }
 
 // ============================================================================
@@ -56,10 +59,10 @@ export const useUpdateAsset = createMutationHook(
   { successMessage: "Asset updated", errorMessage: "Failed to update asset" }
 );
 
-/** Run depreciation batch ("Catch Up to Now") */
+/** Run depreciation batch ("Catch Up to Now"). Empty successMessage — caller shows detailed toast. */
 export const useRunDepreciation = createMutationHook(
   api.fixedAssets.mutations.runDepreciation,
-  { successMessage: "Depreciation batch completed", errorMessage: "Failed to run depreciation" }
+  { successMessage: "", errorMessage: "Failed to run depreciation" }
 );
 
 /** Dispose an asset (sold/scrapped/written_off) */

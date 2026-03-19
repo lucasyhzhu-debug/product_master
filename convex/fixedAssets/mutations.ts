@@ -24,6 +24,7 @@ import {
   calculateDisposalGainLoss,
   formatAssetNumber,
   getYYMMDateStr,
+  getCurrentYYYYMM,
 } from "./helpers";
 import { getWibComponents, wibMidnightToUtc, calculateMonthRange } from "../lib/periodRange";
 import type { Id, Doc } from "../_generated/dataModel";
@@ -84,16 +85,6 @@ async function getNextAssetNumber(
   }
 
   return formatAssetNumber(abbr, yymmDateStr, sequence);
-}
-
-// ---------------------------------------------------------------------------
-// Helper: get current YYYY-MM in WIB
-// ---------------------------------------------------------------------------
-
-function getCurrentYYYYMM(): string {
-  const now = Date.now();
-  const { year, month } = getWibComponents(now);
-  return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -547,7 +538,11 @@ export const voidDepreciationMonth = protectedMutation({
       const remainingJEs = allAssetJEs.filter((je) => !je.isReversed);
 
       // Recalculate accumulated depreciation from remaining JEs
-      // Sum debit amounts on the depreciation expense account from each JE's lines
+      // Recalculate accumulated depreciation by summing credit amounts across all
+      // non-reversed JE lines. This works because each depreciation JE has exactly
+      // 2 lines: one debit to expense (6150), one credit to accumulated depreciation
+      // (1610-1670). Summing all credits gives the correct total since debit lines
+      // have creditAmount=0 and credit lines carry the depreciation amount.
       let newAccum = 0;
       for (const je of remainingJEs) {
         const lines = await ctx.db
@@ -556,7 +551,6 @@ export const voidDepreciationMonth = protectedMutation({
             q.eq("journalEntryId", je._id)
           )
           .collect();
-        // Sum the credit amounts (contra-asset side = actual depreciation)
         for (const line of lines) {
           newAccum += line.creditAmount;
         }

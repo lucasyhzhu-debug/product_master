@@ -5,6 +5,7 @@
  * and grand total. Confirm to run batch depreciation.
  */
 import { useState } from "react";
+import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import {
   Dialog,
@@ -31,7 +32,12 @@ export function DepreciationPreviewDialog({ open, onClose }: DepreciationPreview
   const handleConfirm = async () => {
     setRunning(true);
     try {
-      await runDepreciation({});
+      const result = await runDepreciation({});
+      if (result) {
+        toast.success(
+          `Depreciation posted: ${result.assetsProcessed} asset(s), ${result.totalJEs} JE(s), ${formatCurrency(result.totalAmount)}`
+        );
+      }
       onClose();
     } catch {
       // Error toast handled by hook

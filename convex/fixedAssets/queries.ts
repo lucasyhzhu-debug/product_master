@@ -11,18 +11,8 @@ import {
   ASSET_CATEGORIES,
   calculateFinalMonthAmount,
   computeMissingMonths,
+  getCurrentYYYYMM,
 } from "./helpers";
-import { getWibComponents } from "../lib/periodRange";
-
-// ---------------------------------------------------------------------------
-// Helper: get current YYYY-MM in WIB
-// ---------------------------------------------------------------------------
-
-function getCurrentYYYYMM(): string {
-  const now = Date.now();
-  const { year, month } = getWibComponents(now);
-  return `${year}-${String(month + 1).padStart(2, "0")}`;
-}
 
 // ---------------------------------------------------------------------------
 // 1. List assets

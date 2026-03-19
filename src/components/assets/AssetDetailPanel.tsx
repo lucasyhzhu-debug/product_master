@@ -128,7 +128,7 @@ export function AssetDetailPanel({ assetId, open, onClose }: AssetDetailPanelPro
                   </Badge>
                 </div>
               </div>
-              {asset.status === "active" && (
+              {asset.status !== "disposed" && (
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={startEditing}>
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -267,7 +267,7 @@ export function AssetDetailPanel({ assetId, open, onClose }: AssetDetailPanelPro
           )}
 
           {/* Actions */}
-          {isAdmin && asset.status === "active" && (
+          {isAdmin && asset.status !== "disposed" && (
             <div className="mt-4 pt-4 border-t">
               <Button
                 variant="destructive"

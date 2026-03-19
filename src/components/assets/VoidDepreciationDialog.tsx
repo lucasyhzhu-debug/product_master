@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useVoidDepreciationMonth } from "@/hooks/convex/useFixedAssets";
+import { getCurrentWibMonth } from "@/lib/dateUtils";
 
 interface VoidDepreciationDialogProps {
   open: boolean;
@@ -34,15 +35,18 @@ export function VoidDepreciationDialog({ open, onClose }: VoidDepreciationDialog
   const [selectedMonth, setSelectedMonth] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Generate recent months for selection (last 12 months)
+  // Generate recent months for selection (last 12 months, WIB timezone)
   const months = useMemo(() => {
     const result: string[] = [];
-    const now = new Date();
+    const { year, month } = getCurrentWibMonth();
     for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      result.push(`${yyyy}-${mm}`);
+      let m = month - i;
+      let y = year;
+      while (m < 0) {
+        m += 12;
+        y -= 1;
+      }
+      result.push(`${y}-${String(m + 1).padStart(2, "0")}`);
     }
     return result;
   }, []);
