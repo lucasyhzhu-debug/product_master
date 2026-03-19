@@ -22,5 +22,12 @@
   "git": {
     "branching_strategy": "phase"
   },
+  "convex": {
+    "seed_functions": [
+      "accounts/mutations:seedDefaults",
+      "tags:seedDefaults",
+      "menuProducts:seedDefaults"
+    ]
+  },
   "granularity": "fine"
 }

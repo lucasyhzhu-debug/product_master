@@ -316,6 +316,38 @@ grep -A 50 "^user_setup:" .planning/phases/XX-name/{phase}-{plan}-PLAN.md | head
 If user_setup exists: create `{phase}-USER-SETUP.md` using template `./.claude/get-shit-done/templates/user-setup.md`. Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
 </step>
 
+<step name="run_seed_functions">
+Read `convex.seed_functions` from `.planning/config.json`. **Skip if** key is missing, empty, or not an array.
+
+**1. Ensure Convex dev backend is reachable:**
+
+```bash
+# Test connectivity by running the first seed function
+FIRST_SEED=$(node -e "const c=require('./.planning/config.json'); console.log((c.convex?.seed_functions||[])[0]||'')")
+if [ -z "$FIRST_SEED" ]; then exit 0; fi
+
+npx convex run "$FIRST_SEED" 2>&1
+```
+
+If error contains `"Could not find public function"` or connection failure:
+- Start Convex dev in background: `npx convex dev &`
+- Poll output for `"Convex functions ready"` (max 90s, check every 5s)
+- If timeout: log `"⚠ Convex dev failed to start — skipping seeds"` and continue (do NOT block the plan)
+
+**2. Run each seed function (dev only):**
+
+```bash
+for fn in $(node -e "const c=require('./.planning/config.json'); (c.convex?.seed_functions||[]).forEach(f=>console.log(f))"); do
+  npx convex run "$fn" 2>&1 && echo "✓ Seeded: $fn" || echo "✗ Failed: $fn"
+done
+```
+
+Seeds are idempotent upserts — safe to run after every plan. Do NOT commit (seeds modify cloud data, not code).
+
+**3. If all seeds succeed:** Log `"✓ Dev seeds complete ({N} functions)"`
+**4. If any seed fails:** Log warning but continue — seed failures are non-blocking.
+</step>
+
 <step name="create_summary">
 Create `{phase}-{plan}-SUMMARY.md` at `.planning/phases/XX-name/`. Use `./.claude/get-shit-done/templates/summary.md`.
 

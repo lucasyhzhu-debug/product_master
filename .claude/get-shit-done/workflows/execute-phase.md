@@ -612,6 +612,21 @@ EOF
 gh pr merge {PR_NUMBER} --squash --delete-branch
 ```
 
+**3.5. Seed production (after CI deploys):**
+
+Read `convex.seed_functions` from `.planning/config.json`. **Skip if** key is missing or empty.
+
+Wait 30s for CI/CD to deploy Convex functions to production, then run each seed:
+
+```bash
+sleep 30
+for fn in $(node -e "const c=JSON.parse(require('fs').readFileSync('.planning/config.json','utf8')); (c.convex?.seed_functions||[]).forEach(f=>console.log(f))"); do
+  npx convex run "$fn" --prod 2>&1 && echo "✓ Prod seeded: $fn" || echo "✗ Prod failed: $fn"
+done
+```
+
+Seeds are idempotent upserts — safe to run on every merge. If any fail (e.g., CI hasn't finished deploying), log warning but continue — non-blocking.
+
 **4. Sync local main:**
 
 ```bash

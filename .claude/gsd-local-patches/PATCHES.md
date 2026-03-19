@@ -317,3 +317,99 @@ grep -c "Parallelizable" .claude/get-shit-done/workflows/progress.md
 grep -c "parallel sub-agents" .claude/get-shit-done/workflows/help.md
 # Expected: >= 1
 ```
+
+---
+
+## Patch 9: update — Auto-reapply patches after GSD update
+
+**Files:**
+- `commands/gsd/update.md` (command metadata + allowed-tools)
+- `get-shit-done/workflows/update.md` (workflow execution logic)
+
+**Purpose:** Eliminates the manual `/gsd:reapply-patches` step after every GSD update. The update workflow now automatically detects PATCHES.md, parses all patch entries, and reapplies them using intent-aware anchor merging immediately after the npm install completes. This makes GSD updates a single atomic operation: update + reapply.
+**Insertion anchors:**
+- commands/gsd/update.md: `allowed-tools` list — added Read, Write, Edit, Glob, Grep; `description` and `<objective>` updated to mention auto-reapply
+- workflows/update.md: Replaced `<step name="check_local_patches">` (which only printed "run /gsd:reapply-patches") with `<step name="reapply_patches">` containing full intent-aware merging logic; updated `<success_criteria>` with patch verification items
+**Dependencies:**
+- `.claude/gsd-local-patches/PATCHES.md` (must exist for auto-reapply; falls back gracefully if missing)
+- `.claude/gsd-local-patches/backup-meta.json` (created by GSD installer during update)
+
+**Content (command):**
+```markdown
+- Added allowed-tools: Read, Write, Edit, Glob, Grep (needed for reading PATCHES.md and editing files during reapply)
+- Updated description: "Update GSD to latest version, then auto-reapply local patches from PATCHES.md"
+- Updated objective: added bullet for "Automatic patch reapplication" and "Verification of reapplied patches"
+```
+
+**Content (workflow):**
+```markdown
+Replaced `check_local_patches` step (4 lines: detect backup-meta.json, print "run /gsd:reapply-patches") with `reapply_patches` step containing:
+1. Detect patches directory across all runtime dirs (.claude, .opencode, .gemini)
+2. Load and parse PATCHES.md into structured patch list
+3. For each patch: grep for key phrase → if missing, find anchor in new file → Edit tool to insert content
+4. Handle multi-file patches and behavioral patches (diff backed-up vs new version)
+5. Run all verification commands from PATCHES.md
+6. Display summary table with per-patch status (Merged / Already upstream / Anchor missing)
+7. Graceful fallback: if no PATCHES.md, suggests manual /gsd:reapply-patches
+```
+
+**Verification:**
+```bash
+grep -c "reapply_patches" .claude/get-shit-done/workflows/update.md
+# Expected: >= 1
+grep -c "PATCHES.md" .claude/get-shit-done/workflows/update.md
+# Expected: >= 3
+grep -c "intent-aware" .claude/get-shit-done/workflows/update.md
+# Expected: >= 1
+grep -c "auto-reapply" .claude/commands/gsd/update.md
+# Expected: >= 1
+grep -c "Read" .claude/commands/gsd/update.md
+# Expected: >= 1
+```
+
+---
+
+## Patch 10: execute-plan + execute-phase — Auto-run Convex seed functions
+
+**Files:**
+- `get-shit-done/workflows/execute-plan.md` (dev seeding after each plan)
+- `get-shit-done/workflows/execute-phase.md` (prod seeding after merge)
+
+**Purpose:** Eliminates manual "User Setup Required" notes for idempotent seed functions (like `accounts:seedDefaults`). Instead, the executor auto-runs all registered seed functions after each plan completes (dev), and the phase orchestrator runs them on production after merge. Also ensures Convex dev is running before attempting seeds — starts it automatically if not.
+**Insertion anchors:**
+- execute-plan.md: New `<step name="run_seed_functions">` between `generate_user_setup` and `create_summary` steps
+- execute-phase.md: New step **3.5** inside `document_and_merge`, between squash-merge PR and sync local main
+**Dependencies:**
+- `.planning/config.json` must have `convex.seed_functions` array (e.g., `["accounts/mutations:seedDefaults", "tags:seedDefaults", "menuProducts:seedDefaults"]`)
+- `npx convex` CLI must be available
+- Seed functions MUST be idempotent upserts (safe to run repeatedly)
+
+**Content (execute-plan.md — dev seeding):**
+```markdown
+<step name="run_seed_functions">
+1. Read convex.seed_functions from config.json (skip if missing/empty)
+2. Ensure Convex dev is reachable — test by running first seed
+3. If "Could not find public function" error: start `npx convex dev &`, wait for "Convex functions ready" (max 90s)
+4. Run each seed: `npx convex run {fn}` — log ✓/✗ per function
+5. Non-blocking: seed failures warn but don't stop the plan
+</step>
+```
+
+**Content (execute-phase.md — prod seeding):**
+```markdown
+Step 3.5 inside document_and_merge:
+1. Read convex.seed_functions from config.json (skip if missing/empty)
+2. Wait 30s for CI/CD to deploy Convex functions to production
+3. Run each seed: `npx convex run {fn} --prod` — log ✓/✗
+4. Non-blocking: failures warn but don't stop the merge flow
+```
+
+**Verification:**
+```bash
+grep -c "run_seed_functions" .claude/get-shit-done/workflows/execute-plan.md
+# Expected: >= 1
+grep -c "Seed production" .claude/get-shit-done/workflows/execute-phase.md
+# Expected: >= 1
+grep -c "seed_functions" .planning/config.json
+# Expected: >= 1
+```
