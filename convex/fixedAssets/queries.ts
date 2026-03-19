@@ -231,7 +231,59 @@ export const getDepreciationPreview = protectedQuery({
 });
 
 // ---------------------------------------------------------------------------
-// 4. Depreciation reminder (lightweight)
+// 4. Orphan equipment purchase JEs (one-off migration helper)
+// ---------------------------------------------------------------------------
+
+/**
+ * Find manual journal entries created with the old equipment_purchase template
+ * that don't have matching assets in the register. Returns date, description,
+ * and amount so users can manually create corresponding assets.
+ */
+export const getOrphanEquipmentPurchases = protectedQuery({
+  roles: ["manager", "admin"],
+  args: {},
+  handler: async (ctx) => {
+    // Find all manual JEs — filter for equipment_purchase templateType in app
+    const manualJEs = await ctx.db
+      .query("journalEntries")
+      .withIndex("by_sourceType_date", (q) => q.eq("sourceType", "manual"))
+      .collect();
+
+    const orphans = manualJEs.filter(
+      (je) =>
+        je.metadata &&
+        typeof je.metadata === "object" &&
+        "templateType" in je.metadata &&
+        je.metadata.templateType === "equipment_purchase" &&
+        !je.isReversed
+    );
+
+    if (orphans.length === 0) return [];
+
+    // Fetch debit lines to get amounts
+    const results = [];
+    for (const je of orphans) {
+      const lines = await ctx.db
+        .query("journalEntryLines")
+        .withIndex("by_journal_entry", (q) => q.eq("journalEntryId", je._id))
+        .collect();
+
+      const debitLine = lines.find((l) => l.debitAmount > 0);
+      results.push({
+        _id: je._id,
+        entryNumber: je.entryNumber,
+        date: je.date,
+        description: je.description,
+        amount: debitLine?.debitAmount ?? 0,
+      });
+    }
+
+    return results;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 5. Depreciation reminder (lightweight)
 // ---------------------------------------------------------------------------
 
 export const getDepreciationReminder = protectedQuery({

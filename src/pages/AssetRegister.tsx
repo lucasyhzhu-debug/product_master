@@ -15,10 +15,12 @@ import {
   RotateCcw,
   ImageIcon,
   Building2,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFixedAssets } from "@/hooks/convex/useFixedAssets";
+import { useFixedAssets, useOrphanEquipmentPurchases } from "@/hooks/convex/useFixedAssets";
 import { ASSET_CATEGORIES } from "@/lib/assetHelpers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,8 @@ export function AssetRegister() {
   // Data
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const assets = useFixedAssets(statusFilter === "all" ? undefined : statusFilter);
+  const orphanJEs = useOrphanEquipmentPurchases();
+  const [orphanBannerDismissed, setOrphanBannerDismissed] = useState(false);
 
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -157,6 +161,46 @@ export function AssetRegister() {
           </div>
         }
       />
+
+      {/* One-off: orphan equipment_purchase JEs from manual journal */}
+      {orphanJEs && orphanJEs.length > 0 && !orphanBannerDismissed && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {orphanJEs.length} equipment purchase{orphanJEs.length > 1 ? "s" : ""} found in Manual Journal without matching assets
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  These were recorded via the old Equipment Purchase template. Create matching assets below to enable depreciation tracking.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {orphanJEs.map((je) => (
+                    <li key={je._id} className="text-xs text-amber-700 dark:text-amber-400">
+                      <span className="font-mono">{je.entryNumber}</span>
+                      {" — "}
+                      {new Date(je.date).toLocaleDateString("id-ID", { year: "numeric", month: "short", day: "numeric" })}
+                      {" — "}
+                      {je.description}
+                      {" — "}
+                      <span className="font-medium">{formatCurrency(je.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 text-amber-600 hover:text-amber-800"
+              onClick={() => setOrphanBannerDismissed(true)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Controls: status filter + view toggle */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">

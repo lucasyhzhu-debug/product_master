@@ -20,7 +20,7 @@ describe("isTemplateEntry", () => {
     expect(
       isTemplateEntry({
         sourceType: "manual",
-        metadata: { templateType: "equipment_purchase" },
+        metadata: { templateType: "loan_repayment" },
       })
     ).toBe(true);
   });
@@ -47,7 +47,7 @@ describe("isTemplateEntry", () => {
     expect(
       isTemplateEntry({
         sourceType: "expense",
-        metadata: { templateType: "equipment_purchase" },
+        metadata: { templateType: "loan_repayment" },
       })
     ).toBe(false);
   });

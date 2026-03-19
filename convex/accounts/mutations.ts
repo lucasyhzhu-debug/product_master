@@ -51,7 +51,7 @@ export const DEFAULT_ACCOUNTS = [
   { code: "6350", name: "Travel & Visa", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6400", name: "Marketing & Promotion", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6500", name: "Office & Supplies", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
-  { code: "6600", name: "Equipment & Maintenance", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6600", name: "Repairs & Maintenance", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6700", name: "Software & Subscriptions", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6800", name: "Professional Services", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6900", name: "Meals & Entertainment", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },

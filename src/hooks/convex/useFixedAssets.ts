@@ -35,6 +35,11 @@ export function useDepreciationReminder() {
   return useSessionQuery(api.fixedAssets.queries.getDepreciationReminder, {});
 }
 
+/** One-off: find equipment_purchase JEs without matching assets */
+export function useOrphanEquipmentPurchases() {
+  return useSessionQuery(api.fixedAssets.queries.getOrphanEquipmentPurchases, {});
+}
+
 // ============================================================================
 // MUTATION HOOKS
 // ============================================================================
