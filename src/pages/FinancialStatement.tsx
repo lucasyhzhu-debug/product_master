@@ -1,12 +1,17 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
   Download,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useFinancials } from "@/hooks/convex/useFinancials";
+import { useDepreciationReminder } from "@/hooks/convex/useFixedAssets";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,6 +143,12 @@ export function FinancialStatement() {
     setCustomEnd,
   } = useFinancials();
 
+  // Depreciation reminder (Phase 60)
+  const { hasPermission } = useAuth();
+  const canSeeReminder = hasPermission("canAccessAssets");
+  const depreciationReminder = useDepreciationReminder();
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+
   // Section collapse state
   const [revenueExpanded, setRevenueExpanded] = useState(true);
   const [deductionsExpanded, setDeductionsExpanded] = useState(false);
@@ -265,6 +276,26 @@ export function FinancialStatement() {
           </Button>
         }
       />
+
+      {/* Depreciation reminder banner (Phase 60) */}
+      {canSeeReminder && depreciationReminder?.hasUnposted && !reminderDismissed && (
+        <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-200 flex-1">
+            {depreciationReminder.currentMonth} depreciation not yet posted for{" "}
+            {depreciationReminder.unpostedCount} asset(s).{" "}
+            <Link to="/assets" className="font-medium underline hover:no-underline">
+              Run from Asset Register
+            </Link>
+          </p>
+          <button
+            onClick={() => setReminderDismissed(true)}
+            className="text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Period mode selector + navigation */}
       <div className="flex items-center justify-center gap-3 mb-6 flex-wrap">
@@ -587,7 +618,11 @@ export function FinancialStatement() {
               {opexExpanded && mergedOpexItems.map((item) => (
                 <PLRow
                   key={item.code}
-                  label={`${item.code} ${item.name}`}
+                  label={
+                    item.code === "6150" && canSeeReminder && depreciationReminder?.hasUnposted
+                      ? `${item.code} ${item.name}  (current month not posted)`
+                      : `${item.code} ${item.name}`
+                  }
                   currentAmount={item.currentTotal}
                   previousAmount={item.previousTotal}
                   delta={computeDelta(item.currentTotal, item.previousTotal)}

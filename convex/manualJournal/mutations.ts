@@ -19,9 +19,9 @@ import {
 // Constants (exported for testing)
 // ---------------------------------------------------------------------------
 
-/** 6 pre-wired template types for balance sheet transactions */
+/** 5 pre-wired template types for balance sheet transactions.
+ * equipment_purchase removed — use Asset Register page instead (Phase 60). */
 export const TEMPLATE_TYPES = [
-  "equipment_purchase",
   "loan_repayment",
   "dividend_payment",
   "capital_injection",
@@ -34,7 +34,6 @@ export type TemplateType = (typeof TEMPLATE_TYPES)[number];
 
 /** Maps each template type to its debit/credit account codes */
 export const TEMPLATES: Record<TemplateType, { debit: string; credit: string }> = {
-  equipment_purchase: { debit: "1500", credit: "1100" },
   loan_repayment: { debit: "2500", credit: "1100" },
   dividend_payment: { debit: "3200", credit: "1100" },
   capital_injection: { debit: "1100", credit: "3100" },

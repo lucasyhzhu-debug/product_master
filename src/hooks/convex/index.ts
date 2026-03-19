@@ -514,3 +514,17 @@ export {
   useManualJournalEntries,
   useCreateManualJournalEntry,
 } from "./useManualJournal";
+
+// Fixed Assets (Asset Register & Depreciation - Phase 60)
+export {
+  useFixedAssets,
+  useFixedAsset,
+  useDepreciationPreview,
+  useDepreciationReminder,
+  useCreateAsset,
+  useUpdateAsset,
+  useRunDepreciation,
+  useDisposeAsset,
+  useVoidDepreciationMonth,
+  useGenerateAssetUploadUrl,
+} from "./useFixedAssets";

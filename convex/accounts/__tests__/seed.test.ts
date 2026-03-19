@@ -10,17 +10,21 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_ACCOUNTS } from "../mutations";
 
 describe("DEFAULT_ACCOUNTS data integrity", () => {
-  it("has exactly 39 entries", () => {
-    // Plan listed 36 but detailed enumeration has 39:
-    // 7 Revenue + 4 COGS + 11 OpEx + 3 Other + 6 Assets + 5 Liabilities + 3 Equity = 39
-    expect(DEFAULT_ACCOUNTS).toHaveLength(39);
+  it("has exactly 49 entries", () => {
+    // 7 Revenue + 4 COGS + 12 OpEx + 5 Other + 13 Assets + 5 Liabilities + 3 Equity = 49
+    expect(DEFAULT_ACCOUNTS).toHaveLength(49);
   });
 
-  it("all entries have isSystem: true and isActive: true", () => {
+  it("all entries have isSystem: true", () => {
     for (const account of DEFAULT_ACCOUNTS) {
       expect(account.isSystem).toBe(true);
-      expect(account.isActive).toBe(true);
     }
+  });
+
+  it("1600 Accumulated Depreciation is deactivated (replaced by 1610-1670)", () => {
+    const acc1600 = DEFAULT_ACCOUNTS.find((a) => a.code === "1600");
+    expect(acc1600).toBeDefined();
+    expect(acc1600!.isActive).toBe(false);
   });
 
   it("all account codes are unique (no duplicates)", () => {
@@ -77,9 +81,9 @@ describe("DEFAULT_ACCOUNTS data integrity", () => {
 
     expect(typeCounts.revenue).toBe(7);
     expect(typeCounts.cogs).toBe(4);
-    expect(typeCounts.opex).toBe(11);
-    expect(typeCounts.other).toBe(3);
-    expect(typeCounts.asset).toBe(6);
+    expect(typeCounts.opex).toBe(12); // +1: 6150 Depreciation Expense (Phase 60)
+    expect(typeCounts.other).toBe(5); // +2: 7300 Gain, 7400 Loss on Asset Disposal (Phase 60)
+    expect(typeCounts.asset).toBe(13); // +7: 1610-1670 per-category Accum Depr (Phase 60)
     expect(typeCounts.liability).toBe(5);
     expect(typeCounts.equity).toBe(3);
   });
@@ -95,6 +99,18 @@ describe("DEFAULT_ACCOUNTS data integrity", () => {
     expect(codes.has("5100")).toBe(true); // Production COGS
     expect(codes.has("6100")).toBe(true); // Salaries & Wages
     expect(codes.has("7100")).toBe(true); // Interest Income
+
+    // Phase 60: Fixed asset depreciation accounts
+    expect(codes.has("6150")).toBe(true); // Depreciation Expense
+    expect(codes.has("1610")).toBe(true); // Accum. Depr. - Buildings
+    expect(codes.has("1620")).toBe(true); // Accum. Depr. - Vehicles
+    expect(codes.has("1630")).toBe(true); // Accum. Depr. - Office Equipment
+    expect(codes.has("1640")).toBe(true); // Accum. Depr. - Kitchen/Production
+    expect(codes.has("1650")).toBe(true); // Accum. Depr. - Furniture
+    expect(codes.has("1660")).toBe(true); // Accum. Depr. - Tools
+    expect(codes.has("1670")).toBe(true); // Accum. Depr. - Leasehold Improvements
+    expect(codes.has("7300")).toBe(true); // Gain on Asset Disposal
+    expect(codes.has("7400")).toBe(true); // Loss on Asset Disposal
   });
 
   it("all entries have required fields with correct types", () => {

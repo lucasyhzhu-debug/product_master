@@ -123,6 +123,9 @@ const InvoicePage = lazyWithPreload(() =>
 const ManualJournalEntry = lazyWithPreload(() =>
   import('./pages/ManualJournalEntry').then(m => ({ default: m.ManualJournalEntry }))
 );
+const AssetRegister = lazyWithPreload(() =>
+  import('./pages/AssetRegister').then(m => ({ default: m.AssetRegister }))
+);
 
 function App() {
   return (
@@ -394,6 +397,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canManageReimbursements">
                         <ManualJournalEntry />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Asset Register (manager + admin, Phase 60) */}
+                  <Route
+                    path="assets"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessAssets">
+                        <AssetRegister />
                       </ProtectedRoute>
                     }
                   />

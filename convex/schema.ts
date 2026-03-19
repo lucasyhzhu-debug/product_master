@@ -1771,7 +1771,9 @@ export default defineSchema({
       v.literal("reimbursement_void"),
       v.literal("payroll"),
       v.literal("payroll_void"),
-      v.literal("manual")
+      v.literal("manual"),
+      v.literal("depreciation"),
+      v.literal("depreciation_void")
     ),
     sourceId: v.optional(v.string()),
     isReversed: v.boolean(),
@@ -1785,7 +1787,8 @@ export default defineSchema({
   })
     .index("by_entry_number", ["entryNumber"])
     .index("by_source", ["sourceType", "sourceId"])
-    .index("by_date", ["date"]),
+    .index("by_date", ["date"])
+    .index("by_sourceType_date", ["sourceType", "date"]),
 
   // Double-entry journal entry lines — debit/credit per account
   // entryDate denormalized from parent journalEntries.date (Convex indexes cannot span tables)
@@ -1902,6 +1905,34 @@ export default defineSchema({
     .index("by_period", ["periodStart"])
     .index("by_employee_type", ["employeeType"])
     .index("by_status", ["status"]),
+
+  // Fixed assets — PSAK-aligned asset register with denormalized depreciation tracking
+  fixedAssets: defineTable({
+    assetNumber: v.string(), // FA-KIT-2603-001
+    name: v.string(),
+    category: v.string(), // AssetCategoryKey
+    acquisitionDate: v.number(), // Epoch ms (business date)
+    cost: v.number(), // IDR, integer
+    salvageValue: v.number(), // IDR, integer
+    usefulLifeMonths: v.number(), // Years * 12
+    location: v.optional(v.string()), // Simple string
+    characteristics: v.array(v.object({ key: v.string(), value: v.string() })),
+    attachmentIds: v.array(v.id("_storage")),
+    status: v.union(v.literal("active"), v.literal("fully_depreciated"), v.literal("disposed")),
+    monthlyDepreciation: v.number(),
+    accumulatedDepreciation: v.number(),
+    lastDepreciationMonth: v.optional(v.string()), // "YYYY-MM"
+    disposalDate: v.optional(v.number()),
+    disposalType: v.optional(v.union(v.literal("sold"), v.literal("scrapped"), v.literal("written_off"))),
+    saleProceeds: v.optional(v.number()),
+    disposalGainLoss: v.optional(v.number()),
+    disposalJournalEntryId: v.optional(v.id("journalEntries")),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_category", ["category"])
+    .index("by_asset_number", ["assetNumber"]),
 
   // Atomic daily counters for sequential ID generation (EXP-MMDD-NNN, RMB-MMDD-NNN, JE-MMDD-NNN)
   counters: defineTable({

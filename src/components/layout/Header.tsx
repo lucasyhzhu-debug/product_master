@@ -34,6 +34,7 @@ import {
   BarChart3,
   HandCoins,
   CircleHelp,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -103,6 +104,7 @@ const financialItems: NavItem[] = [
   { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
+  { path: '/assets', label: 'Asset Register', icon: Building2, permission: 'canAccessAssets' },
 ];
 
 // Depot Management dropdown - Manager + Admin

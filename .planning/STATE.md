@@ -3,11 +3,42 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Expense & Accounting
 status: completed
+stopped_at: Completed 60-02-PLAN.md
+last_updated: "2026-03-19T03:50:21.326Z"
+last_activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
+progress:
+  total_phases: 24
+  completed_phases: 24
+  total_plans: 55
+  completed_plans: 55
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: completed
+stopped_at: Completed 60-01-PLAN.md
+last_updated: "2026-03-18T15:00:18.348Z"
+last_activity: 2026-03-18 - Phase 60 plan 01 complete (schema + helpers + GL seeding)
+progress:
+  total_phases: 24
+  completed_phases: 23
+  total_plans: 55
+  completed_plans: 53
+  percent: 96
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.7
+milestone_name: Expense & Accounting
+status: completed
 stopped_at: Completed 62-02-PLAN.md
 last_updated: "2026-03-18T08:38:58.091Z"
 last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
 progress:
-  total_phases: 24
+  [██████████] 96%
   completed_phases: 23
   total_plans: 52
   completed_plans: 52
@@ -33,16 +64,16 @@ progress:
 ## Project Reference
 See: .planning/PROJECT.md (updated 2026-03-16)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 62 complete (2/2 plans)
+**Current focus:** v1.8 Support & Quality of Life -- Phase 60 plan 01 complete (1/3 plans)
 
 ## Current Position
 
-Phase: 62-manual-journal-entry (2/2 plans)
+Phase: 60-asset-register-depreciation (2/3 plans)
 Plan: 02 complete
-Status: Phase 62 complete -- manual journal entry page and hub navigation shipped
-Last activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
+Status: Plan 02 complete -- backend API (6 mutations, 4 queries), 22 tests, frontend hooks
+Last activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
 
-Progress: [██████████] 100%
+Progress: [██████----] 67%
 
 ## Performance Metrics
 
@@ -72,6 +103,9 @@ Progress: [██████████] 100%
 | 61-help-file-indexing-architecture | 02 | 4min | 2 | 2 |
 | 62-manual-journal-entry | 01 | 8min | 2 | 11 |
 | 62-manual-journal-entry | 02 | 5min | 3 | 3 |
+| 60-asset-register-depreciation | 01 | 10min | 2 | 7 |
+| Phase 60-asset-register-depreciation P01 | 10min | 2 tasks | 7 files |
+| Phase 60-asset-register-depreciation P02 | 11min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -129,6 +163,16 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [62-02] Frontend TEMPLATE_CARDS config duplicates backend TEMPLATE_TYPES intentionally -- backend validates, frontend adds UI metadata
 - [62-02] Period controls JSX copied from ExpenseAnalytics -- shared component extraction is acknowledged tech debt
 - [62-02] Hub split: Financials retains reports + expense flow, Accounting gets ledger operations (journal, CoA, bank accounts, historical import)
+- [60-01] GL code 6150 for Depreciation Expense (6300 already taken by Transportation)
+- [60-01] 1600 Accumulated Depreciation deactivated, replaced by per-category 1610-1670
+- [60-01] YYMM format for asset numbers (year-first, distinct from counter.ts MMDD)
+- [60-01] First-comma-only split in parseCharacteristicsCSV for values containing commas
+- [Phase 60-01]: GL code 6150 for Depreciation Expense (6300 already taken by Transportation)
+- [Phase 60-01]: 1600 Accumulated Depreciation deactivated, replaced by per-category 1610-1670
+- [Phase 60-01]: YYMM format for asset numbers (year-first, distinct from counter.ts MMDD)
+- [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
+- [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
+- [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
 
 ### Roadmap Evolution
 
@@ -154,6 +198,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-18T05:17:31.000Z
-Stopped at: Completed 62-02-PLAN.md
-Resume notes: Phase 62 fully complete (both plans). Manual journal entry system operational end-to-end. Hub navigation restructured into Financials + Accounting sections.
+Last session: 2026-03-18T15:13:30.000Z
+Stopped at: Completed 60-02-PLAN.md
+Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).

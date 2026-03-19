@@ -2,7 +2,7 @@
  * Tests for manual journal entry mutation helpers and validation logic.
  *
  * Tests the exported pure functions from manualJournal/mutations.ts:
- * - TEMPLATE_TYPES array (6 valid template types)
+ * - TEMPLATE_TYPES array (5 valid template types)
  * - TEMPLATES constant (debit/credit account code mapping)
  * - validateTemplateType (asserts valid template type)
  * - validateManualJournalAmount (positive integer enforcement)
@@ -26,12 +26,11 @@ import {
 // TEMPLATE_TYPES Array
 // ============================================
 describe("TEMPLATE_TYPES", () => {
-  it("has exactly 6 entries", () => {
-    expect(TEMPLATE_TYPES).toHaveLength(6);
+  it("has exactly 5 entries", () => {
+    expect(TEMPLATE_TYPES).toHaveLength(5);
   });
 
   it("contains all expected template types", () => {
-    expect(TEMPLATE_TYPES).toContain("equipment_purchase");
     expect(TEMPLATE_TYPES).toContain("loan_repayment");
     expect(TEMPLATE_TYPES).toContain("dividend_payment");
     expect(TEMPLATE_TYPES).toContain("capital_injection");
@@ -44,8 +43,7 @@ describe("TEMPLATE_TYPES", () => {
 // TEMPLATES Constant
 // ============================================
 describe("TEMPLATES", () => {
-  it("maps all 6 types to correct debit/credit account codes", () => {
-    expect(TEMPLATES.equipment_purchase).toEqual({ debit: "1500", credit: "1100" });
+  it("maps all 5 types to correct debit/credit account codes", () => {
     expect(TEMPLATES.loan_repayment).toEqual({ debit: "2500", credit: "1100" });
     expect(TEMPLATES.dividend_payment).toEqual({ debit: "3200", credit: "1100" });
     expect(TEMPLATES.capital_injection).toEqual({ debit: "1100", credit: "3100" });
@@ -66,11 +64,11 @@ describe("TEMPLATES", () => {
 // validateTemplateType
 // ============================================
 describe("validateTemplateType", () => {
-  it("passes for valid template type 'equipment_purchase'", () => {
-    expect(() => validateTemplateType("equipment_purchase")).not.toThrow();
+  it("passes for valid template type 'loan_repayment'", () => {
+    expect(() => validateTemplateType("loan_repayment")).not.toThrow();
   });
 
-  it("passes for all 6 valid template types", () => {
+  it("passes for all 5 valid template types", () => {
     for (const type of TEMPLATE_TYPES) {
       expect(() => validateTemplateType(type)).not.toThrow();
     }

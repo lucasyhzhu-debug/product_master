@@ -1,14 +1,13 @@
 /**
  * Manual Journal Entry page.
  *
- * Template-based balance sheet transaction recording. 6 pre-wired templates
+ * Template-based balance sheet transaction recording. 5 pre-wired templates
  * allow admins/managers to create journal entries without manual double-entry.
  *
  * Layout: PageHeader > Template cards grid > Inline accordion form > Period-filtered entries table.
  */
 import { useState, useMemo, useCallback } from "react";
 import {
-  Wrench,
   Coins,
   Users,
   Building,
@@ -58,7 +57,6 @@ import { formatCurrency, cn } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 
 type TemplateType =
-  | "equipment_purchase"
   | "loan_repayment"
   | "dividend_payment"
   | "capital_injection"
@@ -75,14 +73,6 @@ interface TemplateCardConfig {
 }
 
 const TEMPLATE_CARDS: TemplateCardConfig[] = [
-  {
-    type: "equipment_purchase",
-    label: "Equipment Purchase",
-    icon: Wrench,
-    debitLabel: "1500 Fixed Assets",
-    creditLabel: "1100 Cash",
-    badgeColor: "bg-blue-100 text-blue-700",
-  },
   {
     type: "loan_repayment",
     label: "Loan Repayment",

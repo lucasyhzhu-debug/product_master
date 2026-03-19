@@ -37,13 +37,15 @@ export type JournalSourceType =
   | "reimbursement_void"
   | "payroll"
   | "payroll_void"
-  | "manual"; // Template-based manual entries created via manualJournal/mutations.ts (Phase 62)
+  | "manual" // Template-based manual entries created via manualJournal/mutations.ts (Phase 62)
+  | "depreciation" // Auto-generated monthly depreciation entries (Phase 60)
+  | "depreciation_void"; // Reversal of depreciation entries (Phase 60)
 
 /** Void source types that reverse an original entry */
-export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void";
+export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void" | "depreciation_void";
 
 /** Source types that can be reversed (non-void, non-manual) */
-export type ReversibleSourceType = "expense_approval" | "reimbursement" | "payroll";
+export type ReversibleSourceType = "expense_approval" | "reimbursement" | "payroll" | "depreciation";
 
 export interface CreateJournalEntryParams {
   date: number; // Business date (accounting period), NOT Date.now()
@@ -65,6 +67,7 @@ const NON_REVERSIBLE_TYPES: readonly string[] = [
   "expense_void",
   "reimbursement_void",
   "payroll_void",
+  "depreciation_void",
 ];
 
 /** Maps original source type → expected void source type */
@@ -72,6 +75,7 @@ const VALID_VOID_PAIRS: Record<string, VoidSourceType> = {
   expense_approval: "expense_void",
   reimbursement: "reimbursement_void",
   payroll: "payroll_void",
+  depreciation: "depreciation_void",
 };
 
 // ---------------------------------------------------------------------------
