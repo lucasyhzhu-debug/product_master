@@ -529,7 +529,7 @@ Plans:
   8. Asset Register page at /assets with table/card toggle, status filters, admin-only Catch Up and Dispose
   9. Income Statement depreciation reminder: yellow banner + inline note for unposted current month
   10. npm run build succeeds, all tests pass
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 60-01-PLAN.md -- Schema + journal engine sync + pure helpers (TDD) + GL account seeding
