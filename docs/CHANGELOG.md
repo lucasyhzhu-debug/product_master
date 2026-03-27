@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Deprecate Feedback Overlay (Quick Task 35) — 2026-03-27
+
+**For the team:** The feedback/bug report overlay (floating button + sidebar panel) has been removed from the app. Nobody was using it. The backend data is preserved if we ever need it again.
+
+#### Removed
+- Feedback floating button, sidebar panel, capture mode, and export functionality
+- 1,718 lines of unused UI code across 10 deleted files
+
 ### Asset Register & Depreciation (Phase 60) -- 2026-03-18
 
 **For the team:** You can now track all company assets (kitchen equipment, office furniture, vehicles, etc.) in a dedicated Asset Register page. Each asset gets a proper PSAK-compliant category with automatic depreciation calculation. Click "Catch Up to Now" to generate all missing depreciation journal entries at once with a preview before posting. You can also dispose of assets (sell, scrap, or write off) and the system automatically calculates the gain or loss. The Income Statement now shows a reminder when depreciation hasn't been posted for the current month.
