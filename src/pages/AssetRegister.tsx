@@ -18,10 +18,16 @@ import {
   AlertTriangle,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatDateId } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useFixedAssets, useOrphanEquipmentPurchases } from "@/hooks/convex/useFixedAssets";
+import {
+  useFixedAssets,
+  useOrphanEquipmentPurchases,
+  useAssetsWithoutAcquisitionJE,
+  useBackfillAcquisitionJEs,
+} from "@/hooks/convex/useFixedAssets";
 import { ASSET_CATEGORIES } from "@/lib/assetHelpers";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -63,6 +69,16 @@ export function AssetRegister() {
     () => localStorage.getItem("assetRegister.orphanBannerDismissed") === "true"
   );
   const orphanJEs = useOrphanEquipmentPurchases(orphanBannerDismissed ? "skip" : "run");
+
+  // Orphan assets without acquisition JE — backfill banner
+  const [jeBannerDismissed, setJeBannerDismissed] = useState(
+    () => localStorage.getItem("assetRegister.acquisitionJeBannerDismissed") === "true"
+  );
+  const orphanAssets = useAssetsWithoutAcquisitionJE(
+    !isAdmin || jeBannerDismissed ? "skip" : "run"
+  );
+  const { mutate: backfillJEs } = useBackfillAcquisitionJEs();
+  const [backfilling, setBackfilling] = useState(false);
 
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -192,6 +208,68 @@ export function AssetRegister() {
               onClick={() => {
                 localStorage.setItem("assetRegister.orphanBannerDismissed", "true");
                 setOrphanBannerDismissed(true);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Orphan assets without acquisition JE — backfill banner */}
+      {isAdmin && orphanAssets && orphanAssets.length > 0 && !jeBannerDismissed && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {orphanAssets.length} asset{orphanAssets.length > 1 ? "s" : ""} have no acquisition journal entry
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Click &quot;Backfill JEs&quot; to create acquisition journal entries for all orphan assets (assumes company-paid cash).
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {orphanAssets.map((a) => (
+                    <li key={a._id} className="text-xs text-amber-700 dark:text-amber-400">
+                      <span className="font-mono">{a.assetNumber}</span>
+                      {" — "}
+                      {a.name}
+                      {" — "}
+                      <span className="font-medium">{formatCurrency(a.cost)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  disabled={backfilling}
+                  onClick={async () => {
+                    setBackfilling(true);
+                    try {
+                      const result = await backfillJEs({});
+                      if (result && typeof result === "object" && "count" in result) {
+                        toast.success(`Created ${(result as { count: number }).count} acquisition journal entries`);
+                      }
+                    } catch {
+                      // Error toast handled by hook
+                    } finally {
+                      setBackfilling(false);
+                    }
+                  }}
+                >
+                  {backfilling ? "Creating JEs..." : "Backfill JEs"}
+                </Button>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 text-amber-600 hover:text-amber-800"
+              onClick={() => {
+                localStorage.setItem("assetRegister.acquisitionJeBannerDismissed", "true");
+                setJeBannerDismissed(true);
               }}
             >
               <X className="h-4 w-4" />

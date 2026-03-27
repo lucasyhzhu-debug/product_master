@@ -17,8 +17,6 @@ import {
 } from "../lib/journalEngine";
 import {
   ASSET_CATEGORIES,
-  DEPRECIATION_EXPENSE_CODE,
-  AMORTIZATION_EXPENSE_CODE,
   calculateMonthlyDepreciation,
   calculateFinalMonthAmount,
   computeMissingMonths,
