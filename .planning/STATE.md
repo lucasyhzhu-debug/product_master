@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
-stopped_at: Completed quick task 35 (deprecate feedback overlay)
-last_updated: "2026-03-27T07:35:12.218Z"
+milestone: v1.9
+milestone_name: Bugs & Quality of Life
+status: Defining requirements for v1.9
+stopped_at: Milestone v1.9 started
+last_updated: "2026-03-27T09:00:00.000Z"
 last_activity: 2026-03-27
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 23
-  completed_plans: 23
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,13 +19,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 completed, planning next milestone
+**Current focus:** v1.9 Bugs & Quality of Life — defining requirements
 
 ## Current Position
 
-Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
-Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
-Last activity: 2026-03-27 - Completed quick task 35: Deprecate feedback overlay
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-27 — Milestone v1.9 started
 
 ## Performance Metrics
 
