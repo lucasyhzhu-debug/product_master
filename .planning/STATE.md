@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
 status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
-stopped_at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
+stopped_at: Completed quick task 35 (deprecate feedback overlay)
 last_updated: "2026-03-27T07:35:12.218Z"
 last_activity: 2026-03-27
 progress:
@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
 Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
-Last activity: 2026-03-27 - Completed quick task 260327-iv9: Expense-to-CapEx conversion
+Last activity: 2026-03-27 - Completed quick task 35: Deprecate feedback overlay
 
 ## Performance Metrics
 
@@ -150,9 +150,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
 | 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
+| 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 
 ## Session Continuity
 
-Last session: 2026-03-27T07:21:03.080Z
-Stopped at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
-Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).
+Last session: 2026-03-27T08:59:00.000Z
+Stopped at: Completed quick task 35 (deprecate feedback overlay)
+Resume notes: Feedback overlay UI fully removed (1,718 lines across 10 files). Backend convex/feedback/ preserved in stasis.

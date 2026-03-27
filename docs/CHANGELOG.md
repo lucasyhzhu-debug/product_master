@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Deprecate Feedback Overlay (Quick Task 35) — 2026-03-27
+
+**For the team:** The feedback/bug report overlay (floating button + sidebar panel) has been removed from the app. Nobody was using it. The backend data is preserved if we ever need it again.
+
+#### Removed
+- Feedback floating button, sidebar panel, capture mode, and export functionality
+- 1,718 lines of unused UI code across 10 deleted files
+
 ### Expense-to-CapEx Conversion (Quick Task 260327-iv9) -- 2026-03-27
 
 **For the team:** If an expense was mistakenly submitted as operating expense (Repairs & Maintenance) but is actually an equipment purchase, admins can now convert it directly from the Expense Approvals page. Click "Convert to CapEx" on any pending expense to open a modal that auto-detects the asset category, shows the depreciation schedule, previews the journal entries, and lets you confirm. The system atomically voids the original expense, creates a fixed asset record, and posts the correct accounting entries -- all in one click.
