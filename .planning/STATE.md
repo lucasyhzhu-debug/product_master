@@ -66,6 +66,7 @@ No new decisions yet for v1.9.
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
 | 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 | 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
+| 260327-p5x | Asset creation with acquisition JE and intangible asset amortization support | 2026-03-27 | fd97243 | Verified | [260327-p5x](./quick/260327-p5x-asset-creation-with-acquisition-je-and-i/) |
 
 ## Session Continuity
 
