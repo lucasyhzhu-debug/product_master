@@ -407,7 +407,6 @@ body {
   /* Hide app chrome */
   header, footer, nav,
   .mobile-bottom-nav,
-  .feedback-panel-toggle,
   .no-print,
   [data-sonner-toaster] {
     display: none !important;
