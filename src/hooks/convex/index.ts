@@ -114,34 +114,6 @@ export {
   useRevertToPackaging,
 } from "./useKitchenStats";
 
-// Visual Feedback Overlay
-export {
-  // Query hooks
-  useFeedbackList,
-  useFeedback,
-  useFeedbackExport,
-  useFeedbackStats,
-  useOngoingFeedbackCount,
-  // Mutation hooks
-  useGenerateUploadUrl,
-  useCreateFeedback,
-  useAddFeedbackComment,
-  useToggleFeedbackStatus,
-  useUpdateFeedbackPriority,
-  useUpdateFeedbackTags,
-  useDeleteFeedback,
-  // Helper
-  uploadScreenshot,
-  // Types
-  type FeedbackStatus,
-  type FeedbackPriority,
-  type FeedbackTag,
-  type FeedbackComment,
-  type FeedbackItem,
-  type FeedbackCreateInput,
-  type FeedbackStats,
-} from "./useFeedback";
-
 // Production Unit Types (PRD-4: Menu Products Manager)
 export {
   useProductionUnitTypes,
