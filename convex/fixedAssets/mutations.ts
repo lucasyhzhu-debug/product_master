@@ -17,7 +17,6 @@ import {
 } from "../lib/journalEngine";
 import {
   ASSET_CATEGORIES,
-  DEPRECIATION_EXPENSE_CODE,
   calculateMonthlyDepreciation,
   calculateFinalMonthAmount,
   computeMissingMonths,
@@ -25,6 +24,8 @@ import {
   formatAssetNumber,
   getYYMMDateStr,
   getCurrentYYYYMM,
+  getAssetAccountCode,
+  getExpenseAccountCode,
 } from "./helpers";
 import { getWibComponents, wibMidnightToUtc, calculateMonthRange } from "../lib/periodRange";
 import type { Id, Doc } from "../_generated/dataModel";
@@ -103,6 +104,7 @@ export const create = protectedMutation({
     location: v.optional(v.string()),
     characteristics: v.array(v.object({ key: v.string(), value: v.string() })),
     attachmentIds: v.array(v.id("_storage")),
+    paymentMethod: v.optional(v.union(v.literal("company_paid"), v.literal("employee_paid"))),
   },
   handler: async (ctx, args) => {
     // Validate category
@@ -165,6 +167,31 @@ export const create = protectedMutation({
       createdBy: ctx.user._id,
       createdAt: Date.now(),
     });
+
+    // Create acquisition JE atomically
+    const assetAccountCode = getAssetAccountCode(categoryConfig);
+    const payment = args.paymentMethod ?? "company_paid";
+    const creditAccountCode = payment === "company_paid" ? "1100" : "2200";
+
+    const [assetAccount, creditAccount] = await Promise.all([
+      resolveAccount(ctx, assetAccountCode),
+      resolveAccount(ctx, creditAccountCode),
+    ]);
+
+    const acquisitionJeId = await createJournalEntryWithLines(ctx, {
+      date: args.acquisitionDate,
+      description: `Asset Acquisition: ${args.name} (${assetNumber})`,
+      sourceType: "asset_acquisition",
+      sourceId: assetId as string,
+      createdBy: ctx.user._id,
+      lines: [
+        buildDebitLine(assetAccount._id, args.cost, `Asset: ${args.name}`),
+        buildCreditLine(creditAccount._id, args.cost),
+      ],
+    });
+
+    // Store JE reference on asset
+    await ctx.db.patch(assetId, { acquisitionJeId });
 
     return assetId;
   },
@@ -241,25 +268,21 @@ export const runDepreciation = protectedMutation({
     });
 
     // Resolve GL accounts ONCE at start (not per-iteration)
-    const depreciationExpenseAccount = await resolveAccount(
-      ctx,
-      DEPRECIATION_EXPENSE_CODE
-    );
-
-    // Build a map of category glAccumCode -> account ID
-    const accumAccountMap = new Map<string, Id<"accounts">>();
+    // Build a map of all needed GL codes -> account ID (expense + accumulation)
+    const accountMap = new Map<string, Id<"accounts">>();
     const neededCodes = new Set<string>();
     for (const asset of depreciableAssets) {
       const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
       if (cat?.glAccumCode) neededCodes.add(cat.glAccumCode);
+      if (cat) neededCodes.add(getExpenseAccountCode(cat));
     }
-    // Resolve all needed accumulation accounts in parallel
+    // Resolve all needed accounts in parallel
     const codeEntries = [...neededCodes];
-    const accumAccounts = await Promise.all(
+    const resolvedAccounts = await Promise.all(
       codeEntries.map((code) => resolveAccount(ctx, code))
     );
     for (let i = 0; i < codeEntries.length; i++) {
-      accumAccountMap.set(codeEntries[i], accumAccounts[i]._id);
+      accountMap.set(codeEntries[i], resolvedAccounts[i]._id);
     }
 
     let assetsProcessed = 0;
@@ -298,24 +321,34 @@ export const runDepreciation = protectedMutation({
         const m = parseInt(monthStr, 10) - 1; // 0-indexed
         const jeDate = wibMidnightToUtc(year, m, 1); // First day of month, WIB midnight
 
-        // Get category accum account
+        // Get category accounts (expense + accumulation)
         const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
-        const accumAccountId = accumAccountMap.get(cat!.glAccumCode!);
+        const expenseCode = getExpenseAccountCode(cat!);
+        const expenseAccountId = accountMap.get(expenseCode);
+        const accumAccountId = accountMap.get(cat!.glAccumCode!);
         if (!accumAccountId) {
           throw new Error(
             `Accumulated depreciation account for ${cat!.glAccumCode} not found`
           );
         }
+        if (!expenseAccountId) {
+          throw new Error(
+            `Expense account ${expenseCode} not found`
+          );
+        }
+
+        // JE label: "Amortization" for intangible, "Depreciation" for tangible
+        const jeLabel = cat!.type === "intangible" ? "Amortization" : "Depreciation";
 
         // Create JE
         await createJournalEntryWithLines(ctx, {
           date: jeDate,
-          description: `Depreciation: ${asset.name} (${month})`,
+          description: `${jeLabel}: ${asset.name} (${month})`,
           sourceType: "depreciation",
           sourceId: asset._id as string,
           createdBy: ctx.user._id,
           lines: [
-            buildDebitLine(depreciationExpenseAccount._id, amount),
+            buildDebitLine(expenseAccountId, amount),
             buildCreditLine(accumAccountId, amount),
           ],
         });
@@ -379,26 +412,27 @@ export const disposeAsset = protectedMutation({
 
     // Resolve GL accounts
     const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
+    const assetAccountCode = cat ? getAssetAccountCode(cat) : "1500";
 
     // Resolve all needed accounts in parallel
-    const accountCodes = ["1500", "1100", "7300", "7400"];
-    if (cat?.glAccumCode) accountCodes.push(cat.glAccumCode);
+    const disposalAccountCodes = [assetAccountCode, "1100", "7300", "7400"];
+    if (cat?.glAccumCode) disposalAccountCodes.push(cat.glAccumCode);
 
     const accountResults = await Promise.all(
-      accountCodes.map((code) => resolveAccount(ctx, code))
+      disposalAccountCodes.map((code) => resolveAccount(ctx, code))
     );
 
-    const accountMap = new Map<string, Id<"accounts">>();
-    for (let i = 0; i < accountCodes.length; i++) {
-      accountMap.set(accountCodes[i], accountResults[i]._id);
+    const disposalAccountMap = new Map<string, Id<"accounts">>();
+    for (let i = 0; i < disposalAccountCodes.length; i++) {
+      disposalAccountMap.set(disposalAccountCodes[i], accountResults[i]._id);
     }
 
-    const fixedAssetAccountId = accountMap.get("1500")!;
-    const cashAccountId = accountMap.get("1100")!;
-    const gainAccountId = accountMap.get("7300")!;
-    const lossAccountId = accountMap.get("7400")!;
+    const fixedAssetAccountId = disposalAccountMap.get(assetAccountCode)!;
+    const cashAccountId = disposalAccountMap.get("1100")!;
+    const gainAccountId = disposalAccountMap.get("7300")!;
+    const lossAccountId = disposalAccountMap.get("7400")!;
     const accumAccountId = cat?.glAccumCode
-      ? accountMap.get(cat.glAccumCode)!
+      ? disposalAccountMap.get(cat.glAccumCode)!
       : null;
 
     // Build compound disposal JE lines
@@ -580,5 +614,49 @@ export const voidDepreciationMonth = protectedMutation({
       jesReversed: unreversedJEs.length,
       assetsAffected: affectedAssetIds.size,
     };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 7. Backfill acquisition JEs for orphan assets
+// ---------------------------------------------------------------------------
+
+export const backfillAcquisitionJEs = protectedMutation({
+  roles: ["admin"],
+  args: {},
+  handler: async (ctx) => {
+    const allAssets = await ctx.db.query("fixedAssets").collect();
+    const orphans = allAssets.filter(
+      (a) => !a.acquisitionJeId && !a.sourceExpenseId && a.status !== "disposed"
+    );
+    if (orphans.length === 0) return { count: 0 };
+
+    // Default: company_paid (Cash 1100)
+    const cashAccount = await resolveAccount(ctx, "1100");
+    const tangibleAssetAccount = await resolveAccount(ctx, "1500");
+    const intangibleAssetAccount = await resolveAccount(ctx, "1700");
+
+    let count = 0;
+    for (const asset of orphans) {
+      const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
+      const assetAccountId = cat?.type === "intangible"
+        ? intangibleAssetAccount._id
+        : tangibleAssetAccount._id;
+
+      const jeId = await createJournalEntryWithLines(ctx, {
+        date: asset.acquisitionDate,
+        description: `Asset Acquisition (backfill): ${asset.name} (${asset.assetNumber})`,
+        sourceType: "asset_acquisition",
+        sourceId: asset._id as string,
+        createdBy: ctx.user._id,
+        lines: [
+          buildDebitLine(assetAccountId, asset.cost, `Asset: ${asset.name}`),
+          buildCreditLine(cashAccount._id, asset.cost),
+        ],
+      });
+      await ctx.db.patch(asset._id, { acquisitionJeId: jeId });
+      count++;
+    }
+    return { count };
   },
 });

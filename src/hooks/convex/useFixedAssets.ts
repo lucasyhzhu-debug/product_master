@@ -43,6 +43,14 @@ export function useOrphanEquipmentPurchases(mode: "run" | "skip" = "run") {
   );
 }
 
+/** Find active assets without acquisition JE (for backfill banner). Pass "skip" to disable. */
+export function useAssetsWithoutAcquisitionJE(mode: "run" | "skip" = "run") {
+  return useSessionQuery(
+    api.fixedAssets.queries.getAssetsWithoutAcquisitionJE,
+    mode === "skip" ? "skip" : {}
+  );
+}
+
 // ============================================================================
 // MUTATION HOOKS
 // ============================================================================
@@ -75,6 +83,12 @@ export const useDisposeAsset = createMutationHook(
 export const useVoidDepreciationMonth = createMutationHook(
   api.fixedAssets.mutations.voidDepreciationMonth,
   { successMessage: "Depreciation month voided", errorMessage: "Failed to void depreciation" }
+);
+
+/** Backfill acquisition JEs for orphan assets (admin). Empty successMessage — caller shows detailed toast. */
+export const useBackfillAcquisitionJEs = createMutationHook(
+  api.fixedAssets.mutations.backfillAcquisitionJEs,
+  { successMessage: "", errorMessage: "Failed to backfill acquisition JEs" }
 );
 
 /** Raw mutation for upload URL -- no toast, used in upload flow */

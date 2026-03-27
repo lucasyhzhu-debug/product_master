@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Asset Acquisition JE + Intangible Assets (Quick Task 260327-p5x) -- 2026-03-27
+
+**For the team:** Creating a new asset now automatically generates the matching journal entry (no more manual double-entry). You can also register intangible assets like the Frollie trademark, patents, and software licenses -- amortization is calculated automatically just like depreciation. If you already have assets without journal entries, a yellow banner on the Asset Register page lets you batch-create them in one click.
+
+#### Added
+- Acquisition journal entry created atomically when registering any asset (DR Fixed Assets/Intangibles, CR Cash or Employee Payable)
+- Payment method selector (Company Paid / Employee Paid) with real-time JE preview
+- 3 intangible asset categories: Trademarks/Brands (10yr), Patents (10yr), Software (4yr)
+- 5 new GL accounts: 1700 Intangible Assets, 1710-1730 Accumulated Amortization, 6160 Amortization Expense
+- Orphan asset backfill banner + batch JE creation for existing assets
+- Category dropdown grouped into Tangible and Intangible sections
+
+#### Changed
+- `runDepreciation` routes expense to 6160 (Amortization) for intangible assets, 6150 (Depreciation) for tangible
+- `disposeAsset` uses dynamic asset account (1700 for intangibles, 1500 for tangibles)
+
 ### Deprecate Feedback Overlay (Quick Task 35) — 2026-03-27
 
 **For the team:** The feedback/bug report overlay (floating button + sidebar panel) has been removed from the app. Nobody was using it. The backend data is preserved if we ever need it again.
