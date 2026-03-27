@@ -15,22 +15,27 @@ import { getWibComponents } from "../lib/periodRange";
 // ---------------------------------------------------------------------------
 
 /**
- * PSAK-aligned asset categories with depreciation defaults.
+ * PSAK-aligned asset categories with depreciation/amortization defaults.
  *
- * 8 categories based on Indonesian accounting standards (PSAK 16 / PMK 72/2023):
+ * 11 categories based on Indonesian accounting standards:
+ * - PSAK 16 / PMK 72/2023: 8 tangible asset categories
+ * - PSAK 19: 3 intangible asset categories (trademarks, patents, software)
  * - Tanah (Land) is not depreciable
- * - All others have PSAK default useful life and salvage percentages
- * - glAccumCode maps to per-category contra-asset GL accounts (1610-1670)
+ * - glAccumCode maps to per-category contra-asset GL accounts (1610-1670 tangible, 1710-1730 intangible)
+ * - type distinguishes tangible (1500 Fixed Assets) from intangible (1700 Intangible Assets)
  */
 export const ASSET_CATEGORIES = [
-  { key: "tanah", label: "Tanah (Land)", abbr: "LND", usefulLifeYears: null, salvagePercent: 0, glAccumCode: null, depreciable: false },
-  { key: "bangunan", label: "Bangunan (Buildings)", abbr: "BLD", usefulLifeYears: 20, salvagePercent: 5, glAccumCode: "1610", depreciable: true },
-  { key: "kendaraan", label: "Kendaraan (Vehicles)", abbr: "VEH", usefulLifeYears: 8, salvagePercent: 10, glAccumCode: "1620", depreciable: true },
-  { key: "peralatan_kantor", label: "Peralatan Kantor (Office Equipment)", abbr: "OFF", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1630", depreciable: true },
-  { key: "mesin_produksi", label: "Mesin & Peralatan Produksi (Kitchen/Production)", abbr: "KIT", usefulLifeYears: 8, salvagePercent: 5, glAccumCode: "1640", depreciable: true },
-  { key: "mebelair", label: "Mebelair & Perabot (Furniture)", abbr: "FUR", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1650", depreciable: true },
-  { key: "perkakas", label: "Peralatan & Perkakas (Tools)", abbr: "TLS", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1660", depreciable: true },
-  { key: "perbaikan_sewa", label: "Perbaikan Sewa (Leasehold Improvements)", abbr: "LHI", usefulLifeYears: 4, salvagePercent: 0, glAccumCode: "1670", depreciable: true },
+  { key: "tanah", label: "Tanah (Land)", abbr: "LND", usefulLifeYears: null, salvagePercent: 0, glAccumCode: null, depreciable: false, type: "tangible" as const },
+  { key: "bangunan", label: "Bangunan (Buildings)", abbr: "BLD", usefulLifeYears: 20, salvagePercent: 5, glAccumCode: "1610", depreciable: true, type: "tangible" as const },
+  { key: "kendaraan", label: "Kendaraan (Vehicles)", abbr: "VEH", usefulLifeYears: 8, salvagePercent: 10, glAccumCode: "1620", depreciable: true, type: "tangible" as const },
+  { key: "peralatan_kantor", label: "Peralatan Kantor (Office Equipment)", abbr: "OFF", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1630", depreciable: true, type: "tangible" as const },
+  { key: "mesin_produksi", label: "Mesin & Peralatan Produksi (Kitchen/Production)", abbr: "KIT", usefulLifeYears: 8, salvagePercent: 5, glAccumCode: "1640", depreciable: true, type: "tangible" as const },
+  { key: "mebelair", label: "Mebelair & Perabot (Furniture)", abbr: "FUR", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1650", depreciable: true, type: "tangible" as const },
+  { key: "perkakas", label: "Peralatan & Perkakas (Tools)", abbr: "TLS", usefulLifeYears: 4, salvagePercent: 5, glAccumCode: "1660", depreciable: true, type: "tangible" as const },
+  { key: "perbaikan_sewa", label: "Perbaikan Sewa (Leasehold Improvements)", abbr: "LHI", usefulLifeYears: 4, salvagePercent: 0, glAccumCode: "1670", depreciable: true, type: "tangible" as const },
+  { key: "merek_dagang", label: "Merek Dagang (Trademarks/Brands)", abbr: "TM", usefulLifeYears: 10, salvagePercent: 0, glAccumCode: "1710", depreciable: true, type: "intangible" as const },
+  { key: "hak_paten", label: "Hak Paten (Patents)", abbr: "PAT", usefulLifeYears: 10, salvagePercent: 0, glAccumCode: "1720", depreciable: true, type: "intangible" as const },
+  { key: "perangkat_lunak", label: "Perangkat Lunak (Software)", abbr: "SW", usefulLifeYears: 4, salvagePercent: 0, glAccumCode: "1730", depreciable: true, type: "intangible" as const },
 ] as const;
 
 /** Derived type for asset category keys */
@@ -38,6 +43,25 @@ export type AssetCategoryKey = (typeof ASSET_CATEGORIES)[number]["key"];
 
 /** Single source of truth for the depreciation expense GL account code */
 export const DEPRECIATION_EXPENSE_CODE = "6150";
+
+/** Single source of truth for the amortization expense GL account code (intangible assets, PSAK 19) */
+export const AMORTIZATION_EXPENSE_CODE = "6160";
+
+/**
+ * Get the correct asset account code for a category.
+ * Tangible assets use 1500 (Fixed Assets), intangible use 1700 (Intangible Assets).
+ */
+export function getAssetAccountCode(cat: (typeof ASSET_CATEGORIES)[number]): string {
+  return cat.type === "intangible" ? "1700" : "1500";
+}
+
+/**
+ * Get the correct expense account code for depreciation/amortization.
+ * Tangible assets use 6150 (Depreciation Expense), intangible use 6160 (Amortization Expense).
+ */
+export function getExpenseAccountCode(cat: (typeof ASSET_CATEGORIES)[number]): string {
+  return cat.type === "intangible" ? AMORTIZATION_EXPENSE_CODE : DEPRECIATION_EXPENSE_CODE;
+}
 
 // ---------------------------------------------------------------------------
 // Current Month Helper

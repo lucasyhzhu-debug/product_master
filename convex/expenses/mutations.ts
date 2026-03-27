@@ -38,6 +38,7 @@ import { RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
 import {
   ASSET_CATEGORIES,
   calculateMonthlyDepreciation,
+  getAssetAccountCode,
 } from "../fixedAssets/helpers";
 import {
   getNextAssetNumber,
@@ -860,10 +861,11 @@ export const convertToCapex = protectedMutation({
       createdAt: Date.now(),
     });
 
-    // --- Step 3: Create acquisition JE (DR 1500, CR credit account) ---
+    // --- Step 3: Create acquisition JE (DR asset account, CR credit account) ---
 
+    const assetAccountCode = getAssetAccountCode(categoryConfig);
     const [fixedAssetAccount, creditAccount] = await Promise.all([
-      resolveAccount(ctx, "1500"),
+      resolveAccount(ctx, assetAccountCode),
       resolveAccount(ctx, creditAccountCode),
     ]);
 
@@ -878,6 +880,9 @@ export const convertToCapex = protectedMutation({
         buildCreditLine(creditAccount._id, expense.amount),
       ],
     });
+
+    // Store JE reference on asset
+    await ctx.db.patch(assetId, { acquisitionJeId });
 
     // --- Step 4: Void the expense record ---
 
