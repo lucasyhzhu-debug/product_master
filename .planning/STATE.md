@@ -131,9 +131,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
+| 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | 471b70a3 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 
 ## Session Continuity
 
-Last session: 2026-03-18T15:13:30.000Z
-Stopped at: Completed 60-02-PLAN.md
-Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).
+Last session: 2026-03-27T08:59:00.000Z
+Stopped at: Completed quick task 35 (deprecate feedback overlay)
+Resume notes: Feedback overlay UI fully removed (1,718 lines across 10 files). Backend convex/feedback/ preserved in stasis. Pre-existing Phase 60 build errors unrelated.
