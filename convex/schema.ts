@@ -1773,7 +1773,8 @@ export default defineSchema({
       v.literal("payroll_void"),
       v.literal("manual"),
       v.literal("depreciation"),
-      v.literal("depreciation_void")
+      v.literal("depreciation_void"),
+      v.literal("asset_acquisition")
     ),
     sourceId: v.optional(v.string()),
     isReversed: v.boolean(),
@@ -1927,6 +1928,7 @@ export default defineSchema({
     saleProceeds: v.optional(v.number()),
     disposalGainLoss: v.optional(v.number()),
     disposalJournalEntryId: v.optional(v.id("journalEntries")),
+    sourceExpenseId: v.optional(v.id("expenses")),
     createdBy: v.id("users"),
     createdAt: v.number(),
   })

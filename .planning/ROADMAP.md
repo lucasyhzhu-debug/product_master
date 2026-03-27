@@ -10,7 +10,7 @@
 - ✅ **v1.5 Financial Statements** — Phases 32-34 (shipped 2026-03-03)
 - ✅ **v1.6 Tech Debt & Resilience** — Phases 35-40 (shipped 2026-03-09)
 - ✅ **v1.7 Expense & Accounting** — Phases 41-54 (shipped 2026-03-16)
-- **v1.8 Support & Quality of Life** — Phases 55-58 (in progress)
+- ✅ **v1.8 Support & Quality of Life** — Phases 55-63 (shipped 2026-03-27)
 
 ## Phases
 
@@ -123,194 +123,47 @@ Full details: `.planning/milestones/v1.6-ROADMAP.md`
 
 </details>
 
-### v1.7 Expense & Accounting (In Progress)
+<details>
+<summary>v1.7 Expense & Accounting (Phases 41-54) — SHIPPED 2026-03-16</summary>
 
-**Milestone Goal:** Add employee expense management with approval workflows, double-entry journal entries, reimbursement batching, payroll tracking, and extend the P&L to Net Income with OpEx breakdown.
+- [x] Phase 41: Schema, Seed & Counters (2/2 plans) — completed 2026-03-13
+- [x] Phase 42: Journal Engine (1/1 plan) — completed 2026-03-13
+- [x] Phase 43: Chart of Accounts Management (1/1 plan) — completed 2026-03-13
+- [x] Phase 44: Expense Submission (2/2 plans) — completed 2026-03-13
+- [x] Phase 45: Expense Approval & Void (2/2 plans) — completed 2026-03-13
+- [x] Phase 46: Reimbursement (2/2 plans) — completed 2026-03-13
+- [x] Phase 47: Payroll (2/2 plans) — completed 2026-03-14
+- [x] Phase 48: Frontend Permissions & Routes (1/1 plan) — completed 2026-03-14
+- [x] Phase 49: P&L Integration (1/1 plan) — completed 2026-03-14
+- [x] Phase 50: Expense Analytics (2/2 plans) — completed 2026-03-14
+- [x] Phase 51: Bulk Upload (4/4 plans) — completed 2026-03-15
+- [x] Phase 52: Expense System Simplification (3/3 plans) — completed 2026-03-15
+- [x] Phase 53: Expense E2E Testing (5/5 plans) — completed 2026-03-15
+- [x] Phase 53.1: Fix GoBiz Promo Discount (2/2 plans) — completed 2026-03-16
+- [x] Phase 54: Fix BigSeller Schema (2/2 plans) — completed 2026-03-16
 
-- [x] **Phase 41: Schema, Seed & Counters** - Foundation tables, Chart of Accounts seed data, atomic counter infrastructure (completed 2026-03-13)
-- [x] **Phase 42: Journal Engine** - Double-entry journal entry system with balance validation and reversal support (completed 2026-03-13)
-- [x] **Phase 43: Chart of Accounts Management** - Admin UI for viewing, adding, and deactivating GL accounts (completed 2026-03-13)
-- [x] **Phase 44: Expense Submission** - Expense CRUD with receipt upload, SHA-256 dedup, and audit trail (completed 2026-03-13)
-- [x] **Phase 45: Expense Approval & Void** - Approval queue with DoA routing, auto-JE, rejection flow, void, and fraud controls (completed 2026-03-13)
-- [x] **Phase 46: Reimbursement** - Batch reimbursement with bank transfer tracking and company bank account management (completed 2026-03-13)
-- [x] **Phase 47: Payroll** - Payroll entry with auto-generated journal entries and void support (completed 2026-03-14)
-- [x] **Phase 48: Frontend Permissions & Routes** - Permission flags, route guards, hooks, and Finance hub integration (completed 2026-03-14)
-- [x] **Phase 49: P&L Integration** - Extend income statement with OpEx breakdown, EBIT, and Net Income (completed 2026-03-14)
-- [x] **Phase 50: Expense Analytics** - OpEx analytics dashboard with spend breakdowns and fraud flag monitoring (completed 2026-03-14)
-- [ ] **Phase 51: Bulk Upload of Previously Reimbursed Expenses** - CSV import of 350+ historical expense records as journal entries
-- [x] **Phase 52: Expense System Simplification** - Refactor expense code based on simplification review (zero behavior changes) (completed 2026-03-15)
-- [x] **Phase 53: Expense E2E Testing** - Playwright E2E tests for all 9 expense pages with multi-role auth and bug-fix loop (completed 2026-03-15)
+Full details: `.planning/milestones/v1.7-ROADMAP.md`
 
-## Phase Details
+</details>
 
-### Phase 41: Schema, Seed & Counters
-**Goal**: All accounting tables exist in the database and the Chart of Accounts is seeded with 36 PSAK-aligned default accounts
-**Depends on**: Nothing (first phase of v1.7)
-**Requirements**: COA-04, COA-05, EXP-06, JE-04, JE-05
-**Success Criteria** (what must be TRUE):
-  1. Running `accounts:seedDefaults` creates 36 GL accounts (4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet) and is idempotent on re-run
-  2. System accounts (isSystem: true) cannot be deleted via any mutation
-  3. Atomic daily counter helper generates sequential EXP-MMDD-NNN and JE-MMDD-NNN formatted numbers without collisions
-  4. Journal entry lines denormalize `entryDate` from their parent entry for direct index-based period queries
-**Plans:** 2/2 plans complete
+<!-- v1.7 and v1.8 phase details archived to milestones/ -->
 
-Plans:
-- [ ] 41-01-PLAN.md -- Schema (10 tables + users bank fields) + Chart of Accounts seed function
-- [ ] 41-02-PLAN.md -- Atomic daily counter helper (EXP/JE/RMB-MMDD-NNN)
+<details>
+<summary>✅ v1.8 Support & Quality of Life (Phases 55-63) — SHIPPED 2026-03-27</summary>
 
-### Phase 42: Journal Engine
-**Goal**: All journal entry creation goes through a single validated helper that enforces double-entry integrity and correct reversal dating
-**Depends on**: Phase 41
-**Requirements**: JE-01, JE-02, JE-03, JE-06
-**Success Criteria** (what must be TRUE):
-  1. `createJournalEntryWithLines` helper rejects any entry where total debits != total credits
-  2. No update mutation exists for journal entries -- the only correction path is creating a reversing entry
-  3. Reversal entries post to the same accounting period (date) as the original entry, not Date.now()
-  4. All downstream JE consumers (expense approval, reimbursement, payroll, void) use the single creation helper -- no direct `ctx.db.insert` on journalEntryLines
-**Plans:** 1/1 plans complete
+- [x] Phase 55: Help Center Infrastructure & Landing Page (3/3 plans) — completed 2026-03-16
+- [x] Phase 56: Expense Training Guide (2/2 plans) — completed 2026-03-16
+- [x] Phase 57: Invoice Backend & Business Settings (2/2 plans) — completed 2026-03-17
+- [x] Phase 58: Invoice Form, Print View & Order Integration (3/3 plans) — completed 2026-03-17
+- [x] Phase 59: Expense Payment Method Overhaul (4/4 plans) — completed 2026-03-17
+- [x] Phase 60: Asset Register & Depreciation (3/3 plans) — completed 2026-03-19
+- [x] Phase 61: Help File Indexing Architecture (2/2 plans) — completed 2026-03-18
+- [x] Phase 62: Manual Journal Entry Page (2/2 plans) — completed 2026-03-18
+- [x] Phase 63: Interactive Visual Expense Tutorials (2/2 plans) — completed 2026-03-17
 
-Plans:
-- [ ] 42-01-PLAN.md -- Journal engine helper (createJournalEntryWithLines, createReversalEntry, validation, tests)
+Full details: `.planning/milestones/v1.8-ROADMAP.md`
 
-### Phase 43: Chart of Accounts Management
-**Goal**: Admin can manage the Chart of Accounts without touching the database directly
-**Depends on**: Phase 41
-**Requirements**: COA-01, COA-02, COA-03
-**Success Criteria** (what must be TRUE):
-  1. Admin can view the full Chart of Accounts with account code, name, type (Asset/Liability/Equity/Revenue/Expense), and active status
-  2. Admin can add custom GL accounts with unique codes following PSAK numbering conventions (4xxx, 5xxx, 6xxx, 7xxx, 1xxx-3xxx)
-  3. Deactivated accounts are hidden from new expense dropdowns but existing journal entries referencing them are preserved and visible
-**Plans:** 1/1 plans complete
-
-Plans:
-- [ ] 43-01-PLAN.md -- Backend queries/mutations + useAccounts hook + AccountsManager page + route
-
-### Phase 44: Expense Submission
-**Goal**: Any authenticated user can create expense drafts, attach receipts, and submit them for approval
-**Depends on**: Phase 42
-**Requirements**: EXP-01, EXP-02, EXP-03, EXP-04, EXP-05, EXP-18
-**Success Criteria** (what must be TRUE):
-  1. User can create and save expense drafts with description, amount, GL category, date, payment method, vendor, and optional receipt
-  2. Submitting a draft transitions it to Pending status and makes it visible in the approval queue
-  3. Receipt upload is enforced for expenses > Rp 50,000 (blocked at backend) and optional for <= Rp 50,000
-  4. Uploading a receipt with a SHA-256 hash matching an existing receipt hard-blocks submission with a reference to the duplicate expense
-  5. Every status transition (Draft, Pending, Approved, Rejected, AwaitingPayment, Reimbursed, Voided) is recorded in an immutable audit trail with actor, timestamp, and optional comment
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 44-01-PLAN.md -- Backend helpers + tests, expense mutations + queries (CRUD, fraud controls, audit trail)
-- [ ] 44-02-PLAN.md -- Frontend hooks, shared components, ExpenseSubmit page, MyExpenses page, route registration
-
-### Phase 45: Expense Approval & Void
-**Goal**: Managers and admins can approve or reject expenses following Delegation of Authority rules, with fraud detection flags shown inline
-**Depends on**: Phase 44
-**Requirements**: EXP-07, EXP-08, EXP-09, EXP-10, EXP-11, EXP-12, EXP-13, EXP-14, EXP-15, EXP-16, EXP-17, FRAUD-01, FRAUD-02, FRAUD-03, FRAUD-04, FRAUD-05
-**Success Criteria** (what must be TRUE):
-  1. Eligible approvers see pending expenses in their queue (broadcast routing -- first to act wins), with self-submitted expenses excluded
-  2. Expenses <= Rp 500K are approvable by Manager or Admin; expenses > Rp 500K require Admin approval; approver comment is mandatory for expenses >= Rp 500K
-  3. Approving an expense atomically generates a journal entry (DR OpEx account, CR 2200 Accrued Expenses or CR 1100 Cash for company_card) and transitions to AwaitingPayment (personal) or Approved-terminal (company card)
-  4. Rejected expenses include a reason, and the submitter can revise and resubmit (linked via previousExpenseId chain with rejection count badge visible to approvers)
-  5. Admin can void non-terminal expenses with a reason, generating a reversing JE; reimbursed expenses cannot be voided directly (must void the reimbursement batch instead); approved expenses are immutable (no field edits)
-  6. Fraud flags are visible to approvers: duplicate detection (same employee + amount + date within 7 days), late submission (> 14 days old), and rejection history chain
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 45-01-PLAN.md -- DoA pure helpers (TDD), approve/reject/void mutations, approval queue + rejection chain queries
-- [ ] 45-02-PLAN.md -- Frontend hooks, FraudFlags/ApprovalActions/RejectionChain components, ExpenseApproval page, route
-
-### Phase 46: Reimbursement
-**Goal**: Admin can batch approved expenses by employee, confirm bank transfers, and track reimbursement history
-**Depends on**: Phase 45
-**Requirements**: RMB-01, RMB-02, RMB-03, RMB-04, RMB-05, RMB-06, RMB-07, RMB-08
-**Success Criteria** (what must be TRUE):
-  1. Admin can view approved expenses grouped by employee with bank details and running totals
-  2. Admin can create a reimbursement batch (one per employee) with auto-generated RMB-MMDD-NNN number and confirm it by entering BCA reference number, transfer date, and source bank account
-  3. Confirming a batch atomically generates a journal entry (DR 2200, CR 1100) and marks all linked expenses as Reimbursed
-  4. Admin can void a confirmed batch with reason, generating a reversing JE and returning linked expenses to AwaitingPayment status
-  5. Admin can manage company bank accounts (name, bank, account number, active status) and users can optionally store their bank details on their profile for reimbursement
-**Plans**: 2 plans
-
-Plans:
-- [ ] 46-01-PLAN.md -- Backend: extract auditTrail helper, bank accounts CRUD, user bank details, reimbursement mutations + queries
-- [ ] 46-02-PLAN.md -- Frontend: hooks, ReimbursementManager page, BankAccountsManager page, components, routes
-
-### Phase 47: Payroll
-**Goal**: Admin can record payroll entries that auto-generate journal entries for salary expense tracking
-**Depends on**: Phase 42
-**Requirements**: PAY-01, PAY-02, PAY-03, PAY-04
-**Success Criteria** (what must be TRUE):
-  1. Admin can create payroll entries with employee type (contractor/staff), frequency (weekly/monthly), amount, period, and optional attachment
-  2. Each payroll entry auto-generates a journal entry (DR 6100 Salaries & Wages, CR 1100 Cash)
-  3. Admin can void a payroll entry, generating a reversing journal entry posted to the same period as the original
-  4. Payroll entries are viewable by period and employee type with filtering
-**Plans**: 2 plans
-
-Plans:
-- [ ] 47-01-PLAN.md -- Backend: schema update (payrollNumber), pure helpers (TDD), mutations (create + void + upload), queries (list + getById)
-- [ ] 47-02-PLAN.md -- Frontend: hooks, PayrollManager page, route registration, header navigation
-
-### Phase 48: Frontend Permissions & Routes
-**Goal**: All expense, reimbursement, payroll, and analytics pages are accessible through the app with correct role-based guards
-**Depends on**: Phase 44, Phase 45, Phase 46, Phase 47
-**Requirements**: PERM-01, PERM-02, PERM-03, PERM-04
-**Success Criteria** (what must be TRUE):
-  1. All authenticated roles (kitchen, order_staff, manager, admin) can submit expenses and view their own expense history
-  2. Manager and Admin can access the approval queue and approve expenses within their DoA thresholds
-  3. Admin-only pages (Reimbursement Manager, bank accounts, payroll entries, All Expenses audit view) are blocked for non-admin roles
-  4. Manager and Admin can access the Expense Analytics dashboard; Finance hub card on HubPage links to all accounting sub-pages
-**Plans**: 1 plan
-
-Plans:
-- [ ] 48-01-PLAN.md -- Permission flags, route migration, ExpenseAnalytics stub, nav updates
-
-### Phase 49: P&L Integration
-**Goal**: The income statement extends below Gross Profit to show OpEx breakdown, EBIT, and Net Income sourced from journal entries
-**Depends on**: Phase 42, Phase 48
-**Requirements**: PNL-01, PNL-02, PNL-03, PNL-04, PNL-05
-**Success Criteria** (what must be TRUE):
-  1. Income statement shows Operating Expenses broken down by GL account name (6xxx accounts) below Gross Profit
-  2. EBIT (Operating Profit) = Gross Profit - Total OpEx is displayed with EBIT margin percentage
-  3. Other Income/Expense section (7xxx accounts) and Net Income with net margin percentage are displayed below EBIT
-  4. OpEx data is sourced from a single indexed query on journalEntryLines by entryDate (business date, not _creationTime), with in-memory grouping by accountId -- no N+1 pattern
-**Plans**: 1 plan
-
-Plans:
-- [ ] 49-01-PLAN.md -- Backend query extension (single-query journal aggregation), frontend P&L sections, CSV export
-
-### Phase 50: Expense Analytics
-**Goal**: Managers and admins can monitor OpEx trends, spend distribution, and fraud flags from a dedicated analytics dashboard
-**Depends on**: Phase 48, Phase 49
-**Requirements**: XANL-01, XANL-02, XANL-03, XANL-04, XANL-05, XANL-06, FRAUD-06, FRAUD-07, FRAUD-08
-**Success Criteria** (what must be TRUE):
-  1. Dashboard shows total OpEx for the selected period with spend breakdown by GL category (bar or pie chart) and by employee
-  2. Monthly spend trend is displayed as a 6-month line chart showing OpEx trajectory
-  3. Pending reimbursement total and average approval time are displayed as summary metrics
-  4. Active fraud flags are surfaced: split detection (same employee + same GL + multiple expenses within 48hrs summing > Rp 500K), approver concentration (> 80% of one employee's expenses approved by same person in 30 days), and unfamiliar vendor (vendor not seen in 90 days)
-**Plans**: 2 plans
-
-Plans:
-- [ ] 50-01-PLAN.md -- Backend: fraud detection helpers (TDD), analytics queries (OpEx, metrics, fraud flags)
-- [ ] 50-02-PLAN.md -- Frontend: hooks, chart/card sub-components, ExpenseAnalytics dashboard page
-
-### Phase 51: Bulk Upload of Previously Reimbursed Expenses via Bank Transaction Mapping
-**Goal**: Admin can bulk-import 350+ historical employee expense records as journal entries via CSV upload, backfilling OpEx in the P&L for periods before the accounting system existed
-**Depends on:** Phase 50
-**Requirements**: None (one-off import tool)
-**Success Criteria** (what must be TRUE):
-  1. Admin can download a CSV template and a Chart of Accounts reference file
-  2. Admin can upload a CSV and see row-level validation errors with clear messages
-  3. Admin can review summaries (by GL account, by period, total) before confirming
-  4. Confirming creates one JE per valid row (DR expense account, CR 1100 Cash) with sourceType "manual" and [Historical Import] prefix
-  5. All JEs from one import share the same sourceId (importBatchId) for traceability
-  6. Receipt URLs from CSV are preserved in journalEntries.metadata.receiptUrl
-  7. Import handles 350+ rows via batched mutation calls (50/batch) with progress indication
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 51-01-PLAN.md -- Schema metadata field + journal engine extension
-- [x] 51-02-PLAN.md -- Backend mutation (TDD) + client CSV validation (TDD)
-- [x] 51-03-PLAN.md -- Frontend hook + wizard page + route registration
-- [x] 51-04-PLAN.md -- Verification + documentation + smoke test
+</details>
 
 ## Progress
 
@@ -323,275 +176,7 @@ Plans:
 | v1.4 Sales & Channel Integration | 26-31 | 20 | Complete | 2026-03-01 |
 | v1.5 Financial Statements | 32-34 | 9 | Complete | 2026-03-03 |
 | v1.6 Tech Debt & Resilience | 35-40 | 16 | Complete | 2026-03-09 |
-| v1.7 Expense & Accounting | 41-63 | 50 | In progress | - |
+| v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
+| v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 
-**Total: 40 phases, 177 plans shipped across 7 milestones + 24 phases in v1.7 (21 complete, 3 remaining)**
-
-### Phase 52: Expense System Simplification
-
-**Goal:** Refactor v1.7 expense system code (phases 41-50) based on 3-agent simplification review. Consolidate duplicated patterns, parallelize sequential DB reads, extract shared UI components, and unify scattered utility functions. Zero behavior changes -- all existing tests must pass unchanged.
-**Requirements**: F1-F14 (14 findings from SIMPLIFICATION-REPORT.md; F15-F17 deferred)
-**Depends on:** Phase 50
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 52-01-PLAN.md -- Backend consolidation: parallel fraud queries (F1), Promise.all for sequential reads (F2, F5), shared validation (F3), threshold unification (F4)
-- [ ] 52-02-PLAN.md -- Frontend component extraction: VoidReasonDialog (F6), ActionDialog (F7), ExpenseCard className (F9), fix any types (F12)
-- [ ] 52-03-PLAN.md -- Utility cleanup: wibMidnightToUtc consolidation (F10), delta formatter merge (F11), MarginRow extraction (F8), WIB init dedup (F13), useMemo (F14)
-
-### Phase 53: Expense E2E Testing
-**Goal**: All 9 expense pages have Playwright E2E coverage with multi-role auth testing, full lifecycle flows (submit -> approve -> reimburse -> P&L), CSV import validation, and a bug-fix loop that fixes or documents discovered issues
-**Depends on:** Phase 52
-**Requirements**: None (testing phase)
-**Success Criteria** (what must be TRUE):
-  1. Multi-role test users (E2E-Admin, E2E-Manager, E2E-Kitchen, E2E-OrderStaff) created idempotently in global-setup.ts
-  2. Full expense lifecycle test passes: create expense as OrderStaff -> approve as Admin -> reimburse as Admin -> verify amount on P&L
-  3. All 9 expense routes tested for page load, basic CRUD, and permission guards
-  4. CSV import test with mixed valid/invalid rows verifies validation errors and successful import through to P&L
-  5. Fraud flag visibility verified in approval queue
-  6. Bug report (53-BUG-REPORT.md) delivered with resolution status for each discovered issue
-  7. All existing 690+ unit tests remain green
-**Plans:** 5/5 plans complete
-
-Plans:
-- [ ] 53-01-PLAN.md -- E2E infrastructure (global-setup multi-user, loginAsRole helper, CSV fixture)
-- [ ] 53-02-PLAN.md -- Permission guard tests (9 routes x 4 roles) + analytics/admin page tests
-- [ ] 53-03-PLAN.md -- Expense lifecycle test (submit -> approve -> reimburse -> P&L) + CSV import test
-- [ ] 53-04-PLAN.md -- Approval edge cases (self-approval block, DoA, rejection, fraud flags)
-- [ ] 53-05-PLAN.md -- Full suite verification, unit test check, bug report, human approval
-
-### Phase 53.1: Fix GoBiz Promo Discount Net Revenue Inflation
-**Goal**: Dashboard uses stored `revenueNet` instead of recalculating net, and sync extracts `variables.voucher_amount` for promo discount visibility in Sales Analytics
-**Depends on:** Phase 53
-**Requirements**: None (bug fix, HAR-verified)
-**Success Criteria** (what must be TRUE):
-  1. GOFOOD channel Net in Sales Analytics = sum of `revenueNet` from externalRevenue (not recalculated from gross - commission)
-  2. Promo discount amount extracted during GoBiz sync and stored in `externalRevenue.promoBurn`
-  3. Sales Analytics shows promo discount as separate deduction line for GoFood channels
-  4. Non-promo orders (Crystal Timur A, G347061572) show unchanged net values
-  5. BigSeller channels unaffected by aggregation refactor
-  6. All existing tests pass, npm run build succeeds
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 53.1-01-PLAN.md -- Backend: TDD aggregation fix (use revenueNet) + GoBiz promo extraction (voucher_amount) + adapter wiring
-- [ ] 53.1-02-PLAN.md -- Frontend: PeriodData type extension + ChannelSummary promo discount display + human verify
-
-### Phase 54: Fix BigSeller platform-specific endpoint schema mismatches
-**Goal**: All 6 HAR-confirmed bugs in BigSeller integration are fixed: normalizePlatformFees handles platform-specific schemas correctly, platform is injected from config (not API), and calculatedProfit uses BigSeller's authoritative profit field
-**Requirements**: BUG-01, BUG-02, BUG-03, BUG-04, BUG-05, BUG-06, CASE-01
-**Depends on:** Phase 53.1
-**Success Criteria** (what must be TRUE):
-  1. Shopee orders have saleAmount populated from originalPrice (not 0)
-  2. TikTok orders have saleAmount from revenueAmount, platformIncome from settlementAmount, commissionFee from 6-field sum
-  3. Normalization triggers for undefined/null fields (not just === 0)
-  4. Shopee fees are negated via -Math.abs() to match negative convention
-  5. Platform is set from BIGSELLER_SHOP_PLATFORM_MAP config, not from API's null value
-  6. calculatedProfit uses order.profit (BigSeller authoritative), not double-subtracting formula
-  7. otherfee/otherFee case mismatch handled
-  8. All existing and new tests pass, npm run build succeeds
-**Plans:** 2/2 plans complete
-
-Plans:
-- [ ] 54-01-PLAN.md -- TDD: normalizePlatformFees tests + rewrite (Bugs 1, 3, 4, 5, case mismatch)
-- [ ] 54-02-PLAN.md -- Wire platform param through sync pipeline + fix profit formula (Bugs 2, 6)
-
-</details>
-
-### v1.8 Support & Quality of Life (Phases 55-58)
-
-**Spec documents:**
-- `docs/superpowers/specs/2026-03-16-help-center-design.md`
-- `docs/superpowers/specs/2026-03-16-invoice-generation-design.md`
-
-### Phase 55: Help Center Infrastructure & Landing Page
-**Goal**: Build the Help Center landing page, guide registry, reusable help components, and navigation integration so all authenticated users can access `/help` and browse guides
-**Requirements**: HELP-01, HELP-02, HELP-03, HELP-04, HELP-05, HELP-06, HELP-07, HELP-08, HCMP-01, HCMP-02, HCMP-03, HCMP-04, HCMP-05, HCMP-06, HCMP-07
-**Depends on:** None
-**Success Criteria** (what must be TRUE):
-  1. `/help` renders landing page with guide cards grid (responsive 1/2/3 cols)
-  2. Search bar filters guides and FAQ questions (case-insensitive)
-  3. Guide registry in `helpGuides.ts` drives landing page and router
-  4. "Coming Soon" cards are dimmed and non-clickable
-  5. GuideRouter renders component by ID or "Guide not found" state
-  6. Help link in Header nav (desktop + mobile) and HubPage card
-  7. All 7 reusable help components work: WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, RoleTag, GuideSection, GuideLayout
-  8. Staggered fade-up animation on landing page
-  9. `npm run build` succeeds
-**Plans:** 3/3 plans complete
-
-Plans:
-- [ ] 55-01-PLAN.md -- Guide registry + searchGuides tests + 5 help components (RoleTag, CalloutBox, StepCard, GuideSection, FaqAccordion) + barrel export
-- [ ] 55-02-PLAN.md -- WorkflowDiagram (CSS variable SVG fills + animation) + GuideLayout (TOC + useActiveSection hook)
-- [ ] 55-03-PLAN.md -- HelpCenter landing page + GuideRouter + navigation integration (App.tsx, Header.tsx, HubPage.tsx)
-
-### Phase 56: Expense Training Guide
-**Goal**: Create the first live guide — a comprehensive Expense, Reimbursement & Payroll walkthrough with flowcharts, step cards, callout boxes, and FAQ covering all 8 sections
-**Requirements**: EGUIDE-01, EGUIDE-02, EGUIDE-03, EGUIDE-04, EGUIDE-05, EGUIDE-06, EGUIDE-07, EGUIDE-08, EGUIDE-09
-**Depends on:** Phase 55
-**Success Criteria** (what must be TRUE):
-  1. `/help/expenses` renders full guide with all 8 sections
-  2. Overview: lifecycle flowchart with color-coded nodes + role summary table
-  3. Submitting: 4 step cards, 3 callout boxes, mini FAQ
-  4. Approving: DoA workflow diagram, 3 step cards, 3 callout boxes
-  5. Reimbursement: batch workflow diagram, 6 step cards, 2 callout boxes
-  6. Payroll: 4 step cards, 3 callout boxes, 4 FAQ items
-  7. Analytics: dashboard card descriptions + fraud flags explanation
-  8. P&L: journal entry diagram with DR/CR flow
-  9. FAQ: full accordion with 16 questions across 5 groups
-  10. TOC sidebar tracks active section on scroll
-  11. Deep linking works (e.g., `/help/expenses#submitting`)
-  12. `npm run build` succeeds
-**Plans:** 2 plans
-
-Plans:
-- [ ] 56-01-PLAN.md -- ExpenseGuide.tsx sections 1-4 (Overview, Submitting, Approving, Reimbursement) + registry wiring + test update
-- [ ] 56-02-PLAN.md -- ExpenseGuide.tsx sections 5-8 (Payroll, Analytics, P&L, FAQ) + visual verification
-
-### Phase 57: Invoice Backend & Business Settings
-**Goal**: Build the invoice data model (3 new tables + customer extension), backend API, and Business Settings page so admins can configure seller identity before generating invoices
-**Requirements**: BSET-01, BSET-02, BSET-03, BSET-04, BSET-05, IDAT-01, IDAT-02, IDAT-03, IDAT-04
-**Depends on:** Phase 56
-**Success Criteria** (what must be TRUE):
-  1. Schema: `businessSettings` singleton, `invoiceCounters` with `by_prefix` index, `invoices` with 3 indexes, `customers` extended with 3 optional fields
-  2. Business Settings page at `/settings/business` (admin only)
-  3. Logo upload via Convex file storage works
-  4. Default bank account selector from `bankAccounts` table
-  5. Live invoice header preview reflects saved settings
-  6. Invoice backend API: createDraft, updateDraft, discardDraft, finalize, getByOrder, getById
-  7. Race-safe sequential numbering via `invoiceCounters` (INV-YYMM-NNN)
-  8. Customer write-back on finalize (company, NPWP, billing address)
-  9. `npm run build` succeeds
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 57-01-PLAN.md -- Schema (3 tables + customer extension) + businessSettings backend + invoice backend API
-- [x] 57-02-PLAN.md -- Permission flags + hooks + Business Settings page + nav link + visual verification
-
-### Phase 58: Invoice Form, Print View & Order Integration
-**Goal**: Build the WYSIWYG invoice form page, print view, and Order Detail sidebar card so managers/admins can generate, preview, finalize, and print invoices from any qualifying order
-**Requirements**: INV-01, INV-02, INV-03, INV-04, INV-05, INV-06, INV-07, INV-08, INV-09, INV-10, INV-11, IPRNT-01, IPRNT-02, IPRNT-03, IPRNT-04
-**Depends on:** Phase 57
-**Success Criteria** (what must be TRUE):
-  1. Invoice form at `/orders/:orderId/invoice` auto-fills from order + customer + business settings
-  2. Field color coding: blue (auto-filled), yellow (needs input), white (user-edited)
-  3. Draft auto-saves on field change (debounced 2s), persists across navigation
-  4. Preview mode (read-only clean render) without finalizing
-  5. Finalize: snapshot data, assign INV-YYMM-NNN, status→final, customer write-back
-  6. Multiple finalized invoices per order (revision pattern)
-  7. Print view at `/orders/:orderId/invoice/:invoiceNumber` renders cleanly
-  8. `@media print` hides navigation/controls, shows clean black-on-white
-  9. Indonesian date format (e.g., "Senin, 16 Maret 2026")
-  10. Order Detail sidebar: invoice card with 3 states (none/draft/final)
-  11. Access control: manager + admin only, PaymentReceived+ orders only
-  12. `npm run build` succeeds
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 58-01-PLAN.md -- formatIndonesianDate + InvoiceFieldInput + InvoicePrintView + @media print CSS
-- [x] 58-02-PLAN.md -- InvoiceForm (WYSIWYG + auto-save) + InvoicePage (3 modes) + App.tsx routes
-- [ ] 58-03-PLAN.md -- InvoiceSidebarCard (3 states) + OrderDetail integration + visual verification
-
-### Phase 59: Expense Payment Method Overhaul
-**Goal**: Replace 3 legacy payment literals with 3 new ones (employee_paid, company_paid, payment_request) covering all expense flows -- retrospective employee reimbursement, retrospective company direct debit with admin acknowledgement, and prospective vendor payment requests with approval + mark-as-paid
-**Requirements**: DEXP-01, DEXP-02, DEXP-03, DEXP-04, DEXP-05, DEXP-06, DEXP-07, DEXP-08, DEXP-09, DEXP-10, DEXP-11, DEXP-12, DEXP-13, DEXP-14
-**Depends on:** None (independent of invoice phases 57-58)
-**Success Criteria** (what must be TRUE):
-  1. Schema has 3 payment method literals (employee_paid, company_paid, payment_request) and 2 new statuses (recorded, paid)
-  2. company_paid submit auto-creates JE (DR expense GL, CR 1100 Cash) and sets status to recorded
-  3. employee_paid submit unchanged (status submitted, no JE)
-  4. payment_request approval creates no JE; mark-as-paid creates JE and transitions to paid
-  5. acknowledgeExpense transitions recorded to approved; flagExpense sets flag without status change
-  6. Approval queue shows all 3 types with correct action buttons per payment method and status
-  7. Receipt always required for company_paid and payment_request regardless of amount
-  8. All existing tests pass, npm run build succeeds
-**Plans:** 4/4 plans complete
-
-Plans:
-- [x] 59-01-PLAN.md -- Schema + helpers + tests (payment literals, statuses, fields, pure helpers, TDD)
-- [x] 59-02-PLAN.md -- Mutations + queries (submitExpense branching, 3 new mutations, expanded approval queue, analytics)
-- [x] 59-03-PLAN.md -- Frontend form + hooks + status badges (3-option dropdown, conditional fields, ExpenseStatus type)
-- [x] 59-04-PLAN.md -- Approval queue UI (multi-action buttons, payment badges, flag display, visual verification)
-
-
-### Phase 60: Asset Register & Depreciation -- Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
-
-**Goal**: Manager/admin can register fixed assets with PSAK-aligned categories, auto-calculated straight-line depreciation, batch "Catch Up to Now" JE generation with preview, per-asset disposal with gain/loss JE, and depreciation reminder on Income Statement
-**Requirements**: ASSET-01, ASSET-02, ASSET-03, ASSET-04, ASSET-05, ASSET-06, ASSET-07, ASSET-08, DEPR-01, DEPR-02, DEPR-03, DEPR-04, DEPR-05, DEPR-06, DEPR-07, DEPR-08, DEPR-09, DEPR-10, GL-01, DISP-01, DISP-02, DISP-03, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, UI-07, UI-08, REMIND-01, REMIND-02, REMIND-03
-**Depends on:** Phase 59
-**Success Criteria** (what must be TRUE):
-  1. fixedAssets table in schema with PSAK-aligned categories, denormalized depreciation fields, and 3 indexes
-  2. journalEntries sourceType extended with "depreciation" and "depreciation_void" (synchronized across schema + journalEngine types)
-  3. 10 new GL accounts seeded: 6150 Depreciation Expense, 1610-1670 per-category Accum Depr, 7300/7400 disposal gain/loss
-  4. Pure helpers tested: calculateMonthlyDepreciation (with final-month remainder), computeMissingMonths, calculateDisposalGainLoss, parseCharacteristicsCSV
-  5. Asset CRUD with FA-{ABBR}-YYMM-NNN numbering and PSAK default auto-population
-  6. "Catch Up to Now" batch depreciation: preview → confirm → atomic JE creation for all missing months
-  7. Disposal workflow: sold/scrapped/written_off with compound gain/loss JE
-  8. Asset Register page at /assets with table/card toggle, status filters, admin-only Catch Up and Dispose
-  9. Income Statement depreciation reminder: yellow banner + inline note for unposted current month
-  10. npm run build succeeds, all tests pass
-**Plans:** 3/3 plans complete
-
-Plans:
-- [x] 60-01-PLAN.md -- Schema + journal engine sync + pure helpers (TDD) + GL account seeding
-- [x] 60-02-PLAN.md -- Backend mutations/queries (CRUD, depreciation batch, disposal, void) + frontend hooks
-- [ ] 60-03-PLAN.md -- Asset Register page + Income Statement reminder + navigation + visual verification
-
-### Phase 61: Help File Indexing Architecture -- Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
-
-**Goal**: Build developer-side tooling to detect tutorial documentation drift: a feature-to-docs manifest mapping source modules to tutorial sections, validation script, ExpenseGuide refactored into section files, and two GSD skills (/gsd:check-docs, /gsd:update-docs) for detecting and fixing stale sections
-**Requirements**: HIDX-01, HIDX-02, HIDX-03, HIDX-04, HIDX-05
-**Depends on:** Phase 63 (Interactive Visual Expense Tutorials)
-**Success Criteria** (what must be TRUE):
-  1. docs-manifest.json maps source file globs to tutorial section files with per-mapping lastReviewedCommit
-  2. npm run validate:docs-manifest confirms every guide section has at least one source mapping
-  3. ExpenseGuide.tsx is split into 8 section files under src/pages/guides/ExpenseGuide/ with identical rendering
-  4. /gsd:check-docs skill detects stale sections via git log against lastReviewedCommit
-  5. /gsd:update-docs skill reads stale section + git diff, proposes edits, supports --ack flag
-  6. npm run build succeeds after all changes
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 61-01-PLAN.md -- Docs manifest + validation script + ExpenseGuide refactor into 6 section files
-- [x] 61-02-PLAN.md -- /gsd:check-docs and /gsd:update-docs GSD skills
-
-### Phase 62: Manual Journal Entry Page -- Template-based balance sheet transaction recording with 6 pre-wired templates
-
-**Goal**: Admins and managers can record balance sheet transactions (equipment purchases, loan repayments, dividends, capital injections, loan receipts, tax payments) through 6 pre-wired templates with inline accordion form and period-filtered recent entries table, plus hub navigation restructured into Financials + Accounting sections
-**Requirements**: MJE-01, MJE-02, MJE-03, MJE-04, MJE-05, MJE-06, MJE-07
-**Depends on:** Phase 49 (P&L Integration)
-**Success Criteria** (what must be TRUE):
-  1. create mutation validates 6 template types, positive integer amounts, and resolves account codes via by_code index
-  2. listByPeriod query returns only template-based manual entries (excludes CSV imports) filtered by period
-  3. /journal page renders 6 template cards with inline accordion form for Date, Amount, Description
-  4. Only one template form open at a time, save creates JE and entry appears in table immediately
-  5. Period controls (monthly/custom) filter the recent entries table
-  6. Hub page split: Financials (5 links) + Accounting (4 links including Journal Entry)
-  7. npm run build succeeds, all tests pass
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 62-01-PLAN.md -- Schema update + pure helpers + TDD tests + create mutation + listByPeriod query + frontend hooks
-- [x] 62-02-PLAN.md -- ManualJournalEntry page + route registration + hub navigation restructuring + visual verification
-
-
-### Phase 63: Interactive Visual Expense Tutorials
-
-**Goal:** Replace text-heavy expense guide sections (Submit, Approve, Reimburse) with click-through visual walkthroughs using mock UI panels and a generic reusable WalkthroughPlayer engine
-**Requirements**: VWT-01, VWT-02, VWT-03, VWT-04, VWT-05, VWT-06, VWT-07, VWT-08, VWT-09, VWT-10
-**Depends on:** Phase 55 (Help Center Infrastructure)
-**Success Criteria** (what must be TRUE):
-  1. Generic WalkthroughPlayer component renders workflow tabs with free step navigation and keyboard support
-  2. 11 mock UI primitives (MockFrame through MockNavDropdown) with shared indigo highlight styling
-  3. Submit Expense walkthrough: 4 steps with mock form, receipt upload, action buttons
-  4. Approve Expense walkthrough: 3 steps with approval queue table, detail card, action buttons
-  5. Reimburse walkthrough: 6 steps from opening page through success state
-  6. ExpenseGuide consolidated from 8 sections to 6 (submit+approve+reimburse merged into single walkthrough)
-  7. helpGuides.ts registry, POPULAR_QUESTIONS anchors, and tests updated for new structure
-  8. AnimatePresence crossfade (150ms) on step change, mobile horizontal pill bar
-  9. 5 documentation files updated (help center spec, UI brand ref, CODE_STYLE, CLAUDE.md, CHANGELOG)
-  10. `npm run build` succeeds, all tests pass
-**Plans:** 2/2 plans complete
-
-Plans:
-- [x] 63-01-PLAN.md -- Types + MockElements (11 primitives) + WalkthroughPlayer engine + barrel exports
-- [x] 63-02-PLAN.md -- 3 mock workflow components + ExpenseGuide integration + registry + tests + docs + visual verification
+**Total: 63 phases, 232 plans shipped across 9 milestones**

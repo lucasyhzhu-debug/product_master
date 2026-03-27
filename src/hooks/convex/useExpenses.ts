@@ -134,6 +134,16 @@ export const useMarkAsPaid = createMutationHook(
 );
 
 // ============================================================================
+// CAPEX CONVERSION (expense-to-fixed-asset)
+// ============================================================================
+
+export const useConvertToCapex = createMutationHook(
+  api.expenses.mutations.convertToCapex,
+  // Empty successMessage: modal shows its own toast with asset number on success
+  { successMessage: "", errorMessage: "Failed to convert expense to CapEx" }
+);
+
+// ============================================================================
 // TYPES
 // ============================================================================
 

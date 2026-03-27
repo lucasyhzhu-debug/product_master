@@ -1,79 +1,31 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 60-02-PLAN.md
-last_updated: "2026-03-19T03:50:21.326Z"
-last_activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
-progress:
-  total_phases: 24
-  completed_phases: 24
-  total_plans: 55
-  completed_plans: 55
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 60-01-PLAN.md
-last_updated: "2026-03-18T15:00:18.348Z"
-last_activity: 2026-03-18 - Phase 60 plan 01 complete (schema + helpers + GL seeding)
-progress:
-  total_phases: 24
-  completed_phases: 23
-  total_plans: 55
-  completed_plans: 53
-  percent: 96
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 62-02-PLAN.md
-last_updated: "2026-03-18T08:38:58.091Z"
-last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
-progress:
-  [██████████] 96%
-  completed_phases: 23
-  total_plans: 52
-  completed_plans: 52
----
-
----
-gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Support & Quality of Life
-status: Phase 62 complete -- manual journal entry page and hub navigation shipped (plan 02/02)
-stopped_at: Completed 62-02-PLAN.md
-last_updated: "2026-03-18T05:17:31.000Z"
-last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
+status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
+stopped_at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
+last_updated: "2026-03-27T07:35:12.218Z"
+last_activity: 2026-03-27
 progress:
-  total_phases: 24
-  completed_phases: 23
-  total_plans: 52
-  completed_plans: 52
+  total_phases: 9
+  completed_phases: 9
+  total_plans: 23
+  completed_plans: 23
 ---
 
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-03-16)
+
+See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 60 plan 01 complete (1/3 plans)
+**Current focus:** v1.8 completed, planning next milestone
 
 ## Current Position
 
-Phase: 60-asset-register-depreciation (2/3 plans)
-Plan: 02 complete
-Status: Plan 02 complete -- backend API (6 mutations, 4 queries), 22 tests, frontend hooks
-Last activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
-
-Progress: [██████----] 67%
+Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
+Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
+Last activity: 2026-03-27 - Completed quick task 260327-iv9: Expense-to-CapEx conversion
 
 ## Performance Metrics
 
@@ -173,6 +125,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
 - [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
 - [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
+- [Phase 260327-iv9]: Two-step Void+New Asset approach for expense-to-CapEx: reversal JE then acquisition JE (DR 1500, CR 1100/2200)
+- [Phase 260327-iv9]: asset_acquisition is non-reversible; detectAssetCategory for keyword-based category auto-suggestion
 
 ### Roadmap Evolution
 
@@ -195,9 +149,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
+| 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 
 ## Session Continuity
 
-Last session: 2026-03-18T15:13:30.000Z
-Stopped at: Completed 60-02-PLAN.md
+Last session: 2026-03-27T07:21:03.080Z
+Stopped at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
 Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).
