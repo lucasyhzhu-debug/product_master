@@ -8,23 +8,10 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.8 Support & Quality of Life
-
-**Goal:** Add in-app Help Center with visual training guides for co-founders and staff, and invoice generation for B2B orders with WYSIWYG form and print view.
-
-**Target features:**
-- Help Center landing page with guide registry and search
-- Expense, Reimbursement & Payroll training guide (8 sections with flowcharts, step cards, FAQ)
-- Reusable help components (WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, GuideLayout)
-- Business Settings page (seller identity, logo, default bank account)
-- Invoice generation from orders (WYSIWYG form, auto-fill, draft auto-save)
-- Invoice finalization with sequential numbering (INV-YYMM-NNN)
-- Invoice print view with @media print stylesheet
-
 ## Current State
 
-**Latest milestone:** v1.7 Expense & Accounting (shipped 2026-03-16)
-**Active milestone:** v1.8 Support & Quality of Life
+**Latest milestone:** v1.8 Support & Quality of Life (shipped 2026-03-27)
+**Next milestone:** Planning (use `/gsd:new-milestone`)
 
 ## Context
 
@@ -121,9 +108,19 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 - ✓ Bulk CSV import for 350+ historical expense records as journal entries — v1.7
 - ✓ GoBiz promo discount fix (use stored revenueNet) and BigSeller schema mismatch fixes — v1.7
 
+- ✓ Help Center with searchable landing page, guide registry, and 7 reusable components — v1.8
+- ✓ Interactive visual expense tutorials with WalkthroughPlayer engine and mock UI panels — v1.8
+- ✓ Invoice generation: WYSIWYG form, auto-save, sequential numbering (INV-YYMM-NNN), print view — v1.8
+- ✓ Business Settings page with seller identity, logo upload, default bank account — v1.8
+- ✓ Asset Register with PSAK-aligned depreciation, batch JE generation, disposal with gain/loss — v1.8
+- ✓ Income Statement depreciation reminder (yellow banner + inline note) — v1.8
+- ✓ Expense payment method overhaul: company-paid direct debit + multi-action approval queue — v1.8
+- ✓ Manual journal entry with 5 balance sheet templates, Hub split into Financials + Accounting — v1.8
+- ✓ Help file indexing architecture with docs-manifest.json and GSD staleness detection skills — v1.8
+
 ### Active
 
-(See REQUIREMENTS.md for v1.8 Support & Quality of Life)
+(No active milestone — use `/gsd:new-milestone` to start v1.9)
 
 ### Out of Scope
 
@@ -157,22 +154,19 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ## Context
 
-Shipped v1.7 Expense & Accounting (2026-03-16) and progressed through v1.8 Support & Quality of Life.
-~135K lines TypeScript across 65 Convex tables.
+Shipped v1.8 Support & Quality of Life (2026-03-27). 9 milestones complete (v1.0-v1.8), 63 phases, 232 plans.
+~143K lines TypeScript across 68 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
-Deployed via Vercel with GitHub Actions CI. 8 milestones shipped (v1.0–v1.7), 54 phases, 209 plans.
+Deployed via Vercel with GitHub Actions CI.
 
-**Current state after v1.7:**
-- Expense system: full lifecycle (submit → approve → reimburse), DoA approval workflow, receipt upload with fraud controls
-- Reimbursement batching: per-employee grouping, bank transfer tracking, batch confirm with JE
-- Payroll: staff/contractor entries with auto-generated journal entries
-- P&L: Revenue → Gross Profit → Operating Expenses → EBIT → Net Income
-- Expense Analytics: spend breakdowns, monthly trends, fraud flags (split detection, approver concentration, unfamiliar vendor)
-- Journal engine: double-entry with void/reversal, bulk CSV import for historical data
-- Financial statements: weekly + monthly income statement with per-channel P&L, BOM COGS, confidence indicators
-- Multi-platform integration: GoBiz, GrabFood Partner API, BigSeller (Shopee + Tokopedia), Consignment
-- Sales Analytics: 8-channel unified view, responsive hero cards grid, channel breakdown
-- E2E tests: 6 Playwright test suites (order lifecycle, kitchen, sales analytics, expense access, expense lifecycle, CSV import)
+**Current state after v1.8:**
+- Help Center: searchable landing page, guide registry, 7 reusable components, interactive expense walkthrough tutorials
+- Invoice system: WYSIWYG form with auto-fill/auto-save, finalize with INV-YYMM-NNN numbering, print view, Business Settings
+- Asset Register: PSAK-aligned categories, batch depreciation JE generation, disposal with gain/loss, Income Statement reminder
+- Expense overhaul: company-paid direct debit with auto-JE, multi-action approval queue (acknowledge/flag/mark-as-paid)
+- Manual journal: 5 balance sheet templates, Hub restructured into Financials + Accounting sections
+- Developer tooling: docs-manifest.json for tutorial drift detection (/gsd:check-docs, /gsd:update-docs)
+- All prior capabilities intact: expense lifecycle, journal engine, P&L, sales analytics, multi-platform integrations
 
 **Known technical debt:**
 - Generic query factory not applied to all query files (only simple entities)
@@ -254,4 +248,4 @@ Deployed via Vercel with GitHub Actions CI. 8 milestones shipped (v1.0–v1.7), 
 | Playwright E2E with multi-role auth (v1.7) | 4 test users (admin, manager, kitchen, order_staff) in global-setup.ts | ✓ Good — 4 new test suites, lifecycle coverage |
 
 ---
-*Last updated: 2026-03-27 after v1.7 milestone archived*
+*Last updated: 2026-03-27 after v1.8 milestone completed*

@@ -54,9 +54,9 @@ interface CapexConversionModalProps {
     vendorName: string;
     expenseNumber: string;
     paymentMethod: string;
-    receiptFileId?: string;
+    receiptFileId?: Id<"_storage">;
     receiptUrl?: string | null;
-    journalEntryId?: string;
+    journalEntryId?: Id<"journalEntries">;
   };
 }
 

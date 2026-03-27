@@ -4,8 +4,8 @@ milestone: v1.8
 milestone_name: Support & Quality of Life
 status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
 stopped_at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
-last_updated: "2026-03-27T07:21:03.085Z"
-last_activity: 2026-03-27 — v1.7 milestone archived
+last_updated: "2026-03-27T07:35:12.218Z"
+last_activity: 2026-03-27
 progress:
   total_phases: 9
   completed_phases: 9
@@ -19,13 +19,13 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life — v1.7 archived, v1.8 phases 55-63 in progress
+**Current focus:** v1.8 completed, planning next milestone
 
 ## Current Position
 
-Milestone: v1.8 Support & Quality of Life
-Status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
-Last activity: 2026-03-27 — v1.7 milestone archived
+Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
+Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
+Last activity: 2026-03-27 — v1.8 milestone completed and archived
 
 ## Performance Metrics
 
