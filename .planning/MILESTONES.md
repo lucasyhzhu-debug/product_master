@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.8 Support & Quality of Life (Shipped: 2026-03-27)
+
+**Phases completed:** 9 phases, 23 plans, 51 tasks
+
+**Timeline:** 4 days (2026-03-16 to 2026-03-19)
+**Codebase:** ~143K lines TypeScript (68 Convex tables)
+**Requirements:** 108/108 satisfied | **Audit:** tech_debt (no critical blockers)
+
+**Key accomplishments:**
+
+1. Help Center with searchable landing page, guide registry, and 7 reusable components (WorkflowDiagram, StepCard, CalloutBox, FaqAccordion, RoleTag, GuideSection, GuideLayout)
+2. Interactive visual expense tutorials: WalkthroughPlayer engine with mock UI panels replacing text-heavy guide sections, 3 click-through workflows (Submit, Approve, Reimburse)
+3. Invoice generation system: WYSIWYG form with auto-fill and 2s debounce auto-save, finalize with race-safe sequential numbering (INV-YYMM-NNN), print view with @media print and Indonesian date format
+4. Asset Register with PSAK-aligned depreciation: 8 asset categories, batch "Catch Up to Now" JE generation with preview, per-asset disposal with compound gain/loss JE, Income Statement depreciation reminder
+5. Expense payment method overhaul: company-paid direct debit with auto-JE on submit, multi-action approval queue (acknowledge/flag/mark-as-paid), 3 distinct payment flows
+6. Manual journal entry page: 5 balance sheet templates, Hub restructured into Financials + Accounting sections
+7. Help file indexing architecture: docs-manifest.json with staleness detection skills (/gsd:check-docs, /gsd:update-docs)
+
+**Delivered:** In-app Help Center with interactive expense tutorials, B2B invoice generation from orders, fixed asset register with automated depreciation accounting, expense payment method redesign for company-paid and payment request flows, manual journal entry for balance sheet transactions, and developer tooling for documentation drift detection.
+
+---
+
 ## v1.7 Expense & Accounting (Shipped: 2026-03-16)
 
 **Phases completed:** 15 phases (41-54, including 53.1), 32 plans
@@ -8,6 +30,7 @@
 **Requirements:** All satisfied | **Tests:** 690+ passing, 6 E2E test suites
 
 **Key accomplishments:**
+
 1. Chart of Accounts backbone: 39 PSAK-aligned accounts with upsert seed pattern
 2. Expense submission: full lifecycle (Draft → Submitted → Approved → Reimbursed/Voided), receipt upload with SHA-256 hashing, fraud controls (split detection, approver concentration, unfamiliar vendor)
 3. Approval workflow: Delegation of Authority (≤500K manager, >500K admin), self-approval blocked, rejection/resubmit chain, comment requirements for high-value approvals
@@ -31,6 +54,7 @@
 **Requirements:** 20/20 satisfied | **Tests:** 690 passing (+6 depot auto-seed tests)
 
 **Key accomplishments:**
+
 1. Schema audit: 42 findings across 65 tables — 20 unused indexes removed, 5 compound indexes added, 10 range bound anti-pattern fixes, critical session cleanup query fixed
 2. Backend helper extraction: 5 major files reduced from 6,348 to 4,358 LOC (-31.3%) via pure function extraction — shared confidence, WIB timezone, and sourceToPlatform helpers
 3. Frontend giant file splits: 4 components reduced from 5,518 to 1,450 LOC (-74%) via sub-component extraction — shared `dateUtils.ts` for WIB timezone
@@ -50,6 +74,7 @@
 **Requirements:** 14/14 satisfied | **Tests:** 684 passing (22 income statement-specific)
 
 **Key accomplishments:**
+
 1. Weekly income statement query (`getWeeklyIncomeStatement`) with real-time per-channel Revenue -> Deductions -> COGS -> Gross Profit aggregation across 7 channels
 2. Full BOM COGS resolution (production + packaging) via `buildProductCOGSMap` in-memory map preloading — follows `getLifetimeTotalsInternal` pattern
 3. Confidence classification on every financial figure (exact/calculated/inferred/missing) with channel-level worst-confidence propagation
@@ -72,6 +97,7 @@
 **Requirements:** 22/22 satisfied | **Audit:** PASSED (tech debt addressed by Phase 31)
 
 **Key accomplishments:**
+
 1. Multi-platform auth: one-click GoBiz password grant refresh, BigSeller paste-once JWT with 30-day auto-refresh and expiry countdown, GrabFood on-demand OAuth2 token resolve — all in unified credential health panel
 2. GrabFood POS integration: order history sync, store pause/unpause per outlet, menu availability toggle, 6 HMAC-validated webhook endpoints, standalone menu simulator with push-to-GrabFood and photo upload
 3. BigSeller marketplace integration: scheduler-chain sync (Shopee + Tokopedia), per-order data with full fee breakdown and SKU lists, admin SKU-to-menuProduct mapping with retroactive reconciliation
@@ -82,12 +108,12 @@
 **Delivered:** Unified all sales channels (GrabFood, Shopee, Tokopedia, Consignment, GoFood, K3Mart, Direct) into one real-time analytics view with per-channel API integrations, one-click platform auth, and manual-trigger syncs. Revenue flows from all 8 sources through `externalRevenue` bridge to unified Sales Analytics.
 
 **External blockers (documented, not code defects):**
+
 - GrabFood `orders:read` OAuth2 scope not yet granted — sync infrastructure works, returns descriptive 401
 - Crystal and Tamtem GrabFood merchantIDs pending — only GFSBPOS-254-353 confirmed
 - BigSeller COGS = 0 for all Frollie orders — profit analytics meaningless until configured in BigSeller
 
 ---
-
 
 ## v1.0 Concerns Cleanup & Refactor (Shipped: 2026-02-15)
 
@@ -96,6 +122,7 @@
 **Codebase:** 92,416 lines TypeScript
 
 **Key accomplishments:**
+
 1. Comprehensive test safety net for ball distribution, FIFO inventory, order lifecycle, and voucher handling
 2. Security hardened: env files removed from VCS, git history scrubbed, credentials rotated, security patterns documented
 3. BOM migration complete: all ball composition data flows through unified BOM as single source of truth; deprecated fields removed from schema
@@ -109,7 +136,6 @@
 
 ---
 
-
 ## v1.1 Stabilization & QoL (Shipped: 2026-02-16)
 
 **Phases completed:** 6 phases (12-16, including 14.1 inserted), 27 plans, 49 tasks
@@ -119,6 +145,7 @@
 **Requirements:** 29/29 satisfied | **Audit:** PASSED (all integration paths verified)
 
 **Key accomplishments:**
+
 1. Multi-platform API integration with auto-auth — GoBiz token auto-refresh cron, Crystal+Goldfinch dual-outlet sync, sync health monitoring, unified product mapping
 2. Order management Kanban overhaul — 12+ statuses simplified to 7, horizontal-scroll Kanban board, dedicated creation page, audit trail on every status change
 3. Draft order lifecycle — Persistent drafts with auto-save, edit-from-Kanban, incremental updates preserving vouchers
@@ -132,7 +159,6 @@
 
 ---
 
-
 ## v1.2 Unified Planning & Revenue (Shipped: 2026-02-21)
 
 **Phases completed:** 3 phases (17, 17.1, 18), 20 plans
@@ -142,6 +168,7 @@
 **Requirements:** 7/12 satisfied | **Audit:** gaps_found (5 intentionally deferred)
 
 **Key accomplishments:**
+
 1. Unified multi-channel dispatch planner — Weekly planning across GoFood, K3Mart, Direct, and Consignment in one page with demand waterfall, over-capacity highlighting, and direct order auto-population at due-date minus 2 days
 2. Tamtem 3rd GoFood outlet — G958262444 (Tamtem/Legato) syncs transactions automatically alongside Goldfinch and Crystal on the existing GoBiz cron
 3. Finished goods inventory tracker — Location-aware stock by product, order drawdown (fulfill direct orders without production), GoFood auto-deduction of sales, per-product low-stock alerts
@@ -152,6 +179,7 @@
 **Delivered:** Shipped a unified multi-channel dispatch planner with demand waterfall and inventory simulation, added the Tamtem 3rd GoFood outlet, built a finished goods inventory tracker with order drawdown and GoFood auto-deduction, and extended the BOM pattern to production ingredients with FIFO tracking and auto-calculated COGS.
 
 **Known Gaps (deferred to v1.3):**
+
 - GF-02: Per-outlet product mapping (outlet selector in GoFood mapping tab) — Phase 19 planned
 - GF-03: Per-outlet depot stock tracking + alerts (< 5 units) — Phase 19 planned
 - GF-04: Depot restock suggestion algorithm (n+1 avg last 3 days) — Phase 19 planned
@@ -159,7 +187,6 @@
 - KIT-12: Dispatch planner output drives kitchen display targets — Phase 20 planned
 
 ---
-
 
 ## v1.3 GoFood, Kitchen & Legacy Cleanup (Shipped: 2026-02-24)
 
@@ -169,6 +196,7 @@
 **Requirements:** 12/20 satisfied | 8 intentionally deferred (CON-01–05, ANLY-01–03) | **Audit:** gaps_found (no critical blockers)
 
 **Key accomplishments:**
+
 1. GoFood Depot Management: per-outlet product mappings, per-depot stock tracking with low-stock alerts, daily restock suggestions, Tamtem silent-skip fix — closes GF-02/03/04/05
 2. Convex query optimization: 5 heaviest analytical queries converted to on-demand fetches, N+1 patterns eliminated, unbounded scans bounded — production bandwidth significantly reduced
 3. Kitchen overhaul: simplified kitchen UI with production targets from dispatch plan, end-of-shift recording to Finished Goods inventory, waste logging, shift history, EoS form gap closure
@@ -180,8 +208,8 @@
 **Delivered:** Full GoFood depot management, kitchen production target system, legacy editor removal, and systematic codebase modernisation (bundle splitting, dark mode, hook naming). System measurably smaller, faster, and more maintainable.
 
 **Known Gaps (deferred to v1.4+):**
+
 - CON-01 through CON-05: Consignment sales upload via Excel — explicitly deferred during milestone planning
 - ANLY-01 through ANLY-03: Sales Analytics consignment segments and lifetime counters — depends on CON-01–05
 
 ---
-

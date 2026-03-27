@@ -34,7 +34,7 @@ import type { MutationCtx } from "../_generated/server";
 // Helper: resolve GL account by code
 // ---------------------------------------------------------------------------
 
-async function resolveAccount(
+export async function resolveAccount(
   ctx: MutationCtx,
   code: string
 ): Promise<Doc<"accounts">> {
@@ -54,7 +54,7 @@ async function resolveAccount(
 // Helper: get next asset number (custom YYMM counter)
 // ---------------------------------------------------------------------------
 
-async function getNextAssetNumber(
+export async function getNextAssetNumber(
   ctx: MutationCtx,
   abbr: string,
   acquisitionDate: number

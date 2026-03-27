@@ -4,6 +4,7 @@
  */
 
 import { APPROVER_ROLES } from "./constants";
+import type { AssetCategoryKey } from "../fixedAssets/helpers";
 
 export const RECEIPT_THRESHOLD = 50_000; // Rp 50,000
 export const DUPLICATE_WINDOW_DAYS = 7;
@@ -144,4 +145,34 @@ export function getTargetStatusAfterApproval(
  */
 export function isVoidableStatus(status: string): boolean {
   return VOIDABLE_STATUSES.includes(status);
+}
+
+// ---------------------------------------------------------------------------
+// Phase iv9: CapEx Conversion helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect likely asset category from expense description keywords.
+ * Returns the ASSET_CATEGORIES key. Fallback: "perkakas" (Tools).
+ */
+export function detectAssetCategory(description: string): AssetCategoryKey {
+  const lower = description.toLowerCase();
+  // Kitchen/production equipment
+  if (/mixer|sealer|vacuum|fomac|oven|mesin|blender|grinder/.test(lower)) {
+    return "mesin_produksi";
+  }
+  // Office equipment
+  if (/printer|trolley|laptop|komputer|computer|monitor|scanner/.test(lower)) {
+    return "peralatan_kantor";
+  }
+  // Furniture
+  if (/meja|kursi|rak|lemari|shelf|desk|chair/.test(lower)) {
+    return "mebelair";
+  }
+  // Vehicles
+  if (/mobil|motor|kendaraan|vehicle|truck/.test(lower)) {
+    return "kendaraan";
+  }
+  // Default fallback: Tools
+  return "perkakas";
 }

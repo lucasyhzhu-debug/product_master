@@ -284,6 +284,7 @@ function ExpenseApprovalCard({ expense, accountMap }: ExpenseApprovalCardProps) 
             amount={expense.amount}
             paymentMethod={expense.paymentMethod}
             status={expense.status}
+            expense={expense}
           />
         </div>
       </CardContent>
@@ -428,6 +429,7 @@ function SharedReceiptExpenseItem({
           amount={expense.amount}
           paymentMethod={expense.paymentMethod}
           status={expense.status}
+          expense={expense}
         />
       </div>
     </div>
