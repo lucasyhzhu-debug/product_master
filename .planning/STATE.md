@@ -1,14 +1,30 @@
+---
+gsd_state_version: 1.0
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
+stopped_at: Completed quick task 35 (deprecate feedback overlay)
+last_updated: "2026-03-27T07:35:12.218Z"
+last_activity: 2026-03-27
+progress:
+  total_phases: 9
+  completed_phases: 9
+  total_plans: 23
+  completed_plans: 23
+---
+
 # Project State
 
 ## Project Reference
+
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life — v1.7 archived, v1.8 phases 55-63 in progress
+**Current focus:** v1.8 completed, planning next milestone
 
 ## Current Position
 
-Milestone: v1.8 Support & Quality of Life
-Status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
+Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
+Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
 Last activity: 2026-03-27 - Completed quick task 35: Deprecate feedback overlay
 
 ## Performance Metrics
@@ -109,6 +125,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
 - [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
 - [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
+- [Phase 260327-iv9]: Two-step Void+New Asset approach for expense-to-CapEx: reversal JE then acquisition JE (DR 1500, CR 1100/2200)
+- [Phase 260327-iv9]: asset_acquisition is non-reversible; detectAssetCategory for keyword-based category auto-suggestion
 
 ### Roadmap Evolution
 
@@ -131,10 +149,11 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
+| 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 | 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 
 ## Session Continuity
 
 Last session: 2026-03-27T08:59:00.000Z
 Stopped at: Completed quick task 35 (deprecate feedback overlay)
-Resume notes: Feedback overlay UI fully removed (1,718 lines across 10 files). Backend convex/feedback/ preserved in stasis. Pre-existing Phase 60 build errors unrelated.
+Resume notes: Feedback overlay UI fully removed (1,718 lines across 10 files). Backend convex/feedback/ preserved in stasis.

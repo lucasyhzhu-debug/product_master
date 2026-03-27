@@ -35,6 +35,14 @@ import {
 } from "../lib/journalEngine";
 import { recordStatusChange } from "./auditTrail";
 import { RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
+import {
+  ASSET_CATEGORIES,
+  calculateMonthlyDepreciation,
+} from "../fixedAssets/helpers";
+import {
+  getNextAssetNumber,
+  resolveAccount,
+} from "../fixedAssets/mutations";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)
@@ -752,5 +760,151 @@ export const markAsPaid = protectedMutation({
 
     await recordStatusChange(ctx, args.expenseId, "approved", "paid", ctx.user._id);
     return { success: true, journalEntryId };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// convertToCapex — expense-to-fixed-asset conversion (admin only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert an expense to a fixed asset (CapEx).
+ *
+ * Atomically:
+ * 1. Voids the expense (reversal JE if it had one)
+ * 2. Creates a fixed asset record with PSAK categorization
+ * 3. Creates an acquisition JE (DR 1500, CR original credit account)
+ *
+ * Receipt attachments are carried over from the expense to the asset.
+ * Credit account determined by original payment method:
+ * - employee_paid: CR 2200 (Employee Reimbursements Payable)
+ * - company_paid / payment_request: CR 1100 (Cash)
+ */
+/** Statuses that allow expense-to-CapEx conversion */
+const CAPEX_CONVERTIBLE_STATUSES = new Set([
+  "submitted", "recorded", "approved", "awaiting_payment", "paid",
+]);
+
+export const convertToCapex = protectedMutation({
+  roles: ["admin"],
+  args: {
+    expenseId: v.id("expenses"),
+    category: v.string(), // AssetCategoryKey from ASSET_CATEGORIES
+  },
+  handler: async (ctx, args) => {
+    const expense = await ctx.db.get(args.expenseId);
+    if (!expense) throw new Error("Expense not found");
+
+    // Only allow conversion from statuses where the expense has been recorded
+    if (!CAPEX_CONVERTIBLE_STATUSES.has(expense.status)) {
+      throw new Error(
+        `Cannot convert expense with status '${expense.status}'. Must be submitted, recorded, approved, awaiting_payment, or paid.`
+      );
+    }
+
+    // Validate category
+    const categoryConfig = ASSET_CATEGORIES.find((c) => c.key === args.category);
+    if (!categoryConfig) {
+      throw new Error(
+        `Invalid category: "${args.category}". Must be one of: ${ASSET_CATEGORIES.map((c) => c.key).join(", ")}`
+      );
+    }
+
+    // --- Step 1: Void the expense (reversal JE if it had one) ---
+
+    if (expense.journalEntryId) {
+      await createReversalEntry(
+        ctx,
+        expense.journalEntryId,
+        "expense_void",
+        ctx.user._id
+      );
+    }
+
+    // Credit account: employee_paid → 2200 (Reimbursements Payable), else → 1100 (Cash)
+    const creditAccountCode = expense.paymentMethod === "employee_paid" ? "2200" : "1100";
+
+    // --- Step 2: Create fixed asset ---
+
+    const salvageValue = Math.round(expense.amount * (categoryConfig.salvagePercent / 100));
+    const usefulLifeMonths = categoryConfig.usefulLifeYears !== null
+      ? categoryConfig.usefulLifeYears * 12
+      : 0;
+    const monthlyDepreciation = categoryConfig.depreciable
+      ? calculateMonthlyDepreciation(expense.amount, salvageValue, usefulLifeMonths)
+      : 0;
+
+    // Generate asset number (reuse shared helper from fixedAssets)
+    const assetNumber = await getNextAssetNumber(ctx, categoryConfig.abbr, expense.expenseDate);
+
+    // Carry over receipt attachment from expense
+    const attachmentIds = expense.receiptFileId ? [expense.receiptFileId] : [];
+
+    const assetId = await ctx.db.insert("fixedAssets", {
+      assetNumber,
+      name: expense.description,
+      category: args.category,
+      acquisitionDate: expense.expenseDate,
+      cost: expense.amount,
+      salvageValue,
+      usefulLifeMonths,
+      location: undefined,
+      characteristics: [],
+      attachmentIds,
+      status: "active",
+      monthlyDepreciation,
+      accumulatedDepreciation: 0,
+      lastDepreciationMonth: undefined,
+      sourceExpenseId: args.expenseId,
+      createdBy: ctx.user._id,
+      createdAt: Date.now(),
+    });
+
+    // --- Step 3: Create acquisition JE (DR 1500, CR credit account) ---
+
+    const [fixedAssetAccount, creditAccount] = await Promise.all([
+      resolveAccount(ctx, "1500"),
+      resolveAccount(ctx, creditAccountCode),
+    ]);
+
+    const acquisitionJeId = await createJournalEntryWithLines(ctx, {
+      date: expense.expenseDate,
+      description: `Asset Acquisition: ${expense.description} (from ${expense.expenseNumber})`,
+      sourceType: "asset_acquisition",
+      sourceId: assetId as string,
+      createdBy: ctx.user._id,
+      lines: [
+        buildDebitLine(fixedAssetAccount._id, expense.amount, `Equipment purchase: ${expense.description}`),
+        buildCreditLine(creditAccount._id, expense.amount),
+      ],
+    });
+
+    // --- Step 4: Void the expense record ---
+
+    const previousStatus = expense.status;
+    await ctx.db.patch(args.expenseId, {
+      status: "voided",
+      voidedBy: ctx.user._id,
+      voidedAt: Date.now(),
+      voidReason: `Converted to fixed asset: ${assetNumber}`,
+    });
+
+    await recordStatusChange(
+      ctx,
+      args.expenseId,
+      previousStatus,
+      "voided",
+      ctx.user._id,
+      `Converted to fixed asset: ${assetNumber}`
+    );
+
+    return {
+      assetId,
+      assetNumber,
+      acquisitionJeId,
+      monthlyDepreciation,
+      salvageValue,
+      usefulLifeMonths,
+    };
   },
 });

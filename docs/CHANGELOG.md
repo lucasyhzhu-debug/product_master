@@ -24,6 +24,21 @@ After merging any code change, add a new entry with:
 - Feedback floating button, sidebar panel, capture mode, and export functionality
 - 1,718 lines of unused UI code across 10 deleted files
 
+### Expense-to-CapEx Conversion (Quick Task 260327-iv9) -- 2026-03-27
+
+**For the team:** If an expense was mistakenly submitted as operating expense (Repairs & Maintenance) but is actually an equipment purchase, admins can now convert it directly from the Expense Approvals page. Click "Convert to CapEx" on any pending expense to open a modal that auto-detects the asset category, shows the depreciation schedule, previews the journal entries, and lets you confirm. The system atomically voids the original expense, creates a fixed asset record, and posts the correct accounting entries -- all in one click.
+
+#### Added
+- "Convert to CapEx" button on expense approval cards (admin only)
+- Conversion modal with category auto-detection from description keywords
+- Real-time depreciation preview (monthly amount, useful life, salvage value)
+- Journal entries preview (reversal JE + acquisition JE)
+- Receipt/invoice automatically carried over to the new asset record
+- `asset_acquisition` journal entry source type for audit trail
+- `sourceExpenseId` field on fixed assets for traceability
+- `detectAssetCategory` helper for keyword-based category suggestion
+- `getNextAssetNumber` and `resolveAccount` refactored as shared exports
+
 ### Asset Register & Depreciation (Phase 60) -- 2026-03-18
 
 **For the team:** You can now track all company assets (kitchen equipment, office furniture, vehicles, etc.) in a dedicated Asset Register page. Each asset gets a proper PSAK-compliant category with automatic depreciation calculation. Click "Catch Up to Now" to generate all missing depreciation journal entries at once with a preview before posting. You can also dispose of assets (sell, scrap, or write off) and the system automatically calculates the gain or loss. The Income Statement now shows a reminder when depreciation hasn't been posted for the current month.
