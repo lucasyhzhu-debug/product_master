@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
 Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
-Last activity: 2026-03-27 — v1.8 milestone completed and archived
+Last activity: 2026-03-27 - Completed quick task 260327-iv9: Expense-to-CapEx conversion
 
 ## Performance Metrics
 
@@ -149,6 +149,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
+| 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 
 ## Session Continuity
 
