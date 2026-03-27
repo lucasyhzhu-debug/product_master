@@ -1,8 +1,12 @@
 /**
- * HistoricalImportPage - Admin-only CSV import wizard for historical expenses.
+ * HistoricalImportPage - Admin-only CSV import wizard for bulk expenses & assets.
  *
  * Linear wizard with 5 states: upload -> validating -> review -> importing -> complete
  * Plus error state for batch failure with retry-from-failure support.
+ *
+ * Supports two row types:
+ * - Expense rows: creates DR expense account, CR Cash journal entries
+ * - Asset rows: creates fixedAssets record + DR asset account, CR Cash acquisition JE
  */
 
 import { useState, useRef, useCallback } from "react";
@@ -33,10 +37,12 @@ import {
 
 const MAX_BATCH_SIZE = 50;
 
-const TEMPLATE_HEADERS = "date,amount,description,vendorName,accountCode,receiptUrl";
+const TEMPLATE_HEADERS = "date,amount,description,vendorName,accountCode,paymentMethod,submitterName,receiptUrl,assetCategory,assetName";
 const TEMPLATE_EXAMPLE =
-  "2025-01-15,250000,Office supplies for January,Toko ABC,6200,\n" +
-  "2025-02-01,150000,Internet bill February,Telkom,6300,";
+  "2025-01-15,250000,Office supplies for January,Toko ABC,6200,company_paid,Irfan,,,,\n" +
+  "2025-02-01,150000,Internet bill February,Telkom,6300,company_paid,Irfan,,,,\n" +
+  "2025-03-01,5000000,Oven for kitchen,Toko Mesin,1500,company_paid,Irfan,,mesin_produksi,Kitchen Oven\n" +
+  "2025-03-15,2000000,Frollie brand registration,DJKI,1700,company_paid,Irfan,,merek_dagang,Frollie Trademark";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -132,7 +138,7 @@ function groupByPeriod(rows: ImportRow[]) {
 // ---------------------------------------------------------------------------
 
 export function HistoricalImportPage() {
-  useDocumentTitle("Historical Expense Import");
+  useDocumentTitle("Bulk Expense & Asset Import");
 
   const accounts = useQuery(api.accounts.queries.list, { activeOnly: true });
   const allAccounts = useQuery(api.accounts.queries.list, {});
@@ -190,6 +196,7 @@ export function HistoricalImportPage() {
         const accountRefs: AccountRef[] = allAccounts.map((a) => ({
           code: a.code,
           name: a.name,
+          type: a.type,
           isActive: a.isActive,
         }));
 
@@ -284,8 +291,8 @@ export function HistoricalImportPage() {
   return (
     <div>
       <PageHeader
-        title="Historical Expense Import"
-        description="Bulk-import historical expenses as journal entries from CSV"
+        title="Bulk Expense & Asset Import"
+        description="Bulk-import expenses and asset purchases from CSV — creates journal entries and fixed asset records"
         backTo="/accounts"
         backLabel="Chart of Accounts"
       />
@@ -300,8 +307,9 @@ export function HistoricalImportPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Download the template and fill in your historical expense data. Each row creates
-                a journal entry (DR expense account, CR Cash).
+                Download the template and fill in your expense/asset data. Expense rows create
+                journal entries (DR expense, CR Cash). Asset rows (account 1500/1700) also create
+                a fixed asset record with auto-calculated depreciation.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button variant="outline" onClick={handleDownloadTemplate}>
@@ -314,8 +322,9 @@ export function HistoricalImportPage() {
                 </Button>
               </div>
               <div className="text-xs text-muted-foreground space-y-1">
-                <p><strong>Required columns:</strong> date (YYYY-MM-DD), amount (positive integer IDR), description, accountCode</p>
+                <p><strong>Required columns:</strong> date (YYYY-MM-DD), amount (positive integer IDR), description, accountCode, paymentMethod (employee_paid / company_paid / payment_request), submitterName</p>
                 <p><strong>Optional columns:</strong> vendorName, receiptUrl</p>
+                <p><strong>Asset rows only:</strong> assetCategory (e.g., peralatan_kantor, merek_dagang), assetName — required when accountCode is an asset account (1500 or 1700)</p>
               </div>
             </CardContent>
           </Card>
@@ -364,7 +373,7 @@ export function HistoricalImportPage() {
       {state.step === "review" && (
         <ReviewStep
           result={state.result}
-          accounts={accounts.map((a) => ({ code: a.code, name: a.name, isActive: a.isActive }))}
+          accounts={allAccounts.map((a) => ({ code: a.code, name: a.name, type: a.type, isActive: a.isActive }))}
           onConfirm={() => handleConfirmImport(state.result.validRows)}
           onReupload={() => setState({ step: "upload" })}
         />
@@ -472,6 +481,13 @@ function ReviewStep({
   const accountGroups = groupByAccount(result.validRows, accounts);
   const periodGroups = groupByPeriod(result.validRows);
 
+  // Compute asset vs expense breakdown
+  const accountTypeMap = new Map(accounts.map((a) => [a.code, a.type]));
+  const assetRows = result.validRows.filter((r) => accountTypeMap.get(r.accountCode) === "asset");
+  const expenseRows = result.validRows.filter((r) => accountTypeMap.get(r.accountCode) !== "asset");
+  const assetTotal = assetRows.reduce((sum, r) => sum + r.amount, 0);
+  const expenseTotal = expenseRows.reduce((sum, r) => sum + r.amount, 0);
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -503,6 +519,30 @@ function ReviewStep({
           </CardContent>
         </Card>
       </div>
+
+      {/* Asset vs Expense Breakdown */}
+      {(assetRows.length > 0 || expenseRows.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-xl font-bold">{expenseRows.length}</p>
+                <p className="text-sm text-muted-foreground">Expense Entries</p>
+                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(expenseTotal)}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-xl font-bold text-blue-600">{assetRows.length}</p>
+                <p className="text-sm text-muted-foreground">Asset Entries (CapEx)</p>
+                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(assetTotal)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Errors */}
       {hasErrors && (

@@ -1,8 +1,10 @@
 /**
  * Bulk journal entry import mutations.
  *
- * Core engine for historical expense import. Creates one JE per CSV row
- * (DR expense account, CR 1100 Cash) with fail-fast batch validation.
+ * Core engine for bulk expense/asset import. Creates one JE per CSV row:
+ * - Expense rows: DR expense account, CR 1100 Cash (sourceType "manual")
+ * - Asset rows: DR 1500/1700, CR 1100 Cash (sourceType "asset_acquisition")
+ *   + creates fixedAssets record with auto-calculated depreciation
  *
  * All JE creation goes through createJournalEntryWithLines (JE-06).
  */
@@ -10,6 +12,12 @@
 import { v } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { createJournalEntryWithLines } from "../lib/journalEngine";
+import {
+  ASSET_CATEGORIES,
+  calculateMonthlyDepreciation,
+  getAssetAccountCode,
+} from "../fixedAssets/helpers";
+import { getNextAssetNumber } from "../fixedAssets/mutations";
 import type { Id } from "../_generated/dataModel";
 
 // ---------------------------------------------------------------------------
@@ -40,12 +48,16 @@ export interface ImportRow {
   vendorName?: string;
   accountCode: string;
   receiptUrl?: string;
+  paymentMethod: string;
+  submitterName: string;
+  assetCategory?: string;
+  assetName?: string;
 }
 
 /**
- * Account lookup map: code -> { id, isActive }
+ * Account lookup map: code -> { id, type, isActive }
  */
-export type AccountMap = Map<string, { id: Id<"accounts">; isActive: boolean }>;
+export type AccountMap = Map<string, { id: Id<"accounts">; type: string; isActive: boolean }>;
 
 // ---------------------------------------------------------------------------
 // Pure validation (exported for testing without MutationCtx)
@@ -53,6 +65,18 @@ export type AccountMap = Map<string, { id: Id<"accounts">; isActive: boolean }>;
 
 /** 2020-01-01T00:00:00Z as epoch ms — reasonable lower bound for historical data */
 const MIN_DATE_MS = Date.UTC(2020, 0, 1);
+
+/** Valid payment methods */
+const VALID_PAYMENT_METHODS = new Set([
+  "employee_paid",
+  "company_paid",
+  "payment_request",
+]);
+
+/** Valid asset category keys */
+const VALID_ASSET_CATEGORY_KEYS: Set<string> = new Set(
+  ASSET_CATEGORIES.map((c) => c.key)
+);
 
 /**
  * Validate a single import row against the account map.
@@ -98,6 +122,26 @@ export function validateImportRow(
     return `Account code "${row.accountCode}" is inactive`;
   }
 
+  // Payment method: required and valid
+  if (!row.paymentMethod || !VALID_PAYMENT_METHODS.has(row.paymentMethod)) {
+    return `Invalid paymentMethod "${row.paymentMethod}" (must be: employee_paid, company_paid, or payment_request)`;
+  }
+
+  // Submitter name: required
+  if (!row.submitterName || row.submitterName.trim() === "") {
+    return "Missing required field: submitterName";
+  }
+
+  // Asset-specific validation
+  if (account.type === "asset") {
+    if (!row.assetCategory || !VALID_ASSET_CATEGORY_KEYS.has(row.assetCategory)) {
+      return `Asset account "${row.accountCode}" requires a valid assetCategory`;
+    }
+    if (!row.assetName || row.assetName.trim() === "") {
+      return `Asset account "${row.accountCode}" requires assetName`;
+    }
+  }
+
   return null;
 }
 
@@ -111,9 +155,9 @@ export function validateImportRow(
  * Validates ALL rows first (fail-fast). If any row is invalid, the entire
  * batch is rejected with per-row error messages. No partial writes.
  *
- * Each valid row creates one JE:
- * - DR: expense account (from row.accountCode)
- * - CR: 1100 Cash (CASH_ACCOUNT_CODE)
+ * For each valid row:
+ * - Expense accounts (opex/cogs/other): DR expense, CR Cash (sourceType "manual")
+ * - Asset accounts: DR 1500/1700, CR Cash (sourceType "asset_acquisition") + fixedAssets record
  *
  * All JEs from one import share the same sourceId (importBatchId) for traceability.
  */
@@ -129,6 +173,10 @@ export const bulkCreateJournalEntries = protectedMutation({
         vendorName: v.optional(v.string()),
         accountCode: v.string(),
         receiptUrl: v.optional(v.string()),
+        paymentMethod: v.string(),
+        submitterName: v.string(),
+        assetCategory: v.optional(v.string()),
+        assetName: v.optional(v.string()),
       })
     ),
   },
@@ -141,15 +189,15 @@ export const bulkCreateJournalEntries = protectedMutation({
     }
 
     if (args.rows.length === 0) {
-      return { created: 0 };
+      return { created: 0, assetsCreated: 0 };
     }
 
-    // Build account map from all accounts
+    // Build account map from all accounts (now includes type)
     const allAccounts = await ctx.db.query("accounts").collect();
     const accountMap: AccountMap = new Map(
       allAccounts.map((acc) => [
         acc.code,
-        { id: acc._id, isActive: acc.isActive },
+        { id: acc._id, type: acc.type, isActive: acc.isActive },
       ])
     );
 
@@ -179,37 +227,122 @@ export const bulkCreateJournalEntries = protectedMutation({
 
     // Create one JE per valid row
     let created = 0;
+    let assetsCreated = 0;
+
     for (const row of args.rows) {
-      const expenseAccount = accountMap.get(row.accountCode)!;
+      const targetAccount = accountMap.get(row.accountCode)!;
+      const isAssetRow = targetAccount.type === "asset";
 
-      // Build description: "[Historical Import] desc" or "[Historical Import] desc | vendor"
-      const description = row.vendorName
-        ? `${DESCRIPTION_PREFIX} ${row.description} | ${row.vendorName}`
-        : `${DESCRIPTION_PREFIX} ${row.description}`;
+      // Build description with submitter: "[Historical Import] desc | vendor | by Name"
+      const descParts = [DESCRIPTION_PREFIX, row.description];
+      if (row.vendorName) descParts.push(`| ${row.vendorName}`);
+      descParts.push(`| by ${row.submitterName}`);
+      const description = descParts.join(" ");
 
-      await createJournalEntryWithLines(ctx, {
-        date: row.date,
-        description,
-        sourceType: "manual",
-        sourceId: args.importBatchId,
-        createdBy: ctx.user._id,
-        metadata: row.receiptUrl ? { receiptUrl: row.receiptUrl } : undefined,
-        lines: [
-          {
-            accountId: expenseAccount.id,
-            debitAmount: row.amount,
-            creditAmount: 0,
-          },
-          {
-            accountId: cashAccount.id,
-            debitAmount: 0,
-            creditAmount: row.amount,
-          },
-        ],
-      });
+      if (isAssetRow && row.assetCategory && row.assetName) {
+        // --- Asset row: create fixedAssets record + acquisition JE ---
+        const catConfig = ASSET_CATEGORIES.find(
+          (c) => c.key === row.assetCategory
+        );
+        if (!catConfig) {
+          throw new Error(`Invalid asset category: ${row.assetCategory}`);
+        }
+
+        // Resolve the correct asset GL account (1500 tangible, 1700 intangible)
+        const assetGlCode = getAssetAccountCode(catConfig);
+        const assetGlAccount = accountMap.get(assetGlCode);
+        if (!assetGlAccount) {
+          throw new Error(
+            `Asset GL account ${assetGlCode} not found. Run accounts:seedDefaults.`
+          );
+        }
+
+        // Calculate depreciation schedule
+        const usefulLifeMonths = catConfig.usefulLifeYears
+          ? catConfig.usefulLifeYears * 12
+          : 0;
+        const salvageValue = Math.round(
+          row.amount * (catConfig.salvagePercent / 100)
+        );
+        const monthlyDep = catConfig.depreciable
+          ? calculateMonthlyDepreciation(row.amount, salvageValue, usefulLifeMonths)
+          : 0;
+
+        // Generate asset number
+        const assetNumber = await getNextAssetNumber(
+          ctx,
+          catConfig.abbr,
+          row.date
+        );
+
+        // Create fixedAssets record
+        await ctx.db.insert("fixedAssets", {
+          assetNumber,
+          name: row.assetName,
+          category: row.assetCategory,
+          acquisitionDate: row.date,
+          cost: row.amount,
+          salvageValue,
+          usefulLifeMonths,
+          characteristics: [],
+          attachmentIds: [],
+          status: catConfig.depreciable ? "active" : "active",
+          monthlyDepreciation: monthlyDep,
+          accumulatedDepreciation: 0,
+          createdBy: ctx.user._id,
+          createdAt: Date.now(),
+        });
+
+        // Create acquisition JE: DR Asset Account, CR Cash
+        await createJournalEntryWithLines(ctx, {
+          date: row.date,
+          description: `${description} [${assetNumber}]`,
+          sourceType: "asset_acquisition",
+          sourceId: args.importBatchId,
+          createdBy: ctx.user._id,
+          metadata: row.receiptUrl ? { receiptUrl: row.receiptUrl } : undefined,
+          lines: [
+            {
+              accountId: assetGlAccount.id,
+              debitAmount: row.amount,
+              creditAmount: 0,
+            },
+            {
+              accountId: cashAccount.id,
+              debitAmount: 0,
+              creditAmount: row.amount,
+            },
+          ],
+        });
+
+        assetsCreated++;
+      } else {
+        // --- Expense row: standard DR expense, CR Cash ---
+        await createJournalEntryWithLines(ctx, {
+          date: row.date,
+          description,
+          sourceType: "manual",
+          sourceId: args.importBatchId,
+          createdBy: ctx.user._id,
+          metadata: row.receiptUrl ? { receiptUrl: row.receiptUrl } : undefined,
+          lines: [
+            {
+              accountId: targetAccount.id,
+              debitAmount: row.amount,
+              creditAmount: 0,
+            },
+            {
+              accountId: cashAccount.id,
+              debitAmount: 0,
+              creditAmount: row.amount,
+            },
+          ],
+        });
+      }
+
       created++;
     }
 
-    return { created };
+    return { created, assetsCreated };
   },
 });
