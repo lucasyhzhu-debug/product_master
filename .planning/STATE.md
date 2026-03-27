@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 Phase: 64 of 69 (UI Polish & Data Quality)
 Plan: --
 Status: Ready to plan
-Last activity: 2026-03-27 -- Roadmap created with 6 phases (64-69), 15 requirements mapped
+Last activity: 2026-03-27 - Completed quick task 260327-sin: Bulk import capex & intangible asset support
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,6 +67,7 @@ No new decisions yet for v1.9.
 | 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 | 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 | 260327-p5x | Asset creation with acquisition JE and intangible asset amortization support | 2026-03-27 | fd97243 | Verified | [260327-p5x](./quick/260327-p5x-asset-creation-with-acquisition-je-and-i/) |
+| 260327-sin | Bulk import: capex & intangible asset support + aligned template fields | 2026-03-27 | ac572ebf | Verified | [260327-sin](./quick/260327-sin-review-manual-upload-to-support-capex-an/) |
 
 ## Session Continuity
 
