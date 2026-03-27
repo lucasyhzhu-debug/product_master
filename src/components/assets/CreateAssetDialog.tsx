@@ -2,7 +2,8 @@
  * Create Asset dialog.
  *
  * Captures name, category (PSAK defaults auto-populate), acquisition date,
- * cost, useful life, salvage value, location, characteristics, and attachments.
+ * cost, payment method, useful life, salvage value, location, characteristics,
+ * and attachments. Shows JE preview and atomically creates acquisition JE.
  */
 import { useState, useCallback } from "react";
 import { X, Plus, Upload, ClipboardPaste } from "lucide-react";
@@ -22,7 +23,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -31,8 +34,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ASSET_CATEGORIES, parseCharacteristicsCSV } from "@/lib/assetHelpers";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  ASSET_CATEGORIES,
+  parseCharacteristicsCSV,
+  getAssetAccountLabel,
+  getCreditAccountLabel,
+} from "@/lib/assetHelpers";
+import { formatCurrency } from "@/lib/utils";
 import { useCreateAsset, useGenerateAssetUploadUrl } from "@/hooks/convex/useFixedAssets";
+
+const TANGIBLE_CATEGORIES = ASSET_CATEGORIES.filter((c) => c.type === "tangible");
+const INTANGIBLE_CATEGORIES = ASSET_CATEGORIES.filter((c) => c.type === "intangible");
 
 interface CreateAssetDialogProps {
   open: boolean;
@@ -51,6 +64,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
   const [usefulLifeYears, setUsefulLifeYears] = useState("");
   const [salvageValue, setSalvageValue] = useState("");
   const [location, setLocation] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"company_paid" | "employee_paid">("company_paid");
   const [characteristics, setCharacteristics] = useState<Array<{ key: string; value: string }>>([]);
   const [newCharKey, setNewCharKey] = useState("");
   const [newCharValue, setNewCharValue] = useState("");
@@ -178,6 +192,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
         location: location.trim() || undefined,
         characteristics,
         attachmentIds: attachmentIds as any, // eslint-disable-line @typescript-eslint/no-explicit-any -- Convex Id<"_storage"> branded type from upload flow
+        paymentMethod,
       });
 
       // Reset form
@@ -188,6 +203,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
       setUsefulLifeYears("");
       setSalvageValue("");
       setLocation("");
+      setPaymentMethod("company_paid");
       setCharacteristics([]);
       setAttachmentIds([]);
       onClose();
@@ -196,15 +212,19 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [name, category, acquisitionDate, cost, salvageValue, usefulLifeYears, location, characteristics, attachmentIds, createAsset, onClose]);
+  }, [name, category, acquisitionDate, cost, salvageValue, usefulLifeYears, location, paymentMethod, characteristics, attachmentIds, createAsset, onClose]);
 
   const selectedCategory = ASSET_CATEGORIES.find((c) => c.key === category);
+  const costNum = parseInt(cost, 10);
+  const showJePreview = selectedCategory && !isNaN(costNum) && costNum > 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Fixed Asset</DialogTitle>
+          <DialogTitle>
+            {selectedCategory?.type === "intangible" ? "Add Intangible Asset" : "Add Fixed Asset"}
+          </DialogTitle>
           <DialogDescription>
             Register a new asset. PSAK defaults auto-populate from category.
           </DialogDescription>
@@ -222,7 +242,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
             />
           </div>
 
-          {/* Category */}
+          {/* Category — grouped by tangible/intangible */}
           <div className="space-y-1.5">
             <Label>Category *</Label>
             <Select value={category} onValueChange={handleCategoryChange}>
@@ -230,11 +250,22 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {ASSET_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.key} value={cat.key}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel>Tangible Assets</SelectLabel>
+                  {TANGIBLE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Intangible Assets (PSAK 19)</SelectLabel>
+                  {INTANGIBLE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.key} value={cat.key}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -260,6 +291,29 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
               value={cost}
               onChange={(e) => handleCostChange(e.target.value)}
             />
+          </div>
+
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <Label>Payment Method *</Label>
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={(v) => setPaymentMethod(v as "company_paid" | "employee_paid")}
+              className="flex gap-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="company_paid" id="payment-company" />
+                <Label htmlFor="payment-company" className="font-normal cursor-pointer">
+                  Company Paid (Cash)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="employee_paid" id="payment-employee" />
+                <Label htmlFor="payment-employee" className="font-normal cursor-pointer">
+                  Employee Paid (Reimbursable)
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
 
           {/* Useful Life + Salvage Value (side by side) */}
@@ -300,6 +354,25 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
                   value={salvageValue}
                   onChange={(e) => setSalvageValue(e.target.value)}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* JE Preview */}
+          {showJePreview && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
+                Acquisition Journal Entry Preview
+              </p>
+              <div className="space-y-1 font-mono text-xs text-blue-800 dark:text-blue-200">
+                <div className="flex justify-between">
+                  <span>DR {getAssetAccountLabel(selectedCategory)}</span>
+                  <span>{formatCurrency(costNum)}</span>
+                </div>
+                <div className="flex justify-between pl-4">
+                  <span>CR {getCreditAccountLabel(paymentMethod)}</span>
+                  <span>{formatCurrency(costNum)}</span>
+                </div>
               </div>
             </div>
           )}

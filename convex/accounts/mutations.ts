@@ -20,11 +20,11 @@ const CODE_PREFIX_TO_TYPE: Record<string, { type: AccountType; category: string 
 };
 
 // ---------------------------------------------------------------------------
-// Default Chart of Accounts — 49 PSAK-aligned GL accounts
+// Default Chart of Accounts — 54 PSAK-aligned GL accounts
 // ---------------------------------------------------------------------------
 
 /**
- * Default Chart of Accounts — 39 PSAK-aligned GL accounts.
+ * Default Chart of Accounts — 54 PSAK-aligned GL accounts.
  * Exported for test validation. Used by seedDefaults mutation.
  */
 export const DEFAULT_ACCOUNTS = [
@@ -46,6 +46,7 @@ export const DEFAULT_ACCOUNTS = [
   // OpEx (6xxx)
   { code: "6100", name: "Salaries & Wages", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6150", name: "Depreciation Expense", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6160", name: "Amortization Expense", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6200", name: "Rent & Utilities", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6300", name: "Transportation (Local)", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
   { code: "6350", name: "Travel & Visa", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
@@ -78,6 +79,10 @@ export const DEFAULT_ACCOUNTS = [
   { code: "1650", name: "Accum. Depr. - Furniture", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
   { code: "1660", name: "Accum. Depr. - Tools", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
   { code: "1670", name: "Accum. Depr. - Leasehold Improvements", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1700", name: "Intangible Assets", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1710", name: "Accum. Amort. - Trademarks", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1720", name: "Accum. Amort. - Patents", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1730", name: "Accum. Amort. - Software", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
 
   // Liabilities (2xxx)
   { code: "2100", name: "Accounts Payable", type: "liability" as const, category: "Liabilities", isSystem: true, isActive: true },
@@ -93,7 +98,7 @@ export const DEFAULT_ACCOUNTS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// seedDefaults — upsert 49 system accounts
+// seedDefaults — upsert 54 system accounts
 // ---------------------------------------------------------------------------
 
 /**
@@ -104,7 +109,7 @@ export const DEFAULT_ACCOUNTS = [
  * - If account code exists: patch with current values (update)
  * - If not exists: insert new record (create)
  *
- * All 39 defaults have isSystem: true and isActive: true.
+ * All 54 defaults have isSystem: true and isActive: true.
  */
 export const seedDefaults = mutation({
   args: { token: v.optional(v.string()) },

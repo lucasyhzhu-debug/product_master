@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
-stopped_at: Completed quick task 35 (deprecate feedback overlay)
-last_updated: "2026-03-27T07:35:12.218Z"
+milestone: v1.9
+milestone_name: Bugs & Quality of Life
+status: Roadmap created, ready to plan Phase 64
+stopped_at: Roadmap created with 6 phases (64-69)
+last_updated: "2026-03-27T10:00:00.000Z"
 last_activity: 2026-03-27
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 23
-  completed_plans: 23
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,123 +19,38 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 completed, planning next milestone
+**Current focus:** v1.9 Bugs & Quality of Life -- Phase 64 ready to plan
 
 ## Current Position
 
-Milestone: v1.8 Support & Quality of Life — SHIPPED 2026-03-27
-Status: All 9 milestones complete (v1.0-v1.8). 63 phases, 232 plans.
-Last activity: 2026-03-27 - Completed quick task 35: Deprecate feedback overlay
+Phase: 64 of 69 (UI Polish & Data Quality)
+Plan: --
+Status: Ready to plan
+Last activity: 2026-03-27 -- Roadmap created with 6 phases (64-69), 15 requirements mapped
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Velocity (v1.0):** 36 plans, avg 6.3 min, ~3.8 hours total
-**Velocity (v1.1):** 27 plans, avg 7.3 min, ~3.3 hours total
-**Velocity (v1.2):** 20 plans (Phases 17, 17.1, 18)
-**Velocity (v1.4):** 20 plans across 9 phases in 5 days
-**Velocity (v1.5):** 9 plans across 3 phases in 2 days
-**Velocity (v1.6):** 16 plans across 6 phases in 7 days
-**Velocity (v1.7):** 32 plans across 15 phases in 7 days
+**Velocity (v1.0-v1.8):** 232 plans across 63 phases in 9 milestones
+**Velocity (v1.8):** 23 plans across 9 phases
 
-| Phase | Plan | Duration | Tasks | Files |
-|-------|------|----------|-------|-------|
-| 56-expense-training-guide | 01 | 5min | 1 | 3 |
-| 56-expense-training-guide | 02 | 4min | 2 | 2 |
-| 57-invoice-backend-business-settings | 01 | 11min | 4 | 8 |
-| 57-invoice-backend-business-settings | 02 | 5min | 3 | 11 |
-| 59-direct-debit-expense-flow | 01 | 8min | 2 | 10 |
-| 59-direct-debit-expense-flow | 02 | 5min | 2 | 3 |
-| 59-direct-debit-expense-flow | 03 | 4min | 2 | 4 |
-| 59-direct-debit-expense-flow | 04 | 6min | 2 | 4 |
-| 58-invoice-form-print-view-order-integration | 01 | 8min | 2 | 6 |
-| 58-invoice-form-print-view-order-integration | 02 | 6min | 2 | 5 |
-| 63-interactive-visual-expense-tutorials | 01 | 8min | 2 | 6 |
-| 63-interactive-visual-expense-tutorials | 02 | 16min | 2 | 14 |
-| 61-help-file-indexing-architecture | 01 | 11min | 2 | 10 |
-| 61-help-file-indexing-architecture | 02 | 4min | 2 | 2 |
-| 62-manual-journal-entry | 01 | 8min | 2 | 11 |
-| 62-manual-journal-entry | 02 | 5min | 3 | 3 |
-| 60-asset-register-depreciation | 01 | 10min | 2 | 7 |
-| Phase 60-asset-register-depreciation P01 | 10min | 2 tasks | 7 files |
-| Phase 60-asset-register-depreciation P02 | 11min | 3 tasks | 6 files |
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
+All v1.0-v1.8 decisions archived in PROJECT.md Key Decisions table.
+No new decisions yet for v1.9.
 
-- [55-01] Used CSS variable tokens via inline styles for dark mode (no dark: Tailwind classes) per design spec
-- [55-01] Used error tokens (red) for CalloutBox "important" type since no orange status token exists
-- [55-02] Used motion.svg + motion.g for staggered node animation, motion.path for edge stroke-dashoffset draw
-- [55-02] Reused amber CSS variable tokens for orange color (no dedicated orange status token)
-- [55-02] Extracted useActiveSection to src/hooks/ for reusability across future guide pages
-- [55-03] Made NavItem.permission optional (non-breaking) so Help nav item needs no permission prop
-- [55-03] Eager imports for HelpCenter and GuideRouter (static JSX, no Convex queries)
-- [55-03] ProtectedRoute with no permission/role props = auth-only gate for Help routes
-- [56-01] Duplicated guide metadata inline in ExpenseGuide.tsx to avoid circular import with helpGuides.ts
-- [Phase 56-02]: Used HTML entity references for special chars in JSX; fraud flags as bordered description cards
-- [57-01] Extracted 5 pure helpers from invoice mutations for testability (project convention: pure function tests over convex-test runtime)
-- [57-01] Used .first() not .unique() for invoiceCounters lookup (gracefully handles duplicate rows)
-- [57-01] INVOICEABLE_STATUSES allowlist pattern for forward-compatible status validation
-- [57-01] paymentStatus/paymentMethod snapshotted at draft creation, excluded from updateDraft
-- [57-02] Empty successMessage on createDraft/updateDraft hooks (auto-save feedback deferred to Phase 58 UI)
-- [57-02] Live invoice header preview reads from local form state (no API call per keystroke)
-- [57-02] Logo upload validates 1MB max client-side before POST to Convex upload URL
-- [59-01] Extended requiresReceipt with optional paymentMethod param for backward compatibility
-- [59-01] Updated mutations.ts and frontend files inline to prevent type errors from schema literal changes (Rule 3)
-- [59-02] company_paid guard placed BEFORE status check in approveExpense for helpful error messages
-- [59-02] DoA does NOT apply to acknowledge flow -- money already left bank, review not authorization
-- [59-02] Self-exclusion applies ONLY to submitted items in approval queue
-- [59-03] Receipt required for all company_paid and payment_request expenses regardless of amount
-- [59-03] Transaction reference field only shown for company_paid (not payment_request)
-- [59-03] MyExpenses expanded to all 10 status tabs so no status is hidden from users
-- [59-04] DoA comment threshold reused for acknowledge dialog visibility only, not authorization
-- [59-04] Mark as Paid uses Input (not Textarea) for transaction reference -- short reference number
-- [59-04] No redundant .catch() on markAsPaid -- createMutationHook handles errors via toast
-- [58-01] InvoicePrintData uses Pick<Doc<"invoices">> & { sellerLogoUrl } since query enriches storage ID to URL
-- [58-01] Invoice field tokens defined as CSS custom properties in :root (light-mode only, print-oriented)
-- [58-01] Brand bar uses h-1 (4px) with print-color-adjust: exact for print fidelity
-- [58-02] Used useDocumentTitle hook (existing project convention) instead of raw useEffect for browser tab title
-- [58-02] Extracted useAutoSave as testable hook with scheduleChange/markInitialized API, tested via renderHook
-- [58-02] toInvoicePrintData adapter function converts Invoice to InvoicePrintData (Pick<Doc> type) to bridge query layer and print view
-- [58-02] Save status "Saving..." fires inside setTimeout callback, not on keypress -- confirmed by test 5
-- [63-01] Mock framer-motion in JSDOM tests to avoid AnimatePresence exit animation blocking
-- [63-01] Mobile step pills rendered before desktop sidebar for JSDOM test accessibility
-- [63-01] Breadcrumb derived from workflow.getBreadcrumb(step) keeping player fully generic
-- [63-02] Workflow data owns breadcrumb logic via getBreadcrumb (expense knowledge stays in ExpenseGuide, not player)
-- [63-02] Old deep link anchors preserved as sr-only hidden divs for backward compatibility
-- [63-02] readTimeMinutes reduced 15->10 to reflect faster interactive format
-- [63-02] Walkthrough section has no role field (visible to all users)
-- [Phase 61]: Adapted plan from 8 to 6 section files -- Phase 63 merged submitting/approving/reimbursement into walkthrough
-- [Phase 61-02]: Both GSD skills use single quotes for commit messages containing # (guide#section format)
-- [62-01] Used by_date index with range bounds for listByPeriod (scalable, avoids loading all manual entries)
-- [62-01] isTemplateEntry as pure exported function for testability and reuse in post-filter
-- [62-01] TEMPLATE_TYPES as const array with derived TemplateType union for compile-time safety
-- [62-02] Frontend TEMPLATE_CARDS config duplicates backend TEMPLATE_TYPES intentionally -- backend validates, frontend adds UI metadata
-- [62-02] Period controls JSX copied from ExpenseAnalytics -- shared component extraction is acknowledged tech debt
-- [62-02] Hub split: Financials retains reports + expense flow, Accounting gets ledger operations (journal, CoA, bank accounts, historical import)
-- [60-01] GL code 6150 for Depreciation Expense (6300 already taken by Transportation)
-- [60-01] 1600 Accumulated Depreciation deactivated, replaced by per-category 1610-1670
-- [60-01] YYMM format for asset numbers (year-first, distinct from counter.ts MMDD)
-- [60-01] First-comma-only split in parseCharacteristicsCSV for values containing commas
-- [Phase 60-01]: GL code 6150 for Depreciation Expense (6300 already taken by Transportation)
-- [Phase 60-01]: 1600 Accumulated Depreciation deactivated, replaced by per-category 1610-1670
-- [Phase 60-01]: YYMM format for asset numbers (year-first, distinct from counter.ts MMDD)
-- [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
-- [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
-- [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
-- [Phase 260327-iv9]: Two-step Void+New Asset approach for expense-to-CapEx: reversal JE then acquisition JE (DR 1500, CR 1100/2200)
-- [Phase 260327-iv9]: asset_acquisition is non-reversible; detectAssetCategory for keyword-based category auto-suggestion
+### Parallelism Notes
 
-### Roadmap Evolution
-
-- Phase 59 added: Direct debit expense flow — company-paid transactions with different journal entries and no reimbursement
-- Phase 60 added: Asset Register & Depreciation — Fixed asset tracking with auto-calculated monthly straight-line depreciation and one-click JE generation
-- Phase 61 added: Help File Indexing Architecture — Automatic discovery, content indexing, refresh triggers on doc/feature changes, and search interface for help content
-- Phase 59.1 inserted after Phase 59: Company payment request flow — prospective vendor payments requiring approval before bank transfer execution (URGENT)
-- Phase 62 added: Manual Journal Entry Page — Template-based balance sheet transaction recording with 6 pre-wired templates
-- Phase 63 added: Interactive Visual Expense Tutorials — click-through walkthroughs with mock UI panels replacing text-only guides
+- Phases 64+65 can run in parallel (different file sets)
+- Phases 66+67+68 can run in parallel (different subsystems)
+- Phase 69 is independent (any order)
 
 ### Open Blockers (carried forward)
 
@@ -151,9 +66,10 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
 | 260327-iv9 | Add expense-to-capex conversion with reversal journals, fixed asset creation, and depreciation tracking | 2026-03-27 | 47fc714 | Verified | [260327-iv9](./quick/260327-iv9-add-expense-to-capex-conversion-with-rev/) |
 | 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
+| 260327-p5x | Asset creation with acquisition JE and intangible asset amortization support | 2026-03-27 | fd97243 | Verified | [260327-p5x](./quick/260327-p5x-asset-creation-with-acquisition-je-and-i/) |
 
 ## Session Continuity
 
-Last session: 2026-03-27T08:59:00.000Z
-Stopped at: Completed quick task 35 (deprecate feedback overlay)
-Resume notes: Feedback overlay UI fully removed (1,718 lines across 10 files). Backend convex/feedback/ preserved in stasis.
+Last session: 2026-03-27
+Stopped at: Roadmap created for v1.9 with 6 phases (64-69), 15/15 requirements mapped
+Resume file: None

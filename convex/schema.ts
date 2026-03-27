@@ -1929,6 +1929,7 @@ export default defineSchema({
     disposalGainLoss: v.optional(v.number()),
     disposalJournalEntryId: v.optional(v.id("journalEntries")),
     sourceExpenseId: v.optional(v.id("expenses")),
+    acquisitionJeId: v.optional(v.id("journalEntries")),
     createdBy: v.id("users"),
     createdAt: v.number(),
   })

@@ -273,7 +273,35 @@ export const getOrphanEquipmentPurchases = protectedQuery({
 });
 
 // ---------------------------------------------------------------------------
-// 5. Depreciation reminder (lightweight)
+// 5. Orphan assets without acquisition JE
+// ---------------------------------------------------------------------------
+
+/**
+ * Find active assets that have no acquisition JE and were not created from
+ * expense-to-capex conversion. Returns minimal info for backfill banner.
+ */
+export const getAssetsWithoutAcquisitionJE = protectedQuery({
+  roles: ["admin"],
+  args: {},
+  handler: async (ctx) => {
+    const allAssets = await ctx.db.query("fixedAssets").collect();
+    // Orphans: no acquisitionJeId AND no sourceExpenseId (expense-to-capex creates its own JE)
+    const orphans = allAssets.filter(
+      (a) => !a.acquisitionJeId && !a.sourceExpenseId && a.status !== "disposed"
+    );
+    return orphans.map((a) => ({
+      _id: a._id,
+      assetNumber: a.assetNumber,
+      name: a.name,
+      category: a.category,
+      cost: a.cost,
+      acquisitionDate: a.acquisitionDate,
+    }));
+  },
+});
+
+// ---------------------------------------------------------------------------
+// 6. Depreciation reminder (lightweight)
 // ---------------------------------------------------------------------------
 
 export const getDepreciationReminder = protectedQuery({

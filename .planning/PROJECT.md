@@ -8,10 +8,18 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current State
+## Current Milestone: v1.9 Bugs & Quality of Life
 
-**Latest milestone:** v1.8 Support & Quality of Life (shipped 2026-03-27)
-**Next milestone:** Planning (use `/gsd:new-milestone`)
+**Goal:** Fix production bugs, polish UI friction points, and add missing operational features across K3Mart, inventory, payroll, and kitchen reporting.
+
+**Target features:**
+- K3Mart Cockpit: push harga on stock-in/out, fix history, refresh active outlets
+- BigSeller API: fix 401006 auth error, improve token refresh reliability
+- UI Polish: merge Home + logo, add Accounting to navbar, fix mobile order modal
+- Kitchen Reporting: component-level (balls) reporting alongside products
+- Inventory: fix stock count drift, easy daily stock update by location
+- Employee Management: roster linked to payroll for regular payments
+- COGS: bulk price update UI for ingredient/material costs
 
 ## Context
 
@@ -120,7 +128,16 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ### Active
 
-(No active milestone — use `/gsd:new-milestone` to start v1.9)
+- [ ] K3Mart stock-in/out pushes price (harga) to API — v1.9
+- [ ] K3Mart cockpit history tab fix — v1.9
+- [ ] K3Mart active outlet refresh (Bintaro, Lippo Puri Mall, SCBD, Old Shanghai) — v1.9
+- [ ] BigSeller API auth fix (401006 error) and token refresh — v1.9
+- [ ] Navbar: merge Home into Frollie logo, add Accounting section — v1.9
+- [ ] Mobile order modal: prevent accidental product adds, visible delete button — v1.9
+- [ ] Kitchen component-level reporting (balls alongside products) — v1.9
+- [ ] Inventory stock count drift fix with daily update UI by location — v1.9
+- [ ] Employee roster linked to payroll — v1.9
+- [ ] Bulk price update UI for ingredient/material costs — v1.9
 
 ### Out of Scope
 
@@ -248,4 +265,4 @@ Deployed via Vercel with GitHub Actions CI.
 | Playwright E2E with multi-role auth (v1.7) | 4 test users (admin, manager, kitchen, order_staff) in global-setup.ts | ✓ Good — 4 new test suites, lifecycle coverage |
 
 ---
-*Last updated: 2026-03-27 after v1.8 milestone completed*
+*Last updated: 2026-03-27 after v1.9 milestone started*
