@@ -1,6 +1,22 @@
+---
+gsd_state_version: 1.0
+milestone: v1.8
+milestone_name: Support & Quality of Life
+status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
+stopped_at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
+last_updated: "2026-03-27T07:21:03.085Z"
+last_activity: 2026-03-27 — v1.7 milestone archived
+progress:
+  total_phases: 9
+  completed_phases: 9
+  total_plans: 23
+  completed_plans: 23
+---
+
 # Project State
 
 ## Project Reference
+
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
 **Current focus:** v1.8 Support & Quality of Life — v1.7 archived, v1.8 phases 55-63 in progress
@@ -109,6 +125,8 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 - [60-02] Disposal JEs use sourceType="manual" to prevent voidDepreciationMonth from reversing them
 - [60-02] GL accounts resolved ONCE at batch start via Map cache, not per-iteration
 - [60-02] Fixed calculateFinalMonthAmount: returns full remainder when remaining < 2x monthly (prevents rounding loss)
+- [Phase 260327-iv9]: Two-step Void+New Asset approach for expense-to-CapEx: reversal JE then acquisition JE (DR 1500, CR 1100/2200)
+- [Phase 260327-iv9]: asset_acquisition is non-reversible; detectAssetCategory for keyword-based category auto-suggestion
 
 ### Roadmap Evolution
 
@@ -134,6 +152,6 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 
 ## Session Continuity
 
-Last session: 2026-03-18T15:13:30.000Z
-Stopped at: Completed 60-02-PLAN.md
+Last session: 2026-03-27T07:21:03.080Z
+Stopped at: Completed 260327-iv9 quick task (expense-to-CapEx conversion)
 Resume notes: Phase 60 plan 02 complete (2/3). Backend API complete (6 mutations, 4 queries, 22 tests, frontend hooks). Next: 60-03 (Asset Register page + Income Statement reminder + nav).
