@@ -9,7 +9,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 
 Milestone: v1.8 Support & Quality of Life
 Status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
-Last activity: 2026-03-27 — v1.7 milestone archived
+Last activity: 2026-03-27 - Completed quick task 35: Deprecate feedback overlay
 
 ## Performance Metrics
 
@@ -131,7 +131,7 @@ All v1.0-v1.7 decisions archived in PROJECT.md Key Decisions table.
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 34 | Fix GL codes missing + cascading Tier 1/Tier 2 dropdowns in expense form | 2026-03-16 | ebc8452 | Verified | [34-fix-gl-codes](./quick/34-fix-gl-codes-missing-in-expense-form-and/) |
-| 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | 471b70a3 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
+| 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 
 ## Session Continuity
 
