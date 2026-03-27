@@ -16,6 +16,16 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.8 Support & Quality of Life
 
+### Bulk Import: CapEx & Intangible Asset Support (Quick Task 260327-sin) -- 2026-03-27
+
+**For the team:** The CSV bulk import page now supports importing asset purchases (equipment, trademarks, software) alongside regular expenses. Asset rows automatically create fixed asset records with depreciation schedules. The template also now matches the regular expense form fields -- every row requires the submitter name and payment method.
+
+#### Changed
+- CSV template extended with paymentMethod, submitterName, assetCategory, assetName columns
+- Asset-type account codes (1500/1700) create fixedAssets records + acquisition journal entries
+- Review step shows asset vs expense breakdown before confirming import
+- Page renamed from "Historical Expense Import" to "Bulk Expense & Asset Import"
+
 ### Asset Acquisition JE + Intangible Assets (Quick Task 260327-p5x) -- 2026-03-27
 
 **For the team:** Creating a new asset now automatically generates the matching journal entry (no more manual double-entry). You can also register intangible assets like the Frollie trademark, patents, and software licenses -- amortization is calculated automatically just like depreciation. If you already have assets without journal entries, a yellow banner on the Asset Register page lets you batch-create them in one click.
