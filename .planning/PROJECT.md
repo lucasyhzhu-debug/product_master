@@ -109,10 +109,21 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 - ✓ Frontend file splits: 4 components from 5,518 to 1,450 LOC (-74%) — v1.6
 - ✓ E2E Playwright tests for order lifecycle, kitchen production, sales analytics — v1.6
 - ✓ Tamtem depot auto-seed: silent failures eliminated — v1.6
+- ✓ Double-entry journal engine with balance validation and reversal-only correction — v1.7
+- ✓ 39 PSAK-aligned GL accounts seeded with atomic daily counter infrastructure — v1.7
+- ✓ Expense lifecycle: Draft → Submitted → Approved → Reimbursed with receipt upload (SHA-256 dedup) — v1.7
+- ✓ Delegation of Authority approval: <=500K manager, >500K admin, mandatory comments — v1.7
+- ✓ Fraud detection: duplicate, late submission, split, approver concentration, unfamiliar vendor — v1.7
+- ✓ Reimbursement batching per employee with bank transfer tracking and void support — v1.7
+- ✓ Payroll entry with auto-generated journal entries (DR 6100 Salaries, CR 1100 Cash) — v1.7
+- ✓ P&L extension: Operating Expenses → EBIT → Other Income/Expense → Net Income — v1.7
+- ✓ Expense Analytics dashboard with spend breakdowns, monthly trends, fraud monitoring — v1.7
+- ✓ Bulk CSV import for 350+ historical expense records as journal entries — v1.7
+- ✓ GoBiz promo discount fix (use stored revenueNet) and BigSeller schema mismatch fixes — v1.7
 
 ### Active
 
-(Defining requirements for v1.8 Support & Quality of Life)
+(See REQUIREMENTS.md for v1.8 Support & Quality of Life)
 
 ### Out of Scope
 
@@ -146,7 +157,8 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ## Context
 
-Shipped v1.7 with ~135K lines TypeScript across 65 Convex tables.
+Shipped v1.7 Expense & Accounting (2026-03-16) and progressed through v1.8 Support & Quality of Life.
+~135K lines TypeScript across 65 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
 Deployed via Vercel with GitHub Actions CI. 8 milestones shipped (v1.0–v1.7), 54 phases, 209 plans.
 
@@ -232,6 +244,14 @@ Deployed via Vercel with GitHub Actions CI. 8 milestones shipped (v1.0–v1.7), 
 | Auto-seed depot on first sale (v1.6) | DEPOT_CONFIG array makes adding new depot patterns trivial; eliminates silent failures | ✓ Good — Tamtem depot fixed, pattern reusable for new outlets |
 | Retroactive verification for audit gaps (v1.6) | Created VERIFICATION.md after execution when audit revealed missing docs | ✓ Good — all 20 requirements 3-source verified |
 | Shared dateUtils.ts for WIB timezone (v1.6) | Frontend WIB helpers consolidated into single module instead of per-component duplicates | ✓ Good — 6 exports, single source of truth |
+| Double-entry with reversal-only correction (v1.7) | No update mutations on journal entries — only way to fix is create a reversing entry | ✓ Good — immutable audit trail, PSAK-compliant |
+| PSAK-aligned GL numbering (v1.7) | 4xxx Revenue, 5xxx COGS, 6xxx OpEx, 7xxx Other, 1xxx-3xxx Balance Sheet | ✓ Good — familiar to Indonesian accountants |
+| DoA approval thresholds (v1.7) | <=500K manager, >500K admin; mandatory comment >=500K | ✓ Good — simple, enforceable, covers real workflow |
+| Broadcast approval routing (v1.7) | First approver to act wins, self-submitted excluded | ✓ Good — no bottleneck, no gaming |
+| SHA-256 receipt dedup (v1.7) | Hash-based duplicate detection hard-blocks submission | ✓ Good — prevents accidental double-submit |
+| Single-query journal aggregation for P&L (v1.7) | OpEx sourced from journalEntryLines by entryDate index, grouped in-memory | ✓ Good — no N+1, single indexed scan |
+| 3-agent simplification review (v1.7) | Automated code review found 17 findings before refactoring | ✓ Good — F1-F14 fixed, F15-F17 deferred with rationale |
+| Playwright E2E with multi-role auth (v1.7) | 4 test users (admin, manager, kitchen, order_staff) in global-setup.ts | ✓ Good — 4 new test suites, lifecycle coverage |
 
 ---
-*Last updated: 2026-03-16 — v1.8 Support & Quality of Life milestone started*
+*Last updated: 2026-03-27 after v1.7 milestone archived*

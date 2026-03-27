@@ -1,79 +1,15 @@
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 60-02-PLAN.md
-last_updated: "2026-03-19T03:50:21.326Z"
-last_activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
-progress:
-  total_phases: 24
-  completed_phases: 24
-  total_plans: 55
-  completed_plans: 55
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 60-01-PLAN.md
-last_updated: "2026-03-18T15:00:18.348Z"
-last_activity: 2026-03-18 - Phase 60 plan 01 complete (schema + helpers + GL seeding)
-progress:
-  total_phases: 24
-  completed_phases: 23
-  total_plans: 55
-  completed_plans: 53
-  percent: 96
----
-
----
-gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Expense & Accounting
-status: completed
-stopped_at: Completed 62-02-PLAN.md
-last_updated: "2026-03-18T08:38:58.091Z"
-last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
-progress:
-  [██████████] 96%
-  completed_phases: 23
-  total_plans: 52
-  completed_plans: 52
----
-
----
-gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Support & Quality of Life
-status: Phase 62 complete -- manual journal entry page and hub navigation shipped (plan 02/02)
-stopped_at: Completed 62-02-PLAN.md
-last_updated: "2026-03-18T05:17:31.000Z"
-last_activity: 2026-03-18 - Phase 62 plan 02 complete (frontend page + hub navigation)
-progress:
-  total_phases: 24
-  completed_phases: 23
-  total_plans: 52
-  completed_plans: 52
----
-
 # Project State
 
 ## Project Reference
-See: .planning/PROJECT.md (updated 2026-03-16)
+See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v1.8 Support & Quality of Life -- Phase 60 plan 01 complete (1/3 plans)
+**Current focus:** v1.8 Support & Quality of Life — v1.7 archived, v1.8 phases 55-63 in progress
 
 ## Current Position
 
-Phase: 60-asset-register-depreciation (2/3 plans)
-Plan: 02 complete
-Status: Plan 02 complete -- backend API (6 mutations, 4 queries), 22 tests, frontend hooks
-Last activity: 2026-03-18 - Phase 60 plan 02 complete (CRUD, depreciation batch, disposal, void, hooks)
-
-Progress: [██████----] 67%
+Milestone: v1.8 Support & Quality of Life
+Status: v1.7 Expense & Accounting archived (2026-03-27). v1.8 phases 55-63 all planned and executed.
+Last activity: 2026-03-27 — v1.7 milestone archived
 
 ## Performance Metrics
 

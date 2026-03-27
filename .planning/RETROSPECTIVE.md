@@ -2,6 +2,60 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.7 — Expense & Accounting
+
+**Shipped:** 2026-03-16
+**Phases:** 15 (41-54, including 53.1) | **Plans:** 32 | **Timeline:** 7 days (2026-03-12 to 2026-03-16)
+
+### What Was Built
+- Journal engine: double-entry with balance validation, reversal-only correction, atomic daily counters (EXP/JE/RMB-MMDD-NNN)
+- Chart of Accounts: 39 PSAK-aligned GL accounts with admin UI for managing accounts
+- Expense lifecycle: Draft → Submitted → Approved → Reimbursed/Voided with receipt upload (SHA-256 dedup)
+- Approval workflow: DoA routing (<=500K manager, >500K admin), self-exclusion, rejection chain with resubmit
+- Fraud detection: duplicate, late submission, split, approver concentration, unfamiliar vendor
+- Reimbursement batching: per-employee grouping, bank transfer tracking, batch confirm/void with JE
+- Payroll entry: staff/contractor with auto-generated journal entries
+- P&L extension: Gross Profit → OpEx → EBIT → Other → Net Income via journal aggregation
+- Expense Analytics: spend breakdowns, monthly trends, fraud flags dashboard
+- Bulk CSV import: 350+ historical expense records as journal entries with progress indication
+- Code simplification: 3-agent review found 17 findings, 14 fixed (zero behavior changes)
+- E2E testing: 4 Playwright test suites covering 9 expense pages with multi-role auth
+- Bug fixes: GoBiz promo discount inflation, 6 BigSeller schema mismatches
+
+### What Worked
+- **Double-entry journal engine as foundation**: Building the journal engine (Phase 42) before any expense mutations meant every downstream consumer (approval, reimbursement, payroll, void) used a single validated helper. Zero duplicate JE creation code.
+- **TDD for pure helpers**: DoA thresholds, fraud detection, and counter formatting were all TDD'd as pure functions before integration. Caught edge cases (e.g., `finalTotal < 0` blocking, `_creationTime` vs `completedAt` for period filtering) early.
+- **3-agent simplification review**: Running 3 parallel review agents after Phase 50 identified 17 findings before refactoring. Phase 52 fixed 14 of them in 3 plans with zero behavior changes. All existing tests passed unchanged.
+- **Multi-role E2E auth**: Global-setup creating 4 test users with different roles let E2E tests verify permission guards (9 routes x 4 roles) and full lifecycle across role boundaries.
+- **Decimal phase for urgent bug fix**: Phase 53.1 (GoBiz promo discount) was inserted cleanly after E2E testing revealed the issue. Decimal numbering kept the roadmap coherent.
+
+### What Was Inefficient
+- **SUMMARY frontmatter one_liners empty**: The `summary-extract --fields one_liner --pick one_liner` CLI command returned empty for all 32 SUMMARY.md files — suggests the one_liner field wasn't being populated during execution. MILESTONES.md entry was written manually instead of from automated extraction.
+- **Phase 51 scope creep**: Originally 1 plan, expanded to 4 plans. CSV import validation, batched mutations, and wizard UI were all underestimated. Should have scoped as 2 plans minimum from the start.
+- **v1.7 ROADMAP never properly collapsed**: The milestones section marked v1.7 as shipped, but the expanded phase details were left in place for months until manual cleanup during archive.
+- **REQUIREMENTS.md replaced before archival**: The `/gsd:new-milestone` for v1.8 replaced REQUIREMENTS.md before v1.7 was formally completed, requiring reconstruction of v1.7 requirements from ROADMAP phase references during archival.
+
+### Patterns Established
+- **Journal engine helper pattern**: `createJournalEntryWithLines` validates debits == credits, creates entry + lines atomically. All JE consumers use this — no direct `ctx.db.insert` on journalEntryLines.
+- **Audit trail helper**: `addExpenseAuditEntry()` shared across all expense status transitions. Actor + timestamp + optional comment on every change.
+- **Fraud detection as pure functions**: All fraud checks (split, duplicate, concentration, unfamiliar vendor) are pure functions tested independently, then composed in the analytics query.
+- **DoA as pure helper**: `getRequiredApprovalRole(amount, thresholds)` returns the minimum role needed. Easy to adjust thresholds without mutation changes.
+- **SHA-256 dedup pattern**: Receipt files hashed on upload, checked against existing hashes. Hard-blocks at backend, not just UI warning.
+
+### Key Lessons
+1. **Foundation phases compound**: The journal engine (Phase 42) was only 1 plan, but it eliminated entire categories of bugs in the 13 subsequent phases. Investing in the right foundation pays exponential dividends.
+2. **3-agent review before refactoring is efficient**: The simplification review found issues that individual developers miss — code duplication across files, unused imports, inconsistent patterns. Worth the ~10 min of agent time.
+3. **Archive milestones promptly**: Leaving v1.7 details expanded in ROADMAP.md while starting v1.8 created confusion (contradictory status markers, wrong phase counts). Complete-milestone should run immediately after the last phase ships.
+4. **Populate SUMMARY frontmatter consistently**: The `one_liner` field was empty across all summaries, breaking automated milestone reporting. Execution workflow should enforce this field.
+5. **`_creationTime` is insertion time, not business date**: Journal entry period queries must use `entryDate` (business date), not Convex's `_creationTime`. This caught us in P&L aggregation.
+
+### Cost Observations
+- Model mix: primarily opus (quality profile)
+- 32 plans across 15 phases in 7 days — ~4.6 plans/day average
+- Notable: Heaviest feature milestone yet. 10 new schema tables, 9 new pages, 59 requirements all satisfied.
+
+---
+
 ## Milestone: v1.6 — Tech Debt & Resilience
 
 **Shipped:** 2026-03-09
