@@ -31,6 +31,8 @@ import {
   useFlagExpense,
   useMarkAsPaid,
 } from "@/hooks/convex/useExpenses";
+import type { PendingExpense } from "@/hooks/convex/useExpenses";
+import { CapexConversionModal } from "./CapexConversionModal";
 import { formatCurrency } from "@/lib/utils";
 import {
   Tooltip,
@@ -38,7 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Check, X, Ban, AlertTriangle, Banknote } from "lucide-react";
+import { Check, X, Ban, AlertTriangle, Banknote, ArrowRightLeft } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { COMMENT_REQUIRED_THRESHOLD } from "../../../convex/expenses/helpers";
 
@@ -125,21 +127,26 @@ function ActionDialog({
 // ApprovalActions -- main component
 // ============================================================================
 
+/** Statuses that allow expense-to-CapEx conversion */
+const CAPEX_CONVERTIBLE_STATUSES = new Set(["submitted", "recorded", "approved", "awaiting_payment", "paid"]);
+
 interface ApprovalActionsProps {
   expenseId: Id<"expenses">;
   amount: number;
   paymentMethod: string;
   status: string;
+  expense?: PendingExpense; // Full expense for CapEx conversion modal (optional, backward compat)
   onActionComplete?: () => void;
 }
 
-type DialogType = "approve" | "reject" | "void" | "acknowledge" | "flag" | "markAsPaid" | null;
+type DialogType = "approve" | "reject" | "void" | "acknowledge" | "flag" | "markAsPaid" | "convertToCapex" | null;
 
 export function ApprovalActions({
   expenseId,
   amount,
   paymentMethod,
   status,
+  expense,
   onActionComplete,
 }: ApprovalActionsProps) {
   const { user } = useAuth();
@@ -289,6 +296,20 @@ export function ApprovalActions({
           </Button>
         )}
 
+        {/* Convert to CapEx -- admin only, for convertible statuses */}
+        {isAdmin && expense && CAPEX_CONVERTIBLE_STATUSES.has(status) && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-blue-600 border-blue-300"
+            onClick={() => setActiveDialog("convertToCapex")}
+            disabled={isDirectSubmitting}
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+            Convert to CapEx
+          </Button>
+        )}
+
         {/* Void is always available for admin */}
         {isAdmin && (
           <TooltipProvider>
@@ -399,6 +420,15 @@ export function ApprovalActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CapEx Conversion Modal */}
+      {activeDialog === "convertToCapex" && expense && (
+        <CapexConversionModal
+          open={true}
+          onOpenChange={(nextOpen) => { if (!nextOpen) closeDialog(); }}
+          expense={expense}
+        />
+      )}
     </>
   );
 }
