@@ -97,8 +97,6 @@ export function CapexConversionModal({
       years: cat.usefulLifeYears,
       salvageValue,
       salvagePercent: cat.salvagePercent,
-      usefulLifeMonths,
-      categoryLabel: cat.label,
     };
   }, [selectedCategory, expense.amount]);
 

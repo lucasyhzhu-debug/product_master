@@ -38,9 +38,11 @@ import { RECEIPT_HASH_EXCLUDED_STATUSES } from "./helpers";
 import {
   ASSET_CATEGORIES,
   calculateMonthlyDepreciation,
-  formatAssetNumber,
-  getYYMMDateStr,
 } from "../fixedAssets/helpers";
+import {
+  getNextAssetNumber,
+  resolveAccount,
+} from "../fixedAssets/mutations";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)
@@ -778,6 +780,11 @@ export const markAsPaid = protectedMutation({
  * - employee_paid: CR 2200 (Employee Reimbursements Payable)
  * - company_paid / payment_request: CR 1100 (Cash)
  */
+/** Statuses that allow expense-to-CapEx conversion */
+const CAPEX_CONVERTIBLE_STATUSES = new Set([
+  "submitted", "recorded", "approved", "awaiting_payment", "paid",
+]);
+
 export const convertToCapex = protectedMutation({
   roles: ["admin"],
   args: {
@@ -789,10 +796,7 @@ export const convertToCapex = protectedMutation({
     if (!expense) throw new Error("Expense not found");
 
     // Only allow conversion from statuses where the expense has been recorded
-    const convertibleStatuses = new Set([
-      "submitted", "recorded", "approved", "awaiting_payment", "paid",
-    ]);
-    if (!convertibleStatuses.has(expense.status)) {
+    if (!CAPEX_CONVERTIBLE_STATUSES.has(expense.status)) {
       throw new Error(
         `Cannot convert expense with status '${expense.status}'. Must be submitted, recorded, approved, awaiting_payment, or paid.`
       );
@@ -817,15 +821,8 @@ export const convertToCapex = protectedMutation({
       );
     }
 
-    // Determine credit account for acquisition JE based on original payment method
-    // employee_paid: was CR 2200 (Employee Reimbursements Payable)
-    // company_paid / payment_request: was CR 1100 (Cash)
-    let creditAccountCode: string;
-    if (expense.paymentMethod === "employee_paid") {
-      creditAccountCode = "2200"; // Employee Reimbursements Payable
-    } else {
-      creditAccountCode = "1100"; // Cash
-    }
+    // Credit account: employee_paid → 2200 (Reimbursements Payable), else → 1100 (Cash)
+    const creditAccountCode = expense.paymentMethod === "employee_paid" ? "2200" : "1100";
 
     // --- Step 2: Create fixed asset ---
 
@@ -837,29 +834,8 @@ export const convertToCapex = protectedMutation({
       ? calculateMonthlyDepreciation(expense.amount, salvageValue, usefulLifeMonths)
       : 0;
 
-    // Generate asset number (replicate getNextAssetNumber pattern)
-    const yymmDateStr = getYYMMDateStr(expense.expenseDate);
-    const prefix = `FA-${categoryConfig.abbr}`;
-    const counterKey = yymmDateStr;
-    const counter = await ctx.db
-      .query("counters")
-      .withIndex("by_prefix_date", (q) =>
-        q.eq("prefix", prefix).eq("date", counterKey)
-      )
-      .first();
-    let sequence: number;
-    if (counter) {
-      sequence = counter.lastSequence + 1;
-      await ctx.db.patch(counter._id, { lastSequence: sequence });
-    } else {
-      sequence = 1;
-      await ctx.db.insert("counters", {
-        prefix,
-        date: counterKey,
-        lastSequence: sequence,
-      });
-    }
-    const assetNumber = formatAssetNumber(categoryConfig.abbr, yymmDateStr, sequence);
+    // Generate asset number (reuse shared helper from fixedAssets)
+    const assetNumber = await getNextAssetNumber(ctx, categoryConfig.abbr, expense.expenseDate);
 
     // Carry over receipt attachment from expense
     const attachmentIds = expense.receiptFileId ? [expense.receiptFileId] : [];
@@ -886,17 +862,10 @@ export const convertToCapex = protectedMutation({
 
     // --- Step 3: Create acquisition JE (DR 1500, CR credit account) ---
 
-    const fixedAssetAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", "1500"))
-      .first();
-    if (!fixedAssetAccount) throw new Error("Account 1500 (Fixed Assets) not found. Run accounts:seedDefaults.");
-
-    const creditAccount = await ctx.db
-      .query("accounts")
-      .withIndex("by_code", (q) => q.eq("code", creditAccountCode))
-      .first();
-    if (!creditAccount) throw new Error(`Account ${creditAccountCode} not found. Run accounts:seedDefaults.`);
+    const [fixedAssetAccount, creditAccount] = await Promise.all([
+      resolveAccount(ctx, "1500"),
+      resolveAccount(ctx, creditAccountCode),
+    ]);
 
     const acquisitionJeId = await createJournalEntryWithLines(ctx, {
       date: expense.expenseDate,

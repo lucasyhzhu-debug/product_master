@@ -4,6 +4,7 @@
  */
 
 import { APPROVER_ROLES } from "./constants";
+import type { AssetCategoryKey } from "../fixedAssets/helpers";
 
 export const RECEIPT_THRESHOLD = 50_000; // Rp 50,000
 export const DUPLICATE_WINDOW_DAYS = 7;
@@ -149,8 +150,6 @@ export function isVoidableStatus(status: string): boolean {
 // ---------------------------------------------------------------------------
 // Phase iv9: CapEx Conversion helpers
 // ---------------------------------------------------------------------------
-
-import type { AssetCategoryKey } from "../fixedAssets/helpers";
 
 /**
  * Detect likely asset category from expense description keywords.
