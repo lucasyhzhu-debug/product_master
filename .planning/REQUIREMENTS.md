@@ -73,27 +73,27 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| K3M-01 | Pending | Pending |
-| K3M-02 | Pending | Pending |
-| K3M-03 | Pending | Pending |
-| DQ-01 | Pending | Pending |
-| UI-01 | Pending | Pending |
-| UI-02 | Pending | Pending |
-| UI-03 | Pending | Pending |
-| UI-04 | Pending | Pending |
-| KIT-01 | Pending | Pending |
-| INV-01 | Pending | Pending |
-| INV-02 | Pending | Pending |
-| EMP-01 | Pending | Pending |
-| EMP-02 | Pending | Pending |
-| COGS-01 | Pending | Pending |
-| COGS-02 | Pending | Pending |
+| K3M-01 | Phase 65 | Pending |
+| K3M-02 | Phase 65 | Pending |
+| K3M-03 | Phase 65 | Pending |
+| DQ-01 | Phase 64 | Pending |
+| UI-01 | Phase 64 | Pending |
+| UI-02 | Phase 64 | Pending |
+| UI-03 | Phase 64 | Pending |
+| UI-04 | Phase 64 | Pending |
+| KIT-01 | Phase 69 | Pending |
+| INV-01 | Phase 67 | Pending |
+| INV-02 | Phase 67 | Pending |
+| EMP-01 | Phase 66 | Pending |
+| EMP-02 | Phase 66 | Pending |
+| COGS-01 | Phase 68 | Pending |
+| COGS-02 | Phase 68 | Pending |
 
 **Coverage:**
 - v1.9 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 (pending roadmap creation)
+- Mapped to phases: 15
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after initial definition*
+*Last updated: 2026-03-27 after roadmap creation*
