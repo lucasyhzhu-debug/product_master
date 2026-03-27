@@ -13,6 +13,7 @@ import { CustomerSearch } from '@/components/orders/CustomerSearch';
 import { DueDatePills } from '@/components/orders/DueDatePills';
 import { QuickAddressButtons } from '@/components/orders/QuickAddressButtons';
 import { ProductButtons, type ProductButtonProduct } from '@/components/orders/ProductButtons';
+import { SwipeableLineItem } from '@/components/orders/SwipeableLineItem';
 import { VoucherInput, type AppliedVoucher } from '@/components/orders/VoucherInput';
 import { ManagerOverrideDialog } from '@/components/orders/ManagerOverrideDialog';
 import { LowPriceWarningDialog } from '@/components/orders/LowPriceWarningDialog';
@@ -324,12 +325,13 @@ export function OrderCreate() {
     setAppliedVoucher(null);
     setLowPriceConfirmed(false);
     setItems((prev) =>
-      prev.map((item) => {
+      prev.flatMap((item) => {
         if (item.productId === productId) {
-          const newQty = Math.max(1, item.quantity + delta);
-          return { ...item, quantity: newQty, lineTotal: newQty * item.unitPrice };
+          const newQty = item.quantity + delta;
+          if (newQty <= 0) return [];
+          return [{ ...item, quantity: newQty, lineTotal: newQty * item.unitPrice }];
         }
-        return item;
+        return [item];
       })
     );
   }, []);
@@ -751,50 +753,48 @@ export function OrderCreate() {
               </Badge>
             </div>
             {items.map((item) => (
-              <div
-                key={item.productId}
-                className="group flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:border-primary/30 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{item.productName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.quantity} x {formatCurrency(item.unitPrice)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
+              <SwipeableLineItem key={item.productId} onRemove={() => removeItem(item.productId)}>
+                <div className="group flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:border-primary/30 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{item.productName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.quantity} x {formatCurrency(item.unitPrice)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateItemQuantity(item.productId, -1)}
+                      >
+                        -
+                      </Button>
+                      <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => updateItemQuantity(item.productId, 1)}
+                      >
+                        +
+                      </Button>
+                    </div>
+                    <span className="text-sm font-bold text-primary min-w-[80px] text-right">
+                      {formatCurrency(item.lineTotal)}
+                    </span>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
-                      onClick={() => updateItemQuantity(item.productId, -1)}
-                      disabled={item.quantity <= 1}
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeItem(item.productId)}
                     >
-                      -
-                    </Button>
-                    <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => updateItemQuantity(item.productId, 1)}
-                    >
-                      +
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                  <span className="text-sm font-bold text-primary min-w-[80px] text-right">
-                    {formatCurrency(item.lineTotal)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100"
-                    onClick={() => removeItem(item.productId)}
-                  >
-                    x
-                  </Button>
                 </div>
-              </div>
+              </SwipeableLineItem>
             ))}
           </div>
         )}

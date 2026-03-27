@@ -226,6 +226,10 @@ function shouldOverwrite(field: number | undefined | null, aggregated: number): 
  * buyerShippingFee, otherFee, and orderAmount using platform-specific
  * field mappings confirmed via HAR capture analysis.
  *
+ * All fee fields (commissionFee, sellerShippingFee, otherFee) are normalized
+ * to POSITIVE values at sync time. This eliminates downstream Math.abs()
+ * workarounds and ensures consistent sign convention across all platforms.
+ *
  * Platform-specific endpoints (shopee/pageList.json, tiktok/pageList.json)
  * return different field names and sign conventions than the common endpoint.
  * This function normalizes them into the common field set.
@@ -252,25 +256,25 @@ export function normalizePlatformFees(
       order.saleAmount = order.originalPrice ?? 0;
     }
 
-    // ── BUG-05: Shopee fees are POSITIVE, must negate via -Math.abs() ──
+    // ── BUG-05 + 64-03: Shopee fees normalized to POSITIVE via Math.abs() ──
     const aggregatedCommission = (order.sellerTransactionFee ?? 0)
       + (order.orderAmsCommissionFee ?? 0)
       + (order.campaignFee ?? 0)
       + (order.sellerOrderProcessingFee ?? 0);
     if (shouldOverwrite(order.commissionFee, aggregatedCommission)) {
-      order.commissionFee = -Math.abs(aggregatedCommission);
+      order.commissionFee = Math.abs(aggregatedCommission);
     }
 
     const aggregatedShipping = (order.finalShippingFee ?? 0)
       + (order.shippingSellerProtectionFeeAmount ?? 0);
     if (shouldOverwrite(order.sellerShippingFee, aggregatedShipping)) {
-      order.sellerShippingFee = -Math.abs(aggregatedShipping);
+      order.sellerShippingFee = Math.abs(aggregatedShipping);
     }
 
     const aggregatedOther = order.serviceFee ?? 0;
     // Use the raw otherFee value (possibly from otherfee case mismatch)
     if (shouldOverwrite(order.otherFee, aggregatedOther)) {
-      order.otherFee = -Math.abs(aggregatedOther);
+      order.otherFee = Math.abs(aggregatedOther);
     }
 
     // ── ENH-ORDERAMOUNT: Shopee orderAmount from buyerTotalAmount ──
@@ -292,7 +296,7 @@ export function normalizePlatformFees(
       order.buyerShippingFee = order.customerPaidShippingFeeAmount ?? 0;
     }
 
-    // TikTok commissionFee = sum of 6 platform-specific fee fields (already negative)
+    // TikTok commissionFee = abs of sum of 6 platform-specific fee fields (normalized to positive)
     const aggregatedCommission = (order.platformCommissionAmount ?? 0)
       + (order.dynamicCommissionAmount ?? 0)
       + (order.transactionFeeAmount ?? 0)
@@ -300,7 +304,7 @@ export function normalizePlatformFees(
       + (order.affiliateCommissionAmount ?? 0)
       + (order.affiliatePartnerCommissionAmount ?? 0);
     if (shouldOverwrite(order.commissionFee, aggregatedCommission)) {
-      order.commissionFee = aggregatedCommission; // Already negative, no abs needed
+      order.commissionFee = Math.abs(aggregatedCommission);
     }
 
     // TikTok sellerShippingFee: stays 0 (actualShippingFeeAmount is informational)
@@ -308,10 +312,10 @@ export function normalizePlatformFees(
       order.sellerShippingFee = 0;
     }
 
-    // TikTok otherFee: only extraCostsFee (already negative, HAR-confirmed)
+    // TikTok otherFee: only extraCostsFee (normalized to positive)
     const extraCosts = order.extraCostsFee ?? 0;
     if (shouldOverwrite(order.otherFee, extraCosts)) {
-      order.otherFee = extraCosts;
+      order.otherFee = Math.abs(extraCosts);
     }
 
     // ── ENH-ORDERAMOUNT: TikTok orderAmount computed after saleAmount + buyerShippingFee ──
@@ -319,8 +323,18 @@ export function normalizePlatformFees(
     if (shouldOverwrite(order.orderAmount, computedOrderAmount)) {
       order.orderAmount = computedOrderAmount;
     }
+  } else {
+    // "common" platform: normalize any negative fees to positive
+    if ((order.commissionFee ?? 0) < 0) {
+      order.commissionFee = Math.abs(order.commissionFee ?? 0);
+    }
+    if ((order.sellerShippingFee ?? 0) < 0) {
+      order.sellerShippingFee = Math.abs(order.sellerShippingFee ?? 0);
+    }
+    if ((order.otherFee ?? 0) < 0) {
+      order.otherFee = Math.abs(order.otherFee ?? 0);
+    }
   }
-  // "common" platform: no changes (return as-is)
 
   return order;
 }
@@ -328,7 +342,7 @@ export function normalizePlatformFees(
 /**
  * Map a BigSeller pageList row to externalRevenue saveRevenue args format.
  * Source = actual platform (shopee/tiktok), NOT "bigseller".
- * Commission stored as positive value (Math.abs of negative fee).
+ * Commission and fees are already positive from normalizePlatformFees().
  *
  * Revenue semantics:
  * - revenueGross = orderAmount (total buyer paid incl. shipping). Falls back to saleAmount.
@@ -366,8 +380,8 @@ export function mapOrderToRevenue(
     externalTransactionId: `bigseller:${order.platformOrderId}`,
     revenueGross: order.orderAmount ?? order.saleAmount ?? 0,
     revenueNet: order.platformIncome ?? 0,
-    commission: Math.abs(order.commissionFee ?? 0),
-    deliveryFees: Math.abs(order.sellerShippingFee ?? 0) + Math.abs(order.buyerShippingFee ?? 0),
+    commission: order.commissionFee ?? 0,
+    deliveryFees: (order.sellerShippingFee ?? 0) + (order.buyerShippingFee ?? 0),
     transactionCount: 1,
     periodStart: orderTimeMs,
     periodEnd: orderTimeMs,
@@ -381,7 +395,7 @@ export function mapOrderToRevenue(
 
 /**
  * Map a BigSeller pageList row to bigsellerOrders insert format.
- * Preserves raw negative fee values (do NOT abs in storage).
+ * Fee values are already normalized to positive by normalizePlatformFees().
  *
  * Uses explicit platform parameter (not order.platform which is null
  * on platform-specific endpoints). Fixes BUG-02.
