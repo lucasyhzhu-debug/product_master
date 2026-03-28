@@ -16,6 +16,20 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Bug Fix: Intangible Asset Conversion -- 2026-03-28
+
+**For the team:** Converting expenses to intangible assets (brands, trademarks, patents, software licenses) now works correctly. Previously, clicking "Confirm Conversion" on a branding expense would fail with a server error, and the journal entry preview always showed "Fixed Assets" even for intangible items. Now the preview correctly shows "Intangible Assets" with the right account codes, and the conversion completes successfully.
+
+#### Fixed
+- Server error when converting expenses to intangible asset categories (missing account 1700 in database)
+- Journal entry preview hardcoded "DR 1500 Fixed Assets" -- now dynamically shows correct account (1700 for intangibles)
+- `resolveAccount` now returns meaningful error messages instead of generic "Server Error"
+- Added intangible keyword detection (branding, trademark, patent, software) in auto-category detection
+- Pre-existing type errors in journalImport test fixtures
+
+#### Migration
+- Run `accounts:seedDefaults` on production to create accounts 1700, 1710, 1720, 1730, 6160 (already done)
+
 ### Phase 64: UI Polish & Data Quality -- 2026-03-28
 
 **For the team:** The navigation bar is now cleaner -- the Frollie Pro logo takes you home (no separate Home button), and Financial pages are split into two menus: Financials (income, expenses, payroll) and Accounting (journal, accounts, assets). On mobile, scrolling through products when creating orders no longer accidentally adds items, and you can now swipe left on a line item to delete it. Behind the scenes, BigSeller fee data is now stored consistently as positive numbers, fixing display inconsistencies in analytics.
